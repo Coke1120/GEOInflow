@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { deleteWebsite, resetWebsite } from './website';
 
-const { transactionMock, redisDelMock, redisSetMock } = vi.hoisted(() => ({
+const { transactionMock, redisDelMock, redisSetMock, resetLiekanMock } = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   redisDelMock: vi.fn(),
   redisSetMock: vi.fn(),
+  resetLiekanMock: vi.fn(),
 }));
+
+vi.mock('@/lib/liekan/upstream/lifecycle', () => ({ resetLiekanStatistics: resetLiekanMock }));
 
 vi.mock('@/lib/prisma', () => ({
   default: {
@@ -166,7 +169,12 @@ describe('website delete dependencies', () => {
 
     transactionMock.mockImplementation(async callback => callback(tx));
 
-    await resetWebsite('website-1');
+    resetLiekanMock.mockImplementation(async () => {
+      calls.push('liekanReset');
+    });
+    const identity = { userId: 'owner-1' };
+    await resetWebsite('website-1', identity);
+    expect(resetLiekanMock).toHaveBeenCalledWith(tx, 'website-1', identity);
 
     expect(tx.eventData.deleteMany).toHaveBeenCalledWith({
       where: { websiteId: 'website-1' },
@@ -181,6 +189,7 @@ describe('website delete dependencies', () => {
       'website-1',
     );
     expect(calls).toEqual([
+      'liekanReset',
       'sessionReplaySaved',
       'sessionReplay',
       'heatmapEvent',
@@ -194,5 +203,18 @@ describe('website delete dependencies', () => {
       'session',
       'websiteUpdate',
     ]);
+  });
+
+  test('revoked write access stops reset before upstream statistics are deleted', async () => {
+    const calls: string[] = [];
+    const tx = createDeleteTx(calls);
+    transactionMock.mockImplementation(async callback => callback(tx));
+    resetLiekanMock.mockRejectedValue(new Error('Permission revoked'));
+    await expect(resetWebsite('website-1', { userId: 'owner-1' })).rejects.toThrow(
+      'Permission revoked',
+    );
+    expect(calls).toEqual([]);
+    expect(tx.websiteEvent.deleteMany).not.toHaveBeenCalled();
+    expect(tx.website.update).not.toHaveBeenCalled();
   });
 });
