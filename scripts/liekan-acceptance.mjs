@@ -3,6 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
+import ipaddr from 'ipaddr.js';
 
 // All mutations below target resources created by this invocation. The source DB is read only.
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -227,7 +228,23 @@ try {
   fs.closeSync(fd);
   if (dumped.status) throw new Error('Source backup failed');
   report.backupBytes = fs.statSync(backup).size;
-  docker('network', 'create', network);
+  const networkIds = docker('network', 'ls', '-q').split('\n').filter(Boolean);
+  const allocated = JSON.parse(docker('network', 'inspect', ...networkIds))
+    .flatMap(value => value.IPAM?.Config || [])
+    .filter(value => value.Subnet && ipaddr.parseCIDR(value.Subnet)[0].kind() === 'ipv4')
+    .map(value => ipaddr.parseCIDR(value.Subnet));
+  const subnet = Array.from({ length: 224 }, (_, index) => `10.253.${index + 31}.0/24`).find(
+    value => {
+      const [address, prefix] = ipaddr.parseCIDR(value);
+      return allocated.every(
+        ([existing, existingPrefix]) =>
+          !address.match(existing, existingPrefix) && !existing.match(address, prefix),
+      );
+    },
+  );
+  if (!subnet) throw new Error('No free isolated verification subnet in the configured range');
+  report.subnet = subnet;
+  docker('network', 'create', '--subnet', subnet, network);
   networkCreated = true;
   dockerEnv(
     { POSTGRES_PASSWORD: password },
