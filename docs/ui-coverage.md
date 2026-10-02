@@ -11,7 +11,7 @@
 | ai-preference.html | /geo/ai/preference | 内容元数据 + 抓取观察 + 描述性建议 |
 | human.html | /geo/human | 人类 PV/UV/会话、跳出、时长、设备 |
 | human-geo.html | /geo/human/geo | 保留地域兼容规则的浏览统计 |
-| human-source.html | /geo/human/sources | Referer 来源分类、趋势、目标转化 |
+| human-source.html | /geo/human/sources | 入口 UTM / Referer 来源分类、趋势、目标转化 |
 | content.html | /geo/content | 页面、入口/退出、观察路径、发布后 7 天 |
 | funnel.html | /geo/conversions | 已保存目标与漏斗、渠道转化、日趋势 |
 | logs.html | /geo/logs | 最近 12 条请求；10 秒刷新；完整分页查询与导入 |
@@ -30,6 +30,6 @@
 | GEO 管理 | 日志接入独立页、导入历史与重试、持续采集配置、身份核验明细、规则版本、目录同步、正文特征证据、robots/WAF 发布执行 |
 | 视觉与可用性 | 英文版本、完整移动端、复杂空态/错误/加载、长内容与高密度数据、权限差异的专门设计 |
 
-能力缺口包括持续源站/CDN 采集、Filebeat/Kafka/ClickHouse、自动保留期限与清理、大批量异步处理、rDNS 校验与官方范围自动刷新、正文接收完成证据、自动内容结构评分、真实访客首次访问识别、端到端阻断执行、搜索曝光/排名数据、完整转化跨域归因。这些能力不会用示例数据或假设值展示为已实现。
+能力缺口包括持续源站/CDN 采集、Filebeat/Kafka/ClickHouse、持久化日汇总与容量基准、自动保留期限与清理、大批量异步处理、rDNS 校验与官方范围自动刷新、正文接收完成证据、自动内容结构评分、真实访客首次访问识别、端到端阻断执行、搜索曝光/排名数据、完整转化跨域归因。这些能力不会用示例数据或假设值展示为已实现。
 
 第一阶段保留原型内现有统计字段；字段是否可计算取决于输入证据。新访客、完成率、吞吐量等限制详见 data-definitions.md。原型未包含的内页布局不宣称完成逐像素还原。

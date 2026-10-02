@@ -5,10 +5,12 @@ const mocks = vi.hoisted(() => ({
   logs: vi.fn(),
   settings: vi.fn(),
   plotLogs: vi.fn(),
+  conversions: vi.fn(),
 }));
-vi.mock('./upstream/analytics', () => ({
+vi.mock('./upstream/analytics', async importOriginal => ({
+  ...(await importOriginal<typeof import('./upstream/analytics')>()),
   getHumanFacts: mocks.human,
-  getHumanConversions: async () => 0,
+  getHumanConversions: mocks.conversions,
   getHumanDays: async () => [],
 }));
 vi.mock('./upstream/logs', () => ({
@@ -20,6 +22,7 @@ vi.mock('./upstream/logs', () => ({
 }));
 vi.mock('./store', () => ({ getSettings: mocks.settings }));
 vi.mock('./upstream/server', () => ({ LiekanError: class extends Error {} }));
+vi.mock('@/queries/sql', () => ({ getFunnel: vi.fn() }));
 
 import { liekanReportSchema } from './contracts/report';
 import { buildReport } from './report';
@@ -61,8 +64,121 @@ beforeEach(() => {
   });
   mocks.settings.mockResolvedValue({ isDemo: false, rules: [], robots: '' });
   mocks.plotLogs.mockResolvedValue([]);
+  mocks.conversions.mockResolvedValue(0);
 });
 describe('report evidence states', () => {
+  it('keeps event counts available when a custom-only window has no defined conversion rate', async () => {
+    const human = await mocks.human();
+    mocks.human.mockResolvedValue({
+      ...human,
+      goals: [
+        {
+          id: 'goal',
+          name: '白皮书下载',
+          path: 'download',
+          count: 3,
+          convertedSessions: 0,
+          previous: 0,
+        },
+      ],
+      dailyConversions: [{ day: '1970-01-02', count: 3 }],
+    });
+    mocks.conversions.mockResolvedValue(3);
+    const report = await buildReport(website, false, params);
+    expect(report.tables.goalBody[0]).toMatchObject({ count: 3, rate: null, rateState: 'empty' });
+    expect(report.cards.find(c => c.label === '全站转化率')).toMatchObject({
+      value: null,
+      state: 'empty',
+    });
+    expect(report.cards.find(c => c.label === '今日转化')).toMatchObject({
+      value: 3,
+      state: 'available',
+    });
+    expect(report.cards.find(c => c.label === '白皮书下载').value).toBe(3);
+    expect(report.charts.f3.series[0].values).toEqual([3]);
+  });
+  it('uses the entry channel consistently for source rows, daily channels and conversion rates', async () => {
+    const human = await mocks.human();
+    mocks.human.mockResolvedValue({
+      ...human,
+      totals: { visits: 4, visitors: 4, pageviews: 4, bounces: 0, totaltime: 0 },
+      daily: [{ day: '1970-01-01', sessions: 4, conversions: 1 }],
+      goals: [
+        {
+          id: 'goal',
+          name: 'download',
+          path: 'download',
+          count: 3,
+          convertedSessions: 1,
+          previous: 0,
+        },
+      ],
+      sources: [
+        {
+          source: 'google.com',
+          channel: '其他引荐',
+          utmMedium: 'email',
+          referrer: 'google.com',
+          sessions: 2,
+          conversions: 1,
+          bounces: 0,
+        },
+      ],
+      previousSources: [
+        { source: 'google.com', channel: '传统搜索', sessions: 20 },
+        { source: 'google.com', channel: '其他引荐', sessions: 1 },
+      ],
+      dailySources: [{ day: '1970-01-01', source: 'google.com', channel: '其他引荐', count: 2 }],
+    });
+    const report = await buildReport(website, false, params);
+    expect(report.tables.srcBody[0]).toMatchObject({
+      channel: '其他引荐',
+      utmMedium: 'email',
+      referrer: 'google.com',
+      conversionRate: 50,
+      trend: 100,
+    });
+    expect(report.charts.s1.series.find(s => s.name === '其他引荐').values).toEqual([2]);
+    expect(report.charts.s1.series.find(s => s.name === '传统搜索').values).toEqual([0]);
+    expect(report.charts.f2).toMatchObject({
+      labels: ['其他引荐'],
+      series: [{ name: '转化率', values: [50] }],
+    });
+  });
+  it('counts matched events while rates use converted visits and trends follow event dates', async () => {
+    const human = await mocks.human();
+    mocks.human.mockResolvedValue({
+      ...human,
+      totals: { visits: 4, visitors: 4, pageviews: 4, bounces: 0, totaltime: 0 },
+      daily: [{ day: '1970-01-01', sessions: 4, conversions: 1 }],
+      dailyConversions: [{ day: '1970-01-02', count: 3 }],
+      goals: [
+        {
+          id: 'goal',
+          name: '白皮书下载',
+          path: 'download',
+          count: 3,
+          convertedSessions: 1,
+          previous: 2,
+        },
+      ],
+      converted: 1,
+      sources: [
+        { source: 'chatgpt.com', channel: 'AI 搜索引荐', sessions: 1, conversions: 1, bounces: 0 },
+      ],
+    });
+    mocks.conversions.mockResolvedValue(3);
+    const report = await buildReport(website, false, params);
+    expect(report.tables.goalBody[0]).toMatchObject({ count: 3, rate: 25, trend: 50 });
+    expect(report.cards.find(c => c.label === '白皮书下载').value).toBe(3);
+    expect(report.cards.find(c => c.label === '今日转化').value).toBe(3);
+    expect(report.cards.find(c => c.label === '全站转化率').value).toBe(25);
+    expect(report.cards.find(c => c.label === 'AI 引荐转化率').value).toBe(100);
+    expect(report.charts.f3).toMatchObject({
+      labels: ['1970-01-02'],
+      series: [{ name: '转化数', values: [3] }],
+    });
+  });
   it('keeps missing AI evidence separate from a measured zero', async () => {
     const report = await buildReport(website, false, params);
     for (const name of ['AI 抓取页面覆盖率', '从未被抓页面', '识别 AI 蜘蛛']) {

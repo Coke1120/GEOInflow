@@ -1,5 +1,11 @@
 import { decodeCursor, encodeCursor } from '../cursor';
 import { LiekanError, query } from './server';
+
+// This boundary only applies to the today content-request card. Raw logs remain complete.
+export const staticRequestExtensionPattern =
+  '[.](js|mjs|cjs|css|map|avif|webp|png|jpg|jpeg|gif|svg|ico|bmp|tif|tiff|woff|woff2|ttf|otf|eot|mp3|m4a|wav|ogg|mp4|webm|mov|avi)([?#]|$)';
+export const isStaticRequestPath = (path: string) =>
+  new RegExp(staticRequestExtensionPattern, 'i').test(path);
 export async function getLogFacts(
   id: string,
   start: Date,
@@ -101,7 +107,7 @@ export async function getLogFacts(
 export async function getLogToday(id: string, start: Date, end: Date) {
   const [rows, imports] = await Promise.all([
     query(
-      'SELECT count(*)::int AS requests,count(*) FILTER(WHERE status>=400)::int AS abnormal FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3',
+      `SELECT count(*) FILTER(WHERE path !~* '${staticRequestExtensionPattern}')::int AS requests,count(*) FILTER(WHERE status>=400)::int AS abnormal FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3`,
       id,
       start,
       end,

@@ -9,12 +9,13 @@
 | 平均访问时长 | 同次访问首末浏览的时间间隔 ÷ 会话；单次浏览时长无法充分观测 |
 | 页面停留 | 同会话后续浏览的时间间隔，末次页面停留缺少结束证据，标识为估算 |
 | AI 请求 | 服务器日志中命中训练、AI 搜索或用户触发规则的请求，保留状态码和请求方法 |
-| 今日总请求 | 今日已接入服务器日志中的请求数；日志采集完整性决定可观测范围 |
+| 今日总请求 | 今日已接入服务器日志中的内容请求数，按路径末尾扩展名排除脚本、样式、图片、字体和媒体；完整日志、异常请求、有效导入行数保留原始请求 |
 | AI 抓取覆盖率 | 所选范围被 AI 请求的目录内 URL ÷ 已导入目录 URL；分母未接入时显示待接入 |
 | 反复抓取 | 所选范围内同 URL 达到 50 次 AI 请求 |
 | AI / 人 比值 | AI 请求数 ÷ 人类 PV，分母为零时无定义 |
-| AI 搜索引荐 | 来自明确平台域名的浏览器访问，缺少 Referer 的访问无法完整追溯 |
-| 转化次数 / 率 | 配置目标的去重转化会话数；全站率使用任一目标命中的去重会话 ÷ 浏览会话。多目标命中同会话只计一次 |
+| AI 搜索引荐 | 每次浏览访问的入口 PV 上，优先使用明确 UTM 来源/媒介，再使用 Referer；原始 UTM 与 Referer 随来源证据保留，缺少两类证据时无法完整追溯 |
+| 目标转化次数 | 匹配目标条件的 event_id 次数，同一次访问重复触发目标分别计数；每个目标独立计数。今日转化、每日趋势按匹配事件的发生日期聚合，全站事件次数对多目标重叠的 event_id 去重 |
+| 目标转化率 / 全站率 | 目标率为命中该目标且在窗口内有浏览 PV 的去重 (visit_id, session_id) ÷ 浏览会话；全站、来源、地域的转化率使用任一目标命中的去重浏览会话，重复事件与多目标命中同会话只计一次 |
 | 漏斗 | 复用 Umami 保存的漏斗步骤、时间窗口和匿名访客算法，详情沿用原功能 |
 | 内容发布效果 | 元数据发布时间后完整 7 天的人类 PV；AI 增量为发布后 7 天请求减去发布前 7 天请求。属于观察值，缺少日志完整性与因果证明 |
 | 结构化评分 | 目录导入者提供的 0 到 100 分证据；Liekan 当前阶段不自动给网页评分 |
@@ -26,7 +27,15 @@
 
 日志输入上限每批 10 MiB，combined 最多 10000 行，JSON 最多 1000 条，每站点每分钟 5 次，一个站点同一时间仅有一个导入事务。失败行只保存行号和原因。IP 原值仅在解析内存中用于核验，入库保留 IPv4 /24、IPv6 /48 及 HMAC。URL 查询参数和 fragment 均不保存。重复导入使用文件摘要和请求指纹去重，完全相同请求的重复行保留批内次数；跨文件缺少唯一请求 ID 时存在去重边界，建议源站导出不重叠的日志批次。
 
+今日总请求的排除后缀为 js、mjs、cjs、css、map、avif、webp、png、jpg、jpeg、gif、svg、ico、bmp、tif、tiff、woff、woff2、ttf、otf、eot、mp3、m4a、wav、ogg、mp4、webm、mov、avi，忽略大小写。HTML、PDF、JSON、XML、TXT 等内容文档保留；扩展名后仍有路径片段的 URL 保留。该规则属于扩展名分类，无法证明实际响应的 MIME 类型。
+
+入口字段按 created_at、event_id 的稳定顺序，从每个 (visit_id, session_id) 已存储的首个浏览 PV 同时取值（可早于统计窗口）；后续页面新增 UTM 保持入口归因。平台 UTM 来源仅接受明确别名（ChatGPT/OpenAI、Perplexity、Claude、Gemini、Copilot、豆包 doubao、Kimi、文心 yiyan、DeepSeek，以及 Google、Bing、Baidu、Sogou、360/so、DuckDuckGo、Yahoo）或配置在适配器中的平台域名及其子域名，统一到相应平台域名。email、e-mail、newsletter、sms、social、paid_social、paid-social、display、affiliate、push、banner 媒介优先归入其他引荐；未知 UTM 来源或只有媒介的记录保留原值并归入其他引荐。只有 campaign 时，保留 campaign 证据并使用 Referer；所有来源证据均空时为直接访问。当前、前期、每日和渠道转化共享同一归因规则；sourceEvidence 保留原始 UTM/Referer 的分组证据，原型 UI 列保持原有结构。
+
+跨午夜访问的今日目标事件按事件时间计入今日次数，即使该日没有新 PV。转化率的分母与转化浏览会话采用同一统计窗口，窗口内仅有自定义事件的访问计入次数并不进入该窗口的浏览会话转化率。浏览会话分母为零时，目标率和全站率显示无定义，返回 null 与 empty 状态，目标事件次数仍可用。入口日志已被外部清理时，归因采用数据库内最早可观测 PV。
+
 内容目录使用增量 upsert，支持 sitemap URL 列表、CSV、JSON；不自动访问第三方 sitemap，也不展开 sitemap 索引。XML 外部实体被拒绝。所有查询使用绑定参数，读写分别校验网站可见与管理权限；分享令牌及 2FA 中间令牌无法访问新增接口。
+
+本阶段的每日汇总从带网站与时间索引的明细实时计算，保持任意日期范围、时区和当前规则的一致口径。当前没有持久化日汇总表，也未验证大规模持续采集容量；持久化聚合、失效重算和容量基准列入后续性能工作。
 
 官方范围来源：[OpenAI](https://developers.openai.com/api/docs/bots)、[Perplexity](https://docs.perplexity.ai/docs/resources/perplexity-crawlers)、[Google](https://developers.google.com/crawling/docs/crawlers-fetchers/verify-google-requests)。范围来源和下载时间记录在 config/liekan/bot-ranges.json。
 

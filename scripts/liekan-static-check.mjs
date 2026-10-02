@@ -46,6 +46,13 @@ for (const file of [
     throw new Error(`Upstream import crossed product boundary: ${file}`);
 }
 const overrides = JSON.parse(readFileSync('config/liekan/core-overrides.json', 'utf8'));
+for (const entry of overrides.files) {
+  for (const field of ['path', 'purpose', 'owner', 'constraint', 'removalCondition'])
+    if (typeof entry[field] !== 'string' || !entry[field].trim())
+      throw new Error(`Incomplete core override ${entry.path}: ${field}`);
+  if (!Array.isArray(entry.tests) || !entry.tests.length)
+    throw new Error(`Core override lacks regression checks: ${entry.path}`);
+}
 const changed = execFileSync('git', ['diff', '--name-only', baseline.commit], { encoding: 'utf8' })
   .trim()
   .split('\n')

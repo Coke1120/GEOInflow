@@ -36,6 +36,9 @@ export const requiredColumns = {
     url_path: 'character varying',
     event_name: 'character varying',
     referrer_domain: 'character varying',
+    utm_source: 'character varying',
+    utm_medium: 'character varying',
+    utm_campaign: 'character varying',
   },
   report: {
     report_id: 'uuid',

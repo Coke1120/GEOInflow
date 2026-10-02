@@ -7,7 +7,12 @@ import {
   type Row,
 } from './contracts/report';
 import { getSettings } from './store';
-import { getHumanConversions, getHumanDays, getHumanFacts } from './upstream/analytics';
+import {
+  classifyEntrySource,
+  getHumanConversions,
+  getHumanDays,
+  getHumanFacts,
+} from './upstream/analytics';
 import { countryName, regionName } from './upstream/geography';
 import {
   getContentImpact,
@@ -21,41 +26,8 @@ import { LiekanError } from './upstream/server';
 const pct = (a: number, b: number) => (b ? Math.round((a / b) * 10000) / 100 : 0);
 const ratio = (a: number, b: number) => (b ? Math.round((a / b) * 100) / 100 : null);
 const aiType = (type: string) => ['训练', '搜索', '用户触发'].includes(type);
-function channel(source: string) {
-  const host = source.toLowerCase();
-  const is = (names: string[]) => names.some(name => host === name || host.endsWith(`.${name}`));
-  if (source === '直接访问') return '直接访问';
-  if (
-    is([
-      'chatgpt.com',
-      'chat.openai.com',
-      'perplexity.ai',
-      'claude.ai',
-      'gemini.google.com',
-      'copilot.microsoft.com',
-      'doubao.com',
-      'kimi.com',
-      'kimi.moonshot.cn',
-      'yiyan.baidu.com',
-      'deepseek.com',
-    ])
-  )
-    return 'AI 搜索引荐';
-  if (
-    is([
-      'google.com',
-      'google.com.hk',
-      'google.cn',
-      'bing.com',
-      'baidu.com',
-      'sogou.com',
-      'so.com',
-      'duckduckgo.com',
-      'yahoo.com',
-    ])
-  )
-    return '传统搜索';
-  return '其他引荐';
+function channel(row: { source: string; channel?: string }) {
+  return row.channel ?? classifyEntrySource({ referrer: row.source }).channel;
 }
 function stringifySafe(value: unknown): any {
   return JSON.parse(
@@ -195,15 +167,23 @@ export async function buildReport(
     blind = l.catalog.filter(c => !paths.has(c.path));
   const src: Row[] = h.sources.map(s => ({
     source: s.source,
-    channel: channel(s.source),
+    channel: channel(s),
+    utmSource: s.utmSource ?? null,
+    utmMedium: s.utmMedium ?? null,
+    utmCampaign: s.utmCampaign ?? null,
+    referrer: s.referrer ?? null,
     sessions: s.sessions,
     share: pct(s.sessions, t.visits),
     bounceRate: pct(s.bounces, s.sessions),
     conversionRate: h.goals.length ? pct(s.conversions, s.sessions) : null,
-    trend: h.previousSources.find(prev => prev.source === s.source)?.sessions
+    trend: h.previousSources.find(prev => prev.source === s.source && channel(prev) === channel(s))
+      ?.sessions
       ? Math.round(
-          ((s.sessions - h.previousSources.find(prev => prev.source === s.source).sessions) /
-            h.previousSources.find(prev => prev.source === s.source).sessions) *
+          ((s.sessions -
+            h.previousSources.find(prev => prev.source === s.source && channel(prev) === channel(s))
+              .sessions) /
+            h.previousSources.find(prev => prev.source === s.source && channel(prev) === channel(s))
+              .sessions) *
             10000,
         ) / 100
       : null,
@@ -223,7 +203,7 @@ export async function buildReport(
     'name',
     'requests',
   );
-  const aiSources = h.sources.filter(s => channel(s.source) === 'AI 搜索引荐');
+  const aiSources = h.sources.filter(s => channel(s) === 'AI 搜索引荐');
   const humanPages = new Map<string, any>(h.pages.map(page => [page.path, page]));
   r.tables.topBody = h.pages.map(page => ({
     path: page.path,
@@ -276,6 +256,7 @@ export async function buildReport(
     conversionRate: h.goals.length ? pct(g.conversions, g.sessions) : null,
   }));
   r.tables.srcBody = src;
+  r.tables.sourceEvidence = h.sourceEvidence ?? [];
   r.tables.pgBody = h.pages.map(page => ({
     path: page.path,
     pv: page.pv,
@@ -288,7 +269,8 @@ export async function buildReport(
   r.tables.goalBody = h.goals.map(g => ({
     name: g.name,
     count: g.count,
-    rate: pct(g.count, t.visits),
+    rate: t.visits ? pct(g.convertedSessions, t.visits) : null,
+    rateState: t.visits ? 'available' : 'empty',
     trend: g.previous ? Math.round((g.count / g.previous - 1) * 10000) / 100 : null,
     path: g.path,
   }));
@@ -417,7 +399,7 @@ export async function buildReport(
       name,
       values: dateLabels.map(day =>
         h.dailySources
-          .filter(s => s.day === day && channel(s.source) === name)
+          .filter(s => s.day === day && channel(s) === name)
           .reduce((sum, s) => sum + s.count, 0),
       ),
     })),
@@ -594,9 +576,7 @@ export async function buildReport(
         name: '转化率',
         values: ch.map(c =>
           pct(
-            h.sources
-              .filter(s => channel(s.source) === c.name)
-              .reduce((sum, s) => sum + s.conversions, 0),
+            h.sources.filter(s => channel(s) === c.name).reduce((sum, s) => sum + s.conversions, 0),
             c.count,
           ),
         ),
@@ -606,11 +586,11 @@ export async function buildReport(
   );
   chart(
     'f3',
-    dateLabels,
+    (h.dailyConversions ?? []).map(day => day.day),
     [
       {
-        name: '转化会话',
-        values: dateLabels.map(day => h.daily.find(d => d.day === day)?.conversions ?? 0),
+        name: '转化数',
+        values: (h.dailyConversions ?? []).map(day => day.count),
       },
     ],
     goalState,
@@ -622,9 +602,15 @@ export async function buildReport(
     l.latest ? todayLogs.requests : null,
     logState,
     '',
-    '今日已接入服务器日志的请求',
+    '今日已接入日志的内容请求，排除静态资源扩展名',
   );
-  card('今日转化', h.goals.length ? todayConversions : null, goalState, '', '今日去重转化会话');
+  card(
+    '今日转化',
+    h.goals.length ? todayConversions : null,
+    goalState,
+    '',
+    '今日匹配目标的去重事件次数',
+  );
   card('AI 蜘蛛请求（30天）', l.latest ? l.summary.ai : null, logState, '', '所选范围请求量');
   card('识别 AI 蜘蛛', l.latest ? uniqueAiBots.length : null, logState);
   card(
@@ -750,10 +736,10 @@ export async function buildReport(
   );
   card(
     '全站转化率',
-    h.goals.length ? pct(h.converted, t.visits) : null,
-    goalState,
+    h.goals.length && t.visits ? pct(h.converted, t.visits) : null,
+    h.goals.length && !t.visits ? 'empty' : goalState,
     '%',
-    '去重转化会话 ÷ 浏览会话',
+    t.visits ? '去重转化会话 ÷ 浏览会话' : '浏览会话为零，转化率无定义',
   );
   card('转化页 TOP1', [...h.goals].sort((a, b) => b.count - a.count)[0]?.path ?? null, goalState);
   card('白皮书下载', h.goals.find(g => /白皮书|download/i.test(g.name))?.count ?? null, goalState);

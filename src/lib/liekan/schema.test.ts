@@ -27,6 +27,10 @@ describe('upstream storage compatibility', () => {
     );
     await expect(assertUpstreamSchema(client)).rejects.toThrow('website.user_id');
     client.$queryRawUnsafe.mockResolvedValue(
+      columns().filter(row => row.column_name !== 'utm_source'),
+    );
+    await expect(assertUpstreamSchema(client)).rejects.toThrow('website_event.utm_source');
+    client.$queryRawUnsafe.mockResolvedValue(
       columns().map(row =>
         row.column_name === 'visit_id' ? { ...row, data_type: 'integer' } : row,
       ),
