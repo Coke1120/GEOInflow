@@ -6673,7 +6673,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6686,7 +6686,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6699,7 +6699,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6712,7 +6712,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6725,7 +6725,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6738,7 +6738,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6751,7 +6751,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6764,7 +6764,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6777,7 +6777,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6790,7 +6790,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6803,7 +6803,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6816,7 +6816,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6829,7 +6829,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6842,7 +6842,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6855,7 +6855,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6868,7 +6868,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6881,7 +6881,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6894,7 +6894,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6907,7 +6907,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6920,7 +6920,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6933,7 +6933,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
@@ -6946,7 +6946,7 @@ export interface operations {
                 series: {
                   /** @description Display name of the resource. */
                   name: string;
-                  values: number[];
+                  values: (number | null)[];
                 }[];
                 /** @enum {string} */
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
