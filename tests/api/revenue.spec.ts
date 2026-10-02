@@ -1,11 +1,15 @@
 import { expect, test } from './fixtures';
 import { dateRange, TIMEZONE } from './helpers/dates';
+import { buildDataset } from './seed/dataset';
 
 /**
  * Seeded revenue on `seed.website` (see seed/dataset.ts): the 3 identified personas
  * each send a `purchase` on 3 days with revenue 49.5 / 59.5 / 69.5 in USD.
  * 9 purchases, sum 535.5, average 59.5. Nothing else in the suite ingests
  * `revenue` for this website, so these totals are asserted exactly.
+ * The test server uses the default monthly session salt in UTC. The seeded
+ * purchase days can cross a month boundary, creating one session per persona
+ * in each observed month. Revenue queries count session IDs, even with identify.
  */
 
 const PURCHASE_REVENUES = [49.5, 59.5, 69.5];
@@ -14,9 +18,23 @@ const PURCHASE_TOTAL = PURCHASE_REVENUES.reduce((sum, value) => sum + value, 0) 
 
 test.describe('Revenue', () => {
   let base = '';
+  let purchaseSessions = 0;
 
   test.beforeAll(({ seed }) => {
     base = `/api/websites/${seed.website.id}`;
+    // Rebuild the deterministic fixture at its exact recorded seed time; the
+    // oracle uses calendar months independently of production UUID/salt helpers.
+    const purchases = buildDataset(seed.range.endAt).batch.filter(
+      event => event.payload.website === seed.website.id && event.payload.name === 'purchase',
+    );
+    purchaseSessions = new Set(
+      purchases.map(event =>
+        JSON.stringify([
+          event.payload.id,
+          new Date(Number(event.payload.timestamp) * 1000).toISOString().slice(0, 7),
+        ]),
+      ),
+    ).size;
   });
 
   test('GET /api/websites/{websiteId}/revenue/chart returns revenue per event over time', async ({
@@ -158,11 +176,12 @@ test.describe('Revenue', () => {
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       data: expect.any(Array),
-      count: 3,
+      count: purchaseSessions,
       page: 1,
       pageSize: 100,
     });
-    expect(response.body.data).toHaveLength(3);
+    expect(response.body.data).toHaveLength(purchaseSessions);
+    expect(new Set(response.body.data.map((row: any) => row.id)).size).toBe(purchaseSessions);
     for (const row of response.body.data) {
       expect(row).toMatchObject({
         id: expect.any(String),
@@ -178,8 +197,8 @@ test.describe('Revenue', () => {
     }
 
     expect(paged.status).toBe(200);
-    expect(paged.body).toMatchObject({ count: 3, page: 2, pageSize: 2 });
-    expect(paged.body.data).toHaveLength(1);
+    expect(paged.body).toMatchObject({ count: purchaseSessions, page: 2, pageSize: 2 });
+    expect(paged.body.data).toHaveLength(Math.min(2, Math.max(0, purchaseSessions - 2)));
 
     expect(searched.status).toBe(200);
     expect(searched.body.data).toHaveLength(0);
@@ -210,7 +229,7 @@ test.describe('Revenue', () => {
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({
       count: PURCHASE_COUNT,
-      unique_count: 3,
+      unique_count: purchaseSessions,
       total_sessions: expect.any(Number),
     });
     // The comparison window precedes the seeded range and holds no revenue.
@@ -226,7 +245,7 @@ test.describe('Revenue', () => {
     expect(Number(response.body.comparison.sum ?? 0)).toBe(0);
     expect(Number(response.body.sum)).toBeCloseTo(PURCHASE_TOTAL, 5);
     expect(Number(response.body.average)).toBeCloseTo(PURCHASE_TOTAL / PURCHASE_COUNT, 5);
-    expect(response.body.total_sessions).toBeGreaterThanOrEqual(3);
+    expect(response.body.total_sessions).toBeGreaterThanOrEqual(purchaseSessions);
     expect(Number(response.body.arpu)).toBeCloseTo(
       PURCHASE_TOTAL / response.body.total_sessions,
       5,
