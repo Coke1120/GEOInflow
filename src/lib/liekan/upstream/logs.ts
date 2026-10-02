@@ -1,4 +1,6 @@
+import { formatInTimeZone } from 'date-fns-tz';
 import { decodeCursor, encodeCursor } from '../cursor';
+import { humanPathFromEncoded } from './paths';
 import { LiekanError, query } from './server';
 
 // This boundary only applies to the today content-request card. Raw logs remain complete.
@@ -122,24 +124,38 @@ export async function getLogToday(id: string, start: Date, end: Date) {
   return { ...rows[0], accepted: imports[0].accepted };
 }
 export async function getContentImpact(id: string, start: Date, end: Date) {
-  return query(
-    `SELECT c.path,
-    (SELECT count(*)::int FROM website_event e WHERE e.website_id=c.website_id AND e.url_path=c.path AND e.event_type=1 AND e.created_at>=c.published_at AND e.created_at<c.published_at+interval '7 days') AS pv,
-    (SELECT count(*)::int FROM liekan_log l WHERE l.website_id=c.website_id AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c.published_at AND l.created_at<c.published_at+interval '7 days')-
-    (SELECT count(*)::int FROM liekan_log l WHERE l.website_id=c.website_id AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c.published_at-interval '7 days' AND l.created_at<c.published_at) AS increment
-    FROM liekan_catalog c WHERE c.website_id=$1::uuid AND c.published_at BETWEEN $2 AND $3 AND c.published_at+interval '7 days'<=now() ORDER BY c.published_at DESC LIMIT 20`,
+  const targets = await query<{ path: string; publishedAt: Date | string }>(
+    `SELECT path,published_at AS "publishedAt" FROM liekan_catalog WHERE website_id=$1::uuid AND published_at BETWEEN $2 AND $3 AND published_at+interval '7 days'<=now() ORDER BY published_at DESC LIMIT 20`,
     id,
     start,
     end,
   );
+  if (!targets.length) return [];
+  return query(
+    `WITH targets AS (SELECT * FROM jsonb_to_recordset($2::jsonb) AS c(path text,"humanPath" text,"publishedAt" timestamptz))
+    SELECT c.path,
+    (SELECT count(*)::int FROM website_event e WHERE e.website_id=$1::uuid AND e.url_path=c."humanPath" AND e.event_type=1 AND e.created_at>=c."publishedAt" AND e.created_at<c."publishedAt"+interval '7 days') AS pv,
+    (SELECT count(*)::int FROM liekan_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c."publishedAt" AND l.created_at<c."publishedAt"+interval '7 days')-
+    (SELECT count(*)::int FROM liekan_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c."publishedAt"-interval '7 days' AND l.created_at<c."publishedAt") AS increment
+    FROM targets c ORDER BY c."publishedAt" DESC`,
+    id,
+    JSON.stringify(
+      targets.map(target => ({ ...target, humanPath: humanPathFromEncoded(target.path) })),
+    ),
+  );
 }
 export async function getMonthlyAiShare(id: string, end: Date, timezone: string) {
-  return query(
-    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE bot_type IN('训练','搜索','用户触发'))::int AS ai FROM liekan_log WHERE website_id=$1::uuid AND created_at<=$2 AND created_at>=(date_trunc('month',$2::timestamptz AT TIME ZONE $3) AT TIME ZONE $3)-interval '5 months' GROUP BY 1 ORDER BY 1`,
+  const rows = await query<{ month: string; total: number; ai: number }>(
+    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE bot_type IN('训练','搜索','用户触发'))::int AS ai FROM liekan_log WHERE website_id=$1::uuid AND created_at<=$2 AND created_at>=((date_trunc('month',$2::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
     id,
     end,
     timezone,
   );
+  const [year, month] = formatInTimeZone(end, timezone, 'yyyy-MM').split('-').map(Number);
+  return Array.from({ length: 6 }, (_, index) => {
+    const label = new Date(Date.UTC(year, month - 6 + index, 1)).toISOString().slice(0, 7);
+    return rows.find(row => row.month === label) ?? { month: label, total: 0, ai: 0 };
+  });
 }
 export async function getPlotLogs(
   id: string,

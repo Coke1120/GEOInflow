@@ -14,12 +14,21 @@ if (git('remote', 'get-url', 'upstream') !== baseline.repository)
   throw new Error('Upstream URL differs from approved official repository');
 git('fetch', '--no-tags', 'upstream', `refs/tags/${tag}:refs/remotes/upstream/releases/${tag}`);
 const target = git('rev-parse', `refs/remotes/upstream/releases/${tag}^{commit}`);
-const paths = git('diff', '--name-only', baseline.commit, target).split('\n').filter(Boolean);
+const changes = git('diff', '--name-status', '-M', baseline.commit, target)
+  .split('\n')
+  .filter(Boolean)
+  .map(line => {
+    const [status, ...paths] = line.split('\t');
+    return { status, paths };
+  });
+const paths = [...new Set(changes.flatMap(change => change.paths))];
 const overlap = paths.filter(path => overrides.files.some(file => file.path === path));
 const impactRules = {
   storage: /^(prisma\/|db\/|src\/lib\/(prisma|db|clickhouse))/,
   authentication: /^(src\/lib\/(auth|two-factor|request|schema)|src\/permissions\/)/,
   apiAndSdk: /^(src\/app\/api\/|src\/openapi\/|packages\/)/,
+  statistics:
+    /^(src\/queries\/|src\/lib\/(analytics-schema|country|date|filters|params|url)(\.|\/))/,
   collection:
     /^(src\/tracker\/|src\/recorder\/|src\/lib\/(detect|session|event)|src\/queries\/sql\/(events\/saveEvent|sessions\/createSession))/,
   dependencies: /(^|\/)(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$/,
@@ -41,6 +50,8 @@ const report = {
   targetTag: tag,
   targetCommit: target,
   changedPaths: paths,
+  changes,
+  liekanHead: git('rev-parse', 'HEAD'),
   coreOverrideOverlap: overlap,
   criticalPaths: critical,
   impacts,
@@ -69,11 +80,13 @@ if (mode === 'prepare') {
   report.candidate = {
     branch,
     path,
-    result: (merge.stdout + merge.stderr).trim(),
+    result: ((merge.stdout || '') + (merge.stderr || '')).trim(),
     status: merge.status,
+    signal: merge.signal || null,
+    error: merge.error ? 'Merge process could not start' : undefined,
     conflicts,
   };
-  if (merge.status) process.exitCode = 2;
+  if (merge.status !== 0 || merge.signal || merge.error) process.exitCode = 2;
   // The candidate keeps ancestry and all conflict evidence. No deployment or main mutation.
 }
 const path = `outputs/upstream/${tag}-${mode}.json`;

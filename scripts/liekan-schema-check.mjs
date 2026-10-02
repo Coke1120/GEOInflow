@@ -1,4 +1,7 @@
 import 'dotenv/config';
+import { createHash } from 'node:crypto';
+import { readdir, readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client.js';
@@ -67,12 +70,65 @@ export async function assertUpstreamSchema(client) {
   if (mismatches.length)
     throw new Error(`Upstream storage contract changed: ${mismatches.join('; ')}`);
 }
+export async function assertUpstreamMigrations(client, options = {}) {
+  const schema =
+    options.schema || new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new Error('Invalid PostgreSQL schema');
+  const directory = options.migrationDirectory || resolve('prisma/migrations');
+  const declared =
+    options.declaredMigration ||
+    JSON.parse(await readFile(resolve('config/liekan/upstream.json'), 'utf8')).upstreamMigration;
+  const names = (await readdir(directory, { withFileTypes: true }))
+    .filter(entry => entry.isDirectory())
+    .map(entry => entry.name)
+    .sort();
+  if (!names.length || names.at(-1) !== declared)
+    throw new Error('Candidate official history differs from the declared final migration');
+  const checksums = new Map(
+    await Promise.all(
+      names.map(async name => [
+        name,
+        createHash('sha256')
+          .update(await readFile(resolve(directory, name, 'migration.sql')))
+          .digest('hex'),
+      ]),
+    ),
+  );
+  const existence = await client.$queryRawUnsafe(
+    `SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='${schema}' AND table_name='_prisma_migrations') AS exists`,
+  );
+  if (!existence[0]?.exists) {
+    if (!options.allowPending) throw new Error('Official migration ledger is missing');
+    return { declaredMigration: declared, applied: 0, pending: names };
+  }
+  const rows = await client.$queryRawUnsafe(
+    `SELECT migration_name,checksum,finished_at,rolled_back_at FROM "${schema}"."_prisma_migrations" ORDER BY migration_name`,
+  );
+  const applied = new Set();
+  for (const row of rows) {
+    if (row.rolled_back_at != null) continue;
+    const name = row.migration_name;
+    if (!checksums.has(name)) throw new Error(`Official migration missing from candidate: ${name}`);
+    if (!row.finished_at) throw new Error(`Official migration is not successful: ${name}`);
+    if (applied.has(name)) throw new Error(`Duplicate active official migration: ${name}`);
+    if (row.checksum !== checksums.get(name))
+      throw new Error(`Official migration checksum changed: ${name}`);
+    applied.add(name);
+  }
+  const pending = names.filter(name => !applied.has(name));
+  if (pending.length && !options.allowPending)
+    throw new Error(`Official migrations pending: ${pending.join(', ')}`);
+  return { declaredMigration: declared, applied: applied.size, pending };
+}
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const client = new PrismaClient({
     adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
   });
   try {
-    await assertUpstreamSchema(client);
+    await assertUpstreamMigrations(client, {
+      allowPending: process.argv.includes('--allow-pending'),
+    });
+    if (!process.argv.includes('--migrations-only')) await assertUpstreamSchema(client);
     console.log('Upstream storage contract passed.');
   } finally {
     await client.$disconnect();

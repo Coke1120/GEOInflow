@@ -24,8 +24,9 @@ await transaction(async tx => {
     user.id,
   );
   await tx.$executeRawUnsafe(
-    'INSERT INTO liekan_setting(website_id,is_demo) VALUES($1::uuid,true) ON CONFLICT(website_id) DO UPDATE SET is_demo=true',
+    'INSERT INTO liekan_setting(website_id,is_demo,rules) VALUES($1::uuid,true,$2::jsonb) ON CONFLICT(website_id) DO UPDATE SET is_demo=true',
     id,
+    JSON.stringify(BOT_RULES),
   );
   for (let day = 0; day < 10; day++)
     for (let visitor = 0; visitor < 30; visitor++) {

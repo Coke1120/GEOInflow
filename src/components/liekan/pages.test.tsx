@@ -79,6 +79,9 @@ describe('evidence-backed reference copy', () => {
     data.charts.f1.labels = [];
     expect(render()).toContain('转化漏斗待配置');
     expect(render()).not.toContain('首页 → 产品');
+    data.charts.f1.state = 'unsupported';
+    expect(render()).toContain('已保存的漏斗配置无效，请检查目标配置');
+    expect(render()).not.toContain('转化漏斗待配置');
   });
   it('states the actual local geography data maintenance limitation', () => {
     const html = renderToStaticMarkup(

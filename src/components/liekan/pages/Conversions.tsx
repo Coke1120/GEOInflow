@@ -37,7 +37,9 @@ export function Conversions({ report, rangeLabel }: ReportViewProps) {
             <p className="text-[11.5px] text-faint mt-0.5">
               {report?.charts.f1?.labels.length
                 ? report.charts.f1.labels.join(' → ')
-                : '转化漏斗待配置'}
+                : report?.charts.f1?.state === 'unsupported'
+                  ? '已保存的漏斗配置无效，请检查目标配置'
+                  : '转化漏斗待配置'}
             </p>
           </div>
           <ReferenceChart id="f1" height={290} report={report} />

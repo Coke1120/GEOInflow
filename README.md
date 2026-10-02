@@ -4,7 +4,7 @@
 
 主项目采用 MIT 许可，保留 Umami 版权。第三方组件和地理数据许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本为 0.1.0，本地体验默认地址为 **http://127.0.0.1:3002**。新增数据库和容器与原 Umami 独立。
+当前版本为 0.1.1，本地体验默认地址为 **http://localhost:3002**。新增数据库和容器与原 Umami 独立。
 
 - 11 个统计页面、22 个图表，依据冻结的 geo-stats v3 原型。
 - 人类 PV/UV、来源、地域、内容、目标与漏斗复用 Umami 数据。

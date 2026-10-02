@@ -3,6 +3,7 @@ import ipaddr from 'ipaddr.js';
 import Papa from 'papaparse';
 import { BOT_RULES, type BotRule, classifyBot } from './rules/bots';
 import { verifyBotIp } from './rules/verify';
+import { parseCombinedDate, parseStrictDate } from './strict-date';
 
 export interface LogRecord {
   id: string;
@@ -31,7 +32,19 @@ export interface CatalogRecord {
   updatedAt: string | null;
   linkDepth: number | null;
   source: string;
+  providedFields: string[];
 }
+const catalogMetadataFields = [
+  'type',
+  'title',
+  'wordCount',
+  'publishedAt',
+  'structured',
+  'structureScore',
+  'updatedAt',
+  'linkDepth',
+  'source',
+];
 const MAX_BYTES = 10 * 1024 * 1024;
 export function canonicalPath(input: string, domain: string) {
   if (!input.trim()) throw new Error('URL 不能为空');
@@ -44,7 +57,8 @@ export function canonicalPath(input: string, domain: string) {
     url.password
   )
     throw new Error('URL 必须属于当前站点');
-  return url.pathname.slice(0, 500) || '/';
+  if (url.pathname.length > 500) throw new Error('编码后的 URL 路径上限 500 字符');
+  return url.pathname || '/';
 }
 function maskIp(value: string) {
   if (!ipaddr.isValid(value)) throw new Error('Invalid IP');
@@ -87,13 +101,9 @@ export function parseLogInput(
           /^(\S+) \S+ \S+ \[([^\]]+)\] "([A-Z]+) (.*?) HTTP\/[\d.]+" (\d{3}) (\d+|-) "[^"]*" "([^"]*)"$/,
         );
         if (!m) throw new Error('Invalid combined format');
-        const date = m[2].match(
-          /^(\d{2})\/([A-Za-z]{3})\/(\d{4}):(\d{2}:\d{2}:\d{2}) ([+-]\d{4})$/,
-        );
-        if (!date) throw new Error('Invalid timestamp');
         obj = {
           ip: m[1],
-          time: `${date[2]} ${date[1]} ${date[3]} ${date[4]} ${date[5]}`,
+          time: parseCombinedDate(m[2]).toISOString(),
           method: m[3],
           path: m[4],
           status: Number(m[5]),
@@ -102,7 +112,7 @@ export function parseLogInput(
         };
       }
       if (!obj || typeof obj !== 'object') throw new Error('Invalid row');
-      const time = new Date(obj.time ?? obj.timestamp);
+      const time = parseStrictDate(obj.time ?? obj.timestamp);
       if (!Number.isFinite(time.getTime()) || time.getTime() > Date.now() + 86400000)
         throw new Error('Invalid timestamp');
       const ip = String(obj.ip ?? obj.remote_addr ?? '');
@@ -199,8 +209,14 @@ export function parseCatalog(
       (!Number.isInteger(wordCount) || wordCount < 0 || wordCount > 10000000)
     )
       throw new Error('字数无效');
-    const publishedAt = row.publishedAt ? new Date(row.publishedAt).toISOString() : null;
-    const updatedAt = row.updatedAt ? new Date(row.updatedAt).toISOString() : null;
+    const publishedAt =
+      row.publishedAt == null || row.publishedAt === ''
+        ? null
+        : parseStrictDate(row.publishedAt).toISOString();
+    const updatedAt =
+      row.updatedAt == null || row.updatedAt === ''
+        ? null
+        : parseStrictDate(row.updatedAt).toISOString();
     const linkDepth = row.linkDepth == null || row.linkDepth === '' ? null : Number(row.linkDepth);
     if (linkDepth !== null && (!Number.isInteger(linkDepth) || linkDepth < 0 || linkDepth > 10000))
       throw new Error('链接深度无效');
@@ -213,6 +229,10 @@ export function parseCatalog(
       throw new Error('结构化评分须为 0–100 的整数');
     return {
       path,
+      providedFields:
+        typeof row === 'object' && row !== null
+          ? catalogMetadataFields.filter(field => Object.hasOwn(row, field))
+          : [],
       type: safeText(row.type, 50) || '未分类',
       title: safeText(row.title, 200),
       wordCount,

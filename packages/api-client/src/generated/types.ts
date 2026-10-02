@@ -7153,9 +7153,9 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          allowlist: string[];
-          robots: string;
-          rules: {
+          allowlist?: string[];
+          robots?: string;
+          rules?: {
             /** @description Display name of the resource. */
             name: string;
             pattern: string;

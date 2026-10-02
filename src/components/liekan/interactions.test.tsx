@@ -202,7 +202,11 @@ describe('real data states and interactions', () => {
   });
   it('saves only local robots settings and offers a download action', async () => {
     api.get.mockResolvedValue({ robots: 'User-agent: *\nAllow: /', allowlist: [], rules: [] });
-    api.put.mockResolvedValue({});
+    api.put.mockResolvedValue({
+      robots: 'User-agent: *\nDisallow: /private',
+      allowlist: [],
+      rules: [],
+    });
     const onSaved = vi.fn();
     render(
       <ManagementDrawer
@@ -223,13 +227,54 @@ describe('real data states and interactions', () => {
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith('/liekan/websites/site/settings', {
         robots: 'User-agent: *\nDisallow: /private',
-        allowlist: [],
-        rules: [],
       }),
     );
     expect(onSaved).toHaveBeenCalled();
     expect(screen.getByRole('button', { name: '下载 robots.txt' })).toBeInTheDocument();
   });
+  it.each([
+    ['蜘蛛白名单', '192.0.2.0/24', { allowlist: ['192.0.2.0/24'] }],
+    ['特征库管理', '[]', { rules: [] }],
+    ['解析规则', '[]', { rules: [] }],
+  ])(
+    'sends only the edited field from %s and displays the authoritative saved response',
+    async (action, content, patch) => {
+      api.get.mockResolvedValue({
+        robots: 'User-agent: *',
+        allowlist: [],
+        rules: [{ name: 'OldBot', vendor: 'Fixture', type: '搜索', pattern: 'OldBot' }],
+        isDemo: true,
+      });
+      const returned = {
+        robots: 'Changed elsewhere',
+        allowlist: ['198.51.100.0/24'],
+        rules: [],
+        isDemo: true,
+      };
+      api.put.mockResolvedValue(returned);
+      render(
+        <ManagementDrawer
+          action={action}
+          websiteId="site"
+          canManage
+          onClose={vi.fn()}
+          onSaved={vi.fn()}
+          onSearch={vi.fn()}
+          onRange={vi.fn()}
+        />,
+      );
+      await waitFor(() => expect(screen.getByRole('button', { name: '保存' })).not.toBeDisabled());
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: content } });
+      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+      await waitFor(() =>
+        expect(api.put).toHaveBeenCalledWith('/liekan/websites/site/settings', patch),
+      );
+      expect(screen.getByRole('textbox')).toHaveValue(
+        action === '蜘蛛白名单' ? returned.allowlist.join('\n') : '[]',
+      );
+      expect(screen.getByRole('status')).toHaveTextContent('已保存');
+    },
+  );
   it('imports JSON logs through the query drawer with explicit format and records', async () => {
     api.post.mockResolvedValue({
       accepted: 1,

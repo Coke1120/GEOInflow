@@ -1,9 +1,11 @@
 import 'dotenv/config';
-import { execFileSync, spawnSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import ipaddr from 'ipaddr.js';
+import { assertProcessSuccess, createCancellation, runProcess } from './liekan-process.mjs';
+import { assertUpstreamMigrations } from './liekan-schema-check.mjs';
 
 // All mutations below target resources created by this invocation. The source DB is read only.
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -42,14 +44,26 @@ const report = {
   steps: [],
 };
 const save = () => fs.writeFileSync(`${directory}/report.json`, JSON.stringify(report, null, 2));
-const run = (command, args, name, options = {}) => {
+const cancellation = createCancellation();
+let cleaning = false;
+const run = async (command, args, name, options = {}) => {
+  cancellation.checkpoint();
   const log = fs.openSync(`${directory}/${name}.txt`, 'w', 0o600);
   const start = Date.now();
-  const result = spawnSync(command, args, { stdio: ['ignore', log, log], ...options });
-  fs.closeSync(log);
+  let result;
+  try {
+    result = await runProcess(command, args, {
+      stdio: ['ignore', log, log],
+      ...options,
+      signal: cancellation.signal,
+    });
+  } finally {
+    fs.closeSync(log);
+  }
   report.steps.push({ name, status: result.status, seconds: (Date.now() - start) / 1000 });
   save();
-  if (result.status !== 0) throw new Error(`${name} failed; see private ${directory}/${name}.txt`);
+  cancellation.checkpoint();
+  assertProcessSuccess(result, `${name}; see private ${directory}/${name}.txt`);
 };
 const buildEnvironment = { ...process.env };
 for (const key of ['HTTP_PROXY', 'HTTPS_PROXY']) {
@@ -67,11 +81,13 @@ for (const key of ['HTTP_PROXY', 'HTTPS_PROXY']) {
   buildEnvironment[key] = proxy.toString();
 }
 const dockerEnv = (env, ...args) => {
+  if (!cleaning) cancellation.checkpoint();
   try {
     return execFileSync('docker', args, {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, ...env },
+      timeout: 30000,
     }).trim();
   } catch {
     throw new Error(`Docker ${args[0]} failed; credentials are withheld from diagnostics`);
@@ -92,6 +108,22 @@ const psql = (sql, database = 'liekan_empty') =>
     '-Atc',
     sql,
   );
+const officialHistory = async (database, allowPending = false) => {
+  const result = await assertUpstreamMigrations(
+    {
+      $queryRawUnsafe: async sql =>
+        JSON.parse(
+          psql(
+            `SELECT coalesce(json_agg(row_to_json(history)), '[]'::json) FROM (${sql}) history`,
+            database,
+          ),
+        ),
+    },
+    { schema: 'public', allowPending },
+  );
+  cancellation.checkpoint();
+  return result;
+};
 const countsSQL =
   'SELECT json_build_object(' +
   [
@@ -109,12 +141,19 @@ const countsSQL =
     .map(t => `'${t}',(SELECT count(*) FROM "${t}")`)
     .join(',') +
   ')';
-const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+const pause = cancellation.pause;
 const healthy = async () => {
   for (let attempt = 0; attempt < 180; attempt++) {
+    cancellation.checkpoint();
     try {
-      if ((await fetch('http://127.0.0.1:3302/api/heartbeat')).ok) return;
-    } catch {}
+      const response = await fetch('http://127.0.0.1:3302/api/heartbeat', {
+        signal: AbortSignal.any([cancellation.signal, AbortSignal.timeout(5000)]),
+      });
+      cancellation.checkpoint();
+      if (response.ok) return;
+    } catch {
+      cancellation.checkpoint();
+    }
     await pause(1000);
   }
   throw new Error('Isolated candidate did not become healthy');
@@ -161,9 +200,9 @@ try {
     server.once('error', reject);
     server.listen(3302, '127.0.0.1', () => server.close(resolve));
   });
-  run('docker', ['pull', 'node:22.23.3-alpine'], 'node-base');
-  run('docker', ['pull', 'postgres:15-alpine'], 'database-base');
-  run(
+  await run('docker', ['pull', 'node:22.23.3-alpine'], 'node-base');
+  await run('docker', ['pull', 'postgres:15-alpine'], 'database-base');
+  await run(
     'docker',
     [
       'build',
@@ -220,13 +259,18 @@ try {
     throw new Error('Source DB identity mismatch');
   const backup = `${directory}/database.sql`,
     fd = fs.openSync(backup, 'w', 0o600);
-  const dumped = spawnSync(
-    'docker',
-    ['exec', sourceId, 'pg_dump', '-U', sourceUser, '--no-owner', '--no-acl', sourceDatabase],
-    { stdio: ['ignore', fd, 'pipe'] },
-  );
-  fs.closeSync(fd);
-  if (dumped.status) throw new Error('Source backup failed');
+  let dumped;
+  try {
+    dumped = await runProcess(
+      'docker',
+      ['exec', sourceId, 'pg_dump', '-U', sourceUser, '--no-owner', '--no-acl', sourceDatabase],
+      { stdio: ['ignore', fd, 'ignore'], signal: cancellation.signal },
+    );
+  } finally {
+    fs.closeSync(fd);
+  }
+  cancellation.checkpoint();
+  assertProcessSuccess(dumped, 'Source backup');
   report.backupBytes = fs.statSync(backup).size;
   const networkIds = docker('network', 'ls', '-q').split('\n').filter(Boolean);
   const allocated = JSON.parse(docker('network', 'inspect', ...networkIds))
@@ -273,16 +317,34 @@ try {
     }
   }
   await startApp('liekan_empty');
+  report.emptyUpstreamMigrations = await officialHistory('liekan_empty');
   report.emptyMigrationCount = Number(psql('SELECT count(*) FROM liekan_migration'));
   if (report.emptyMigrationCount !== upstream.liekanMigration)
     throw new Error('Fresh bootstrap did not apply all migrations');
+  await run(
+    process.execPath,
+    ['scripts/liekan-data-regression.mjs', '--container', db, '--database', 'liekan_empty'],
+    'data-regression',
+  );
+  report.dataRegression = JSON.parse(
+    fs.readFileSync(`${directory}/data-regression.txt`, 'utf8').trim(),
+  );
+  if (
+    !report.dataRegression.passed ||
+    !report.dataRegression.readOnly ||
+    report.dataRegression.fixture !== 'synthetic-relations' ||
+    !/^[a-f0-9]{64}$/.test(report.dataRegression.sourceHash) ||
+    !Array.isArray(report.dataRegression.checks) ||
+    report.dataRegression.checks.length < 8
+  )
+    throw new Error('Synthetic data regression evidence is incomplete');
   const env = {
     ...process.env,
     PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:3302',
     API_COVERAGE: 'enforce',
   };
   delete env.API_SKIP_SEED;
-  run(
+  await run(
     process.execPath,
     ['node_modules/@playwright/test/cli.js', 'test', '-c', 'playwright.api.config.ts'],
     'api',
@@ -295,27 +357,34 @@ try {
   appCreated = false;
   psql('CREATE DATABASE liekan_restore');
   const input = fs.openSync(backup, 'r');
-  const loaded = spawnSync(
-    'docker',
-    [
-      'exec',
-      '-i',
-      db,
-      'psql',
-      '-U',
-      'liekan_verify',
-      '-d',
-      'liekan_restore',
-      '-v',
-      'ON_ERROR_STOP=1',
-    ],
-    { stdio: [input, 'ignore', 'pipe'] },
-  );
-  fs.closeSync(input);
-  if (loaded.status) throw new Error('Candidate backup restore failed');
+  let loaded;
+  try {
+    loaded = await runProcess(
+      'docker',
+      [
+        'exec',
+        '-i',
+        db,
+        'psql',
+        '-U',
+        'liekan_verify',
+        '-d',
+        'liekan_restore',
+        '-v',
+        'ON_ERROR_STOP=1',
+      ],
+      { stdio: [input, 'ignore', 'ignore'], signal: cancellation.signal },
+    );
+  } finally {
+    fs.closeSync(input);
+  }
+  cancellation.checkpoint();
+  assertProcessSuccess(loaded, 'Candidate backup restore');
   // Count the restored snapshot before upgrade, so concurrent source traffic cannot change this baseline.
+  report.restoredUpstreamBefore = await officialHistory('liekan_restore', true);
   report.before = JSON.parse(psql(countsSQL, 'liekan_restore'));
   await startApp('liekan_restore');
+  report.restoredUpstreamAfter = await officialHistory('liekan_restore');
   report.after = JSON.parse(psql(countsSQL, 'liekan_restore'));
   if (
     Object.entries(report.before).some(
@@ -338,12 +407,12 @@ try {
   )
     throw new Error('Restored candidate migration checksums differ');
   report.migrations = migrations;
-  run('docker', ['exec', app, 'node', 'scripts/liekan-migrate.mjs'], 'migration-idempotency');
+  await run('docker', ['exec', app, 'node', 'scripts/liekan-migrate.mjs'], 'migration-idempotency');
   const beforeLedger = psql(
     "SELECT json_agg(json_build_object('name',name,'checksum',checksum,'appliedAt',applied_at) ORDER BY name) FROM liekan_migration",
     'liekan_restore',
   );
-  run('docker', ['exec', app, 'node', 'scripts/liekan-migrate.mjs'], 'migration-repeat');
+  await run('docker', ['exec', app, 'node', 'scripts/liekan-migrate.mjs'], 'migration-repeat');
   if (
     psql(
       "SELECT json_agg(json_build_object('name',name,'checksum',checksum,'appliedAt',applied_at) ORDER BY name) FROM liekan_migration",
@@ -351,7 +420,7 @@ try {
     ) !== beforeLedger
   )
     throw new Error('Repeated migration modified the ledger');
-  run(
+  await run(
     'docker',
     ['exec', app, 'node', '--experimental-strip-types', 'scripts/liekan-restored-check.mjs'],
     'restored-auth',
@@ -363,9 +432,14 @@ try {
       .filter(line => line.startsWith('{'))
       .at(-1),
   );
-  run(process.execPath, ['--experimental-strip-types', 'scripts/liekan-visual.mjs'], 'visual', {
-    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
-  });
+  await run(
+    process.execPath,
+    ['--experimental-strip-types', 'scripts/liekan-visual.mjs'],
+    'visual',
+    {
+      env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+    },
+  );
   report.visual = JSON.parse(fs.readFileSync('test-results/liekan-visual/geometry.json', 'utf8'));
   if (!report.visual.passed || report.visual.head !== head)
     throw new Error('Visual evidence is not bound to the candidate');
@@ -379,6 +453,7 @@ try {
   save();
   throw error;
 } finally {
+  cleaning = true;
   // Names are invocation-unique and flags are set only after successful creation.
   const cleanupErrors = [];
   if (appCreated) {
@@ -403,13 +478,16 @@ try {
     }
   }
   report.cleanup = { passed: cleanupErrors.length === 0, remaining: cleanupErrors };
+  if (cancellation.signal.aborted) report.error = cancellation.signal.reason.message;
   save();
+  cancellation.dispose();
 }
 if (!report.cleanup.passed) {
   report.error = 'Acceptance resource cleanup failed';
   save();
   throw new Error(report.error);
 }
+cancellation.checkpoint();
 report.passed = true;
 report.finalized = true;
 report.finishedAt = new Date().toISOString();

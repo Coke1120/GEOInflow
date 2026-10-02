@@ -14,7 +14,7 @@ Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 R
 
 ```sh
 pnpm liekan:verify
-docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" liekan:0.1.0
+docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" liekan:0.1.1
 docker compose -f docker-compose.liekan.yml up -d --no-build
 ```
 

@@ -71,6 +71,61 @@ beforeEach(() => {
   mocks.months.mockResolvedValue([]);
 });
 describe('report evidence states', () => {
+  it('keeps the report usable and shows a safe unsupported state for an invalid saved funnel', async () => {
+    const human = await mocks.human();
+    mocks.human.mockResolvedValue({
+      ...human,
+      funnel: [],
+      funnelState: 'unsupported',
+      funnelError: '已保存的漏斗配置无效，请检查目标配置',
+    });
+    const report = await buildReport(website, false, params);
+    expect(report.charts.f1).toMatchObject({ state: 'unsupported', labels: [], series: [] });
+    expect(report.insights).toContain('已保存的漏斗配置无效，请检查目标配置');
+    expect(liekanReportSchema.safeParse(report).success).toBe(true);
+  });
+  it('joins encoded logs and catalog to upstream human paths without decoding human paths twice', async () => {
+    const human = await mocks.human(),
+      logs = await mocks.logs();
+    const humanPaths = ['/文档/AI 入门', '/literal%20space', '/reserved%2Fslash'];
+    const encodedPaths = [
+      '/%E6%96%87%E6%A1%A3/AI%20%E5%85%A5%E9%97%A8',
+      '/literal%2520space',
+      '/reserved%2Fslash',
+    ];
+    mocks.human.mockResolvedValue({
+      ...human,
+      totals: { visits: 3, visitors: 3, pageviews: 3, bounces: 0, totaltime: 0 },
+      pages: humanPaths.map(path => ({
+        path,
+        pv: 1,
+        uv: 1,
+        entries: 1,
+        bounces: 0,
+        duration: null,
+      })),
+    });
+    mocks.logs.mockResolvedValue({
+      ...logs,
+      latest: '2026-01-01',
+      summary: { requests: 6, ai: 6 },
+      pages: encodedPaths.map((path, i) => ({
+        path,
+        bot: 'GPTBot',
+        requests: i + 1,
+        lastCrawled: '2026-01-01',
+      })),
+      catalog: encodedPaths.map((path, i) => ({ path, type: `类型${i}` })),
+    });
+    const report = await buildReport(website, false, params);
+    expect(report.tables.topBody.map(row => [row.path, row.aiRequests, row.evaluation])).toEqual(
+      humanPaths.map((path, i) => [path, i + 1, '已被抓取']),
+    );
+    expect(report.tables.pgBody.map(row => row.aiRequests)).toEqual([1, 2, 3]);
+    expect(report.charts.pf1.series.find(series => series.name === '人类 PV').values).toEqual([
+      33.33, 33.33, 33.33,
+    ]);
+  });
   it('preserves undefined chart percentages as gaps and measured zero percentages as zero', async () => {
     const logs = await mocks.logs();
     mocks.logs.mockResolvedValue({ ...logs, latest: '2026-01-01' });

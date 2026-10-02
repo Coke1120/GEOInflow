@@ -1,9 +1,32 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import snapshots from '../../../config/liekan/bot-ranges.json';
-import { parseCatalog, parseLogInput } from './ingest';
+import { canonicalPath, parseCatalog, parseLogInput } from './ingest';
 
 describe('Liekan ingestion public boundary', () => {
   afterEach(() => vi.useRealTimers());
+  it('preserves a 500-character encoded path and rejects longer paths without merging identities', () => {
+    const boundary = `/${'a'.repeat(499)}`;
+    expect(canonicalPath(boundary, 'example.com')).toBe(boundary);
+    expect(() => canonicalPath(`${boundary}b`, 'example.com')).toThrow('500');
+    expect(() =>
+      parseCatalog(
+        {
+          format: 'json',
+          content: JSON.stringify([{ path: `${boundary}/one` }, { path: `${boundary}/two` }]),
+        },
+        'example.com',
+      ),
+    ).toThrow('500');
+    const result = parseLogInput(
+      {
+        format: 'json',
+        records: [{ time: '2026-01-01', ip: '203.0.113.1', path: `${boundary}b`, status: 200 }],
+      },
+      'example.com',
+      'key',
+    );
+    expect(result).toMatchObject({ accepted: 0, rejected: 1, records: [] });
+  });
   it('imports a combined request with masked IP and redacted query', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(snapshots.GPTBot.retrievedAt));
@@ -112,5 +135,101 @@ describe('Liekan ingestion public boundary', () => {
         'example.com',
       )[0],
     ).toMatchObject({ path: '/a', type: 'article', wordCount: 600 });
+  });
+  it('identifies only supplied catalog metadata, including explicit clears', () => {
+    expect(
+      parseCatalog({ format: 'json', content: '["/a"]' }, 'example.com')[0].providedFields,
+    ).toEqual([]);
+    expect(
+      parseCatalog(
+        {
+          format: 'sitemap',
+          content: '<urlset><url><loc>https://example.com/a</loc></url></urlset>',
+        },
+        'example.com',
+      )[0].providedFields,
+    ).toEqual([]);
+    expect(
+      parseCatalog(
+        {
+          format: 'json',
+          content: '[{"path":"/a","type":"文章","wordCount":null,"publishedAt":null,"extra":1}]',
+        },
+        'example.com',
+      )[0],
+    ).toMatchObject({
+      providedFields: ['type', 'wordCount', 'publishedAt'],
+      wordCount: null,
+      publishedAt: null,
+    });
+    expect(
+      parseCatalog({ format: 'csv', content: 'path,title,updatedAt\n/a,Title,' }, 'example.com')[0]
+        .providedFields,
+    ).toEqual(['title', 'updatedAt']);
+  });
+  it('rejects impossible calendar dates in JSON, combined logs and catalog evidence', () => {
+    const record = { ip: '203.0.113.1', path: '/a', status: 200 };
+    for (const time of [
+      '2026-02-30T12:00:00Z',
+      '2025-02-29',
+      '2026-04-31',
+      '2026-01-01T24:00:00Z',
+      '2026-01-01T12:00:00',
+    ]) {
+      expect(
+        parseLogInput({ format: 'json', records: [{ ...record, time }] }, 'example.com', 'key'),
+        time,
+      ).toMatchObject({ accepted: 0, rejected: 1 });
+    }
+    expect(
+      parseLogInput(
+        {
+          format: 'combined',
+          content:
+            '203.0.113.1 - - [31/Sep/2026:12:00:00 +0000] "GET /a HTTP/1.1" 200 0 "-" "GPTBot"',
+        },
+        'example.com',
+        'key',
+      ),
+    ).toMatchObject({ accepted: 0, rejected: 1 });
+    for (const field of ['publishedAt', 'updatedAt']) {
+      expect(() =>
+        parseCatalog(
+          {
+            format: 'json',
+            content: JSON.stringify([{ path: '/a', [field]: '2026-02-30T12:00:00Z' }]),
+          },
+          'example.com',
+        ),
+      ).toThrow('时间');
+    }
+    expect(
+      parseLogInput(
+        { format: 'json', records: [{ ...record, time: '2024-02-29T11:00:00+08:00' }] },
+        'example.com',
+        'key',
+      ).records[0].time,
+    ).toBe('2024-02-29T03:00:00.000Z');
+  });
+  it('accepts explicit millisecond timestamps and rejects ambiguous seconds', () => {
+    const record = { ip: '203.0.113.1', path: '/a', status: 200 };
+    expect(
+      parseLogInput(
+        { format: 'json', records: [{ ...record, timestamp: 1767225600000 }] },
+        'example.com',
+        'key',
+      ).records[0].time,
+    ).toBe('2026-01-01T00:00:00.000Z');
+    expect(
+      parseLogInput(
+        { format: 'json', records: [{ ...record, timestamp: 1767225600 }] },
+        'example.com',
+        'key',
+      ),
+    ).toMatchObject({ accepted: 0, rejected: 1 });
+    expect(
+      parseLogInput({ format: 'json', records: [{ ...record, time: 0 }] }, 'example.com', 'key')
+        .records[0].time,
+    ).toBe('1970-01-01T00:00:00.000Z');
   });
 });

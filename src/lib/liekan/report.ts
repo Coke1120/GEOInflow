@@ -21,6 +21,7 @@ import {
   getMonthlyAiShare,
   getPlotLogs,
 } from './upstream/logs';
+import { humanPathFromEncoded } from './upstream/paths';
 import { LiekanError } from './upstream/server';
 
 const pct = (a: number, b: number): number | null => (b ? Math.round((a / b) * 10000) / 100 : null);
@@ -163,6 +164,17 @@ export async function buildReport(
     paths.set(row.path, old);
   }
   const aiPages = Array.from(paths.values()).sort((a, b) => b.requests - a.requests);
+  const humanAiPages = new Map<string, { requests: number; bot: string; main: number }>();
+  for (const page of aiPages) {
+    const key = humanPathFromEncoded(page.path);
+    const previous = humanAiPages.get(key) ?? { requests: 0, bot: page.bot, main: 0 };
+    previous.requests += page.requests;
+    if (page.requests > previous.main) {
+      previous.bot = page.bot;
+      previous.main = page.requests;
+    }
+    humanAiPages.set(key, previous);
+  }
   const knownCovered = l.catalog.filter(c => paths.has(c.path)).length,
     blind = l.catalog.filter(c => !paths.has(c.path));
   const src: Row[] = h.sources.map(s => ({
@@ -209,10 +221,14 @@ export async function buildReport(
   r.tables.topBody = h.pages.map(page => ({
     path: page.path,
     humanPv: page.pv,
-    aiRequests: l.latest ? (paths.get(page.path)?.requests ?? 0) : null,
-    ratio: l.latest ? ratio(paths.get(page.path)?.requests ?? 0, page.pv) : null,
-    bot: paths.get(page.path)?.bot ?? null,
-    evaluation: !l.latest ? '待接入日志' : paths.has(page.path) ? '已被抓取' : '所选范围未被抓取',
+    aiRequests: l.latest ? (humanAiPages.get(page.path)?.requests ?? 0) : null,
+    ratio: l.latest ? ratio(humanAiPages.get(page.path)?.requests ?? 0, page.pv) : null,
+    bot: humanAiPages.get(page.path)?.bot ?? null,
+    evaluation: !l.latest
+      ? '待接入日志'
+      : humanAiPages.has(page.path)
+        ? '已被抓取'
+        : '所选范围未被抓取',
   }));
   r.tables.botBody = l.bots.map(b => ({
     name: b.name,
@@ -265,7 +281,7 @@ export async function buildReport(
     entries: page.entries,
     duration: page.duration,
     bounceRate: page.entries ? pct(page.bounces, page.entries) : null,
-    aiRequests: l.latest ? (paths.get(page.path)?.requests ?? 0) : null,
+    aiRequests: l.latest ? (humanAiPages.get(page.path)?.requests ?? 0) : null,
   }));
   r.tables.goalBody = h.goals.map(g => ({
     name: g.name,
@@ -499,7 +515,10 @@ export async function buildReport(
           pct(
             l.catalog
               .filter(page => page.type === c.name)
-              .reduce((sum, page) => sum + (humanPages.get(page.path)?.pv ?? 0), 0),
+              .reduce(
+                (sum, page) => sum + (humanPages.get(humanPathFromEncoded(page.path))?.pv ?? 0),
+                0,
+              ),
             t.pageviews,
           ),
         ),
@@ -567,7 +586,7 @@ export async function buildReport(
     'f1',
     h.funnel.map(step => step.value),
     [{ name: '访客数', values: h.funnel.map(step => step.visitors) }],
-    h.funnel.length ? 'available' : 'not_connected',
+    h.funnelState ?? (h.funnel.length ? 'available' : 'not_connected'),
   );
   chart(
     'f2',
@@ -769,6 +788,7 @@ export async function buildReport(
       : '接入日志与 sitemap、CSV 或 JSON 目录后可计算完整覆盖率。',
     '结构化评分来自导入元数据；抓取完成率仍需正文传输证据。',
   ];
+  if (h.funnelError) r.insights.push(h.funnelError);
   r.tables.recoList = r.insights.map((detail, i) => ({
     name: `观察 ${i + 1}`,
     detail,

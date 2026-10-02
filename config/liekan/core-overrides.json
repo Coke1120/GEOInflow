@@ -1163,6 +1163,22 @@
       "owner": "Liekan upstream compatibility",
       "constraint": "Only correct date-dependent test expectations; preserve upstream revenue queries, default monthly identity rotation and exact purchase amount assertions",
       "removalCondition": "Remove when upstream revenue tests derive their expected session count from deterministic purchase dates across salt periods"
+    },
+    {
+      "path": "src/components/hooks/useNavigation.ts",
+      "purpose": "Recognize complete UUID path segments and keep creation routes out of entity queries",
+      "tests": ["src/components/hooks/useNavigation.test.tsx", "Local create-board browser smoke"],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Preserve team context and query rendering; reject partial or malformed route identifiers",
+      "removalCondition": "Remove when upstream entity navigation validates complete UUID segments"
+    },
+    {
+      "path": "src/components/hooks/useNavigation.test.tsx",
+      "purpose": "Guard valid entity navigation, creation routes and malformed UUID path segments",
+      "tests": ["src/components/hooks/useNavigation.test.tsx"],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Exercise the production navigation hook for all five entity kinds",
+      "removalCondition": "Remove with the associated navigation override after upstream supplies the regression coverage"
     }
   ]
 }

@@ -10,58 +10,81 @@ import {
   type WriteIdentity,
 } from './upstream/server';
 
-export async function getSettings(id: string) {
-  const row = (
-    await query(
-      'SELECT robots,allowlist,rules,is_demo AS "isDemo" FROM liekan_setting WHERE website_id=$1::uuid',
-      id,
-    )
-  )[0];
+const settingsQuery =
+  'SELECT robots,allowlist,rules,is_demo AS "isDemo" FROM liekan_setting WHERE website_id=$1::uuid';
+function settingsFromRow(row?: {
+  robots?: string;
+  allowlist?: string[];
+  rules?: BotRule[];
+  isDemo?: boolean;
+}) {
   return {
     robots: row?.robots ?? '',
     allowlist: row?.allowlist ?? [],
-    rules: row?.rules?.length ? row.rules : BOT_RULES,
+    rules: row?.rules ?? BOT_RULES,
     isDemo: row?.isDemo ?? false,
   };
+}
+export async function getSettings(id: string) {
+  return settingsFromRow((await query(settingsQuery, id))[0]);
 }
 export async function saveSettings(id: string, body: any, identity?: WriteIdentity) {
   id = id.toLowerCase();
   if (
-    typeof body.robots !== 'string' ||
-    body.robots.length > 50000 ||
-    !Array.isArray(body.allowlist) ||
-    !Array.isArray(body.rules) ||
-    body.allowlist.length > 100 ||
-    body.rules.length > 100
+    !body ||
+    typeof body !== 'object' ||
+    Array.isArray(body) ||
+    !Object.keys(body).length ||
+    Object.keys(body).some(key => !['robots', 'allowlist', 'rules'].includes(key))
   )
     throw new LiekanError('设置格式无效');
-  for (const ip of body.allowlist) {
-    try {
-      ipaddr.parseCIDR(ip);
-    } catch {
-      throw new LiekanError('白名单必须是合法 CIDR');
+  const has = (key: string) => Object.hasOwn(body, key);
+  if (has('robots') && (typeof body.robots !== 'string' || body.robots.length > 50000))
+    throw new LiekanError('设置格式无效');
+  if (has('allowlist')) {
+    if (!Array.isArray(body.allowlist) || body.allowlist.length > 100)
+      throw new LiekanError('设置格式无效');
+    for (const ip of body.allowlist) {
+      try {
+        if (typeof ip !== 'string' || ip.length > 80) throw new Error('Invalid CIDR');
+        ipaddr.parseCIDR(ip);
+      } catch {
+        throw new LiekanError('白名单必须是合法 CIDR');
+      }
     }
   }
-  for (const rule of body.rules)
-    if (
-      !['name', 'vendor', 'type', 'pattern'].every(
-        key => typeof rule[key] === 'string' && rule[key].length > 0 && rule[key].length <= 80,
+  if (has('rules')) {
+    if (!Array.isArray(body.rules) || body.rules.length > 100)
+      throw new LiekanError('设置格式无效');
+    for (const rule of body.rules)
+      if (
+        !rule ||
+        typeof rule !== 'object' ||
+        !['name', 'vendor', 'type', 'pattern'].every(
+          key => typeof rule[key] === 'string' && rule[key].length > 0 && rule[key].length <= 80,
+        )
       )
-    )
-      throw new LiekanError('规则需要 name、vendor、type、pattern 字段，长度上限 80');
-  if (body.rules.some(rule => !BOT_TYPES.includes(rule.type)))
-    throw new LiekanError('规则类型仅支持训练、搜索、用户触发、传统搜索和其他');
-  await transaction(async tx => {
+        throw new LiekanError('规则需要 name、vendor、type、pattern 字段，长度上限 80');
+    if (body.rules.some(rule => !BOT_TYPES.includes(rule.type)))
+      throw new LiekanError('规则类型仅支持训练、搜索、用户触发、传统搜索和其他');
+  }
+  return transaction(async tx => {
     await lockWritableWebsite(tx, id, identity);
+    const current = settingsFromRow((await tx.$queryRawUnsafe(settingsQuery, id))[0]);
+    const next = {
+      robots: has('robots') ? body.robots : current.robots,
+      allowlist: has('allowlist') ? body.allowlist : current.allowlist,
+      rules: has('rules') ? body.rules : current.rules,
+    };
     await tx.$executeRawUnsafe(
       'INSERT INTO liekan_setting(website_id,robots,allowlist,rules) VALUES ($1::uuid,$2,$3::jsonb,$4::jsonb) ON CONFLICT(website_id) DO UPDATE SET robots=$2,allowlist=$3::jsonb,rules=$4::jsonb,updated_at=now()',
       id,
-      body.robots,
-      JSON.stringify(body.allowlist),
-      JSON.stringify(body.rules),
+      next.robots,
+      JSON.stringify(next.allowlist),
+      JSON.stringify(next.rules),
     );
+    return { ...next, isDemo: current.isDemo };
   });
-  return getSettings(id);
 }
 export async function importLogs(id: string, domain: string, input: any, identity?: WriteIdentity) {
   id = id.toLowerCase();
@@ -146,21 +169,51 @@ export async function importCatalog(
     throw new LiekanError((error as Error).message);
   }
   if (!rows.length) throw new LiekanError('内容目录为空');
+  const columns: Record<string, string> = {
+    title: 'title',
+    type: 'content_type',
+    wordCount: 'word_count',
+    publishedAt: 'published_at',
+    structured: 'structured',
+    structureScore: 'structure_score',
+    updatedAt: 'content_updated_at',
+    linkDepth: 'link_depth',
+    source: 'evidence_source',
+  };
+  const groups = new Map<string, { rows: typeof rows; updates: string[] }>();
+  for (const row of rows) {
+    const provided = Object.keys(columns).filter(field => row.providedFields.includes(field));
+    const key = provided.join(',');
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        rows: [],
+        updates: provided.map(field => `${columns[field]}=EXCLUDED.${columns[field]}`),
+      };
+      groups.set(key, group);
+    }
+    group.rows.push(row);
+  }
   await transaction(async tx => {
     await lockWritableWebsite(tx, id, identity);
     await tx.$executeRawUnsafe(
       'SELECT pg_advisory_xact_lock(hashtext($1))',
       `liekan-catalog:${id}`,
     );
-    for (let i = 0; i < rows.length; i += 500) {
-      await tx.$executeRawUnsafe(
-        `INSERT INTO liekan_catalog(website_id,path,title,content_type,word_count,published_at,structured,structure_score,content_updated_at,link_depth,evidence_source)
+    for (const group of groups.values()) {
+      const conflict = group.updates.length
+        ? `DO UPDATE SET ${group.updates.join(',')},updated_at=now()`
+        : 'DO NOTHING';
+      for (let i = 0; i < group.rows.length; i += 500) {
+        await tx.$executeRawUnsafe(
+          `INSERT INTO liekan_catalog(website_id,path,title,content_type,word_count,published_at,structured,structure_score,content_updated_at,link_depth,evidence_source)
         SELECT $1::uuid,r.path,r.title,r.type,r."wordCount",r."publishedAt"::timestamptz,r.structured,r."structureScore",r."updatedAt"::timestamptz,r."linkDepth",r.source
         FROM jsonb_to_recordset($2::jsonb) AS r(path text,title text,type text,"wordCount" integer,"publishedAt" text,structured boolean,"structureScore" integer,"updatedAt" text,"linkDepth" integer,source text)
-        ON CONFLICT(website_id,path) DO UPDATE SET title=EXCLUDED.title,content_type=EXCLUDED.content_type,word_count=EXCLUDED.word_count,published_at=EXCLUDED.published_at,structured=EXCLUDED.structured,structure_score=EXCLUDED.structure_score,content_updated_at=EXCLUDED.content_updated_at,link_depth=EXCLUDED.link_depth,evidence_source=EXCLUDED.evidence_source,updated_at=now()`,
-        id,
-        JSON.stringify(rows.slice(i, i + 500)),
-      );
+        ON CONFLICT(website_id,path) ${conflict}`,
+          id,
+          JSON.stringify(group.rows.slice(i, i + 500)),
+        );
+      }
     }
   });
   return { accepted: rows.length, mode: 'upsert' };

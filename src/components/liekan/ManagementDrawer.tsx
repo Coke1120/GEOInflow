@@ -176,20 +176,29 @@ export function ManagementDrawer({
     try {
       if (settingsAction) {
         if (!settings) throw new Error('请先读取设置');
-        const next = { ...settings };
-        if (action === 'robots.txt 编辑') next.robots = content;
+        let patch: Partial<Settings>;
+        if (action === 'robots.txt 编辑') patch = { robots: content };
         else if (action === '蜘蛛白名单')
-          next.allowlist = content
-            .split('\n')
-            .map(value => value.trim())
-            .filter(Boolean);
+          patch = {
+            allowlist: content
+              .split('\n')
+              .map(value => value.trim())
+              .filter(Boolean),
+          };
         else {
           const rules = JSON.parse(content);
           if (!Array.isArray(rules)) throw new Error('规则须为 JSON 数组');
-          next.rules = rules;
+          patch = { rules };
         }
-        await api.put(`/liekan/websites/${websiteId}/settings`, next);
-        setSettings(next);
+        const saved: Settings = await api.put(`/liekan/websites/${websiteId}/settings`, patch);
+        setSettings(saved);
+        setContent(
+          action === 'robots.txt 编辑'
+            ? saved.robots
+            : action === '蜘蛛白名单'
+              ? saved.allowlist.join('\n')
+              : JSON.stringify(saved.rules, null, 2),
+        );
         setStatus('已保存');
       } else if (isCatalog) {
         const result: { accepted: number; mode: string } = await api.put(

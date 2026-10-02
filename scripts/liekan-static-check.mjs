@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { assertProductImports } from './liekan-boundaries.mjs';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const manifest = JSON.parse(readFileSync('design/reference/geo-stats-v3/manifest.json', 'utf8'));
@@ -38,12 +39,7 @@ for (const file of [
   ...visit('src/app/(main)/websites/[websiteId]/geo'),
 ].filter(path => /\.tsx?$/.test(path))) {
   const source = readFileSync(file, 'utf8');
-  if (
-    /from\s+['"]@\/(queries|permissions|generated|components\/(charts|common)|lib\/(auth|prisma|request|types|schema))/.test(
-      source,
-    )
-  )
-    throw new Error(`Upstream import crossed product boundary: ${file}`);
+  assertProductImports(file, source);
 }
 const overrides = JSON.parse(readFileSync('config/liekan/core-overrides.json', 'utf8'));
 if (overrides.baseline !== baseline.commit)

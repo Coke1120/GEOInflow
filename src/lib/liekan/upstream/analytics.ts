@@ -1,3 +1,4 @@
+import { funnelParametersSchema } from '@/lib/analytics-schema';
 import { getPostgresCountrySQL, getPostgresRegionSQL } from '@/lib/country';
 import { getFunnel } from '@/queries/sql';
 import { humanTotals, query } from './server';
@@ -144,6 +145,16 @@ const visitMetrics = `count(*)::int AS sessions, sum(v.pv)::int AS pv,
   count(*) FILTER(WHERE cv.visit_id IS NOT NULL)::int AS conversions`;
 const convertedJoin =
   'LEFT JOIN converted cv ON cv.visit_id=v.visit_id AND cv.session_id=v.session_id';
+function humanBinsSql(hour = false) {
+  const format = hour ? 'YYYY-MM-DD HH24:00' : 'YYYY-MM-DD';
+  return `, event_bins AS (SELECT to_char(created_at AT TIME ZONE $4,'${format}') AS day,count(distinct session_id)::int AS uv,count(*)::int AS pv
+    FROM events WHERE event_type NOT IN(2,5) GROUP BY 1),
+    visit_bins AS (SELECT to_char(v.started AT TIME ZONE $4,'${format}') AS day,count(*)::int AS sessions,avg(v.duration)::float AS duration,
+      count(*) FILTER(WHERE v.pv=1 AND v.custom=0)::int AS bounces,count(*) FILTER(WHERE cv.visit_id IS NOT NULL)::int AS conversions
+      FROM visits v ${convertedJoin} GROUP BY 1)
+    SELECT e.day,e.uv,e.pv,coalesce(v.sessions,0)::int AS sessions,v.duration,coalesce(v.bounces,0)::int AS bounces,coalesce(v.conversions,0)::int AS conversions
+    FROM event_bins e LEFT JOIN visit_bins v USING(day) ORDER BY e.day`;
+}
 export async function getHumanFacts(id: string, start: Date, end: Date, timezone: string) {
   const args = [id, start, end, timezone];
   const sql = (tail: string) => query(cte + tail, ...args);
@@ -167,9 +178,7 @@ export async function getHumanFacts(id: string, start: Date, end: Date, timezone
     dailyConversions,
   ] = await Promise.all([
     humanTotals(id, start, end),
-    sql(
-      ` SELECT to_char(v.started AT TIME ZONE $4,'YYYY-MM-DD') AS day, count(distinct v.session_id)::int AS uv, ${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1 ORDER BY 1`,
-    ),
+    sql(humanBinsSql()),
     sql(
       ` SELECT ${getPostgresCountrySQL('v.country')} AS country,${getPostgresRegionSQL('v.country', 'v.region')} AS region,v.city,${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3 ORDER BY sessions DESC`,
     ),
@@ -192,7 +201,7 @@ export async function getHumanFacts(id: string, start: Date, end: Date, timezone
       ` SELECT count(*)::int AS count,(SELECT count(distinct event_id)::int FROM matches) AS events FROM visits v JOIN converted cv USING(visit_id,session_id)`,
     ),
     query(
-      "SELECT report_id AS id,name,parameters FROM report WHERE website_id=$1::uuid AND type IN('goal','funnel') ORDER BY created_at LIMIT 100",
+      "SELECT report_id AS id,name,type,parameters FROM report WHERE website_id=$1::uuid AND type IN('goal','funnel') ORDER BY created_at LIMIT 100",
       id,
     ),
     sql(
@@ -228,7 +237,7 @@ export async function getHumanFacts(id: string, start: Date, end: Date, timezone
     ),
   ]);
   const allGoals = definitions
-    .filter(d => d.parameters?.value && !Array.isArray(d.parameters?.steps))
+    .filter(d => d.type === 'goal' && d.parameters?.value && !Array.isArray(d.parameters?.steps))
     .map(d => ({
       id: d.id,
       name: d.name,
@@ -237,14 +246,24 @@ export async function getHumanFacts(id: string, start: Date, end: Date, timezone
       convertedSessions: goals.find(g => g.id === d.id)?.convertedSessions ?? 0,
       previous: previousGoals.find(g => g.id === d.id)?.count ?? 0,
     }));
-  const funnelDef = definitions.find(d => Array.isArray(d.parameters?.steps));
-  const funnel = funnelDef
-    ? await getFunnel(
+  const funnelDef = definitions.find(d => d.type === 'funnel');
+  let funnel: Awaited<ReturnType<typeof getFunnel>> = [];
+  let funnelState: 'available' | 'empty' | 'not_connected' | 'unsupported' = 'not_connected';
+  let funnelError: string | null = null;
+  if (funnelDef) {
+    const parsed = funnelParametersSchema.safeParse(funnelDef.parameters);
+    if (!parsed.success) {
+      funnelState = 'unsupported';
+      funnelError = '已保存的漏斗配置无效，请检查目标配置';
+    } else {
+      funnel = await getFunnel(
         id,
-        { ...funnelDef.parameters, startDate: start, endDate: end },
+        { ...parsed.data, startDate: start, endDate: end },
         { startDate: start, endDate: end },
-      )
-    : [];
+      );
+      funnelState = funnel.length ? 'available' : 'empty';
+    }
+  }
   return {
     totals,
     daily,
@@ -259,6 +278,8 @@ export async function getHumanFacts(id: string, start: Date, end: Date, timezone
     conversionEvents: converted[0]?.events ?? 0,
     dailyConversions,
     funnel,
+    funnelState,
+    funnelError,
     journeys,
     exits,
     dailySources: sourceFacts(dailySources),
@@ -286,12 +307,5 @@ export async function getHumanDays(
   timezone: string,
   hour = false,
 ) {
-  return query(
-    cte +
-      ` SELECT to_char(v.started AT TIME ZONE $4,'${hour ? 'YYYY-MM-DD HH24:00' : 'YYYY-MM-DD'}') AS day,count(distinct v.session_id)::int AS uv,${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1 ORDER BY 1`,
-    id,
-    start,
-    end,
-    timezone,
-  );
+  return query(cte + humanBinsSql(hour), id, start, end, timezone);
 }
