@@ -4,7 +4,7 @@
 
 主项目采用 MIT 许可，保留 Umami 版权。第三方组件和地理数据许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本为 0.1.1，本地体验默认地址为 **http://localhost:3002**。新增数据库和容器与原 Umami 独立。
+当前版本为 0.1.2，本地体验默认地址为 **http://localhost:3002**。新增数据库和容器与原 Umami 独立。
 
 - 11 个统计页面、22 个图表，依据冻结的 geo-stats v3 原型。
 - 人类 PV/UV、来源、地域、内容、目标与漏斗复用 Umami 数据。
@@ -29,6 +29,8 @@ pnpm dev
 ```
 
 Docker 部署、备份与恢复步骤见 [本地部署说明](docs/local-deployment.md)。首次使用可运行 `pnpm liekan:seed-demo`，创建单独的演示站。
+
+首次安装的默认用户名为 `admin`，密码为 `liekan`。Liekan 迁移会更新仍使用上游初始密码的默认管理员，保留已自行设置的密码。
 
 ## 维护与升级
 

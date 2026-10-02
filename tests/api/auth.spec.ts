@@ -44,6 +44,19 @@ test.describe('Auth', () => {
     expect(me.body.user).toMatchObject({ id: seed.user.id, username: seed.user.username });
   });
 
+  test('the initial Liekan administrator uses the product default and rejects the upstream password', async ({
+    api,
+    seed,
+  }) => {
+    expect(seed.admin).toMatchObject({ username: 'admin', password: 'liekan' });
+    const response = await api.post('/api/auth/login', {
+      username: seed.admin.username,
+      password: 'umami',
+    });
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe('incorrect-username-password');
+  });
+
   test('POST /api/auth/login rejects bad credentials', async ({ api, seed }) => {
     const wrongPassword = await api.post('/api/auth/login', {
       username: seed.admin.username,

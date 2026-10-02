@@ -3,7 +3,7 @@
 # This is NOT the deployable stack — see docker-compose.yml for that. Databases
 # run on tmpfs and are discarded on `down`, so every run starts from an empty
 # schema (migrations + the default admin user are applied by the umami image on
-# boot via scripts/start-docker.sh).
+# boot via scripts/liekan-start.sh).
 #
 # Profiles:
 #   postgres    umami + Postgres              -> pnpm test:api
@@ -18,13 +18,14 @@ x-umami-service: &umami-service
   image: ${UMAMI_TEST_IMAGE:-umami-test:local}
   build:
     context: .
+    dockerfile: Dockerfile.liekan
     args:
       SKIP_BUILD_GEO: ${SKIP_BUILD_GEO:-1}
   ports:
     - "${UMAMI_TEST_PORT:-3100}:3000"
   init: true
   healthcheck:
-    test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/heartbeat || exit 1"]
+    test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/heartbeat').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
     interval: 2s
     timeout: 5s
     retries: 90

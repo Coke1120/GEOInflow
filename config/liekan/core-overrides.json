@@ -1179,6 +1179,61 @@
       "owner": "Liekan upstream compatibility",
       "constraint": "Exercise the production navigation hook for all five entity kinds",
       "removalCondition": "Remove with the associated navigation override after upstream supplies the regression coverage"
+    },
+    {
+      "path": "tests/api/helpers/constants.ts",
+      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan empty-database API login and default-credential migration checks"
+      ],
+      "owner": "Liekan installation maintenance",
+      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
+      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
+    },
+    {
+      "path": "tests/api/auth.spec.ts",
+      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan empty-database API login and default-credential migration checks"
+      ],
+      "owner": "Liekan installation maintenance",
+      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
+      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
+    },
+    {
+      "path": "tests/e2e/helpers.ts",
+      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan empty-database API login and default-credential migration checks"
+      ],
+      "owner": "Liekan installation maintenance",
+      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
+      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
+    },
+    {
+      "path": "scripts/seed/index.ts",
+      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan empty-database API login and default-credential migration checks"
+      ],
+      "owner": "Liekan installation maintenance",
+      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
+      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
+    },
+    {
+      "path": "docker-compose.test.yml",
+      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan empty-database API login and default-credential migration checks"
+      ],
+      "owner": "Liekan installation maintenance",
+      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
+      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
     }
   ]
 }

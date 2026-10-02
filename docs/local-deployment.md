@@ -14,11 +14,11 @@ Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 R
 
 ```sh
 pnpm liekan:verify
-docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" liekan:0.1.1
+docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" liekan:0.1.2
 docker compose -f docker-compose.liekan.yml up -d --no-build
 ```
 
-启动依次检查并应用 Umami 迁移、应用 Liekan 校验和迁移、更新 tracker 文件、启动服务器。应用健康检查通过后使用沿用的账号登录。数据库为空时，上游初始化会创建默认管理员，请按现有安装流程设置密码。
+启动依次检查并应用 Umami 迁移、应用 Liekan 校验和迁移、更新 tracker 文件、启动服务器。首次安装的默认用户名为 `admin`，密码为 `liekan`。Liekan 的第 5 项迁移仅更新身份、名称、角色及密码摘要仍与上游初始管理员完全一致的有效账号，保留自定义密码、改名账号和已删除账号。迁移账本保证后续重启保留用户修改后的密码。已有账号继续使用其设置的密码。
 
 完整验收的镜像构建沿用环境中的 HTTP_PROXY、HTTPS_PROXY 和 NO_PROXY；macOS 的回环代理地址转换为 Docker Desktop 的 host.docker.internal。可用 LIEKAN_DOCKER_HTTP_PROXY / LIEKAN_DOCKER_HTTPS_PROXY 单独指定容器可达的构建代理。代理值通过构建进程环境传入，命令参数只带变量名，最终应用不配置这些构建代理；官方组件来源和 HTTPS 校验保持有效。Prisma 的代理支持见 [官方说明](https://www.prisma.io/docs/orm/v7/reference/environment-variables-reference#proxy-environment-variables)。
 

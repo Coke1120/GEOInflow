@@ -4,11 +4,11 @@
  * sync by hand — they change rarely.
  */
 
-/** Created by prisma/migrations/01_init on first boot. */
+/** Initialized by the upstream migration and Liekan's default-login migration. */
 export const ADMIN_USER = {
   id: '41e2b680-648e-4b09-bcd7-3e2b10c06264',
   username: 'admin',
-  password: 'umami',
+  password: 'liekan',
   role: 'admin',
 } as const;
 
