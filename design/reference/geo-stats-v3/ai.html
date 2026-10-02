@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 访问总览 · 猎看管理后台</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  fontFamily: { sans: ['Inter','-apple-system','BlinkMacSystemFont','PingFang SC','Helvetica Neue','Microsoft YaHei','sans-serif'] },
+  colors: { ink:'#16181D', sub:'#697386', faint:'#9AA3B2', line:'#E9ECF1', wash:'#F5F7FA', brand:'#0F62FE', brand2:'#4589FF', brandbg:'#EDF2FF', up:'#F04452', down:'#0E9F6E' },
+} } }
+</script>
+<style>
+  body { background:#F5F7FA; -webkit-font-smoothing:antialiased; }
+  .num { font-variant-numeric: tabular-nums; }
+  .card { background:#fff; border:1px solid #E9ECF1; border-radius:14px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:9px; color:#697386; font-weight:500; font-size:13.5px; transition:all .18s; }
+  .nav-item:hover { background:#F5F7FA; color:#16181D; }
+  .nav-item.on { background:#EDF2FF; color:#0F62FE; }
+  .nav-grp { font-size:11px; font-weight:600; letter-spacing:.06em; color:#9AA3B2; padding:14px 12px 6px; }
+  .nav-quick { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:9px; color:#0F62FE; font-weight:600; font-size:13.5px; margin-top:12px; transition:background .18s; }
+  .nav-quick:hover { background:#F5F7FA; }
+  .nav-quick.on { background:#EDF2FF; }
+  .nav-quick.on:hover { background:#DFE9FF; }
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:#3D4657; background:#fff; border:1px solid #E5E9F0; border-radius:9px; padding:7px 12px; cursor:pointer; transition:all .18s; }
+  .chip:hover { border-color:#A6C1FF; }
+  .chip.on { background:#EDF2FF; border-color:#0F62FE; color:#0F62FE; font-weight:600; }
+  .fade-in { animation: fadeUp .6s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform: translateY(0);} }
+  .d1{animation-delay:.04s}.d2{animation-delay:.1s}.d3{animation-delay:.16s}
+  .bd { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:6px; }
+  .bd-green { color:#0E9F6E; background:#0E9F6E14; }
+  .bd-blue { color:#0F62FE; background:#0F62FE14; }
+  .bd-amber { color:#B7791F; background:#B7791F14; }
+  .bd-red { color:#F04452; background:#F0445214; }
+  .bd-gray { color:#697386; background:#69738614; }
+  .bd-purple { color:#7C5CFC; background:#7C5CFC14; }
+  .prog { height:6px; border-radius:3px; background:#EEF1F6; overflow:hidden; }
+  .prog > i { display:block; height:100%; border-radius:3px; background:#0F62FE; }
+
+  /* ── 侧栏拖拽调宽 ── */
+  .side-resizer { position:absolute; top:0; right:-3px; width:6px; height:100%; cursor:col-resize; z-index:60; }
+  .side-resizer:hover, body.side-resizing .side-resizer { background:rgba(15,98,254,.35); }
+  body.side-resizing { user-select:none; cursor:col-resize; }
+  aside .nav-item, aside .nav-quick { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+</style>
+</head>
+<body class="font-sans text-ink">
+<aside class="fixed inset-y-0 left-0 w-[228px] bg-white border-r border-line flex flex-col z-40">
+  <div class="h-[64px] flex items-center gap-3 px-5 border-b border-line">
+    <div class="w-8 h-8 rounded-[10px] bg-gradient-to-br from-brand to-brand2 flex items-center justify-center shrink-0 shadow-[0_4px_14px_-4px_rgba(15,98,254,.55)]">
+      <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6.2 5.8 12 5.8 21.5 12 21.5 12 17.8 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8" fill="white" stroke="none"/><path d="M17.5 3.5l1.8 1.8M19.3 5.3L21 3.6" stroke-width="1.8"/></svg>
+    </div>
+    <div class="leading-tight">
+      <span class="block font-bold tracking-tight text-[14.5px]">猎看流量洞察</span>
+      <span class="block text-[9.5px] text-faint tracking-[.12em] font-semibold mt-0.5">LIEKAN GEO STATS</span>
+    </div>
+  </div>
+
+  <nav class="flex-1 px-3 pb-4 overflow-y-auto">
+    <a href="../admin.html" class="nav-quick">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+      返回管理后台</a>
+    <p class="nav-grp">总览</p>
+    <a href="index.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      流量总览</a>
+    <p class="nav-grp">AI 蜘蛛</p>
+    <a href="ai.html" class="nav-item on">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      AI 访问总览</a>
+    <a href="ai-bots.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7.5" r="3.5"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M15.5 4.13a3.5 3.5 0 0 1 0 6.74"/></svg>
+      蜘蛛明细<span class="ml-auto text-[11px] bg-wash text-sub rounded-md px-1.5 py-0.5 num">14</span></a>
+    <a href="ai-pages.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M8 13h8M8 17h5"/></svg>
+      AI 抓取页面</a>
+    <a href="ai-preference.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>
+      AI 访问偏好</a>
+    <p class="nav-grp">人类访问</p>
+    <a href="human.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7.5" r="3.5"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M15.5 4.13a3.5 3.5 0 0 1 0 6.74"/></svg>
+      访客总览</a>
+    <a href="human-geo.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      地域分布</a>
+    <a href="human-source.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8M21 12a9 9 0 1 1-6.2-8.56"/></svg>
+      来源渠道</a>
+    <p class="nav-grp">内容与转化</p>
+    <a href="content.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M8 13h8M8 17h5"/></svg>
+      页面与内容</a>
+    <a href="funnel.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      转化分析</a>
+    <p class="nav-grp">日志</p>
+    <a href="logs.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M8 13h8M8 17h5"/></svg>
+      实时访问流</a>
+  </nav>
+  <div class="px-3 py-3 border-t border-line">
+    <div class="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-wash transition cursor-pointer" title="站点 www.liekan.com · yaoge">
+      <span class="w-7 h-7 rounded-lg bg-ink text-white text-[10.5px] font-bold flex items-center justify-center shrink-0">Y</span>
+      <span class="text-[12.5px] font-medium text-ink truncate">www.liekan.com</span>
+      <span class="ml-auto flex items-center gap-0.5 shrink-0">
+        <button class="w-7 h-7 rounded-lg hover:bg-white hover:shadow-sm flex items-center justify-center text-faint hover:text-brand transition" title="切换站点">
+          <svg class="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        </button>
+        <button class="w-7 h-7 rounded-lg hover:bg-white hover:shadow-sm flex items-center justify-center text-faint hover:text-brand transition" title="设置">
+          <svg class="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.26.6.86 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.65 0-1.25.4-1.51 1z"/></svg>
+        </button>
+      </span>
+    </div>
+  </div>
+</aside>
+<div class="ml-[228px] min-h-screen">
+  <div class="sticky top-0 z-30 bg-wash/85 backdrop-blur-lg">
+    <div class="max-w-[1200px] mx-auto px-8 h-[60px] flex items-center justify-between gap-4">
+      <div>
+        <h1 class="text-[16px] font-bold tracking-tight">AI 访问总览</h1>
+        <p class="text-[11.5px] text-faint">14 种 AI 蜘蛛的抓取规模、节奏与站点策略</p>
+      </div>
+      <div class="flex items-center gap-2"><button class="chip">robots.txt 编辑</button><button class="chip">蜘蛛白名单</button></div>
+    </div>
+  </div>
+
+  <main class="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
+
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 fade-in d1"><p class="text-[11.5px] text-sub">AI 蜘蛛请求（30天）</p><p class="num text-[24px] font-bold text-up mt-1.5">19.2 万</p><p class="text-[10.5px] text-faint mt-1">环比 +42.6%</p></div>
+      <div class="card p-4 fade-in d1"><p class="text-[11.5px] text-sub">识别 AI 蜘蛛</p><p class="num text-[24px] font-bold text-brand mt-1.5">14 种</p><p class="text-[10.5px] text-faint mt-1">覆盖 11 家 AI 厂商</p></div>
+      <div class="card p-4 fade-in d1"><p class="text-[11.5px] text-sub">AI 抓取页面覆盖率</p><p class="num text-[24px] font-bold text-brand mt-1.5">86%</p><p class="text-[10.5px] text-faint mt-1">站点 148 页中被爬 127 页</p></div>
+      <div class="card p-4 fade-in d1"><p class="text-[11.5px] text-sub">单页日均最高抓取</p><p class="num text-[24px] font-bold text-brand mt-1.5">16.2 次</p><p class="text-[10.5px] text-faint mt-1">/cases/housty · GPTBot</p></div>
+    </section>
+
+    <section class="grid grid-cols-3 gap-4">
+      <div class="card col-span-2 fade-in d2">
+        <div class="px-6 pt-5 pb-2"><h2 class="text-[14px] font-bold tracking-tight">各 AI 蜘蛛抓取趋势</h2>
+        <p class="text-[11.5px] text-faint mt-0.5">近 30 天 · 次/天 · Top 5</p></div>
+        <div id="a1" style="height:260px"></div>
+      </div>
+      <div class="card fade-in d3">
+        <div class="px-6 pt-5 pb-2"><h2 class="text-[14px] font-bold tracking-tight">AI vs 人类占比演化</h2>
+        <p class="text-[11.5px] text-faint mt-0.5">近 6 个月 · AI 请求占比</p></div>
+        <div id="a2" style="height:260px"></div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-3 gap-4">
+      <div class="card fade-in d2">
+        <div class="px-6 pt-5 pb-2"><h2 class="text-[14px] font-bold tracking-tight">AI 抓取时段分布</h2>
+        <p class="text-[11.5px] text-faint mt-0.5">近 30 天 · 24h 聚合</p></div>
+        <div id="a3" style="height:220px"></div>
+      </div>
+      <div class="card fade-in d3">
+        <div class="px-6 pt-5 pb-2"><h2 class="text-[14px] font-bold tracking-tight">AI 抓取响应状态</h2>
+        <p class="text-[11.5px] text-faint mt-0.5">近 30 天 · HTTP 状态码</p></div>
+        <div id="a4" style="height:220px"></div>
+      </div>
+      <div class="card fade-in d3 p-5">
+        <h2 class="text-[14px] font-bold tracking-tight">robots.txt 策略</h2>
+        <div class="mt-3 space-y-2 text-[11.5px] leading-relaxed" id="robotsList"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+
+const INK='#16181D', SUB='#697386', FAINT='#9AA3B2', LINE='#E9ECF1';
+const B='#0F62FE', B2='#4589FF', TEAL='#009D9A', PUR='#7C5CFC', AMBER='#B7791F', RED='#F04452', GREEN='#0E9F6E', GRAY='#9AA3B2';
+function mk(id, opt){ const el=document.getElementById(id); if(!el) return; const c=echarts.init(el); c.setOption(opt); window.addEventListener('resize', ()=>c.resize()); }
+const TT={ trigger:'axis', backgroundColor:'#fff', borderColor:LINE, textStyle:{ color:INK, fontSize:12 } };
+const TTi={ trigger:'item', backgroundColor:'#fff', borderColor:LINE, textStyle:{ color:INK, fontSize:12 } };
+
+const x=[...Array(30)].map((_,i)=>{ const d=2+i; return '09-'+(d<10?'0'+d:d); });
+function g(base,amp,trend){ return [...Array(30)].map((_,i)=>Math.round(base+Math.sin(i/3.4)*amp+i*trend+(i%7===3?base*.3:0))); }
+mk('a1', { tooltip:TT,
+  legend:{ top:2, right:8, itemWidth:10, itemHeight:10, textStyle:{ fontSize:11, color:SUB } },
+  grid:{ left:44, right:20, top:34, bottom:26 },
+  xAxis:{ type:'category', data:x, axisLine:{ lineStyle:{ color:LINE } }, axisTick:{ show:false }, axisLabel:{ color:FAINT, fontSize:10, interval:4 } },
+  yAxis:{ type:'value', splitLine:{ lineStyle:{ color:LINE } }, axisLabel:{ color:FAINT, fontSize:11 } },
+  series:[
+    { name:'GPTBot', type:'line', smooth:true, symbol:'none', lineStyle:{ width:2.5, color:B }, itemStyle:{ color:B }, data:g(1800,320,22) },
+    { name:'Bytespider', type:'line', smooth:true, symbol:'none', lineStyle:{ width:2.5, color:TEAL }, itemStyle:{ color:TEAL }, data:g(1200,240,16) },
+    { name:'ClaudeBot', type:'line', smooth:true, symbol:'none', lineStyle:{ width:2, color:PUR }, itemStyle:{ color:PUR }, data:g(760,180,10) },
+    { name:'Baiduspider', type:'line', smooth:true, symbol:'none', lineStyle:{ width:2, color:AMBER }, itemStyle:{ color:AMBER }, data:g(620,140,4) },
+    { name:'PerplexityBot', type:'line', smooth:true, symbol:'none', lineStyle:{ width:2, color:B2 }, itemStyle:{ color:B2 }, data:g(480,120,12) },
+  ] });
+
+mk('a2', { tooltip:Object.assign({}, TT, { valueFormatter:(v)=>v+'%' }),
+  grid:{ left:40, right:16, top:30, bottom:26 },
+  xAxis:{ type:'category', data:['26-05','26-06','26-07','26-08','26-09','26-10'], axisLine:{ lineStyle:{ color:LINE } }, axisTick:{ show:false }, axisLabel:{ color:FAINT, fontSize:10.5 } },
+  yAxis:{ type:'value', max:40, splitLine:{ lineStyle:{ color:LINE } }, axisLabel:{ color:FAINT, fontSize:10.5 } },
+  series:[{ name:'AI 占比', type:'bar', barWidth:22, itemStyle:{ color:B, borderRadius:[4,4,0,0] },
+    label:{ show:true, position:'top', fontSize:10, color:SUB, formatter:'{c}%' },
+    data:[12.4,15.8,19.6,24.2,29.8,34.4] }] });
+
+const hours=[...Array(24)].map((_,i)=>i+'');
+mk('a3', { tooltip:TT,
+  grid:{ left:44, right:16, top:26, bottom:26 },
+  xAxis:{ type:'category', data:hours, axisLine:{ lineStyle:{ color:LINE } }, axisTick:{ show:false }, axisLabel:{ color:FAINT, fontSize:9, interval:2 } },
+  yAxis:{ type:'value', splitLine:{ lineStyle:{ color:LINE } }, axisLabel:{ color:FAINT, fontSize:10.5 } },
+  series:[{ name:'抓取次数', type:'bar', barWidth:9, itemStyle:{ color:(p)=>p.dataIndex>=2&&p.dataIndex<=6?PUR:B2, borderRadius:[3,3,0,0] },
+    data:[6200,5800,7400,9200,8600,7800,6400,5200,6800,8400,9600,10200,9800,9200,8600,8200,7800,7400,8200,8800,8400,7600,6800,6400] }] });
+
+mk('a4', { tooltip:Object.assign({}, TTi, { formatter:'{b}<br>{c} 次（{d}%）' }),
+  legend:{ bottom:4, itemWidth:10, itemHeight:10, textStyle:{ fontSize:11, color:SUB } },
+  series:[{ type:'pie', radius:['50%','72%'], center:['50%','44%'], label:{ show:false }, itemStyle:{ borderColor:'#fff', borderWidth:2 },
+    data:[
+      { value:178200, name:'200 正常', itemStyle:{ color:GREEN } },
+      { value:8400, name:'304 未修改', itemStyle:{ color:B2 } },
+      { value:3600, name:'301/302 跳转', itemStyle:{ color:AMBER } },
+      { value:1800, name:'404/410', itemStyle:{ color:RED } },
+    ] }] });
+
+const robots=[
+  ['GPTBot / OAI-SearchBot', 'Allow 全站', 'green'],
+  ['ClaudeBot / PerplexityBot', 'Allow 全站', 'green'],
+  ['Bytespider（豆包）', 'Allow 全站', 'green'],
+  ['CCBot（Common Crawl）', 'Allow 内容页 · Disallow /pricing', 'amber'],
+  ['Google-Extended', 'Allow · 不影响搜索排名', 'green'],
+  ['训练型蜘蛛限速', 'Crawl-delay 2s（防突发）', 'gray'],
+];
+const rl=document.getElementById('robotsList');
+robots.forEach(r=>{
+  const d=document.createElement('div');
+  d.className='flex items-center gap-2.5 rounded-lg bg-wash px-3 py-2';
+  d.innerHTML=`<span class="flex-1 text-ink text-[11.5px] font-medium">${r[0]}</span><span class="bd bd-${r[2]}">${r[1]}</span>`;
+  rl.appendChild(d);
+});
+
+</script>
+<script>
+/* ── 侧栏宽度拖拽（180–320px，localStorage 记忆） ── */
+(function(){
+  var aside = document.querySelector('aside');
+  var main = aside && aside.nextElementSibling;
+  if(!aside || !main) return;
+  var rz = document.createElement('div');
+  rz.className = 'side-resizer';
+  rz.title = '拖动调整侧栏宽度';
+  aside.appendChild(rz);
+  var KEY = 'lk-side-w', MIN = 180, MAX = 320;
+  function apply(w){
+    w = Math.max(MIN, Math.min(MAX, Math.round(w)));
+    aside.style.width = w + 'px';
+    main.style.marginLeft = w + 'px';
+    try { localStorage.setItem(KEY, String(w)); } catch(e){}
+  }
+  try {
+    var saved = parseInt(localStorage.getItem(KEY), 10);
+    if (saved) apply(saved);
+  } catch(e){}
+  rz.addEventListener('mousedown', function(e){
+    e.preventDefault();
+    var startX = e.clientX, startW = aside.getBoundingClientRect().width;
+    document.body.classList.add('side-resizing');
+    function mv(ev){ apply(startW + ev.clientX - startX); }
+    function up(){
+      document.removeEventListener('mousemove', mv);
+      document.removeEventListener('mouseup', up);
+      document.body.classList.remove('side-resizing');
+    }
+    document.addEventListener('mousemove', mv);
+    document.addEventListener('mouseup', up);
+  });
+})();
+</script>
+</body>
+</html>

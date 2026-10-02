@@ -1,4 +1,5 @@
 import { BROWSERS, OS_NAMES } from '@/lib/constants';
+import { normalizeCountryCode, normalizeRegionCode } from '@/lib/country';
 import regions from '../../../public/iso-3166-2.json';
 import { useCountryNames } from './useCountryNames';
 import { useLanguageNames } from './useLanguageNames';
@@ -24,16 +25,24 @@ export function useFormat() {
   };
 
   const formatCountry = (value: string): string => {
-    return countryNames[value] || value;
+    const country = normalizeCountryCode(value);
+
+    return countryNames[country] || country || value;
   };
 
   const formatRegion = (value?: string): string => {
     const [country] = value?.split('-') || [];
-    return regions[value] ? `${regions[value]}, ${countryNames[country]}` : value;
+    const normalizedCountry = normalizeCountryCode(country);
+    const region = normalizeRegionCode(value, normalizedCountry);
+    const regionName = regions[region];
+
+    return regionName ? `${regionName}, ${countryNames[normalizedCountry]}` : region;
   };
 
   const formatCity = (value: string, country?: string): string => {
-    return countryNames[country] ? `${value}, ${countryNames[country]}` : value;
+    const countryCode = normalizeCountryCode(country);
+
+    return countryNames[countryCode] ? `${value}, ${countryNames[countryCode]}` : value;
   };
 
   const formatLanguage = (value: string): string => {

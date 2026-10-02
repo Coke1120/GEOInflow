@@ -20,6 +20,7 @@ import { Eye, User } from '@/components/icons';
 import { FilterButtons } from '@/components/input/FilterButtons';
 import { Lightning } from '@/components/svg';
 import { BROWSERS, OS_NAMES } from '@/lib/constants';
+import { normalizeCountryCode } from '@/lib/country';
 
 const TYPE_ALL = 'all';
 const TYPE_PAGEVIEW = 'pageview';
@@ -80,6 +81,7 @@ export function RealtimeLog({ data }: { data: any }) {
     hostname: string;
   }) => {
     const { __type, eventName, urlPath, browser, os, country, device, hostname } = log;
+    const countryCode = normalizeCountryCode(country);
 
     if (__type === TYPE_EVENT) {
       return t.rich(messages.eventLog, {
@@ -114,7 +116,7 @@ export function RealtimeLog({ data }: { data: any }) {
 
     if (__type === TYPE_SESSION) {
       return t.rich(messages.visitorLog, {
-        country: countryNames[country] || t(labels.unknown),
+        country: countryNames[countryCode] || t(labels.unknown),
         browser: BROWSERS[browser],
         os: OS_NAMES[os] || os,
         device: t(labels[device] || labels.unknown),

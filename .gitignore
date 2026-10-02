@@ -57,3 +57,8 @@ yarn-error.log*
 
 # api integration test runtime state
 /tests/api/.runtime
+
+# Liekan local build and review outputs
+/tmp/
+/outputs/
+/.local/

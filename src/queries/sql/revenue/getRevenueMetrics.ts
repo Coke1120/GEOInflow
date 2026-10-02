@@ -9,6 +9,12 @@ import {
   SOCIAL_DOMAINS,
   VIDEO_DOMAINS,
 } from '@/lib/constants';
+import {
+  getClickHouseCountrySQL,
+  getClickHouseRegionSQL,
+  getPostgresCountrySQL,
+  getPostgresRegionSQL,
+} from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
@@ -84,13 +90,13 @@ async function relationalQuery(
       ${filteredSessionsQuery},
       ${filteredRevenueQuery}
       select
-        session.country as "name",
+        ${getPostgresCountrySQL('session.country')} as "name",
         sum(filtered_revenue.revenue) as "value"
       from filtered_revenue
       join session
         on session.website_id = filtered_revenue.website_id
           and session.session_id = filtered_revenue.session_id
-      group by session.country
+      group by 1
       order by value desc
       `,
       queryParams,
@@ -104,14 +110,14 @@ async function relationalQuery(
       ${filteredSessionsQuery},
       ${filteredRevenueQuery}
       select
-        session.country,
-        session.region as "name",
+        ${getPostgresCountrySQL('session.country')} as country,
+        ${getPostgresRegionSQL('session.country', 'session.region')} as "name",
         sum(filtered_revenue.revenue) as "value"
       from filtered_revenue
       join session
         on session.website_id = filtered_revenue.website_id
           and session.session_id = filtered_revenue.session_id
-      group by session.country, session.region
+      group by 1, 2
       order by value desc
       `,
       queryParams,
@@ -309,13 +315,13 @@ async function clickhouseQuery(
       ${filteredSessionsQuery},
       ${filteredRevenueQuery}
       select
-        filtered_sessions.country as "name",
+        ${getClickHouseCountrySQL('filtered_sessions.country')} as "name",
         sum(filtered_revenue.revenue) as "value"
       from filtered_revenue
       inner join filtered_sessions
         on filtered_sessions.website_id = filtered_revenue.website_id
        and filtered_sessions.session_id = filtered_revenue.session_id
-      group by filtered_sessions.country
+      group by 1
       order by value desc
       `,
       queryParams,
@@ -329,8 +335,8 @@ async function clickhouseQuery(
       ${filteredSessionsQuery},
       ${filteredRevenueQuery}
       select
-        filtered_sessions.country,
-        filtered_sessions.region as "name",
+        ${getClickHouseCountrySQL('filtered_sessions.country')} as country,
+        ${getClickHouseRegionSQL('filtered_sessions.country', 'filtered_sessions.region')} as "name",
         sum(filtered_revenue.revenue) as "value"
       from filtered_revenue
       inner join filtered_sessions

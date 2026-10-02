@@ -1,0 +1,741 @@
+{
+  "baseline": "ec0ff50388c264ed8ce46f00967e92f7e71476ae",
+  "files": [
+    {
+      "path": "package.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/datamaps.world.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/images/country/tw.png",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/am-ET.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/ar-SA.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/be-BY.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/bg-BG.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/bn-BD.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/bs-BA.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/ca-ES.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/cs-CZ.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/da-DK.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/de-CH.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/de-DE.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/el-GR.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/en-GB.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/en-US.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/es-ES.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/es-MX.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/fa-IR.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/fi-FI.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/fo-FO.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/fr-FR.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/he-IL.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/hi-IN.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/hr-HR.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/hu-HU.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/id-ID.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/it-IT.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/ja-JP.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/km-KH.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/ko-KR.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/lt-LT.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/mn-MN.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/ms-MY.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/my-MM.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/nb-NO.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/nl-NL.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/pl-PL.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/pt-BR.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/pt-PT.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/ro-RO.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/ru-RU.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/si-LK.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/sk-SK.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/sl-SI.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/sv-SE.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/ta-IN.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/th-TH.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/tr-TR.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/uk-UA.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/ur-PK.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/uz-UZ.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/vi-VN.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/zh-CN.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/country/zh-TW.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/language/zh-TW.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/intl/messages/zh-TW.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "public/iso-3166-2.json",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/realtime/RealtimeCountries.tsx",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/realtime/RealtimeLog.tsx",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/realtime/RealtimePage.tsx",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/components/common/TypeIcon.tsx",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/components/hooks/useFormat.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/components/hooks/useRegionNames.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/components/metrics/MetricLabel.tsx",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/components/metrics/MetricsTable.tsx",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/components/metrics/WorldMap.tsx",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/lib/clickhouse.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/lib/constants.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/lib/detect.test.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/lib/detect.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/lib/filters.test.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/lib/filters.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/lib/lang.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/lib/prisma.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/breakdown/getBreakdown.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/events/getWebsiteEvents.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/events/saveEvent.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/getRealtimeActivity.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/getRealtimeData.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/getValues.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/replays/getSessionReplays.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/revenue/getRevenueMetrics.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/revenue/getRevenueSessions.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/sessions/createSession.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/sessions/getSessionExpandedMetrics.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/sessions/getSessionMetrics.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/sessions/getWebsiteSession.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/sessions/getWebsiteSessionStats.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    },
+    {
+      "path": "src/queries/sql/sessions/getWebsiteSessions.ts",
+      "purpose": "Inherited device/geography compatibility",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts"
+      ]
+    }
+  ]
+}

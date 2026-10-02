@@ -10,6 +10,7 @@ import {
   useRegionNames,
 } from '@/components/hooks';
 import { GROUPED_DOMAINS } from '@/lib/constants';
+import { normalizeCountryCode } from '@/lib/country';
 import { decodePunycodeDomain } from '@/lib/format';
 
 export interface MetricLabelProps {
@@ -90,7 +91,8 @@ function ChannelMetricLabel({ data }: Pick<MetricLabelProps, 'data'>) {
 
 function CityMetricLabel({ data }: Pick<MetricLabelProps, 'data'>) {
   const { formatCity } = useFormat();
-  const { label, country } = data;
+  const { label, country: originalCountry } = data;
+  const country = normalizeCountryCode(originalCountry);
 
   return (
     <FilterLink
@@ -112,7 +114,8 @@ function CityMetricLabel({ data }: Pick<MetricLabelProps, 'data'>) {
 function RegionMetricLabel({ data }: Pick<MetricLabelProps, 'data'>) {
   const { locale } = useLocale();
   const { getRegionName } = useRegionNames(locale);
-  const { label, country } = data;
+  const { label, country: originalCountry } = data;
+  const country = normalizeCountryCode(originalCountry);
 
   return (
     <FilterLink
@@ -128,7 +131,8 @@ function CountryMetricLabel({ data }: Pick<MetricLabelProps, 'data'>) {
   const { formatValue } = useFormat();
   const { locale } = useLocale();
   const { countryNames } = useCountryNames(locale);
-  const { label } = data;
+  const { label: originalLabel } = data;
+  const label = normalizeCountryCode(originalLabel);
 
   return (
     <FilterLink

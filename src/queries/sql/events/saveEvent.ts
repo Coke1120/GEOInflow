@@ -1,5 +1,6 @@
 import clickhouse from '@/lib/clickhouse';
 import { FIELD_LENGTH } from '@/lib/constants';
+import { normalizeCountryCode, normalizeRegionCode } from '@/lib/country';
 import { uuid } from '@/lib/crypto';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import { truncateString } from '@/lib/format';
@@ -213,16 +214,15 @@ async function clickhouseQuery({
   const { insert, getUTCString } = clickhouse;
   const { sendMessage } = kafka;
   const eventId = uuid();
+  const countryCode = normalizeCountryCode(country);
+  const regionCode = normalizeRegionCode(region, countryCode);
 
   const message = {
     website_id: websiteId,
     session_id: sessionId,
     visit_id: visitId,
     event_id: eventId,
-    region: truncateString(
-      country && region ? (region.includes('-') ? region : `${country}-${region}`) : null,
-      FIELD_LENGTH.region,
-    ),
+    region: truncateString(regionCode, FIELD_LENGTH.region),
     city: truncateString(city, FIELD_LENGTH.city),
     url_path: truncateString(urlPath, FIELD_LENGTH.url),
     url_query: truncateString(urlQuery, FIELD_LENGTH.url),
@@ -252,7 +252,7 @@ async function clickhouseQuery({
     screen: truncateString(screen, FIELD_LENGTH.screen),
     language: truncateString(language, FIELD_LENGTH.language),
     hostname: truncateString(hostname, FIELD_LENGTH.hostname),
-    country: truncateString(country, FIELD_LENGTH.country),
+    country: truncateString(countryCode, FIELD_LENGTH.country),
     lcp: lcp,
     inp: inp,
     cls: cls,

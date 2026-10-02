@@ -1,4 +1,4 @@
-import { Box, Column, type ColumnProps, FloatingTooltip, Text, useTheme } from '@umami/react-zen';
+import { Box, Column, type ColumnProps, FloatingTooltip, useTheme } from '@umami/react-zen';
 import { colord } from 'colord';
 import { useMemo, useState } from 'react';
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps';
@@ -10,7 +10,7 @@ import {
 } from '@/components/hooks';
 import { getThemeColors } from '@/lib/colors';
 import { ISO_COUNTRIES, MAP_FILE } from '@/lib/constants';
-import { percentFilter } from '@/lib/filters';
+import { mergeCountryMetrics, percentFilter } from '@/lib/filters';
 import { formatLongNumber } from '@/lib/format';
 
 export interface WorldMapProps extends ColumnProps {
@@ -19,7 +19,8 @@ export interface WorldMapProps extends ColumnProps {
 }
 
 export function WorldMap({ websiteId, data, ...props }: WorldMapProps) {
-  const [tooltip, setTooltipPopup] = useState();
+  const [tooltip, setTooltipPopup] = useState<string | null>();
+  const [hoveredCountryCode, setHoveredCountryCode] = useState<string | null>();
   const { theme } = useTheme();
   const { colors } = getThemeColors(theme);
   const { locale } = useLocale();
@@ -33,12 +34,14 @@ export function WorldMap({ websiteId, data, ...props }: WorldMapProps) {
   });
 
   const metrics = useMemo(
-    () => (data || mapData ? percentFilter((data || mapData) as any[]) : []),
+    () => (data || mapData ? percentFilter(mergeCountryMetrics((data || mapData) as any[])) : []),
     [data, mapData],
   );
 
-  const getFillColor = (code: string) => {
+  const getFillColor = (code?: string) => {
     if (code === 'AQ') return;
+    if (code && hoveredCountryCode === code) return colors.map.hoverColor;
+
     const country = metrics?.find(({ x }) => x === code);
 
     if (!country) {
@@ -50,18 +53,26 @@ export function WorldMap({ websiteId, data, ...props }: WorldMapProps) {
       .toHex();
   };
 
-  const getOpacity = (code: string) => {
+  const getOpacity = (code?: string) => {
     return code === 'AQ' ? 0 : 1;
   };
 
-  const handleHover = (code: string) => {
+  const handleHover = (code?: string) => {
     if (code === 'AQ') return;
+
+    setHoveredCountryCode(code);
+
     const country = metrics?.find(({ x }) => x === code);
     setTooltipPopup(
       `${countryNames[code] || unknownLabel}: ${formatLongNumber(
         country?.y || 0,
       )} ${visitorsLabel}` as any,
     );
+  };
+
+  const handleMouseOut = () => {
+    setHoveredCountryCode(null);
+    setTooltipPopup(null);
   };
 
   return (
@@ -91,7 +102,7 @@ export function WorldMap({ websiteId, data, ...props }: WorldMapProps) {
                       pressed: { outline: 'none' },
                     }}
                     onMouseOver={() => handleHover(code)}
-                    onMouseOut={() => setTooltipPopup(null)}
+                    onMouseOut={handleMouseOut}
                   />
                 );
               });

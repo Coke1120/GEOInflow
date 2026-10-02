@@ -1,4 +1,5 @@
 import clickhouse from '@/lib/clickhouse';
+import { getClickHouseCountrySQL, getPostgresCountrySQL } from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { PageResult, QueryFilters, SessionReplaySummary } from '@/lib/types';
@@ -61,7 +62,7 @@ async function relationalQuery(websiteId: string, filters: QueryFilters, session
       session.browser,
       session.os,
       session.device,
-      session.country,
+      ${getPostgresCountrySQL('session.country')} as country,
       session.city,
       sum(sr.event_count) as "eventCount",
       count(sr.replay_id) as "chunkCount",
@@ -126,7 +127,7 @@ async function clickhouseQuery(websiteId: string, filters: QueryFilters, session
       website_event.browser,
       website_event.os,
       website_event.device,
-      website_event.country,
+      ${getClickHouseCountrySQL('website_event.country')} as country,
       website_event.city,
       sum(session_replay.event_count) as eventCount,
       count(session_replay.replay_id) as chunkCount,
@@ -136,7 +137,7 @@ async function clickhouseQuery(websiteId: string, filters: QueryFilters, session
       max(session_replay.created_at) as createdAt
     from session_replay
     join (
-      select distinct website_id, session_id, visit_id, browser, os, device, country, city
+      select distinct website_id, session_id, visit_id, browser, os, device, ${getClickHouseCountrySQL('country')} as country, city
       from website_event
       ${cohortQuery}
       where website_id = {websiteId:UUID}
@@ -150,7 +151,7 @@ async function clickhouseQuery(websiteId: string, filters: QueryFilters, session
     where session_replay.website_id = {websiteId:UUID}
         and session_replay.created_at between {startDate:DateTime64} and {endDate:DateTime64}
     ${sessionFilter}
-    group by session_replay.visit_id, session_replay.session_id, session_replay.website_id, website_event.browser, website_event.os, website_event.device, website_event.country, website_event.city
+    group by session_replay.visit_id, session_replay.session_id, session_replay.website_id, website_event.browser, website_event.os, website_event.device, country, website_event.city
     ${havingQuery}
     order by max(created_at) desc
     `,

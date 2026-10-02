@@ -659,7 +659,6 @@ export const ISO_COUNTRIES = {
   TUN: 'TN',
   TUR: 'TR',
   TUV: 'TV',
-  TWN: 'TW',
   TZA: 'TZ',
   UGA: 'UG',
   UKR: 'UA',

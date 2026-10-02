@@ -6,7 +6,7 @@ import { LoadingPanel } from '@/components/common/LoadingPanel';
 import { useMessages, useNavigation, useWebsiteMetricsQuery } from '@/components/hooks';
 import { Maximize } from '@/components/icons';
 import { MetricLabel } from '@/components/metrics/MetricLabel';
-import { percentFilter } from '@/lib/filters';
+import { mergeCountryMetrics, percentFilter } from '@/lib/filters';
 import { ListTable, type ListTableProps } from './ListTable';
 
 export interface MetricsTableProps extends ListTableProps {
@@ -51,6 +51,10 @@ export function MetricsTable({
         } else {
           items = dataFilter(items);
         }
+      }
+
+      if (type === 'country') {
+        items = mergeCountryMetrics(items);
       }
 
       items = percentFilter(items);

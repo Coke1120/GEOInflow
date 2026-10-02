@@ -3,7 +3,7 @@ import { browserName, detectOS } from 'detect-browser';
 import ipaddr from 'ipaddr.js';
 import isLocalhost from 'is-localhost-ip';
 import maxmind from 'maxmind';
-import { UAParser } from 'ua-parser-js';
+import { normalizeCountryCode, normalizeRegionCode } from '@/lib/country';
 import { getIpAddress, stripPort } from '@/lib/ip';
 import { safeDecodeURIComponent } from '@/lib/url';
 
@@ -46,26 +46,60 @@ const PROVIDER_HEADERS = [
   },
 ];
 
-export function getDevice(userAgent: string, screen: string = '') {
-  const { device } = UAParser(userAgent);
+export function getDevice(userAgent: string | null | undefined, screen: string = '') {
+  const ua = userAgent || '';
+
+  // Classify device families from public user-agent tokens; no external device database is used.
+  if (/playstation|xbox|nintendo/i.test(ua)) {
+    return 'console';
+  }
+
+  if (
+    /smart[- ]?tv|hbbtv|googletv|appletv|android[- ]?tv|roku|\baft\w+\b|web0s|bravia|viera|netcast/i.test(
+      ua,
+    )
+  ) {
+    return 'smarttv';
+  }
+
+  if (/applewatch|\bwatch\b|\bwear ?os\b|\bglass\b/i.test(ua)) {
+    return 'wearable';
+  }
+
+  if (/crkey|chromecast/i.test(ua)) {
+    return 'embedded';
+  }
+
+  if (
+    /ipad|tablet|kindle|playbook|touchpad/i.test(ua) ||
+    (/macintosh/i.test(ua) && /\bmobile\b/i.test(ua))
+  ) {
+    return 'tablet';
+  }
+
+  if (/windows phone|windows ce|iemobile/i.test(ua)) {
+    return 'mobile';
+  }
+
+  if (/\bandroid\b|silk\//i.test(ua)) {
+    return /\bmobile\b/i.test(ua) ? 'mobile' : 'tablet';
+  }
+
+  if (/iphone|ipod|blackberry|bb10|opera mini|opera mobi|\bmobile\b/i.test(ua)) {
+    return 'mobile';
+  }
 
   const [width] = screen.split('x');
 
-  const type = device?.type || 'desktop';
-
-  if (type === 'desktop' && screen && +width <= 1920) {
+  if (screen && +width <= 1920) {
     return 'laptop';
   }
 
-  return type;
+  return 'desktop';
 }
 
-function getRegionCode(country: string, region: string) {
-  if (!country || !region) {
-    return undefined;
-  }
-
-  return region.includes('-') ? region : `${country}-${region}`;
+function getRegionCode(country: string | null | undefined, region: string | null | undefined) {
+  return normalizeRegionCode(region, country);
 }
 
 function decodeHeader(s: string | undefined | null): string | undefined | null {
@@ -96,7 +130,7 @@ export async function getLocation(ip: string = '', headers: Headers, skipHeaders
     for (const provider of PROVIDER_HEADERS) {
       const countryHeader = headers.get(provider.countryHeader);
       if (countryHeader) {
-        const country = decodeHeader(countryHeader);
+        const country = normalizeCountryCode(decodeHeader(countryHeader));
         const region = decodeHeader(headers.get(provider.regionHeader));
         const city = decodeHeader(headers.get(provider.cityHeader));
 
@@ -121,7 +155,9 @@ export async function getLocation(ip: string = '', headers: Headers, skipHeaders
   const result = globalThis[MAXMIND]?.get(cleanIp);
 
   if (result) {
-    const country = result.country?.iso_code ?? result?.registered_country?.iso_code;
+    const country = normalizeCountryCode(
+      result.country?.iso_code ?? result?.registered_country?.iso_code,
+    );
     const region = result.subdivisions?.[0]?.iso_code;
     const city = result.city?.names?.en;
 
@@ -137,8 +173,8 @@ export async function getClientInfo(request: Request, payload: Record<string, an
   const userAgent = payload?.userAgent || request.headers.get('user-agent');
   const ip = payload?.ip || getIpAddress(request.headers);
   const location = await getLocation(ip, request.headers, !!payload?.ip);
-  const country = safeDecodeURIComponent(location?.country);
-  const region = safeDecodeURIComponent(location?.region);
+  const country = normalizeCountryCode(safeDecodeURIComponent(location?.country));
+  const region = normalizeRegionCode(safeDecodeURIComponent(location?.region), country);
   const city = safeDecodeURIComponent(location?.city);
   const browser = payload?.browser ?? browserName(userAgent);
   const os = payload?.os ?? (detectOS(userAgent) as string);

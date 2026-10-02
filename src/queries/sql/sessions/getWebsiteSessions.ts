@@ -1,5 +1,11 @@
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, EVENT_TYPE, FILTER_COLUMNS } from '@/lib/constants';
+import {
+  getClickHouseCountrySQL,
+  getClickHouseRegionSQL,
+  getPostgresCountrySQL,
+  getPostgresRegionSQL,
+} from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { PageResult, QueryFilters, WebsiteSession } from '@/lib/types';
@@ -46,8 +52,8 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
       session.device,
       session.screen,
       session.language,
-      session.country,
-      session.region,
+      ${getPostgresCountrySQL('session.country')} as country,
+      ${getPostgresRegionSQL('session.country', 'session.region')} as region,
       session.city,
       min(website_event.created_at) as "firstAt",
       max(website_event.created_at) as "lastAt",
@@ -121,8 +127,8 @@ async function clickhouseQuery(websiteId: string, filters: QueryFilters) {
       argMax(device, created_at) as device,
       argMax(screen, created_at) as screen,
       argMax(language, created_at) as language,
-      argMax(country, created_at) as country,
-      argMax(region, created_at) as region,
+      ${getClickHouseCountrySQL('argMax(country, created_at)')} as country,
+      ${getClickHouseRegionSQL('argMax(country, created_at)', 'argMax(region, created_at)')} as region,
       argMax(city, created_at) as city,
       ${getDateStringSQL('min(created_at)')} as firstAt,
       ${getDateStringSQL('max(created_at)')} as lastAt,
@@ -151,8 +157,8 @@ async function clickhouseQuery(websiteId: string, filters: QueryFilters) {
       argMax(device, max_time) as device,
       argMax(screen, max_time) as screen,
       argMax(language, max_time) as language,
-      argMax(country, max_time) as country,
-      argMax(region, max_time) as region,
+      ${getClickHouseCountrySQL('argMax(country, max_time)')} as country,
+      ${getClickHouseRegionSQL('argMax(country, max_time)', 'argMax(region, max_time)')} as region,
       argMax(city, max_time) as city,
       ${getDateStringSQL('min(min_time)')} as firstAt,
       ${getDateStringSQL('max(max_time)')} as lastAt,

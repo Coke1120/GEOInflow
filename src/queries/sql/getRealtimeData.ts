@@ -1,9 +1,10 @@
+import { normalizeCountryCode } from '@/lib/country';
 import type { QueryFilters, RealtimeActivity, RealtimeData, RealtimeEvent } from '@/lib/types';
 import { getRealtimeActivity } from '@/queries/sql/getRealtimeActivity';
 import { getPageviewStats } from '@/queries/sql/pageviews/getPageviewStats';
 import { getSessionStats } from '@/queries/sql/sessions/getSessionStats';
 
-function increment(data: object, key: string) {
+function increment(data: object, key?: string | null) {
   if (key) {
     if (!data[key]) {
       data[key] = 1;
@@ -36,19 +37,21 @@ export async function getRealtimeData(
       event: RealtimeActivity,
     ) => {
       const { countries, urls, referrers, events } = obj;
-      const { sessionId, urlPath, referrerDomain, country, eventName } = event;
+      const { sessionId, urlPath, referrerDomain, eventName } = event;
+      const country = normalizeCountryCode(event.country);
+      const normalizedEvent = { ...event, country };
 
       if (!uniques.has(sessionId)) {
         uniques.add(sessionId);
         increment(countries, country);
 
-        events.push({ __type: 'session', ...event });
+        events.push({ __type: 'session', ...normalizedEvent });
       }
 
       increment(urls, urlPath);
       increment(referrers, referrerDomain);
 
-      events.push({ __type: eventName ? 'event' : 'pageview', ...event });
+      events.push({ __type: eventName ? 'event' : 'pageview', ...normalizedEvent });
 
       return obj;
     },

@@ -1,5 +1,11 @@
 import clickhouse from '@/lib/clickhouse';
 import { FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
+import {
+  getClickHouseCountrySQL,
+  getClickHouseRegionSQL,
+  getPostgresCountrySQL,
+  getPostgresRegionSQL,
+} from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
@@ -23,6 +29,7 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
   const { rawQuery, getSearchSQL } = prisma;
   const params = {};
   const { startDate, endDate, search } = filters;
+  const valueColumn = getValueColumn(column, 'postgres');
 
   let searchQuery = '';
   let excludeDomain = '';
@@ -42,18 +49,18 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
 
           params[key] = value;
 
-          return getSearchSQL(column, key).replace('and ', '');
+          return getSearchSQL(valueColumn, key).replace('and ', '');
         })
         .join(' OR ')})`;
     } else {
-      searchQuery = getSearchSQL(column);
+      searchQuery = getSearchSQL(valueColumn);
     }
   }
 
   if (SESSION_DB_COLUMNS.has(column)) {
     return rawQuery(
       `
-      select ${column} as "value", count(*) as "count"
+      select ${valueColumn} as "value", count(*) as "count"
       from session
       where website_id = {{websiteId::uuid}}
         and created_at between {{startDate}} and {{endDate}}
@@ -69,7 +76,7 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
 
   return rawQuery(
     `
-    select ${column} as "value", count(*) as "count"
+    select ${valueColumn} as "value", count(*) as "count"
     from website_event
     where website_event.website_id = {{websiteId::uuid}}
       and website_event.created_at between {{startDate}} and {{endDate}}
@@ -88,6 +95,7 @@ async function clickhouseQuery(websiteId: string, column: string, filters: Query
   const { rawQuery, getSearchSQL } = clickhouse;
   const params = {};
   const { startDate, endDate, search } = filters;
+  const valueColumn = getValueColumn(column, 'clickhouse');
 
   let searchQuery = '';
   let excludeDomain = '';
@@ -106,17 +114,17 @@ async function clickhouseQuery(websiteId: string, column: string, filters: Query
 
           params[key] = value;
 
-          return getSearchSQL(column, key).replace('and ', '');
+          return getSearchSQL(valueColumn, key).replace('and ', '');
         })
         .join(' OR ')})`;
     } else {
-      searchQuery = getSearchSQL(column);
+      searchQuery = getSearchSQL(valueColumn);
     }
   }
 
   return rawQuery(
     `
-    select ${column} as "value", count(*) as "count"
+    select ${valueColumn} as "value", count(*) as "count"
     from website_event
     where website_id = {websiteId:UUID}
       and created_at between {startDate:DateTime64} and {endDate:DateTime64}
@@ -135,4 +143,20 @@ async function clickhouseQuery(websiteId: string, column: string, filters: Query
     },
     FUNCTION_NAME,
   );
+}
+
+function getValueColumn(column: string, database: 'postgres' | 'clickhouse') {
+  if (column === 'country') {
+    return database === 'postgres'
+      ? getPostgresCountrySQL(column)
+      : getClickHouseCountrySQL(column);
+  }
+
+  if (column === 'region') {
+    return database === 'postgres'
+      ? getPostgresRegionSQL('country', column)
+      : getClickHouseRegionSQL('country', column);
+  }
+
+  return column;
 }

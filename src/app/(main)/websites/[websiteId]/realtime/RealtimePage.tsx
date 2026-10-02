@@ -7,7 +7,7 @@ import { Panel } from '@/components/common/Panel';
 import { useMobile, useRealtimeQuery } from '@/components/hooks';
 import { RealtimeChart } from '@/components/metrics/RealtimeChart';
 import { WorldMap } from '@/components/metrics/WorldMap';
-import { percentFilter } from '@/lib/filters';
+import { mergeCountryMetrics, percentFilter } from '@/lib/filters';
 import { RealtimeCountries } from './RealtimeCountries';
 import { RealtimeHeader } from './RealtimeHeader';
 import { RealtimeLog } from './RealtimeLog';
@@ -23,9 +23,9 @@ export function RealtimePage({ websiteId }: { websiteId: string }) {
   }
 
   const countries = percentFilter(
-    Object.keys(data.countries)
-      .map(key => ({ x: key, y: data.countries[key] }))
-      .sort(firstBy('y', -1)),
+    mergeCountryMetrics(
+      Object.keys(data.countries).map(key => ({ x: key, y: data.countries[key] })),
+    ).sort(firstBy('y', -1)),
   );
 
   return (

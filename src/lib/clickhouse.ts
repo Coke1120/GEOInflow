@@ -3,6 +3,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import debug from 'debug';
 import { CLICKHOUSE } from '@/lib/db';
 import { DATA_TYPE, DEFAULT_PAGE_SIZE, FILTER_COLUMNS, OPERATORS } from './constants';
+import { getCountryFilterValues, getRegionFilterValues } from './country';
 import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
 
@@ -255,11 +256,16 @@ function getQueryParams(filters: Record<string, any>) {
       if (!resolvedColumn || !name || value === undefined) return obj;
 
       const key = paramName ?? name;
+      const filterName = name?.startsWith('cohort_') ? name.slice('cohort_'.length) : name;
 
       obj[key] = EQUALITY_OPERATORS.includes(operator)
-        ? Array.isArray(value)
-          ? value
-          : [value]
+        ? filterName === 'country'
+          ? getCountryFilterValues(value)
+          : filterName === 'region'
+            ? getRegionFilterValues(value)
+            : Array.isArray(value)
+              ? value
+              : [value]
         : value;
 
       return obj;

@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { paramFilter, percentFilter } from './filters';
+import { ISO_COUNTRIES } from './constants';
+import { LEGACY_COUNTRY_CODE } from './country';
+import { mergeCountryMetrics, paramFilter, percentFilter } from './filters';
 
 describe('percentFilter', () => {
   test('computes each row percentage of the total', () => {
@@ -69,4 +71,24 @@ describe('paramFilter', () => {
   test('returns an empty array when there are no params', () => {
     expect(paramFilter([{ x: '', y: 1 }])).toEqual([]);
   });
+});
+
+test('maps China geography into China country code', () => {
+  expect(ISO_COUNTRIES.CHN).toBe('CN');
+});
+
+test('keeps China as the only country code for China geography metrics', () => {
+  const metrics = percentFilter(
+    mergeCountryMetrics([
+      { x: ISO_COUNTRIES.CHN, y: 3 },
+      { x: ISO_COUNTRIES.CHN, y: 7 },
+      { x: LEGACY_COUNTRY_CODE, y: 5 },
+      { x: 'JP', y: 10 },
+    ]),
+  );
+
+  expect(metrics).toEqual([
+    { x: 'CN', y: 15, z: 60 },
+    { x: 'JP', y: 10, z: 40 },
+  ]);
 });

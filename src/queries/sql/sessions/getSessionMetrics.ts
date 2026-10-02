@@ -1,5 +1,11 @@
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
+import {
+  getClickHouseCountrySQL,
+  getClickHouseRegionSQL,
+  getPostgresCountrySQL,
+  getPostgresRegionSQL,
+} from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
@@ -44,13 +50,20 @@ async function relationalQuery(
   if (type === 'language') {
     column = `lower(left(${type}, 2))`;
   }
+  const countryColumn = getPostgresCountrySQL('country');
+
+  if (type === 'country') {
+    column = countryColumn;
+  } else if (type === 'region') {
+    column = getPostgresRegionSQL('country', column);
+  }
 
   return rawQuery(
     `
     select 
       ${column} x,
       count(distinct website_event.session_id) y
-      ${includeCountry ? ', country' : ''}
+      ${includeCountry ? `, ${countryColumn} country` : ''}
     from website_event
     ${cohortQuery}
     ${excludeBounceQuery}
@@ -88,6 +101,13 @@ async function clickhouseQuery(
   if (type === 'language') {
     column = `lower(left(${type}, 2))`;
   }
+  const countryColumn = getClickHouseCountrySQL('country');
+
+  if (type === 'country') {
+    column = countryColumn;
+  } else if (type === 'region') {
+    column = getClickHouseRegionSQL('country', column);
+  }
 
   let sql = '';
 
@@ -96,7 +116,7 @@ async function clickhouseQuery(
     select
       ${column} x,
       count(distinct session_id) y
-      ${includeCountry ? ', country' : ''}
+      ${includeCountry ? `, ${countryColumn} country` : ''}
     from website_event
     ${cohortQuery}
     ${excludeBounceQuery}
@@ -116,7 +136,7 @@ async function clickhouseQuery(
     select
       ${column} x,
       uniq(session_id) y
-      ${includeCountry ? ', country' : ''}
+      ${includeCountry ? `, ${countryColumn} country` : ''}
     from website_event_stats_hourly as website_event
     ${cohortQuery}
     ${excludeBounceQuery}

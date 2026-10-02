@@ -1,5 +1,6 @@
 import clickhouse from '@/lib/clickhouse';
 import { DEFAULT_PAGE_SIZE, EVENT_TYPE } from '@/lib/constants';
+import { getClickHouseCountrySQL, getPostgresCountrySQL } from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { PageResult, QueryFilters, WebsiteEvent } from '@/lib/types';
@@ -90,7 +91,7 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
       website_event.referrer_path as "referrerPath",
       website_event.referrer_query as "referrerQuery",
       website_event.referrer_domain as "referrerDomain",
-      session.country as country,
+      ${getPostgresCountrySQL('session.country')} as country,
       session.city as city,
       session.device as device,
       session.os as os,
@@ -179,7 +180,7 @@ async function clickhouseQuery(websiteId: string, filters: QueryFilters) {
         referrer_path as referrerPath,
         referrer_query as referrerQuery,
         referrer_domain as referrerDomain,
-        country,
+        ${getClickHouseCountrySQL('country')} as country,
         city,
         device,
         os,

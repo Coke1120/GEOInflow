@@ -1,5 +1,11 @@
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
+import {
+  getClickHouseCountrySQL,
+  getClickHouseRegionSQL,
+  getPostgresCountrySQL,
+  getPostgresRegionSQL,
+} from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
@@ -76,7 +82,7 @@ async function relationalQuery(
       ${parseFieldsByName(fields)}
     from (
       select
-        ${parseFields(fields)},
+        ${parseFields(fields, 'postgres')},
         website_event.session_id,
         website_event.visit_id,
         count(*) as "c",
@@ -141,7 +147,7 @@ async function clickhouseQuery(
       ${parseFieldsByName(fields)}
     from (
       select
-        ${parseFields(fields)},
+        ${parseFields(fields, 'clickhouse')},
         session_id,
         visit_id,
         count(*) c,
@@ -165,10 +171,28 @@ async function clickhouseQuery(
   );
 }
 
-function parseFields(fields: string[]) {
-  return fields.map(name => `${FILTER_COLUMNS[name]} as "${name}"`).join(',');
+function parseFields(fields: string[], database: 'postgres' | 'clickhouse') {
+  return fields.map(name => `${getFieldColumn(name, database)} as "${name}"`).join(',');
 }
 
 function parseFieldsByName(fields: string[]) {
   return `${fields.map(name => `"${name}"`).join(',')}`;
+}
+
+function getFieldColumn(name: string, database: 'postgres' | 'clickhouse') {
+  const column = FILTER_COLUMNS[name];
+
+  if (name === 'country') {
+    return database === 'postgres'
+      ? getPostgresCountrySQL(column)
+      : getClickHouseCountrySQL(column);
+  }
+
+  if (name === 'region') {
+    return database === 'postgres'
+      ? getPostgresRegionSQL('country', column)
+      : getClickHouseRegionSQL('country', column);
+  }
+
+  return column;
 }

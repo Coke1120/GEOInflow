@@ -1,5 +1,11 @@
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
+import {
+  getClickHouseCountrySQL,
+  getClickHouseRegionSQL,
+  getPostgresCountrySQL,
+  getPostgresRegionSQL,
+} from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { PageResult, QueryFilters, WebsiteSession } from '@/lib/types';
@@ -43,8 +49,8 @@ async function relationalQuery(websiteId: string, currency: string, filters: Que
       session.device,
       session.screen,
       session.language,
-      session.country,
-      session.region,
+      ${getPostgresCountrySQL('session.country')} as country,
+      ${getPostgresRegionSQL('session.country', 'session.region')} as region,
       session.city,
       min(website_event.created_at) as "firstAt",
       max(website_event.created_at) as "lastAt",
@@ -116,8 +122,8 @@ async function clickhouseQuery(websiteId: string, currency: string, filters: Que
       device,
       screen,
       language,
-      country,
-      region,
+      ${getClickHouseCountrySQL('country')} as country,
+      ${getClickHouseRegionSQL('country', 'region')} as region,
       city,
       ${getDateStringSQL('min(created_at)')} as firstAt,
       ${getDateStringSQL('max(created_at)')} as lastAt,

@@ -1,9 +1,11 @@
 import clickhouse from '@/lib/clickhouse';
+import { EVENT_TYPE, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import {
-  EVENT_TYPE,
-  FILTER_COLUMNS,
-  SESSION_COLUMNS,
-} from '@/lib/constants';
+  getClickHouseCountrySQL,
+  getClickHouseRegionSQL,
+  getPostgresCountrySQL,
+  getPostgresRegionSQL,
+} from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
@@ -73,6 +75,13 @@ async function relationalQuery(
       on e.session_id = t.session_id
       and e.visit_id = t.visit_id`
     : '';
+  const countryColumn = getPostgresCountrySQL('country');
+
+  if (type === 'country') {
+    column = countryColumn;
+  } else if (type === 'region') {
+    column = getPostgresRegionSQL('country', column);
+  }
 
   return rawQuery(
     `
@@ -87,7 +96,7 @@ async function relationalQuery(
     from (
       select
         ${column} as "name",
-        ${includeCountry ? 'country,' : ''}
+        ${includeCountry ? `${countryColumn} as country,` : ''}
         website_event.session_id,
         website_event.visit_id,
         count(*) as "c",
@@ -102,7 +111,7 @@ async function relationalQuery(
         and website_event.event_type NOT IN (2, 5)
         ${filterQuery}
       group by name, website_event.session_id, website_event.visit_id
-      ${includeCountry ? ', country' : ''}
+      ${includeCountry ? `, ${countryColumn}` : ''}
     ) as t
     ${visitEventsJoin}
     where name != ''
@@ -148,6 +157,13 @@ async function clickhouseQuery(
       group by session_id, visit_id
     ) as e using (session_id, visit_id)`
     : '';
+  const countryColumn = getClickHouseCountrySQL('country');
+
+  if (type === 'country') {
+    column = countryColumn;
+  } else if (type === 'region') {
+    column = getClickHouseRegionSQL('country', column);
+  }
 
   return rawQuery(
     `
@@ -162,7 +178,7 @@ async function clickhouseQuery(
     from (
       select
         ${column} name,
-        ${includeCountry ? 'country,' : ''}
+        ${includeCountry ? `${countryColumn} country,` : ''}
         session_id,
         visit_id,
         count(*) c,
@@ -177,7 +193,7 @@ async function clickhouseQuery(
         and name != ''
         ${filterQuery}
       group by name, session_id, visit_id
-      ${includeCountry ? ', country' : ''}
+      ${includeCountry ? `, ${countryColumn}` : ''}
     ) as t
     ${visitEventsJoin}
     group by name

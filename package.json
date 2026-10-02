@@ -64,6 +64,8 @@
     "test:api:down": "tsx scripts/test-api.ts --down",
     "test:api:coverage": "tsx scripts/test-api.ts --coverage-report",
     "db:seed": "tsx scripts/seed-data.ts",
+    "seed-data": "tsx scripts/seed-data.ts",
+    "seed-harbor-sport": "tsx scripts/seed-harbor-sport.ts",
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome check --write"
@@ -129,7 +131,6 @@
     "semver": "^7.8.5",
     "serialize-error": "^13.0.1",
     "thenby": "^1.4.1",
-    "ua-parser-js": "^2.0.10",
     "uuid": "^14.0.2",
     "zod": "^4.6.2",
     "zustand": "^5.0.15"

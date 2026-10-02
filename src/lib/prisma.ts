@@ -2,7 +2,14 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { readReplicas } from '@prisma/extension-read-replicas';
 import debug from 'debug';
 import { PrismaClient } from '@/generated/prisma/client';
-import { DATA_TYPE, DEFAULT_PAGE_SIZE, FILTER_COLUMNS, OPERATORS, SESSION_COLUMNS } from './constants';
+import {
+  DATA_TYPE,
+  DEFAULT_PAGE_SIZE,
+  FILTER_COLUMNS,
+  OPERATORS,
+  SESSION_COLUMNS,
+} from './constants';
+import { getCountryFilterValues, getRegionFilterValues } from './country';
 import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
 
@@ -280,11 +287,19 @@ function getQueryParams(filters: Record<string, any>) {
       if (!resolvedColumn) return obj;
 
       const key = paramName ?? name;
+      const filterName = name?.startsWith('cohort_') ? name.slice('cohort_'.length) : name;
 
       if (SEARCH_OPERATORS.includes(operator)) {
         obj[key] = `%${value}%`;
       } else if (EQUALITY_OPERATORS.includes(operator)) {
-        obj[key] = Array.isArray(value) ? value : [value];
+        obj[key] =
+          filterName === 'country'
+            ? getCountryFilterValues(value)
+            : filterName === 'region'
+              ? getRegionFilterValues(value)
+              : Array.isArray(value)
+                ? value
+                : [value];
       } else {
         obj[key] = value;
       }

@@ -1,5 +1,6 @@
 import { Row } from '@umami/react-zen';
 import type { ReactNode } from 'react';
+import { normalizeCountryCode } from '@/lib/country';
 
 export function TypeIcon({
   type,
@@ -10,7 +11,12 @@ export function TypeIcon({
   value: string;
   children?: ReactNode;
 }) {
-  const iconValue = type === 'browser' && value === 'browser' ? 'unknown' : value;
+  const iconValue =
+    type === 'country'
+      ? normalizeCountryCode(value)
+      : type === 'browser' && value === 'browser'
+        ? 'unknown'
+        : value;
 
   return (
     <Row gap="3" alignItems="center">
@@ -21,7 +27,7 @@ export function TypeIcon({
         onError={e => {
           e.currentTarget.src = `${process.env.basePath || ''}/images/${type}/unknown.png`;
         }}
-        alt={value}
+        alt={iconValue}
         width={type === 'country' ? undefined : 16}
         height={type === 'country' ? undefined : 16}
       />
