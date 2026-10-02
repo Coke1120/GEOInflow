@@ -1138,6 +1138,14 @@
       "constraint": "Change display metadata only; preserve layout and authorization",
       "verification": "Production build and browser title readback",
       "removalCondition": "Upstream supports an external product title"
+    },
+    {
+      "path": "src/queries/prisma/website.test.ts",
+      "purpose": "Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup",
+      "tests": [
+        "src/queries/prisma/website.test.ts",
+        "tests/api/liekan.spec.ts"
+      ]
     }
   ]
 }
