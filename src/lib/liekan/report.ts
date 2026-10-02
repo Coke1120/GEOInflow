@@ -23,7 +23,7 @@ import {
 } from './upstream/logs';
 import { LiekanError } from './upstream/server';
 
-const pct = (a: number, b: number) => (b ? Math.round((a / b) * 10000) / 100 : 0);
+const pct = (a: number, b: number): number | null => (b ? Math.round((a / b) * 10000) / 100 : null);
 const ratio = (a: number, b: number) => (b ? Math.round((a / b) * 100) / 100 : null);
 const aiType = (type: string) => ['训练', '搜索', '用户触发'].includes(type);
 function channel(row: { source: string; channel?: string }) {
@@ -122,7 +122,7 @@ export async function buildReport(
   const chart = (
     id: string,
     labels: string[],
-    series: Array<{ name: string; values: number[] }>,
+    series: Array<{ name: string; values: Array<number | null> }>,
     state?: DataState,
     rows?: Record<string, unknown>[],
   ) => {
@@ -204,6 +204,7 @@ export async function buildReport(
     'requests',
   );
   const aiSources = h.sources.filter(s => channel(s) === 'AI 搜索引荐');
+  const aiSessions = aiSources.reduce((sum, s) => sum + s.sessions, 0);
   const humanPages = new Map<string, any>(h.pages.map(page => [page.path, page]));
   r.tables.topBody = h.pages.map(page => ({
     path: page.path,
@@ -263,7 +264,7 @@ export async function buildReport(
     uv: page.uv,
     entries: page.entries,
     duration: page.duration,
-    bounceRate: pct(page.bounces, page.entries),
+    bounceRate: page.entries ? pct(page.bounces, page.entries) : null,
     aiRequests: l.latest ? (paths.get(page.path)?.requests ?? 0) : null,
   }));
   r.tables.goalBody = h.goals.map(g => ({
@@ -688,7 +689,7 @@ export async function buildReport(
   card('长文平均抓取完成率', null, 'unsupported', '%', '请求日志未提供正文完成证据');
   card('访客数 UV', t.visitors);
   card('浏览量 PV', t.pageviews);
-  card('跳出率', pct(t.bounces, t.visits), humanState, '%');
+  card('跳出率', t.visits ? pct(t.bounces, t.visits) : null, humanState, '%');
   card(
     '平均访问时长',
     ratio(t.totaltime, t.visits),
@@ -708,16 +709,21 @@ export async function buildReport(
   card('TOP1 城市', h.geo[0]?.city ?? null);
   card('海外 TOP1', countries[0] ? countryName(countries[0].name) : null);
   for (const label of ['直接访问', '传统搜索', 'AI 搜索引荐'])
-    card(label, pct(ch.find(c => c.name === label)?.count ?? 0, t.visits), humanState, '%');
+    card(
+      label,
+      t.visits ? pct(ch.find(c => c.name === label)?.count ?? 0, t.visits) : null,
+      humanState,
+      '%',
+    );
   card(
     'AI 引荐转化率',
-    h.goals.length
+    h.goals.length && aiSessions
       ? pct(
           aiSources.reduce((sum, s) => sum + s.conversions, 0),
-          aiSources.reduce((sum, s) => sum + s.sessions, 0),
+          aiSessions,
         )
       : null,
-    goalState,
+    h.goals.length && !aiSessions ? 'empty' : goalState,
     '%',
   );
   const measured = h.pages.filter(page => page.duration != null);

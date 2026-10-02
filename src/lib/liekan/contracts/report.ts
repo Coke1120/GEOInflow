@@ -25,7 +25,7 @@ export interface LiekanReport {
     string,
     {
       labels: string[];
-      series: Array<{ name: string; values: number[] }>;
+      series: Array<{ name: string; values: Array<number | null> }>;
       rows?: Record<string, unknown>[];
       state?: DataState;
     }
@@ -47,7 +47,7 @@ export interface LiekanReport {
 
 const chartSchema = z.object({
   labels: z.array(z.string()),
-  series: z.array(z.object({ name: z.string(), values: z.array(z.number()) })),
+  series: z.array(z.object({ name: z.string(), values: z.array(z.number().nullable()) })),
   rows: z.array(z.record(z.string(), z.unknown())).optional(),
   state: dataStateSchema.optional(),
 });

@@ -50,6 +50,21 @@ const run = (command, args, name, options = {}) => {
   save();
   if (result.status !== 0) throw new Error(`${name} failed; see private ${directory}/${name}.txt`);
 };
+const buildEnvironment = { ...process.env };
+for (const key of ['HTTP_PROXY', 'HTTPS_PROXY']) {
+  const value = process.env[`LIEKAN_DOCKER_${key}`] || process.env[key];
+  if (!value) continue;
+  let proxy;
+  try {
+    proxy = new URL(value);
+  } catch {
+    throw new Error(`Invalid ${key} URL; proxy credentials are withheld`);
+  }
+  if (!['http:', 'https:'].includes(proxy.protocol)) throw new Error(`Unsupported ${key} protocol`);
+  if (process.platform === 'darwin' && ['localhost', '127.0.0.1', '[::1]'].includes(proxy.hostname))
+    proxy.hostname = 'host.docker.internal';
+  buildEnvironment[key] = proxy.toString();
+}
 const dockerEnv = (env, ...args) => {
   try {
     return execFileSync('docker', args, {
@@ -154,6 +169,12 @@ try {
       '-f',
       'Dockerfile.liekan',
       '--build-arg',
+      'HTTP_PROXY',
+      '--build-arg',
+      'HTTPS_PROXY',
+      '--build-arg',
+      'NO_PROXY',
+      '--build-arg',
       `LIEKAN_REVISION=${head}`,
       '--build-arg',
       `LIEKAN_VERSION=${version}`,
@@ -168,6 +189,7 @@ try {
       '.',
     ],
     'docker-build',
+    { env: buildEnvironment },
   );
   const labels = JSON.parse(
     docker('image', 'inspect', image, '--format', '{{json .Config.Labels}}'),

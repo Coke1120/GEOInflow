@@ -6,18 +6,20 @@ const mocks = vi.hoisted(() => ({
   settings: vi.fn(),
   plotLogs: vi.fn(),
   conversions: vi.fn(),
+  humanDays: vi.fn(),
+  months: vi.fn(),
 }));
 vi.mock('./upstream/analytics', async importOriginal => ({
   ...(await importOriginal<typeof import('./upstream/analytics')>()),
   getHumanFacts: mocks.human,
   getHumanConversions: mocks.conversions,
-  getHumanDays: async () => [],
+  getHumanDays: mocks.humanDays,
 }));
 vi.mock('./upstream/logs', () => ({
   getLogFacts: mocks.logs,
   getLogToday: async () => ({ requests: 0, accepted: 0, abnormal: 0 }),
   getContentImpact: async () => [],
-  getMonthlyAiShare: async () => [],
+  getMonthlyAiShare: mocks.months,
   getPlotLogs: mocks.plotLogs,
 }));
 vi.mock('./store', () => ({ getSettings: mocks.settings }));
@@ -65,8 +67,88 @@ beforeEach(() => {
   mocks.settings.mockResolvedValue({ isDemo: false, rules: [], robots: '' });
   mocks.plotLogs.mockResolvedValue([]);
   mocks.conversions.mockResolvedValue(0);
+  mocks.humanDays.mockResolvedValue([]);
+  mocks.months.mockResolvedValue([]);
 });
 describe('report evidence states', () => {
+  it('preserves undefined chart percentages as gaps and measured zero percentages as zero', async () => {
+    const logs = await mocks.logs();
+    mocks.logs.mockResolvedValue({ ...logs, latest: '2026-01-01' });
+    mocks.humanDays.mockResolvedValue([
+      { day: '1970-01-01', pv: 0, uv: 0, sessions: 0, bounces: 0 },
+      { day: '1970-01-02', pv: 3, uv: 3, sessions: 3, bounces: 0 },
+    ]);
+    mocks.months.mockResolvedValue([
+      { month: '2026-01', ai: 0, total: 0 },
+      { month: '2026-02', ai: 0, total: 5 },
+    ]);
+    const empty = await buildReport(website, false, params);
+    expect(empty.charts.pf1.series.map(series => series.values)).toEqual([[null], [null]]);
+    expect(empty.charts.h1.series[2].values).toEqual([null, 0]);
+    expect(empty.charts.a2.series[0].values).toEqual([null, 0]);
+    expect(liekanReportSchema.safeParse(empty).success).toBe(true);
+    const human = await mocks.human();
+    mocks.human.mockResolvedValue({
+      ...human,
+      totals: { visits: 5, visitors: 5, pageviews: 5, bounces: 0, totaltime: 0 },
+      pages: [
+        {
+          path: '/outside-catalog',
+          pv: 5,
+          uv: 5,
+          entries: 5,
+          bounces: 0,
+          duration: null,
+          samples: 0,
+        },
+      ],
+    });
+    mocks.logs.mockResolvedValue({
+      ...logs,
+      latest: '2026-01-01',
+      summary: { requests: 4, ai: 4 },
+    });
+    const measured = await buildReport(website, false, params);
+    expect(measured.charts.pf1.series.map(series => series.values)).toEqual([[0], [0]]);
+  });
+  it('distinguishes an undefined AI referral rate from a measured zero conversion rate', async () => {
+    const human = await mocks.human();
+    const input = {
+      ...human,
+      totals: { visits: 5, visitors: 5, pageviews: 5, bounces: 0, totaltime: 0 },
+      goals: [
+        {
+          id: 'goal',
+          name: 'download',
+          path: 'download',
+          count: 0,
+          convertedSessions: 0,
+          previous: 0,
+        },
+      ],
+      sources: [
+        { source: '直接访问', channel: '直接访问', sessions: 5, conversions: 0, bounces: 0 },
+      ],
+    };
+    mocks.human.mockResolvedValue(input);
+    const noAi = await buildReport(website, false, params);
+    expect(noAi.cards.find(c => c.label === 'AI 引荐转化率')).toMatchObject({
+      value: null,
+      state: 'empty',
+    });
+    mocks.human.mockResolvedValue({
+      ...input,
+      sources: [
+        { source: 'chatgpt.com', channel: 'AI 搜索引荐', sessions: 2, conversions: 0, bounces: 0 },
+        { source: '直接访问', channel: '直接访问', sessions: 3, conversions: 0, bounces: 0 },
+      ],
+    });
+    const observedAi = await buildReport(website, false, params);
+    expect(observedAi.cards.find(c => c.label === 'AI 引荐转化率')).toMatchObject({
+      value: 0,
+      state: 'available',
+    });
+  });
   it('keeps event counts available when a custom-only window has no defined conversion rate', async () => {
     const human = await mocks.human();
     mocks.human.mockResolvedValue({
@@ -96,6 +178,30 @@ describe('report evidence states', () => {
     });
     expect(report.cards.find(c => c.label === '白皮书下载').value).toBe(3);
     expect(report.charts.f3.series[0].values).toEqual([3]);
+  });
+  it('keeps card rates and a page without entry observations undefined at zero denominators', async () => {
+    const empty = await buildReport(website, false, params);
+    for (const label of ['跳出率', '直接访问', '传统搜索', 'AI 搜索引荐'])
+      expect(
+        empty.cards.find(c => c.label === label),
+        label,
+      ).toMatchObject({ value: null, state: 'empty' });
+    const human = await mocks.human();
+    mocks.human.mockResolvedValue({
+      ...human,
+      totals: { visits: 2, visitors: 2, pageviews: 3, bounces: 0, totaltime: 0 },
+      pages: [
+        { path: '/secondary', pv: 1, uv: 1, entries: 0, bounces: 0, duration: null, samples: 0 },
+        { path: '/entry', pv: 2, uv: 2, entries: 2, bounces: 0, duration: null, samples: 0 },
+      ],
+    });
+    const observed = await buildReport(website, false, params);
+    expect(observed.tables.pgBody.find(row => row.path === '/secondary').bounceRate).toBeNull();
+    expect(observed.tables.pgBody.find(row => row.path === '/entry').bounceRate).toBe(0);
+    expect(observed.cards.find(c => c.label === '跳出率')).toMatchObject({
+      value: 0,
+      state: 'available',
+    });
   });
   it('uses the entry channel consistently for source rows, daily channels and conversion rates', async () => {
     const human = await mocks.human();

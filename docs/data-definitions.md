@@ -25,6 +25,10 @@
 
 状态包括 available、empty、not_connected、estimated、unsupported。生产界面不使用演示值补齐缺失字段。独立演示站由 is_demo 标记，在界面显示示例数据。
 
+卡片与表格的比率保留零分母边界：无浏览会话时，跳出率和来源占比无定义；已配置目标且没有 AI 引荐会话时，AI 引荐转化率无定义并标记 empty；页面从未作为入口时，其入口跳出率无定义。对应数值返回 null，已有分母且转化/跳出为零时返回真实的 0%。
+
+图表百分比使用同一零分母规则：内容分类的 AI/人类占比、每日跳出率、月度 AI 占比、渠道转化率在分母为零时保留 null 数据点，ECharts 绘制为空缺；有分母且分子为零时为 0%。图表系列值的契约为 number 或 null，保持原型的系列、坐标轴、尺寸和交互结构。
+
 日志输入上限每批 10 MiB，combined 最多 10000 行，JSON 最多 1000 条，每站点每分钟 5 次，一个站点同一时间仅有一个导入事务。失败行只保存行号和原因。IP 原值仅在解析内存中用于核验，入库保留 IPv4 /24、IPv6 /48 及 HMAC。URL 查询参数和 fragment 均不保存。重复导入使用文件摘要和请求指纹去重，完全相同请求的重复行保留批内次数；跨文件缺少唯一请求 ID 时存在去重边界，建议源站导出不重叠的日志批次。
 
 今日总请求的排除后缀为 js、mjs、cjs、css、map、avif、webp、png、jpg、jpeg、gif、svg、ico、bmp、tif、tiff、woff、woff2、ttf、otf、eot、mp3、m4a、wav、ogg、mp4、webm、mov、avi，忽略大小写。HTML、PDF、JSON、XML、TXT 等内容文档保留；扩展名后仍有路径片段的 URL 保留。该规则属于扩展名分类，无法证明实际响应的 MIME 类型。
