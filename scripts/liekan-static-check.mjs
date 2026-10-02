@@ -46,6 +46,8 @@ for (const file of [
     throw new Error(`Upstream import crossed product boundary: ${file}`);
 }
 const overrides = JSON.parse(readFileSync('config/liekan/core-overrides.json', 'utf8'));
+if (overrides.baseline !== baseline.commit)
+  throw new Error('Core override baseline differs from the selected upstream commit');
 for (const entry of overrides.files) {
   for (const field of ['path', 'purpose', 'owner', 'constraint', 'removalCondition'])
     if (typeof entry[field] !== 'string' || !entry[field].trim())

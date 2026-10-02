@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   website: vi.fn(),
   view: vi.fn(),
   update: vi.fn(),
+  stats: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({
   checkAuth: mocks.auth,
@@ -18,9 +19,9 @@ vi.mock('@/lib/prisma', () => ({
   default: { client: { website: { findFirst: mocks.website } } },
   getRawQueryClient: vi.fn(),
 }));
-vi.mock('@/queries/sql', () => ({ getWebsiteStats: vi.fn() }));
+vi.mock('@/queries/sql', () => ({ getWebsiteStats: mocks.stats }));
 
-import { authorize, lockWritableWebsite } from './server';
+import { authorize, humanTotals, lockWritableWebsite } from './server';
 
 const id = '5b4c0de0-6c47-5b51-8f53-11e5e8c79001';
 const request = new Request(`http://localhost/api/liekan/websites/${id}/report`);
@@ -90,6 +91,79 @@ describe('Liekan authenticated website boundary', () => {
       const pending = lockWritableWebsite(tx, id, { userId: 'teammate' });
       if (role === 'team-member') await expect(pending).resolves.toBeUndefined();
       else await expect(pending).rejects.toMatchObject({ status: 403 });
+    }
+  });
+});
+
+describe('upstream human metric contract', () => {
+  const start = new Date('2026-10-01T00:00:00Z');
+  const end = new Date('2026-10-02T00:00:00Z');
+  const totals = { pageviews: 20, visitors: 8, visits: 10, bounces: 3, totaltime: 300 };
+  it('returns validated numeric totals and ignores compatible additional fields', async () => {
+    mocks.stats.mockResolvedValue({ ...totals, additionalField: 'upstream extension' });
+    await expect(humanTotals(id, start, end)).resolves.toEqual(totals);
+    expect(mocks.stats).toHaveBeenCalledWith(id, { startDate: start, endDate: end });
+    mocks.stats.mockResolvedValue({
+      pageviews: 0,
+      visitors: 0,
+      visits: 0,
+      bounces: 0,
+      totaltime: 0.5,
+    });
+    await expect(humanTotals(id, start, end)).resolves.toMatchObject({ totaltime: 0.5 });
+  });
+  it('normalizes the native PostgreSQL bigint counts without losing precision', async () => {
+    mocks.stats.mockResolvedValue({
+      pageviews: 20n,
+      visitors: 8n,
+      visits: 10n,
+      bounces: 3n,
+      totaltime: 300n,
+    });
+    await expect(humanTotals(id, start, end)).resolves.toEqual(totals);
+  });
+  it('rejects missing or renamed units with a redacted contract failure', async () => {
+    const { totaltime, ...remaining } = totals;
+    for (const result of [
+      undefined,
+      null,
+      [],
+      remaining,
+      { ...remaining, totaltimeMs: totaltime * 1000 },
+    ]) {
+      mocks.stats.mockResolvedValue(result);
+      await expect(humanTotals(id, start, end)).rejects.toMatchObject({
+        status: 500,
+        message: '统计数据契约不兼容',
+      });
+    }
+  });
+  it('rejects nonnumeric, fractional counts, negative, nonfinite and unsafe values', async () => {
+    for (const field of ['pageviews', 'visitors', 'visits', 'bounces']) {
+      for (const invalid of [
+        undefined,
+        null,
+        '5',
+        NaN,
+        Infinity,
+        -1,
+        1.5,
+        -1n,
+        BigInt(Number.MAX_SAFE_INTEGER) + 1n,
+      ]) {
+        mocks.stats.mockResolvedValue({ ...totals, [field]: invalid });
+        await expect(
+          humanTotals(id, start, end),
+          `${field}: ${String(invalid)}`,
+        ).rejects.toMatchObject({ status: 500, message: '统计数据契约不兼容' });
+      }
+    }
+    for (const invalid of [undefined, null, '300', NaN, Infinity, -0.5]) {
+      mocks.stats.mockResolvedValue({ ...totals, totaltime: invalid });
+      await expect(humanTotals(id, start, end)).rejects.toMatchObject({
+        status: 500,
+        message: '统计数据契约不兼容',
+      });
     }
   });
 });

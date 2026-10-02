@@ -16,11 +16,25 @@ git('fetch', '--no-tags', 'upstream', `refs/tags/${tag}:refs/remotes/upstream/re
 const target = git('rev-parse', `refs/remotes/upstream/releases/${tag}^{commit}`);
 const paths = git('diff', '--name-only', baseline.commit, target).split('\n').filter(Boolean);
 const overlap = paths.filter(path => overrides.files.some(file => file.path === path));
-const critical = paths.filter(path =>
-  /^(prisma\/|src\/lib\/(auth|two-factor|request|schema|prisma)|src\/permissions|src\/openapi|package.json|pnpm-lock)/.test(
-    path,
-  ),
+const impactRules = {
+  storage: /^(prisma\/|db\/|src\/lib\/(prisma|db|clickhouse))/,
+  authentication: /^(src\/lib\/(auth|two-factor|request|schema)|src\/permissions\/)/,
+  apiAndSdk: /^(src\/app\/api\/|src\/openapi\/|packages\/)/,
+  collection:
+    /^(src\/tracker\/|src\/recorder\/|src\/lib\/(detect|session|event)|src\/queries\/sql\/(events\/saveEvent|sessions\/createSession))/,
+  dependencies: /(^|\/)(package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml)$/,
+  licenses: /(^|\/)(LICENSE[^/]*|[^/]*NOTICES[^/]*|licenses\/)/i,
+  build:
+    /^(Dockerfile|docker\/|docker-compose|next\.config|tsconfig|\.dockerignore|\.nvmrc|scripts\/build)/,
+  ci: /^\.github\/workflows\//,
+};
+const impacts = Object.fromEntries(
+  Object.entries(impactRules).map(([area, pattern]) => [
+    area,
+    paths.filter(path => pattern.test(path)),
+  ]),
 );
+const critical = [...new Set(Object.values(impacts).flat())].sort();
 const report = {
   sourceTag: baseline.tag,
   sourceCommit: baseline.commit,
@@ -29,6 +43,7 @@ const report = {
   changedPaths: paths,
   coreOverrideOverlap: overlap,
   criticalPaths: critical,
+  impacts,
   createdAt: new Date().toISOString(),
   mode,
 };

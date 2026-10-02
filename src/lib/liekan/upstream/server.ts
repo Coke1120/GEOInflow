@@ -76,11 +76,32 @@ export async function transaction<T>(work: (tx: any) => Promise<T>): Promise<T> 
   )) as T;
 }
 export async function humanTotals(websiteId: string, startDate: Date, endDate: Date) {
-  return (await getWebsiteStats(websiteId, { startDate, endDate })) as unknown as {
+  const raw: unknown = await getWebsiteStats(websiteId, { startDate, endDate });
+  const incompatible = () => new LiekanError('统计数据契约不兼容', 500);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw incompatible();
+  const totals = {} as {
     pageviews: number;
     visitors: number;
     visits: number;
     bounces: number;
     totaltime: number;
   };
+  for (const field of ['pageviews', 'visitors', 'visits', 'bounces', 'totaltime'] as const) {
+    if (!Object.hasOwn(raw, field)) throw incompatible();
+    let value = raw[field];
+    // PostgreSQL aggregate counts are bigint. Normalize only exactly representable values.
+    if (typeof value === 'bigint') {
+      if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) throw incompatible();
+      value = Number(value);
+    }
+    if (
+      typeof value !== 'number' ||
+      !Number.isFinite(value) ||
+      value < 0 ||
+      (field !== 'totaltime' && !Number.isSafeInteger(value))
+    )
+      throw incompatible();
+    totals[field] = value;
+  }
+  return totals;
 }

@@ -10,6 +10,7 @@ Dockerfile
 .env.*
 scripts/seed
 scripts/seed-data.ts
+scripts/test-api.ts
 tests
 playwright.config.ts
 playwright.api.config.ts
