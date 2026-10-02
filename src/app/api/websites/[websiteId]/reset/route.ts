@@ -1,5 +1,6 @@
+import { LiekanError } from '@/lib/liekan/upstream/server';
 import { parseRequest } from '@/lib/request';
-import { ok, unauthorized } from '@/lib/response';
+import { forbidden, notFound, ok, unauthorized } from '@/lib/response';
 import { canUpdateWebsite } from '@/permissions';
 import { resetWebsite } from '@/queries/prisma';
 
@@ -19,7 +20,16 @@ export async function POST(
     return unauthorized();
   }
 
-  await resetWebsite(websiteId);
+  try {
+    await resetWebsite(websiteId, { userId: auth.user.id });
+  } catch (error) {
+    if (error instanceof LiekanError) {
+      if (error.status === 403) return forbidden();
+      if (error.status === 401) return unauthorized();
+      if (error.status === 404) return notFound();
+    }
+    throw error;
+  }
 
   return ok();
 }

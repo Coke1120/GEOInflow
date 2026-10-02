@@ -1,0 +1,50 @@
+name: liekan
+services:
+  app:
+    image: liekan:0.1.0
+    build:
+      context: .
+      dockerfile: Dockerfile.liekan
+      args:
+        LIEKAN_REVISION: ${LIEKAN_REVISION:-development}
+    ports:
+      - '127.0.0.1:3002:3000'
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      APP_SECRET: ${APP_SECRET:?APP_SECRET required}
+      TWO_FACTOR_ENCRYPTION_KEY: ${TWO_FACTOR_ENCRYPTION_KEY:?TWO_FACTOR_ENCRYPTION_KEY required}
+      DISABLE_TELEMETRY: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+      DEFAULT_LOCALE: zh-CN
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "fetch('http://127.0.0.1:3000/api/heartbeat').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  db:
+    image: postgres:15-alpine
+    ports:
+      - '127.0.0.1:15435:5432'
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-liekan}
+      POSTGRES_USER: ${POSTGRES_USER:-liekan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    volumes:
+      - liekan-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  liekan-data:
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 10.253.30.0/24

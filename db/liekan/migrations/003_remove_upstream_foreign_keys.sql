@@ -1,0 +1,4 @@
+ALTER TABLE liekan_import DROP CONSTRAINT liekan_import_website_id_fkey;
+ALTER TABLE liekan_log DROP CONSTRAINT liekan_log_website_id_fkey;
+ALTER TABLE liekan_catalog DROP CONSTRAINT liekan_catalog_website_id_fkey;
+ALTER TABLE liekan_setting DROP CONSTRAINT liekan_setting_website_id_fkey;

@@ -4,7 +4,7 @@
 import type { RequestOptions } from '../types';
 import type { components, operations as OperationTypes } from './types';
 
-export const API_VERSION = '3.4.0';
+export const API_VERSION = '0.1.0';
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
@@ -847,6 +847,33 @@ export const operations = {
       'eventType',
       'match',
     ],
+    hasBody: false,
+  },
+  getLiekanReport: {
+    operationId: 'getLiekanReport',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/report',
+    pathParams: ['websiteId'],
+    queryParams: [
+      'resource',
+      'startAt',
+      'endAt',
+      'timezone',
+      'page',
+      'cursor',
+      'seek',
+      'filter',
+      'search',
+      'chartPeriod',
+    ],
+    hasBody: false,
+  },
+  getLiekanSettings: {
+    operationId: 'getLiekanSettings',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/settings',
+    pathParams: ['websiteId'],
+    queryParams: [],
     hasBody: false,
   },
   getLink: {
@@ -2939,6 +2966,30 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
+  postLiekanLogsImport: {
+    operationId: 'postLiekanLogsImport',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/logs/import',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
+  putLiekanCatalog: {
+    operationId: 'putLiekanCatalog',
+    method: 'put',
+    path: '/api/liekan/websites/{websiteId}/catalog',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
+  putLiekanSettings: {
+    operationId: 'putLiekanSettings',
+    method: 'put',
+    path: '/api/liekan/websites/{websiteId}/settings',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
   record: {
     operationId: 'record',
     method: 'post',
@@ -3779,6 +3830,28 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getEventDataValues'>> {
     return this.execute('getEventDataValues', input, options);
+  }
+
+  /**
+   * get Liekan report
+   * `GET /api/liekan/websites/{websiteId}/report`
+   */
+  getLiekanReport(
+    input: OperationInput<'getLiekanReport'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanReport'>> {
+    return this.execute('getLiekanReport', input, options);
+  }
+
+  /**
+   * get Liekan settings
+   * `GET /api/liekan/websites/{websiteId}/settings`
+   */
+  getLiekanSettings(
+    input: OperationInput<'getLiekanSettings'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanSettings'>> {
+    return this.execute('getLiekanSettings', input, options);
   }
 
   /**
@@ -4866,6 +4939,39 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'logout'>> {
     return this.execute('logout', input, options);
+  }
+
+  /**
+   * post Liekan logs/import
+   * `POST /api/liekan/websites/{websiteId}/logs/import`
+   */
+  postLiekanLogsImport(
+    input: OperationInput<'postLiekanLogsImport'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'postLiekanLogsImport'>> {
+    return this.execute('postLiekanLogsImport', input, options);
+  }
+
+  /**
+   * put Liekan catalog
+   * `PUT /api/liekan/websites/{websiteId}/catalog`
+   */
+  putLiekanCatalog(
+    input: OperationInput<'putLiekanCatalog'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'putLiekanCatalog'>> {
+    return this.execute('putLiekanCatalog', input, options);
+  }
+
+  /**
+   * put Liekan settings
+   * `PUT /api/liekan/websites/{websiteId}/settings`
+   */
+  putLiekanSettings(
+    input: OperationInput<'putLiekanSettings'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'putLiekanSettings'>> {
+    return this.execute('putLiekanSettings', input, options);
   }
 
   /**

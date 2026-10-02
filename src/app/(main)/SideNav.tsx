@@ -25,7 +25,7 @@ import {
   PanelsLeftBottom,
 } from '@/components/icons';
 import { UserButton } from '@/components/input/UserButton';
-import { Logo } from '@/components/svg';
+import { BrandIcon } from '@/components/liekan/Icons';
 
 export function SideNav(props: any) {
   const { t, labels } = useMessages();
@@ -98,8 +98,22 @@ export function SideNav(props: any) {
           flexGrow="1"
         >
           {!isCollapsed && (
-            <IconLabel icon={<Logo />}>
-              <Text weight="bold">umami</Text>
+            <IconLabel
+              icon={
+                <BrandIcon
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    background: '#0F62FE',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                />
+              }
+            >
+              <Text weight="bold">猎看统计</Text>
             </IconLabel>
           )}
           <PanelButton />

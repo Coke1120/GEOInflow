@@ -1,17 +1,13 @@
 {
-  "name": "umami",
-  "version": "3.4.0",
-  "description": "A modern, privacy-focused alternative to Google Analytics.",
-  "author": "Umami Software, Inc. <hello@umami.is>",
+  "name": "liekan",
+  "version": "0.1.0",
+  "description": "面向 GEO 增长的 AI 与搜索流量分析系统",
+  "author": "Liekan contributors",
   "license": "MIT",
-  "homepage": "https://umami.is",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/umami-software/umami.git"
-  },
   "type": "module",
   "engines": {
-    "pnpm": "12.3.4"
+    "pnpm": "12.3.4",
+    "node": ">=22 <23"
   },
   "scripts": {
     "dev": "dotenv next dev --turbo",
@@ -68,7 +64,12 @@
     "seed-harbor-sport": "tsx scripts/seed-harbor-sport.ts",
     "lint": "biome lint .",
     "format": "biome format --write .",
-    "check": "biome check --write"
+    "check": "biome check --write",
+    "liekan:migrate": "node scripts/liekan-migrate.mjs",
+    "liekan:upstream:report": "node scripts/liekan-upstream.mjs report",
+    "liekan:upstream:prepare": "node scripts/liekan-upstream.mjs prepare",
+    "liekan:verify": "node scripts/liekan-verify.mjs",
+    "liekan:seed-demo": "tsx scripts/liekan-seed-demo.ts"
   },
   "cacheDirectories": [
     ".next/cache"
@@ -96,6 +97,7 @@
     "debug": "^4.4.3",
     "detect-browser": "^5.2.0",
     "dotenv": "^17.4.2",
+    "echarts": "5.5.0",
     "esbuild": "^0.28.2",
     "immer": "^11.1.18",
     "ipaddr.js": "^2.5.0",
@@ -166,5 +168,6 @@
     "typescript": "^6.0.3",
     "vitest": "^4.1.11",
     "zod-openapi": "^6.0.2"
-  }
+  },
+  "packageManager": "pnpm@12.3.4"
 }

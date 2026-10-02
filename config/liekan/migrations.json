@@ -1,0 +1,6 @@
+{
+  "001_geo_statistics.sql": "f3ffc642099694e368f8d8dab0b1879d62987d00408c14806575b29d688e8141",
+  "002_catalog_evidence.sql": "d6b8f4ce0c69e37b54466aff03c34b6fc5f9d24ede9edbe545e7e8ad0b783121",
+  "003_remove_upstream_foreign_keys.sql": "3e93f2dde579240a1fe194475ed415faf1c0f53ad931a75bb280d87e5a9605e0",
+  "004_lifecycle_and_catalog_evidence.sql": "42464afb0eefce596b6350714fd339bf3d4ce6a5b1c2b3f48d4a2d58920dd4f0"
+}

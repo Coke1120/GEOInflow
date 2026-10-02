@@ -44,6 +44,9 @@
     "./playwright.config.ts",
     "./playwright.api.config.ts",
     "tests/e2e",
-    "tests/api"
+    "tests/api",
+    "tmp",
+    "outputs",
+    "test-results"
   ]
 }

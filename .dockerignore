@@ -1,7 +1,6 @@
 .git
 .next
 coverage
-geo
 docker-compose.yml
 Dockerfile
 .DS_Store
@@ -17,3 +16,9 @@ playwright.api.config.ts
 docker-compose.test.yml
 playwright-report
 test-results
+
+outputs
+tmp
+.local
+test-results
+design/reference

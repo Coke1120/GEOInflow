@@ -204,12 +204,17 @@ export async function updateWebsite(
   });
 }
 
-export async function resetWebsite(websiteId: string) {
+export async function resetWebsite(websiteId: string, identity?: { userId: string }) {
   const { transaction } = prisma;
   const cloudMode = !!process.env.CLOUD_MODE;
 
   return transaction(
     async tx => {
+      await (await import('@/lib/liekan/upstream/lifecycle')).resetLiekanStatistics(
+        tx,
+        websiteId,
+        identity,
+      );
       await deleteWebsiteDependentData(tx, websiteId);
 
       const website = await tx.website.update({

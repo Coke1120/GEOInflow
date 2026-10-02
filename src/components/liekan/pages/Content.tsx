@@ -1,0 +1,82 @@
+import {
+  FilterChip,
+  MetricCard,
+  ReferenceChart,
+  ReportList,
+  ReportRows,
+  SortHeading,
+} from '../ReportComponents';
+import type { ReportViewProps } from '../types';
+
+export function Content({ report }: ReportViewProps) {
+  return (
+    <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <MetricCard
+          label="有流量页面"
+          className="card p-4 fade-in d1"
+          valueClass="num text-[24px] font-bold text-brand mt-1.5"
+          report={report}
+        />
+        <MetricCard
+          label="入口页 TOP1"
+          className="card p-4 fade-in d1"
+          valueClass="num text-[24px] font-bold text-brand mt-1.5"
+          report={report}
+        />
+        <MetricCard
+          label="退出页 TOP1"
+          className="card p-4 fade-in d1"
+          valueClass="num text-[24px] font-bold text-brand mt-1.5"
+          report={report}
+        />
+        <MetricCard
+          label="内容页平均停留"
+          className="card p-4 fade-in d1"
+          valueClass="num text-[24px] font-bold text-brand mt-1.5"
+          report={report}
+        />
+      </section>
+      <section className="card fade-in d2 overflow-hidden">
+        <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
+          <h2 className="text-[14px] font-bold tracking-tight">页面排行（人类访问）</h2>
+          <div className="flex items-center gap-2">
+            <FilterChip label="按 PV" />
+            <FilterChip label="按入口" />
+            <FilterChip label="按时长" />
+          </div>
+        </div>
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr className="text-left text-[11.5px] text-faint border-b border-line bg-[#FAFBFD]">
+              <SortHeading className="font-medium pl-6 pr-4 py-3" label="页面" />
+              <SortHeading className="font-medium px-4 py-3 text-right" label="PV" />
+              <SortHeading className="font-medium px-4 py-3 text-right" label="UV" />
+              <SortHeading className="font-medium px-4 py-3 text-right" label="入口数" />
+              <SortHeading className="font-medium px-4 py-3 text-right" label="平均停留" />
+              <SortHeading className="font-medium px-4 py-3 text-right" label="跳出率" />
+              <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="AI 抓取" />
+            </tr>
+          </thead>
+          <ReportRows table="pgBody" report={report} />
+        </table>
+      </section>
+      <section className="grid grid-cols-2 gap-4">
+        <div className="card fade-in d2">
+          <div className="px-6 pt-5 pb-2">
+            <h2 className="text-[14px] font-bold tracking-tight">站内访问路径 TOP6</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">会话中最常见的页面跳转序列</p>
+          </div>
+          <ReportList id="journeyList" className="px-6 pb-5 pt-2 space-y-2" report={report} />
+        </div>
+        <div className="card fade-in d3">
+          <div className="px-6 pt-5 pb-2">
+            <h2 className="text-[14px] font-bold tracking-tight">内容更新与流量响应</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">发布/更新日期 × 随后 7 天流量</p>
+          </div>
+          <ReferenceChart id="c1" height={250} report={report} />
+        </div>
+      </section>
+    </main>
+  );
+}

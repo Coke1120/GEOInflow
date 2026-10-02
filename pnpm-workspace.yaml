@@ -2,6 +2,9 @@ packages:
   - '**'
   - '!dist'
   - '!**/dist/**'
+  - '!tmp/**'
+  - '!outputs/**'
+  - '!test-results/**'
 allowBuilds:
   '@parcel/watcher': false
   '@prisma/engines': true

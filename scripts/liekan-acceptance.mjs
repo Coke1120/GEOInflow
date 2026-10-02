@@ -1,0 +1,387 @@
+import 'dotenv/config';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import fs from 'node:fs';
+import net from 'node:net';
+
+// All mutations below target resources created by this invocation. The source DB is read only.
+const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const source = JSON.parse(fs.readFileSync('outputs/verification.json', 'utf8'));
+if (!source.passed || !source.finalized || source.mode !== 'release' || source.head !== head)
+  throw new Error('A clean source verification for this HEAD is required');
+if (execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim())
+  throw new Error('Acceptance requires the verified clean candidate');
+const upstream = JSON.parse(fs.readFileSync('config/liekan/upstream.json', 'utf8'));
+const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+const stamp = `${head.slice(0, 12)}-${Date.now()}`;
+const image = `liekan:candidate-${head.slice(0, 12)}`;
+const network = `liekan-verify-${stamp}`,
+  db = `${network}-db`,
+  app = `${network}-app`;
+const password = randomBytes(32).toString('hex');
+const sourceUser = process.env.POSTGRES_USER || 'liekan';
+const sourceDatabase = process.env.POSTGRES_DB || 'liekan';
+if (
+  !/^[A-Za-z_][A-Za-z0-9_]*$/.test(sourceUser) ||
+  !/^[A-Za-z_][A-Za-z0-9_]*$/.test(sourceDatabase)
+)
+  throw new Error('Source database identifiers must be ordinary PostgreSQL identifiers');
+for (const key of ['APP_SECRET', 'TWO_FACTOR_ENCRYPTION_KEY'])
+  if (!process.env[key]) throw new Error(`Missing private ${key}`);
+const directory = `outputs/acceptance-${stamp}`;
+fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+const report = {
+  head,
+  image,
+  version,
+  upstream,
+  startedAt: new Date().toISOString(),
+  passed: false,
+  finalized: false,
+  steps: [],
+};
+const save = () => fs.writeFileSync(`${directory}/report.json`, JSON.stringify(report, null, 2));
+const run = (command, args, name, options = {}) => {
+  const log = fs.openSync(`${directory}/${name}.txt`, 'w', 0o600);
+  const start = Date.now();
+  const result = spawnSync(command, args, { stdio: ['ignore', log, log], ...options });
+  fs.closeSync(log);
+  report.steps.push({ name, status: result.status, seconds: (Date.now() - start) / 1000 });
+  save();
+  if (result.status !== 0) throw new Error(`${name} failed; see private ${directory}/${name}.txt`);
+};
+const dockerEnv = (env, ...args) => {
+  try {
+    return execFileSync('docker', args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, ...env },
+    }).trim();
+  } catch {
+    throw new Error(`Docker ${args[0]} failed; credentials are withheld from diagnostics`);
+  }
+};
+const docker = (...args) => dockerEnv({}, ...args);
+const psql = (sql, database = 'liekan_empty') =>
+  docker(
+    'exec',
+    db,
+    'psql',
+    '-U',
+    'liekan_verify',
+    '-d',
+    database,
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-Atc',
+    sql,
+  );
+const countsSQL =
+  'SELECT json_build_object(' +
+  [
+    'user',
+    'website',
+    'session',
+    'website_event',
+    'report',
+    'liekan_log',
+    'liekan_import',
+    'liekan_catalog',
+    'liekan_setting',
+    'liekan_migration',
+  ]
+    .map(t => `'${t}',(SELECT count(*) FROM "${t}")`)
+    .join(',') +
+  ')';
+const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+const healthy = async () => {
+  for (let attempt = 0; attempt < 180; attempt++) {
+    try {
+      if ((await fetch('http://127.0.0.1:3302/api/heartbeat')).ok) return;
+    } catch {}
+    await pause(1000);
+  }
+  throw new Error('Isolated candidate did not become healthy');
+};
+const startApp = async database => {
+  dockerEnv(
+    { DATABASE_URL: `postgresql://liekan_verify:${password}@${db}:5432/${database}` },
+    'create',
+    '--name',
+    app,
+    '--network',
+    network,
+    '-p',
+    '127.0.0.1:3302:3000',
+    '-e',
+    'DATABASE_URL',
+    '-e',
+    'APP_SECRET',
+    '-e',
+    'TWO_FACTOR_ENCRYPTION_KEY',
+    '-e',
+    'DISABLE_BOT_CHECK=1',
+    '-e',
+    'DISABLE_TELEMETRY=1',
+    '-e',
+    'DISABLE_UPDATES=1',
+    '-e',
+    'MCP_ENABLED=1',
+    '-e',
+    'DEFAULT_LOCALE=zh-CN',
+    image,
+  );
+  appCreated = true;
+  docker('start', app);
+  await healthy();
+};
+let networkCreated = false,
+  dbCreated = false,
+  appCreated = false;
+save();
+try {
+  await new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', reject);
+    server.listen(3302, '127.0.0.1', () => server.close(resolve));
+  });
+  run('docker', ['pull', 'node:22.23.3-alpine'], 'node-base');
+  run('docker', ['pull', 'postgres:15-alpine'], 'database-base');
+  run(
+    'docker',
+    [
+      'build',
+      '-f',
+      'Dockerfile.liekan',
+      '--build-arg',
+      `LIEKAN_REVISION=${head}`,
+      '--build-arg',
+      `LIEKAN_VERSION=${version}`,
+      '--build-arg',
+      `LIEKAN_UPSTREAM=${upstream.commit}`,
+      '--build-arg',
+      `LIEKAN_UI=${upstream.uiManifestSha256}`,
+      '--build-arg',
+      `LIEKAN_MIGRATION=${upstream.liekanMigration}`,
+      '-t',
+      image,
+      '.',
+    ],
+    'docker-build',
+  );
+  const labels = JSON.parse(
+    docker('image', 'inspect', image, '--format', '{{json .Config.Labels}}'),
+  );
+  if (
+    labels['org.opencontainers.image.revision'] !== head ||
+    labels['org.opencontainers.image.version'] !== version ||
+    labels['io.liekan.ui.sha256'] !== upstream.uiManifestSha256 ||
+    labels['io.liekan.upstream.revision'] !== upstream.commit ||
+    labels['io.liekan.migration'] !== String(upstream.liekanMigration)
+  )
+    throw new Error('Candidate OCI metadata differs');
+  report.imageId = docker('image', 'inspect', image, '--format', '{{.Id}}');
+  report.baseImages = ['node:22.23.3-alpine', 'postgres:15-alpine'].map(ref => ({
+    ref,
+    id: docker('image', 'inspect', ref, '--format', '{{.Id}}'),
+  }));
+  const sourceId = docker('compose', '-f', 'docker-compose.liekan.yml', 'ps', '-q', 'db');
+  if (!sourceId) throw new Error('The separate Liekan source database must be running');
+  const sourceLabels = JSON.parse(
+    docker('inspect', sourceId, '--format', '{{json .Config.Labels}}'),
+  );
+  if (
+    sourceLabels['com.docker.compose.project'] !== 'liekan' ||
+    sourceLabels['com.docker.compose.service'] !== 'db'
+  )
+    throw new Error('Source DB identity mismatch');
+  const backup = `${directory}/database.sql`,
+    fd = fs.openSync(backup, 'w', 0o600);
+  const dumped = spawnSync(
+    'docker',
+    ['exec', sourceId, 'pg_dump', '-U', sourceUser, '--no-owner', '--no-acl', sourceDatabase],
+    { stdio: ['ignore', fd, 'pipe'] },
+  );
+  fs.closeSync(fd);
+  if (dumped.status) throw new Error('Source backup failed');
+  report.backupBytes = fs.statSync(backup).size;
+  docker('network', 'create', network);
+  networkCreated = true;
+  dockerEnv(
+    { POSTGRES_PASSWORD: password },
+    'create',
+    '--name',
+    db,
+    '--network',
+    network,
+    '-e',
+    'POSTGRES_USER=liekan_verify',
+    '-e',
+    'POSTGRES_PASSWORD',
+    '-e',
+    'POSTGRES_DB=liekan_empty',
+    'postgres:15-alpine',
+  );
+  dbCreated = true;
+  docker('start', db);
+  for (let attempt = 0; attempt < 60; attempt++) {
+    try {
+      psql('SELECT 1');
+      break;
+    } catch {
+      if (attempt === 59) throw new Error('Isolated DB not ready');
+      await pause(1000);
+    }
+  }
+  await startApp('liekan_empty');
+  report.emptyMigrationCount = Number(psql('SELECT count(*) FROM liekan_migration'));
+  if (report.emptyMigrationCount !== upstream.liekanMigration)
+    throw new Error('Fresh bootstrap did not apply all migrations');
+  const env = {
+    ...process.env,
+    PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:3302',
+    API_COVERAGE: 'enforce',
+  };
+  delete env.API_SKIP_SEED;
+  run(
+    process.execPath,
+    ['node_modules/@playwright/test/cli.js', 'test', '-c', 'playwright.api.config.ts'],
+    'api',
+    { env },
+  );
+  report.apiCoverage = JSON.parse(
+    fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/coverage/summary.json', 'utf8'),
+  );
+  docker('rm', '-f', app);
+  appCreated = false;
+  psql('CREATE DATABASE liekan_restore');
+  const input = fs.openSync(backup, 'r');
+  const loaded = spawnSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      db,
+      'psql',
+      '-U',
+      'liekan_verify',
+      '-d',
+      'liekan_restore',
+      '-v',
+      'ON_ERROR_STOP=1',
+    ],
+    { stdio: [input, 'ignore', 'pipe'] },
+  );
+  fs.closeSync(input);
+  if (loaded.status) throw new Error('Candidate backup restore failed');
+  // Count the restored snapshot before upgrade, so concurrent source traffic cannot change this baseline.
+  report.before = JSON.parse(psql(countsSQL, 'liekan_restore'));
+  await startApp('liekan_restore');
+  report.after = JSON.parse(psql(countsSQL, 'liekan_restore'));
+  if (
+    Object.entries(report.before).some(
+      ([table, count]) => table !== 'liekan_migration' && report.after[table] !== count,
+    )
+  )
+    throw new Error('Restore changed data totals');
+  if (report.after.liekan_migration !== upstream.liekanMigration)
+    throw new Error('Restored candidate migration count differs');
+  const migrations = JSON.parse(
+    psql(
+      "SELECT json_agg(json_build_object('name',name,'checksum',checksum) ORDER BY name) FROM liekan_migration",
+      'liekan_restore',
+    ),
+  );
+  const lock = JSON.parse(fs.readFileSync('config/liekan/migrations.json', 'utf8'));
+  if (
+    migrations.length !== Object.keys(lock).length ||
+    migrations.some(row => lock[row.name] !== row.checksum)
+  )
+    throw new Error('Restored candidate migration checksums differ');
+  report.migrations = migrations;
+  run('docker', ['exec', app, 'node', 'scripts/liekan-migrate.mjs'], 'migration-idempotency');
+  const beforeLedger = psql(
+    "SELECT json_agg(json_build_object('name',name,'checksum',checksum,'appliedAt',applied_at) ORDER BY name) FROM liekan_migration",
+    'liekan_restore',
+  );
+  run('docker', ['exec', app, 'node', 'scripts/liekan-migrate.mjs'], 'migration-repeat');
+  if (
+    psql(
+      "SELECT json_agg(json_build_object('name',name,'checksum',checksum,'appliedAt',applied_at) ORDER BY name) FROM liekan_migration",
+      'liekan_restore',
+    ) !== beforeLedger
+  )
+    throw new Error('Repeated migration modified the ledger');
+  run(
+    'docker',
+    ['exec', app, 'node', '--experimental-strip-types', 'scripts/liekan-restored-check.mjs'],
+    'restored-auth',
+  );
+  report.restoredAuth = JSON.parse(
+    fs
+      .readFileSync(`${directory}/restored-auth.txt`, 'utf8')
+      .split('\n')
+      .filter(line => line.startsWith('{'))
+      .at(-1),
+  );
+  run(process.execPath, ['--experimental-strip-types', 'scripts/liekan-visual.mjs'], 'visual', {
+    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+  });
+  report.visual = JSON.parse(fs.readFileSync('test-results/liekan-visual/geometry.json', 'utf8'));
+  if (!report.visual.passed || report.visual.head !== head)
+    throw new Error('Visual evidence is not bound to the candidate');
+  if (
+    execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() !== head ||
+    execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim()
+  )
+    throw new Error('Candidate source changed during acceptance');
+} catch (error) {
+  report.error = error.message;
+  save();
+  throw error;
+} finally {
+  // Names are invocation-unique and flags are set only after successful creation.
+  const cleanupErrors = [];
+  if (appCreated) {
+    try {
+      docker('rm', '-f', app);
+    } catch {
+      cleanupErrors.push(app);
+    }
+  }
+  if (dbCreated) {
+    try {
+      docker('rm', '-fv', db);
+    } catch {
+      cleanupErrors.push(db);
+    }
+  }
+  if (networkCreated) {
+    try {
+      docker('network', 'rm', network);
+    } catch {
+      cleanupErrors.push(network);
+    }
+  }
+  report.cleanup = { passed: cleanupErrors.length === 0, remaining: cleanupErrors };
+  save();
+}
+if (!report.cleanup.passed) {
+  report.error = 'Acceptance resource cleanup failed';
+  save();
+  throw new Error(report.error);
+}
+report.passed = true;
+report.finalized = true;
+report.finishedAt = new Date().toISOString();
+save();
+fs.writeFileSync('outputs/acceptance.json', JSON.stringify(report, null, 2));
+console.log(
+  JSON.stringify({
+    head,
+    image,
+    imageId: report.imageId,
+    passed: true,
+    report: `${directory}/report.json`,
+  }),
+);

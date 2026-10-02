@@ -1,143 +1,43 @@
-<p align="center">
-  <img src="https://content.umami.is/website/images/umami-logo.png" alt="Umami Logo" width="100">
-</p>
+# Liekan · 猎看统计
 
-<h1 align="center">Umami</h1>
+面向 GEO 增长的 AI 与搜索流量分析系统。Liekan 基于 Umami v3.4.0，保留浏览器采集、账号权限、网站与团队、目标和漏斗，通过独立日志接入分析 AI 抓取行为与搜索引荐。
 
-<p align="center">
-  <i>Umami is a privacy-first analytics platform. Traffic, campaigns, behavior, conversions, and revenue in one place — no cookies, no surveillance, self-hosted or in the cloud.</i>
-</p>
+主项目采用 MIT 许可，保留 Umami 版权。第三方组件和地理数据许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-<p align="center">
-  <a href="https://github.com/umami-software/umami/releases"><img src="https://img.shields.io/github/release/umami-software/umami.svg" alt="GitHub Release" /></a>
-  <a href="https://github.com/umami-software/umami/blob/master/LICENSE"><img src="https://img.shields.io/github/license/umami-software/umami.svg" alt="MIT License" /></a>
-  <a href="https://github.com/umami-software/umami/actions"><img src="https://img.shields.io/github/actions/workflow/status/umami-software/umami/ci.yml" alt="Build Status" /></a>
-  <a href="https://cloud.umami.is/share/LGazGOecbDtaIwDr/umami.is" style="text-decoration: none;"><img src="https://img.shields.io/badge/Try%20Demo%20Now-Click%20Here-brightgreen" alt="Umami Demo" /></a>
-</p>
+当前版本为 0.1.0，本地体验默认地址为 **http://127.0.0.1:3002**。新增数据库和容器与原 Umami 独立。
 
----
+- 11 个统计页面、22 个图表，依据冻结的 geo-stats v3 原型。
+- 人类 PV/UV、来源、地域、内容、目标与漏斗复用 Umami 数据。
+- AI 抓取来自上传的服务器 combined / JSON 日志，支持蜘蛛分类、官方 IP 范围匹配、覆盖和路径观察。
+- sitemap / CSV / JSON 内容目录、网站级规则、robots 草稿和 CIDR 白名单管理。
+- 按页面、日期、筛选与排序导出 CSV；演示站独立标识。
 
-## 🚀 Getting Started
+缺少输入、空数据、估算和未支持的字段分别展示。持续源站采集、正文完成率、自动内容评分、执行拦截和搜索曝光/排名属于后续能力。
 
-A detailed getting started guide can be found at [umami.is/docs](https://umami.is/docs/).
+## 安装与开发
 
----
+使用 Node.js **22.23.3** 与 pnpm **12.3.4**。复制 `env.example` 到私有 `.env`，填写独立数据库及密钥。迁移已有数据时沿用原应用和 2FA 密钥。
 
-## 🛠 Installing from Source
-
-### Requirements
-
-- A server with Node.js version 18.18+.
-- A PostgreSQL database version v12.14+.
-
-### Get the source code and install packages
-
-```bash
-git clone https://github.com/umami-software/umami.git
-cd umami
-pnpm install
+```sh
+pnpm install --frozen-lockfile
+pnpm build:db
+pnpm db:migrate
+pnpm liekan:migrate
+pnpm build:openapi
+pnpm build:packages
+pnpm dev
 ```
 
-### Configure Umami
+Docker 部署、备份与恢复步骤见 [本地部署说明](docs/local-deployment.md)。首次使用可运行 `pnpm liekan:seed-demo`，创建单独的演示站。
 
-Create an `.env` file with the following:
+## 维护与升级
 
-```bash
-DATABASE_URL=connection-url
+```sh
+pnpm liekan:upstream:report --tag vX.Y.Z
+pnpm liekan:upstream:prepare --tag vX.Y.Z
+pnpm liekan:verify
 ```
 
-Optional: set `API_URL` to change the base URL used by internal UI API calls.
-Relative paths are served under `BASE_PATH`; absolute URLs are proxied through the local `/api` route.
-For example, `API_URL=/internal-api` or `API_URL=https://api.example.com/api`.
+更新工具从官方 upstream 获取稳定版本，在隔离候选中保留历史并合并。Liekan 自有 UI、数据契约、适配层与独立 SQL 迁移共同保护产品行为。验证通过后再更新本地 main 和发布标签。
 
-Optional: set `TWO_FACTOR_ENCRYPTION_KEY` to a 64-character hex string to enable two-factor
-authentication. Generate one with `openssl rand -hex 32`. Two-factor authentication is unavailable
-and cannot be required until this key is set.
-
-MCP is disabled by default. Set `MCP_ENABLED=1` to enable the `/mcp` endpoint, then
-authenticate with an API key generated under Settings → API keys.
-
-The connection URL format:
-
-```bash
-postgresql://username:mypassword@localhost:5432/mydb
-```
-
-### Build the Application
-
-```bash
-pnpm run build
-```
-
-The build step will create tables in your database if you are installing for the first time. It will also create a login user with username **admin** and password **umami**.
-
-### Start the Application
-
-```bash
-pnpm run start
-```
-
-By default, this will launch the application on `http://localhost:3000`. You will need to either [proxy](https://docs.nginx.com/nginx/admin-guide/web-server/reverse-proxy/) requests from your web server or change the [port](https://nextjs.org/docs/api-reference/cli#production) to serve the application directly.
-
----
-
-## 🐳 Installing with Docker
-
-Umami provides Docker images as well as a Docker compose file for easy deployment.
-
-Docker image:
-
-```bash
-docker pull docker.umami.is/umami-software/umami:latest
-```
-
-Docker compose (Runs Umami with a PostgreSQL database):
-
-```bash
-docker compose up -d
-```
-
----
-
-## 🔄 Getting Updates
-
-To get the latest features, simply do a pull, install any new dependencies, and rebuild:
-
-```bash
-git pull
-pnpm install
-pnpm build
-```
-
-To update the Docker image, simply pull the new images and rebuild:
-
-```bash
-docker compose pull
-docker compose up --force-recreate -d
-```
-
----
-
-## 🛟 Support
-
-<p align="center">
-  <a href="https://github.com/umami-software/umami"><img src="https://img.shields.io/badge/GitHub--blue?style=social&logo=github" alt="GitHub" /></a>
-  <a href="https://twitter.com/umami_software"><img src="https://img.shields.io/badge/Twitter--blue?style=social&logo=twitter" alt="Twitter" /></a>
-  <a href="https://linkedin.com/company/umami-software"><img src="https://img.shields.io/badge/LinkedIn--blue?style=social&logo=linkedin" alt="LinkedIn" /></a>
-  <a href="https://umami.is/discord"><img src="https://img.shields.io/badge/Discord--blue?style=social&logo=discord" alt="Discord" /></a>
-</p>
-
-[release-shield]: https://img.shields.io/github/release/umami-software/umami.svg
-[releases-url]: https://github.com/umami-software/umami/releases
-[license-shield]: https://img.shields.io/github/license/umami-software/umami.svg
-[license-url]: https://github.com/umami-software/umami/blob/master/LICENSE
-[build-shield]: https://img.shields.io/github/actions/workflow/status/umami-software/umami/ci.yml
-[build-url]: https://github.com/umami-software/umami/actions
-[github-shield]: https://img.shields.io/badge/GitHub--blue?style=social&logo=github
-[github-url]: https://github.com/umami-software/umami
-[twitter-shield]: https://img.shields.io/badge/Twitter--blue?style=social&logo=twitter
-[twitter-url]: https://twitter.com/umami_software
-[linkedin-shield]: https://img.shields.io/badge/LinkedIn--blue?style=social&logo=linkedin
-[linkedin-url]: https://linkedin.com/company/umami-software
-[discord-shield]: https://img.shields.io/badge/Discord--blue?style=social&logo=discord
-[discord-url]: https://discord.com/invite/4dz4zcXYrQ
+完整说明见 [上游更新流程](docs/upstream-upgrade.md)、[统计口径](docs/data-definitions.md)、[页面覆盖与下一阶段缺口](docs/ui-coverage.md)、[设计约束](DESIGN.md)。本机构建阶段尚未配置远端仓库和镜像发布渠道。

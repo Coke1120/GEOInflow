@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { OtpInput } from '@/components/common/OtpInput';
 import { useMessages, useTwoFactorVerifyMutation } from '@/components/hooks';
-import { Logo } from '@/components/svg';
+import { BrandIcon } from '@/components/liekan/Icons';
 import { setClientAuthToken } from '@/lib/client';
 import { consumeReturnUrl } from '@/lib/return-url';
 import { setUser } from '@/store/app';
@@ -90,9 +90,19 @@ export function LoginTwoFactorPage() {
   return (
     <Column justifyContent="center" alignItems="center" gap="6">
       <Icon size="lg">
-        <Logo />
+        <BrandIcon
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 10,
+            background: '#0F62FE',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        />
       </Icon>
-      <Heading>umami</Heading>
+      <Heading>猎看统计</Heading>
       <Column gap="4" style={{ minWidth: 300 }}>
         <Heading size="xl">{t(labels.twoFactorLogin)}</Heading>
         <Text>{t(messages.twoFactorLoginDescription)}</Text>

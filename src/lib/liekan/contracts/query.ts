@@ -1,0 +1,25 @@
+import { z } from 'zod';
+export const reportQuery = z.object({
+  resource: z.enum([
+    'overview',
+    'ai/overview',
+    'ai/bots',
+    'ai/pages',
+    'ai/preference',
+    'human/overview',
+    'human/geo',
+    'human/sources',
+    'content',
+    'conversions',
+    'logs',
+  ]),
+  startAt: z.coerce.number().int().min(0),
+  endAt: z.coerce.number().int().min(0),
+  timezone: z.string().max(80).default('Asia/Shanghai'),
+  page: z.coerce.number().int().min(1).max(100000).default(1),
+  cursor: z.string().max(512).default(''),
+  seek: z.enum(['after', 'before']).default('after'),
+  filter: z.enum(['', 'ai', 'abnormal', 'other']).default(''),
+  search: z.string().max(200).default(''),
+  chartPeriod: z.enum(['30d', '7d', '24h']).default('30d'),
+});

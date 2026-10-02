@@ -11,7 +11,7 @@ import {
 } from '@umami/react-zen';
 import { useRouter } from 'next/navigation';
 import { useMessages, useUpdateQuery } from '@/components/hooks';
-import { Logo } from '@/components/svg';
+import { BrandIcon } from '@/components/liekan/Icons';
 import { setClientAuthToken } from '@/lib/client';
 import { consumeReturnUrl } from '@/lib/return-url';
 import { setUser } from '@/store/app';
@@ -39,9 +39,19 @@ export function LoginForm() {
   return (
     <Column justifyContent="center" alignItems="center" gap="6">
       <Icon size="lg">
-        <Logo />
+        <BrandIcon
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 10,
+            background: '#0F62FE',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        />
       </Icon>
-      <Heading>umami</Heading>
+      <Heading>猎看统计</Heading>
       <Form
         onSubmit={handleSubmit}
         error={getErrorMessage(error)}

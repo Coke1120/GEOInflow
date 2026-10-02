@@ -1,0 +1,86 @@
+import { checkAuth, hasPermission } from '@/lib/auth';
+import { PERMISSIONS } from '@/lib/constants';
+import prisma, { getRawQueryClient } from '@/lib/prisma';
+import type { Auth } from '@/lib/types';
+import { canUpdateWebsite, canViewWebsite } from '@/permissions';
+import { getWebsiteStats } from '@/queries/sql';
+
+export class LiekanError extends Error {
+  constructor(
+    message: string,
+    public status = 400,
+  ) {
+    super(message);
+  }
+}
+export async function authorize(request: Request, websiteId: string, write = false) {
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(websiteId))
+    throw new LiekanError('站点 ID 无效');
+  const auth = await checkAuth(request);
+  if (!auth?.user || ('shareToken' in auth && auth.shareToken) || auth.user.deletedAt)
+    throw new LiekanError('需要完整登录', 401);
+  const website = await prisma.client.website.findFirst({
+    where: { id: websiteId, deletedAt: null },
+    select: { id: true, name: true, domain: true },
+  });
+  if (!website) throw new LiekanError('站点不存在', 404);
+  const allowed = write
+    ? await canUpdateWebsite(auth as Auth, websiteId)
+    : await canViewWebsite(auth as Auth, websiteId);
+  if (!allowed) throw new LiekanError('无权访问该站点', 403);
+  return {
+    website,
+    auth,
+    writeIdentity: { userId: auth.user.id },
+    canManage: Boolean(await canUpdateWebsite(auth as Auth, websiteId)),
+  };
+}
+export type WriteIdentity = { userId: string };
+export async function lockWritableWebsite(tx: any, id: string, identity?: WriteIdentity) {
+  const rows = await tx.$queryRawUnsafe(
+    'SELECT user_id,team_id FROM website WHERE website_id=$1::uuid AND deleted_at IS NULL FOR UPDATE',
+    id,
+  );
+  if (!rows.length) throw new LiekanError('站点不存在', 404);
+  if (!identity) return;
+  const users = await tx.$queryRawUnsafe(
+    'SELECT role FROM "user" WHERE user_id=$1::uuid AND deleted_at IS NULL FOR SHARE',
+    identity.userId,
+  );
+  if (!users.length) throw new LiekanError('账户无效', 401);
+  if (await hasPermission(users[0].role, PERMISSIONS.all)) return;
+  if (rows[0].user_id === identity.userId) return;
+  const members = rows[0].team_id
+    ? await tx.$queryRawUnsafe(
+        'SELECT tu.role FROM team_user tu JOIN team t ON t.team_id=tu.team_id WHERE tu.team_id=$1::uuid AND tu.user_id=$2::uuid AND t.deleted_at IS NULL FOR SHARE OF tu,t',
+        rows[0].team_id,
+        identity.userId,
+      )
+    : [];
+  if (!members.length || !(await hasPermission(members[0].role, PERMISSIONS.websiteUpdate)))
+    throw new LiekanError('站点管理权限已变更', 403);
+}
+const primary = (): any => getRawQueryClient(prisma.client, { write: true });
+export async function query<T = any>(sql: string, ...params: unknown[]): Promise<T[]> {
+  return transaction(tx => tx.$queryRawUnsafe(sql, ...params));
+}
+export async function transaction<T>(work: (tx: any) => Promise<T>): Promise<T> {
+  const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new LiekanError('数据库 schema 无效', 500);
+  return (await primary().$transaction(
+    async tx => {
+      await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+      return work(tx);
+    },
+    { timeout: 60000 },
+  )) as T;
+}
+export async function humanTotals(websiteId: string, startDate: Date, endDate: Date) {
+  return (await getWebsiteStats(websiteId, { startDate, endDate })) as unknown as {
+    pageviews: number;
+    visitors: number;
+    visits: number;
+    bounces: number;
+    totaltime: number;
+  };
+}

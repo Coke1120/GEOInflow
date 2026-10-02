@@ -26,8 +26,7 @@ vi.mock('@/lib/two-factor/crypto', () => ({
   isTwoFactorConfigured: vi.fn(),
 }));
 
-vi.mock('@/lib/prisma', () => ({
-  default: {
+const prismaMock = vi.hoisted(() => ({
     client: {
       twoFactorAuth: {
         findUnique: vi.fn(),
@@ -44,14 +43,13 @@ vi.mock('@/lib/prisma', () => ({
       },
     },
     transaction: vi.fn(),
-  },
-}));
+  }));
+vi.mock('@/lib/prisma', () => ({ default: prismaMock }));
 
 const parseRequestMock = vi.mocked(parseRequest);
 const canEnforceTwoFactorAuthForUserMock = vi.mocked(canEnforceTwoFactorAuthForUser);
 const isTwoFactorConfiguredMock = vi.mocked(isTwoFactorConfigured);
 const updateUserMock = vi.mocked(updateUser);
-const prismaMock = vi.mocked(prisma, true);
 
 beforeEach(() => {
   parseRequestMock.mockReset();

@@ -208,6 +208,7 @@ if (isProd && cloudMode) {
 /** @type {import('next').NextConfig} */
 export default withNextIntl({
   reactStrictMode: false,
+  agentRules: false,
   devIndicators: {
     position: 'bottom-right',
   },
@@ -225,7 +226,7 @@ export default withNextIntl({
   basePath,
   output: isVercel ? undefined : 'standalone',
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   experimental: {
     useTypeScriptCli: true,

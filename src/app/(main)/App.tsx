@@ -12,6 +12,8 @@ import {
   useTeamQuery,
   useTwoFactorStatusQuery,
 } from '@/components/hooks';
+import { isLiekanRoute, isWebsiteLanding } from '@/components/liekan/data';
+import { LiekanShell } from '@/components/liekan/LiekanShell';
 import { TwoFactorSetupModal } from '@/components/modals/TwoFactorSetupModal';
 import { LAST_TEAM_CONFIG } from '@/lib/constants';
 import { removeItem, setItem } from '@/lib/storage';
@@ -20,7 +22,9 @@ import { UpdateNotice } from './UpdateNotice';
 export function App({ children }) {
   const { user, isLoading, error } = useLoginQuery();
   const config = useConfig();
-  const { pathname, router, teamId } = useNavigation();
+  const { pathname, router, teamId, query } = useNavigation();
+  const showLiekan = query.legacy !== '1';
+  const isGeo = isLiekanRoute(pathname);
   const { isLoading: isTeamLoading, error: teamError } = useTeamQuery(teamId);
   const { data: twoFactorStatus } = useTwoFactorStatusQuery(!!user && !config?.cloudMode);
   const needsTwoFactorSetup = !!(twoFactorStatus?.isRequired && !twoFactorStatus?.isEnabled);
@@ -39,6 +43,12 @@ export function App({ children }) {
       router.replace('/');
     }
   }, [teamId, teamError, router]);
+
+  useEffect(() => {
+    if (user && !isLoading && query.legacy !== '1' && isWebsiteLanding(pathname)) {
+      router.replace(`${pathname}/geo${window.location.search}`);
+    }
+  }, [user, isLoading, pathname, query.legacy, router]);
 
   if (isLoading || !config || (teamId && isTeamLoading)) {
     return <Loading placement="absolute" />;
@@ -60,29 +70,47 @@ export function App({ children }) {
   }
 
   return (
-    <Grid
-      columns={{ base: '1fr', lg: 'auto 1fr' }}
-      rows={{ base: 'auto 1fr', lg: '1fr' }}
-      height="screen"
-    >
-      <Row display={{ base: 'flex', lg: 'none' }} alignItems="center" gap padding="3">
-        <MobileNav />
-      </Row>
-      <Column display={{ base: 'none', lg: 'flex' }} minHeight="0" style={{ overflow: 'hidden' }}>
-        <SideNav />
-      </Column>
-      <Column overflowX="hidden" minHeight="0" position="relative">
-        <TopNav />
-        <Column
-          alignItems="center"
-          aria-hidden={needsTwoFactorSetup || undefined}
-          style={needsTwoFactorSetup ? { pointerEvents: 'none' } : undefined}
+    <>
+      {showLiekan ? (
+        <LiekanShell user={user}>
+          <div
+            aria-hidden={needsTwoFactorSetup || undefined}
+            style={needsTwoFactorSetup ? { pointerEvents: 'none' } : undefined}
+          >
+            {!isGeo && <TopNav />}
+            {children}
+          </div>
+        </LiekanShell>
+      ) : (
+        <Grid
+          columns={{ base: '1fr', lg: 'auto 1fr' }}
+          rows={{ base: 'auto 1fr', lg: '1fr' }}
+          height="screen"
         >
-          {children}
-        </Column>
-      </Column>
+          <Row display={{ base: 'flex', lg: 'none' }} alignItems="center" gap padding="3">
+            <MobileNav />
+          </Row>
+          <Column
+            display={{ base: 'none', lg: 'flex' }}
+            minHeight="0"
+            style={{ overflow: 'hidden' }}
+          >
+            <SideNav />
+          </Column>
+          <Column overflowX="hidden" minHeight="0" position="relative">
+            <TopNav />
+            <Column
+              alignItems="center"
+              aria-hidden={needsTwoFactorSetup || undefined}
+              style={needsTwoFactorSetup ? { pointerEvents: 'none' } : undefined}
+            >
+              {children}
+            </Column>
+          </Column>
+        </Grid>
+      )}
       {needsTwoFactorSetup && <TwoFactorSetupModal required={true} />}
-      <UpdateNotice user={user} config={config} />
+      {!showLiekan && <UpdateNotice user={user} config={config} />}
       {process.env.NODE_ENV === 'production' && !pathname.includes('/share/') && (
         <Script src={`${process.env.basePath || ''}/telemetry.js`} />
       )}
@@ -103,6 +131,6 @@ export function App({ children }) {
           src={`${process.env.basePath || ''}/recorder.js`}
         />
       )}
-    </Grid>
+    </>
   );
 }
