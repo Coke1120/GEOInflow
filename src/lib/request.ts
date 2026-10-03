@@ -37,7 +37,12 @@ export async function parseRequest(
       // Re-add dynamic params stripped by Zod schema: suffixed filter params (browser1, os2)
       for (const key of Object.keys(rawQuery)) {
         if (
-          (/\d+$/.test(key) || /^pf_/.test(key) || /^epf\d+$/.test(key) || /^spf\d+$/.test(key)) &&
+          (/\d+$/.test(key) ||
+            /^drill_/.test(key) ||
+            /^channel\d*$/.test(key) ||
+            /^pf_/.test(key) ||
+            /^epf\d+$/.test(key) ||
+            /^spf\d+$/.test(key)) &&
           !(key in query)
         ) {
           query[key] = rawQuery[key];
@@ -87,7 +92,7 @@ export function getRequestFilters(query: Record<string, any>) {
   const result: Record<string, any> = {};
 
   for (const key of Object.keys(query)) {
-    const baseName = key.replace(/\d+$/, '');
+    const baseName = key.replace(/\d+$/, '').replace(/^drill_/, '');
     if (baseName in FILTER_COLUMNS) {
       result[key] = query[key];
     }
@@ -174,6 +179,10 @@ export async function getQueryFilters(
     }
   }
 
+  for (const key of Object.keys(filters)) {
+    const base = key.replace(/\d+$/, '').replace(/^drill_/, '');
+    if (base in FILTER_COLUMNS && !(base in filters)) filters[base] = undefined;
+  }
   return {
     ...dateRange,
     ...filters,

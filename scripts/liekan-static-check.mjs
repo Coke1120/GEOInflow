@@ -17,6 +17,12 @@ if (manifestDigest !== baseline.uiManifestSha256)
 for (const [file, digest] of Object.entries(manifest))
   if (hash(readFileSync(`design/reference/geo-stats-v3/${file}`)) !== digest)
     throw new Error(`UI reference drift: ${file}`);
+const featureUI = JSON.parse(readFileSync('config/liekan/feature-ui.json', 'utf8'));
+if (hash(JSON.stringify(featureUI.files)) !== baseline.featureUiManifestSha256)
+  throw new Error('Approved supplemental UI fingerprint changed');
+for (const [file, digest] of Object.entries(featureUI.files))
+  if (hash(readFileSync(`${featureUI.directory}/${file}`)) !== digest)
+    throw new Error(`Supplemental UI drift: ${file}`);
 const migrationLock = JSON.parse(readFileSync('config/liekan/migrations.json', 'utf8'));
 if (
   JSON.stringify(

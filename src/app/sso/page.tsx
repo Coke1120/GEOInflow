@@ -1,10 +1,11 @@
 import { Suspense } from 'react';
 import { SSOPage } from './SSOPage';
+import { FeatureAuthEntry } from '@/components/liekan/features/AuthEntry';
 
-export default function () {
+export default async function ({ searchParams }: { searchParams: Promise<{ legacy?: string }> }) {
   return (
     <Suspense>
-      <SSOPage />
+      {(await searchParams).legacy === '1' ? <SSOPage /> : <FeatureAuthEntry page="sso" />}
     </Suspense>
   );
 }

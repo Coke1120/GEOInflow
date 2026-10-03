@@ -12,6 +12,8 @@ import {
 import { getCountryFilterValues, getRegionFilterValues } from './country';
 import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
+import { channelFilterColumn } from './liekan/upstream/filter-extension';
+import { getQuerySnapshot } from './liekan/upstream/query-snapshot';
 
 const log = debug('umami:prisma');
 
@@ -41,7 +43,12 @@ export interface RawQueryClient extends RawQueryExecutor {
 }
 
 function isRawQueryExecutor(value: unknown): value is RawQueryExecutor {
-  return !!value && typeof value === 'object' && '$executeRawUnsafe' in value && '$queryRawUnsafe' in value;
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    '$executeRawUnsafe' in value &&
+    '$queryRawUnsafe' in value
+  );
 }
 
 export function getRawQueryClient(
@@ -145,6 +152,7 @@ function mapFilter(
   name: string,
   type: string = '',
   paramName?: string,
+  expression = false,
 ) {
   const param = paramName ?? name;
   const value = `{{${param}${type ? `::${type}` : ''}}}`;
@@ -152,22 +160,24 @@ function mapFilter(
   if (name.startsWith('cohort_')) {
     name = name.slice('cohort_'.length);
   }
+  name = name.replace(/^drill_/, '');
 
   const table = SESSION_COLUMNS.includes(name) ? 'session' : 'website_event';
+  const qualified = expression ? column : `${table}.${column}`;
 
   switch (operator) {
     case OPERATORS.equals:
-      return `${table}.${column} = ANY(${value})`;
+      return `${qualified} = ANY(${value})`;
     case OPERATORS.notEquals:
-      return `${table}.${column} != ALL(${value})`;
+      return `${qualified} != ALL(${value})`;
     case OPERATORS.contains:
-      return `${table}.${column} ilike ${value}`;
+      return `${qualified} ilike ${value}`;
     case OPERATORS.doesNotContain:
-      return `${table}.${column} not ilike ${value}`;
+      return `${qualified} not ilike ${value}`;
     case OPERATORS.regex:
-      return `${table}.${column} ~* ${value}`;
+      return `${qualified} ~* ${value}`;
     case OPERATORS.notRegex:
-      return `${table}.${column} !~* ${value}`;
+      return `${qualified} !~* ${value}`;
     default:
       return '';
   }
@@ -186,8 +196,30 @@ function getFilterQuery(filters: Record<string, any>, options: QueryOptions = {}
       }
 
       if (column) {
-        const clause = mapFilter(`${prefix}${column}`, operator, name, '', paramName);
-        const isAlwaysAnd = name === 'eventType' || (isCohort && name === cohortActionName);
+        const resolved =
+          column === 'liekan_channel'
+            ? channelFilterColumn(prefix || 'website_event.')
+            : `${prefix}${column}`;
+        if (name.startsWith('drill_') && filters[paramName ?? name] === 'empty.') {
+          const table = SESSION_COLUMNS.includes(name.replace(/^drill_/, ''))
+            ? 'session'
+            : 'website_event';
+          const qualified = column === 'liekan_channel' ? resolved : `${table}.${resolved}`;
+          andClauses.push(`and (${qualified} is null or ${qualified} = '')`);
+          return;
+        }
+        const clause = mapFilter(
+          resolved,
+          operator,
+          name,
+          '',
+          paramName,
+          column === 'liekan_channel',
+        );
+        const isAlwaysAnd =
+          name === 'eventType' ||
+          name.startsWith('drill_') ||
+          (isCohort && name === cohortActionName);
 
         if (isAlwaysAnd) {
           andClauses.push(`and ${clause}`);
@@ -287,7 +319,9 @@ function getQueryParams(filters: Record<string, any>) {
       if (!resolvedColumn) return obj;
 
       const key = paramName ?? name;
-      const filterName = name?.startsWith('cohort_') ? name.slice('cohort_'.length) : name;
+      const filterName = (
+        name?.startsWith('cohort_') ? name.slice('cohort_'.length) : name
+      )?.replace(/^drill_/, '');
 
       if (SEARCH_OPERATORS.includes(operator)) {
         obj[key] = `%${value}%`;
@@ -311,21 +345,20 @@ function getQueryParams(filters: Record<string, any>) {
 
 function parseFilters(filters: Record<string, any>, options?: QueryOptions) {
   const joinSession = Object.keys(filters).find(key => {
-    const baseName = key.replace(/\d+$/, '');
+    const baseName = key.replace(/\d+$/, '').replace(/^drill_/, '');
     return ['referrer', ...SESSION_COLUMNS].includes(baseName);
   });
 
   const cohortFilters = Object.fromEntries(
     Object.entries(filters).filter(([key]) => key.startsWith('cohort_')),
   );
-  const {
-    sql: eventPropertyFilterQuery,
-    params: eventPropertyFilterParams,
-  } = getEventPropertyFilterQuery((filters as QueryFilters).eventPropertyFilters, filters.timezone);
-  const {
-    sql: sessionPropertyFilterQuery,
-    params: sessionPropertyFilterParams,
-  } = getSessionPropertyFilterQuery((filters as QueryFilters).sessionPropertyFilters, filters.timezone);
+  const { sql: eventPropertyFilterQuery, params: eventPropertyFilterParams } =
+    getEventPropertyFilterQuery((filters as QueryFilters).eventPropertyFilters, filters.timezone);
+  const { sql: sessionPropertyFilterQuery, params: sessionPropertyFilterParams } =
+    getSessionPropertyFilterQuery(
+      (filters as QueryFilters).sessionPropertyFilters,
+      filters.timezone,
+    );
 
   return {
     joinSessionQuery:
@@ -333,7 +366,11 @@ function parseFilters(filters: Record<string, any>, options?: QueryOptions) {
         ? `inner join session on website_event.session_id = session.session_id and website_event.website_id = session.website_id`
         : '',
     dateQuery: getDateQuery(filters),
-    filterQuery: [getFilterQuery(filters, options), eventPropertyFilterQuery, sessionPropertyFilterQuery]
+    filterQuery: [
+      getFilterQuery(filters, options),
+      eventPropertyFilterQuery,
+      sessionPropertyFilterQuery,
+    ]
       .filter(Boolean)
       .join('\n'),
     queryParams: {
@@ -749,10 +786,12 @@ async function executeRawQuery(
     return `$${params.length}${type ?? ''}`;
   });
 
-  const queryClient = getRawQueryClient(client, {
-    useReplica: !!process.env.DATABASE_REPLICA_URL,
-    write,
-  });
+  const queryClient =
+    (!write && getQuerySnapshot()) ||
+    getRawQueryClient(client, {
+      useReplica: !!process.env.DATABASE_REPLICA_URL,
+      write,
+    });
 
   if (schema) {
     await queryClient.$executeRawUnsafe(`SET search_path TO "${schema}";`);

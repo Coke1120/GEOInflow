@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { uuid } from '@/lib/crypto';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { badRequest, json, unauthorized } from '@/lib/response';
-import { searchParams, segmentParamSchema, segmentTypeParam } from '@/lib/schema';
+import { pagingParams, searchParams, segmentParamSchema, segmentTypeParam } from '@/lib/schema';
 import { canUpdateWebsite, canViewSharedWebsiteFilters } from '@/permissions';
 import { createSegment, getWebsiteSegments } from '@/queries/prisma';
 
@@ -13,6 +13,7 @@ export async function GET(
   const schema = z.object({
     type: segmentTypeParam,
     ...searchParams,
+    ...pagingParams,
   });
 
   const { auth, query, error } = await parseRequest(request, schema);

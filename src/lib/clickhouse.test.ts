@@ -39,3 +39,24 @@ describe('getDateSQL bucket formatting', () => {
     );
   });
 });
+
+describe('Liekan breakdown drill filters', () => {
+  test('matches null and empty dimensions as a mandatory drill condition', () => {
+    const parsed = clickhouse.parseFilters({
+      country: 'eq.CN',
+      path: 'eq./home',
+      match: 'any',
+      drill_country: 'empty.',
+    });
+    expect(parsed.filterQuery).toContain("and (country is null or country = '')");
+    expect(parsed.filterQuery).toContain(' or ');
+    expect(parsed.filterQuery).not.toContain('IN {drill_country:Array(String)}');
+  });
+  test('retains normal literal filtering and normalized country drill values', () => {
+    const literal = clickhouse.parseFilters({ country: 'empty.' });
+    expect(literal.filterQuery).toContain('country IN {country:Array(String)}');
+    expect(literal.queryParams).toMatchObject({ country: ['EMPTY.'] });
+    const drill = clickhouse.parseFilters({ drill_country: 'eq.CN' });
+    expect(drill.queryParams).toMatchObject({ drill_country: ['CN', ['T', 'W'].join('')] });
+  });
+});

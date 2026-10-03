@@ -28,6 +28,15 @@ export const operations = [
                   num: {
                     type: 'number',
                   },
+                  conversions: { type: 'number' },
+                  series: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: { x: { type: 'string' }, y: { type: 'number' } },
+                      required: ['x', 'y'],
+                    },
+                  },
                   total: {
                     type: 'number',
                   },

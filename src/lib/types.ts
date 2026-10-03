@@ -43,6 +43,7 @@ export interface Auth {
 export type ShareTheme = 'light' | 'dark';
 
 export interface ShareParameters {
+  enabled?: boolean;
   allowFilter?: boolean;
   theme?: ShareTheme;
   [key: string]: boolean | ShareTheme | undefined;

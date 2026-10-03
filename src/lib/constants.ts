@@ -44,6 +44,7 @@ export const EVENT_COLUMNS = [
   'entry',
   'exit',
   'referrer',
+  'channel',
   'domain',
   'title',
   'query',
@@ -75,6 +76,7 @@ export const SEGMENT_TYPES = {
 };
 
 export const FILTER_COLUMNS = {
+  channel: 'liekan_channel',
   path: 'url_path',
   entry: 'url_path',
   exit: 'url_path',

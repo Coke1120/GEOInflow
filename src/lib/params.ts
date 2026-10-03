@@ -77,12 +77,13 @@ export function filtersObjectToArray(filters: QueryFilters, options: QueryOption
     }
 
     const baseName = key.replace(/\d+$/, '');
+    const columnName = baseName.replace(/^drill_/, '');
     const paramName = key !== baseName ? key : undefined;
 
     if (filter?.name && filter?.value !== undefined) {
       return arr.concat({
         ...filter,
-        column: options?.columns?.[baseName] ?? FILTER_COLUMNS[baseName],
+        column: options?.columns?.[columnName] ?? FILTER_COLUMNS[columnName],
         paramName: paramName ?? filter.paramName,
       });
     }
@@ -92,7 +93,7 @@ export function filtersObjectToArray(filters: QueryFilters, options: QueryOption
     return arr.concat({
       name: baseName,
       paramName,
-      column: options?.columns?.[baseName] ?? FILTER_COLUMNS[baseName],
+      column: options?.columns?.[columnName] ?? FILTER_COLUMNS[columnName],
       operator,
       value,
       prefix: options?.prefix,
@@ -150,10 +151,7 @@ export function parsePropertyFilters(
     const rawOperator = prefixedDotMatch ? prefixedDotMatch[2] : untypedDotMatch?.[1];
     const operator = resolveOperator(rawOperator);
 
-    if (
-      !operator ||
-      (explicitDataType !== undefined && !isValidEventDataType(explicitDataType))
-    ) {
+    if (!operator || (explicitDataType !== undefined && !isValidEventDataType(explicitDataType))) {
       return [];
     }
 

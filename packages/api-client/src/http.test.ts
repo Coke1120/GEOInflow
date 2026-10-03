@@ -133,6 +133,19 @@ function jsonResponse(body: unknown, init: ResponseInit = {}) {
 }
 
 describe('sendRequest', () => {
+  test('keeps NDJSON export frames as typed text', async () => {
+    const frames = '{"type":"progress","percent":0}\n{"type":"complete"}\n';
+    const result = await sendRequest(
+      async () => new Response(frames, { headers: { 'content-type': 'application/x-ndjson' } }),
+      {
+        method: 'post',
+        url: new URL('https://example.com/api/liekan/websites/w/exports'),
+        headers: {},
+        body: { format: 'zip' },
+      },
+    );
+    expect(result).toBe(frames);
+  });
   test('sends JSON bodies and merges headers', async () => {
     let captured: { url: string; init?: RequestInit } | undefined;
     const fetchImpl = async (url: string | URL, init?: RequestInit) => {

@@ -4,7 +4,7 @@
 import type { RequestOptions } from '../types';
 import type { components, operations as OperationTypes } from './types';
 
-export const API_VERSION = '0.1.2';
+export const API_VERSION = '0.2.0';
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
@@ -63,6 +63,14 @@ export const operations = {
     method: 'post',
     path: '/api/boards/{boardId}/shares',
     pathParams: ['boardId'],
+    queryParams: [],
+    hasBody: true,
+  },
+  createLiekanExport: {
+    operationId: 'createLiekanExport',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/exports',
+    pathParams: ['websiteId'],
     queryParams: [],
     hasBody: true,
   },
@@ -847,6 +855,112 @@ export const operations = {
       'eventType',
       'match',
     ],
+    hasBody: false,
+  },
+  getLiekanFeatureAnalytics: {
+    operationId: 'getLiekanFeatureAnalytics',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/analytics',
+    pathParams: ['websiteId'],
+    queryParams: [
+      'startAt',
+      'endAt',
+      'timezone',
+      'unit',
+      'kind',
+      'urlPath',
+      'saved',
+      'attributionStep',
+      'attributionModel',
+      'attributionType',
+      'attributionSource',
+      'dimension',
+      'model',
+      'type',
+      'step',
+      'retentionDate',
+      'retentionDay',
+      'currency',
+      'eventName',
+      'propertyName',
+      'sessionId',
+      'page',
+    ],
+    hasBody: false,
+  },
+  getLiekanGoalAnalytics: {
+    operationId: 'getLiekanGoalAnalytics',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/goals/{goalId}/analytics',
+    pathParams: ['websiteId', 'goalId'],
+    queryParams: [
+      'startAt',
+      'endAt',
+      'timezone',
+      'unit',
+      'kind',
+      'urlPath',
+      'saved',
+      'attributionStep',
+      'attributionModel',
+      'attributionType',
+      'attributionSource',
+      'dimension',
+      'model',
+      'type',
+      'step',
+      'retentionDate',
+      'retentionDay',
+      'currency',
+      'eventName',
+      'propertyName',
+      'sessionId',
+      'page',
+    ],
+    hasBody: false,
+  },
+  getLiekanJourneyDetails: {
+    operationId: 'getLiekanJourneyDetails',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/journeys/details',
+    pathParams: ['websiteId'],
+    queryParams: [
+      'startAt',
+      'endAt',
+      'timezone',
+      'steps',
+      'type',
+      'startStep',
+      'endStep',
+      'sequence',
+      'page',
+    ],
+    hasBody: false,
+  },
+  getLiekanJourneys: {
+    operationId: 'getLiekanJourneys',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/journeys',
+    pathParams: ['websiteId'],
+    queryParams: [
+      'startAt',
+      'endAt',
+      'timezone',
+      'steps',
+      'type',
+      'startStep',
+      'endStep',
+      'sequence',
+      'page',
+    ],
+    hasBody: false,
+  },
+  getLiekanLinkSources: {
+    operationId: 'getLiekanLinkSources',
+    method: 'get',
+    path: '/api/liekan/links/{linkId}/sources',
+    pathParams: ['linkId'],
+    queryParams: ['startAt', 'endAt', 'timezone', 'page'],
     hasBody: false,
   },
   getLiekanReport: {
@@ -3150,6 +3264,14 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
+  verifySharePassword: {
+    operationId: 'verifySharePassword',
+    method: 'post',
+    path: '/api/share/{slug}',
+    pathParams: ['slug'],
+    queryParams: [],
+    hasBody: true,
+  },
   verifyTwoFactor: {
     operationId: 'verifyTwoFactor',
     method: 'post',
@@ -3188,9 +3310,11 @@ export type OperationInput<K extends OperationId> = OperationPathParams<K> &
   Record<string, unknown>;
 
 export type OperationOutput<K extends OperationId> = OperationTypes[K]['responses'] extends {
-  200: { content: { 'application/json': infer R } };
+  200: { content: infer C };
 }
-  ? R
+  ? C extends { 'application/json': infer R }
+    ? R
+    : C[keyof C]
   : unknown;
 
 export abstract class GeneratedUmamiClient {
@@ -3270,6 +3394,18 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'createBoardShare'>> {
     return this.execute('createBoardShare', input, options);
+  }
+
+  /**
+   * 导出当前网站真实统计文件
+   * 返回 NDJSON：progress 为实际文件生成/传输进度，file 为文件元数据与字段清单，chunk 为顺序 Base64 数据，complete 为完成。CSV/JSON 使用 summary；ZIP 使用勾选范围。取消请求终止传输。查询阶段超过 100000 明细行或 50 MiB 返回 413；传输阶段错误为 error 帧。
+   * `POST /api/liekan/websites/{websiteId}/exports`
+   */
+  createLiekanExport(
+    input: OperationInput<'createLiekanExport'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'createLiekanExport'>> {
+    return this.execute('createLiekanExport', input, options);
   }
 
   /**
@@ -3830,6 +3966,61 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getEventDataValues'>> {
     return this.execute('getEventDataValues', input, options);
+  }
+
+  /**
+   * 查询 Liekan 明细统计
+   * `GET /api/liekan/websites/{websiteId}/analytics`
+   */
+  getLiekanFeatureAnalytics(
+    input: OperationInput<'getLiekanFeatureAnalytics'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanFeatureAnalytics'>> {
+    return this.execute('getLiekanFeatureAnalytics', input, options);
+  }
+
+  /**
+   * 查询实际目标转化次数与趋势
+   * `GET /api/liekan/websites/{websiteId}/goals/{goalId}/analytics`
+   */
+  getLiekanGoalAnalytics(
+    input: OperationInput<'getLiekanGoalAnalytics'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanGoalAnalytics'>> {
+    return this.execute('getLiekanGoalAnalytics', input, options);
+  }
+
+  /**
+   * 查询路径关联会话
+   * `GET /api/liekan/websites/{websiteId}/journeys/details`
+   */
+  getLiekanJourneyDetails(
+    input: OperationInput<'getLiekanJourneyDetails'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanJourneyDetails'>> {
+    return this.execute('getLiekanJourneyDetails', input, options);
+  }
+
+  /**
+   * 查询 Liekan 访问旅程
+   * `GET /api/liekan/websites/{websiteId}/journeys`
+   */
+  getLiekanJourneys(
+    input: OperationInput<'getLiekanJourneys'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanJourneys'>> {
+    return this.execute('getLiekanJourneys', input, options);
+  }
+
+  /**
+   * 查询链接来源与地域的真实点击次数
+   * `GET /api/liekan/links/{linkId}/sources`
+   */
+  getLiekanLinkSources(
+    input: OperationInput<'getLiekanLinkSources'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanLinkSources'>> {
+    return this.execute('getLiekanLinkSources', input, options);
   }
 
   /**
@@ -5204,6 +5395,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'verify'>> {
     return this.execute('verify', input, options);
+  }
+
+  /**
+   * 验证公开分享密码并获取受限访问令牌
+   * `POST /api/share/{slug}`
+   */
+  verifySharePassword(
+    input: OperationInput<'verifySharePassword'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'verifySharePassword'>> {
+    return this.execute('verifySharePassword', input, options);
   }
 
   /**

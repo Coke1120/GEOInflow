@@ -5,14 +5,8 @@ import type { Auth } from '@/lib/types';
 import { canUpdateWebsite, canViewWebsite } from '@/permissions';
 import { getWebsiteStats } from '@/queries/sql';
 
-export class LiekanError extends Error {
-  constructor(
-    message: string,
-    public status = 400,
-  ) {
-    super(message);
-  }
-}
+import { LiekanError } from './errors';
+export { LiekanError } from './errors';
 export async function authorize(request: Request, websiteId: string, write = false) {
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(websiteId))
     throw new LiekanError('站点 ID 无效');

@@ -125,7 +125,7 @@ async function parseBody(response: Response): Promise<unknown> {
 
   const contentType = response.headers.get('content-type') ?? '';
 
-  if (!contentType.includes('json')) {
+  if (!contentType.includes('json') || contentType.includes('application/x-ndjson')) {
     return text;
   }
 

@@ -1,0 +1,391 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { chromium } from '@playwright/test';
+import { generateSync } from 'otplib';
+
+const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
+assert(
+  ['127.0.0.1', 'localhost'].includes(new URL(base).hostname),
+  'Use the isolated local candidate',
+);
+const seed = JSON.parse(fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/seed.json', 'utf8'));
+const manifest = JSON.parse(fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'));
+const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+const out = 'test-results/liekan-features';
+fs.mkdirSync(out, { recursive: true });
+let adminToken;
+async function api(method, url, data, token = adminToken) {
+  const response = await fetch(base + '/api' + url, {
+    method,
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { authorization: 'Bearer ' + token } : {}),
+    },
+    body: data === undefined ? undefined : JSON.stringify(data),
+  });
+  const text = await response.text();
+  let body;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = text;
+  }
+  assert.equal(response.status, 200, `${method} ${url}: HTTP ${response.status}`);
+  return body;
+}
+adminToken = (await api('POST', '/auth/login', seed.admin, '')).token;
+const board = await api('POST', '/boards', {
+  name: 'UI 验收 · 隔离看板',
+  type: 'website',
+  parameters: {
+    websiteId: seed.website.id,
+    rows: [
+      {
+        id: 'visual-row',
+        columns: [
+          {
+            id: 'visual-trend',
+            size: 50,
+            component: {
+              title: '访客趋势',
+              type: 'WebsiteChart',
+              entityType: 'website',
+              entityId: seed.website.id,
+            },
+          },
+          {
+            id: 'visual-source',
+            size: 50,
+            component: {
+              title: '访问来源',
+              type: 'MetricsTable',
+              entityType: 'website',
+              entityId: seed.website.id,
+              props: { type: 'channel', liekanDisplay: 'bar' },
+            },
+          },
+        ],
+      },
+    ],
+  },
+});
+const goal = await api('POST', `/websites/${seed.website.id}/goals`, {
+  name: 'UI 验收 · 预约演示',
+  parameters: { type: 'event', value: seed.data.eventNames[0] },
+});
+const share = await api('POST', '/share', {
+  name: 'UI 验收 · 公开页面',
+  entityId: seed.website.id,
+  shareType: 1,
+  parameters: {
+    overview: true,
+    events: true,
+    utm: true,
+    goals: true,
+    funnels: true,
+    allowFilter: true,
+  },
+});
+const identity = await api('POST', '/users', {
+  username: 'visual-' + Date.now(),
+  password: 'visual-fixture-only',
+  role: 'user',
+});
+const userAuth = await api(
+  'POST',
+  '/auth/login',
+  { username: identity.username, password: 'visual-fixture-only' },
+  '',
+);
+const setup = await api('POST', '/2fa/setup/initiate', {}, userAuth.token);
+if (30 - (Math.floor(Date.now() / 1000) % 30) < 5)
+  await new Promise(resolve => setTimeout(resolve, 5000));
+await api(
+  'POST',
+  '/2fa/setup/confirm',
+  { token: generateSync({ secret: setup.manualKey }) },
+  userAuth.token,
+);
+const partial = (
+  await api(
+    'POST',
+    '/auth/login',
+    { username: identity.username, password: 'visual-fixture-only' },
+    '',
+  )
+).partialToken;
+const journey = await api(
+  'GET',
+  `/liekan/websites/${seed.website.id}/journeys?` +
+    new URLSearchParams({
+      ...seed.range,
+      endAt: Date.now(),
+      steps: 3,
+      type: 'all',
+      timezone: 'UTC',
+    }),
+);
+const browser = await chromium.launch({
+  headless: true,
+  ...(!process.env.CI ? { channel: 'chrome' } : {}),
+});
+const context = await browser.newContext({
+  viewport: { width: 1440, height: 1000 },
+  locale: 'zh-CN',
+  reducedMotion: 'reduce',
+});
+const authContext = await browser.newContext({
+  viewport: { width: 1440, height: 1000 },
+  locale: 'zh-CN',
+  reducedMotion: 'reduce',
+});
+const actual = await context.newPage(),
+  reference = await context.newPage(),
+  auth = await authContext.newPage();
+const root = path.resolve('design/prototypes/liekan-ui-v1');
+const mime = {
+  '.html': 'text/html',
+  '.js': 'application/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json',
+  '.woff2': 'font/woff2',
+};
+await context.route(base + '/__prototype/**', async route => {
+  const file = path.resolve(
+    root,
+    decodeURIComponent(new URL(route.request().url()).pathname.slice('/__prototype/'.length)),
+  );
+  if (!file.startsWith(root + path.sep)) return route.fulfill({ status: 404 });
+  try {
+    await route.fulfill({
+      contentType: mime[path.extname(file)] || 'application/octet-stream',
+      body: fs.readFileSync(file),
+    });
+  } catch {
+    await route.fulfill({ status: 404 });
+  }
+});
+const errors = [];
+actual.on('pageerror', error => errors.push(error.message));
+auth.on('pageerror', error => errors.push(error.message));
+actual.on('response', response => {
+  if (response.url().includes('/api/') && response.status() >= 500)
+    errors.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}`);
+});
+await auth.addInitScript(token => sessionStorage.setItem('umami.partial-token', token), partial);
+const results = [];
+const report = {
+  head,
+  passed: false,
+  pages: 68,
+  widths: [1440, 1280, 375, 320],
+  checks: results,
+  errors,
+};
+async function geometry(page) {
+  return page.evaluate(() => {
+    const scope = document.querySelector('[data-liekan-features]') || document.body;
+    const style = getComputedStyle(scope),
+      main = document.querySelector('#main-content') || document.querySelector('main');
+    const rect = main?.getBoundingClientRect();
+    const select = [...scope.querySelectorAll('select')].map(el => {
+      const s = getComputedStyle(el);
+      return { right: s.backgroundPosition, padding: parseFloat(s.paddingRight) };
+    });
+    const panels = [...scope.querySelectorAll('.panel')].slice(0, 4).map(el => {
+      const s = getComputedStyle(el);
+      return { radius: s.borderRadius, border: s.borderColor, bg: s.backgroundColor };
+    });
+    const arrows = [...scope.querySelectorAll('.btn')].flatMap(el => {
+      const icon = el.lastElementChild;
+      if (icon?.tagName.toLowerCase() !== 'svg') return [];
+      const r = el.getBoundingClientRect(),
+        i = icon.getBoundingClientRect();
+      return [r.right - i.right];
+    });
+    return {
+      font: style.fontFamily,
+      brand: style.getPropertyValue('--brand').trim().toLowerCase(),
+      canvas: style.getPropertyValue('--canvas').trim().toLowerCase(),
+      ink: style.getPropertyValue('--ink').trim().toLowerCase(),
+      overflow: document.documentElement.scrollWidth - innerWidth,
+      main: rect ? { left: rect.left, width: rect.width } : null,
+      select,
+      panels,
+      contentCount:
+        main?.querySelectorAll('.panel,.state-box,.notice,form,table').length ||
+        scope.querySelectorAll('.auth-form,form').length ||
+        0,
+      arrows,
+      title: document.querySelector('h1')?.textContent,
+      charts: scope.querySelectorAll('canvas').length,
+      bodyText: document.body.innerText,
+    };
+  });
+}
+async function ready(page) {
+  await page.waitForLoadState('domcontentloaded');
+  await page.waitForSelector('[data-liekan-features]', { timeout: 30000 });
+  await page.waitForFunction(
+    () =>
+      ![...document.querySelectorAll('.state-box')].some(el => el.textContent.includes('正在加载')),
+    {},
+    { timeout: 30000 },
+  );
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(
+    () => [...document.querySelectorAll('.chart')].every(el => el.querySelector('canvas,svg')),
+    {},
+    { timeout: 15000 },
+  );
+  await page.evaluate(
+    () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+}
+function params(id) {
+  const value = {
+    websiteId: seed.website.id,
+    date: `range:${seed.range.startAt}:${Date.now()}:day`,
+    unit: 'day',
+  };
+  const ids = {
+    'session-detail': seed.data.sessionId,
+    'replay-player': seed.data.replayVisitId,
+    'admin-user': seed.user.id,
+    'team-detail': seed.team.id,
+    'link-detail': seed.link.id,
+    'pixel-detail': seed.pixel.id,
+    'board-design': board.id,
+    'board-view': board.id,
+    'share-preview': share.id,
+  };
+  if (ids[id]) value.id = ids[id];
+  if (id === 'share-preview') value.slug = share.slug;
+  if (id === 'event-detail') value.eventName = seed.data.eventNames[0];
+  if (id === 'path-detail') {
+    value.sequence = JSON.stringify(journey.rows[0]?.nodes || []);
+    value.steps = '3';
+    value.type = 'all';
+  }
+  return new URLSearchParams(value);
+}
+try {
+  await actual.goto(base + '/login');
+  await actual.locator('input[name="username"]').fill(seed.admin.username);
+  await actual.locator('input[name="password"]').fill(seed.admin.password);
+  await actual.getByRole('button', { name: '登录', exact: true }).click();
+  await actual.waitForURL(url => !url.pathname.includes('/login'));
+  for (const width of report.widths) {
+    // These are isolated contexts; no user browser window is resized.
+    await actual.setViewportSize({ width, height: 1000 });
+    await reference.setViewportSize({ width, height: 1000 });
+    await auth.setViewportSize({ width, height: 1000 });
+    for (const p of manifest.pages) {
+      const authPage = ['login', 'login-2fa', 'sso'].includes(p.id),
+        page = authPage ? auth : actual;
+      const target =
+        p.id === 'login'
+          ? '/login'
+          : p.id === 'login-2fa'
+            ? '/login/two-factor'
+            : p.id === 'sso'
+              ? '/sso'
+              : `/liekan/${p.id}?${params(p.id)}`;
+      await page.goto(base + target);
+      await ready(page);
+      await reference.goto(base + '/__prototype/' + p.id + '.html');
+      await reference.waitForSelector('h1', { timeout: 15000 });
+      await reference.evaluate(() => document.fonts.ready);
+      await reference.waitForFunction(
+        () => [...document.querySelectorAll('.chart')].every(el => el.querySelector('canvas,svg')),
+        {},
+        { timeout: 15000 },
+      );
+      // Prototype-only review controls have no production counterpart.
+      await reference.evaluate(() =>
+        document.querySelectorAll('.preview-tools,.route-summary').forEach(el => el.remove()),
+      );
+      const current = await geometry(page),
+        expected = await geometry(reference);
+      assert.equal(
+        current.overflow,
+        0,
+        `${p.id} ${width}px overflows viewport by ${current.overflow}px`,
+      );
+      for (const key of ['brand', 'canvas', 'ink'])
+        assert.equal(
+          current[key],
+          expected[key],
+          `${p.id} ${width}px ${key} differs from approved VI`,
+        );
+      assert.equal(current.font, expected.font, `${p.id} ${width}px font differs from approved VI`);
+      for (const panel of current.panels)
+        assert.equal(panel.radius, '14px', `${p.id} panel radius`);
+      for (const select of current.select) {
+        assert(select.padding >= 38, `${p.id} select text needs arrow spacing`);
+        assert(select.right.includes('12px'), `${p.id} select arrow needs 12px right inset`);
+      }
+      for (const gap of current.arrows)
+        assert(gap >= 10, `${p.id} arrow/icon touches the right border (${gap}px)`);
+      if (!authPage && p.id !== 'share-preview')
+        assert.equal(current.title, p.title, `${p.id} title`);
+      assert(!current.bodyText.includes('读取失败'), `${p.id} failed to read actual data`);
+      if (expected.main && current.main && p.id !== 'share-preview' && !authPage) {
+        assert(
+          Math.abs(current.main.left - expected.main.left) < 2,
+          `${p.id} content left differs`,
+        );
+        assert(
+          Math.abs(current.main.width - expected.main.width) < 2,
+          `${p.id} content width differs`,
+        );
+      }
+      await page.screenshot({
+        path: `${out}/${p.id}-${width}-actual.png`,
+        fullPage: true,
+        animations: 'disabled',
+      });
+      await reference.screenshot({
+        path: `${out}/${p.id}-${width}-reference.png`,
+        fullPage: true,
+        animations: 'disabled',
+      });
+      results.push({
+        id: p.id,
+        width,
+        passed: true,
+        title: current.title,
+        charts: current.charts,
+        geometry: { main: current.main, select: current.select },
+        scope:
+          'Approved VI, shell geometry, control spacing and viewport containment; actual data and permission/setup states preserved',
+      });
+    }
+  }
+  assert.equal(errors.length, 0, errors.join('\n'));
+  report.passed = true;
+} catch (error) {
+  report.error = error.message;
+  throw error;
+} finally {
+  fs.writeFileSync(out + '/report.json', JSON.stringify(report, null, 2));
+  await browser.close();
+  await api('DELETE', '/share/id/' + share.id);
+  await api('DELETE', '/boards/' + board.id);
+  await api('DELETE', '/reports/' + goal.id);
+  await api('DELETE', '/admin/users/' + identity.id + '/2fa');
+  await api('DELETE', '/users/' + identity.id);
+}
+console.log(
+  JSON.stringify({
+    head,
+    passed: true,
+    pages: manifest.pages.length,
+    widths: report.widths,
+    checks: results.length,
+    report: out + '/report.json',
+  }),
+);

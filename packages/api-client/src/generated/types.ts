@@ -530,6 +530,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/links/{linkId}/sources': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 查询链接来源与地域的真实点击次数 */
+    get: operations['getLiekanLinkSources'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/analytics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 查询 Liekan 明细统计 */
+    get: operations['getLiekanFeatureAnalytics'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/websites/{websiteId}/catalog': {
     parameters: {
       query?: never;
@@ -540,6 +574,77 @@ export interface paths {
     get?: never;
     /** put Liekan catalog */
     put: operations['putLiekanCatalog'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/exports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 导出当前网站真实统计文件
+     * @description 返回 NDJSON：progress 为实际文件生成/传输进度，file 为文件元数据与字段清单，chunk 为顺序 Base64 数据，complete 为完成。CSV/JSON 使用 summary；ZIP 使用勾选范围。取消请求终止传输。查询阶段超过 100000 明细行或 50 MiB 返回 413；传输阶段错误为 error 帧。
+     */
+    post: operations['createLiekanExport'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/goals/{goalId}/analytics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 查询实际目标转化次数与趋势 */
+    get: operations['getLiekanGoalAnalytics'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/journeys': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 查询 Liekan 访问旅程 */
+    get: operations['getLiekanJourneys'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/journeys/details': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** 查询路径关联会话 */
+    get: operations['getLiekanJourneyDetails'];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -1028,7 +1133,8 @@ export interface paths {
      */
     get: operations['getShareBySlug'];
     put?: never;
-    post?: never;
+    /** 验证公开分享密码并获取受限访问令牌 */
+    post: operations['verifySharePassword'];
     delete?: never;
     options?: never;
     head?: never;
@@ -6431,6 +6537,559 @@ export interface operations {
       };
     };
   };
+  getLiekanLinkSources: {
+    parameters: {
+      query: {
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt: number;
+        /** @description Page number, starting at 1. */
+        page?: number;
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the tracked link. */
+        linkId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 按来源和地域联合聚合并分页 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @description Number of matching records. */
+            count: number;
+            /** @description Page number, starting at 1. */
+            page: number;
+            /**
+             * @description Number of results per page.
+             * @constant
+             */
+            pageSize: 25;
+            rows: {
+              clicks: number;
+              /** @description Country code of the visitor. */
+              country: string | null;
+              source: string | null;
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 无权访问资源 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanFeatureAnalytics: {
+    parameters: {
+      query: {
+        attributionModel?: 'first-click' | 'last-click';
+        attributionSource?: string;
+        attributionStep?: string;
+        attributionType?: 'path' | 'event';
+        /** @description Currency code used for revenue values. */
+        currency?: string;
+        dimension?: 'source' | 'medium' | 'campaign' | 'content' | 'term';
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt: number;
+        /** @description Name of the custom event. */
+        eventName?: string;
+        kind?:
+          | 'events'
+          | 'utm'
+          | 'sources'
+          | 'sessions'
+          | 'session'
+          | 'session-properties'
+          | 'realtime'
+          | 'performance'
+          | 'revenue'
+          | 'attribution'
+          | 'heatmap-scroll'
+          | 'replays';
+        model?: 'first-click' | 'last-click';
+        /** @description Page number, starting at 1. */
+        page?: number;
+        /** @description Name of the custom event or session property. */
+        propertyName?: string;
+        retentionDate?: string;
+        retentionDay?: number;
+        saved?: '0' | '1';
+        /** @description ID of the visitor session. */
+        sessionId?: string;
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt: number;
+        step?: string;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+        /** @description Type of resource or analytics dimension to return. */
+        type?: 'path' | 'event';
+        /** @description Time interval used to group results: minute, hour, day, month, or year. */
+        unit?: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
+        /** @description Path portion of the page URL. */
+        urlPath?: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 按 kind 返回实际统计结果 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            | {
+                /** @description Number of matching records. */
+                count: number;
+                limited: boolean;
+                /** @description Page number, starting at 1. */
+                page: number;
+                /** @description Number of results per page. */
+                pageSize: number;
+                properties: {
+                  /** @description Data type of the custom property. */
+                  dataType: number;
+                  /** @description Display name of the resource. */
+                  name: string;
+                  total: number;
+                }[];
+                rows: {
+                  /** @description Date and time of the most recent recorded activity. */
+                  lastAt: string | null;
+                  /** @description Display name of the resource. */
+                  name: string;
+                  properties: number;
+                  triggers: number;
+                  /** @description Unique visitor counts for the selected period. */
+                  visitors: number;
+                }[];
+                totals: {
+                  /** @description Date and time of the most recent recorded activity. */
+                  lastAt: string | null;
+                  total: number;
+                  types: number;
+                  /** @description Unique visitor counts for the selected period. */
+                  visitors: number;
+                  withProperties: number;
+                };
+                values: {
+                  /** @description Data type of the custom property. */
+                  dataType: number;
+                  total: number;
+                  value: string | null;
+                }[];
+              }
+            | {
+                dimensionTotal?: number;
+                events: number;
+                limited?: boolean;
+                rows?: {
+                  utm: string;
+                  /** @description Pageview counts for the selected period. */
+                  views: number;
+                }[];
+                /** @description Pageview counts for the selected period. */
+                views: number;
+                /** @description Unique visitor counts for the selected period. */
+                visitors: number;
+              }
+            | {
+                /** @description URL of the referring page. */
+                referrer: string | null;
+                /** @description Pageview counts for the selected period. */
+                views: number;
+                /** @description Unique visitor counts for the selected period. */
+                visitors: number;
+              }[]
+            | {
+                /** @description Number of matching records. */
+                count: number;
+                /** @description Page number, starting at 1. */
+                page: number;
+                /** @description Number of results per page. */
+                pageSize: number;
+                rows: ({
+                  /** @description Browser used by the visitor. */
+                  browser: string | null;
+                  /** @description City of the visitor. */
+                  city: string | null;
+                  /** @description Country code of the visitor. */
+                  country: string | null;
+                  /** @description Device category used by the visitor. */
+                  device: string | null;
+                  /** @description Date and time of the first recorded activity. */
+                  firstAt: string | null;
+                  /**
+                   * Format: uuid
+                   * @description Unique identifier of the resource.
+                   */
+                  id: string;
+                  /** @description Date and time of the most recent recorded activity. */
+                  lastAt: string | null;
+                  /** @description Domain of the referring page. */
+                  referrerDomain: string | null;
+                  seconds: number | null;
+                  /** @description Path portion of the page URL. */
+                  urlPath: string | null;
+                  /** @description Pageview counts for the selected period. */
+                  views: number;
+                } & {
+                  [key: string]: unknown;
+                })[];
+              }
+            | {
+                more: boolean;
+                /** @description Page number, starting at 1. */
+                page: number;
+                /** @description Number of results per page. */
+                pageSize: number;
+                rows: {
+                  /** @description Date and time the record was created. */
+                  createdAt: string | null;
+                  /**
+                   * Format: uuid
+                   * @description ID of the event.
+                   */
+                  eventId: string;
+                  /** @description Name of the custom event. */
+                  eventName: string | null;
+                  /** @description Event type: 1 for a pageview or 2 for a custom event. */
+                  eventType: number;
+                  /** @description Hostname on which the activity occurred. */
+                  hostname: string | null;
+                  /** @description Domain of the referring page. */
+                  referrerDomain: string | null;
+                  /**
+                   * Format: uuid
+                   * @description ID of the visitor session.
+                   */
+                  sessionId: string;
+                  /** @description Path portion of the page URL. */
+                  urlPath: string;
+                  /** @description Query string portion of the page URL. */
+                  urlQuery: string | null;
+                  /**
+                   * Format: uuid
+                   * @description ID of the visit.
+                   */
+                  visitId: string;
+                }[];
+                totals: {
+                  /** @description Number of matching records. */
+                  count: number;
+                  entryPath: string | null;
+                  events: number;
+                  exitPath: string | null;
+                  /** @description Date and time of the first recorded activity. */
+                  firstAt: string | null;
+                  /** @description Date and time of the most recent recorded activity. */
+                  lastAt: string | null;
+                  /** @description Domain of the referring page. */
+                  referrerDomain: string | null;
+                  seconds: number | null;
+                  /** @description Pageview counts for the selected period. */
+                  views: number;
+                };
+              }
+            | {
+                more: boolean;
+                /** @description Page number, starting at 1. */
+                page: number;
+                /** @description Number of results per page. */
+                pageSize: number;
+                rows: {
+                  /** @description Data type of the custom property. */
+                  dataType: number;
+                  /** @description Display name of the resource. */
+                  name: string;
+                  sessions: number;
+                  value: string | null;
+                }[];
+              }
+            | {
+                pages: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  value: number;
+                }[];
+                sources: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  value: number;
+                }[];
+                totals: {
+                  active: number;
+                  ai: number;
+                  events: number;
+                  /** @description Pageview counts for the selected period. */
+                  views: number;
+                };
+              }
+            | {
+                clsCount: number;
+                clsP50: number | null;
+                clsP75: number | null;
+                clsP95: number | null;
+                fcpCount: number;
+                fcpP50: number | null;
+                fcpP75: number | null;
+                fcpP95: number | null;
+                inpCount: number;
+                inpP50: number | null;
+                inpP75: number | null;
+                inpP95: number | null;
+                lcpCount: number;
+                lcpP50: number | null;
+                lcpP75: number | null;
+                lcpP95: number | null;
+                ttfbCount: number;
+                ttfbP50: number | null;
+                ttfbP75: number | null;
+                ttfbP95: number | null;
+              }
+            | {
+                /** @description Number of matching records. */
+                count: number;
+                /** @description Page number, starting at 1. */
+                page: number;
+                /** @description Number of results per page. */
+                pageSize: number;
+                rows: {
+                  amount: number | string | null;
+                  /** @description Date and time the record was created. */
+                  createdAt: string | null;
+                  /** @description Currency code used for revenue values. */
+                  currency: string;
+                  event: string | null;
+                  /**
+                   * Format: uuid
+                   * @description Unique identifier of the resource.
+                   */
+                  id: string;
+                  /**
+                   * Format: uuid
+                   * @description ID of the visitor session.
+                   */
+                  sessionId: string;
+                }[];
+              }
+            | {
+                limited: boolean;
+                /** @description URL of the referring page. */
+                referrer: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  value: number;
+                }[];
+                total: {
+                  attributed: number;
+                  /** @description Unique visitor counts for the selected period. */
+                  visitors: number;
+                };
+              }
+            | {
+                reach25: number;
+                reach50: number;
+                reach75: number;
+                reach100: number;
+                total: number;
+              }
+            | {
+                /** @description Number of matching records. */
+                count: number;
+                /** @description Page number, starting at 1. */
+                page: number;
+                /** @description Number of results per page. */
+                pageSize: number;
+                rows: {
+                  /** @description Browser used by the visitor. */
+                  browser: string | null;
+                  /** @description Number of stored recording chunks. */
+                  chunkCount: number;
+                  /** @description Device category used by the visitor. */
+                  device: string | null;
+                  /** @description Replay duration in milliseconds. */
+                  duration: number;
+                  /** @description Date and time the recording ended. */
+                  endedAt: string | null;
+                  /** @description Number of recorded replay events. */
+                  eventCount: number;
+                  /**
+                   * Format: uuid
+                   * @description Unique identifier of the resource.
+                   */
+                  id: string;
+                  /** @description Display name of the resource. */
+                  name: string | null;
+                  /** @description Pageview counts for the selected period. */
+                  pageviews: number;
+                  /** @description Domain of the referring page. */
+                  referrerDomain: string | null;
+                  /**
+                   * Format: uuid
+                   * @description ID of the visitor session.
+                   */
+                  sessionId: string;
+                  /** @description Date and time the recording started. */
+                  startedAt: string | null;
+                  /**
+                   * Format: uuid
+                   * @description ID of the visit.
+                   */
+                  visitId: string;
+                }[];
+              };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 无权访问资源 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 当前数据引擎暂不支持此补充统计 */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
   putLiekanCatalog: {
     parameters: {
       query?: never;
@@ -6513,6 +7172,598 @@ export interface operations {
            *       }
            *     }
            */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  createLiekanExport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description End of the date range as a Unix timestamp in milliseconds. */
+          endAt: number;
+          /**
+           * @description Filters applied to the analytics data.
+           * @default {}
+           */
+          filters?: {
+            [key: string]: string;
+          };
+          /** @enum {string} */
+          format: 'zip' | 'csv' | 'json';
+          sections: ('summary' | 'dimensions' | 'events' | 'sessions' | 'config')[];
+          /** @description Start of the date range as a Unix timestamp in milliseconds. */
+          startAt: number;
+          /**
+           * @description IANA time zone used to interpret dates and group results, for example America/New_York.
+           * @default Asia/Shanghai
+           */
+          timezone?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description 有界真实文件生成与下载流 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/x-ndjson': string;
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 无权访问资源 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 导出超过上限，缩小范围后重试 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 当前数据引擎暂不支持 */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanGoalAnalytics: {
+    parameters: {
+      query: {
+        attributionModel?: 'first-click' | 'last-click';
+        attributionSource?: string;
+        attributionStep?: string;
+        attributionType?: 'path' | 'event';
+        /** @description Currency code used for revenue values. */
+        currency?: string;
+        dimension?: 'source' | 'medium' | 'campaign' | 'content' | 'term';
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt: number;
+        /** @description Name of the custom event. */
+        eventName?: string;
+        kind?:
+          | 'events'
+          | 'utm'
+          | 'sources'
+          | 'sessions'
+          | 'session'
+          | 'session-properties'
+          | 'realtime'
+          | 'performance'
+          | 'revenue'
+          | 'attribution'
+          | 'heatmap-scroll'
+          | 'replays';
+        model?: 'first-click' | 'last-click';
+        /** @description Page number, starting at 1. */
+        page?: number;
+        /** @description Name of the custom event or session property. */
+        propertyName?: string;
+        retentionDate?: string;
+        retentionDay?: number;
+        saved?: '0' | '1';
+        /** @description ID of the visitor session. */
+        sessionId?: string;
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt: number;
+        step?: string;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+        /** @description Type of resource or analytics dimension to return. */
+        type?: 'path' | 'event';
+        /** @description Time interval used to group results: minute, hour, day, month, or year. */
+        unit?: 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
+        /** @description Path portion of the page URL. */
+        urlPath?: string;
+      };
+      header?: never;
+      path: {
+        goalId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 转化次数、独立访客、基数与完整时间桶 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            conversions: number;
+            num: number;
+            series: {
+              x: string;
+              y: number;
+            }[];
+            total: number;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 无权访问资源 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 当前数据引擎暂不支持 */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanJourneys: {
+    parameters: {
+      query: {
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt: number;
+        endStep?: string;
+        /** @description Page number, starting at 1. */
+        page?: number;
+        sequence?: string;
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt: number;
+        startStep?: string;
+        steps?: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+        /** @description Type of resource or analytics dimension to return. */
+        type?: 'all' | 'pages' | 'events';
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 实际路径与访客统计 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @description Number of matching records. */
+            count?: number;
+            limited: boolean;
+            /** @description Page number, starting at 1. */
+            page: number;
+            /** @description Number of results per page. */
+            pageSize: number;
+            rows: {
+              nodes: string[];
+              seconds: number | null;
+              source: string | null;
+              /** @description Unique visitor counts for the selected period. */
+              visitors: number;
+              /** @description Visit counts for the selected period. */
+              visits: number;
+            }[];
+            sessions?: ({
+              /** @description Browser used by the visitor. */
+              browser: string | null;
+              /** @description City of the visitor. */
+              city: string | null;
+              /** @description Country code of the visitor. */
+              country: string | null;
+              /** @description Device category used by the visitor. */
+              device: string | null;
+              /** @description Date and time of the first recorded activity. */
+              firstAt: string | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @description Date and time of the most recent recorded activity. */
+              lastAt: string | null;
+              /** @description Domain of the referring page. */
+              referrerDomain: string | null;
+              seconds: number | null;
+              /** @description Path portion of the page URL. */
+              urlPath: string | null;
+              /** @description Pageview counts for the selected period. */
+              views: number;
+            } & {
+              [key: string]: unknown;
+            })[];
+            /** @description Unique visitor counts for the selected period. */
+            visitors: number;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 无权访问资源 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 当前数据引擎暂不支持 */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanJourneyDetails: {
+    parameters: {
+      query: {
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt: number;
+        endStep?: string;
+        /** @description Page number, starting at 1. */
+        page?: number;
+        sequence?: string;
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt: number;
+        startStep?: string;
+        steps?: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+        /** @description Type of resource or analytics dimension to return. */
+        type?: 'all' | 'pages' | 'events';
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 相同序列、条件、期间的会话记录 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @description Number of matching records. */
+            count?: number;
+            limited: boolean;
+            /** @description Page number, starting at 1. */
+            page: number;
+            /** @description Number of results per page. */
+            pageSize: number;
+            rows: {
+              nodes: string[];
+              seconds: number | null;
+              source: string | null;
+              /** @description Unique visitor counts for the selected period. */
+              visitors: number;
+              /** @description Visit counts for the selected period. */
+              visits: number;
+            }[];
+            sessions?: ({
+              /** @description Browser used by the visitor. */
+              browser: string | null;
+              /** @description City of the visitor. */
+              city: string | null;
+              /** @description Country code of the visitor. */
+              country: string | null;
+              /** @description Device category used by the visitor. */
+              device: string | null;
+              /** @description Date and time of the first recorded activity. */
+              firstAt: string | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @description Date and time of the most recent recorded activity. */
+              lastAt: string | null;
+              /** @description Domain of the referring page. */
+              referrerDomain: string | null;
+              seconds: number | null;
+              /** @description Path portion of the page URL. */
+              urlPath: string | null;
+              /** @description Pageview counts for the selected period. */
+              views: number;
+            } & {
+              [key: string]: unknown;
+            })[];
+            /** @description Unique visitor counts for the selected period. */
+            visitors: number;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 无权访问资源 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 当前数据引擎暂不支持 */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
           'application/json': components['schemas']['ApiError'];
         };
       };
@@ -10124,6 +11375,128 @@ export interface operations {
           'application/json': {
             [key: string]: unknown;
           };
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  verifySharePassword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description URL slug used to access the resource. */
+        slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Password used to authenticate the account. */
+          password: string;
+        };
+      };
+    };
+    responses: {
+      /** @description 受当前分享范围限制的令牌 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /**
+             * Format: uuid
+             * @description ID of the board.
+             */
+            boardId?: string;
+            /**
+             * Format: uuid
+             * @description ID of the tracked link.
+             */
+            linkId?: string;
+            linkIds?: string[];
+            /** @description Display name of the resource. */
+            name: string;
+            /** @description Configuration parameters for the resource. */
+            parameters: {
+              [key: string]: unknown;
+            };
+            /**
+             * Format: uuid
+             * @description ID of the tracking pixel.
+             */
+            pixelId?: string;
+            pixelIds?: string[];
+            /**
+             * Format: uuid
+             * @description Identifier used to access a shared resource.
+             */
+            shareId: string;
+            /** @description Type of resource made available by the share. */
+            shareType: number;
+            token: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId?: string;
+            websiteIds?: string[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
         };
       };
       /** @description Not found. */
@@ -17613,7 +18986,12 @@ export interface operations {
         };
         content: {
           'application/json': {
+            conversions?: number;
             num: number;
+            series?: {
+              x: string;
+              y: number;
+            }[];
             total: number;
           };
         };

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>页面与内容 · 猎看管理后台</title>
+<script src="../assets/tailwind-3.4.17.js"></script>
+
+<script src="../assets/echarts.min.js"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  fontFamily: { sans: ['Inter','-apple-system','BlinkMacSystemFont','PingFang SC','Helvetica Neue','Microsoft YaHei','sans-serif'] },
+  colors: { ink:'#16181D', sub:'#697386', faint:'#9AA3B2', line:'#E9ECF1', wash:'#F5F7FA', brand:'#0F62FE', brand2:'#4589FF', brandbg:'#EDF2FF', up:'#F04452', down:'#0E9F6E' },
+} } }
+</script>
+<style>
+  body { background:#F5F7FA; -webkit-font-smoothing:antialiased; }
+  .num { font-variant-numeric: tabular-nums; }
+  .card { background:#fff; border:1px solid #E9ECF1; border-radius:14px; }
+  .nav-item { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:9px; color:#697386; font-weight:500; font-size:13.5px; transition:all .18s; }
+  .nav-item:hover { background:#F5F7FA; color:#16181D; }
+  .nav-item.on { background:#EDF2FF; color:#0F62FE; }
+  .nav-grp { font-size:11px; font-weight:600; letter-spacing:.06em; color:#9AA3B2; padding:14px 12px 6px; }
+  .nav-quick { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:9px; color:#0F62FE; font-weight:600; font-size:13.5px; margin-top:12px; transition:background .18s; }
+  .nav-quick:hover { background:#F5F7FA; }
+  .nav-quick.on { background:#EDF2FF; }
+  .nav-quick.on:hover { background:#DFE9FF; }
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:#3D4657; background:#fff; border:1px solid #E5E9F0; border-radius:9px; padding:7px 12px; cursor:pointer; transition:all .18s; }
+  .chip:hover { border-color:#A6C1FF; }
+  .chip.on { background:#EDF2FF; border-color:#0F62FE; color:#0F62FE; font-weight:600; }
+  .fade-in { animation: fadeUp .6s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform: translateY(0);} }
+  .d1{animation-delay:.04s}.d2{animation-delay:.1s}.d3{animation-delay:.16s}
+  .bd { display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:600; padding:2px 8px; border-radius:6px; }
+  .bd-green { color:#0E9F6E; background:#0E9F6E14; }
+  .bd-blue { color:#0F62FE; background:#0F62FE14; }
+  .bd-amber { color:#B7791F; background:#B7791F14; }
+  .bd-red { color:#F04452; background:#F0445214; }
+  .bd-gray { color:#697386; background:#69738614; }
+  .bd-purple { color:#7C5CFC; background:#7C5CFC14; }
+  .prog { height:6px; border-radius:3px; background:#EEF1F6; overflow:hidden; }
+  .prog > i { display:block; height:100%; border-radius:3px; background:#0F62FE; }
+
+  /* ── 侧栏拖拽调宽 ── */
+  .side-resizer { position:absolute; top:0; right:-3px; width:6px; height:100%; cursor:col-resize; z-index:60; }
+  .side-resizer:hover, body.side-resizing .side-resizer { background:rgba(15,98,254,.35); }
+  body.side-resizing { user-select:none; cursor:col-resize; }
+  aside .nav-item, aside .nav-quick { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+</style>
+<style>@font-face{font-family:Inter;src:url(../assets/inter-latin.woff2) format("woff2");font-weight:100 900;font-display:swap}</style></head>
+<body class="font-sans text-ink">
+<aside class="fixed inset-y-0 left-0 w-[228px] bg-white border-r border-line flex flex-col z-40">
+  <div class="h-[64px] flex items-center gap-3 px-5 border-b border-line">
+    <div class="w-8 h-8 rounded-[10px] bg-gradient-to-br from-brand to-brand2 flex items-center justify-center shrink-0 shadow-[0_4px_14px_-4px_rgba(15,98,254,.55)]">
+      <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6.2 5.8 12 5.8 21.5 12 21.5 12 17.8 18.2 12 18.2 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8" fill="white" stroke="none"/><path d="M17.5 3.5l1.8 1.8M19.3 5.3L21 3.6" stroke-width="1.8"/></svg>
+    </div>
+    <div class="leading-tight">
+      <span class="block font-bold tracking-tight text-[14.5px]">猎看流量洞察</span>
+      <span class="block text-[9.5px] text-faint tracking-[.12em] font-semibold mt-0.5">LIEKAN GEO STATS</span>
+    </div>
+  </div>
+
+  <nav class="flex-1 px-3 pb-4 overflow-y-auto">
+    <a href="../admin.html" class="nav-quick">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+      返回管理后台</a>
+    <p class="nav-grp">总览</p>
+    <a href="index.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      流量总览</a>
+    <p class="nav-grp">AI 蜘蛛</p>
+    <a href="ai.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      AI 访问总览</a>
+    <a href="ai-bots.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7.5" r="3.5"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M15.5 4.13a3.5 3.5 0 0 1 0 6.74"/></svg>
+      蜘蛛明细<span class="ml-auto text-[11px] bg-wash text-sub rounded-md px-1.5 py-0.5 num">14</span></a>
+    <a href="ai-pages.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M8 13h8M8 17h5"/></svg>
+      AI 抓取页面</a>
+    <a href="ai-preference.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>
+      AI 访问偏好</a>
+    <p class="nav-grp">人类访问</p>
+    <a href="human.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7.5" r="3.5"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M15.5 4.13a3.5 3.5 0 0 1 0 6.74"/></svg>
+      访客总览</a>
+    <a href="human-geo.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+      地域分布</a>
+    <a href="human-source.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8M21 12a9 9 0 1 1-6.2-8.56"/></svg>
+      来源渠道</a>
+    <p class="nav-grp">内容与转化</p>
+    <a href="content.html" class="nav-item on">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M8 13h8M8 17h5"/></svg>
+      页面与内容</a>
+    <a href="funnel.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+      转化分析</a>
+    <p class="nav-grp">日志</p>
+    <a href="logs.html" class="nav-item">
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zM14 2v6h6M8 13h8M8 17h5"/></svg>
+      实时访问流</a>
+  </nav>
+  <div class="px-3 py-3 border-t border-line">
+    <div class="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-wash transition cursor-pointer" title="站点 www.liekan.com · yaoge">
+      <span class="w-7 h-7 rounded-lg bg-ink text-white text-[10.5px] font-bold flex items-center justify-center shrink-0">Y</span>
+      <span class="text-[12.5px] font-medium text-ink truncate">www.liekan.com</span>
+      <span class="ml-auto flex items-center gap-0.5 shrink-0">
+        <button class="w-7 h-7 rounded-lg hover:bg-white hover:shadow-sm flex items-center justify-center text-faint hover:text-brand transition" title="切换站点">
+          <svg class="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        </button>
+        <button class="w-7 h-7 rounded-lg hover:bg-white hover:shadow-sm flex items-center justify-center text-faint hover:text-brand transition" title="设置">
+          <svg class="w-[15px] h-[15px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.26.6.86 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.65 0-1.25.4-1.51 1z"/></svg>
+        </button>
+      </span>
+    </div>
+  </div>
+</aside>
+<div class="ml-[228px] min-h-screen">
+  <div class="sticky top-0 z-30 bg-wash/85 backdrop-blur-lg">
+    <div class="max-w-[1200px] mx-auto px-8 h-[60px] flex items-center justify-between gap-4">
+      <div>
+        <h1 class="text-[16px] font-bold tracking-tight">页面与内容</h1>
+        <p class="text-[11.5px] text-faint">页面排行 × 访问路径 × 内容更新的流量响应</p>
+      </div>
+      <div class="flex items-center gap-2"><button class="chip">导出页面表</button></div>
+    </div>
+  </div>
+
+  <main class="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
+
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="card p-4 fade-in d1"><p class="text-[11.5px] text-sub">有流量页面</p><p class="num text-[24px] font-bold text-brand mt-1.5">142 / 148</p><p class="text-[10.5px] text-faint mt-1">近 30 天产生访问的页面</p></div>
+      <div class="card p-4 fade-in d1"><p class="text-[11.5px] text-sub">入口页 TOP1</p><p class="num text-[24px] font-bold text-brand mt-1.5">/</p><p class="text-[10.5px] text-faint mt-1">占入口 58%</p></div>
+      <div class="card p-4 fade-in d1"><p class="text-[11.5px] text-sub">退出页 TOP1</p><p class="num text-[24px] font-bold text-brand mt-1.5">/pricing</p><p class="text-[10.5px] text-faint mt-1">占退出 22% · 属正常决策页</p></div>
+      <div class="card p-4 fade-in d1"><p class="text-[11.5px] text-sub">内容页平均停留</p><p class="num text-[24px] font-bold text-brand mt-1.5">4分28秒</p><p class="text-[10.5px] text-faint mt-1">博客/案例类</p></div>
+    </section>
+
+    <section class="card fade-in d2 overflow-hidden">
+      <div class="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
+        <h2 class="text-[14px] font-bold tracking-tight">页面排行（人类访问）</h2>
+        <div class="flex items-center gap-2"><span class="chip on">按 PV</span><span class="chip">按入口</span><span class="chip">按时长</span></div>
+      </div>
+      <table class="w-full text-[12.5px]">
+        <thead>
+          <tr class="text-left text-[11.5px] text-faint border-b border-line bg-[#FAFBFD]">
+            <th class="font-medium pl-6 pr-4 py-3">页面</th>
+            <th class="font-medium px-4 py-3 text-right">PV</th>
+            <th class="font-medium px-4 py-3 text-right">UV</th>
+            <th class="font-medium px-4 py-3 text-right">入口数</th>
+            <th class="font-medium px-4 py-3 text-right">平均停留</th>
+            <th class="font-medium px-4 py-3 text-right">跳出率</th>
+            <th class="font-medium px-4 py-3 text-right pr-6">AI 抓取</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line/60" id="pgBody"></tbody>
+      </table>
+    </section>
+
+    <section class="grid grid-cols-2 gap-4">
+      <div class="card fade-in d2">
+        <div class="px-6 pt-5 pb-2"><h2 class="text-[14px] font-bold tracking-tight">站内访问路径 TOP6</h2>
+        <p class="text-[11.5px] text-faint mt-0.5">会话中最常见的页面跳转序列</p></div>
+        <div class="px-6 pb-5 pt-2 space-y-2" id="journeyList"></div>
+      </div>
+      <div class="card fade-in d3">
+        <div class="px-6 pt-5 pb-2"><h2 class="text-[14px] font-bold tracking-tight">内容更新与流量响应</h2>
+        <p class="text-[11.5px] text-faint mt-0.5">发布/更新日期 × 随后 7 天流量</p></div>
+        <div id="c1" style="height:250px"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+
+const INK='#16181D', SUB='#697386', FAINT='#9AA3B2', LINE='#E9ECF1';
+const B='#0F62FE', B2='#4589FF', TEAL='#009D9A', PUR='#7C5CFC', AMBER='#B7791F', RED='#F04452', GREEN='#0E9F6E', GRAY='#9AA3B2';
+function mk(id, opt){ const el=document.getElementById(id); if(!el) return; const c=echarts.init(el); c.setOption(opt); window.addEventListener('resize', ()=>c.resize()); }
+const TT={ trigger:'axis', backgroundColor:'#fff', borderColor:LINE, textStyle:{ color:INK, fontSize:12 } };
+const TTi={ trigger:'item', backgroundColor:'#fff', borderColor:LINE, textStyle:{ color:INK, fontSize:12 } };
+
+const pgs=[
+  ['/', '8,214', '3,286', '2,246', '1分24秒', '32.4%', '1,842'],
+  ['/product', '2,846', '1,862', '486', '2分48秒', '28.6%', '624'],
+  ['/cases/housty', '1,240', '986', '328', '4分52秒', '22.4%', '486'],
+  ['/pricing', '1,486', '1,124', '286', '2分12秒', '44.8%', '86'],
+  ['/blog/geo-12-metrics', '986', '842', '412', '5分26秒', '18.2%', '412'],
+  ['/blog/what-is-geo', '864', '724', '386', '4分38秒', '20.6%', '342'],
+  ['/whitepaper/geo-playbook-2026', '642', '486', '128', '6分12秒', '16.4%', '388'],
+  ['/about', '842', '682', '92', '1分46秒', '38.2%', '44'],
+  ['/contact', '486', '412', '64', '1分58秒', '42.6%', '12'],
+  ['/docs/getting-started', '328', '286', '84', '3分24秒', '24.8%', '96'],
+];
+const tb=document.getElementById('pgBody');
+pgs.forEach(m=>{
+  const tr=document.createElement('tr');
+  tr.className='hover:bg-[#FAFBFD] transition-colors';
+  tr.innerHTML=`<td class="pl-6 pr-4 py-3 num text-[12px] font-medium">${m[0]}</td>
+    <td class="px-4 py-3 num text-right font-semibold">${m[1]}</td>
+    <td class="px-4 py-3 num text-right text-sub">${m[2]}</td>
+    <td class="px-4 py-3 num text-right text-sub">${m[3]}</td>
+    <td class="px-4 py-3 num text-right text-sub text-[12px]">${m[4]}</td>
+    <td class="px-4 py-3 num text-right text-sub text-[12px]">${m[5]}</td>
+    <td class="px-4 py-3 num text-right pr-6 text-purple font-semibold" style="color:#7C5CFC">${m[6]}</td>`;
+  tb.appendChild(tr);
+});
+const journeys=[
+  ['/ → /product → /pricing → /contact', '486 会话 · 转化 12.4%'],
+  ['/ → /cases/housty → /product → /contact', '328 会话 · 转化 14.2%'],
+  ['/blog/geo-12-metrics → /cases/housty → /', '286 会话 · 转化 6.8%'],
+  ['/ → /product → /cases/xinglan → /pricing', '242 会话 · 转化 9.6%'],
+  ['/blog/what-is-geo → /whitepaper（下载）', '186 会话 · 转化 18.4%'],
+  ['AI 引荐直达 /cases/housty → /contact', '164 会话 · 转化 21.6%'],
+];
+const jl=document.getElementById('journeyList');
+journeys.forEach((j,i)=>{
+  const d=document.createElement('div');
+  d.className='rounded-lg bg-wash px-3 py-2.5';
+  d.innerHTML=`<div class="flex items-center gap-2"><span class="w-5 h-5 rounded-md bg-brand/10 text-brand text-[10px] font-bold flex items-center justify-center shrink-0 num">${i+1}</span>
+    <span class="num text-[11.5px] text-ink truncate flex-1">${j[0]}</span></div>
+    <p class="text-[10.5px] text-faint mt-1 ml-7">${j[1]}</p>`;
+  jl.appendChild(d);
+});
+mk('c1', { tooltip:TT,
+  grid:{ left:44, right:20, top:30, bottom:26 },
+  xAxis:{ type:'category', data:['08-28','09-02','09-06','09-10','09-15','09-20','09-24','09-28'], axisLine:{ lineStyle:{ color:LINE } }, axisTick:{ show:false }, axisLabel:{ color:FAINT, fontSize:10 } },
+  yAxis:{ type:'value', splitLine:{ lineStyle:{ color:LINE } }, axisLabel:{ color:FAINT, fontSize:10.5 } },
+  series:[
+    { name:'发布内容 PV（7天）', type:'bar', barWidth:18, itemStyle:{ color:B, borderRadius:[4,4,0,0] }, data:[486,624,0,842,1286,986,0,1420] },
+    { name:'AI 抓取增量', type:'line', smooth:true, symbol:'circle', symbolSize:5, lineStyle:{ width:2.5, color:PUR }, itemStyle:{ color:PUR }, data:[86,124,0,186,342,286,0,412] },
+  ] });
+
+</script>
+<script>
+/* ── 侧栏宽度拖拽（180–320px，localStorage 记忆） ── */
+(function(){
+  var aside = document.querySelector('aside');
+  var main = aside && aside.nextElementSibling;
+  if(!aside || !main) return;
+  var rz = document.createElement('div');
+  rz.className = 'side-resizer';
+  rz.title = '拖动调整侧栏宽度';
+  aside.appendChild(rz);
+  var KEY = 'lk-side-w', MIN = 180, MAX = 320;
+  function apply(w){
+    w = Math.max(MIN, Math.min(MAX, Math.round(w)));
+    aside.style.width = w + 'px';
+    main.style.marginLeft = w + 'px';
+    try { localStorage.setItem(KEY, String(w)); } catch(e){}
+  }
+  try {
+    var saved = parseInt(localStorage.getItem(KEY), 10);
+    if (saved) apply(saved);
+  } catch(e){}
+  rz.addEventListener('mousedown', function(e){
+    e.preventDefault();
+    var startX = e.clientX, startW = aside.getBoundingClientRect().width;
+    document.body.classList.add('side-resizing');
+    function mv(ev){ apply(startW + ev.clientX - startX); }
+    function up(){
+      document.removeEventListener('mousemove', mv);
+      document.removeEventListener('mouseup', up);
+      document.body.classList.remove('side-resizing');
+    }
+    document.addEventListener('mousemove', mv);
+    document.addEventListener('mouseup', up);
+  });
+})();
+</script>
+</body>
+</html>

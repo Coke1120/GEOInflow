@@ -114,6 +114,17 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": "docker-compose.test.yml",
+      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan empty-database API login and default-credential migration checks"
+      ],
+      "owner": "Liekan installation maintenance",
+      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
+      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
+    },
+    {
       "path": "env.example",
       "purpose": "Liekan release, branding or compatibility integration",
       "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
@@ -152,6 +163,28 @@
       "owner": "Liekan API compatibility",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Deterministically generated API client from explicit upstream and Liekan contracts",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "packages/api-client/src/http.test.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "packages/api-client/src/http.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
     },
     {
       "path": "packages/mcp/package.json",
@@ -738,12 +771,34 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": "scripts/generate-api-client.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
       "path": "scripts/seed-harbor-sport.ts",
       "purpose": "Liekan release, branding or compatibility integration",
       "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "scripts/seed/index.ts",
+      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan empty-database API login and default-credential migration checks"
+      ],
+      "owner": "Liekan installation maintenance",
+      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
+      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
     },
     {
       "path": "src/app/(main)/App.tsx",
@@ -762,12 +817,41 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": "src/app/(main)/admin/layout.tsx",
+      "purpose": "Liekan browser title for retained management pages",
+      "owner": "Liekan branding",
+      "constraint": "Change display metadata only; preserve layout and authorization",
+      "verification": "Production build and browser title readback",
+      "removalCondition": "Upstream supports an external product title",
+      "tests": ["Production build and browser title readback"]
+    },
+    {
       "path": "src/app/(main)/layout.tsx",
       "purpose": "Liekan release, branding or compatibility integration",
       "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/app/(main)/liekan/[[...path]]/page.tsx",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/(main)/settings/layout.tsx",
+      "purpose": "Liekan browser title for retained management pages",
+      "owner": "Liekan branding",
+      "constraint": "Change display metadata only; preserve layout and authorization",
+      "verification": "Production build and browser title readback",
+      "removalCondition": "Upstream supports an external product title",
+      "tests": ["Production build and browser title readback"]
     },
     {
       "path": "src/app/(main)/websites/[websiteId]/WebsiteLayout.tsx",
@@ -784,6 +868,15 @@
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/layout.tsx",
+      "purpose": "Liekan browser title for retained management pages",
+      "owner": "Liekan branding",
+      "constraint": "Change display metadata only; preserve layout and authorization",
+      "verification": "Production build and browser title readback",
+      "removalCondition": "Upstream supports an external product title",
+      "tests": ["Production build and browser title readback"]
     },
     {
       "path": "src/app/(main)/websites/[websiteId]/realtime/RealtimeCountries.tsx",
@@ -822,12 +915,144 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": "src/app/api/boards/[boardId]/shares/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/links/[linkId]/shares/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/pixels/[pixelId]/shares/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/share/[slug]/contract.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/share/[slug]/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/share/id/[shareId]/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/share/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/goals/[goalId]/stats/contract.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/goals/[goalId]/stats/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/metrics/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
       "path": "src/app/api/websites/[websiteId]/reset/route.ts",
       "purpose": "Carry live user identity into reset transaction and return permission revocation errors",
       "tests": ["pnpm liekan:verify", "Liekan release acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Carry live user identity into reset transaction and return permission revocation errors",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/segments/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/shares/route.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
     },
     {
       "path": "src/app/layout.tsx",
@@ -846,6 +1071,17 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": "src/app/login/page.tsx",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
       "path": "src/app/login/two-factor/LoginTwoFactorPage.tsx",
       "purpose": "Preserved upstream authentication and permission compatibility",
       "tests": [
@@ -856,6 +1092,39 @@
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved upstream authentication and permission compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/app/login/two-factor/page.tsx",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/share/[slug]/layout.tsx",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/app/sso/page.tsx",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
     },
     {
       "path": "src/components/common/TypeIcon.tsx",
@@ -872,6 +1141,22 @@
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/components/hooks/useNavigation.test.tsx",
+      "purpose": "Guard valid entity navigation, creation routes and malformed UUID path segments",
+      "tests": ["src/components/hooks/useNavigation.test.tsx"],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Exercise the production navigation hook for all five entity kinds",
+      "removalCondition": "Remove with the associated navigation override after upstream supplies the regression coverage"
+    },
+    {
+      "path": "src/components/hooks/useNavigation.ts",
+      "purpose": "Recognize complete UUID path segments and keep creation routes out of entity queries",
+      "tests": ["src/components/hooks/useNavigation.test.tsx", "Local create-board browser smoke"],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Preserve team context and query rendering; reject partial or malformed route identifiers",
+      "removalCondition": "Remove when upstream entity navigation validates complete UUID segments"
     },
     {
       "path": "src/components/hooks/useRegionNames.ts",
@@ -904,6 +1189,28 @@
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/lib/auth.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/lib/clickhouse.test.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
     },
     {
       "path": "src/lib/clickhouse.ts",
@@ -978,11 +1285,92 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": "src/lib/params.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/lib/prisma.test.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
       "path": "src/lib/prisma.ts",
-      "purpose": "Inherited device/geography compatibility",
-      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
+      "purpose": "Preserve device/geography compatibility, exact channel and drill filters, and request-local repeatable-read export snapshots",
+      "tests": [
+        "src/lib/prisma.test.ts",
+        "src/lib/country.test.ts",
+        "src/lib/liekan/upstream/query-snapshot.test.ts",
+        "src/lib/liekan/upstream/feature-exports.test.ts",
+        "tests/api/liekan-features.spec.ts",
+        "pnpm liekan:verify"
+      ],
       "owner": "Liekan compatibility adapters",
-      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
+      "constraint": "Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation",
+      "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/lib/request.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/lib/saved-analytics-routes.test.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/lib/types.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/queries/prisma/share.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/queries/prisma/website.test.ts",
+      "purpose": "Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup",
+      "tests": ["src/queries/prisma/website.test.ts", "tests/api/liekan.spec.ts"],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
@@ -1042,12 +1430,67 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": "src/queries/sql/heatmap/getHeatmap.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/queries/sql/performance/getPerformance.test.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/queries/sql/performance/getPerformanceMetrics.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
       "path": "src/queries/sql/replays/getSessionReplays.ts",
       "purpose": "Inherited device/geography compatibility",
       "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/queries/sql/retention/getRetention.test.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
+    },
+    {
+      "path": "src/queries/sql/retention/getRetention.ts",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
+      "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
+      "tests": [
+        "pnpm liekan:verify",
+        "Supplemental UI/API regression and isolated Docker acceptance"
+      ]
     },
     {
       "path": "src/queries/sql/revenue/getRevenueMetrics.ts",
@@ -1114,71 +1557,15 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
-      "path": "tsconfig.json",
-      "purpose": "Exclude isolated rehearsal copies from the production type boundary",
-      "tests": ["pnpm liekan:verify", "Liekan release acceptance"],
-      "owner": "Liekan release maintenance",
-      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Exclude isolated rehearsal copies from the production type boundary",
-      "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
-    },
-    {
-      "path": "src/app/(main)/websites/[websiteId]/layout.tsx",
-      "purpose": "Liekan browser title for retained management pages",
-      "owner": "Liekan branding",
-      "constraint": "Change display metadata only; preserve layout and authorization",
-      "verification": "Production build and browser title readback",
-      "removalCondition": "Upstream supports an external product title",
-      "tests": ["Production build and browser title readback"]
-    },
-    {
-      "path": "src/app/(main)/admin/layout.tsx",
-      "purpose": "Liekan browser title for retained management pages",
-      "owner": "Liekan branding",
-      "constraint": "Change display metadata only; preserve layout and authorization",
-      "verification": "Production build and browser title readback",
-      "removalCondition": "Upstream supports an external product title",
-      "tests": ["Production build and browser title readback"]
-    },
-    {
-      "path": "src/app/(main)/settings/layout.tsx",
-      "purpose": "Liekan browser title for retained management pages",
-      "owner": "Liekan branding",
-      "constraint": "Change display metadata only; preserve layout and authorization",
-      "verification": "Production build and browser title readback",
-      "removalCondition": "Upstream supports an external product title",
-      "tests": ["Production build and browser title readback"]
-    },
-    {
-      "path": "src/queries/prisma/website.test.ts",
-      "purpose": "Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup",
-      "tests": ["src/queries/prisma/website.test.ts", "tests/api/liekan.spec.ts"],
-      "owner": "Liekan compatibility adapters",
-      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup",
-      "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
-    },
-    {
-      "path": "tests/api/revenue.spec.ts",
-      "purpose": "Compute seeded revenue session expectations across the default monthly anonymous salt boundaries",
-      "tests": ["tests/api/revenue.spec.ts", "pnpm liekan:verify"],
-      "owner": "Liekan upstream compatibility",
-      "constraint": "Only correct date-dependent test expectations; preserve upstream revenue queries, default monthly identity rotation and exact purchase amount assertions",
-      "removalCondition": "Remove when upstream revenue tests derive their expected session count from deterministic purchase dates across salt periods"
-    },
-    {
-      "path": "src/components/hooks/useNavigation.ts",
-      "purpose": "Recognize complete UUID path segments and keep creation routes out of entity queries",
-      "tests": ["src/components/hooks/useNavigation.test.tsx", "Local create-board browser smoke"],
-      "owner": "Liekan upstream compatibility",
-      "constraint": "Preserve team context and query rendering; reject partial or malformed route identifiers",
-      "removalCondition": "Remove when upstream entity navigation validates complete UUID segments"
-    },
-    {
-      "path": "src/components/hooks/useNavigation.test.tsx",
-      "purpose": "Guard valid entity navigation, creation routes and malformed UUID path segments",
-      "tests": ["src/components/hooks/useNavigation.test.tsx"],
-      "owner": "Liekan upstream compatibility",
-      "constraint": "Exercise the production navigation hook for all five entity kinds",
-      "removalCondition": "Remove with the associated navigation override after upstream supplies the regression coverage"
+      "path": "tests/api/auth.spec.ts",
+      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan empty-database API login and default-credential migration checks"
+      ],
+      "owner": "Liekan installation maintenance",
+      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
+      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
     },
     {
       "path": "tests/api/helpers/constants.ts",
@@ -1192,15 +1579,20 @@
       "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
     },
     {
-      "path": "tests/api/auth.spec.ts",
-      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan empty-database API login and default-credential migration checks"
-      ],
-      "owner": "Liekan installation maintenance",
-      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
-      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
+      "path": "tests/api/liekan-features.spec.ts",
+      "purpose": "Real API contract, complete export and live share revocation regression coverage for Liekan UI integration",
+      "tests": ["pnpm liekan:verify"],
+      "owner": "Liekan integration maintenance",
+      "constraint": "Run against isolated synthetic data; preserve upstream API compatibility",
+      "removalCondition": "Remove when equivalent upstream contract coverage protects all integrated scenes"
+    },
+    {
+      "path": "tests/api/revenue.spec.ts",
+      "purpose": "Compute seeded revenue session expectations across the default monthly anonymous salt boundaries",
+      "tests": ["tests/api/revenue.spec.ts", "pnpm liekan:verify"],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Only correct date-dependent test expectations; preserve upstream revenue queries, default monthly identity rotation and exact purchase amount assertions",
+      "removalCondition": "Remove when upstream revenue tests derive their expected session count from deterministic purchase dates across salt periods"
     },
     {
       "path": "tests/e2e/helpers.ts",
@@ -1214,26 +1606,12 @@
       "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
     },
     {
-      "path": "scripts/seed/index.ts",
-      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan empty-database API login and default-credential migration checks"
-      ],
-      "owner": "Liekan installation maintenance",
-      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
-      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
-    },
-    {
-      "path": "docker-compose.test.yml",
-      "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan empty-database API login and default-credential migration checks"
-      ],
-      "owner": "Liekan installation maintenance",
-      "constraint": "Preserve authentication algorithms, infrastructure credentials and upstream migration files",
-      "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
+      "path": "tsconfig.json",
+      "purpose": "Exclude isolated rehearsal copies from the production type boundary",
+      "tests": ["pnpm liekan:verify", "Liekan release acceptance"],
+      "owner": "Liekan release maintenance",
+      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Exclude isolated rehearsal copies from the production type boundary",
+      "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     }
   ]
 }

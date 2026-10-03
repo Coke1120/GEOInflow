@@ -3,6 +3,7 @@ import { getQueryFilters, parseRequest } from '@/lib/request';
 import { badRequest, json, notFound, unauthorized } from '@/lib/response';
 import { canViewReport, canViewWebsiteSection } from '@/permissions';
 import { getReport } from '@/queries/prisma';
+import { analysisQuery } from '@/lib/liekan/contracts/analysis';
 import { type GoalParameters, getGoal } from '@/queries/sql/goals/getGoal';
 
 export async function GET(
@@ -20,5 +21,22 @@ export async function GET(
   if (!parsed.success) return badRequest();
   const filters = await getQueryFilters(query, websiteId);
   const parameters = { ...parsed.data, ...filters } as GoalParameters;
-  return json(await getGoal(websiteId, parameters, filters));
+  const stats = await getGoal(websiteId, parameters, filters);
+  if (process.env.CLICKHOUSE_URL || !analysisQuery.safeParse(query).success) return json(stats);
+  const { featureGoal } = await import('@/lib/liekan/upstream/feature-analytics');
+  const detail = await featureGoal(
+    websiteId,
+    goalId,
+    {
+      ...query,
+      unit:
+        ['minute', 'hour'].includes(filters.unit) &&
+        Number(query.endAt) - Number(query.startAt) >
+          (filters.unit === 'minute' ? 60000 : 3600000) * 9998
+          ? 'day'
+          : filters.unit || 'day',
+    },
+    auth,
+  );
+  return json({ ...stats, series: detail.series, conversions: detail.conversions });
 }

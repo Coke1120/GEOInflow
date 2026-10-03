@@ -6,6 +6,7 @@ import { DATA_TYPE, DEFAULT_PAGE_SIZE, FILTER_COLUMNS, OPERATORS } from './const
 import { getCountryFilterValues, getRegionFilterValues } from './country';
 import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
+import { channelFilterColumn } from './liekan/upstream/filter-extension';
 
 export const CLICKHOUSE_DATE_FORMATS = {
   // %i is unsupported by ClickHouse before v23.4. %T and %R work on both
@@ -153,7 +154,18 @@ function getFilterQuery(filters: Record<string, any>, options: QueryOptions = {}
     }
 
     if (column) {
-      const isAlwaysAnd = name === 'eventType' || (isCohort && name === cohortActionName);
+      if (column === 'liekan_channel' || column.endsWith('.liekan_channel'))
+        column = channelFilterColumn(
+          column === 'liekan_channel' ? '' : column.slice(0, -'liekan_channel'.length),
+        );
+      if (name.startsWith('drill_') && filters[paramName ?? name] === 'empty.') {
+        andClauses.push(`and (${column} is null or ${column} = '')`);
+        return;
+      }
+      const isAlwaysAnd =
+        name === 'eventType' ||
+        name.startsWith('drill_') ||
+        (isCohort && name === cohortActionName);
 
       if (isAlwaysAnd) {
         andClauses.push(
@@ -256,7 +268,9 @@ function getQueryParams(filters: Record<string, any>) {
       if (!resolvedColumn || !name || value === undefined) return obj;
 
       const key = paramName ?? name;
-      const filterName = name?.startsWith('cohort_') ? name.slice('cohort_'.length) : name;
+      const filterName = (
+        name?.startsWith('cohort_') ? name.slice('cohort_'.length) : name
+      )?.replace(/^drill_/, '');
 
       obj[key] = EQUALITY_OPERATORS.includes(operator)
         ? filterName === 'country'

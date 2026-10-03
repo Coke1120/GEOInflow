@@ -1,3 +1,4 @@
+import { validShareParameters } from '@/lib/liekan/contracts/shares';
 import { z } from 'zod';
 import { ENTITY_TYPE } from '@/lib/constants';
 import { uuid } from '@/lib/crypto';
@@ -39,7 +40,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ boar
 export async function POST(request: Request, { params }: { params: Promise<{ boardId: string }> }) {
   const schema = z.object({
     name: z.string().max(200),
-    parameters: anyObjectParam.optional(),
+    parameters: anyObjectParam
+      .refine(validShareParameters, { message: '分享密码上限 72 字节，启用状态必须为布尔值' })
+      .optional(),
   });
 
   const { auth, body, error } = await parseRequest(request, schema);

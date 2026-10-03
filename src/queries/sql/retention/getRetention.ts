@@ -35,13 +35,14 @@ async function relationalQuery(
   const { getDateSQL, getDayDiffQuery, getCastColumnQuery, rawQuery, parseFilters } = prisma;
   const unit = 'day';
 
-  const { filterQuery, joinSessionQuery, cohortQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-    startDate,
-    endDate,
-    timezone,
-  });
+  const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
+    parseFilters({
+      ...filters,
+      websiteId,
+      startDate,
+      endDate,
+      timezone,
+    });
 
   return rawQuery(
     `
@@ -52,6 +53,7 @@ async function relationalQuery(
       from website_event
       ${cohortQuery}
       ${joinSessionQuery}
+      ${excludeBounceQuery}
       where website_event.website_id = {{websiteId::uuid}}
         and website_event.created_at between {{startDate}} and {{endDate}}
         ${filterQuery}
@@ -109,7 +111,7 @@ async function clickhouseQuery(
   const { getDateSQL, rawQuery, parseFilters } = clickhouse;
   const unit = 'day';
 
-  const { filterQuery, cohortQuery, queryParams } = parseFilters({
+  const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
     ...filters,
     websiteId,
     startDate,
@@ -121,14 +123,15 @@ async function clickhouseQuery(
     `
     WITH cohort_items AS (
       select
-        min(${getDateSQL('created_at', unit, timezone)}) as cohort_date,
-        session_id
+        min(${getDateSQL('website_event.created_at', unit, timezone)}) as cohort_date,
+        website_event.session_id as session_id
       from website_event
       ${cohortQuery}
-      where website_id = {websiteId:UUID}
-        and created_at between {startDate:DateTime64} and {endDate:DateTime64}
+      ${excludeBounceQuery}
+      where website_event.website_id = {websiteId:UUID}
+        and website_event.created_at between {startDate:DateTime64} and {endDate:DateTime64}
         ${filterQuery}
-      group by session_id
+      group by website_event.session_id
     ),
     user_activities AS (
       select distinct

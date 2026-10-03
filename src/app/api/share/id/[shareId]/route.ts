@@ -1,9 +1,11 @@
+import { validShareParameters } from '@/lib/liekan/contracts/shares';
 import z from 'zod';
 import { parseRequest } from '@/lib/request';
 import { json, notFound, ok, unauthorized } from '@/lib/response';
 import { anyObjectParam } from '@/lib/schema';
 import { canDeleteEntity, canUpdateEntity, canViewEntity } from '@/permissions';
 import { deleteShare, getShare, updateShare } from '@/queries/prisma';
+import { safeManagedShare } from '@/lib/liekan/upstream/share-security';
 
 export async function GET(request: Request, { params }: { params: Promise<{ shareId: string }> }) {
   const { auth, error } = await parseRequest(request);
@@ -16,18 +18,22 @@ export async function GET(request: Request, { params }: { params: Promise<{ shar
 
   const share = await getShare(shareId);
 
+  if (!share) return notFound();
+
   if (!(await canViewEntity(auth, share.entityId))) {
     return unauthorized();
   }
 
-  return json(share);
+  return json(safeManagedShare(share));
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ shareId: string }> }) {
   const schema = z.object({
     name: z.string().max(200),
     slug: z.string().max(100),
-    parameters: anyObjectParam,
+    parameters: anyObjectParam.refine(validShareParameters, {
+      message: '分享密码上限 72 字节，启用状态必须为布尔值',
+    }),
   });
 
   const { auth, body, error } = await parseRequest(request, schema);
@@ -71,6 +77,8 @@ export async function DELETE(
   const { shareId } = await params;
 
   const share = await getShare(shareId);
+
+  if (!share) return notFound();
 
   if (!(await canDeleteEntity(auth, share.entityId))) {
     return unauthorized();

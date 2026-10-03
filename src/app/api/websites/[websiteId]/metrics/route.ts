@@ -58,6 +58,10 @@ export async function GET(
     return json(data);
   }
 
+  if (type === 'channel') {
+    return json(await getChannelMetrics(websiteId, filters));
+  }
+
   if (EVENT_COLUMNS.includes(type)) {
     if (type === 'event') {
       filters.eventType = EVENT_TYPE.customEvent;
@@ -65,10 +69,6 @@ export async function GET(
     } else {
       return json(await getPageviewMetrics(websiteId, { type, limit, offset }, filters));
     }
-  }
-
-  if (type === 'channel') {
-    return json(await getChannelMetrics(websiteId, filters));
   }
 
   return badRequest();

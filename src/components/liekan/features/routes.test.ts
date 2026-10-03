@@ -1,0 +1,30 @@
+import { describe, expect, it } from 'vitest';
+import { featureHref, featurePages, matchFeatureRoute } from './routes';
+const uuid = '11111111-1111-4111-8111-111111111111';
+describe('approved scene routing', () => {
+  it('registers every approved supplemental scene without duplicate IDs', () => {
+    expect(featurePages).toHaveLength(68);
+    expect(new Set(featurePages.map(p => p.id)).size).toBe(68);
+    for (const p of featurePages)
+      expect(matchFeatureRoute(`/liekan/${p.id}`, { websiteId: uuid, id: uuid })).toMatchObject({
+        page: p.id,
+        websiteId: uuid,
+        id: uuid,
+      });
+  });
+  it('preserves route opt-out, team context and safe query values', () => {
+    expect(matchFeatureRoute('/websites', { legacy: '1' })).toBeNull();
+    expect(matchFeatureRoute('/liekan')).toMatchObject({ page: 'dashboard' });
+    expect(matchFeatureRoute(`/teams/${uuid}/websites`)).toMatchObject({
+      page: 'websites',
+      teamId: uuid,
+    });
+    const href = featureHref('session-detail', {
+      websiteId: uuid,
+      id: uuid,
+      drill_event: 'eq.a&b',
+      date: 'range:0:100:day',
+    });
+    expect(new URL(href, 'http://localhost').searchParams.get('drill_event')).toBe('eq.a&b');
+  });
+});

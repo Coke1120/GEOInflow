@@ -238,9 +238,9 @@ export type OperationInput<K extends OperationId> = OperationPathParams<K> &
   Record<string, unknown>;
 
 export type OperationOutput<K extends OperationId> = OperationTypes[K]['responses'] extends {
-  200: { content: { 'application/json': infer R } };
+  200: { content: infer C };
 }
-  ? R
+  ? C extends { 'application/json': infer R } ? R : C[keyof C]
   : unknown;
 
 export abstract class GeneratedUmamiClient {

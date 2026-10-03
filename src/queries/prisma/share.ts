@@ -1,9 +1,11 @@
 import type { Prisma, Share } from '@/generated/prisma/client';
-import prisma from '@/lib/prisma';
+import prisma, { getRawQueryClient } from '@/lib/prisma';
+import { secureShareParameters, safeManagedShare } from '@/lib/liekan/upstream/share-security';
 import type { PageResult, QueryFilters } from '@/lib/types';
 
 export async function findShare(criteria: Prisma.ShareFindUniqueArgs) {
-  return prisma.client.share.findUnique(criteria);
+  const primary = getRawQueryClient(prisma.client, { write: true }) as typeof prisma.client;
+  return primary.share.findUnique(criteria);
 }
 
 export async function getShare(shareId: string) {
@@ -39,7 +41,7 @@ export async function getSharesByEntityId(
 ): Promise<PageResult<Share[]>> {
   const { pagedQuery } = prisma;
 
-  return pagedQuery(
+  const result = await pagedQuery(
     'share',
     {
       where: {
@@ -51,26 +53,37 @@ export async function getSharesByEntityId(
     },
     filters,
   );
+  return { ...result, data: result.data.map(safeManagedShare) };
 }
 
 export async function createShare(
   data: Prisma.ShareCreateInput | Prisma.ShareUncheckedCreateInput,
 ) {
-  return prisma.client.share.create({
-    data,
-  });
+  return safeManagedShare(
+    await prisma.client.share.create({
+      data: { ...data, parameters: secureShareParameters(data.parameters) },
+    }),
+  );
 }
 
 export async function updateShare(
   shareId: string,
   data: Prisma.ShareUpdateInput | Prisma.ShareUncheckedUpdateInput,
 ) {
-  return prisma.client.share.update({
-    where: {
-      id: shareId,
-    },
-    data,
-  });
+  const previous = await getShare(shareId);
+  return safeManagedShare(
+    await prisma.client.share.update({
+      where: {
+        id: shareId,
+      },
+      data: {
+        ...data,
+        ...(data.parameters !== undefined
+          ? { parameters: secureShareParameters(data.parameters, previous?.parameters) }
+          : {}),
+      },
+    }),
+  );
 }
 
 export async function deleteShare(shareId: string) {

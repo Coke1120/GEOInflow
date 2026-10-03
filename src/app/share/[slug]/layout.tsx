@@ -1,4 +1,5 @@
-import { ShareProvider } from '@/app/share/ShareProvider';
+import { PublicShareEntry } from '@/components/liekan/features/PublicShareEntry';
+import { Suspense } from 'react';
 
 export default async function ({
   params,
@@ -9,5 +10,9 @@ export default async function ({
 }) {
   const { slug } = await params;
 
-  return <ShareProvider slug={slug}>{children}</ShareProvider>;
+  return (
+    <Suspense>
+      <PublicShareEntry slug={slug}>{children}</PublicShareEntry>
+    </Suspense>
+  );
 }

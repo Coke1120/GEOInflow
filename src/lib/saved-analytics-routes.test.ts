@@ -8,6 +8,9 @@ const state = vi.hoisted(() => ({
   update: vi.fn(async (..._args: any[]) => ({})),
   remove: vi.fn(),
 }));
+vi.mock('@/lib/liekan/upstream/feature-analytics', () => ({
+  featureGoal: async () => ({ series: [], conversions: 1 }),
+}));
 vi.mock('@/permissions', () => ({
   canViewWebsiteSection: async () => state.sectionAllowed,
   canViewReport: async () => state.definitionAllowed,

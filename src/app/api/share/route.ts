@@ -1,3 +1,4 @@
+import { validShareParameters } from '@/lib/liekan/contracts/shares';
 import z from 'zod';
 import { uuid } from '@/lib/crypto';
 import { getRandomChars } from '@/lib/generate';
@@ -13,7 +14,9 @@ export async function POST(request: Request) {
     shareType: z.coerce.number().int(),
     name: z.string().max(200),
     slug: z.string().max(100).optional(),
-    parameters: anyObjectParam,
+    parameters: anyObjectParam.refine(validShareParameters, {
+      message: '分享密码上限 72 字节，启用状态必须为布尔值',
+    }),
   });
 
   const { auth, body, error } = await parseRequest(request, schema);

@@ -1,0 +1,910 @@
+{
+  "pages": [
+    {
+      "id": "websites",
+      "title": "网站管理",
+      "group": "sites",
+      "summary": "搜索、切换所属空间，查看数据接入状态。",
+      "route": "/websites",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "onboarding",
+      "title": "添加网站",
+      "group": "sites",
+      "summary": "网站信息、安装脚本、验证接入的三步向导。",
+      "route": "",
+      "kind": "增补流程"
+    },
+    {
+      "id": "tracking",
+      "title": "跟踪代码",
+      "group": "sites",
+      "summary": "普通 HTML、Next.js 和标签管理器的接入示例。",
+      "route": "",
+      "kind": "增补流程"
+    },
+    {
+      "id": "install-check",
+      "title": "安装验证",
+      "group": "sites",
+      "summary": "检查脚本、网站标识与首条访问的接收结果。",
+      "route": "/console/[websiteId]",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "website-settings",
+      "title": "网站设置",
+      "group": "sites",
+      "summary": "名称、域名、分享与转移、重置、删除操作。",
+      "route": "/websites/[websiteId]/settings",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "recorder-settings",
+      "title": "行为采集设置",
+      "group": "sites",
+      "summary": "回放、热力图、采样率、隐私遮蔽与录制时长。",
+      "route": "",
+      "kind": "后续能力设计"
+    },
+    {
+      "id": "login",
+      "title": "登录",
+      "group": "identity",
+      "summary": "统一中文登录表单与双重验证入口。",
+      "route": "/login",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "login-2fa",
+      "title": "登录验证",
+      "group": "identity",
+      "summary": "验证码、恢复码和验证失败锁定的交互。",
+      "route": "/login/two-factor",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "sso",
+      "title": "单点登录",
+      "group": "identity",
+      "summary": "展示上游 SSO 回调的等待与失败状态。",
+      "route": "/sso",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "account",
+      "title": "个人账户",
+      "group": "identity",
+      "summary": "账户资料、角色信息与密码修改抽屉。",
+      "route": "/settings/profile",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "security",
+      "title": "账户安全",
+      "group": "identity",
+      "summary": "启用、关闭或由团队强制要求双重验证。",
+      "route": "/settings/security",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "two-factor",
+      "title": "启用双重验证",
+      "group": "identity",
+      "summary": "绑定验证器并用验证码确认配置。",
+      "route": "",
+      "kind": "增补流程"
+    },
+    {
+      "id": "backup-codes",
+      "title": "保存恢复码",
+      "group": "identity",
+      "summary": "一次展示、下载、确认保存的完整状态。",
+      "route": "",
+      "kind": "增补流程"
+    },
+    {
+      "id": "api-keys",
+      "title": "API Key",
+      "group": "identity",
+      "summary": "创建时展示一次完整示例密钥，后续仅显示尾号。",
+      "route": "/settings/api-keys",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "preferences",
+      "title": "偏好设置",
+      "group": "identity",
+      "summary": "日期范围、时区、语言、主题与版本信息。",
+      "route": "/settings/preferences",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "goals",
+      "title": "目标管理",
+      "group": "conversion",
+      "summary": "按目标观察转化次数与转化率。",
+      "route": "/websites/[websiteId]/goals",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "goal-editor",
+      "title": "创建目标",
+      "group": "conversion",
+      "summary": "页面访问与自定义事件的目标条件。",
+      "route": "",
+      "kind": "增补表单"
+    },
+    {
+      "id": "funnels",
+      "title": "漏斗管理",
+      "group": "conversion",
+      "summary": "逐步转化、流失和配置摘要。",
+      "route": "/websites/[websiteId]/funnels",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "funnel-editor",
+      "title": "配置漏斗",
+      "group": "conversion",
+      "summary": "二至八步，步骤排序、事件属性与转化窗口。",
+      "route": "",
+      "kind": "增补表单"
+    },
+    {
+      "id": "realtime",
+      "title": "实时访客",
+      "group": "activity",
+      "summary": "过去三十分钟的访客、访问页面和来源。",
+      "route": "/websites/[websiteId]/realtime",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "events",
+      "title": "事件分析",
+      "group": "activity",
+      "summary": "事件趋势、属性入口及最近触发记录。",
+      "route": "/websites/[websiteId]/events",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "event-detail",
+      "title": "事件属性",
+      "group": "activity",
+      "summary": "属性分布、属性值和关联会话。",
+      "route": "",
+      "kind": "增补详情"
+    },
+    {
+      "id": "sessions",
+      "title": "会话列表",
+      "group": "activity",
+      "summary": "按访客、来源和活动检索访问记录。",
+      "route": "/websites/[websiteId]/sessions",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "session-detail",
+      "title": "会话详情",
+      "group": "activity",
+      "summary": "访客环境、身份属性和访问时间线。",
+      "route": "/websites/[websiteId]/sessions/[sessionId]",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "filters",
+      "title": "高级筛选",
+      "group": "audience",
+      "summary": "全部或任一匹配，访问维度和会话属性条件。",
+      "route": "",
+      "kind": "增补组件"
+    },
+    {
+      "id": "segments",
+      "title": "分群管理",
+      "group": "audience",
+      "summary": "保存可重复使用的动态筛选条件。",
+      "route": "/websites/[websiteId]/segments",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "segment-editor",
+      "title": "创建分群",
+      "group": "audience",
+      "summary": "条件预览与命名，保存后返回分群列表。",
+      "route": "",
+      "kind": "增补表单"
+    },
+    {
+      "id": "cohorts",
+      "title": "行为队列",
+      "group": "audience",
+      "summary": "指定日期内完成某个页面或事件的人群。",
+      "route": "/websites/[websiteId]/cohorts",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "cohort-editor",
+      "title": "创建队列",
+      "group": "audience",
+      "summary": "行为、日期范围和访问条件的组合。",
+      "route": "",
+      "kind": "增补表单"
+    },
+    {
+      "id": "retention",
+      "title": "留存分析",
+      "group": "audience",
+      "summary": "日队列与第 1 至 28 天的留存矩阵。",
+      "route": "/websites/[websiteId]/retention",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "journeys",
+      "title": "访问旅程",
+      "group": "audience",
+      "summary": "页面、事件或混合路径，二至七步。",
+      "route": "/websites/[websiteId]/journeys",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "path-detail",
+      "title": "路径详情",
+      "group": "audience",
+      "summary": "选定路径的转化节点与关联会话。",
+      "route": "",
+      "kind": "增补详情"
+    },
+    {
+      "id": "utm",
+      "title": "UTM 分析",
+      "group": "analysis",
+      "summary": "来源、媒介、活动、内容和关键词五个维度。",
+      "route": "/websites/[websiteId]/utm",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "attribution",
+      "title": "转化归因",
+      "group": "analysis",
+      "summary": "首触或末触模型，页面或事件转化目标。",
+      "route": "/websites/[websiteId]/attribution",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "breakdown",
+      "title": "维度拆分",
+      "group": "analysis",
+      "summary": "选择多个访问字段组合分析。",
+      "route": "/websites/[websiteId]/breakdown",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "compare",
+      "title": "对比分析",
+      "group": "analysis",
+      "summary": "当前与对照期间的同口径指标、趋势和明细。",
+      "route": "/websites/[websiteId]/compare",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "annotations",
+      "title": "图表注释",
+      "group": "analysis",
+      "summary": "按日期记录上线与推广节点。",
+      "route": "/websites/[websiteId]/annotations",
+      "kind": "增补管理页"
+    },
+    {
+      "id": "teams",
+      "title": "团队管理",
+      "group": "workspace",
+      "summary": "创建团队、加入团队和查看成员权限。",
+      "route": "/teams",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "team-detail",
+      "title": "团队详情",
+      "group": "workspace",
+      "summary": "成员角色、访问码、资源与团队安全设置。",
+      "route": "/settings/teams/[teamId]",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "team-join",
+      "title": "加入团队",
+      "group": "workspace",
+      "summary": "沿用上游访问码方式，无邮件发送假设。",
+      "route": "",
+      "kind": "增补流程"
+    },
+    {
+      "id": "admin-users",
+      "title": "用户管理",
+      "group": "workspace",
+      "summary": "创建用户，管理角色与双重验证状态。",
+      "route": "/admin/users",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "admin-user",
+      "title": "用户详情",
+      "group": "workspace",
+      "summary": "账户、资源和管理员重置验证操作。",
+      "route": "/admin/users/[userId]",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "admin-websites",
+      "title": "后台网站",
+      "group": "workspace",
+      "summary": "检索全局网站及所属用户、团队。",
+      "route": "/admin/websites",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "admin-teams",
+      "title": "后台团队",
+      "group": "workspace",
+      "summary": "检索全局团队及所有者、成员。",
+      "route": "/admin/teams",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "admin-security",
+      "title": "系统安全",
+      "group": "workspace",
+      "summary": "全局双重验证策略与配置缺失状态。",
+      "route": "/admin/security",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "boards",
+      "title": "看板列表",
+      "group": "workspace",
+      "summary": "网站、链接、像素和混合看板。",
+      "route": "/boards",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "board-editor",
+      "title": "看板信息",
+      "group": "workspace",
+      "summary": "名称、说明、类型与关联资源。",
+      "route": "/boards/[boardId]/edit",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "board-design",
+      "title": "看板编排",
+      "group": "workspace",
+      "summary": "添加图表、调整次序与布局宽度。",
+      "route": "/boards/[boardId]/design",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "board-view",
+      "title": "看板详情",
+      "group": "workspace",
+      "summary": "自定义指标、趋势和来源图表。",
+      "route": "/boards/[boardId]",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "dashboard",
+      "title": "工作台",
+      "group": "workspace",
+      "summary": "跨网站摘要与固定网站。",
+      "route": "/dashboard",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "dashboard-edit",
+      "title": "编辑工作台",
+      "group": "workspace",
+      "summary": "网站选择、排序与显示选项。",
+      "route": "/dashboard/edit",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "sharing",
+      "title": "分享管理",
+      "group": "workspace",
+      "summary": "网站及看板分享，筛选权限、主题、页面范围。",
+      "route": "",
+      "kind": "增补管理页"
+    },
+    {
+      "id": "share-preview",
+      "title": "公开分享",
+      "group": "workspace",
+      "summary": "访客只读视角和分享关闭状态。",
+      "route": "/share/[slug]/[[...path]]",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "performance",
+      "title": "页面性能",
+      "group": "extended",
+      "summary": "LCP、INP、CLS、FCP、TTFB 与 p50/p75/p95。",
+      "route": "/websites/[websiteId]/performance",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "revenue",
+      "title": "收入分析",
+      "group": "extended",
+      "summary": "按币种分别查看收入、累计趋势与交易会话。",
+      "route": "/websites/[websiteId]/revenue",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "heatmaps",
+      "title": "热力图",
+      "group": "extended",
+      "summary": "点击与滚动热力图，页面和设备切换。",
+      "route": "/websites/[websiteId]/heatmaps",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "replays",
+      "title": "会话回放",
+      "group": "extended",
+      "summary": "录制列表、已保存录制与隐私采集入口。",
+      "route": "/websites/[websiteId]/replays",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "replay-player",
+      "title": "回放播放器",
+      "group": "extended",
+      "summary": "播放、速度、时间定位和保存录制。",
+      "route": "/websites/[websiteId]/replays/[replayId]",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "links",
+      "title": "链接管理",
+      "group": "extended",
+      "summary": "创建短链接并观察点击。",
+      "route": "/links",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "link-editor",
+      "title": "编辑链接",
+      "group": "extended",
+      "summary": "名称、目标 URL 与自定义短链标识。",
+      "route": "/links/[linkId]/edit",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "link-detail",
+      "title": "链接详情",
+      "group": "extended",
+      "summary": "访问趋势、来源、地域与分享。",
+      "route": "/links/[linkId]",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "pixels",
+      "title": "像素管理",
+      "group": "extended",
+      "summary": "创建追踪像素，获取地址与嵌入代码。",
+      "route": "/pixels",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "pixel-editor",
+      "title": "编辑像素",
+      "group": "extended",
+      "summary": "名称与自动生成的像素地址。",
+      "route": "/pixels/[pixelId]/edit",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "pixel-detail",
+      "title": "像素详情",
+      "group": "extended",
+      "summary": "请求趋势、环境及接入代码。",
+      "route": "/pixels/[pixelId]",
+      "kind": "兼容页重绘"
+    },
+    {
+      "id": "exports",
+      "title": "完整导出",
+      "group": "extended",
+      "summary": "数据范围、格式、任务进度和清单预览。",
+      "route": "",
+      "kind": "增补能力设计"
+    },
+    {
+      "id": "access-denied",
+      "title": "权限不足",
+      "group": "states",
+      "summary": "当前角色、所需权限和返回动作。",
+      "route": "",
+      "kind": "增补状态"
+    },
+    {
+      "id": "session-expired",
+      "title": "登录已过期",
+      "group": "states",
+      "summary": "重新登录后返回原页面的流程。",
+      "route": "",
+      "kind": "增补状态"
+    },
+    {
+      "id": "not-found",
+      "title": "页面不存在",
+      "group": "states",
+      "summary": "返回工作台或查找页面。",
+      "route": "",
+      "kind": "增补状态"
+    }
+  ],
+  "routes": [
+    {
+      "source": "src/app/(main)/admin/security/page.tsx",
+      "route": "/admin/security",
+      "target": "admin-security.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/admin/teams/[teamId]/page.tsx",
+      "route": "/admin/teams/[teamId]",
+      "target": "team-detail.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/admin/teams/page.tsx",
+      "route": "/admin/teams",
+      "target": "admin-teams.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/admin/users/[userId]/page.tsx",
+      "route": "/admin/users/[userId]",
+      "target": "admin-user.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/admin/users/page.tsx",
+      "route": "/admin/users",
+      "target": "admin-users.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/admin/websites/[websiteId]/page.tsx",
+      "route": "/admin/websites/[websiteId]",
+      "target": "website-settings.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/admin/websites/page.tsx",
+      "route": "/admin/websites",
+      "target": "admin-websites.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/boards/[boardId]/design/page.tsx",
+      "route": "/boards/[boardId]/design",
+      "target": "board-design.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/boards/[boardId]/edit/page.tsx",
+      "route": "/boards/[boardId]/edit",
+      "target": "board-editor.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/boards/[boardId]/page.tsx",
+      "route": "/boards/[boardId]",
+      "target": "board-view.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/boards/create/page.tsx",
+      "route": "/boards/create",
+      "target": "board-editor.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/boards/page.tsx",
+      "route": "/boards",
+      "target": "boards.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/console/[websiteId]/page.tsx",
+      "route": "/console/[websiteId]",
+      "target": "install-check.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/dashboard/edit/page.tsx",
+      "route": "/dashboard/edit",
+      "target": "dashboard-edit.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/dashboard/page.tsx",
+      "route": "/dashboard",
+      "target": "dashboard.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/links/[linkId]/edit/page.tsx",
+      "route": "/links/[linkId]/edit",
+      "target": "link-editor.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/links/[linkId]/page.tsx",
+      "route": "/links/[linkId]",
+      "target": "link-detail.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/links/page.tsx",
+      "route": "/links",
+      "target": "links.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/pixels/[pixelId]/edit/page.tsx",
+      "route": "/pixels/[pixelId]/edit",
+      "target": "pixel-editor.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/pixels/[pixelId]/page.tsx",
+      "route": "/pixels/[pixelId]",
+      "target": "pixel-detail.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/pixels/page.tsx",
+      "route": "/pixels",
+      "target": "pixels.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/api-keys/page.tsx",
+      "route": "/settings/api-keys",
+      "target": "api-keys.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/preferences/page.tsx",
+      "route": "/settings/preferences",
+      "target": "preferences.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/profile/page.tsx",
+      "route": "/settings/profile",
+      "target": "account.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/security/page.tsx",
+      "route": "/settings/security",
+      "target": "security.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/teams/[teamId]/page.tsx",
+      "route": "/settings/teams/[teamId]",
+      "target": "team-detail.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/teams/page.tsx",
+      "route": "/settings/teams",
+      "target": "teams.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/websites/[websiteId]/page.tsx",
+      "route": "/settings/websites/[websiteId]",
+      "target": "website-settings.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/websites/page.tsx",
+      "route": "/settings/websites",
+      "target": "websites.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/teams/page.tsx",
+      "route": "/teams",
+      "target": "teams.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/attribution/page.tsx",
+      "route": "/websites/[websiteId]/attribution",
+      "target": "attribution.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/breakdown/page.tsx",
+      "route": "/websites/[websiteId]/breakdown",
+      "target": "breakdown.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/funnels/page.tsx",
+      "route": "/websites/[websiteId]/funnels",
+      "target": "funnels.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/goals/page.tsx",
+      "route": "/websites/[websiteId]/goals",
+      "target": "goals.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/heatmaps/page.tsx",
+      "route": "/websites/[websiteId]/heatmaps",
+      "target": "heatmaps.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/journeys/page.tsx",
+      "route": "/websites/[websiteId]/journeys",
+      "target": "journeys.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/performance/page.tsx",
+      "route": "/websites/[websiteId]/performance",
+      "target": "performance.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/retention/page.tsx",
+      "route": "/websites/[websiteId]/retention",
+      "target": "retention.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/revenue/page.tsx",
+      "route": "/websites/[websiteId]/revenue",
+      "target": "revenue.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/(reports)/utm/page.tsx",
+      "route": "/websites/[websiteId]/utm",
+      "target": "utm.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/@modal/(.)replays/[sessionId]/page.tsx",
+      "route": "/websites/[websiteId]/replays/[sessionId]",
+      "target": "replay-player.html",
+      "entry": "弹层拦截"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/@modal/(.)sessions/[sessionId]/page.tsx",
+      "route": "/websites/[websiteId]/sessions/[sessionId]",
+      "target": "session-detail.html",
+      "entry": "弹层拦截"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/cohorts/page.tsx",
+      "route": "/websites/[websiteId]/cohorts",
+      "target": "cohorts.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/compare/page.tsx",
+      "route": "/websites/[websiteId]/compare",
+      "target": "compare.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/events/page.tsx",
+      "route": "/websites/[websiteId]/events",
+      "target": "events.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/page.tsx",
+      "route": "/websites/[websiteId]",
+      "target": "reference/index.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/realtime/page.tsx",
+      "route": "/websites/[websiteId]/realtime",
+      "target": "realtime.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/replays/[replayId]/page.tsx",
+      "route": "/websites/[websiteId]/replays/[replayId]",
+      "target": "replay-player.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/replays/page.tsx",
+      "route": "/websites/[websiteId]/replays",
+      "target": "replays.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/segments/page.tsx",
+      "route": "/websites/[websiteId]/segments",
+      "target": "segments.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/sessions/[sessionId]/page.tsx",
+      "route": "/websites/[websiteId]/sessions/[sessionId]",
+      "target": "session-detail.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/sessions/page.tsx",
+      "route": "/websites/[websiteId]/sessions",
+      "target": "sessions.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/[websiteId]/settings/page.tsx",
+      "route": "/websites/[websiteId]/settings",
+      "target": "website-settings.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/websites/page.tsx",
+      "route": "/websites",
+      "target": "websites.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/login/page.tsx",
+      "route": "/login",
+      "target": "login.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/login/two-factor/page.tsx",
+      "route": "/login/two-factor",
+      "target": "login-2fa.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/logout/page.tsx",
+      "route": "/logout",
+      "target": "session-expired.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/page.tsx",
+      "route": "/",
+      "target": "dashboard.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/share/[slug]/[[...path]]/page.tsx",
+      "route": "/share/[slug]/[[...path]]",
+      "target": "share-preview.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/sso/page.tsx",
+      "route": "/sso",
+      "target": "sso.html",
+      "entry": "页面"
+    }
+  ]
+}

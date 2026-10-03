@@ -331,12 +331,11 @@ async function clickhouseQuery(
     FUNCTION_NAME,
   );
 
-  const pages: HeatmapPage[] = pageRows
-    .map(p => ({
-      urlPath: p.urlPath,
-      count: Number(p.count),
-      sessions: Number(p.sessions),
-    }));
+  const pages: HeatmapPage[] = pageRows.map(p => ({
+    urlPath: p.urlPath,
+    count: Number(p.count),
+    sessions: Number(p.sessions),
+  }));
 
   if (!urlPath) {
     return { mode, pages, points: [], snapshot: null, scroll: emptyScroll() };
@@ -866,7 +865,7 @@ function getClickhouseHeatmapPathFilterContext(filters: QueryFilters) {
   };
 }
 
-function getRelationalHeatmapFilterContext(
+export function getRelationalHeatmapFilterContext(
   websiteId: string,
   filters: QueryFilters,
 ): HeatmapFilterContext {

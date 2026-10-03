@@ -14,6 +14,8 @@ import {
 } from '@/components/hooks';
 import { isLiekanRoute, isWebsiteLanding } from '@/components/liekan/data';
 import { LiekanShell } from '@/components/liekan/LiekanShell';
+import { FeatureApp, canRenderFeatureRoute } from '@/components/liekan/features/FeatureApp';
+import { matchFeatureRoute } from '@/components/liekan/features/routes';
 import { TwoFactorSetupModal } from '@/components/modals/TwoFactorSetupModal';
 import { LAST_TEAM_CONFIG } from '@/lib/constants';
 import { removeItem, setItem } from '@/lib/storage';
@@ -25,6 +27,8 @@ export function App({ children }) {
   const { pathname, router, teamId, query } = useNavigation();
   const showLiekan = query.legacy !== '1';
   const isGeo = isLiekanRoute(pathname);
+  const featureRoute = matchFeatureRoute(pathname, query);
+  const showFeature = canRenderFeatureRoute(featureRoute);
   const { isLoading: isTeamLoading, error: teamError } = useTeamQuery(teamId);
   const { data: twoFactorStatus } = useTwoFactorStatusQuery(!!user && !config?.cloudMode);
   const needsTwoFactorSetup = !!(twoFactorStatus?.isRequired && !twoFactorStatus?.isEnabled);
@@ -71,7 +75,9 @@ export function App({ children }) {
 
   return (
     <>
-      {showLiekan ? (
+      {showFeature ? (
+        <FeatureApp user={user} route={featureRoute} forceSetup={needsTwoFactorSetup} />
+      ) : showLiekan ? (
         <LiekanShell user={user}>
           <div
             aria-hidden={needsTwoFactorSetup || undefined}
@@ -109,7 +115,7 @@ export function App({ children }) {
           </Column>
         </Grid>
       )}
-      {needsTwoFactorSetup && <TwoFactorSetupModal required={true} />}
+      {needsTwoFactorSetup && !showFeature && <TwoFactorSetupModal required={true} />}
       {!showLiekan && <UpdateNotice user={user} config={config} />}
       {process.env.NODE_ENV === 'production' && !pathname.includes('/share/') && (
         <Script src={`${process.env.basePath || ''}/telemetry.js`} />

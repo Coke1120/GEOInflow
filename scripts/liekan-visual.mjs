@@ -173,7 +173,7 @@ const exemptions = page =>
     return result;
   });
 try {
-  await actual.goto(base + '/login');
+  await actual.goto(base + '/login?legacy=1');
   await actual.locator('[data-test="input-username"] input').fill(credentials.LIEKAN_TEST_USERNAME);
   await actual.locator('[data-test="input-password"] input').fill(credentials.LIEKAN_TEST_PASSWORD);
   await actual.locator('[data-test="button-submit"]').click();

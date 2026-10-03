@@ -184,3 +184,25 @@ describe('pagedRawQuery default ordering', () => {
     expect(queryRaw.mock.calls[1][0]).not.toMatch(/order by/);
   });
 });
+
+describe('Liekan breakdown drill filters', () => {
+  test('matches null and empty dimensions as a mandatory drill condition', () => {
+    const parsed = prisma.parseFilters({
+      country: 'eq.CN',
+      path: 'eq./home',
+      match: 'any',
+      drill_country: 'empty.',
+    });
+    expect(parsed.filterQuery).toContain("and (session.country is null or session.country = '')");
+    expect(parsed.filterQuery).toContain(' or ');
+    expect(parsed.joinSessionQuery).toContain('inner join session');
+    expect(parsed.filterQuery).not.toContain('ANY({{drill_country}})');
+  });
+  test('retains normal literal filtering and normalized country drill values', () => {
+    const literal = prisma.parseFilters({ country: 'empty.' });
+    expect(literal.filterQuery).toContain('session.country = ANY({{country}})');
+    expect(literal.queryParams).toMatchObject({ country: ['EMPTY.'] });
+    const drill = prisma.parseFilters({ drill_country: 'eq.CN' });
+    expect(drill.queryParams).toMatchObject({ drill_country: ['CN', ['T', 'W'].join('')] });
+  });
+});

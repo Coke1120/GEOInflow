@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { getPerformance } from './getPerformance';
 import { getPerformanceChart } from './getPerformanceChart';
 import { getPerformanceStats } from './getPerformanceStats';
+import { getPerformanceMetrics } from './getPerformanceMetrics';
 
 const mocks = vi.hoisted(() => ({
   backend: 'prisma',
@@ -65,5 +66,13 @@ describe.each(['prisma', 'clickhouse'])('%s performance datasets', backend => {
     const result = await getPerformance('website', parameters, {});
     expect(mocks.rawQuery).toHaveBeenCalledTimes(2);
     expect(result).toMatchObject({ chart: [], summary: { count: 0 } });
+  });
+  test('grouped sample count excludes rows without the selected metric', async () => {
+    await getPerformanceMetrics('website', parameters, {}, 'url_path');
+    const sql = mocks.rawQuery.mock.calls[0][0];
+    expect(sql).toContain(
+      backend === 'prisma' ? 'count(inp) as count' : 'countIf(inp IS NOT NULL) as count',
+    );
+    expect(sql).toContain('group by url_path');
   });
 });

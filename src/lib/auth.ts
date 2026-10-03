@@ -85,7 +85,10 @@ export async function checkAuth(request: Request) {
     return null;
   }
 
-  const shareToken = await parseShareToken(request);
+  const parsedShare = parseShareToken(request);
+  const shareToken = parsedShare
+    ? await (await import('@/lib/liekan/upstream/live-share')).validateLiveShare(parsedShare)
+    : null;
 
   let user = null;
   const { userId, authKey } = payload || {};
