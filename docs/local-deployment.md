@@ -14,7 +14,8 @@ Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 R
 
 ```sh
 pnpm liekan:verify
-docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" liekan:0.1.2
+liekan_version=$(node -p "require('./package.json').version")
+docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" "liekan:${liekan_version}"
 docker compose -f docker-compose.liekan.yml up -d --no-build
 ```
 
@@ -22,7 +23,7 @@ docker compose -f docker-compose.liekan.yml up -d --no-build
 
 完整验收的镜像构建沿用环境中的 HTTP_PROXY、HTTPS_PROXY 和 NO_PROXY；macOS 的回环代理地址转换为 Docker Desktop 的 host.docker.internal。可用 LIEKAN_DOCKER_HTTP_PROXY / LIEKAN_DOCKER_HTTPS_PROXY 单独指定容器可达的构建代理。代理值通过构建进程环境传入，命令参数只带变量名，最终应用不配置这些构建代理；官方组件来源和 HTTPS 校验保持有效。Prisma 的代理支持见 [官方说明](https://www.prisma.io/docs/orm/v7/reference/environment-variables-reference#proxy-environment-variables)。
 
-每次升级先导出数据备份，并记录镜像 SHA、代码标签和迁移版本。启动新版本后检查登录/2FA、网站切换、人类指标、日志导入、目录管理、目标、CSV 与数据总量。应用回退采用已记录镜像；若迁移改变数据或不向后兼容，需要从备份恢复至新的卷再验证。删除数据库卷、清空数据和重置历史均需要明确授权。
+每次升级先导出数据备份，并记录镜像 SHA、代码标签和迁移版本。启动新版本后检查登录/2FA、网站切换、人类指标、日志导入、目录管理、目标、CSV 与数据总量。应用回退须保留当前分享实时授权层，并验证分享停用、密码变化和范围收缩；已记录的旧镜像需要完成这些适配后再启用。若迁移改变数据或不向后兼容，需要从备份恢复至新的卷再验证。删除数据库卷、清空数据和重置历史均需要明确授权。
 
 Compose 使用专用 10.253.30.0/24 网段。其他机器部署时核对该网段与既有网络，冲突时在 Compose 中改为已核验的空闲网段。临时验收从 10.253.31.0/24 到 10.253.254.0/24 中选择与现有 Docker 网络没有重叠的网段，避免默认地址池耗尽；用完清理本次网络。构建结果默认只保存在本机，未发布到镜像仓库。
 
