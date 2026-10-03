@@ -98,8 +98,8 @@
   text-align: left;
   color: #697386;
 }
-.siteSwitch:hover,
-.accountToggle:hover {
+.sidebar button.siteSwitch:hover,
+.sidebar button.accountToggle:hover {
   background: #f5f7fa;
 }
 .avatar {

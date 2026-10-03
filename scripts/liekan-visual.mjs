@@ -66,6 +66,19 @@ const names = [
   'funnel',
   'logs',
 ];
+const expectedMetricCounts = {
+  index: 4,
+  ai: 4,
+  'ai-bots': 0,
+  'ai-pages': 4,
+  'ai-preference': 4,
+  human: 5,
+  'human-geo': 4,
+  'human-source': 4,
+  content: 4,
+  funnel: 4,
+  logs: 4,
+};
 const results = [];
 const screenshotStyle = 'nextjs-portal{display:none!important}';
 async function navigationAcceptance(page, expected, width) {
@@ -693,7 +706,9 @@ try {
       `${name} analysis tools`,
     );
     const metrics = payload.cards.length;
-    assert(metrics > 0, `${name} empty reference metrics`);
+    assert.equal(metrics, expectedMetricCounts[name], `${name} original metric count changed`);
+    if (name === 'ai-bots')
+      assert(payload.tables.botBody.length > 0, 'AI crawler reference ledger has no rows');
     const differences = geometry.cards.slice(0, metrics).map((r, index) => ({
       type: 'metric',
       index,

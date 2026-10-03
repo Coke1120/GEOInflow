@@ -291,7 +291,7 @@ export function hasDateControl(route: FeatureRoute) {
   );
 }
 export function geoPageFromPath(pathname: string) {
-  const suffix = pathname.split('/geo')[1] || '';
+  const suffix = pathname.match(/\/websites\/[^/]+\/geo(\/.*)?$/)?.[1] || '';
   return (
     Object.keys(geoPaths).find(page => geoPaths[page] === suffix.replace(/\/$/, '')) || 'overview'
   );

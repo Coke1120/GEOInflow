@@ -633,7 +633,7 @@ export function LatestLog({ className, report }: { className: string; report?: L
   return (
     <pre
       className={className}
-      style={{ fontFamily: 'ui-monospace,monospace', whiteSpace: 'pre-wrap' }}
+      style={{ fontFamily: 'ui-monospace,monospace', whiteSpace: 'pre-wrap', minHeight: '5lh' }}
     >
       {row
         ? `${formatValue(row.ipMasked)} [${formatValue(row.time)}]\n"${row.method || 'GET'} ${formatValue(row.path)}" ${formatValue(row.status)}\n${formatValue(row.userAgent)}\n→ 判定: ${formatValue(row.classification)}`

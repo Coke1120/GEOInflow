@@ -9,6 +9,7 @@ import {
 } from '@/components/liekan/features/routes';
 import {
   activeNavigationPage,
+  geoPageFromPath,
   geoPaths,
   globalNavigation,
   navigationFor,
@@ -19,6 +20,13 @@ import {
 const site = '11111111-1111-4111-8111-111111111111';
 const team = '22222222-2222-4222-8222-222222222222';
 describe('navigation task boundaries', () => {
+  it.each(Object.entries(geoPaths))('resolves the complete %s website path', (page, suffix) => {
+    for (const prefix of ['', `/teams/${team}`]) {
+      const pathname = `${prefix}/websites/${site}/geo${suffix}`;
+      expect(geoPageFromPath(pathname)).toBe(page);
+      expect(geoPageFromPath(`${pathname}/`)).toBe(page);
+    }
+  });
   it('restores global resource list state and the admin detail parent', () => {
     for (const [list, detail] of [
       ['links', 'link-detail'],
