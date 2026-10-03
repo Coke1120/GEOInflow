@@ -46,7 +46,7 @@ cp.execFileSync=(command,args,options={})=>{
  if(command==='git')return args[0]==='rev-parse'?head:'';
  const verb=args[0];
  if(verb==='create'&&options.env?.DATABASE_URL?.endsWith('/liekan_restore'))restoreStarted=true;
- if(verb==='image')return args.at(-1)==='{{.Id}}'?'sha256:fixture':JSON.stringify({'org.opencontainers.image.revision':head,'org.opencontainers.image.version':version,'io.liekan.ui.sha256':upstream.uiManifestSha256,'io.liekan.upstream.revision':upstream.commit,'io.liekan.migration':String(upstream.liekanMigration)});
+ if(verb==='image')return args.at(-1)==='{{.Id}}'?'sha256:fixture':JSON.stringify({'org.opencontainers.image.revision':head,'org.opencontainers.image.version':version,'io.liekan.ui.sha256':upstream.uiManifestSha256,'io.liekan.feature-ui.sha256':fault==='feature-ui-label'?'wrong':upstream.featureUiManifestSha256,'io.liekan.upstream.revision':upstream.commit,'io.liekan.migration':String(upstream.liekanMigration)});
  if(verb==='compose')return 'fixture-source';
  if(verb==='inspect')return JSON.stringify({'com.docker.compose.project':'liekan','com.docker.compose.service':'db'});
  if(verb==='network'&&args[1]==='ls')return 'fixture-network';
@@ -82,6 +82,7 @@ cp.spawnSync=(command,args,options={})=>{
  }
  if(args.includes('playwright.api.config.ts')){fs.mkdirSync('tests/api/.runtime/127.0.0.1-3302/coverage',{recursive:true});fs.writeFileSync('tests/api/.runtime/127.0.0.1-3302/coverage/summary.json','{}');}
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
+ if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:68*4},()=>({passed:true}))}));}
  if(args.includes('scripts/liekan-visual.mjs')){fs.mkdirSync('test-results/liekan-visual',{recursive:true});fs.writeFileSync('test-results/liekan-visual/geometry.json',JSON.stringify({passed:true,head}));}
  return {status:0};
 };
@@ -164,6 +165,10 @@ describe('isolated acceptance CLI failure paths', () => {
     'restore-signal',
     'restore-error',
     'data-regression-failed',
+    'feature-ui-label',
+    'feature-visual-failed',
+    'feature-visual-head',
+    'feature-visual-count',
   ])('rejects %s instead of publishing a full acceptance', fault => {
     const setup = fixture(fault);
     try {
