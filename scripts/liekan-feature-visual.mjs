@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { chromium } from '@playwright/test';
 import { generateSync } from 'otplib';
@@ -10,8 +11,28 @@ assert(
   ['127.0.0.1', 'localhost'].includes(new URL(base).hostname),
   'Use the isolated local candidate',
 );
+const navigationBaseline = JSON.parse(fs.readFileSync('config/liekan/navigation-ui.json', 'utf8'));
+assert.equal(
+  navigationBaseline.baselineVersion,
+  'liekan-navigation-v0.2.2',
+  'Explicit approved navigation baseline required',
+);
+const featureReference = JSON.parse(fs.readFileSync('config/liekan/feature-ui.json', 'utf8'));
+for (const [file, hash] of Object.entries(featureReference.files))
+  assert.equal(
+    createHash('sha256')
+      .update(fs.readFileSync(path.join(featureReference.directory, file)))
+      .digest('hex'),
+    hash,
+    `Original feature reference changed: ${file}`,
+  );
 const seed = JSON.parse(fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/seed.json', 'utf8'));
 const manifest = JSON.parse(fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'));
+assert.deepEqual(
+  Object.keys(navigationBaseline.pages).sort(),
+  manifest.pages.map(p => p.id).sort(),
+  'All 68 feature scenarios require independent navigation expectations',
+);
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const out = 'test-results/liekan-features';
 fs.mkdirSync(out, { recursive: true });
@@ -171,20 +192,214 @@ await context.route(base + '/__prototype/**', async route => {
 const errors = [];
 actual.on('pageerror', error => errors.push(error.message));
 auth.on('pageerror', error => errors.push(error.message));
-actual.on('response', response => {
-  if (response.url().includes('/api/') && response.status() >= 500)
-    errors.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}`);
-});
+for (const page of [actual, auth])
+  page.on('response', response => {
+    if (response.url().includes('/api/') && response.status() >= 500)
+      errors.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}`);
+  });
 await auth.addInitScript(token => sessionStorage.setItem('umami.partial-token', token), partial);
 const results = [];
+const contextResults = [];
 const report = {
   head,
   passed: false,
+  navigationBaseline: navigationBaseline.baselineVersion,
+  originalReferenceHashesVerified: Object.keys(featureReference.files).length,
   pages: 68,
   widths: [1440, 1280, 375, 320],
   checks: results,
+  contextChecks: contextResults,
   errors,
 };
+async function navigationAcceptance(page, expected, width) {
+  assert.equal(
+    await page.locator('.section-tabs').count(),
+    0,
+    'Workflow tabs remain in permanent navigation',
+  );
+  const sidebar = page.locator('#liekan-navigation');
+  if (['auth', 'public'].includes(expected.scope)) {
+    assert.equal(await sidebar.count(), 0, `${expected.scope} page exposes private navigation`);
+    return { scope: expected.scope, standalone: true };
+  }
+  assert.equal(await sidebar.count(), 1, 'Shared sidebar is missing or duplicated');
+  const mobile = width <= 900;
+  const toggle = page.getByRole('button', { name: '页面导航', exact: true });
+  if (mobile) {
+    const closed = await sidebar.boundingBox();
+    assert(closed && closed.x + closed.width <= 1, 'Mobile sidebar is visible before opening');
+    await toggle.click();
+    await page.waitForFunction(
+      () => document.querySelector('#liekan-navigation')?.getBoundingClientRect().left >= -1,
+    );
+  }
+  try {
+    const current = await sidebar.evaluate(side => {
+      const visible = el => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+      const groups = [...side.querySelectorAll('[data-navigation-group]')].map(el => ({
+        id: el.getAttribute('data-navigation-group'),
+        label: el.querySelector(':scope > div > a')?.textContent.trim(),
+        children: [...el.querySelectorAll(':scope > div[id] > a')].map(a => a.textContent.trim()),
+      }));
+      const rect = side.getBoundingClientRect();
+      return {
+        label: side.getAttribute('aria-label'),
+        groups,
+        current: [...side.querySelectorAll('a[aria-current="page"]')].map(a =>
+          a.textContent.trim(),
+        ),
+        links: [...side.querySelectorAll('a')].map(a => ({
+          label: a.textContent.trim(),
+          href: a.getAttribute('href'),
+        })),
+        footer: side.querySelector('footer')?.textContent || '',
+        site: side.querySelector('.site-switch')?.textContent || '',
+        siteDetails: [...side.querySelectorAll('.site-switch small')].map(el =>
+          el.textContent.trim(),
+        ),
+        account: [...side.querySelectorAll('#account-navigation a')].map(a => a.textContent.trim()),
+        arrows: [...side.querySelectorAll('button')].filter(visible).flatMap(el => {
+          const arrow = el.lastElementChild;
+          return arrow?.tagName.toLowerCase() === 'svg'
+            ? [el.getBoundingClientRect().right - arrow.getBoundingClientRect().right]
+            : [];
+        }),
+        rect: { x: rect.x, width: rect.width, right: rect.right },
+        focusInside: side.contains(document.activeElement),
+      };
+    });
+    const kind =
+      expected.scope === 'admin' ? 'admin' : expected.scope === 'website' ? 'website' : 'global';
+    const groups = navigationBaseline.groups[kind];
+    assert.deepEqual(
+      current.groups.map(({ id, label }) => ({ id, label })),
+      groups.map(({ id, label }) => ({ id, label })),
+      `${kind} primary navigation`,
+    );
+    assert.equal(
+      current.label,
+      kind === 'website' ? '网站导航' : kind === 'admin' ? '系统管理导航' : '全局导航',
+    );
+    for (const group of current.groups) {
+      const approved = groups.find(g => g.id === group.id);
+      assert.deepEqual(
+        group.children,
+        group.id === expected.section ? approved.children.map(item => item.label) : [],
+        `${group.id} expanded navigation`,
+      );
+    }
+    const items = groups.flatMap(group => (group.children.length ? group.children : [group]));
+    const active =
+      expected.scope === 'account'
+        ? navigationBaseline.account.find(([id]) => id === expected.active)?.[1]
+        : expected.active === 'website-settings'
+          ? '网站设置'
+          : items.find(item => item.page === expected.active)?.label;
+    if (expected.scope === 'state')
+      assert(current.current.length <= 1, 'State page has multiple current sidebar entries');
+    else
+      assert.deepEqual(
+        current.current,
+        [active],
+        'Current sidebar entry is absent, incorrect or duplicated',
+      );
+    const permanentLabels = new Set([
+      ...groups.flatMap(group => [group.label, ...group.children.map(item => item.label)]),
+      ...navigationBaseline.account.map(([, label]) => label),
+      '网站设置',
+      '系统管理',
+      '返回网站列表',
+    ]);
+    for (const [index, link] of current.links.entries()) {
+      if (index > 0)
+        assert(
+          permanentLabels.has(link.label),
+          `Workflow/detail entry in permanent sidebar: ${link.label}`,
+        );
+      assert(
+        link.href && link.href.startsWith('/') && !link.href.startsWith('//'),
+        `Invalid navigation link ${link.label}`,
+      );
+      assert.equal(
+        new URL(link.href, base).origin,
+        new URL(base).origin,
+        `External navigation link ${link.label}`,
+      );
+    }
+    assert(current.footer.includes('个人账户'), 'Account entry missing from sidebar footer');
+    if (kind === 'website') {
+      assert(current.footer.includes('网站设置'), 'Website settings missing from footer');
+      assert(
+        !current.footer.includes('系统管理'),
+        'Website footer exposes unrelated system management',
+      );
+      assert.equal(current.siteDetails.length, 2, 'Website domain and ownership fields missing');
+      assert(current.siteDetails.every(Boolean), 'Website domain or ownership is empty');
+      assert(
+        current.links.some(link => link.label === '返回网站列表'),
+        'Return to websites missing',
+      );
+    } else {
+      assert.equal(current.site, '', 'Global/admin/account navigation exposes website selector');
+      assert(
+        current.footer.includes('系统管理'),
+        'Administrator system-management footer entry missing',
+      );
+    }
+    if (expected.scope === 'account')
+      assert.deepEqual(
+        current.account,
+        navigationBaseline.account.map(([, label]) => label),
+        'Account auxiliary menu',
+      );
+    for (const inset of current.arrows)
+      assert(inset >= 10, `Sidebar arrow needs right spacing (${inset}px)`);
+    assert(
+      Math.abs(current.rect.x) < 1 && current.rect.right <= width,
+      'Sidebar extends beyond viewport',
+    );
+    assert.equal(current.rect.width, 228, 'Default shared sidebar width changed');
+    if (mobile) {
+      assert(current.focusInside, 'Mobile drawer did not move keyboard focus into navigation');
+      await page.keyboard.press('Shift+Tab');
+      assert(
+        await sidebar.evaluate(side => side.contains(document.activeElement)),
+        'Mobile focus escaped drawer',
+      );
+    }
+    return {
+      scope: expected.scope,
+      primaryCount: groups.length,
+      current: current.current,
+      arrows: current.arrows,
+      mobile,
+    };
+  } finally {
+    if (mobile) {
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(
+        () => document.querySelector('#liekan-navigation')?.getBoundingClientRect().right <= 1,
+      );
+      assert.equal(
+        await toggle.getAttribute('aria-expanded'),
+        'false',
+        'Escape did not close mobile navigation',
+      );
+      assert(
+        await toggle.evaluate(el => document.activeElement === el),
+        'Mobile drawer did not restore toggle focus',
+      );
+      assert.equal(
+        await page.evaluate(() => document.body.style.overflow),
+        '',
+        'Mobile drawer did not release scroll lock',
+      );
+    }
+  }
+}
 async function geometry(page) {
   return page.evaluate(() => {
     const scope = document.querySelector('[data-liekan-features]') || document.body;
@@ -193,7 +408,7 @@ async function geometry(page) {
     const rect = main?.getBoundingClientRect();
     const select = [...scope.querySelectorAll('select')].map(el => {
       const s = getComputedStyle(el);
-      const wrap = el.closest('.select-wrap'),
+      const wrap = el.closest('.select-wrap,.context-select'),
         arrow = wrap?.querySelector('svg');
       return {
         right: s.backgroundPosition,
@@ -230,10 +445,6 @@ async function geometry(page) {
       arrows,
       title: document.querySelector('h1')?.textContent,
       charts: scope.querySelectorAll('canvas').length,
-      sectionTabs: [...scope.querySelectorAll('.section-tabs a')].map(el => ({
-        title: el.textContent,
-        active: el.getAttribute('aria-current') === 'page' || el.classList.contains('on'),
-      })),
       bodyText: document.body.innerText,
     };
   });
@@ -330,12 +541,7 @@ try {
         );
         const current = await geometry(page),
           expected = await geometry(reference);
-        if (!authPage && p.id !== 'share-preview')
-          assert.deepEqual(
-            current.sectionTabs,
-            expected.sectionTabs,
-            `${p.id} group navigation differs`,
-          );
+        const navigation = await navigationAcceptance(page, navigationBaseline.pages[p.id], width);
         assert(current.contentCount > 0, `${p.id} has no rendered content`);
         if (expected.panels.length && p.id !== 'backup-codes')
           assert(current.panels.length > 0, `${p.id} missing approved panel structure`);
@@ -362,8 +568,13 @@ try {
           expected.font,
           `${p.id} ${width}px font differs from approved VI`,
         );
-        for (const panel of current.panels)
+        for (const panel of current.panels) {
           assert.equal(panel.radius, '14px', `${p.id} panel radius`);
+          if (expected.panels.length) {
+            assert.equal(panel.border, expected.panels[0].border, `${p.id} panel border VI`);
+            assert.equal(panel.bg, expected.panels[0].bg, `${p.id} panel background VI`);
+          }
+        }
         for (const select of current.select) {
           assert(select.padding >= 38, `${p.id} select text needs arrow spacing`);
           assert(
@@ -373,10 +584,16 @@ try {
         }
         for (const gap of current.arrows)
           assert(gap >= 10, `${p.id} arrow/icon touches the right border (${gap}px)`);
-        if (!authPage && p.id !== 'share-preview')
-          assert.equal(current.title, p.title, `${p.id} title`);
+        const approvedTitle =
+          navigationBaseline.standaloneHeadings[p.id] || navigationBaseline.pages[p.id].title;
+        if (p.id !== 'share-preview')
+          assert.equal(current.title, approvedTitle, `${p.id} approved visible title`);
         assert(!current.bodyText.includes('读取失败'), `${p.id} failed to read actual data`);
-        if (expected.main && current.main && p.id !== 'share-preview' && !authPage) {
+        if (
+          expected.main &&
+          current.main &&
+          !['auth', 'public'].includes(navigationBaseline.pages[p.id].scope)
+        ) {
           assert(
             Math.abs(current.main.left - expected.main.left) < 2,
             `${p.id} content left differs`,
@@ -402,6 +619,7 @@ try {
           passed: true,
           title: current.title,
           charts: current.charts,
+          navigation,
           geometry: { main: current.main, select: current.select },
           scope:
             'Approved VI, shell geometry, control spacing and viewport containment; actual data and permission/setup states preserved',
@@ -414,10 +632,52 @@ try {
         results.push({ id: p.id, width, passed: false, error: error.message });
       }
     }
+    for (const approved of navigationBaseline.contextCases) {
+      const target = approved.route
+        .replace('{websiteId}', seed.website.id)
+        .replace('{teamId}', seed.team.id);
+      try {
+        await actual.goto(base + target);
+        await ready(actual);
+        const current = await geometry(actual);
+        const navigation = await navigationAcceptance(actual, approved, width);
+        assert.equal(current.title, approved.title, `${approved.id} context title`);
+        assert.equal(current.overflow, 0, `${approved.id} ${width}px overflow`);
+        assert(current.contentCount > 0, `${approved.id} has no context content`);
+        assert(
+          !current.bodyText.includes('读取失败'),
+          `${approved.id} failed to read actual context data`,
+        );
+        await actual.screenshot({
+          path: `${out}/${approved.id}-${width}-actual.png`,
+          fullPage: true,
+          animations: 'disabled',
+        });
+        contextResults.push({ id: approved.id, width, passed: true, navigation });
+      } catch (error) {
+        console.error(`${approved.id} ${width}px: ${error.message}`);
+        await actual
+          .screenshot({ path: `${out}/${approved.id}-${width}-failed.png`, fullPage: true })
+          .catch(() => {});
+        contextResults.push({ id: approved.id, width, passed: false, error: error.message });
+      }
+    }
   }
+  assert.equal(
+    contextResults.length,
+    navigationBaseline.contextCases.length * report.widths.length,
+    'All explicit context cases must run',
+  );
+  assert(
+    contextResults.every(r => r.passed),
+    contextResults
+      .filter(r => !r.passed)
+      .map(r => `${r.id} ${r.width}: ${r.error}`)
+      .join('\n'),
+  );
   assert.equal(errors.length, 0, errors.join('\n'));
   assert(
-    results.every(r => r.passed),
+    results.length === manifest.pages.length * report.widths.length && results.every(r => r.passed),
     results
       .filter(r => !r.passed)
       .map(r => `${r.id} ${r.width}: ${r.error}`)
@@ -443,6 +703,7 @@ console.log(
     pages: manifest.pages.length,
     widths: report.widths,
     checks: results.length,
+    contextChecks: contextResults.length,
     report: out + '/report.json',
   }),
 );

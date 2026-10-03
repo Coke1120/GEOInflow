@@ -1,3 +1,5 @@
+import { endOfDay, startOfDay, subDays } from 'date-fns';
+import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { columns, primaryTables } from './data';
 import type { Resource } from './types';
 
@@ -54,9 +56,10 @@ export function isLiveLogView(params: Record<string, string>, resource: Resource
     resource === 'logs' && (params.live === '1' || !params.date || params.dateMode === 'default')
   );
 }
-export function defaultDateRange(now: number) {
-  const day = 86400000,
-    shanghaiOffset = 8 * 3600000;
-  const endAt = Math.floor((now + shanghaiOffset) / day) * day + day - shanghaiOffset - 1;
-  return { startAt: endAt - 30 * day + 1, endAt };
+export function defaultDateRange(now: number, timezone = 'Asia/Shanghai') {
+  const local = toZonedTime(new Date(now), timezone);
+  return {
+    startAt: +fromZonedTime(startOfDay(subDays(local, 29)), timezone),
+    endAt: +fromZonedTime(endOfDay(local), timezone),
+  };
 }

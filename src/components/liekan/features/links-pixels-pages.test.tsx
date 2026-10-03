@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { linkPayload, resourceUrl } from '@/lib/liekan/contracts/workspace';
@@ -98,6 +98,7 @@ describe('links and pixels use native resource and tracking contracts', () => {
   it('creates a link in the active team with its real target and native slug', async () => {
     mount('link-editor');
     await userEvent.type(await screen.findByLabelText(/链接名称/), '新品公告');
+    expect(screen.getByLabelText(/所属空间/)).toHaveValue('增长团队');
     await userEvent.type(screen.getByLabelText(/目标 URL/), 'https://example.com/launch');
     fireEvent.change(screen.getByLabelText(/短链标识/), { target: { value: 'launch_2026' } });
     expect(screen.getByLabelText(/预览地址/)).toHaveValue('https://go.example/launch_2026');
@@ -111,6 +112,55 @@ describe('links and pixels use native resource and tracking contracts', () => {
       }),
     );
     expect(mocks.navigate).toHaveBeenCalledWith('link-detail', { id: 'saved-link' });
+    expect(mocks.notify).toHaveBeenCalledWith('链接已保存');
+  });
+  it('keeps a personal list scoped to the route despite a team website in context', async () => {
+    context.route = { page: 'links' };
+    context.site = { id: 'site-1', teamId: 'team-1' };
+    const original = mocks.get.getMockImplementation();
+    mocks.get.mockImplementation(async (path: string, params: any, signal: any) =>
+      path === '/links'
+        ? { data: [{ ...link, teamId: null }], count: 1 }
+        : original(path, params, signal),
+    );
+    mount('links');
+    await screen.findByText('公告链接');
+    expect(screen.getByText(/所属空间：个人空间/)).toBeInTheDocument();
+    expect(mocks.get).toHaveBeenCalledWith('/links', expect.any(Object), expect.any(AbortSignal));
+    expect(mocks.get.mock.calls.some(([path]) => path.startsWith('/teams/'))).toBe(false);
+  });
+  it('shows the saved resource space and retains its identity when the URL names another team', async () => {
+    context.route = { page: 'link-editor', id: 'link-1', teamId: 'foreign-team' };
+    context.query = { teamId: 'foreign-team', websiteId: 'foreign-website' };
+    mocks.post.mockResolvedValue({ id: 'link-1' });
+    mount('link-editor');
+    await screen.findByDisplayValue('公告链接');
+    expect(screen.getByLabelText(/所属空间/)).toHaveValue('增长团队');
+    await userEvent.click(screen.getByRole('button', { name: '保存链接' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith('/links/link-1', {
+        name: '公告链接',
+        url: 'https://example.com/notes',
+        slug: 'announcement',
+      }),
+    );
+    expect(mocks.get.mock.calls.some(([path]) => path.includes('foreign-team'))).toBe(false);
+  });
+  it('names the deleted link and retains the typed-name safeguard', async () => {
+    context.route.id = 'link-1';
+    mount('link-editor');
+    await screen.findByDisplayValue('公告链接');
+    await userEvent.click(screen.getByRole('button', { name: '删除链接' }));
+    const drawer = within(screen.getByRole('dialog'));
+    expect(drawer.getByText(/将删除链接“公告链接”及其统计数据/)).toBeInTheDocument();
+    expect(drawer.getByText(/短链地址和分享链接将失效/)).toBeInTheDocument();
+    fireEvent.submit(drawer.getByRole('button', { name: '删除链接' }).closest('form'));
+    expect(await drawer.findByText('请输入链接名称确认删除')).toBeInTheDocument();
+    expect(mocks.del).not.toHaveBeenCalled();
+    await userEvent.type(drawer.getByLabelText(/输入 公告链接 确认/), '公告链接');
+    await userEvent.click(drawer.getByRole('button', { name: '删除链接' }));
+    await waitFor(() => expect(mocks.del).toHaveBeenCalledWith('/links/link-1'));
+    expect(mocks.notify).toHaveBeenCalledWith('链接已删除');
   });
   it('rejects non-web target schemes before issuing an update', async () => {
     mount('link-editor');
@@ -162,6 +212,17 @@ describe('links and pixels use native resource and tracking contracts', () => {
     mount('links');
     await screen.findByText('公告链接');
     expect(await screen.findByText('未提供')).toBeInTheDocument();
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+  });
+  it('retains an actual statistics failure instead of presenting a measured zero', async () => {
+    const original = mocks.get.getMockImplementation();
+    mocks.get.mockImplementation(async (path: string, params: any, signal: any) => {
+      if (path === '/links/charts') throw new Error('统计服务暂不可用');
+      return original(path, params, signal);
+    });
+    mount('links');
+    expect(await screen.findByText(/统计读取失败：统计服务暂不可用/)).toBeInTheDocument();
+    expect(screen.getByText('读取失败')).toBeInTheDocument();
     expect(screen.queryByText('0')).not.toBeInTheDocument();
   });
   it('pixel creation carries its native slug and uses the configured tracking host', async () => {

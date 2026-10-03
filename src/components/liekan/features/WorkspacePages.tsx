@@ -1,4 +1,5 @@
 'use client';
+import { useListState } from './listState';
 
 import { useQuery } from '@tanstack/react-query';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
@@ -37,7 +38,7 @@ import {
   getFeaturePreferences,
 } from '@/lib/liekan/upstream/features-client';
 import { Chart } from './Chart';
-import { useAction, useData, useFeature } from './context';
+import { FeatureProvider, useAction, useData, useFeature, useResourceContext } from './context';
 import {
   Badge,
   Body,
@@ -134,7 +135,7 @@ function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) 
     <Drawer title={title} onClose={() => !action.busy && onClose()}>
       <Form
         busy={action.busy}
-        submitLabel="确认操作"
+        submitLabel={title}
         onSubmit={async (values: any) => {
           if (values.confirmation !== word) throw new Error(`请输入 ${word} 确认`);
           await action.run(onConfirm);
@@ -150,14 +151,17 @@ function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) 
 
 export function useWorkspaceEntities() {
   const c = useFeature();
+  const allSources = ['board-editor', 'board-design', 'board-view'].includes(c.route.page);
+  const websiteOnly = c.route.page === 'sharing' && c.route.context === 'website';
   const query = useData(
-    ['workspace-entities', c.route.teamId, c.teams.map(team => team.id)],
+    ['workspace-entities', c.route.teamId, allSources, websiteOnly, c.teams.map(team => team.id)],
     async signal => {
-      const prefix = c.route.teamId ? `/teams/${c.route.teamId}` : '';
+      if (websiteOnly) return { link: [], pixel: [], board: [] };
+      const prefix = c.route.teamId && !allSources ? `/teams/${c.route.teamId}` : '';
       const [links, pixels, boards] = await Promise.all(
         ['links', 'pixels', 'boards'].map(async kind => {
           const personal = await getAllFeatureRows<FeatureEntity>(`${prefix}/${kind}`, {}, signal);
-          if (c.route.teamId) return personal;
+          if (!allSources) return personal;
           const teams = await Promise.all(
             c.teams.map(team =>
               getAllFeatureRows<FeatureEntity>(`/teams/${team.id}/${kind}`, {}, signal),
@@ -171,7 +175,12 @@ export function useWorkspaceEntities() {
       return { link: links, pixel: pixels, board: boards };
     },
   );
-  return { ...query, data: query.data ? { ...query.data, website: c.sites } : undefined };
+  return {
+    ...query,
+    data: query.data
+      ? { ...query.data, website: websiteOnly ? (c.site ? [c.site] : []) : c.sites }
+      : undefined,
+  };
 }
 
 function TeamCreate({ onClose }: { onClose: () => void }) {
@@ -236,8 +245,8 @@ function TwoFactorBadge({ userId }: { userId: string }) {
 }
 function Teams({ admin = false }: { admin?: boolean }) {
   const c = useFeature(),
-    [page, setPage] = useState(1),
-    [search, setSearch] = useState(''),
+    [page, setPage] = useListState('page', 1),
+    [search, setSearch] = useListState('search', ''),
     [create, setCreate] = useState(false);
   const q = useData(
     [admin ? 'admin-teams' : 'teams', page, search],
@@ -269,7 +278,13 @@ function Teams({ admin = false }: { admin?: boolean }) {
         <Metrics
           items={[
             ['参与团队', myTeams.length, '当前账户'],
-            ['团队网站', c.sites.filter(site => !!site.teamId).length, '可访问的网站'],
+            [
+              '团队网站',
+              myTeams.every(team => team._count?.websites != null)
+                ? myTeams.reduce((total, team) => total + team._count.websites, 0)
+                : '未提供',
+              '按团队汇总',
+            ],
             ['团队成员', readable(totalMembers), '按团队汇总'],
             ['安全策略', '按团队设置', '沿用双重验证要求'],
           ]}
@@ -427,9 +442,9 @@ function MemberDrawer({
 function TeamDetail() {
   const c = useFeature(),
     id = c.route.teamId || c.route.id,
-    [tab, setTab] = useState('members'),
-    [page, setPage] = useState(1),
-    [search, setSearch] = useState(''),
+    [tab, setTab] = useListState('tab', 'members'),
+    [page, setPage] = useListState('page', 1),
+    [search, setSearch] = useListState('search', ''),
     [drawer, setDrawer] = useState<any>(null),
     action = useAction();
   const q = useData(
@@ -456,6 +471,7 @@ function TeamDetail() {
     management = canManageTeam(c.user, team),
     owner = workspaceTeamRole(c.user, team) === 'team-owner',
     canDelete = !!c.user.isAdmin || owner;
+  useResourceContext(team);
   if (!id)
     return (
       <Notice>
@@ -548,9 +564,18 @@ function TeamDetail() {
           ) : tab === 'resources' ? (
             <Panel
               title="团队资源"
-              subtitle="网站转移保留历史访问数据。"
+              subtitle="查看此团队所属的网站、看板、链接和像素。网站转移保留历史访问数据。"
               actions={
                 <>
+                  <LinkButton page="boards" params={{ teamId: id }}>
+                    团队看板
+                  </LinkButton>
+                  <LinkButton page="links" params={{ teamId: id }}>
+                    团队链接
+                  </LinkButton>
+                  <LinkButton page="pixels" params={{ teamId: id }}>
+                    团队像素
+                  </LinkButton>
                   <Search
                     value={search}
                     onChange={value => {
@@ -789,8 +814,8 @@ function CreateUser({ onClose }: { onClose: () => void }) {
 }
 function AdminUsers() {
   const c = useFeature(),
-    [page, setPage] = useState(1),
-    [search, setSearch] = useState(''),
+    [page, setPage] = useListState('page', 1),
+    [search, setSearch] = useListState('search', ''),
     [create, setCreate] = useState(false);
   const q = useData(
     ['admin-users', page, search],
@@ -1021,8 +1046,8 @@ function AdminUser() {
 }
 function AdminWebsites() {
   const c = useFeature(),
-    [page, setPage] = useState(1),
-    [search, setSearch] = useState(''),
+    [page, setPage] = useListState('page', 1),
+    [search, setSearch] = useListState('search', ''),
     [space, setSpace] = useState(''),
     [filter, setFilter] = useState(false);
   const q = useData(
@@ -1334,8 +1359,8 @@ export function ResourceAnalytics({
 }
 function Boards() {
   const c = useFeature(),
-    [page, setPage] = useState(1),
-    [search, setSearch] = useState('');
+    [page, setPage] = useListState('page', 1),
+    [search, setSearch] = useListState('search', '');
   const q = useData(['boards', c.route.teamId, page, search], signal =>
     c.api.get(
       c.route.teamId ? `/teams/${c.route.teamId}/boards` : '/boards',
@@ -1417,6 +1442,16 @@ function BoardEditor({ board }: { board?: any }) {
             submitLabel="保存并编排"
             cancel={<LinkButton page="boards">取消</LinkButton>}
             onSubmit={async (values: any) => {
+              if (
+                !board &&
+                !canCreateResource(
+                  c.user,
+                  values.owner ? c.teams.find(team => team.id === values.owner) : undefined,
+                )
+              )
+                throw new Error('当前空间没有创建看板的权限');
+              if (!board && values.owner && !c.teams.some(team => team.id === values.owner))
+                throw new Error('请选择可访问的所属空间');
               if (type !== 'mixed' && !values.entity) throw new Error('请选择关联资源');
               const result = await action.run(() =>
                 c.api.post(board ? `/boards/${board.id}` : '/boards', {
@@ -1424,12 +1459,39 @@ function BoardEditor({ board }: { board?: any }) {
                   description: values.description,
                   type,
                   parameters: boardParameters(board?.parameters, type, values.entity, board?.type),
-                  ...(!board && c.route.teamId ? { teamId: c.route.teamId } : {}),
+                  ...(!board && values.owner ? { teamId: values.owner } : {}),
                 }),
               );
-              c.navigate('board-design', { id: result.id });
+              c.navigate('board-design', {
+                id: result.id,
+                teamId: result.teamId || values.owner || '',
+              });
             }}
           >
+            {board ? (
+              <Definition
+                items={[
+                  [
+                    '所属空间',
+                    board.teamId
+                      ? c.teams.find(team => team.id === board.teamId)?.name || '团队空间'
+                      : '个人空间',
+                  ],
+                ]}
+              />
+            ) : (
+              <Select
+                label="所属空间"
+                name="owner"
+                defaultValue={c.route.teamId || ''}
+                options={[
+                  ['', '个人空间'],
+                  ...c.teams
+                    .filter(team => canCreateResource(c.user, team))
+                    .map(team => [team.id, team.name] as [string, string]),
+                ]}
+              />
+            )}
             <Field
               label="看板名称"
               name="name"
@@ -1905,7 +1967,10 @@ function BoardCanvas({
                 <LinkButton page="board-design" params={{ id: board.id }}>
                   编排
                 </LinkButton>
-                <LinkButton page="sharing" params={{ id: board.id }}>
+                <LinkButton
+                  page="sharing"
+                  params={{ id: board.id, teamId: board.teamId || '', resource: 'board' }}
+                >
                   分享
                 </LinkButton>
                 {allowed && (
@@ -2083,6 +2148,7 @@ function BoardPage({ page }: { page: string }) {
       signal => c.api.get(`/boards/${id}`, undefined, signal),
       !!id,
     );
+  useResourceContext(q.data);
   if (!id)
     return page === 'board-editor' ? (
       <BoardEditor />
@@ -2332,7 +2398,7 @@ export function ShareDrawer({
         <Form
           busy={action.busy}
           disabled={!permitted}
-          submitLabel={share ? '保存分享' : '创建分享'}
+          submitLabel={share ? '保存分享链接' : '创建分享链接'}
           onSubmit={async (values: any) => {
             const id = share?.entityId || entity?.id || values.entityId;
             if (!id) throw new Error('请选择分享资源');
@@ -2351,7 +2417,7 @@ export function ShareDrawer({
                     ? { ...body, slug: share.slug }
                     : { ...body, entityId: id, shareType: shareTypes[kind] },
                 ),
-              '分享已保存',
+              '分享链接已保存',
             );
             onClose();
           }}
@@ -2445,13 +2511,23 @@ export function ShareDrawer({
     </Drawer>
   );
 }
+export function WebsiteSharing() {
+  const c = useFeature();
+  return (
+    <FeatureProvider
+      value={{ ...c, route: { ...c.route, page: 'sharing', context: 'website', id: undefined } }}
+    >
+      <Sharing />
+    </FeatureProvider>
+  );
+}
 function Sharing() {
   const c = useFeature(),
     entities = useWorkspaceEntities(),
     action = useAction(),
     [edit, setEdit] = useState<any>(undefined),
-    [search, setSearch] = useState(''),
-    [page, setPage] = useState(1);
+    [search, setSearch] = useListState('search', ''),
+    [page, setPage] = useListState('page', 1);
   const q = useData(
     ['shares', entities.data],
     async signal => {
@@ -2472,17 +2548,30 @@ function Sharing() {
     },
     !!entities.data,
   );
+  const allEntities = Object.entries(entities.data || {}).flatMap(([kind, rows]: any) =>
+    rows.map((entity: any) => ({ ...entity, kind })),
+  );
+  const selectedEntity =
+    c.route.context === 'website' ? c.site : allEntities.find(entity => entity.id === c.route.id);
+  const creatable = selectedEntity
+    ? canManageResource(c.user, selectedEntity, c.teams)
+    : allEntities.some(entity => canManageResource(c.user, entity, c.teams));
   const filtered = (q.data || []).filter(
       (share: any) =>
-        !search ||
-        `${share.name} ${share.entity?.name}`.toLowerCase().includes(search.toLowerCase()),
+        (!c.route.id || share.entity?.id === c.route.id) &&
+        (!search ||
+          `${share.name} ${share.entity?.name}`.toLowerCase().includes(search.toLowerCase())),
     ),
     rows = filtered.slice((page - 1) * 20, page * 20);
   return (
     <>
       <Panel
-        title="公开分享"
-        subtitle="网站和看板的只读链接与可见范围。"
+        title={c.route.context === 'website' ? '当前网站的分享链接' : '分享链接'}
+        subtitle={
+          c.route.context === 'website'
+            ? `${c.site?.name || '当前网站'} · 仅管理此网站的分享链接。`
+            : '网站、看板、链接和像素的分享范围与访问保护。'
+        }
         actions={
           <>
             <Search
@@ -2492,9 +2581,9 @@ function Sharing() {
                 setPage(1);
               }}
             />
-            <Button primary onClick={() => setEdit(null)}>
+            <Button primary disabled={!creatable} onClick={() => setEdit(null)}>
               <Icon name="plus" />
-              创建分享
+              创建分享链接
             </Button>
           </>
         }
@@ -2504,7 +2593,15 @@ function Sharing() {
             <Table
               columns={['名称', '资源类型', '页面范围', '筛选权限', '状态', '操作']}
               rows={rows.map((share: any) => [
-                share.name,
+                <div key="share-name">
+                  {share.name}
+                  <div className="muted">
+                    {share.entity.name} ·{' '}
+                    {share.entity.teamId
+                      ? c.teams.find(team => team.id === share.entity.teamId)?.name || '团队空间'
+                      : '个人空间'}
+                  </div>
+                </div>,
                 labels[share.entity.kind],
                 allowedShareSections(share.parameters)
                   .map(([, label]) => label)
@@ -2558,7 +2655,7 @@ function Sharing() {
       {edit !== undefined && (
         <ShareDrawer
           share={edit || undefined}
-          entity={edit?.entity}
+          entity={edit?.entity || selectedEntity}
           onClose={() => setEdit(undefined)}
         />
       )}

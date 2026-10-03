@@ -1,12 +1,13 @@
 'use client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, type ReactNode, useContext, useState } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import type {
   FeatureEntity,
   FeatureRange,
   FeatureRoute,
   FeatureUser,
 } from '@/lib/liekan/contracts/features';
+import { hasDateControl, needsWebsite } from '@/lib/liekan/contracts/navigation';
 import type { featureApi } from '@/lib/liekan/upstream/features-client';
 
 export interface FeatureContextValue {
@@ -25,6 +26,9 @@ export interface FeatureContextValue {
   navigate: (page: string, params?: Record<string, any>) => void;
   notify: (message: string) => void;
   refresh: () => Promise<void>;
+  entity?: FeatureEntity;
+  setEntity?: (entity: FeatureEntity) => void;
+  updateQuery?: (params: Record<string, any>) => void;
 }
 const Context = createContext<FeatureContextValue>(null);
 export const FeatureProvider = ({
@@ -35,6 +39,12 @@ export const FeatureProvider = ({
   children: ReactNode;
 }) => <Context.Provider value={value}>{children}</Context.Provider>;
 export const useFeature = () => useContext(Context);
+export function useResourceContext(entity?: FeatureEntity) {
+  const c = useFeature();
+  useEffect(() => {
+    if (entity?.id) c?.setEntity?.(entity);
+  }, [entity?.id, entity?.name, entity?.teamId, entity?.userId, c?.setEntity]);
+}
 export function useData<T = any>(
   key: string | any[],
   load: (signal: AbortSignal) => Promise<T>,
@@ -46,9 +56,12 @@ export function useData<T = any>(
       'liekan-feature',
       c?.user?.id,
       c?.siteId,
+      c?.route?.teamId,
+      c?.route?.context,
+      c?.query?.scope,
       c?.route?.id,
-      c?.range,
-      c?.filters,
+      c?.route && hasDateControl(c.route) ? c?.range : undefined,
+      c?.route && needsWebsite(c.route) ? c?.filters : undefined,
       ...(Array.isArray(key) ? key : [key]),
     ],
     queryFn: ({ signal }) => load(signal),

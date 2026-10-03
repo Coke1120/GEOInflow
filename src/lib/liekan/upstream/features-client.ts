@@ -1,11 +1,10 @@
 'use client';
 import { getApiUrl } from '@/lib/api-url';
 import { getClientAuthToken, removeClientAuthToken, setClientAuthToken } from '@/lib/client';
+import { DATE_RANGE_CONFIG, LOCALE_CONFIG, THEME_CONFIG, TIMEZONE_CONFIG } from '@/lib/constants';
 import { consumeReturnUrl } from '@/lib/return-url';
-import { setUser } from '@/store/app';
-import { setTimezone, setLocale } from '@/store/app';
 import { getItem, setItem } from '@/lib/storage';
-import { DATE_RANGE_CONFIG, TIMEZONE_CONFIG, LOCALE_CONFIG, THEME_CONFIG } from '@/lib/constants';
+import { setLocale, setTimezone, setUser } from '@/store/app';
 import type { ExportFrame, ExportRequest } from '../contracts/exports';
 export async function streamFeatureExport(
   websiteId: string,
@@ -185,10 +184,15 @@ export async function getAllFeatureRows<T = any>(
     if (page >= 1000) throw new FeatureApiError('列表超过可加载范围，请缩小条件', 413);
   }
 }
-export async function getFeatureSites(signal?: AbortSignal, teamId?: string): Promise<any[]> {
+export async function getFeatureSites(
+  signal?: AbortSignal,
+  teamId?: string,
+  scope: 'personal' | 'all' = 'all',
+): Promise<any[]> {
   if (teamId) return getAllFeatureRows(`/teams/${teamId}/websites`, {}, signal);
+  if (scope === 'personal') return getAllFeatureRows('/me/websites', {}, signal);
   const [personal, teams] = await Promise.all([
-    getAllFeatureRows('/websites', {}, signal),
+    getAllFeatureRows('/me/websites', {}, signal),
     getAllFeatureRows<any>('/me/teams', {}, signal),
   ]);
   const collections = await Promise.all(

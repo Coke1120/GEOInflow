@@ -1,0 +1,766 @@
+{
+  "baselineVersion": "liekan-navigation-v0.2.2",
+  "approval": "Liekan 导航层级与文案统一最终确认方案，导航与文案区域增量验收",
+  "originalReferencePolicy": "Original HTML, SHA-256 fingerprints, chart pixels, table columns and body VI remain authoritative. Approved navigation/header/toolbars have bounded independent checks.",
+  "groups": {
+    "global": [
+      {
+        "id": "dashboard",
+        "label": "工作台",
+        "page": "dashboard",
+        "children": []
+      },
+      {
+        "id": "websites",
+        "label": "网站管理",
+        "page": "websites",
+        "children": []
+      },
+      {
+        "id": "boards",
+        "label": "看板与分享",
+        "page": "boards",
+        "children": [
+          {
+            "page": "boards",
+            "label": "看板"
+          },
+          {
+            "page": "sharing",
+            "label": "分享链接"
+          }
+        ]
+      },
+      {
+        "id": "teams",
+        "label": "团队协作",
+        "page": "teams",
+        "children": []
+      },
+      {
+        "id": "tracking-resources",
+        "label": "链接与像素",
+        "page": "links",
+        "children": [
+          {
+            "page": "links",
+            "label": "链接"
+          },
+          {
+            "page": "pixels",
+            "label": "像素"
+          }
+        ]
+      }
+    ],
+    "website": [
+      {
+        "id": "overview",
+        "label": "流量总览",
+        "page": "overview",
+        "children": []
+      },
+      {
+        "id": "ai",
+        "label": "AI 抓取分析",
+        "page": "geo-ai",
+        "children": [
+          {
+            "page": "geo-ai",
+            "label": "抓取总览"
+          },
+          {
+            "page": "geo-bots",
+            "label": "AI 爬虫"
+          },
+          {
+            "page": "geo-ai-pages",
+            "label": "抓取页面"
+          },
+          {
+            "page": "geo-preference",
+            "label": "内容偏好"
+          }
+        ]
+      },
+      {
+        "id": "visitors",
+        "label": "访客与来源",
+        "page": "geo-human",
+        "children": [
+          {
+            "page": "geo-human",
+            "label": "访客总览"
+          },
+          {
+            "page": "geo-geography",
+            "label": "地域分布"
+          },
+          {
+            "page": "geo-sources",
+            "label": "来源渠道"
+          },
+          {
+            "page": "utm",
+            "label": "UTM 活动"
+          }
+        ]
+      },
+      {
+        "id": "behavior",
+        "label": "内容与行为",
+        "page": "geo-content",
+        "children": [
+          {
+            "page": "geo-content",
+            "label": "页面与内容"
+          },
+          {
+            "page": "events",
+            "label": "事件分析"
+          },
+          {
+            "page": "sessions",
+            "label": "访问记录"
+          },
+          {
+            "page": "heatmaps",
+            "label": "热力图"
+          },
+          {
+            "page": "replays",
+            "label": "会话回放"
+          },
+          {
+            "page": "performance",
+            "label": "页面性能"
+          }
+        ]
+      },
+      {
+        "id": "conversion",
+        "label": "转化分析",
+        "page": "geo-conversions",
+        "children": [
+          {
+            "page": "geo-conversions",
+            "label": "转化概览"
+          },
+          {
+            "page": "goals",
+            "label": "目标"
+          },
+          {
+            "page": "funnels",
+            "label": "漏斗"
+          },
+          {
+            "page": "attribution",
+            "label": "转化归因"
+          },
+          {
+            "page": "revenue",
+            "label": "收入"
+          }
+        ]
+      },
+      {
+        "id": "explore",
+        "label": "深度分析",
+        "page": "segments",
+        "children": [
+          {
+            "page": "segments",
+            "label": "已保存分群"
+          },
+          {
+            "page": "cohorts",
+            "label": "行为人群"
+          },
+          {
+            "page": "retention",
+            "label": "留存分析"
+          },
+          {
+            "page": "journeys",
+            "label": "访问旅程"
+          },
+          {
+            "page": "breakdown",
+            "label": "维度拆分"
+          },
+          {
+            "page": "compare",
+            "label": "对比分析"
+          }
+        ]
+      },
+      {
+        "id": "monitor",
+        "label": "实时监测",
+        "page": "realtime",
+        "children": [
+          {
+            "page": "realtime",
+            "label": "实时访客"
+          },
+          {
+            "page": "geo-logs",
+            "label": "日志访问流"
+          }
+        ]
+      }
+    ],
+    "admin": [
+      {
+        "id": "admin-users",
+        "label": "用户管理",
+        "page": "admin-users",
+        "children": []
+      },
+      {
+        "id": "admin-websites",
+        "label": "所有网站",
+        "page": "admin-websites",
+        "children": []
+      },
+      {
+        "id": "admin-teams",
+        "label": "所有团队",
+        "page": "admin-teams",
+        "children": []
+      },
+      {
+        "id": "admin-security",
+        "label": "系统安全",
+        "page": "admin-security",
+        "children": []
+      }
+    ]
+  },
+  "account": [
+    ["account", "账户资料"],
+    ["security", "账户安全"],
+    ["api-keys", "API 密钥"],
+    ["preferences", "偏好设置"]
+  ],
+  "pages": {
+    "dashboard": {
+      "scope": "global",
+      "section": "dashboard",
+      "active": "dashboard",
+      "title": "工作台"
+    },
+    "dashboard-edit": {
+      "scope": "global",
+      "section": "dashboard",
+      "active": "dashboard",
+      "title": "编辑工作台"
+    },
+    "websites": {
+      "scope": "global",
+      "section": "websites",
+      "active": "websites",
+      "title": "网站管理"
+    },
+    "onboarding": {
+      "scope": "global",
+      "section": "websites",
+      "active": "websites",
+      "title": "添加网站"
+    },
+    "website-settings": {
+      "scope": "website",
+      "section": "website-settings",
+      "active": "website-settings",
+      "title": "网站设置"
+    },
+    "tracking": {
+      "scope": "website",
+      "section": "website-settings",
+      "active": "website-settings",
+      "title": "跟踪代码"
+    },
+    "install-check": {
+      "scope": "website",
+      "section": "website-settings",
+      "active": "website-settings",
+      "title": "安装验证"
+    },
+    "recorder-settings": {
+      "scope": "website",
+      "section": "website-settings",
+      "active": "website-settings",
+      "title": "行为采集设置"
+    },
+    "account": {
+      "scope": "account",
+      "section": "account",
+      "active": "account",
+      "title": "账户资料"
+    },
+    "security": {
+      "scope": "account",
+      "section": "account",
+      "active": "security",
+      "title": "账户安全"
+    },
+    "api-keys": {
+      "scope": "account",
+      "section": "account",
+      "active": "api-keys",
+      "title": "API 密钥"
+    },
+    "preferences": {
+      "scope": "account",
+      "section": "account",
+      "active": "preferences",
+      "title": "偏好设置"
+    },
+    "two-factor": {
+      "scope": "auth",
+      "section": "account",
+      "active": "security",
+      "title": "设置双重验证"
+    },
+    "backup-codes": {
+      "scope": "auth",
+      "section": "account",
+      "active": "security",
+      "title": "保存恢复码"
+    },
+    "login": {
+      "scope": "auth",
+      "section": "account",
+      "active": "login",
+      "title": "登录"
+    },
+    "login-2fa": {
+      "scope": "auth",
+      "section": "account",
+      "active": "login-2fa",
+      "title": "登录验证"
+    },
+    "sso": {
+      "scope": "auth",
+      "section": "account",
+      "active": "sso",
+      "title": "单点登录"
+    },
+    "goals": {
+      "scope": "website",
+      "section": "conversion",
+      "active": "goals",
+      "title": "目标"
+    },
+    "funnels": {
+      "scope": "website",
+      "section": "conversion",
+      "active": "funnels",
+      "title": "漏斗"
+    },
+    "attribution": {
+      "scope": "website",
+      "section": "conversion",
+      "active": "attribution",
+      "title": "转化归因"
+    },
+    "revenue": {
+      "scope": "website",
+      "section": "conversion",
+      "active": "revenue",
+      "title": "收入"
+    },
+    "goal-editor": {
+      "scope": "website",
+      "section": "conversion",
+      "active": "goals",
+      "title": "创建目标"
+    },
+    "funnel-editor": {
+      "scope": "website",
+      "section": "conversion",
+      "active": "funnels",
+      "title": "创建漏斗"
+    },
+    "realtime": {
+      "scope": "website",
+      "section": "monitor",
+      "active": "realtime",
+      "title": "实时访客"
+    },
+    "events": {
+      "scope": "website",
+      "section": "behavior",
+      "active": "events",
+      "title": "事件分析"
+    },
+    "sessions": {
+      "scope": "website",
+      "section": "behavior",
+      "active": "sessions",
+      "title": "访问记录"
+    },
+    "performance": {
+      "scope": "website",
+      "section": "behavior",
+      "active": "performance",
+      "title": "页面性能"
+    },
+    "heatmaps": {
+      "scope": "website",
+      "section": "behavior",
+      "active": "heatmaps",
+      "title": "热力图"
+    },
+    "replays": {
+      "scope": "website",
+      "section": "behavior",
+      "active": "replays",
+      "title": "会话回放"
+    },
+    "event-detail": {
+      "scope": "website",
+      "section": "behavior",
+      "active": "events",
+      "title": "事件属性"
+    },
+    "session-detail": {
+      "scope": "website",
+      "section": "behavior",
+      "active": "sessions",
+      "title": "访问详情"
+    },
+    "replay-player": {
+      "scope": "website",
+      "section": "behavior",
+      "active": "replays",
+      "title": "回放播放器"
+    },
+    "filters": {
+      "scope": "website",
+      "section": "overview",
+      "active": "overview",
+      "title": "高级筛选"
+    },
+    "annotations": {
+      "scope": "website",
+      "section": "overview",
+      "active": "overview",
+      "title": "图表注释"
+    },
+    "exports": {
+      "scope": "website",
+      "section": "overview",
+      "active": "overview",
+      "title": "数据导出"
+    },
+    "segments": {
+      "scope": "website",
+      "section": "explore",
+      "active": "segments",
+      "title": "已保存分群"
+    },
+    "cohorts": {
+      "scope": "website",
+      "section": "explore",
+      "active": "cohorts",
+      "title": "行为人群"
+    },
+    "retention": {
+      "scope": "website",
+      "section": "explore",
+      "active": "retention",
+      "title": "留存分析"
+    },
+    "journeys": {
+      "scope": "website",
+      "section": "explore",
+      "active": "journeys",
+      "title": "访问旅程"
+    },
+    "breakdown": {
+      "scope": "website",
+      "section": "explore",
+      "active": "breakdown",
+      "title": "维度拆分"
+    },
+    "compare": {
+      "scope": "website",
+      "section": "explore",
+      "active": "compare",
+      "title": "对比分析"
+    },
+    "segment-editor": {
+      "scope": "website",
+      "section": "explore",
+      "active": "segments",
+      "title": "创建分群"
+    },
+    "cohort-editor": {
+      "scope": "website",
+      "section": "explore",
+      "active": "cohorts",
+      "title": "创建行为人群"
+    },
+    "path-detail": {
+      "scope": "website",
+      "section": "explore",
+      "active": "journeys",
+      "title": "路径详情"
+    },
+    "utm": {
+      "scope": "website",
+      "section": "visitors",
+      "active": "utm",
+      "title": "UTM 活动"
+    },
+    "teams": {
+      "scope": "global",
+      "section": "teams",
+      "active": "teams",
+      "title": "团队协作"
+    },
+    "team-detail": {
+      "scope": "global",
+      "section": "teams",
+      "active": "teams",
+      "title": "团队详情"
+    },
+    "team-join": {
+      "scope": "global",
+      "section": "teams",
+      "active": "teams",
+      "title": "加入团队"
+    },
+    "admin-users": {
+      "scope": "admin",
+      "section": "admin-users",
+      "active": "admin-users",
+      "title": "用户管理"
+    },
+    "admin-user": {
+      "scope": "admin",
+      "section": "admin-users",
+      "active": "admin-users",
+      "title": "用户详情"
+    },
+    "admin-websites": {
+      "scope": "admin",
+      "section": "admin-websites",
+      "active": "admin-websites",
+      "title": "所有网站"
+    },
+    "admin-teams": {
+      "scope": "admin",
+      "section": "admin-teams",
+      "active": "admin-teams",
+      "title": "所有团队"
+    },
+    "admin-security": {
+      "scope": "admin",
+      "section": "admin-security",
+      "active": "admin-security",
+      "title": "系统安全"
+    },
+    "boards": {
+      "scope": "global",
+      "section": "boards",
+      "active": "boards",
+      "title": "看板"
+    },
+    "sharing": {
+      "scope": "global",
+      "section": "boards",
+      "active": "sharing",
+      "title": "分享链接"
+    },
+    "board-editor": {
+      "scope": "global",
+      "section": "boards",
+      "active": "boards",
+      "title": "看板信息"
+    },
+    "board-view": {
+      "scope": "global",
+      "section": "boards",
+      "active": "boards",
+      "title": "看板详情"
+    },
+    "board-design": {
+      "scope": "global",
+      "section": "boards",
+      "active": "boards",
+      "title": "编辑看板布局"
+    },
+    "share-preview": {
+      "scope": "public",
+      "section": "boards",
+      "active": "share-preview",
+      "title": "分享页面"
+    },
+    "links": {
+      "scope": "global",
+      "section": "tracking-resources",
+      "active": "links",
+      "title": "链接"
+    },
+    "pixels": {
+      "scope": "global",
+      "section": "tracking-resources",
+      "active": "pixels",
+      "title": "像素"
+    },
+    "link-editor": {
+      "scope": "global",
+      "section": "tracking-resources",
+      "active": "links",
+      "title": "创建链接"
+    },
+    "link-detail": {
+      "scope": "global",
+      "section": "tracking-resources",
+      "active": "links",
+      "title": "链接详情"
+    },
+    "pixel-editor": {
+      "scope": "global",
+      "section": "tracking-resources",
+      "active": "pixels",
+      "title": "创建像素"
+    },
+    "pixel-detail": {
+      "scope": "global",
+      "section": "tracking-resources",
+      "active": "pixels",
+      "title": "像素详情"
+    },
+    "access-denied": {
+      "scope": "state",
+      "section": "dashboard",
+      "active": "access-denied",
+      "title": "没有访问权限"
+    },
+    "session-expired": {
+      "scope": "state",
+      "section": "dashboard",
+      "active": "session-expired",
+      "title": "需要重新登录"
+    },
+    "not-found": {
+      "scope": "state",
+      "section": "dashboard",
+      "active": "not-found",
+      "title": "页面不存在"
+    }
+  },
+  "geo": {
+    "index": {
+      "scope": "website",
+      "section": "overview",
+      "active": "overview",
+      "title": "流量总览"
+    },
+    "ai": {
+      "scope": "website",
+      "section": "ai",
+      "active": "geo-ai",
+      "title": "抓取总览"
+    },
+    "ai-bots": {
+      "scope": "website",
+      "section": "ai",
+      "active": "geo-bots",
+      "title": "AI 爬虫"
+    },
+    "ai-pages": {
+      "scope": "website",
+      "section": "ai",
+      "active": "geo-ai-pages",
+      "title": "抓取页面"
+    },
+    "ai-preference": {
+      "scope": "website",
+      "section": "ai",
+      "active": "geo-preference",
+      "title": "内容偏好"
+    },
+    "human": {
+      "scope": "website",
+      "section": "visitors",
+      "active": "geo-human",
+      "title": "访客总览"
+    },
+    "human-geo": {
+      "scope": "website",
+      "section": "visitors",
+      "active": "geo-geography",
+      "title": "地域分布"
+    },
+    "human-source": {
+      "scope": "website",
+      "section": "visitors",
+      "active": "geo-sources",
+      "title": "来源渠道"
+    },
+    "content": {
+      "scope": "website",
+      "section": "behavior",
+      "active": "geo-content",
+      "title": "页面与内容"
+    },
+    "funnel": {
+      "scope": "website",
+      "section": "conversion",
+      "active": "geo-conversions",
+      "title": "转化概览"
+    },
+    "logs": {
+      "scope": "website",
+      "section": "monitor",
+      "active": "geo-logs",
+      "title": "日志访问流"
+    }
+  },
+  "geoPixelApproval": {
+    "sidebarWidth": 228,
+    "maxHeaderHeight": 180,
+    "maxVerticalOffset": 96,
+    "geometryTolerance": 2,
+    "pixelRatio": 0.01
+  },
+  "standaloneHeadings": {
+    "login": "欢迎回来",
+    "login-2fa": "验证登录",
+    "sso": "单点登录"
+  },
+  "contextCases": [
+    {
+      "id": "admin-website-detail",
+      "page": "website-settings",
+      "route": "/admin/websites/{websiteId}",
+      "scope": "admin",
+      "section": "admin-websites",
+      "active": "admin-websites",
+      "title": "网站设置"
+    },
+    {
+      "id": "admin-team-detail",
+      "page": "team-detail",
+      "route": "/admin/teams/{teamId}",
+      "scope": "admin",
+      "section": "admin-teams",
+      "active": "admin-teams",
+      "title": "团队详情"
+    },
+    {
+      "id": "website-sharing",
+      "page": "sharing",
+      "route": "/liekan/sharing?context=website&websiteId={websiteId}",
+      "scope": "website",
+      "section": "website-settings",
+      "active": "website-settings",
+      "title": "分享链接"
+    }
+  ]
+}

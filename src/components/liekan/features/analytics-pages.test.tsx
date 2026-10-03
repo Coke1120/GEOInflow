@@ -1,11 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { AnalyticsPages } from './AnalyticsPages';
 
 const mocks = vi.hoisted(() => ({
   context: null as any,
   query: {} as Record<string, any>,
+  errors: {} as Record<string, Error>,
   href: vi.fn(),
+  post: vi.fn(),
+  navigate: vi.fn(),
 }));
 vi.mock('next/link', () => ({
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
@@ -15,7 +18,7 @@ vi.mock('./context', () => ({
   useData: (key: any[]) => ({
     data:
       typeof mocks.query[key[0]] === 'function' ? mocks.query[key[0]](key) : mocks.query[key[0]],
-    error: null,
+    error: mocks.errors[key[0]] || null,
     isPending: false,
   }),
   useAction: () => ({
@@ -35,7 +38,10 @@ vi.mock('@/lib/liekan/upstream/features-client', () => ({ getAllFeatureRows: vi.
 
 beforeEach(() => {
   mocks.query = {};
+  mocks.errors = {};
   mocks.href.mockReset().mockReturnValue('/sessions');
+  mocks.post.mockReset().mockResolvedValue({});
+  mocks.navigate.mockReset();
   mocks.context = {
     user: { id: 'owner', isAdmin: true },
     siteId: 'site',
@@ -45,9 +51,47 @@ beforeEach(() => {
     range: { startAt: 1, endAt: 2, timezone: 'UTC' },
     filters: {},
     teams: [],
-    api: { get: vi.fn() },
+    api: { get: vi.fn(), post: mocks.post },
     href: mocks.href,
+    navigate: mocks.navigate,
   };
+});
+
+it('explains continuous visits and exposes the access-record heading', () => {
+  mocks.query['sessions-rich'] = { rows: [], count: 0 };
+  render(<AnalyticsPages page="sessions" />);
+  expect(screen.getByRole('heading', { name: '访问记录' })).toBeInTheDocument();
+  expect(screen.getByText(/会话是一次连续访问/)).toBeInTheDocument();
+});
+
+it('creates a behavior audience while retaining the native cohort contract', async () => {
+  render(<AnalyticsPages page="cohort-editor" />);
+  expect(screen.getByRole('heading', { name: '创建行为人群' })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText(/行为人群名称/), { target: { value: '注册访客' } });
+  fireEvent.change(screen.getByLabelText(/行为值/), { target: { value: 'signup' } });
+  fireEvent.submit(screen.getByRole('button', { name: '保存行为人群' }).closest('form'));
+  await waitFor(() =>
+    expect(mocks.post).toHaveBeenCalledWith('/websites/site/segments', {
+      name: '注册访客',
+      type: 'cohort',
+      parameters: {
+        filters: [],
+        match: 'all',
+        action: { type: 'event', value: 'signup' },
+        dateRange: '30day',
+      },
+    }),
+  );
+  expect(mocks.navigate).toHaveBeenCalledWith('cohorts');
+});
+
+it('retains a goal-loading error on UTM activities instead of claiming no goal exists', () => {
+  mocks.errors['utm-goal-list'] = new Error('目标读取暂不可用');
+  mocks.query['utm-total'] = { views: 0, visitors: 0 };
+  mocks.query['utm-dimension'] = { rows: [], dimensionTotal: 0 };
+  render(<AnalyticsPages page="utm" />);
+  expect(screen.getByRole('alert')).toHaveTextContent('目标读取暂不可用');
+  expect(screen.queryByText('尚未配置')).not.toBeInTheDocument();
 });
 
 it('orders the breakdown chart by views and emits explicit missing-dimension drill conditions', () => {

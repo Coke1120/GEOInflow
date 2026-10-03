@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
   return {
     context: null as any,
     query: {} as Record<string, any>,
+    errors: {} as Record<string, Error>,
     post: vi.fn(),
     construct: vi.fn(),
     setConfig: vi.fn(),
@@ -22,7 +23,11 @@ vi.mock('next/link', () => ({
 }));
 vi.mock('./context', () => ({
   useFeature: () => mocks.context,
-  useData: (key: any[]) => ({ data: mocks.query[key[0]], error: null, isPending: false }),
+  useData: (key: any[]) => ({
+    data: mocks.query[key[0]],
+    error: mocks.errors[key[0]] || null,
+    isPending: false,
+  }),
   useAction: () => ({
     run: async (action: () => Promise<any>) => action(),
     busy: false,
@@ -36,9 +41,6 @@ vi.mock('./Chart', () => ({
   },
 }));
 vi.mock('./Exports', () => ({ Exports: () => null }));
-vi.mock('@/lib/liekan/upstream/replay-client', () => ({
-  prepareReplayEvents: (events: any[]) => events,
-}));
 vi.mock('rrweb-player', async () => {
   await mocks.playerReady;
   return {
@@ -58,6 +60,7 @@ vi.mock('rrweb-player', async () => {
 
 beforeEach(() => {
   mocks.query = {};
+  mocks.errors = {};
   mocks.post.mockReset().mockResolvedValue({});
   mocks.construct.mockClear();
   mocks.setConfig.mockClear();
@@ -72,17 +75,37 @@ beforeEach(() => {
     filters: {},
     teams: [],
     api: { post: mocks.post },
-    href: () => '/replays',
+    href: vi.fn(() => '/replays'),
   };
 });
 
+function replayEvents(): any[] {
+  return [
+    {
+      type: 2,
+      timestamp: 1000,
+      data: {
+        node: {
+          type: 0,
+          id: 1,
+          childNodes: [
+            {
+              type: 2,
+              tagName: 'html',
+              id: 2,
+              attributes: {},
+              childNodes: [{ type: 2, tagName: 'body', id: 3, attributes: {}, childNodes: [] }],
+            },
+          ],
+        },
+      },
+    },
+    { type: 3, timestamp: 2000, data: {} },
+  ];
+}
+
 it('initializes a delayed replay import with the current selected speed', async () => {
-  mocks.query.replay = {
-    events: [
-      { type: 2, timestamp: 1000, data: {} },
-      { type: 3, timestamp: 2000, data: {} },
-    ],
-  };
+  mocks.query.replay = { events: replayEvents() };
   render(<ExtendedPages page="replay-player" />);
   fireEvent.change(screen.getByRole('combobox', { name: '播放速度' }), { target: { value: '4' } });
   mocks.releasePlayer();
@@ -91,6 +114,39 @@ it('initializes a delayed replay import with the current selected speed', async 
   expect(mocks.construct.mock.calls[0][0].props.speedOption).toEqual([0.5, 1, 2, 4]);
   fireEvent.change(screen.getByRole('combobox', { name: '播放速度' }), { target: { value: '.5' } });
   expect(mocks.setConfig).toHaveBeenLastCalledWith({ speed: 0.5 });
+});
+
+it.each(['html', 'body'])(
+  'offers current-site recorder settings for a snapshot missing %s',
+  async missing => {
+    const events = replayEvents();
+    const node = events[0].data.node;
+    if (missing === 'html') node.childNodes = [];
+    else node.childNodes[0].childNodes = [];
+    mocks.query.replay = { events };
+    mocks.context.query = { websiteId: 'foreign-site' };
+    render(<ExtendedPages page="replay-player" />);
+    mocks.releasePlayer();
+    const error = await screen.findByRole('alert');
+    expect(error).toHaveTextContent('此录制缺少完整页面快照，暂时无法播放。');
+    expect(within(error).getByRole('link', { name: '查看当前网站采集设置' })).toBeInTheDocument();
+    expect(mocks.context.href).toHaveBeenCalledWith('recorder-settings', { websiteId: 'site' });
+    expect(mocks.construct).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '播放' })).toBeDisabled();
+  },
+);
+
+it('retains a player loading error without presenting a missing-snapshot settings action', async () => {
+  mocks.query.replay = { events: replayEvents() };
+  mocks.construct.mockImplementationOnce(() => {
+    throw new Error('播放器加载中断');
+  });
+  render(<ExtendedPages page="replay-player" />);
+  mocks.releasePlayer();
+  const error = await screen.findByRole('alert');
+  expect(error).toHaveTextContent('录制播放器加载失败，请重新读取。');
+  expect(screen.queryByRole('link', { name: '查看当前网站采集设置' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '播放' })).toBeDisabled();
 });
 
 it('offers cancellation for an already saved replay without a duplicate creation form', async () => {
@@ -115,7 +171,42 @@ it('retains the creation form for a replay that has not been saved', () => {
   fireEvent.click(screen.getByRole('button', { name: '保存录制' }));
   const drawer = screen.getByRole('dialog');
   expect(drawer.querySelector('input[name="name"]')).not.toBeNull();
+  expect(within(drawer).getByRole('button', { name: '保存录制' })).toBeInTheDocument();
   expect(within(drawer).queryByRole('button', { name: '取消保存' })).not.toBeInTheDocument();
+});
+
+it('routes missing heatmap inputs to the current website recorder settings', () => {
+  mocks.query.heatmap = { pages: [], points: [] };
+  render(<ExtendedPages page="heatmaps" />);
+  expect(screen.getByRole('link', { name: '查看当前网站采集设置' })).toBeInTheDocument();
+  expect(mocks.context.href).toHaveBeenCalledWith('recorder-settings', { websiteId: 'site' });
+});
+
+it('routes an empty replay list to the current website recorder settings', () => {
+  mocks.query['replay-list'] = { rows: [], count: 0 };
+  render(<ExtendedPages page="replays" />);
+  expect(screen.getByText(/会话是一次连续访问/)).toBeInTheDocument();
+  expect(mocks.context.href).toHaveBeenCalledWith('recorder-settings', { websiteId: 'site' });
+});
+
+it('shows measured zero revenue but preserves a missing amount as unavailable', () => {
+  mocks.query['revenue-summary'] = { sum: null, count: 0, unique_count: 0 };
+  const view = render(<ExtendedPages page="revenue" />);
+  expect(screen.queryByText('¥0.00')).not.toBeInTheDocument();
+  mocks.query['revenue-summary'] = { sum: '0', count: 0, unique_count: 0 };
+  view.rerender(<ExtendedPages page="revenue" />);
+  expect(screen.getByText('¥0.00')).toBeInTheDocument();
+  expect(screen.getByText('金额单位：CNY。累计从所选期间起点计算。')).toBeInTheDocument();
+});
+
+it('retains a real revenue summary failure even when detail queries succeed', () => {
+  mocks.errors['revenue-summary'] = new Error('收入汇总读取暂不可用');
+  mocks.query['revenue-chart'] = { chart: [] };
+  mocks.query['revenue-sources'] = [];
+  mocks.query['revenue-transactions'] = { rows: [], count: 0 };
+  render(<ExtendedPages page="revenue" />);
+  expect(screen.getByRole('alert')).toHaveTextContent('收入汇总读取暂不可用');
+  expect(screen.queryByText('¥0.00')).not.toBeInTheDocument();
 });
 
 it('preserves decimal API amounts in revenue cards, transactions and cumulative tooltips', () => {

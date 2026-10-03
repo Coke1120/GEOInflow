@@ -1,18 +1,19 @@
 'use client';
+import { useListState } from './listState';
 import Link from 'next/link';
-import { createPortal } from 'react-dom';
 import {
   createContext,
   Fragment,
+  type InputHTMLAttributes,
   isValidElement,
+  type ReactNode,
+  type SelectHTMLAttributes,
   useContext,
   useEffect,
   useRef,
   useState,
-  type ReactNode,
-  type InputHTMLAttributes,
-  type SelectHTMLAttributes,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useFeature } from './context';
 import { featureIcons } from './icons';
 
@@ -96,7 +97,7 @@ export function Panel({
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useListState('search', '');
   const [searchable, setSearchable] = useState(false);
   return (
     <SearchContext.Provider value={{ search, setSearch, register: setSearchable }}>
@@ -249,33 +250,63 @@ export function Form({
   disabled = false,
   error,
   cancel,
+  trackUnsaved = true,
 }: any) {
   const [localError, setLocalError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    const warn = (event: BeforeUnloadEvent) => {
+      if (trackUnsaved && form.current?.dataset.unsaved === 'true') {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [trackUnsaved]);
   return (
     <form
+      ref={form}
       className="form form-stack"
+      onClickCapture={event => {
+        if (
+          trackUnsaved &&
+          (event.target as Element).closest(
+            'button[data-dirty-action="true"], [data-dirty-actions] button[type="button"]',
+          )
+        )
+          event.currentTarget.dataset.unsaved = 'true';
+      }}
+      onChange={event => {
+        if (trackUnsaved) event.currentTarget.dataset.unsaved = 'true';
+      }}
       onSubmit={async e => {
         e.preventDefault();
-        if (busy || disabled) return;
+        if (busy || submitting || disabled) return;
         const el = e.currentTarget;
         setLocalError('');
+        setSubmitting(true);
         try {
           await onSubmit(Object.fromEntries(new FormData(el)), el);
+          el.dataset.unsaved = 'false';
         } catch (e: any) {
           setLocalError(e?.message || '操作失败');
+        } finally {
+          setSubmitting(false);
         }
       }}
     >
       <fieldset
-        disabled={busy || disabled}
+        disabled={busy || submitting || disabled}
         style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
       >
         {children}
       </fieldset>
       {(error || localError) && <Notice tone="red">{error || localError}</Notice>}
       <div className="form-actions">
-        <button className="btn primary" type="submit" disabled={busy || disabled}>
-          {busy ? '处理中…' : submitLabel}
+        <button className="btn primary" type="submit" disabled={busy || submitting || disabled}>
+          {busy || submitting ? `正在${submitLabel}…` : submitLabel}
         </button>
         {cancel}
       </div>
@@ -332,9 +363,16 @@ export function Table({
   onPage?: (page: number) => void;
   search?: boolean;
 }) {
+  const c = useFeature();
   const panel = useContext(SearchContext);
+  useEffect(() => {
+    if (pages >= 1 && page > pages) onPage?.(pages);
+  }, [page, pages, onPage]);
   const [text, setText] = useState('');
-  const [sort, setSort] = useState<{ column: number; desc: boolean } | null>(null);
+  const [sort, setSort] = useState<{ column: number; desc: boolean } | null>(() => {
+    const index = columns.indexOf(c?.query?.sort);
+    return index >= 0 ? { column: index, desc: c?.query?.direction === 'desc' } : null;
+  });
   useEffect(() => {
     if (!panel || !search) return;
     panel.register(true);
@@ -350,6 +388,11 @@ export function Table({
           : isValidElement(node)
             ? flatten((node.props as any).children)
             : '';
+  useEffect(() => {
+    if (!c?.query) return;
+    const index = columns.indexOf(c.query.sort);
+    setSort(index >= 0 ? { column: index, desc: c.query.direction === 'desc' } : null);
+  }, [c?.query?.sort, c?.query?.direction, columns.join('|')]);
   const term = panel?.search ?? text;
   let filtered =
     search && term
@@ -360,7 +403,7 @@ export function Table({
       const x = flatten(a[sort.column]),
         y = flatten(b[sort.column]);
       const d = numeric.includes(sort.column)
-        ? Number(x.replace(/[^\d.\-]/g, '')) - Number(y.replace(/[^\d.\-]/g, ''))
+        ? Number(x.replace(/[^\d.-]/g, '')) - Number(y.replace(/[^\d.-]/g, ''))
         : x.localeCompare(y, 'zh-CN', { numeric: true });
       return sort.desc ? -d : d;
     });
@@ -395,9 +438,11 @@ export function Table({
                 >
                   <button
                     className="table-sort"
-                    onClick={() =>
-                      setSort({ column: i, desc: sort?.column === i ? !sort.desc : false })
-                    }
+                    onClick={() => {
+                      const desc = sort?.column === i ? !sort.desc : false;
+                      setSort({ column: i, desc });
+                      c?.updateQuery?.({ sort: x, direction: desc ? 'desc' : 'asc' });
+                    }}
                   >
                     {x}{' '}
                     <span aria-hidden="true">
@@ -462,12 +507,22 @@ export function QueryState({ query, children }: { query: any; children: ReactNod
     return (
       <div className="state-box" role="alert">
         <h3>
-          {query.error.status === 403 || query.error.status === 401
-            ? '权限不足或登录已过期'
-            : '读取失败'}
+          {query.error.status === 401
+            ? '需要重新登录'
+            : query.error.status === 403
+              ? '没有访问权限'
+              : query.error.status === 404
+                ? '资源不存在或已删除'
+                : '读取失败'}
         </h3>
         <p>{query.error.message}</p>
-        <Button onClick={() => query.refetch()}>重试</Button>
+        {query.error.status === 401 ? (
+          <a className="btn primary" href={`${process.env.basePath || ''}/login`}>
+            重新登录
+          </a>
+        ) : (
+          <Button onClick={() => query.refetch?.()}>重试读取</Button>
+        )}
       </div>
     );
   return <>{children}</>;

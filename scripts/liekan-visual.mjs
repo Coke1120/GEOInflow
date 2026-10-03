@@ -1,11 +1,30 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { chromium } from '@playwright/test';
 import { columns, pages } from '../src/components/liekan/data.ts';
 
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3002';
 if (!['127.0.0.1', 'localhost'].includes(new URL(base).hostname))
   throw new Error('Use an isolated local candidate');
+const navigationBaseline = JSON.parse(fs.readFileSync('config/liekan/navigation-ui.json', 'utf8'));
+assert.equal(
+  navigationBaseline.baselineVersion,
+  'liekan-navigation-v0.2.2',
+  'Explicit approved navigation baseline required',
+);
+const referenceHashes = JSON.parse(
+  fs.readFileSync('design/reference/geo-stats-v3/manifest.json', 'utf8'),
+);
+for (const [file, hash] of Object.entries(referenceHashes))
+  assert.equal(
+    createHash('sha256')
+      .update(fs.readFileSync(`design/reference/geo-stats-v3/${file}`))
+      .digest('hex'),
+    hash,
+    `Original GEO reference changed: ${file}`,
+  );
 const tailwind = fs.readFileSync('design/reference/vendor/tailwind-3.4.17.js', 'utf8');
 const echarts = fs.readFileSync('node_modules/echarts/dist/echarts.min.js', 'utf8');
 const fonts = fs.readFileSync('public/liekan/fonts/inter-latin.woff2');
@@ -49,9 +68,198 @@ const names = [
 ];
 const results = [];
 const screenshotStyle = 'nextjs-portal{display:none!important}';
-async function pixelDiff(first, second, masks = []) {
+async function navigationAcceptance(page, expected, width) {
+  assert.equal(
+    await page.locator('.section-tabs').count(),
+    0,
+    'Workflow tabs remain in permanent navigation',
+  );
+  const sidebar = page.locator('#liekan-navigation');
+  if (['auth', 'public'].includes(expected.scope)) {
+    assert.equal(await sidebar.count(), 0, `${expected.scope} page exposes private navigation`);
+    return { scope: expected.scope, standalone: true };
+  }
+  assert.equal(await sidebar.count(), 1, 'Shared sidebar is missing or duplicated');
+  const mobile = width <= 900;
+  const toggle = page.getByRole('button', { name: '页面导航', exact: true });
+  if (mobile) {
+    const closed = await sidebar.boundingBox();
+    assert(closed && closed.x + closed.width <= 1, 'Mobile sidebar is visible before opening');
+    await toggle.click();
+    await page.waitForFunction(
+      () => document.querySelector('#liekan-navigation')?.getBoundingClientRect().left >= -1,
+    );
+  }
+  try {
+    const current = await sidebar.evaluate(side => {
+      const visible = el => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+      const groups = [...side.querySelectorAll('[data-navigation-group]')].map(el => ({
+        id: el.getAttribute('data-navigation-group'),
+        label: el.querySelector(':scope > div > a')?.textContent.trim(),
+        children: [...el.querySelectorAll(':scope > div[id] > a')].map(a => a.textContent.trim()),
+      }));
+      const rect = side.getBoundingClientRect();
+      return {
+        label: side.getAttribute('aria-label'),
+        groups,
+        current: [...side.querySelectorAll('a[aria-current="page"]')].map(a =>
+          a.textContent.trim(),
+        ),
+        links: [...side.querySelectorAll('a')].map(a => ({
+          label: a.textContent.trim(),
+          href: a.getAttribute('href'),
+        })),
+        footer: side.querySelector('footer')?.textContent || '',
+        site: side.querySelector('.site-switch')?.textContent || '',
+        siteDetails: [...side.querySelectorAll('.site-switch small')].map(el =>
+          el.textContent.trim(),
+        ),
+        account: [...side.querySelectorAll('#account-navigation a')].map(a => a.textContent.trim()),
+        arrows: [...side.querySelectorAll('button')].filter(visible).flatMap(el => {
+          const arrow = el.lastElementChild;
+          return arrow?.tagName.toLowerCase() === 'svg'
+            ? [el.getBoundingClientRect().right - arrow.getBoundingClientRect().right]
+            : [];
+        }),
+        rect: { x: rect.x, width: rect.width, right: rect.right },
+        focusInside: side.contains(document.activeElement),
+      };
+    });
+    const kind =
+      expected.scope === 'admin' ? 'admin' : expected.scope === 'website' ? 'website' : 'global';
+    const groups = navigationBaseline.groups[kind];
+    assert.deepEqual(
+      current.groups.map(({ id, label }) => ({ id, label })),
+      groups.map(({ id, label }) => ({ id, label })),
+      `${kind} primary navigation`,
+    );
+    assert.equal(
+      current.label,
+      kind === 'website' ? '网站导航' : kind === 'admin' ? '系统管理导航' : '全局导航',
+    );
+    for (const group of current.groups) {
+      const approved = groups.find(g => g.id === group.id);
+      assert.deepEqual(
+        group.children,
+        group.id === expected.section ? approved.children.map(item => item.label) : [],
+        `${group.id} expanded navigation`,
+      );
+    }
+    const items = groups.flatMap(group => (group.children.length ? group.children : [group]));
+    const active =
+      expected.scope === 'account'
+        ? navigationBaseline.account.find(([id]) => id === expected.active)?.[1]
+        : expected.active === 'website-settings'
+          ? '网站设置'
+          : items.find(item => item.page === expected.active)?.label;
+    if (expected.scope === 'state')
+      assert(current.current.length <= 1, 'State page has multiple current sidebar entries');
+    else
+      assert.deepEqual(
+        current.current,
+        [active],
+        'Current sidebar entry is absent, incorrect or duplicated',
+      );
+    const permanentLabels = new Set([
+      ...groups.flatMap(group => [group.label, ...group.children.map(item => item.label)]),
+      ...navigationBaseline.account.map(([, label]) => label),
+      '网站设置',
+      '系统管理',
+      '返回网站列表',
+    ]);
+    for (const [index, link] of current.links.entries()) {
+      if (index > 0)
+        assert(
+          permanentLabels.has(link.label),
+          `Workflow/detail entry in permanent sidebar: ${link.label}`,
+        );
+      assert(
+        link.href && link.href.startsWith('/') && !link.href.startsWith('//'),
+        `Invalid navigation link ${link.label}`,
+      );
+      assert.equal(
+        new URL(link.href, base).origin,
+        new URL(base).origin,
+        `External navigation link ${link.label}`,
+      );
+    }
+    assert(current.footer.includes('个人账户'), 'Account entry missing from sidebar footer');
+    if (kind === 'website') {
+      assert(current.footer.includes('网站设置'), 'Website settings missing from footer');
+      assert(
+        !current.footer.includes('系统管理'),
+        'Website footer exposes unrelated system management',
+      );
+      assert.equal(current.siteDetails.length, 2, 'Website domain and ownership fields missing');
+      assert(current.siteDetails.every(Boolean), 'Website domain or ownership is empty');
+      assert(
+        current.links.some(link => link.label === '返回网站列表'),
+        'Return to websites missing',
+      );
+    } else {
+      assert.equal(current.site, '', 'Global/admin/account navigation exposes website selector');
+      assert(
+        current.footer.includes('系统管理'),
+        'Administrator system-management footer entry missing',
+      );
+    }
+    if (expected.scope === 'account')
+      assert.deepEqual(
+        current.account,
+        navigationBaseline.account.map(([, label]) => label),
+        'Account auxiliary menu',
+      );
+    for (const inset of current.arrows)
+      assert(inset >= 10, `Sidebar arrow needs right spacing (${inset}px)`);
+    assert(
+      Math.abs(current.rect.x) < 1 && current.rect.right <= width,
+      'Sidebar extends beyond viewport',
+    );
+    assert.equal(current.rect.width, 228, 'Default shared sidebar width changed');
+    if (mobile) {
+      assert(current.focusInside, 'Mobile drawer did not move keyboard focus into navigation');
+      await page.keyboard.press('Shift+Tab');
+      assert(
+        await sidebar.evaluate(side => side.contains(document.activeElement)),
+        'Mobile focus escaped drawer',
+      );
+    }
+    return {
+      scope: expected.scope,
+      primaryCount: groups.length,
+      current: current.current,
+      arrows: current.arrows,
+      mobile,
+    };
+  } finally {
+    if (mobile) {
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(
+        () => document.querySelector('#liekan-navigation')?.getBoundingClientRect().right <= 1,
+      );
+      assert.equal(
+        await toggle.getAttribute('aria-expanded'),
+        'false',
+        'Escape did not close mobile navigation',
+      );
+      assert(
+        await toggle.evaluate(el => document.activeElement === el),
+        'Mobile drawer did not restore toggle focus',
+      );
+      assert.equal(
+        await page.evaluate(() => document.body.style.overflow),
+        '',
+        'Mobile drawer did not release scroll lock',
+      );
+    }
+  }
+}
+async function pixelDiff(first, second, masks = [], verticalOffset = 0) {
   return actual.evaluate(
-    async ([a, b, masks]) => {
+    async ([a, b, masks, verticalOffset]) => {
       const load = src =>
         new Promise((resolve, reject) => {
           const img = new Image();
@@ -61,15 +269,15 @@ async function pixelDiff(first, second, masks = []) {
         });
       const [left, right] = await Promise.all([load(a), load(b)]);
       const width = Math.max(left.width, right.width),
-        height = Math.max(left.height, right.height);
+        height = Math.max(left.height, right.height - verticalOffset);
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
       const ctx = canvas.getContext('2d');
-      const paint = img => {
+      const paint = (img, offset) => {
         ctx.fillStyle = '#F5F7FA';
         ctx.fillRect(0, 0, width, height);
-        ctx.drawImage(img, 0, 0);
+        ctx.drawImage(img, 0, -offset);
         ctx.fillStyle = '#F5F7FA';
         for (const r of masks)
           ctx.fillRect(
@@ -80,10 +288,23 @@ async function pixelDiff(first, second, masks = []) {
           );
         return ctx.getImageData(0, 0, width, height);
       };
-      const l = paint(left),
-        r = paint(right);
-      let changed = 0;
+      const l = paint(left, 0),
+        r = paint(right, verticalOffset);
+      let changed = 0,
+        compared = 0;
+      const excluded = new Uint8Array(width * height);
+      for (const m of masks) {
+        const x = Math.max(0, Math.floor(m.x) - 1),
+          right = Math.min(width, Math.floor(m.x) + Math.ceil(m.width) + 1);
+        const y = Math.max(0, Math.floor(m.y) - 1),
+          bottom = Math.min(height, Math.floor(m.y) + Math.ceil(m.height) + 1);
+        if (right <= x || bottom <= y) continue;
+        for (let row = y; row < bottom; row++)
+          excluded.fill(1, row * width + x, row * width + right);
+      }
       for (let i = 0; i < l.data.length; i += 4) {
+        if (excluded[i / 4]) continue;
+        compared++;
         const differs =
           Math.max(...[0, 1, 2].map(k => Math.abs(l.data[i + k] - r.data[i + k]))) > 16;
         if (differs) changed++;
@@ -93,7 +314,9 @@ async function pixelDiff(first, second, masks = []) {
       }
       ctx.putImageData(r, 0, 0);
       return {
-        ratio: changed / (width * height),
+        ratio: compared ? changed / compared : 1,
+        comparedPixels: compared,
+        verticalOffset,
         dimensions: [
           [left.width, left.height],
           [right.width, right.height],
@@ -104,6 +327,7 @@ async function pixelDiff(first, second, masks = []) {
     [
       ...[first, second].map(p => 'data:image/png;base64,' + fs.readFileSync(p).toString('base64')),
       masks,
+      verticalOffset,
     ],
   );
 }
@@ -172,6 +396,12 @@ const exemptions = page =>
     }
     return result;
   });
+const errors = [];
+actual.on('pageerror', error => errors.push(error.message));
+actual.on('response', response => {
+  if (response.url().includes('/api/') && response.status() >= 500)
+    errors.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}`);
+});
 try {
   await actual.goto(base + '/login?legacy=1');
   await actual.locator('[data-test="input-username"] input').fill(credentials.LIEKAN_TEST_USERNAME);
@@ -383,24 +613,93 @@ try {
     });
     await actual.waitForTimeout(800);
     const measure = page =>
-      page.evaluate(() => ({
-        cards: [...document.querySelectorAll('main .card')].map(el => {
-          const r = el.getBoundingClientRect();
-          return { x: r.x, y: r.y, width: r.width, height: r.height };
-        }),
-        charts: [...document.querySelectorAll('main [id]')]
-          .filter(el => /^(d[123]|a[1234]|b1|ap1|pf[12]|h[123]|g[12]|s[12]|c1|f[123])$/.test(el.id))
-          .map(el => ({ id: el.id, ...el.getBoundingClientRect().toJSON() })),
-      }));
+      page.evaluate(() => {
+        const body = [...document.querySelectorAll('main')].find(el =>
+          el.querySelector(':scope > section .card'),
+        );
+        if (!body) throw new Error('Original GEO content body is missing');
+        return {
+          body: body.getBoundingClientRect().toJSON(),
+          cards: [...body.querySelectorAll('.card')].map(el => {
+            const r = el.getBoundingClientRect(),
+              s = getComputedStyle(el);
+            return {
+              x: r.x,
+              y: r.y,
+              width: r.width,
+              height: r.height,
+              radius: s.borderRadius,
+              border: s.borderColor,
+              background: s.backgroundColor,
+            };
+          }),
+          columns: [...body.querySelectorAll('table thead')].map(el =>
+            [...el.querySelectorAll('th')].map(th => th.textContent.trim()),
+          ),
+          charts: [...body.querySelectorAll('[id]')]
+            .filter(el =>
+              /^(d[123]|a[1234]|b1|ap1|pf[12]|h[123]|g[12]|s[12]|c1|f[123])$/.test(el.id),
+            )
+            .map(el => ({ id: el.id, ...el.getBoundingClientRect().toJSON() })),
+        };
+      });
     const [refGeometry, geometry] = await Promise.all([measure(reference), measure(actual)]);
-    // Only upper metric cards and chart containers have invariant geometry when truthful copy changes.
+    const approval = navigationBaseline.geoPixelApproval;
+    const verticalOffset = geometry.body.y - refGeometry.body.y;
+    assert(
+      Math.abs(verticalOffset) <= approval.maxVerticalOffset,
+      `${name} header offset exceeds approved bounds`,
+    );
+    assert(
+      refGeometry.body.y <= approval.maxHeaderHeight && geometry.body.y <= approval.maxHeaderHeight,
+      `${name} approved header extends into content body`,
+    );
+    for (const key of ['x', 'width'])
+      assert(
+        Math.abs(geometry.body[key] - refGeometry.body[key]) <= approval.geometryTolerance,
+        `${name} content ${key} changed`,
+      );
+    assert.equal(
+      geometry.cards.length,
+      refGeometry.cards.length,
+      `${name} original panel count changed`,
+    );
+    assert.deepEqual(
+      geometry.columns,
+      refGeometry.columns,
+      `${name} original table columns changed`,
+    );
+    assert.deepEqual(
+      geometry.charts.map(c => c.id),
+      refGeometry.charts.map(c => c.id),
+      `${name} original chart set changed`,
+    );
+    for (const [index, panel] of geometry.cards.entries())
+      for (const key of ['radius', 'border', 'background'])
+        assert.equal(
+          panel[key],
+          refGeometry.cards[index][key],
+          `${name} panel ${index} ${key} VI changed`,
+        );
+    const navigation = await navigationAcceptance(actual, navigationBaseline.geo[name], 1440);
+    assert.equal(
+      await actual.locator('h1').textContent(),
+      navigationBaseline.geo[name].title,
+      `${name} approved header title`,
+    );
+    assert.deepEqual(
+      await actual.locator('[class*="analysisTools"] a').allTextContents(),
+      ['高级筛选', '图表注释', '导出数据', '分享当前网站'],
+      `${name} analysis tools`,
+    );
     const metrics = payload.cards.length;
+    assert(metrics > 0, `${name} empty reference metrics`);
     const differences = geometry.cards.slice(0, metrics).map((r, index) => ({
       type: 'metric',
       index,
       max: Math.max(
         ...['x', 'y', 'width', 'height'].map(key =>
-          Math.abs(r[key] - refGeometry.cards[index][key]),
+          Math.abs(r[key] - (key === 'y' ? verticalOffset : 0) - refGeometry.cards[index][key]),
         ),
       ),
     }));
@@ -408,7 +707,11 @@ try {
       const ref = refGeometry.charts.find(c => c.id === r.id);
       return {
         id: r.id,
-        max: Math.max(...['x', 'y', 'width', 'height'].map(key => Math.abs(r[key] - ref[key]))),
+        max: Math.max(
+          ...['x', 'y', 'width', 'height'].map(key =>
+            Math.abs(r[key] - (key === 'y' ? verticalOffset : 0) - ref[key]),
+          ),
+        ),
       };
     });
     const chartPixels = [];
@@ -433,20 +736,77 @@ try {
       fullPage: true,
       style: screenshotStyle,
     });
-    const textExemptions = [...(await exemptions(reference)), ...(await exemptions(actual))];
+    const textExemptions = [
+      ...(await exemptions(reference)),
+      ...(await exemptions(actual)).map(rect => ({ ...rect, y: rect.y - verticalOffset })),
+    ];
+    const screenshotHeight = Math.max(
+      refGeometry.body.bottom,
+      geometry.body.bottom - verticalOffset,
+      1000,
+    );
+    const approvedNavigationRegions = [
+      {
+        reason: 'approved-v0.2.2-sidebar',
+        x: 0,
+        y: 0,
+        width: approval.sidebarWidth,
+        height: screenshotHeight,
+      },
+      {
+        reason: 'approved-v0.2.2-header-and-analysis-toolbar',
+        x: approval.sidebarWidth,
+        y: 0,
+        width: 1440 - approval.sidebarWidth,
+        height: refGeometry.body.y,
+      },
+    ];
     const { diff, ...fullPagePixels } = await pixelDiff(
       `${out}/${name}-reference.png`,
       `${out}/${name}-actual.png`,
-      textExemptions,
+      [...textExemptions, ...approvedNavigationRegions],
+      verticalOffset,
     );
     fs.writeFileSync(`${out}/${name}-diff.png`, Buffer.from(diff, 'base64'));
+    const mobileChecks = [];
+    for (const width of [375, 320]) {
+      await actual.setViewportSize({ width, height: 1000 });
+      await actual.evaluate(
+        () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+      );
+      const mobileNavigation = await navigationAcceptance(
+        actual,
+        navigationBaseline.geo[name],
+        width,
+      );
+      const overflow = await actual.evaluate(
+        () => document.documentElement.scrollWidth - innerWidth,
+      );
+      assert.equal(overflow, 0, `${name} ${width}px overflow`);
+      assert.equal(
+        await actual.locator('h1').textContent(),
+        navigationBaseline.geo[name].title,
+        `${name} ${width}px title`,
+      );
+      await actual.screenshot({
+        path: `${out}/${name}-${width}-actual.png`,
+        fullPage: true,
+        style: screenshotStyle,
+      });
+      mobileChecks.push({ width, overflow, navigation: mobileNavigation });
+    }
+    await actual.setViewportSize({ width: 1440, height: 1000 });
     results.push({
       name,
+      mobileChecks,
       metricGeometry: differences,
       chartGeometry: chartSizes,
       chartPixels,
       fullPagePixels,
       textExemptions,
+      approvedNavigationRegions,
+      navigation,
+      verticalOffset,
       refGeometry,
       geometry,
     });
@@ -458,14 +818,20 @@ try {
       {
         head,
         viewport: 1440,
+        navigationBaseline: navigationBaseline.baselineVersion,
+        originalReferenceHashesVerified: Object.keys(referenceHashes).length,
+        errors,
         fixture: 'frozen prototype data intercepted in isolated browser; no writes to analytics',
         results,
         passed:
+          errors.length === 0 &&
           results.length === 11 &&
           results.flatMap(r => r.chartPixels).length === 22 &&
           results.every(
             r =>
               [...r.metricGeometry, ...r.chartGeometry].every(d => d.max <= 2) &&
+              r.mobileChecks.length === 2 &&
+              r.fullPagePixels.comparedPixels > 0 &&
               r.fullPagePixels.ratio <= 0.01 &&
               r.chartPixels.every(c => c.ratio <= 0.01),
           ),
@@ -483,11 +849,14 @@ try {
     }),
   );
   if (
+    errors.length > 0 ||
     results.length !== 11 ||
     results.flatMap(r => r.chartPixels).length !== 22 ||
     results.some(
       r =>
         [...r.metricGeometry, ...r.chartGeometry].some(d => d.max > 2) ||
+        r.mobileChecks.length !== 2 ||
+        r.fullPagePixels.comparedPixels === 0 ||
         r.fullPagePixels.ratio > 0.01 ||
         r.chartPixels.some(c => c.ratio > 0.01),
     )

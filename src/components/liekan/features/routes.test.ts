@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { needsWebsite } from '@/lib/liekan/contracts/navigation';
 import { featureHref, featurePages, featureWebsiteSwitchHref, matchFeatureRoute } from './routes';
 
 const uuid = '11111111-1111-4111-8111-111111111111';
@@ -9,7 +10,7 @@ describe('approved scene routing', () => {
     for (const p of featurePages)
       expect(matchFeatureRoute(`/liekan/${p.id}`, { websiteId: uuid, id: uuid })).toMatchObject({
         page: p.id,
-        websiteId: uuid,
+        websiteId: needsWebsite({ page: p.id }) ? uuid : undefined,
         id: uuid,
       });
   });
@@ -50,7 +51,7 @@ describe('approved scene routing', () => {
     }
     expect(matchFeatureRoute('/boards', { teamId: uuid })?.teamId).toBe(uuid);
   });
-  it('clears website-owned records and filters while keeping the team and time selection', () => {
+  it('clears website-owned records and filters while keeping only the time selection', () => {
     const websiteId = '22222222-2222-4222-8222-222222222222';
     const query = {
       date: 'range:0:100:day',
@@ -86,14 +87,13 @@ describe('approved scene routing', () => {
       expect(matchFeatureRoute(url.pathname, Object.fromEntries(url.searchParams))).toMatchObject({
         page: list,
         websiteId,
-        teamId: uuid,
+        teamId: undefined,
       });
       expect(Object.fromEntries(url.searchParams)).toEqual({
         date: query.date,
         unit: 'day',
         offset: '2',
         compare: 'prev',
-        teamId: uuid,
       });
     }
   });

@@ -1,5 +1,6 @@
 'use client';
 
+import { formatInTimeZone } from 'date-fns-tz';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
@@ -14,6 +15,7 @@ import {
   trackerSnippet,
 } from '@/lib/liekan/contracts/core';
 import { countOf, type FeatureEntity, numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
+import type { DataState, LiekanReport } from '@/lib/liekan/contracts/report';
 import {
   acceptFeatureLogin,
   clearFeatureLogin,
@@ -23,6 +25,7 @@ import {
   verifyFeatureSso,
   verifyFeatureTwoFactor,
 } from '@/lib/liekan/upstream/features-client';
+import { ManagementDrawer } from '../ManagementDrawer';
 import { Chart } from './Chart';
 import { useAction, useData, useFeature } from './context';
 import {
@@ -47,6 +50,7 @@ import {
   Tabs,
   Textarea,
 } from './ui';
+import { WebsiteSharing } from './WorkspacePages';
 
 const basePath = process.env.basePath || '';
 const appPath = (path: string) => featureNavigationPath(path, basePath);
@@ -109,6 +113,8 @@ function useInstall(id: string, createdAt?: string) {
         c.api.get(`${sitePath(id)}/stats`, range, signal),
         c.api.get(`${sitePath(id)}/daterange`, undefined, signal),
       ]);
+      if (stats?.pageviews == null || !Number.isFinite(countOf(stats.pageviews)))
+        throw new Error('统计响应缺少有效的访问次数。');
       return {
         pageviews: countOf(stats.pageviews),
         lastAt: dates.endDate,
@@ -196,7 +202,7 @@ function TrackingCode({ websiteId, file = 'script.js' }: { websiteId: string; fi
   );
 }
 function InstallSteps({ query, websiteId }: { query: any; websiteId: string }) {
-  const received = query.data?.pageviews > 0;
+  const received = !query.error && query.data?.pageviews > 0;
   return (
     <ul className="timeline">
       <li>
@@ -223,7 +229,13 @@ function InstallSteps({ query, websiteId }: { query: any; websiteId: string }) {
         <div className="row between">
           <strong>首条访问</strong>
           <Badge key="badge" tone={received ? 'green' : 'gray'}>
-            {query.isPending ? '正在检查' : received ? '已接收' : '等待'}
+            {query.error
+              ? '读取失败'
+              : query.isPending
+                ? '正在检查'
+                : received
+                  ? '已收到浏览数据'
+                  : '等待'}
           </Badge>
         </div>
         <p>
@@ -241,16 +253,30 @@ function Websites() {
     Promise.all(
       c.sites.map(async site => {
         try {
-          const [stats, dates] = await Promise.all([
+          const [stats, dates, lifetime] = await Promise.all([
             c.api.get(`${sitePath(site.id)}/stats`, { ...c.range, ...c.filters }, signal),
             c.api.get(`${sitePath(site.id)}/daterange`, undefined, signal),
+            c.api.get(
+              `${sitePath(site.id)}/stats`,
+              {
+                startAt: site.createdAt ? +new Date(site.createdAt) : 0,
+                endAt: Date.now(),
+                timezone: c.range.timezone,
+              },
+              signal,
+            ),
           ]);
-          if (stats?.pageviews == null || !Number.isFinite(countOf(stats.pageviews)))
+          if (
+            stats?.pageviews == null ||
+            !Number.isFinite(countOf(stats.pageviews)) ||
+            lifetime?.pageviews == null ||
+            !Number.isFinite(countOf(lifetime.pageviews))
+          )
             throw new Error('统计响应缺少有效的访问次数。');
           return {
             id: site.id,
             views: countOf(stats.pageviews),
-            received: !!dates.startDate,
+            received: countOf(lifetime?.pageviews) > 0,
             lastAt: dates.endDate,
           };
         } catch (error: any) {
@@ -268,18 +294,23 @@ function Websites() {
   const installed = readable.filter(row => row.received).length;
   const unverified = readable.filter(row => !row.received).length;
   const totalViews = readable.reduce((sum, row) => sum + row.views, 0);
+  const scope = c.route.teamId
+    ? `${c.teams.find(team => team.id === c.route.teamId)?.name || '当前团队'}空间`
+    : c.query.scope === 'all'
+      ? '全部可访问网站'
+      : '个人空间';
   const subtotal = `已读取 ${readable.length} / ${c.sites.length} 个网站的小计`;
   const errorLabel = (error: any) =>
-    error.status === 401 ? '登录已过期' : error.status === 403 ? '无统计权限' : '读取失败';
+    error.status === 401 ? '需要重新登录' : error.status === 403 ? '无统计权限' : '读取失败';
   return (
     <>
       <Metrics
         items={[
-          ['管理网站', String(c.sites.length), '个人与团队空间'],
+          ['管理网站', String(c.sites.length), scope],
           [
-            '已接入',
+            '已收到浏览数据',
             hasSummary ? String(installed) : '—',
-            partial ? subtotal : '已收到首条访问',
+            partial ? subtotal : '已收到首条浏览访问',
             'green',
           ],
           [
@@ -297,7 +328,7 @@ function Websites() {
       />
       <Panel
         title="网站列表"
-        subtitle="在当前角色有权访问的网站之间切换。"
+        subtitle={`管理${scope}中有权访问的网站。`}
         actions={
           c.user.role !== 'view-only' && (
             <LinkButton page="onboarding" primary>
@@ -309,7 +340,7 @@ function Websites() {
       >
         <QueryState query={query}>
           <Table
-            columns={['网站', '所属空间', '接入状态', '访问次数', '最近接收', '操作']}
+            columns={['网站', '所属空间', '浏览采集状态', '访问次数', '最近接收', '操作']}
             numeric={[3]}
             search
             rows={c.sites.map(site => {
@@ -336,7 +367,7 @@ function Websites() {
                   {stat?.error
                     ? errorLabel(stat.error)
                     : stat?.received
-                      ? '已接入'
+                      ? '已收到浏览数据'
                       : stat
                         ? '待验证'
                         : '等待查询'}
@@ -345,7 +376,7 @@ function Websites() {
                 stat?.error ? '无法读取' : stat ? formatDate(stat.lastAt) : '等待查询',
                 <div className="actions" key="actions">
                   <LinkButton page="website-settings" params={{ websiteId: site.id }}>
-                    设置
+                    网站设置
                   </LinkButton>
                   <LinkButton page="overview" params={{ websiteId: site.id }}>
                     查看统计
@@ -369,7 +400,7 @@ function Websites() {
         </Notice>
       )}
       <Notice>
-        接入状态根据采集结果展示。新增网站在收到访问前显示“待验证”，访问次数保持为 0。
+        浏览采集状态根据真实浏览访问展示。日志、内容目录与行为录制可在各网站的设置中分别检查。
       </Notice>
     </>
   );
@@ -381,6 +412,16 @@ function Onboarding() {
   const [step, setStep] = useState(1);
   const install = useInstall(created?.id, created?.createdAt);
   const teams = teamCandidates(c, 'create');
+  const requestedTeam = c.route.teamId;
+  const permittedTeam = teams.find(team => team.id === requestedTeam);
+  const [space, setSpace] = useState(permittedTeam?.id || '');
+  useEffect(() => setSpace(permittedTeam?.id || ''), [requestedTeam, permittedTeam?.id]);
+  const received = !install.error && install.data?.pageviews > 0;
+  const createdScope = created
+    ? c.teams.find(team => team.id === created.teamId)?.name ||
+      created.scopeName ||
+      (created.teamId ? '团队空间' : '个人空间')
+    : '';
   return (
     <div className="wide-narrow">
       <Panel title="接入一个新网站" subtitle="三步完成创建、安装与验证。">
@@ -393,6 +434,15 @@ function Onboarding() {
           ))}
         </ol>
         <Body>
+          {created && (
+            <Definition
+              items={[
+                ['网站名称', created.name],
+                ['域名', created.domain],
+                ['所属空间', createdScope],
+              ]}
+            />
+          )}
           {step === 1 ? (
             <Form
               busy={action.busy}
@@ -402,6 +452,11 @@ function Onboarding() {
               cancel={<LinkButton page="websites">取消</LinkButton>}
               onSubmit={async values => {
                 if (c.user.role === 'view-only') throw new Error('当前角色没有创建网站权限。');
+                const destination = teams.find(team => team.id === values.space);
+                if (values.space && !destination)
+                  throw new Error(
+                    '当前账户没有在所选团队创建网站的权限。请选择个人空间或有权限的团队。',
+                  );
                 const site = await action.run(
                   () =>
                     c.api.post<FeatureEntity>('/websites', {
@@ -411,12 +466,22 @@ function Onboarding() {
                     }),
                   '网站已创建',
                 );
-                setCreated(site);
+                if (!site?.id) throw new Error('创建响应缺少网站标识，请重新读取网站列表。');
+                setCreated({
+                  ...site,
+                  teamId: site.teamId || destination?.id,
+                  scopeName: destination?.name || '个人空间',
+                });
                 setStep(2);
               }}
             >
               {c.user.role === 'view-only' && (
                 <Notice tone="amber">当前角色没有创建网站权限。</Notice>
+              )}
+              {requestedTeam && !permittedTeam && (
+                <Notice tone="amber">
+                  当前账户没有在所选团队创建网站的权限，所属空间已选为个人空间。请核对后继续。
+                </Notice>
               )}
               <div className="form-grid">
                 <Field
@@ -437,6 +502,8 @@ function Onboarding() {
               <Select
                 label="所属空间"
                 name="space"
+                value={space}
+                onChange={event => setSpace(event.target.value)}
                 options={[
                   ['', '个人空间'],
                   ...teams.map(team => [team.id, team.name] as [string, string]),
@@ -449,7 +516,7 @@ function Onboarding() {
           ) : step === 2 ? (
             <>
               <Notice tone="blue">
-                网站已创建，接入状态为待验证。将下方脚本放入每个需要统计页面的 head 区域。
+                网站已创建，浏览采集待验证。将下方脚本放入每个需要统计页面的 head 区域。
               </Notice>
               <TrackingCode websiteId={created.id} />
               <div className="form-actions">
@@ -463,18 +530,15 @@ function Onboarding() {
             </>
           ) : (
             <>
-              <Definition
-                items={[
-                  ['网站名称', created.name],
-                  ['域名', created.domain],
-                  [
-                    '接入状态',
-                    <Badge key="badge" tone={install.data?.pageviews > 0 ? 'green' : 'amber'}>
-                      {install.data?.pageviews > 0 ? '验证完成' : '待验证'}
-                    </Badge>,
-                  ],
-                ]}
-              />
+              <Badge tone={install.error ? 'red' : received ? 'green' : 'amber'}>
+                {install.error
+                  ? '读取失败'
+                  : install.isPending
+                    ? '正在检查'
+                    : received
+                      ? '已收到浏览数据'
+                      : '待验证'}
+              </Badge>
               <hr className="divider" />
               <QueryState query={install}>
                 <InstallSteps query={install} websiteId={created.id} />
@@ -484,9 +548,9 @@ function Onboarding() {
                 <Button primary disabled={install.isFetching} onClick={() => install.refetch()}>
                   检查真实访问
                 </Button>
-                {install.data?.pageviews > 0 && (
-                  <LinkButton page="websites" primary>
-                    进入网站管理
+                {received && (
+                  <LinkButton page="overview" params={{ websiteId: created.id }} primary>
+                    查看该网站统计
                   </LinkButton>
                 )}
               </div>
@@ -502,15 +566,18 @@ function Onboarding() {
             <li>回放与热力图需另外开启行为采集。</li>
           </ol>
           <hr className="divider" />
-          <LinkButton page="tracking" params={created ? { websiteId: created.id } : undefined}>
-            查看安装说明
-          </LinkButton>
-          <LinkButton
-            page="recorder-settings"
-            params={created ? { websiteId: created.id } : undefined}
-          >
-            采集与隐私设置
-          </LinkButton>
+          {created ? (
+            <div className="row">
+              <LinkButton page="tracking" params={{ websiteId: created.id }}>
+                查看安装说明
+              </LinkButton>
+              <LinkButton page="recorder-settings" params={{ websiteId: created.id }}>
+                采集与隐私设置
+              </LinkButton>
+            </div>
+          ) : (
+            <p className="muted">创建网站后可查看该网站的安装代码与采集设置。</p>
+          )}
         </Body>
       </Panel>
     </div>
@@ -523,7 +590,7 @@ function Tracking({ check = false }: { check?: boolean }) {
   if (!c.siteId) return <MissingWebsite />;
   if (check)
     return (
-      <Panel title="安装诊断" subtitle="根据本实例收到的真实访问检查接入状态。">
+      <Panel title="安装诊断" subtitle="根据本实例收到的真实浏览访问检查采集状态。">
         <Body>
           <QueryState query={site}>
             <div className="row between">
@@ -549,7 +616,9 @@ function Tracking({ check = false }: { check?: boolean }) {
             </Notice>
           </QueryState>
           <div className="form-actions">
-            <LinkButton page="tracking">查看跟踪代码</LinkButton>
+            <LinkButton page="tracking" params={{ websiteId: c.siteId }}>
+              查看跟踪代码
+            </LinkButton>
             <LinkButton page="websites">返回网站管理</LinkButton>
           </div>
         </Body>
@@ -557,7 +626,7 @@ function Tracking({ check = false }: { check?: boolean }) {
     );
   return (
     <div className="wide-narrow">
-      <Panel title="安装跟踪代码" subtitle="网站标识和现有采集协议保持兼容。">
+      <Panel title="安装跟踪代码" subtitle="将代码添加到需要统计的网站页面。">
         <Body>
           <TrackingCode websiteId={c.siteId} />
           <hr className="divider" />
@@ -565,8 +634,8 @@ function Tracking({ check = false }: { check?: boolean }) {
           <p className="muted">用于目标、漏斗和事件属性分析。</p>
           <Code>{"umami.track('demo_submit', { plan: 'growth', placement: 'header' });"}</Code>
           <div className="form-actions">
-            <LinkButton page="install-check" primary>
-              验证接入
+            <LinkButton page="install-check" params={{ websiteId: c.siteId }} primary>
+              检查浏览采集
             </LinkButton>
           </div>
         </Body>
@@ -588,73 +657,192 @@ function Tracking({ check = false }: { check?: boolean }) {
             </div>
           </div>
           <hr className="divider" />
-          <LinkButton page="recorder-settings">行为采集设置</LinkButton>
+          <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
+            回放与热力图设置
+          </LinkButton>
         </Body>
       </Panel>
     </div>
+  );
+}
+const websiteSections: [string, string][] = [
+  ['basic', '基本信息'],
+  ['install', '安装接入'],
+  ['collection', '采集设置'],
+  ['sharing', '分享设置'],
+  ['danger', '危险操作'],
+];
+function setupState(query: any, state?: DataState, available = '已收到数据', absent = '尚未接入') {
+  if (query.error)
+    return (query.error as any).status === 401
+      ? '需要重新登录'
+      : (query.error as any).status === 403
+        ? '无查看权限'
+        : '读取失败';
+  if (query.isPending) return '正在检查';
+  if (!query.data || !state) return '状态未验证';
+  return {
+    available,
+    empty: '当前范围无数据',
+    not_connected: absent,
+    unsupported: '当前实例不支持',
+    estimated: '估算数据',
+  }[state];
+}
+function SetupStatus({
+  browser,
+  report,
+  site,
+}: {
+  browser: any;
+  report: any;
+  site: FeatureEntity;
+}) {
+  const c = useFeature();
+  const received = !browser.error && browser.data?.pageviews > 0;
+  const browserState = setupState(
+    browser,
+    browser.data ? (received ? 'available' : 'empty') : undefined,
+    '已收到浏览数据',
+  );
+  const config = site.replayConfig || {};
+  return (
+    <Panel title="采集状态" subtitle="分别检查浏览访问、服务器日志、内容目录与行为录制。">
+      <Body>
+        <p className="field-help">
+          浏览采集核对网站创建至今的页面访问。日志统计期间：
+          {formatInTimeZone(c.range.startAt, c.range.timezone || 'Asia/Shanghai', 'yyyy-MM-dd')} 至{' '}
+          {formatInTimeZone(c.range.endAt, c.range.timezone || 'Asia/Shanghai', 'yyyy-MM-dd')} ·{' '}
+          {c.range.timezone}。
+        </p>
+        <Definition
+          items={[
+            ['浏览采集', browserState === '当前范围无数据' ? '尚未收到浏览数据' : browserState],
+            [
+              '日志采集',
+              setupState(report, report.data?.states?.logs, '已收到日志数据', '尚未导入日志'),
+            ],
+            [
+              '内容目录',
+              setupState(report, report.data?.states?.catalog, '已有内容目录', '尚未导入内容目录'),
+            ],
+            [
+              '行为录制',
+              `回放${config.replayEnabled === true ? '已启用' : '未启用'} · 热力图${config.heatmapEnabled === true ? '已启用' : '未启用'} · 数据状态未验证`,
+            ],
+          ]}
+        />
+        {report.data?.meta?.latestImportAt && !report.error && (
+          <p className="field-help">最近导入日志：{formatDate(report.data.meta.latestImportAt)}</p>
+        )}
+        {report.data?.meta?.demo && !report.error && (
+          <Notice tone="amber">日志与内容目录状态包含当前网站的演示数据。</Notice>
+        )}
+        <div className="form-actions">
+          <Button
+            disabled={browser.isFetching || report.isFetching}
+            onClick={async () => Promise.all([browser.refetch(), report.refetch()])}
+          >
+            重新检查采集状态
+          </Button>
+        </div>
+      </Body>
+    </Panel>
   );
 }
 function WebsiteSettings() {
   const c = useFeature(),
     query = useSiteRecord(),
     action = useAction();
+  const section = websiteSections.some(([id]) => id === c.query.section)
+    ? c.query.section
+    : 'basic';
   const install = useInstall(c.siteId, query.data?.createdAt);
+  const report = useData<LiekanReport>(
+    ['website-setup-report', c.siteId, c.range.startAt, c.range.endAt, c.range.timezone],
+    signal =>
+      c.api.get(
+        `/liekan/websites/${c.siteId}/report`,
+        { resource: 'overview', ...c.range },
+        signal,
+      ),
+    !!c.siteId && ['install', 'collection'].includes(section),
+  );
   const [drawer, setDrawer] = useState('');
+  useEffect(() => setDrawer(''), [c.siteId, section]);
   const site = query.data,
     manage = canManageSite(c, site),
     teams = teamCandidates(c, 'transfer'),
     transfer = canTransferSite(c, site);
+  const collectionActions = [
+    '导入日志',
+    'sitemap 管理',
+    'robots.txt 编辑',
+    '蜘蛛白名单',
+    '特征库管理',
+    '解析规则',
+  ];
   if (!c.siteId) return <MissingWebsite />;
   return (
     <QueryState query={query}>
       {site && (
         <>
-          <div className="two">
-            <Panel title="基本信息" subtitle="编辑名称和域名不改变网站标识。">
-              <Body>
-                {!manage && <ReadonlyNotice />}
-                <Form
-                  key={`${site.id}:${site.name}:${site.domain}`}
-                  busy={action.busy}
-                  error={action.error}
-                  disabled={!manage}
-                  submitLabel="保存基本信息"
-                  onSubmit={async values => {
-                    if (!manage) throw new Error('需要网站管理权限。');
-                    await action.run(() =>
-                      c.api.post(sitePath(site.id), { name: values.name, domain: values.domain }),
-                    );
-                  }}
-                >
-                  <Field
-                    label="网站 ID"
-                    name="id"
-                    defaultValue={site.id}
-                    readOnly
-                    help="当前网站的永久标识。"
-                  />
-                  <Field
-                    label="网站名称"
-                    name="name"
-                    defaultValue={site.name}
-                    required
-                    readOnly={!manage}
-                    maxLength={100}
-                  />
-                  <Field
-                    label="域名"
-                    name="domain"
-                    defaultValue={site.domain}
-                    required
-                    readOnly={!manage}
-                    maxLength={500}
-                  />
-                </Form>
-              </Body>
-            </Panel>
-            <Panel title="安装与协作" subtitle="同一网站在各分析页面使用一致的数据范围。">
-              <Body>
-                <div className="stack">
+          <Tabs
+            items={websiteSections}
+            active={section}
+            onChange={next => c.navigate('website-settings', { websiteId: site.id, section: next })}
+          />
+          {section === 'basic' ? (
+            <div className="two">
+              <Panel title="基本信息" subtitle="编辑名称和域名不改变网站标识。">
+                <Body>
+                  {!manage && <ReadonlyNotice />}
+                  <Form
+                    key={`${site.id}:${site.name}:${site.domain}`}
+                    busy={action.busy}
+                    error={action.error}
+                    disabled={!manage}
+                    submitLabel="保存网站设置"
+                    onSubmit={async values => {
+                      if (!manage) throw new Error('需要网站管理权限。');
+                      await action.run(
+                        () =>
+                          c.api.post(sitePath(site.id), {
+                            name: values.name,
+                            domain: values.domain,
+                          }),
+                        `「${values.name}」的网站设置已保存`,
+                      );
+                    }}
+                  >
+                    <Field
+                      label="网站 ID"
+                      name="id"
+                      defaultValue={site.id}
+                      readOnly
+                      help="当前网站的永久标识。"
+                    />
+                    <Field
+                      label="网站名称"
+                      name="name"
+                      defaultValue={site.name}
+                      required
+                      readOnly={!manage}
+                      maxLength={100}
+                    />
+                    <Field
+                      label="域名"
+                      name="domain"
+                      defaultValue={site.domain}
+                      required
+                      readOnly={!manage}
+                      maxLength={500}
+                    />
+                  </Form>
+                </Body>
+              </Panel>
+              <Panel title="网站归属" subtitle="在当前网站的设置中管理安装、采集与分享。">
+                <Body>
                   <Definition
                     items={[
                       [
@@ -662,148 +850,253 @@ function WebsiteSettings() {
                         c.teams.find(team => team.id === site.teamId)?.name ||
                           (site.teamId ? '团队空间' : '个人空间'),
                       ],
-                      [
-                        '接入状态',
-                        <Badge key="badge" tone={install.data?.pageviews > 0 ? 'green' : 'amber'}>
-                          {install.data?.pageviews > 0 ? '已接入' : '待验证'}
-                        </Badge>,
-                      ],
                       ['公开分享', site.shareId ? '已启用' : '未启用'],
                     ]}
                   />
-                  <div className="row">
-                    <LinkButton page="tracking">跟踪代码</LinkButton>
-                    <LinkButton page="sharing">分享设置</LinkButton>
-                    <LinkButton page="recorder-settings">行为采集</LinkButton>
+                  <div className="form-actions">
+                    <LinkButton page="overview" params={{ websiteId: site.id }}>
+                      查看该网站统计
+                    </LinkButton>
+                    <LinkButton page="sharing" params={{ websiteId: site.id, context: 'website' }}>
+                      分享设置
+                    </LinkButton>
                   </div>
-                </div>
-              </Body>
-            </Panel>
-            <Panel title="转移网站" subtitle="保留历史数据，变更资源所属空间。">
-              <Body>
-                <p className="muted">只有拥有相应团队管理权限的成员可以转移网站。</p>
-                <div className="form-actions">
-                  <Button disabled={!transfer} onClick={() => setDrawer('transfer')}>
-                    转移网站
-                  </Button>
-                </div>
-              </Body>
-            </Panel>
-            <Panel title="数据管理" subtitle="重置和删除操作需要额外确认。">
-              <Body>
-                <div className="switch-row">
-                  <div>
-                    <strong>重置数据</strong>
-                    <p className="muted">清空访问与事件数据，保留网站设置。</p>
+                </Body>
+              </Panel>
+            </div>
+          ) : section === 'install' ? (
+            <>
+              <SetupStatus browser={install} report={report} site={site} />
+              <Tracking />
+              <Panel title="日志安装" subtitle="导入服务器或 CDN 访问日志后查看蜘蛛访问。">
+                <Body>
+                  <p className="muted">
+                    准备真实访问日志，可使用 Combined、JSON 或 Cloudflare
+                    格式。浏览器跟踪代码采集浏览访问；服务器日志记录请求与蜘蛛访问。
+                  </p>
+                  <div className="form-actions">
+                    <Button disabled={!manage} onClick={() => setDrawer('导入日志')}>
+                      导入该网站日志
+                    </Button>
+                    <LinkButton page="install-check" params={{ websiteId: site.id }}>
+                      检查浏览采集
+                    </LinkButton>
+                    <LinkButton page="geo-logs" params={{ websiteId: site.id }}>
+                      查看该网站日志
+                    </LinkButton>
                   </div>
-                  <Button disabled={!manage} onClick={() => setDrawer('reset')}>
-                    重置
-                  </Button>
-                </div>
-                <div className="switch-row">
-                  <div>
-                    <strong>删除网站</strong>
-                    <p className="muted">删除网站及其数据，确认页显示影响范围。</p>
+                </Body>
+              </Panel>
+            </>
+          ) : section === 'collection' ? (
+            <>
+              <SetupStatus browser={install} report={report} site={site} />
+              <div className="two">
+                <Panel title="行为采集" subtitle="管理回放、热力图、采样与隐私规则。">
+                  <Body>
+                    <p className="muted">
+                      采集开关显示保存的配置。数据是否已收到，需要在对应分析页面检查。
+                    </p>
+                    <div className="form-actions">
+                      <LinkButton page="recorder-settings" params={{ websiteId: site.id }}>
+                        回放与热力图设置
+                      </LinkButton>
+                      <LinkButton page="replays" params={{ websiteId: site.id }}>
+                        查看会话回放
+                      </LinkButton>
+                      <LinkButton page="heatmaps" params={{ websiteId: site.id }}>
+                        查看热力图
+                      </LinkButton>
+                    </div>
+                  </Body>
+                </Panel>
+                <Panel title="日志与内容目录" subtitle="导入当前网站的日志和内容页面资料。">
+                  <Body>
+                    {!manage && <ReadonlyNotice />}
+                    <div className="form-actions">
+                      <Button disabled={!manage} onClick={() => setDrawer('导入日志')}>
+                        导入该网站日志
+                      </Button>
+                      <Button disabled={!manage} onClick={() => setDrawer('sitemap 管理')}>
+                        管理内容目录
+                      </Button>
+                    </div>
+                  </Body>
+                </Panel>
+                <Panel
+                  title="蜘蛛与解析规则"
+                  subtitle="保存当前网站的 robots.txt、白名单和日志解析规则。"
+                >
+                  <Body>
+                    <p className="muted">robots.txt 保存后可下载，由网站管理员部署到目标网站。</p>
+                    <div className="form-actions">
+                      {collectionActions.slice(2).map(item => (
+                        <Button key={item} disabled={!manage} onClick={() => setDrawer(item)}>
+                          {item}
+                        </Button>
+                      ))}
+                    </div>
+                  </Body>
+                </Panel>
+              </div>
+            </>
+          ) : section === 'sharing' ? (
+            <WebsiteSharing />
+          ) : (
+            <div className="two">
+              <Panel title="转移网站" subtitle="保留历史数据，变更资源所属空间。">
+                <Body>
+                  <p className="muted">只有拥有相应团队管理权限的成员可以转移网站。</p>
+                  <div className="form-actions">
+                    <Button disabled={!transfer} onClick={() => setDrawer('transfer')}>
+                      转移网站
+                    </Button>
                   </div>
-                  <Button danger disabled={!manage} onClick={() => setDrawer('delete')}>
-                    删除
-                  </Button>
-                </div>
-              </Body>
-            </Panel>
-          </div>
-          {drawer && (
-            <Drawer
-              title={
-                drawer === 'transfer'
-                  ? '转移网站所属空间'
-                  : drawer === 'reset'
-                    ? '重置网站数据'
-                    : '删除网站'
-              }
+                </Body>
+              </Panel>
+              <Panel title="清空访问数据" subtitle="保留网站标识、内容目录、策略与设置。">
+                <Body>
+                  <p className="muted">
+                    清空浏览访问、事件、会话、回放、热力图、收入记录，以及 Liekan 日志与导入记录。
+                  </p>
+                  <div className="form-actions">
+                    <Button danger disabled={!manage} onClick={() => setDrawer('reset')}>
+                      清空访问数据
+                    </Button>
+                  </div>
+                </Body>
+              </Panel>
+              <Panel title="删除网站" subtitle="删除当前网站及其关联数据和设置。">
+                <Body>
+                  <p className="muted">删除后无法恢复，请先核对当前网站。</p>
+                  <div className="form-actions">
+                    <Button danger disabled={!manage} onClick={() => setDrawer('delete')}>
+                      删除网站
+                    </Button>
+                  </div>
+                </Body>
+              </Panel>
+            </div>
+          )}
+          {collectionActions.includes(drawer) ? (
+            <ManagementDrawer
+              key={`${site.id}:${drawer}`}
+              action={drawer}
+              websiteId={site.id}
+              canManage={manage}
               onClose={() => setDrawer('')}
-            >
-              <Form
-                busy={action.busy}
-                error={action.error}
-                disabled={drawer === 'transfer' ? !transfer : !manage}
-                submitLabel={drawer === 'transfer' ? '确认转移' : '确认操作'}
-                onSubmit={async values => {
-                  if (!manage) throw new Error('需要网站管理权限。');
-                  if (drawer === 'transfer') {
-                    if (
-                      !transfer ||
-                      (!site.teamId && !teams.some(team => team.id === values.teamId))
-                    )
-                      throw new Error('需要相应的网站转移权限。');
-                    await action.run(
-                      () =>
-                        c.api.post(
-                          `${sitePath(site.id)}/transfer`,
-                          site.teamId ? { userId: c.user.id } : { teamId: values.teamId },
-                        ),
-                      '网站已转移',
-                    );
-                  } else {
-                    const expected = drawer === 'reset' ? 'RESET' : site.name;
-                    if (values.confirmation !== expected) throw new Error('确认内容不匹配。');
-                    await action.run(
-                      () =>
-                        drawer === 'reset'
-                          ? c.api.post(`${sitePath(site.id)}/reset`)
-                          : c.api.del(sitePath(site.id)),
-                      drawer === 'reset' ? '网站数据已重置' : '网站已删除',
-                    );
-                  }
-                  setDrawer('');
-                  await c.refresh();
-                  if (drawer === 'delete') c.navigate('websites');
-                }}
+              onSaved={() => {
+                void c.refresh();
+                void report.refetch();
+              }}
+              onSearch={search => c.navigate('geo-logs', { websiteId: site.id, search })}
+              onRange={(start, end) =>
+                c.navigate('geo-logs', { websiteId: site.id, date: `range:${start}:${end}` })
+              }
+              report={report.error ? undefined : report.data}
+            />
+          ) : (
+            drawer && (
+              <Drawer
+                title={
+                  drawer === 'transfer'
+                    ? '转移网站所属空间'
+                    : drawer === 'reset'
+                      ? '清空访问数据'
+                      : '删除网站'
+                }
+                onClose={() => setDrawer('')}
               >
-                {drawer === 'transfer' ? (
-                  <>
-                    <Field
-                      label="当前空间"
-                      value={
-                        site.teamId
-                          ? c.teams.find(team => team.id === site.teamId)?.name || '团队空间'
-                          : '个人空间'
-                      }
-                      readOnly
-                    />
-                    {site.teamId ? (
-                      <Notice tone="amber">
-                        网站将转移到当前账户的个人空间。网站标识和历史数据保持一致。
+                <Form
+                  busy={action.busy}
+                  error={action.error}
+                  disabled={drawer === 'transfer' ? !transfer : !manage}
+                  submitLabel={
+                    drawer === 'transfer'
+                      ? '确认转移网站'
+                      : drawer === 'reset'
+                        ? '确认清空访问数据'
+                        : '确认删除网站'
+                  }
+                  onSubmit={async values => {
+                    if (!manage) throw new Error('需要网站管理权限。');
+                    if (drawer === 'transfer') {
+                      if (
+                        !transfer ||
+                        (!site.teamId && !teams.some(team => team.id === values.teamId))
+                      )
+                        throw new Error('需要相应的网站转移权限。');
+                      await action.run(
+                        () =>
+                          c.api.post(
+                            `${sitePath(site.id)}/transfer`,
+                            site.teamId ? { userId: c.user.id } : { teamId: values.teamId },
+                          ),
+                        `「${site.name}」已转移`,
+                      );
+                    } else {
+                      const expected = drawer === 'reset' ? 'RESET' : site.name;
+                      if (values.confirmation !== expected) throw new Error('确认内容不匹配。');
+                      await action.run(
+                        () =>
+                          drawer === 'reset'
+                            ? c.api.post(`${sitePath(site.id)}/reset`)
+                            : c.api.del(sitePath(site.id)),
+                        drawer === 'reset'
+                          ? `「${site.name}」的访问数据已清空`
+                          : `「${site.name}」已删除`,
+                      );
+                    }
+                    setDrawer('');
+                    await c.refresh();
+                    if (drawer === 'delete') c.navigate('websites');
+                  }}
+                >
+                  {drawer === 'transfer' ? (
+                    <>
+                      <Field
+                        label="当前空间"
+                        value={
+                          site.teamId
+                            ? c.teams.find(team => team.id === site.teamId)?.name || '团队空间'
+                            : '个人空间'
+                        }
+                        readOnly
+                      />
+                      {site.teamId ? (
+                        <Notice tone="amber">
+                          网站将转移到当前账户的个人空间。网站标识和历史数据保持一致。
+                        </Notice>
+                      ) : (
+                        <>
+                          <Select
+                            label="目标空间"
+                            name="teamId"
+                            options={teams.map(team => [team.id, team.name])}
+                            required
+                          />
+                          <Notice tone="amber">仅可转移到当前账户拥有管理权限的团队。</Notice>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <Notice tone="red">
+                        {drawer === 'reset'
+                          ? `将清空「${site.name}」的浏览访问、事件、会话、回放、热力图、收入记录，以及 Liekan 日志与导入记录。内容目录、策略、网站设置和安装标识继续保留。此操作无法恢复。`
+                          : `将删除「${site.name}」及其关联数据和设置。此操作无法恢复。`}
                       </Notice>
-                    ) : (
-                      <>
-                        <Select
-                          label="目标空间"
-                          name="teamId"
-                          options={teams.map(team => [team.id, team.name])}
-                          required
-                        />
-                        <Notice tone="amber">仅可转移到当前账户拥有管理权限的团队。</Notice>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <Notice tone="red">
-                      {drawer === 'reset'
-                        ? `将清空「${site.name}」的访问、事件与会话数据，保留网站和安装标识。`
-                        : `将删除「${site.name}」及其访问数据。此操作无法恢复。`}
-                    </Notice>
-                    <Field
-                      label={`输入 ${drawer === 'reset' ? 'RESET' : site.name} 确认`}
-                      name="confirmation"
-                      required
-                      autoComplete="off"
-                    />
-                  </>
-                )}
-              </Form>
-            </Drawer>
+                      <Field
+                        label={`输入 ${drawer === 'reset' ? 'RESET' : site.name} 确认`}
+                        name="confirmation"
+                        required
+                        autoComplete="off"
+                      />
+                    </>
+                  )}
+                </Form>
+              </Drawer>
+            )
           )}
         </>
       )}
@@ -918,9 +1211,15 @@ function RecorderSettings() {
           </Notice>
           <hr className="divider" />
           <div className="stack">
-            <LinkButton page="heatmaps">查看热力图</LinkButton>
-            <LinkButton page="replays">查看会话回放</LinkButton>
-            <LinkButton page="tracking">跟踪代码</LinkButton>
+            <LinkButton page="heatmaps" params={{ websiteId: c.siteId }}>
+              查看热力图
+            </LinkButton>
+            <LinkButton page="replays" params={{ websiteId: c.siteId }}>
+              查看会话回放
+            </LinkButton>
+            <LinkButton page="tracking" params={{ websiteId: c.siteId }}>
+              跟踪代码
+            </LinkButton>
           </div>
         </Body>
       </Panel>
@@ -1159,11 +1458,11 @@ function Account() {
             </div>
           </Body>
         </Panel>
-        <Panel title="安全与偏好" subtitle="管理双重验证和集成密钥。">
+        <Panel title="安全与偏好" subtitle="管理双重验证、API 密钥和显示偏好。">
           <Body>
             <div className="row">
               <LinkButton page="security">账户安全</LinkButton>
-              <LinkButton page="api-keys">API Key</LinkButton>
+              <LinkButton page="api-keys">API 密钥</LinkButton>
               <LinkButton page="preferences">偏好设置</LinkButton>
             </div>
           </Body>
@@ -1177,7 +1476,7 @@ function Account() {
           <Form
             busy={action.busy}
             error={action.error}
-            submitLabel={drawer === 'password' ? '保存密码' : '保存'}
+            submitLabel={drawer === 'password' ? '保存密码' : '保存用户名'}
             onSubmit={async values => {
               if (drawer === 'username') {
                 if (!c.user.isAdmin) throw new Error('用户名由系统管理员维护。');
@@ -1562,9 +1861,9 @@ function ApiKeys() {
   };
   if ((query.error as any)?.status === 404)
     return (
-      <Panel title="集成密钥" subtitle="密钥继承账户权限，完整值仅在创建时显示一次。">
+      <Panel title="API 密钥" subtitle="密钥继承账户权限，完整值仅在创建时显示一次。">
         <Body>
-          <Notice tone="amber">当前实例未启用 API Key。请由管理员开启后使用。</Notice>
+          <Notice tone="amber">当前实例未启用 API 密钥。请由系统管理员开启后使用。</Notice>
         </Body>
       </Panel>
     );
@@ -1576,7 +1875,7 @@ function ApiKeys() {
   return (
     <>
       <Panel
-        title="集成密钥"
+        title="API 密钥"
         subtitle="密钥继承账户权限，完整值仅在创建时显示一次。"
         actions={
           <Button
@@ -1602,7 +1901,7 @@ function ApiKeys() {
                 撤销
               </Button>,
             ])}
-            empty="尚未创建集成密钥。"
+            empty="尚未创建 API 密钥。"
           />
         </QueryState>
       </Panel>
@@ -1610,7 +1909,10 @@ function ApiKeys() {
         创建密钥后可复制一次，关闭抽屉后列表仅显示掩码。请将完整密钥保存到安全位置。
       </Notice>
       {drawer && (
-        <Drawer title={drawer.type === 'create' ? '创建 API Key' : '撤销 API Key'} onClose={close}>
+        <Drawer
+          title={drawer.type === 'create' ? '创建 API 密钥' : '撤销 API 密钥'}
+          onClose={close}
+        >
           {createdKey ? (
             <>
               <Notice tone="amber">完整密钥仅在此处展示一次。关闭后无法再次读取。</Notice>
@@ -2326,7 +2628,7 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
               maxLength={500}
               readOnly={!manage}
             />
-            <div id="funnel-steps">
+            <div id="funnel-steps" data-dirty-actions>
               {steps.map((step, i) => (
                 <div className="step-editor" key={i}>
                   <div className="step-editor-head">
@@ -2440,6 +2742,7 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
               ))}
             </div>
             <Button
+              data-dirty-action="true"
               disabled={!manage || steps.length >= 8}
               onClick={() => setSteps(current => [...current, blankStep()])}
             >

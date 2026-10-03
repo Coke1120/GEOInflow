@@ -1804,3 +1804,64 @@
   background-image: none;
   padding-right: 38px;
 }
+:global([data-liekan-features] .breadcrumbs) {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #9aa3b2;
+  margin: 8px 0 4px;
+}
+:global([data-liekan-features] .breadcrumbs a) {
+  color: #697386;
+}
+:global([data-liekan-features] .context-select) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  white-space: nowrap;
+  color: #697386;
+  font-size: 12px;
+}
+:global([data-liekan-features] .context-select select) {
+  appearance: none;
+  min-height: 35px;
+  border: 1px solid #e9ecf1;
+  border-radius: 9px;
+  background: #fff;
+  padding: 7px 38px 7px 12px;
+  max-width: 190px;
+  color: #16181d;
+}
+:global([data-liekan-features] .context-select > svg) {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+}
+:global([data-liekan-features] .range-context) {
+  font-size: 11.5px;
+  color: #9aa3b2;
+  margin-bottom: 12px;
+}
+:global([data-liekan-features] .analysis-tools) {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+:global([data-liekan-features].identity-flow) {
+  min-height: 100dvh;
+}
+:global([data-liekan-features].identity-flow .content) {
+  max-width: 900px;
+  margin: auto;
+}
+@media (max-width: 900px) {
+  :global([data-liekan-features] .context-select select) {
+    min-height: 40px;
+  }
+}

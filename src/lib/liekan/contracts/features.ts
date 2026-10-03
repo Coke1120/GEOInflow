@@ -24,6 +24,8 @@ export interface FeatureRoute {
   websiteId?: string;
   id?: string;
   teamId?: string;
+  context?: 'admin' | 'website';
+  from?: string;
 }
 export interface FeaturePageResult<T> {
   data: T[];

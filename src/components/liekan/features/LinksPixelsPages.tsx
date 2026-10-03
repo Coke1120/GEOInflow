@@ -1,4 +1,5 @@
 'use client';
+import { useListState } from './listState';
 
 import { useEffect, useState } from 'react';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
@@ -11,7 +12,7 @@ import {
   resourceUrl,
 } from '@/lib/liekan/contracts/workspace';
 import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
-import { useAction, useData, useFeature } from './context';
+import { useAction, useData, useFeature, useResourceContext } from './context';
 import {
   Body,
   Button,
@@ -46,11 +47,19 @@ function useResourceHost(kind: 'link' | 'pixel') {
   const q = useData('resource-config', signal => c.api.get('/config', undefined, signal));
   return { q, origin, configured: kind === 'link' ? q.data?.linksUrl : q.data?.pixelsUrl };
 }
-const format = (value: any) => (value == null ? '未提供' : numberLabel(nativeMetric(value)));
+const format = (value: any) => {
+  const metric = nativeMetric(value);
+  return metric == null ? '未提供' : numberLabel(metric);
+};
+function spaceLabel(teamId: string | undefined, teams: FeatureEntity[]) {
+  return teamId
+    ? teams.find(team => team.id === teamId)?.name || '团队空间（名称未提供）'
+    : '个人空间';
+}
 function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
   const c = useFeature(),
-    [page, setPage] = useState(1),
-    [search, setSearch] = useState(''),
+    [page, setPage] = useListState('page', 1),
+    [search, setSearch] = useListState('search', ''),
     path = kind === 'link' ? 'links' : 'pixels';
   const q = useData([path, c.route.teamId, page, search], signal =>
     c.api.get(
@@ -72,11 +81,9 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
     <>
       <Panel
         title={kind === 'link' ? '追踪链接' : '追踪像素'}
-        subtitle={
-          kind === 'link'
-            ? '短链沿用原有链接访问统计接口。'
-            : '图片请求的统计，与网页访问分开显示。'
-        }
+        subtitle={`所属空间：${spaceLabel(c.route.teamId, c.teams)}。${
+          kind === 'link' ? '查看短链的点击次数与访客。' : '查看图片请求次数，独立于网站访问统计。'
+        }`}
         actions={
           <>
             <label className="search">
@@ -120,10 +127,10 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
               stats.isPending && ids.length
                 ? '读取中'
                 : stats.error
-                  ? '未提供'
+                  ? '读取失败'
                   : format(stats.data?.data?.[row.id]?.total),
               <LinkButton key="cell-linkbutton-2" page={`${kind}-detail`} params={{ id: row.id }}>
-                详情
+                {kind === 'link' ? '查看链接' : '查看像素'}
               </LinkButton>,
             ])}
             numeric={[kind === 'link' ? 3 : 2]}
@@ -206,12 +213,19 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
                   kind,
                   !record ? c.route.teamId : undefined,
                 );
-                const result = await action.run(() =>
-                  c.api.post(record ? `/${path}/${record.id}` : `/${path}`, body),
+                const result = await action.run(
+                  () => c.api.post(record ? `/${path}/${record.id}` : `/${path}`, body),
+                  kind === 'link' ? '链接已保存' : '像素已保存',
                 );
                 c.navigate(`${kind}-detail`, { id: result.id });
               }}
             >
+              <Field
+                label="所属空间"
+                value={spaceLabel(record ? record.teamId : c.route.teamId, c.teams)}
+                readOnly
+                help="链接与像素按所属空间管理，编辑时保留原有归属。"
+              />
               <Field
                 label={kind === 'link' ? '链接名称' : '像素名称'}
                 name="name"
@@ -268,7 +282,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
                     }}
                   >
                     <Icon name="copy" />
-                    复制代码
+                    复制像素代码
                   </Button>
                   <Button disabled={action.busy} onClick={() => setSlug(randomSlug())}>
                     重新生成地址
@@ -294,14 +308,21 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
         >
           <Form
             busy={action.busy}
-            submitLabel="确认删除"
+            submitLabel={kind === 'link' ? '删除链接' : '删除像素'}
             onSubmit={async (values: any) => {
-              if (values.confirmation !== record.name) throw new Error('请正确输入资源名称确认');
-              await action.run(() => c.api.del(`/${path}/${record.id}`), '资源已删除');
+              if (values.confirmation !== record.name)
+                throw new Error(`请输入${kind === 'link' ? '链接' : '像素'}名称确认删除`);
+              await action.run(
+                () => c.api.del(`/${path}/${record.id}`),
+                kind === 'link' ? '链接已删除' : '像素已删除',
+              );
               c.navigate(path);
             }}
           >
-            <Notice tone="red">此操作会删除资源及统计数据，追踪地址和分享将失效。</Notice>
+            <Notice tone="red">
+              将删除{kind === 'link' ? '链接' : '像素'}“{record.name}”及其统计数据。
+              {kind === 'link' ? '短链地址' : '像素地址'}和分享链接将失效。
+            </Notice>
             <Field
               label={`输入 ${record.name} 确认`}
               name="confirmation"
@@ -357,17 +378,17 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
         </div>
         <div className="actions">
           <LinkButton page={`${kind}-editor`} params={{ id }}>
-            编辑
+            编辑{kind === 'link' ? '链接' : '像素'}
           </LinkButton>
           <Button disabled={!allowed} onClick={() => setShare(true)}>
-            分享设置
+            分享当前{kind === 'link' ? '链接' : '像素'}
           </Button>
           {kind === 'link' && (
             <Button disabled={!url} onClick={() => setQr(true)}>
-              二维码
+              查看链接二维码
             </Button>
           )}
-          <LinkButton page={path}>返回列表</LinkButton>
+          <LinkButton page={path}>返回{kind === 'link' ? '链接' : '像素'}列表</LinkButton>
         </div>
       </div>
       <QueryState query={stats}>
@@ -398,11 +419,13 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
                   ],
                   [
                     '最近请求',
-                    stats.data?.dates?.endDate
-                      ? new Date(stats.data.dates.endDate).toLocaleString('zh-CN', {
-                          timeZone: getFeaturePreferences().timezone,
-                        })
-                      : '尚未接收',
+                    stats.data?.dates == null
+                      ? '未提供'
+                      : stats.data.dates.endDate
+                        ? new Date(stats.data.dates.endDate).toLocaleString('zh-CN', {
+                            timeZone: getFeaturePreferences().timezone,
+                          })
+                        : '尚未接收',
                     '全量历史的最近请求',
                   ],
                 ]
@@ -445,7 +468,16 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
                 }}
               >
                 <Icon name="copy" />
-                复制代码
+                复制像素代码
+              </Button>
+              <Button
+                disabled={!url}
+                onClick={async () => {
+                  await navigator.clipboard.writeText(url);
+                  c.notify('像素地址已复制');
+                }}
+              >
+                复制像素地址
               </Button>
             </QueryState>
           </Body>
@@ -478,6 +510,7 @@ function ResourcePage({ page, kind }: { page: string; kind: 'link' | 'pixel' }) 
       signal => c.api.get<FeatureEntity>(`/${path}/${id}`, undefined, signal),
       !!id,
     );
+  useResourceContext(q.data);
   if (!id)
     return page.endsWith('editor') ? (
       <ResourceEditor kind={kind} />

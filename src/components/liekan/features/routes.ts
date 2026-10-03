@@ -1,10 +1,45 @@
 import mapping from '@/lib/liekan/contracts/feature-pages.json';
 import type { FeatureRoute } from '@/lib/liekan/contracts/features';
+import {
+  geoPaths,
+  navigationFor,
+  needsWebsite,
+  pageNavigation,
+} from '@/lib/liekan/contracts/navigation';
 
-export const featurePages = mapping.pages;
-const globalPages = new Set(['dashboard', 'dashboard-edit']);
+export const featurePages = mapping.pages.map(page => ({
+  ...page,
+  title: pageNavigation[page.id]?.title || page.title,
+}));
+const unscopedPages = new Set([
+  'dashboard',
+  'dashboard-edit',
+  'account',
+  'security',
+  'two-factor',
+  'backup-codes',
+  'api-keys',
+  'preferences',
+  'teams',
+  'team-join',
+  'admin-users',
+  'admin-user',
+  'admin-websites',
+  'admin-teams',
+  'admin-security',
+  'login',
+  'login-2fa',
+  'sso',
+  'share-preview',
+]);
 export function normalizeFeatureScope(route: FeatureRoute): FeatureRoute {
-  return globalPages.has(route.page) ? { ...route, teamId: undefined } : route;
+  return {
+    ...route,
+    ...(!needsWebsite(route) ? { websiteId: undefined } : {}),
+    ...(unscopedPages.has(route.page) || navigationFor(route).scope === 'admin'
+      ? { teamId: undefined }
+      : {}),
+  };
 }
 const uuid = '[a-fA-F0-9-]{36}';
 const aliases = mapping.routes.filter(
@@ -28,10 +63,14 @@ export function matchFeatureRoute(
         page,
         websiteId: query.websiteId,
         id: query.id,
+        from: query.from,
         teamId: team?.[1] || query.teamId,
+        context: query.context === 'website' && page === 'sharing' ? 'website' : undefined,
       });
     return { page: 'not-found' };
   }
+  const teamDetail = path.match(new RegExp(`^/teams/(${uuid})/?$`));
+  if (teamDetail) return { page: 'team-detail', id: teamDetail[1], teamId: teamDetail[1] };
   for (const route of aliases) {
     const names: string[] = [];
     const pattern = route.route.replace(/\[([^\]]+)\]/g, (_full, name) => {
@@ -53,15 +92,25 @@ export function matchFeatureRoute(
         values.userId ||
         values.teamId,
       teamId: team?.[1] || values.teamId || query.teamId,
+      context: pathname.startsWith('/admin/') ? 'admin' : undefined,
     });
   }
   return null;
 }
 export function featureHref(page: string, params: Record<string, any> = {}): string {
   const record = featurePages.find(p => p.id === page);
-  const geo = page === 'overview' && params.websiteId ? `/websites/${params.websiteId}/geo` : '';
+  const geo =
+    page in geoPaths && params.websiteId
+      ? `/websites/${params.websiteId}/geo${geoPaths[page]}`
+      : '';
   if (!record && !geo) return '/dashboard';
   const base =
+    (params.context === 'admin' && page === 'website-settings' && params.websiteId
+      ? `/admin/websites/${params.websiteId}`
+      : '') ||
+    (params.context === 'admin' && page === 'team-detail' && params.id
+      ? `/admin/teams/${params.id}`
+      : '') ||
     geo ||
     (record.route &&
     !record.route.includes('[[...') &&
@@ -77,7 +126,9 @@ export function featureHref(page: string, params: Record<string, any> = {}): str
     if (
       value != null &&
       value !== '' &&
-      (key !== 'teamId' || !globalPages.has(page)) &&
+      (key !== 'teamId' || (!unscopedPages.has(page) && params.context !== 'admin')) &&
+      (key !== 'websiteId' || needsWebsite({ page, context: params.context }) || !!geo) &&
+      (key !== 'context' || (params.context === 'website' && page === 'sharing')) &&
       (!['websiteId', 'id'].includes(key) || path.startsWith('/liekan/'))
     )
       search.set(key, String(value));
@@ -99,6 +150,7 @@ export function featureWebsiteSwitchHref(
     'cohort-editor': 'cohorts',
   };
   const page = lists[route.page] || route.page;
+  if (!needsWebsite(route)) return featureHref(page, { id: route.id, teamId: route.teamId });
   const time = Object.fromEntries(
     Object.entries(query).filter(([key]) => ['date', 'unit', 'offset', 'compare'].includes(key)),
   );
@@ -106,6 +158,117 @@ export function featureWebsiteSwitchHref(
     ...time,
     websiteId,
     ...(page === route.page && route.id ? { id: route.id } : {}),
-    ...(route.teamId ? { teamId: route.teamId } : {}),
+    ...(route.context === 'website' ? { context: route.context } : {}),
   });
+}
+
+const timeKeys = new Set(['date', 'unit', 'offset', 'compare']);
+const websiteFilter =
+  /^(drill_|(?:path|referrer|channel|title|query|os|tag|hostname|distinctId|language|country|region|city|browser|device|event)\d*$|utm|segment$|cohort$|match$|excludeBounce$|spf\d|epf\d)/;
+export function featureNavigationHref(
+  route: FeatureRoute,
+  query: Record<string, string>,
+  page: string,
+  params: Record<string, any> = {},
+) {
+  if (route.context === 'admin' && page === 'teams') page = 'admin-teams';
+  if (route.context === 'admin' && page === 'websites') page = 'admin-websites';
+  const target = {
+    page,
+    context:
+      params.context ||
+      (route.context === 'admin' && ['website-settings', 'team-detail'].includes(page)
+        ? 'admin'
+        : undefined),
+  } as FeatureRoute;
+  const scoped = needsWebsite(target);
+  const geo = page in geoPaths;
+  const inherited = Object.fromEntries(
+    Object.entries(query).filter(
+      ([key]) =>
+        timeKeys.has(key) ||
+        (key === 'returnTo' &&
+          !!(scoped ? safeReturnHref(query[key]) : safeListReturnHref(query[key]))) ||
+        (scoped && !geo && websiteFilter.test(key)) ||
+        (['sessions', 'session-detail'].includes(page) &&
+          /^(retentionDate|retentionDay|attributionStep|attributionModel|attributionType|attributionSource)$/.test(
+            key,
+          )),
+    ),
+  );
+  const result: Record<string, any> = {
+    ...inherited,
+    ...(scoped && ['filters', 'annotations', 'exports'].includes(page)
+      ? { from: route.from || route.page }
+      : {}),
+    ...(scoped ? { websiteId: route.websiteId } : {}),
+    ...(navigationFor(target).scope === 'global' && route.teamId ? { teamId: route.teamId } : {}),
+    ...(target.context ? { context: target.context } : {}),
+    ...params,
+  };
+  if (geo && Object.keys(query).some(key => websiteFilter.test(key))) result.clearedFilters = '1';
+  const returnTo = scoped ? safeReturnHref(query.returnTo) : safeListReturnHref(query.returnTo);
+  if (returnTo) {
+    const targetUrl = new URL(returnTo, 'http://liekan.local');
+    if (
+      matchFeatureRoute(targetUrl.pathname, Object.fromEntries(targetUrl.searchParams))?.page ===
+      page
+    )
+      return returnTo;
+  }
+  const lists = new Set([
+    'websites',
+    'boards',
+    'sharing',
+    'links',
+    'pixels',
+    'teams',
+    'admin-users',
+    'admin-websites',
+    'admin-teams',
+  ]);
+  if (lists.has(route.page) && route.page !== page) {
+    const origin = featureHref(route.page, {
+      ...(route.teamId ? { teamId: route.teamId } : {}),
+      ...(route.id ? { id: route.id } : {}),
+      ...Object.fromEntries(
+        Object.entries(query).filter(
+          ([key]) =>
+            ['scope', 'search', 'page', 'sort', 'direction'].includes(key) || timeKeys.has(key),
+        ),
+      ),
+    });
+    if (!scoped || safeReturnHref(origin)) result.returnTo = origin;
+  }
+  return featureHref(page, result);
+}
+function safeListReturnHref(value: string) {
+  if (!value || !value.startsWith('/') || value.startsWith('//') || /[\\\x00-\x1f]/.test(value))
+    return '';
+  const url = new URL(value, 'http://liekan.local');
+  return [
+    '/websites',
+    '/settings/websites',
+    '/boards',
+    '/links',
+    '/pixels',
+    '/teams',
+    '/settings/teams',
+    '/admin/users',
+    '/admin/websites',
+    '/admin/teams',
+    '/liekan/sharing',
+  ].includes(url.pathname)
+    ? value
+    : '';
+}
+
+export function safeReturnHref(value: string) {
+  const safe = safeListReturnHref(value);
+  return safe &&
+    ['/websites', '/settings/websites', '/admin/websites'].includes(
+      new URL(safe, 'http://liekan.local').pathname,
+    )
+    ? safe
+    : '';
 }

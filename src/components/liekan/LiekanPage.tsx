@@ -1,6 +1,15 @@
 'use client';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useApi, useDateRange, useNavigation, useWebsite } from '@/lib/liekan/upstream/client';
+import { featureDateRange } from '@/lib/liekan/contracts/analysis';
+import { geoPageFromPath, geoPaths, pageNavigation } from '@/lib/liekan/contracts/navigation';
+import {
+  useApi,
+  useFeatureDateRange,
+  useNavigation,
+  useWebsite,
+} from '@/lib/liekan/upstream/client';
+import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Shell.module.css';
 import {
   cardLabels,
@@ -12,6 +21,7 @@ import {
   stateLabels,
   tableCsv,
 } from './data';
+import { featureNavigationHref } from './features/routes';
 import { useLiekanShell } from './LiekanShell';
 import { ManagementDrawer } from './ManagementDrawer';
 import { AiBots } from './pages/AiBots';
@@ -44,9 +54,14 @@ const views = {
 };
 export function LiekanPage({ resource }: { resource: Resource }) {
   const api = useApi();
-  const { websiteId, teamId, query: params, router, updateParams, renderUrl } = useNavigation();
+  const { websiteId, teamId, pathname, query: params, router, updateParams } = useNavigation();
   const website = useWebsite();
-  const { dateRange } = useDateRange({ timezone: 'Asia/Shanghai' });
+  const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
+  const { dateRange } = useFeatureDateRange(timezone);
+  const actualRange = featureDateRange(dateRange, timezone);
+  const route = { page: geoPageFromPath(pathname), websiteId };
+  const href = (page: string, values: Record<string, any> = {}) =>
+    featureNavigationHref(route, params, page, values);
   const shell = useLiekanShell();
   const [now] = useState(() => Date.now());
   const [liveNow, setLiveNow] = useState(now);
@@ -57,13 +72,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const [action, setAction] = useState('');
   const [message, setMessage] = useState('');
   const liveLogs = isLiveLogView(params, resource);
-  const defaultRange = defaultDateRange(now);
+  const defaultRange = defaultDateRange(now, timezone);
   const startAt = liveLogs
     ? liveNow - 30 * 86400000
     : params.date
-      ? dateRange.startDate.getTime()
+      ? actualRange.startAt
       : defaultRange.startAt;
-  const endAt = liveLogs ? liveNow : params.date ? dateRange.endDate.getTime() : defaultRange.endAt;
+  const endAt = liveLogs ? liveNow : params.date ? actualRange.endAt : defaultRange.endAt;
   const page = pages.find(page => page.resource === resource);
   const shiftedRange = previousWeekRange(startAt, endAt);
   const updateView = (next: Record<string, string | number>) =>
@@ -106,7 +121,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       resource,
       startAt,
       endAt,
-      'Asia/Shanghai',
+      timezone,
       chartPeriod,
       resource === 'logs' ? filter : '',
       resource === 'logs' ? search : '',
@@ -119,7 +134,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         resource,
         startAt,
         endAt,
-        timezone: 'Asia/Shanghai',
+        timezone,
         chartPeriod,
         ...(resource === 'logs'
           ? {
@@ -154,13 +169,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       resource,
       shiftedRange.startAt,
       shiftedRange.endAt,
-      'Asia/Shanghai',
+      timezone,
     ],
     queryFn: () =>
       api.get(`/liekan/websites/${websiteId}/report`, {
         resource,
         ...shiftedRange,
-        timezone: 'Asia/Shanghai',
+        timezone,
       }),
     enabled: compare && !!websiteId,
   });
@@ -170,15 +185,20 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       new Intl.DateTimeFormat('zh-CN', {
         month: '2-digit',
         day: '2-digit',
-        timeZone: 'Asia/Shanghai',
+        timeZone: timezone,
       }).format(value);
     return `${date(startAt)} – ${date(endAt)}`;
-  }, [startAt, endAt]);
+  }, [startAt, endAt, timezone]);
   useEffect(() => {
     if (!shell) return;
-    if (report?.website) shell.setWebsite(report.website);
+    if (report?.website) shell.setWebsite({ ...report.website, teamId: website?.teamId } as any);
     else if (website)
-      shell.setWebsite({ id: website.id, name: website.name, domain: website.domain });
+      shell.setWebsite({
+        id: website.id,
+        name: website.name,
+        domain: website.domain,
+        teamId: website.teamId,
+      } as any);
     if (report?.tables.botBody)
       shell.setBotCount(
         report.states.logs === 'not_connected' ? null : report.tables.botBody.length,
@@ -254,15 +274,15 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       return;
     }
     if (label === '站点设置') {
-      router.push(renderUrl(`/settings/websites/${websiteId}`, { liekanShell: '1' }));
+      router.push(href('website-settings'));
       return;
     }
     if (label === 'UTM 管理') {
-      router.push(renderUrl(`/websites/${websiteId}/utm`, { liekanShell: '1' }));
+      router.push(href('utm'));
       return;
     }
     if (label === '目标配置') {
-      router.push(renderUrl(`/websites/${websiteId}/goals`, { liekanShell: '1' }));
+      router.push(href('goals'));
       return;
     }
     setAction(label);
@@ -290,7 +310,16 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       <div className={styles.header}>
         <div className={styles.headerInner}>
           <div>
-            <h1 className="text-[16px] font-bold tracking-tight">{page.title}</h1>
+            <nav className={styles.breadcrumbs} aria-label="页面位置">
+              <Link href={href('overview')}>网站</Link>
+              <span>/</span>
+              <span>{report?.website.name || website?.name || '当前网站'}</span>
+              <span>/</span>
+              <span aria-current="page">{pageNavigation[route.page]?.title || page.title}</span>
+            </nav>
+            <h1 className="text-[16px] font-bold tracking-tight">
+              {pageNavigation[route.page]?.title || page.title}
+            </h1>
             <p className={styles.subtitle}>
               <button
                 type="button"
@@ -298,8 +327,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                 onClick={() => setAction('统计范围')}
                 title="选择统计日期"
               >
-                {report?.website.domain || website?.domain || '当前站点'} · {rangeLabel} ·
-                Asia/Shanghai
+                {report?.website.domain || website?.domain || '当前站点'} · {rangeLabel} ·{timezone}
               </button>
               {report?.meta.demo && <span className={styles.demoBadge}>演示数据</span>}
             </p>
@@ -307,12 +335,29 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           <div className={styles.headerActions}>
             {page.actions.map(label => (
               <button key={label} type="button" className="chip" onClick={() => onAction(label)}>
-                {label}
+                {label === '站点设置' ? '网站设置' : label === 'UTM 管理' ? 'UTM 活动' : label}
               </button>
             ))}
           </div>
         </div>
       </div>
+      <div className={styles.analysisTools}>
+        {resource === 'logs' && (
+          <span>
+            每 10 秒刷新已导入日志 · 最近导入：
+            {report?.meta.latestImportAt
+              ? new Date(report.meta.latestImportAt).toLocaleString('zh-CN', { timeZone: timezone })
+              : '尚未导入'}
+          </span>
+        )}
+        <Link href={href('filters', { from: route.page })}>高级筛选</Link>
+        <Link href={href('annotations', { from: route.page })}>图表注释</Link>
+        <Link href={href('exports', { from: route.page })}>导出数据</Link>
+        <Link href={href('sharing', { context: 'website' })}>分享当前网站</Link>
+      </div>
+      {params.clearedFilters === '1' && (
+        <div className={styles.notice}>已清除当前页面不支持的筛选，统计采用页面显示的条件。</div>
+      )}
       {(query.isError || message || search) && (
         <div className={styles.notice} role="status">
           {query.isError ? '无法读取此范围的数据' : message || `查询：${search}`}

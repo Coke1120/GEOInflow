@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiekanShell } from './LiekanShell';
@@ -10,6 +11,8 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
   useNavigation: () => ({
     pathname: '/websites/site/geo',
     websiteId: 'site',
+    query: {},
+    router: { push: vi.fn(), replace: vi.fn() },
     renderUrl: (path: string) => path,
   }),
   AdminNav: () => null,
@@ -108,9 +111,11 @@ describe('recoverable chart runtime', () => {
     try {
       document.documentElement.lang = 'en-US';
       render(
-        <LiekanShell>
-          <span>中文统计区域</span>
-        </LiekanShell>,
+        <QueryClientProvider client={new QueryClient()}>
+          <LiekanShell user={{ id: 'test-user', username: 'test', role: 'user' }}>
+            <span>中文统计区域</span>
+          </LiekanShell>
+        </QueryClientProvider>,
       );
       expect(screen.getByText('中文统计区域').closest('[lang]')).toHaveAttribute('lang', 'zh-CN');
     } finally {

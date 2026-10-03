@@ -122,7 +122,7 @@ function ActionLink({
 }
 
 export function SessionTable({
-  title = '会话记录',
+  title = '访问记录',
   params = {},
 }: {
   title?: string;
@@ -140,7 +140,7 @@ export function SessionTable({
   return (
     <Panel
       title={title}
-      subtitle="按当前日期与条件读取访问记录，访客标识脱敏显示。"
+      subtitle="按当前日期与条件读取访问记录。会话是一次连续访问，访客标识脱敏显示。"
       actions={<LinkButton page="filters">筛选</LinkButton>}
     >
       <QueryState query={query}>
@@ -292,7 +292,7 @@ function Events() {
           />
         </QueryState>
       </Panel>
-      <Panel title="事件列表" subtitle="点击事件名称进入属性分布与关联会话。">
+      <Panel title="事件列表" subtitle="点击事件名称查看属性分布与关联访问记录。">
         <QueryState query={query}>
           <Table
             search
@@ -402,7 +402,7 @@ function EventDetail() {
           </Panel>
         </div>
       </QueryState>
-      <SessionTable title="关联会话" params={{ drill_event: `eq.${name}` }} />
+      <SessionTable title="关联访问记录" params={{ drill_event: `eq.${name}` }} />
     </>
   );
 }
@@ -498,9 +498,7 @@ function Sessions() {
           </QueryState>
         </Panel>
       )}
-      <Notice>
-        每个会话保留访问时间、环境、来源和行为时间线。访客标识脱敏展示，不显示原始 IP。
-      </Notice>
+      <Notice>访问记录保留时间、环境、来源和行为时间线，访客标识脱敏展示。</Notice>
     </>
   );
 }
@@ -525,7 +523,7 @@ function SessionDetail() {
   if (!id)
     return (
       <Notice>
-        请选择会话后查看详情。<LinkButton page="sessions">返回会话列表</LinkButton>
+        请选择访问记录后查看详情。<LinkButton page="sessions">返回访问记录</LinkButton>
       </Notice>
     );
   const r = record.data,
@@ -540,21 +538,24 @@ function SessionDetail() {
     <>
       <div className="row between">
         <div className="row">
-          <Badge tone="blue">会话</Badge>
+          <Badge tone="blue">访问详情</Badge>
           <strong>{visitor(id)}</strong>
           <span className="muted">{date(first?.createdAt, c.range.timezone)}</span>
         </div>
         <div className="actions">
-          <LinkButton page="sessions">返回会话列表</LinkButton>
+          <LinkButton page="sessions">返回访问记录</LinkButton>
           {replay ? (
             <LinkButton page="replay-player" params={{ id: replay.id }}>
               查看回放
             </LinkButton>
           ) : (
-            <Button disabled>未采集回放</Button>
+            <Button disabled>
+              {replays.isPending ? '正在读取回放' : replays.error ? '回放读取失败' : '未采集回放'}
+            </Button>
           )}
         </div>
       </div>
+      {replays.error && <QueryState query={replays}>{null}</QueryState>}
       <Metrics
         items={[
           ['页面访问', t ? n(t.views) : null, '当前期间'],
@@ -662,7 +663,7 @@ function Conditions({
   cohort?: boolean;
 }) {
   return (
-    <div className="condition-group">
+    <div className="condition-group" data-dirty-actions>
       <div className="row between" style={{ marginBottom: 16 }}>
         <h3>访问条件</h3>
         <Select
@@ -797,7 +798,7 @@ function FilterEditor({
       disabled={kind !== 'filters' && !canManage(c)}
       busy={action.busy}
       error={action.error}
-      submitLabel={kind === 'filters' ? '应用筛选' : isCohort ? '保存队列' : '保存分群'}
+      submitLabel={kind === 'filters' ? '应用筛选' : isCohort ? '保存行为人群' : '保存分群'}
       cancel={
         kind !== 'filters' ? (
           <LinkButton page={isCohort ? 'cohorts' : 'segments'}>取消</LinkButton>
@@ -812,7 +813,7 @@ function FilterEditor({
           });
           return;
         }
-        if (!canManage(c)) throw new Error('无权保存此配置');
+        if (!canManage(c)) throw new Error(isCohort ? '无权保存此行为人群' : '无权保存此分群');
         const parameters = {
           ...definitionParams(),
           ...(isCohort
@@ -822,19 +823,21 @@ function FilterEditor({
               }
             : {}),
         };
-        await action.run(() =>
-          c.api.post(`/websites/${c.siteId}/segments${id ? `/${id}` : ''}`, {
-            name: values.name,
-            type: isCohort ? 'cohort' : 'segment',
-            parameters,
-          }),
+        await action.run(
+          () =>
+            c.api.post(`/websites/${c.siteId}/segments${id ? `/${id}` : ''}`, {
+              name: values.name,
+              type: isCohort ? 'cohort' : 'segment',
+              parameters,
+            }),
+          isCohort ? '行为人群已保存' : '分群已保存',
         );
         c.navigate(isCohort ? 'cohorts' : 'segments');
       }}
     >
       {kind !== 'filters' && (
         <Field
-          label={isCohort ? '队列名称' : '分群名称'}
+          label={isCohort ? '行为人群名称' : '分群名称'}
           name="name"
           required
           maxLength={200}
@@ -887,7 +890,9 @@ function FilterEditor({
         setMatch={setMatch}
         cohort={isCohort}
       />
-      {isCohort && <p className="field-help">队列暂不支持会话属性条件；该字段保留为不可选状态。</p>}
+      {isCohort && (
+        <p className="field-help">行为人群暂不支持会话属性条件；该字段保留为不可选状态。</p>
+      )}
       {!isCohort && (
         <div className={kind === 'filters' ? 'condition-group' : 'form-grid'}>
           {kind === 'filters' && <h3 style={{ marginBottom: 12 }}>会话属性</h3>}
@@ -907,13 +912,14 @@ function FilterEditor({
         </div>
       )}
       {isCohort ? (
-        <Notice>行为队列的附加条件使用来源、地域、设备等维度。动作由上方字段单独定义。</Notice>
+        <Notice>行为人群的附加条件使用来源、地域、设备等维度。动作由上方字段单独定义。</Notice>
       ) : (
         <>
           <div className="row">
             <Button onClick={previewMatches}>预览匹配人数</Button>
             {kind === 'filters' && (
               <Button
+                data-dirty-action="true"
                 onClick={() => {
                   setConditions([]);
                   setProperty('');
@@ -936,10 +942,20 @@ function FilterEditor({
   );
   const editor = (
     <Panel
-      title={kind === 'filters' ? '条件筛选' : isCohort ? '队列定义' : '分群条件'}
+      title={
+        kind === 'filters'
+          ? '条件筛选'
+          : isCohort
+            ? id
+              ? '编辑行为人群'
+              : '创建行为人群'
+            : id
+              ? '编辑已保存分群'
+              : '创建已保存分群'
+      }
       subtitle={
         kind === 'filters'
-          ? '访问条件按全部或任一组合，会话属性单独设置。'
+          ? '访问条件按全部或任一组合，会话属性单独设置。应用后查看匹配的访问记录。'
           : isCohort
             ? '指定时间内完成一个页面访问或事件行为。'
             : '名称、匹配逻辑、访问条件与会话属性。'
@@ -959,7 +975,7 @@ function FilterEditor({
   return kind === 'filters' ? (
     <div className="wide-narrow">
       {editor}
-      <Panel title="保存与复用" subtitle="将当前条件保存为动态分群。">
+      <Panel title="保存与复用" subtitle="将当前条件加入已保存分群。">
         <Body>
           <p className="muted">日期范围变化后，分群按相同条件重新计算。</p>
           <div className="form-actions">
@@ -1023,7 +1039,7 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
   return (
     <>
       <Panel
-        title={cohort ? '行为队列' : '已保存分群'}
+        title={cohort ? '行为人群' : '已保存分群'}
         subtitle={
           cohort ? '以指定时间内完成某个行为的访客为分析人群。' : '动态匹配访问维度和会话属性。'
         }
@@ -1031,7 +1047,7 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
           canManage(c) && (
             <LinkButton primary page={cohort ? 'cohort-editor' : 'segment-editor'}>
               <Icon name="plus" />
-              创建{cohort ? '队列' : '分群'}
+              创建{cohort ? '行为人群' : '分群'}
             </LinkButton>
           )
         }
@@ -1041,7 +1057,7 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
             search
             columns={
               cohort
-                ? ['队列名称', '行为与期间', '访客', '更新时间', '操作']
+                ? ['行为人群名称', '行为与期间', '访客', '更新时间', '操作']
                 : ['分群名称', '条件摘要', '匹配访客', '占比', '操作']
             }
             rows={(query.data || []).map((r: any) => [
@@ -1061,32 +1077,41 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
                   : '正在加载',
               cohort
                 ? date(r.updatedAt || r.createdAt, c.range.timezone)
-                : results[r.id] && total.data
-                  ? percentage(results[r.id].visitors, total.data.visitors)
-                  : '—',
+                : results[r.id]?.error || total.error
+                  ? '读取失败'
+                  : results[r.id] && total.data
+                    ? percentage(results[r.id].visitors, total.data.visitors)
+                    : '未提供',
               <ActionLink
                 page={cohort ? 'cohort-editor' : 'segment-editor'}
                 params={{ id: r.id }}
                 key={r.id}
               >
-                {canManage(c) ? '编辑' : '查看'}
+                {canManage(c)
+                  ? cohort
+                    ? '编辑行为人群'
+                    : '编辑分群'
+                  : cohort
+                    ? '查看行为人群'
+                    : '查看分群'}
               </ActionLink>,
             ])}
             numeric={cohort ? [2] : [2, 3]}
           />
         </QueryState>
       </Panel>
+      {!cohort && total.error && <QueryState query={total}>{null}</QueryState>}
       {cohort ? (
         <div className="two">
-          <Panel title="队列与留存" subtitle="观察完成行为后的访客是否返回。">
+          <Panel title="行为人群与留存" subtitle="观察完成行为后的访客是否返回。">
             <Body>
-              <p className="muted">队列定义保留动作、日期范围和访问条件。</p>
+              <p className="muted">行为人群定义保留行为、日期范围和访问条件。</p>
               <div className="form-actions">
                 <LinkButton page="retention">查看留存矩阵</LinkButton>
               </div>
             </Body>
           </Panel>
-          <Panel title="队列与路径" subtitle="观察人群的访问行为组合。">
+          <Panel title="行为人群与路径" subtitle="观察人群的访问行为组合。">
             <Body>
               <p className="muted">在旅程中选择已保存的人群条件。</p>
               <div className="form-actions">
@@ -1310,7 +1335,7 @@ function Retention() {
               date: `range:${startAt}:${endAt}:day`,
             }}
           >
-            查看关联会话
+            查看关联访问记录
           </LinkButton>
         </Drawer>
       )}
@@ -1428,7 +1453,10 @@ function Journeys({ detail = false }: { detail?: boolean }) {
               {!row && <Notice>当前条件没有匹配路径，请返回访问旅程调整条件。</Notice>}
             </Body>
           </Panel>
-          <Panel title="完成路径的会话" subtitle="与所选节点序列、类型、步数、日期及筛选条件一致。">
+          <Panel
+            title="完成路径的访问记录"
+            subtitle="与所选节点序列、类型、步数、日期及筛选条件一致。"
+          >
             <Table
               columns={['访客', '访问时间', '地域', '来源', '当前页面', '页面数', '时长', '操作']}
               rows={(d?.sessions || []).map(r => [
@@ -1503,7 +1531,7 @@ function Journeys({ detail = false }: { detail?: boolean }) {
       </Panel>
       <Panel
         title="从内容到转化的访问路径"
-        subtitle="连线宽度代表访客量，下方路径明细可查看关联会话。"
+        subtitle="连线宽度代表访客量，下方路径明细可查看关联访问记录。"
       >
         <QueryState query={query}>
           {rows.length ? (
@@ -1614,12 +1642,23 @@ function UTM() {
           ['带 UTM 访客', summary.data ? n(summary.data.visitors) : null, '独立访客'],
           [
             '已标记转化',
-            selected && goal.data ? n(goal.data.conversions) : selected ? '—' : '尚未配置',
-            selected ? `目标：${selected.name}` : '请先创建网站目标',
+            goals.error || goal.error
+              ? '读取失败'
+              : goals.isPending || (selected && goal.isPending)
+                ? '正在读取'
+                : selected && goal.data
+                  ? n(goal.data.conversions)
+                  : selected
+                    ? '未提供'
+                    : '尚未配置',
+            selected ? `目标：${selected.name}` : goals.error ? '目标读取失败' : '请先创建网站目标',
           ],
           ['字段缺失', '分别保留', '未提供字段不补推断'],
         ]}
       />
+      {summary.error && <QueryState query={summary}>{null}</QueryState>}
+      {goals.error && <QueryState query={goals}>{null}</QueryState>}
+      {goal.error && <QueryState query={goal}>{null}</QueryState>}
       <QueryState query={query}>
         <div className="two">
           <Chart
@@ -1651,7 +1690,8 @@ function UTM() {
         </div>
       </QueryState>
       <Notice>
-        五个 UTM 字段分别聚合。来源识别与 UTM 命名相互独立，AI 来源不会自动写入缺失的 UTM 字段。
+        UTM 活动按五个 URL 标记字段分别聚合。来源识别与 UTM 命名相互独立，AI 来源不会自动写入缺失的
+        UTM 字段。
       </Notice>
     </>
   );
@@ -2079,7 +2119,7 @@ function Annotations() {
               formatInTimeZone(r.date, c.range.timezone, 'yyyy-MM-dd'),
               r.note,
               <Button key={r.id} disabled={!canManage(c)} onClick={() => setEdit(r)}>
-                编辑
+                编辑注释
               </Button>,
             ])}
           />
@@ -2118,13 +2158,16 @@ function Annotations() {
           <Form
             busy={action.busy}
             error={action.error}
+            submitLabel="保存注释"
             onSubmit={async v => {
-              await action.run(() =>
-                c.api.post(`/websites/${c.siteId}/annotations${edit.id ? `/${edit.id}` : ''}`, {
-                  date: fromZonedTime(`${v.date}T00:00:00`, c.range.timezone).toISOString(),
-                  note: v.note,
-                  allDay: true,
-                }),
+              await action.run(
+                () =>
+                  c.api.post(`/websites/${c.siteId}/annotations${edit.id ? `/${edit.id}` : ''}`, {
+                    date: fromZonedTime(`${v.date}T00:00:00`, c.range.timezone).toISOString(),
+                    note: v.note,
+                    allDay: true,
+                  }),
+                '注释已保存',
               );
               setEdit(null);
             }}

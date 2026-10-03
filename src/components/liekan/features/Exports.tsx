@@ -162,7 +162,7 @@ export function Exports() {
                   defaultChecked={section !== 'sessions'}
                   disabled={format !== 'zip'}
                 >
-                  {['汇总指标', '页面与来源', '事件与属性', '会话明细（脱敏）', '已保存配置'][i]}
+                  {['汇总指标', '页面与来源', '事件与属性', '访问记录（脱敏）', '已保存配置'][i]}
                 </Check>
               ))}
             </div>
@@ -201,7 +201,7 @@ export function Exports() {
                 <i style={{ width: `${progress.percent}%` }} />
               </div>
               <p className="muted">校验范围 → 整理字段 → 生成文件 → 传输下载</p>
-              <Button onClick={cancel}>取消任务</Button>
+              <Button onClick={cancel}>取消导出</Button>
             </div>
           ) : (
             file && (
@@ -221,7 +221,7 @@ export function Exports() {
                 />
                 <a className="btn primary" href={file.url} download={file.name}>
                   <Icon name="download" />
-                  下载文件
+                  下载导出文件
                 </a>
                 <Button onClick={() => setManifestOpen(true)}>查看字段清单</Button>
               </div>

@@ -1,23 +1,23 @@
 import type { FeatureEntity, FeatureUser } from './features';
 
 export const workspaceRoleLabels: Record<string, string> = {
-  admin: '管理员',
+  admin: '系统管理员',
   user: '用户',
   'view-only': '只读',
-  'team-owner': '所有者',
-  'team-manager': '管理员',
-  'team-member': '成员',
-  'team-view-only': '只读',
+  'team-owner': '团队所有者',
+  'team-manager': '团队管理员',
+  'team-member': '团队成员',
+  'team-view-only': '团队只读',
 };
 export const teamRoleOptions: [string, string][] = [
-  ['team-manager', '管理员'],
-  ['team-member', '成员'],
-  ['team-view-only', '只读'],
+  ['team-manager', '团队管理员'],
+  ['team-member', '团队成员'],
+  ['team-view-only', '团队只读'],
 ];
 export const userRoleOptions: [string, string][] = [
   ['user', '用户'],
   ['view-only', '只读'],
-  ['admin', '管理员'],
+  ['admin', '系统管理员'],
 ];
 const rank: Record<string, number> = {
   'team-owner': 3,

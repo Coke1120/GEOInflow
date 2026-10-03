@@ -99,11 +99,50 @@ beforeEach(() => {
   mocks.post.mockResolvedValue({});
 });
 describe('feature navigation scope', () => {
+  it('resolves a website-backed board name without implicitly selecting a website', async () => {
+    mocks.get.mockResolvedValue({
+      data: [
+        {
+          id: 'board-1',
+          name: '团队来源看板',
+          type: 'website',
+          userId: user.id,
+          parameters: { websiteId: teamSite.id },
+          updatedAt: '2026-10-03T00:00:00Z',
+        },
+      ],
+      count: 1,
+      pageSize: 20,
+    });
+    const view = mount({ page: 'boards' });
+    expect(await screen.findByText('团队来源看板')).toBeInTheDocument();
+    expect(await screen.findByText(teamSite.name)).toBeInTheDocument();
+    expect(mocks.sites).toHaveBeenCalledWith(expect.any(AbortSignal), undefined, 'all');
+    expect(view.container.querySelector('.site-switch')).toBeNull();
+  });
+  it('shows five global modules and no implicit website on an account page', async () => {
+    const view = mount({ page: 'account', websiteId: personal.id, teamId });
+    const sidebar = view.container.querySelector('#liekan-navigation');
+    expect(sidebar.querySelectorAll('[data-navigation-group]')).toHaveLength(5);
+    expect(sidebar.querySelector('.site-switch')).toBeNull();
+    expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
+    expect(mocks.sites).not.toHaveBeenCalled();
+  });
+  it('requires explicit website selection when an analysis URL has no website ID', async () => {
+    mount({ page: 'sessions' });
+    expect(await screen.findByText('请选择需要查看的网站。')).toBeInTheDocument();
+    expect(screen.queryByText('当前分析页面：sessions')).not.toBeInTheDocument();
+    expect(mocks.get).not.toHaveBeenCalledWith(
+      `/websites/${personal.id}`,
+      expect.anything(),
+      expect.anything(),
+    );
+  });
   it('loads and preserves all user dashboard pins when reached from a team', async () => {
     mount({ page: 'dashboard-edit', teamId });
     expect(await screen.findByRole('checkbox', { name: /个人网站/ })).toBeChecked();
     expect(screen.getByRole('checkbox', { name: /团队网站/ })).toBeChecked();
-    expect(mocks.sites).toHaveBeenCalledWith(expect.any(AbortSignal), undefined);
+    expect(mocks.sites).toHaveBeenCalledWith(expect.any(AbortSignal), undefined, 'all');
     await userEvent.click(screen.getByRole('button', { name: '保存工作台' }));
     await waitFor(() =>
       expect(mocks.post).toHaveBeenCalledWith(

@@ -1,6 +1,8 @@
 'use client';
+import { fromZonedTime } from 'date-fns-tz';
 import { useEffect, useRef, useState } from 'react';
 import { useApi } from '@/lib/liekan/upstream/client';
+import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Shell.module.css';
 import { columns, downloadFile, formatMetricValue, formatValue, stateLabels } from './data';
 import { ReportRows, SortHeading } from './ReportComponents';
@@ -58,6 +60,7 @@ export function ManagementDrawer({
   };
 }) {
   const api = useApi();
+  const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
   const panel = useRef<HTMLDivElement>(null);
   const titleId = 'liekan-drawer-title';
   const [content, setContent] = useState(action === '日志查询' ? initialSearch || '' : '');
@@ -84,7 +87,7 @@ export function ManagementDrawer({
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
-      timeZone: 'Asia/Shanghai',
+      timeZone: timezone,
       hour12: false,
     }).format(value);
   useEffect(() => {
@@ -151,8 +154,8 @@ export function ManagementDrawer({
     event.preventDefault();
     if (isComparison) return;
     if (isRange) {
-      const startAt = new Date(`${start}T00:00:00+08:00`).getTime(),
-        endAt = new Date(`${end}T23:59:59.999+08:00`).getTime();
+      const startAt = +fromZonedTime(`${start}T00:00:00`, timezone),
+        endAt = +fromZonedTime(`${end}T23:59:59.999`, timezone);
       if (!Number.isFinite(startAt) || !Number.isFinite(endAt) || startAt > endAt) {
         setStatus('请选择有效的起止日期');
         return;
@@ -199,7 +202,7 @@ export function ManagementDrawer({
               ? saved.allowlist.join('\n')
               : JSON.stringify(saved.rules, null, 2),
         );
-        setStatus('已保存');
+        setStatus(`${action}已保存`);
       } else if (isCatalog) {
         const result: { accepted: number; mode: string } = await api.put(
           `/liekan/websites/${websiteId}/catalog`,

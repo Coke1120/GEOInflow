@@ -16,6 +16,7 @@ import { CorePages, FeatureAuthPage } from './CorePages';
 const mocks = vi.hoisted(() => ({
   context: null as any,
   query: {} as Record<string, any>,
+  queryStates: {} as Record<string, any>,
   post: vi.fn(),
   verify: vi.fn(),
   sso: vi.fn(),
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   params: new URLSearchParams(),
   queries: [] as any[],
+  managementDrawer: vi.fn(),
 }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.replace }),
@@ -42,6 +44,19 @@ vi.mock('./Chart', () => ({
     </div>
   ),
 }));
+vi.mock('./WorkspacePages', () => ({
+  WebsiteSharing: () => <div>当前网站分享组件</div>,
+}));
+vi.mock('../ManagementDrawer', () => ({
+  ManagementDrawer: (props: any) => {
+    mocks.managementDrawer(props);
+    return (
+      <div role="dialog" aria-label={props.action}>
+        当前网站管理操作
+      </div>
+    );
+  },
+}));
 vi.mock('./context', () => ({
   useFeature: () => mocks.context,
   useData: (key: string | any[]) => {
@@ -53,15 +68,18 @@ vi.mock('./context', () => ({
       isFetching: false,
       error: null,
       refetch: vi.fn(),
+      ...mocks.queryStates[name],
     };
   },
   useAction: () => {
     const [busy, setBusy] = useState(false);
     return {
-      run: async (action: () => Promise<any>) => {
+      run: async (action: () => Promise<any>, message?: string) => {
         setBusy(true);
         try {
-          return await action();
+          const result = await action();
+          if (message) mocks.context.notify(message);
+          return result;
         } finally {
           setBusy(false);
         }
@@ -89,6 +107,7 @@ vi.mock('@/lib/liekan/upstream/features-client', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.query = {};
+  mocks.queryStates = {};
   mocks.queries = [];
   mocks.params = new URLSearchParams();
   sessionStorage.clear();
@@ -103,7 +122,8 @@ beforeEach(() => {
     filters: {},
     query: {},
     api: { post: mocks.post, get: vi.fn(), del: vi.fn() },
-    href: (page: string) => `/liekan/${page}`,
+    href: (page: string, params: Record<string, any> = {}) =>
+      `/liekan/${page}${Object.keys(params).length ? `?${new URLSearchParams(params)}` : ''}`,
     navigate: vi.fn(),
     notify: vi.fn(),
     refresh: vi.fn(),
@@ -111,6 +131,12 @@ beforeEach(() => {
 });
 
 describe('core API mappings', () => {
+  it('marks reordered funnel steps as unsaved without requiring text input', () => {
+    const { container } = render(<CorePages page="funnel-editor" />);
+    expect(container.querySelector('form')).not.toHaveAttribute('data-unsaved', 'true');
+    fireEvent.click(screen.getByRole('button', { name: '下移步骤 1' }));
+    expect(container.querySelector('form')).toHaveAttribute('data-unsaved', 'true');
+  });
   it('passes logical paths to Next navigation when a base path is configured', () => {
     expect(featureNavigationPath('/stats/dashboard', '/stats')).toBe('/dashboard');
     expect(featureNavigationPath('/dashboard', '/stats')).toBe('/dashboard');
@@ -366,7 +392,7 @@ describe('core form flows', () => {
     ];
     const { rerender } = render(<CorePages page="websites" />);
     expect(screen.getByText('无统计权限')).toBeInTheDocument();
-    expect(screen.getByText('登录已过期')).toBeInTheDocument();
+    expect(screen.getByText('需要重新登录')).toBeInTheDocument();
     expect(screen.getByText('读取失败')).toBeInTheDocument();
     const views = document.querySelectorAll('.metric')[3] as HTMLElement;
     expect(within(views).getByText('120')).toBeInTheDocument();
@@ -421,7 +447,9 @@ describe('core form flows', () => {
     expect(screen.getByRole('button', { name: '保存目标' })).toBeEnabled();
     mocks.query['site-record'] = mocks.context.site;
     rerender(<CorePages page="website-settings" />);
-    expect(screen.getByRole('button', { name: '保存基本信息' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '保存网站设置' })).toBeEnabled();
+    mocks.context.query.section = 'danger';
+    rerender(<CorePages page="website-settings" />);
     expect(screen.getByRole('button', { name: '转移网站' })).toBeDisabled();
     rerender(<CorePages page="onboarding" />);
     expect(
@@ -435,6 +463,7 @@ describe('core form flows', () => {
       { id: 'team-1', name: '研究团队', members: [{ userId: 'user-1', role: 'team-manager' }] },
     ];
     mocks.query['site-record'] = mocks.context.site;
+    mocks.context.query.section = 'danger';
     const { rerender } = render(<CorePages page="website-settings" />);
     expect(screen.getByRole('button', { name: '转移网站' })).toBeDisabled();
     mocks.context.teams[0].members[0].role = 'team-owner';
@@ -448,6 +477,7 @@ describe('core form flows', () => {
       { id: 'manager-team', name: '管理团队', role: 'team-manager' },
     ];
     mocks.query['site-record'] = mocks.context.site;
+    mocks.context.query.section = 'danger';
     const user = userEvent.setup();
     render(<CorePages page="website-settings" />);
     await user.click(screen.getByRole('button', { name: '转移网站' }));
@@ -585,6 +615,8 @@ describe('core form flows', () => {
     const user = userEvent.setup();
     render(<CorePages page="onboarding" />);
     expect(screen.queryByText(/data-website-id=/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '查看安装说明' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '采集与隐私设置' })).not.toBeInTheDocument();
     await user.type(screen.getByLabelText(/网站名称/), '研究站');
     await user.type(screen.getByLabelText(/域名/), 'research.example.com');
     await user.click(screen.getByRole('button', { name: '创建并继续' }));
@@ -595,6 +627,210 @@ describe('core form flows', () => {
       }),
     );
     expect(await screen.findByText(/data-website-id="persisted-site-id"/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '查看安装说明' })).toHaveAttribute(
+      'href',
+      '/liekan/tracking?websiteId=persisted-site-id',
+    );
+  });
+  it('defaults creation to the permitted current team and keeps the created website bound through verification', async () => {
+    mocks.context.route = { page: 'onboarding', teamId: 'team-1' };
+    mocks.context.user = { ...mocks.context.user, role: 'user', isAdmin: false };
+    mocks.context.teams = [{ id: 'team-1', name: '研究团队', role: 'team-member' }];
+    mocks.query.install = { pageviews: 1, firstAt: '2026-10-01T00:00:00Z' };
+    mocks.post.mockResolvedValue({
+      id: 'created-team-site',
+      name: '团队研究站',
+      domain: 'team.example.com',
+      teamId: 'team-1',
+    });
+    const user = userEvent.setup();
+    render(<CorePages page="onboarding" />);
+    expect(screen.getByLabelText('所属空间')).toHaveValue('team-1');
+    await user.type(screen.getByLabelText(/网站名称/), '团队研究站');
+    await user.type(screen.getByLabelText(/域名/), 'team.example.com');
+    await user.click(screen.getByRole('button', { name: '创建并继续' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith('/websites', {
+        name: '团队研究站',
+        domain: 'team.example.com',
+        teamId: 'team-1',
+      }),
+    );
+    expect(screen.getByText('团队研究站')).toBeInTheDocument();
+    expect(screen.getByText('team.example.com')).toBeInTheDocument();
+    expect(screen.getByText('研究团队')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '已安装，开始验证' }));
+    expect(screen.getByRole('link', { name: '查看该网站统计' })).toHaveAttribute(
+      'href',
+      '/liekan/overview?websiteId=created-team-site',
+    );
+    expect(mocks.context.navigate).not.toHaveBeenCalled();
+  });
+  it('falls back to personal creation with a truthful warning when the current team is not permitted', async () => {
+    mocks.context.route = { page: 'onboarding', teamId: 'read-team' };
+    mocks.context.user = { ...mocks.context.user, role: 'user', isAdmin: false };
+    mocks.context.teams = [{ id: 'read-team', name: '只读团队', role: 'team-view-only' }];
+    mocks.post.mockResolvedValue({
+      id: 'personal-created',
+      name: '个人研究站',
+      domain: 'personal.example.com',
+    });
+    const user = userEvent.setup();
+    render(<CorePages page="onboarding" />);
+    expect(screen.getByLabelText('所属空间')).toHaveValue('');
+    expect(screen.getByText(/所属空间已选为个人空间/)).toBeInTheDocument();
+    expect(
+      within(screen.getByLabelText('所属空间')).queryByRole('option', { name: '只读团队' }),
+    ).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText(/网站名称/), '个人研究站');
+    await user.type(screen.getByLabelText(/域名/), 'personal.example.com');
+    await user.click(screen.getByRole('button', { name: '创建并继续' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith('/websites', {
+        name: '个人研究站',
+        domain: 'personal.example.com',
+      }),
+    );
+  });
+  it('rejects a submitted team ownership outside the permitted destinations', async () => {
+    mocks.context.user = { ...mocks.context.user, role: 'user', isAdmin: false };
+    const user = userEvent.setup();
+    render(<CorePages page="onboarding" />);
+    await user.type(screen.getByLabelText(/网站名称/), '研究站');
+    await user.type(screen.getByLabelText(/域名/), 'research.example.com');
+    const ownership = screen.getByLabelText('所属空间') as HTMLSelectElement;
+    ownership.add(new Option('未授权团队', 'forbidden-team'));
+    ownership.value = 'forbidden-team';
+    fireEvent.submit(ownership.closest('form'));
+    expect(await screen.findByRole('alert')).toHaveTextContent('没有在所选团队创建网站的权限');
+    expect(mocks.post).not.toHaveBeenCalled();
+    expect(screen.queryByText(/data-website-id=/)).not.toBeInTheDocument();
+  });
+  it('derives settings sections from the URL and binds collection operations to the current website', async () => {
+    mocks.context.query.section = 'collection';
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 1 };
+    mocks.query['website-setup-report'] = {
+      states: { logs: 'not_connected', catalog: 'available' },
+      meta: {},
+    };
+    const user = userEvent.setup();
+    const { rerender } = render(<CorePages page="website-settings" />);
+    expect(screen.getByRole('tab', { name: '采集设置' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('尚未导入日志')).toBeInTheDocument();
+    expect(screen.getByText('已有内容目录')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '回放与热力图设置' })).toHaveAttribute(
+      'href',
+      '/liekan/recorder-settings?websiteId=site-1',
+    );
+    await user.click(screen.getByRole('button', { name: '导入该网站日志' }));
+    expect(mocks.managementDrawer).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: '导入日志', websiteId: 'site-1', canManage: true }),
+    );
+    await user.click(screen.getByRole('tab', { name: '基本信息' }));
+    expect(mocks.context.navigate).toHaveBeenCalledWith('website-settings', {
+      websiteId: 'site-1',
+      section: 'basic',
+    });
+    mocks.context.query.section = 'basic';
+    rerender(<CorePages page="website-settings" />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '保存网站设置' })).toBeInTheDocument();
+    mocks.context.query.section = 'sharing';
+    rerender(<CorePages page="website-settings" />);
+    expect(screen.getByRole('tab', { name: '分享设置' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('当前网站分享组件')).toBeInTheDocument();
+    mocks.context.query.section = 'invalid-section';
+    rerender(<CorePages page="website-settings" />);
+    expect(screen.getByRole('tab', { name: '基本信息' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('button', { name: '删除网站' })).not.toBeInTheDocument();
+  });
+  it('keeps failed collection checks distinct from received data and recorder configuration', () => {
+    mocks.context.query.section = 'collection';
+    mocks.query['site-record'] = {
+      ...mocks.context.site,
+      replayConfig: { replayEnabled: true, heatmapEnabled: true },
+    };
+    mocks.query.install = { pageviews: 10 };
+    mocks.query['website-setup-report'] = {
+      states: { logs: 'available', catalog: 'available' },
+      meta: { latestImportAt: '2026-10-01T00:00:00Z' },
+    };
+    mocks.queryStates.install = { error: { status: 503, message: '浏览统计不可用' } };
+    mocks.queryStates['website-setup-report'] = {
+      error: { status: 503, message: '日志统计不可用' },
+    };
+    render(<CorePages page="website-settings" />);
+    expect(screen.getAllByText('读取失败')).toHaveLength(3);
+    expect(screen.queryByText('已收到浏览数据')).not.toBeInTheDocument();
+    expect(screen.queryByText('已收到日志数据')).not.toBeInTheDocument();
+    expect(screen.queryByText('已有内容目录')).not.toBeInTheDocument();
+    expect(screen.queryByText(/最近导入日志/)).not.toBeInTheDocument();
+    expect(screen.getByText('回放已启用 · 热力图已启用 · 数据状态未验证')).toBeInTheDocument();
+  });
+  it('does not treat custom event timestamps as the first browser pageview', () => {
+    mocks.context.route = { page: 'website-settings' };
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.context.range.timezone = 'Asia/Shanghai';
+    mocks.context.query = { section: 'install' };
+    mocks.query.install = {
+      pageviews: 0,
+      firstAt: '2026-10-01T00:00:00Z',
+      lastAt: '2026-10-01T00:00:00Z',
+    };
+    mocks.query['website-setup-report'] = {
+      states: { logs: 'not_connected', catalog: 'not_connected' },
+      meta: {},
+    };
+    render(<CorePages page="website-settings" />);
+    expect(screen.getByText('尚未收到浏览数据')).toBeInTheDocument();
+    expect(screen.queryByText('已收到浏览数据')).not.toBeInTheDocument();
+    expect(screen.getByText(/日志统计期间/)).toHaveTextContent('Asia/Shanghai');
+  });
+  it('names the website in the save result and keeps website sharing links scoped', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.post.mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<CorePages page="website-settings" />);
+    await user.clear(screen.getByLabelText(/网站名称/));
+    await user.type(screen.getByLabelText(/网站名称/), '更新的网站');
+    await user.click(screen.getByRole('button', { name: '保存网站设置' }));
+    await waitFor(() =>
+      expect(mocks.context.notify).toHaveBeenCalledWith('「更新的网站」的网站设置已保存'),
+    );
+    expect(screen.getByRole('link', { name: '分享设置' })).toHaveAttribute(
+      'href',
+      '/liekan/sharing?websiteId=site-1&context=website',
+    );
+  });
+  it('states the actual clear-data scope and retains the existing reset endpoint and confirmation', async () => {
+    mocks.context.query.section = 'danger';
+    mocks.query['site-record'] = { ...mocks.context.site, name: '研究站' };
+    mocks.post.mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<CorePages page="website-settings" />);
+    await user.click(screen.getByRole('button', { name: '清空访问数据' }));
+    const dialog = within(screen.getByRole('dialog'));
+    expect(dialog.getByRole('alert')).toHaveTextContent('Liekan 日志与导入记录');
+    expect(dialog.getByRole('alert')).toHaveTextContent(
+      '内容目录、策略、网站设置和安装标识继续保留',
+    );
+    expect(dialog.getByRole('alert')).toHaveTextContent('回放、热力图、收入记录');
+    expect(dialog.queryByRole('button', { name: '确认操作' })).not.toBeInTheDocument();
+    await user.type(dialog.getByLabelText(/输入 RESET 确认/), 'RESET');
+    await user.click(dialog.getByRole('button', { name: '确认清空访问数据' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/websites/site-1/reset'));
+    expect(mocks.context.notify).toHaveBeenCalledWith('「研究站」的访问数据已清空');
+    expect(mocks.context.api.del).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: '删除网站' }));
+    await user.type(screen.getByLabelText(/输入 研究站 确认/), '错误名称');
+    await user.click(screen.getByRole('button', { name: '确认删除网站' }));
+    expect(mocks.context.api.del).not.toHaveBeenCalled();
+    await user.clear(screen.getByLabelText(/输入 研究站 确认/));
+    await user.type(screen.getByLabelText(/输入 研究站 确认/), '研究站');
+    await user.click(screen.getByRole('button', { name: '确认删除网站' }));
+    await waitFor(() => expect(mocks.context.api.del).toHaveBeenCalledWith('/websites/site-1'));
+    expect(mocks.context.navigate).toHaveBeenCalledWith('websites');
   });
   it('runs login without the normal app provider and honors partial authentication', async () => {
     mocks.context = null;

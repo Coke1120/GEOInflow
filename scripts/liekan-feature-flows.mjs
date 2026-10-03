@@ -105,7 +105,7 @@ try {
   ({ page, context } = await pageAt('/liekan/sharing?websiteId=' + seed.website.id, true));
   result.checks.push({
     name: 'cold sharing list includes website shares',
-    passed: (await page.getByRole('cell', { name: share.name, exact: true }).count()) === 1,
+    passed: (await page.getByText(share.name, { exact: true }).count()) === 1,
   });
   await page.screenshot({ path: out + '/sharing.png', fullPage: true });
   await context.close();
@@ -214,6 +214,35 @@ try {
       !switched.searchParams.has('retentionDate') &&
       !switched.searchParams.has('retentionDay') &&
       switchAlerts.length === 0,
+  });
+  await context.close();
+  ({ page, context } = await pageAt(
+    `/liekan/funnel-editor?${new URLSearchParams({ websiteId: seed.website.id, date })}`,
+  ));
+  await page.getByRole('button', { name: '下移步骤 1', exact: true }).click();
+  const editorUrl = page.url();
+  async function chooseNextSite() {
+    await page.locator('.site-switch').click();
+    const picker = page.getByRole('dialog', { name: '切换网站', exact: true });
+    await picker.locator('[name=site]').selectOption(switchSite.id);
+    await picker.getByRole('button', { name: '切换网站', exact: true }).click();
+    await page.getByRole('dialog', { name: '当前修改尚未保存', exact: true }).waitFor();
+    assert.equal(await page.getByRole('dialog').count(), 1);
+  }
+  await chooseNextSite();
+  await page.getByRole('button', { name: '继续编辑', exact: true }).click();
+  assert.equal(page.url(), editorUrl, 'Continue editing must keep the original website and form');
+  assert.equal(await page.locator('form[data-unsaved="true"]').count(), 1);
+  await chooseNextSite();
+  await page.getByRole('button', { name: '放弃修改并切换', exact: true }).click();
+  await page.waitForURL(u => u.pathname === `/websites/${switchSite.id}/funnels`);
+  await page.waitForLoadState('networkidle');
+  result.checks.push({
+    name: 'unsaved step reorder confirms website switch with one dialog and restores scrolling',
+    passed:
+      new URL(page.url()).searchParams.get('date') === date &&
+      (await page.getByRole('dialog').count()) === 0 &&
+      (await page.evaluate(() => document.body.style.overflow)) === '',
   });
   await context.close();
   result.passed = result.checks.every(c => c.passed) && result.errors.length === 0;

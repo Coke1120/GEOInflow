@@ -56,6 +56,7 @@ function useWebsiteQuery(key: any[], path: string, params: any = {}, enabled = t
   );
 }
 const masked = (id: string) => `访客 ${id?.replaceAll('-', '').slice(-6) || '—'}`;
+const missingReplaySnapshotMessage = '此录制缺少完整页面快照，暂时无法播放。';
 const perfValue = (value: number | null, metric: string) =>
   value == null
     ? '未采集'
@@ -197,6 +198,7 @@ function Performance() {
       </div>
       <Notice>性能数据需采集对应浏览器指标。没有样本时显示“未采集”。CLS 不使用时间单位。</Notice>
       {counts.error && <QueryState query={counts}>{null}</QueryState>}
+      {summary.error && <QueryState query={summary}>{null}</QueryState>}
     </>
   );
 }
@@ -254,7 +256,7 @@ function Revenue() {
       </div>
       <Metrics
         items={[
-          ['收入', totals ? money(totals.sum ?? 0) : null, `${currency} · 所选币种`],
+          ['收入', totals ? money(totals.sum) : null, `${currency} · 所选币种`],
           ['付费事件', totals ? n(totals.count) : null, '收入事件触发次数'],
           ['付费访客', totals ? n(totals.unique_count) : null, '独立访客'],
           [
@@ -264,7 +266,8 @@ function Revenue() {
           ],
         ]}
       />
-      <Panel title="收入趋势" subtitle="按币种分开分析，累计从所选期间起点计算。">
+      {summary.error && <QueryState query={summary}>{null}</QueryState>}
+      <Panel title="收入趋势" subtitle={`金额单位：${currency}。累计从所选期间起点计算。`}>
         <QueryState query={chart}>
           <Chart
             labels={labels}
@@ -283,7 +286,7 @@ function Revenue() {
         </QueryState>
       </Panel>
       <div className="two">
-        <Panel title="收入来源" subtitle="当前币种的收入贡献。">
+        <Panel title="收入来源" subtitle={`当前币种 ${currency} 的收入贡献。`}>
           <QueryState query={sources}>
             <Table
               columns={['来源', '收入', '占比']}
@@ -296,7 +299,7 @@ function Revenue() {
             />
           </QueryState>
         </Panel>
-        <Panel title="交易会话" subtitle="事件金额与币种属性。">
+        <Panel title="交易访问记录" subtitle={`事件金额与币种属性，金额单位：${currency}。`}>
           <QueryState query={transactions}>
             <Table
               columns={['会话', '事件', '金额', '操作']}
@@ -309,7 +312,7 @@ function Revenue() {
                   key={r.id}
                   href={c.href('session-detail', { id: r.sessionId })}
                 >
-                  详情 →
+                  查看访问详情 →
                 </Link>,
               ])}
               numeric={[2]}
@@ -504,6 +507,9 @@ function Heatmaps() {
                   <div className="state-box">
                     <h3>尚未采集可预览的数据</h3>
                     <p>开启行为采集并产生对应页面的点击或滚动后，此处显示真实分布。</p>
+                    <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
+                      查看当前网站采集设置
+                    </LinkButton>
                   </div>
                 )}
               </div>
@@ -536,11 +542,14 @@ function Heatmaps() {
               />
             </QueryState>
             <div className="form-actions">
-              <LinkButton page="recorder-settings">采集设置</LinkButton>
+              <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
+                网站采集设置
+              </LinkButton>
             </div>
           </Body>
         </Panel>
       </div>
+      {recorder.error && <QueryState query={recorder}>{null}</QueryState>}
     </>
   );
 }
@@ -576,7 +585,11 @@ function Replays() {
       <Panel
         title="会话录制"
         subtitle="隐私遮蔽后的实际录制，通过录制标识进入播放器。"
-        actions={<LinkButton page="recorder-settings">采集设置</LinkButton>}
+        actions={
+          <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
+            网站采集设置
+          </LinkButton>
+        }
       >
         <QueryState query={query}>
           <Table
@@ -605,6 +618,14 @@ function Replays() {
             pages={Math.ceil((query.data?.count || 0) / 25)}
             onPage={setPage}
           />
+          {!rows.length && (
+            <Notice>
+              当前日期与筛选条件下没有录制。会话是一次连续访问，录制需要提前开启行为采集。
+              <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
+                查看当前网站采集设置
+              </LinkButton>
+            </Notice>
+          )}
         </QueryState>
       </Panel>
       <Notice>
@@ -646,7 +667,7 @@ function ReplayPlayer() {
         if (canceled) return;
         const playable = prepareReplayEvents(events);
         if (playable.length < 2) {
-          setError('此录制缺少完整页面快照，暂时无法播放。');
+          setError(missingReplaySnapshotMessage);
           return;
         }
         try {
@@ -753,8 +774,24 @@ function ReplayPlayer() {
         <div className="wide-narrow">
           <Panel title="回放画布" subtitle="使用实际页面快照与采集视口。">
             <Body>
-              {error && <Notice tone="red">{error}</Notice>}
-              {events.length < 2 && <Notice>当前录制没有可播放的完整快照。</Notice>}
+              {error && (
+                <Notice tone="red">
+                  {error}
+                  {error === missingReplaySnapshotMessage && (
+                    <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
+                      查看当前网站采集设置
+                    </LinkButton>
+                  )}
+                </Notice>
+              )}
+              {events.length < 2 && (
+                <Notice>
+                  当前录制没有可播放的完整快照。
+                  <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
+                    查看当前网站采集设置
+                  </LinkButton>
+                </Notice>
+              )}
               <div
                 ref={container}
                 className="replay-stage"
@@ -817,7 +854,7 @@ function ReplayPlayer() {
               <hr className="divider" />
               {query.data?.sessionId && (
                 <LinkButton page="session-detail" params={{ id: query.data.sessionId }}>
-                  会话详情
+                  查看访问详情
                 </LinkButton>
               )}
             </Body>
@@ -835,12 +872,15 @@ function ReplayPlayer() {
             <Form
               busy={action.busy}
               error={action.error}
+              submitLabel="保存录制"
               onSubmit={async v => {
-                await action.run(() =>
-                  c.api.post(`/websites/${c.siteId}/replays/saved/${id}`, {
-                    isSaved: true,
-                    name: v.name,
-                  }),
+                await action.run(
+                  () =>
+                    c.api.post(`/websites/${c.siteId}/replays/saved/${id}`, {
+                      isSaved: true,
+                      name: v.name,
+                    }),
+                  '录制已保存',
                 );
                 setSaveOpen(false);
               }}
@@ -859,7 +899,7 @@ function ReplayPlayer() {
                   await action.run(
                     () =>
                       c.api.post(`/websites/${c.siteId}/replays/saved/${id}`, { isSaved: false }),
-                    '已取消保存',
+                    '录制已取消保存',
                   );
                   setSaveOpen(false);
                 }}

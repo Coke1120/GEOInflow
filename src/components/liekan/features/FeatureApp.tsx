@@ -2,7 +2,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 import {
   type FeatureEntity,
@@ -12,7 +12,6 @@ import {
 } from '@/lib/liekan/contracts/features';
 import { useFeatureDateRange, useNavigation } from '@/lib/liekan/upstream/client';
 import {
-  clearFeatureLogin,
   featureApi,
   getAllFeatureRows,
   getFeaturePreferences,
@@ -20,17 +19,22 @@ import {
   refreshFeatureIdentity,
 } from '@/lib/liekan/upstream/features-client';
 import '@/styles/liekan/Features.module.css';
+import {
+  globalNavigation,
+  hasDateControl,
+  navigationFor,
+  needsWebsite,
+  pageNavigation,
+  resourceListPages,
+  websiteNavigation,
+} from '@/lib/liekan/contracts/navigation';
+import { Navigation, useSidebarWidth } from '../Navigation';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
 import { FeatureProvider } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
-import {
-  featureHref,
-  featurePages,
-  featureWebsiteSwitchHref,
-  normalizeFeatureScope,
-} from './routes';
+import { featureHref, featureNavigationHref, featurePages, normalizeFeatureScope } from './routes';
 import { Button, Drawer, Field, Form, Icon, Notice, QueryState, Select } from './ui';
 import { WorkspacePages, workspacePages } from './WorkspacePages';
 
@@ -51,6 +55,9 @@ export const coreFeaturePages = new Set([
   'goal-editor',
   'funnels',
   'funnel-editor',
+  'access-denied',
+  'session-expired',
+  'not-found',
 ]);
 export function canRenderFeatureRoute(route: FeatureRoute | null) {
   return (
@@ -60,17 +67,6 @@ export function canRenderFeatureRoute(route: FeatureRoute | null) {
     )
   );
 }
-const groups: [string, string, string, string][] = [
-  ['sites', '网站与接入', 'websites', 'globe'],
-  ['identity', '身份与安全', 'account', 'shield'],
-  ['conversion', '目标与漏斗', 'goals', 'funnel'],
-  ['activity', '访客与事件', 'events', 'activity'],
-  ['audience', '筛选与人群', 'segments', 'users'],
-  ['analysis', '高级分析', 'utm', 'bars'],
-  ['workspace', '协作与管理', 'boards', 'box'],
-  ['extended', '扩展能力', 'performance', 'grid'],
-];
-
 export function FeatureApp({
   user,
   route: requestedRoute,
@@ -80,13 +76,50 @@ export function FeatureApp({
   route: FeatureRoute;
   forceSetup?: boolean;
 }) {
-  const route = normalizeFeatureScope(requestedRoute);
+  const [entity, setEntity] = useState<FeatureEntity>(null);
+  const ownedEntity = entity?.id === requestedRoute.id ? entity : undefined;
+  const route = normalizeFeatureScope({
+    ...requestedRoute,
+    ...(ownedEntity &&
+    navigationFor(requestedRoute).scope === 'global' &&
+    !['team-detail'].includes(requestedRoute.page)
+      ? { teamId: ownedEntity.teamId || undefined }
+      : {}),
+  });
   const nav = useNavigation();
   const client = useQueryClient();
   const [toast, setToast] = useState('');
-  const [mobile, setMobile] = useState(false);
+  const [width, setWidth] = useSidebarWidth();
   const [dateOpen, setDateOpen] = useState(false);
-  const [siteOpen, setSiteOpen] = useState(false);
+  const meta = navigationFor(route);
+  const websiteRequired = needsWebsite(route);
+  const datePage = hasDateControl(route);
+  const siteScope =
+    [
+      'dashboard',
+      'dashboard-edit',
+      'boards',
+      'board-view',
+      'board-editor',
+      'board-design',
+    ].includes(route.page) ||
+    websiteRequired ||
+    nav.query.scope === 'all'
+      ? 'all'
+      : 'personal';
+  const needsSites =
+    websiteRequired ||
+    [
+      'websites',
+      'dashboard',
+      'dashboard-edit',
+      'boards',
+      'board-view',
+      'board-editor',
+      'board-design',
+      'sharing',
+      'team-detail',
+    ].includes(route.page);
   const preferences = getFeaturePreferences();
   const timezone = preferences.timezone || 'Asia/Shanghai';
   const { dateRange } = useFeatureDateRange(timezone);
@@ -96,9 +129,30 @@ export function FeatureApp({
   );
   const setup = forceSetup || ['two-factor', 'backup-codes'].includes(route.page);
   const sitesQuery = useQuery({
-    queryKey: ['liekan-feature', user.id, 'sites', route.teamId],
-    queryFn: ({ signal }) => getFeatureSites(signal, route.teamId),
-    enabled: !setup,
+    queryKey: [
+      'liekan-feature',
+      user.id,
+      'sites',
+      websiteRequired ? undefined : route.teamId,
+      siteScope,
+    ],
+    queryFn: ({ signal }) =>
+      getFeatureSites(
+        signal,
+        websiteRequired ||
+          [
+            'dashboard',
+            'dashboard-edit',
+            'boards',
+            'board-view',
+            'board-editor',
+            'board-design',
+          ].includes(route.page)
+          ? undefined
+          : route.teamId,
+        siteScope,
+      ),
+    enabled: !setup && needsSites,
     retry: false,
   });
   const sites = rowsOf<FeatureEntity>(sitesQuery.data);
@@ -109,7 +163,7 @@ export function FeatureApp({
     retry: false,
   });
   const teams: FeatureEntity[] = teamsQuery.data || [];
-  const siteId = route.websiteId || nav.query.websiteId || nav.query.site || sites[0]?.id || '';
+  const siteId = websiteRequired ? route.websiteId || '' : '';
   const siteQuery = useQuery({
     queryKey: ['liekan-feature', user.id, 'site', siteId],
     queryFn: ({ signal }) => featureApi.get(`/websites/${siteId}`, {}, signal),
@@ -121,59 +175,28 @@ export function FeatureApp({
   const page = featurePages.find(p => p.id === current.page);
   const href = useCallback(
     (page: string, params: Record<string, any> = {}) =>
-      featureHref(page, {
-        ...Object.fromEntries(
-          Object.entries(nav.query).filter(
-            ([key]) =>
-              (![
-                'links',
-                'link-editor',
-                'link-detail',
-                'pixels',
-                'pixel-editor',
-                'pixel-detail',
-                'boards',
-                'board-editor',
-                'board-design',
-                'board-view',
-                'dashboard',
-                'dashboard-edit',
-              ].includes(page) ||
-                ['date', 'unit', 'offset', 'compare'].includes(key)) &&
-              (!/^(retentionDate|retentionDay|attributionStep|attributionModel|attributionType|attributionSource)$/.test(
-                key,
-              ) ||
-                ['sessions', 'session-detail'].includes(page)) &&
-              ([
-                'date',
-                'unit',
-                'offset',
-                'compare',
-                'segment',
-                'cohort',
-                'match',
-                'excludeBounce',
-                'retentionDate',
-                'retentionDay',
-                'attributionStep',
-                'attributionModel',
-                'attributionType',
-                'attributionSource',
-              ].includes(key) ||
-                /^(drill_|path|referrer|channel|title|query|os|tag|hostname|distinctId|language|country|region|city|browser|device|event|utm|spf\d|epf\d)/.test(
-                  key,
-                )),
-          ),
-        ),
-        websiteId: siteId,
-        ...(route.teamId ? { teamId: route.teamId } : {}),
-        ...params,
-      }),
-    [siteId, JSON.stringify(nav.query), route.teamId],
+      featureNavigationHref(route, nav.query, page, params),
+    [route.page, route.websiteId, route.id, route.teamId, route.context, JSON.stringify(nav.query)],
   );
   const navigate = useCallback(
     (page: string, params: Record<string, any> = {}) => nav.router.push(href(page, params)),
     [href, nav.router],
+  );
+  const pendingQuery = useRef<Record<string, any>>(null);
+  const updateQuery = useCallback(
+    (params: Record<string, any>) => {
+      if (pendingQuery.current) {
+        Object.assign(pendingQuery.current, params);
+        return;
+      }
+      pendingQuery.current = { ...params };
+      queueMicrotask(() => {
+        const next = pendingQuery.current;
+        pendingQuery.current = null;
+        nav.router.replace(nav.updateParams(next), { scroll: false });
+      });
+    },
+    [nav.router, nav.updateParams],
   );
   const notify = useCallback((message: string) => setToast(message), []);
   const refresh = useCallback(async () => {
@@ -183,19 +206,17 @@ export function FeatureApp({
   const filters = useMemo(
     () =>
       Object.fromEntries(
-        Object.entries(nav.query).filter(([key]) =>
+        Object.entries(websiteRequired ? nav.query : {}).filter(([key]) =>
           /^(drill_|path|referrer|channel|title|query|os|device|browser|country|region|city|event|tag|hostname|distinctId|language|utm|segment|cohort|match|excludeBounce|attribution|retentionDate|retentionDay|spf\d|epf\d)/.test(
             key,
           ),
         ),
       ),
-    [JSON.stringify(nav.query)],
+    [websiteRequired, JSON.stringify(nav.query)],
   );
   useEffect(() => {
-    setMobile(false);
     setDateOpen(false);
-    setSiteOpen(false);
-  }, [nav.pathname]);
+  }, [nav.pathname, route.websiteId, route.id]);
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 3500);
@@ -206,7 +227,7 @@ export function FeatureApp({
     route: current,
     api: featureApi,
     sites,
-    sitesLoading: sitesQuery.isPending,
+    sitesLoading: needsSites && sitesQuery.isPending,
     teams,
     siteId,
     site,
@@ -217,6 +238,9 @@ export function FeatureApp({
     navigate,
     notify,
     refresh,
+    entity: ownedEntity,
+    setEntity,
+    updateQuery,
   };
   if (current.page === 'share-preview')
     return (
@@ -226,144 +250,231 @@ export function FeatureApp({
         </div>
       </FeatureProvider>
     );
+  const currentTitle =
+    current.id && /-editor$/.test(current.page)
+      ? (page?.title || '').replace(/^创建/, '编辑')
+      : page?.title || '猎看统计';
+  const section = [...globalNavigation, ...websiteNavigation].find(
+    group => group.id === meta.section,
+  );
+  const content =
+    !setup && websiteRequired && !siteId ? (
+      <Notice>
+        请选择需要查看的网站。
+        <QueryState query={sitesQuery}>
+          <div className="form-actions">
+            {sites.map(item => (
+              <Link
+                key={item.id}
+                className="btn"
+                href={featureHref(current.page, { websiteId: item.id })}
+              >
+                {item.name}
+              </Link>
+            ))}
+            {!sites.length && (
+              <Link className="btn" href={featureHref('websites')}>
+                返回网站列表
+              </Link>
+            )}
+          </div>
+        </QueryState>
+      </Notice>
+    ) : !setup && websiteRequired && siteQuery.error ? (
+      <QueryState query={siteQuery}>{null}</QueryState>
+    ) : !setup && needsSites && !websiteRequired && sitesQuery.error ? (
+      <QueryState query={sitesQuery}>{null}</QueryState>
+    ) : datePage && range.endAt - range.startAt > 1096 * 86400000 ? (
+      <Notice>日期范围上限 3 年，请调整日期后查看。</Notice>
+    ) : (
+      <FeaturePage
+        key={`${siteId || current.teamId || user.id}:${current.page}:${current.id || ''}`}
+        page={current.page}
+      />
+    );
+  if (setup)
+    return (
+      <FeatureProvider value={value}>
+        <div data-liekan-features lang="zh-CN" className="identity-flow">
+          <main className="content" id="main-content">
+            <h1>{currentTitle}</h1>
+            {content}
+          </main>
+          {toast && (
+            <div className="toast" role="status">
+              {toast}
+            </div>
+          )}
+        </div>
+      </FeatureProvider>
+    );
   return (
     <FeatureProvider value={value}>
-      <div data-liekan-features lang="zh-CN" style={{ minHeight: '100dvh' }}>
+      <div
+        data-liekan-features
+        lang="zh-CN"
+        style={
+          {
+            minHeight: '100dvh',
+            '--lk-side-w': `${width}px`,
+            '--side': `${width}px`,
+          } as CSSProperties
+        }
+      >
         <a className="skip" href="#main-content">
           跳到主要内容
         </a>
-        <button className="mobile-toggle" onClick={() => setMobile(!mobile)} aria-expanded={mobile}>
-          <Icon name="menu" />
-          页面导航
-        </button>
-        {mobile && (
-          <button className="nav-backdrop" aria-label="关闭导航" onClick={() => setMobile(false)} />
-        )}
-        <aside className={`sidebar${mobile ? ' open' : ''}`}>
-          <Link prefetch={false} className="brand" href="/dashboard">
-            <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
-            <span className="brand-name">
-              猎看统计<span className="brand-caption">LIEKAN GEO STATS</span>
-            </span>
-          </Link>
-          <nav className="nav" aria-label="页面导航">
-            <Link prefetch={false} className="nav-item nav-quick" href="/dashboard">
-              <Icon name="grid" />
-              工作台
-            </Link>
-            <div className="nav-label">管理与分析</div>
-            {groups.map(([id, title, first, symbol]) => (
-              <Link
-                prefetch={false}
-                key={id}
-                className={`nav-item${page?.group === id ? ' on' : ''}`}
-                href={href(first)}
-              >
-                <Icon name={symbol} />
-                {title}
-              </Link>
-            ))}
-            {siteId && (
-              <>
-                <div className="nav-label">流量洞察</div>
-                {[
-                  ['总览', ''],
-                  ['AI 流量', '/ai'],
-                  ['人类访问', '/human'],
-                  ['内容分析', '/content'],
-                  ['转化分析', '/conversions'],
-                  ['实时请求', '/logs'],
-                ].map(([title, suffix]) => (
-                  <Link
-                    prefetch={false}
-                    className="nav-item"
-                    key={title}
-                    href={`/websites/${siteId}/geo${suffix}`}
-                  >
-                    <Icon name="bars" />
-                    {title}
-                  </Link>
-                ))}
-              </>
-            )}
-          </nav>
-          <footer className="side-footer">
-            <button className="site-switch" onClick={() => setSiteOpen(true)}>
-              <span className="avatar">LK</span>
-              <span>
-                <span style={{ display: 'block', fontSize: 12.5, fontWeight: 500 }}>
-                  {site?.name || '选择网站'}
-                </span>
-                <small>{site?.domain || '当前管理空间'}</small>
-              </span>
-              <Icon name="down" />
-            </button>
-          </footer>
-        </aside>
+        <Navigation
+          user={user}
+          route={current}
+          site={site}
+          width={width}
+          onWidth={setWidth}
+          href={href}
+        />
         <div className="shell-content">
           <header className="header">
             <div className="header-inner">
               <div>
-                <h1>{page?.title || '猎看统计'}</h1>
+                <nav className="breadcrumbs" aria-label="页面位置">
+                  {meta.scope === 'website' ? (
+                    <>
+                      <Link href={href('overview')}>网站</Link>
+                      <span>/</span>
+                      <span title={site?.name}>{site?.name || '选择网站'}</span>
+                      <span>/</span>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href={featureHref(
+                          meta.scope === 'admin'
+                            ? 'admin-users'
+                            : meta.scope === 'account'
+                              ? 'account'
+                              : 'dashboard',
+                        )}
+                      >
+                        {meta.scope === 'admin'
+                          ? '系统管理'
+                          : meta.scope === 'account'
+                            ? '个人账户'
+                            : '全局管理'}
+                      </Link>
+                      <span>/</span>
+                    </>
+                  )}
+                  {section && section.label !== currentTitle && (
+                    <>
+                      <Link href={href(section.page)}>{section.label}</Link>
+                      <span>/</span>
+                    </>
+                  )}
+                  {meta.parent && meta.parent !== section?.page && (
+                    <>
+                      <Link
+                        href={href(
+                          meta.parent,
+                          current.page === 'board-design' ? { id: current.id } : {},
+                        )}
+                      >
+                        {pageNavigation[meta.parent]?.title ||
+                          featurePages.find(page => page.id === meta.parent)?.title ||
+                          '返回列表'}
+                      </Link>
+                      <span>/</span>
+                    </>
+                  )}
+                  <span aria-current="page">{currentTitle}</span>
+                  {current.id && (
+                    <span className="muted" title={ownedEntity?.name || current.id}>
+                      · {ownedEntity?.name || current.id.slice(0, 8)}
+                    </span>
+                  )}
+                </nav>
+                <h1>{currentTitle}</h1>
                 <div className="subtitle">
-                  {groups.find(g => g[0] === page?.group)?.[1]} · {page?.summary}
+                  {site?.domain ? `${site.domain} · ` : ''}
+                  {ownedEntity && !websiteRequired
+                    ? `${ownedEntity.teamId ? teams.find(team => team.id === ownedEntity.teamId)?.name || '团队空间' : '个人空间'} · `
+                    : ''}
+                  {page?.summary}
                 </div>
               </div>
               <div className="header-actions">
-                {['activity', 'audience', 'analysis', 'extended', 'conversion'].includes(
-                  page?.group,
-                ) && (
+                {datePage && (
                   <Button onClick={() => setDateOpen(true)}>
                     {formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
                     {formatInTimeZone(range.endAt, timezone, 'MM-dd')}
                     <Icon name="down" />
                   </Button>
                 )}
-                <Button onClick={() => navigate('account')}>{user.username}</Button>
-                <Button
-                  onClick={async () => {
-                    await featureApi.post('/auth/logout').catch(() => {});
-                    clearFeatureLogin();
-                    client.clear();
-                    nav.router.replace('/login');
-                  }}
-                >
-                  退出
-                </Button>
+                {resourceListPages.has(current.page) && meta.scope === 'global' && (
+                  <label className="context-select">
+                    <span>所属空间</span>
+                    <select
+                      aria-label="所属空间"
+                      value={
+                        route.teamId ||
+                        (current.page === 'websites' && nav.query.scope === 'all' ? 'all' : '')
+                      }
+                      onChange={event =>
+                        nav.router.push(
+                          featureHref(current.page, {
+                            ...Object.fromEntries(
+                              Object.entries(nav.query).filter(([key]) =>
+                                ['date', 'unit', 'search', 'sort', 'direction'].includes(key),
+                              ),
+                            ),
+                            ...(event.target.value === 'all'
+                              ? { scope: 'all' }
+                              : event.target.value
+                                ? { teamId: event.target.value }
+                                : {}),
+                          }),
+                        )
+                      }
+                    >
+                      <option value="">个人空间</option>
+                      {current.page === 'websites' && <option value="all">全部可访问网站</option>}
+                      {teams.map(team => (
+                        <option key={team.id} value={team.id}>
+                          {team.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Icon name="down" />
+                  </label>
+                )}
               </div>
             </div>
           </header>
           <main className="content" id="main-content">
-            {page && (
-              <nav
-                className="tabs section-tabs"
-                aria-label={`${groups.find(g => g[0] === page.group)?.[1] || '当前分组'}页面`}
-              >
-                {featurePages
-                  .filter(item => item.group === page.group)
-                  .map(item => (
-                    <Link
-                      prefetch={false}
-                      key={item.id}
-                      className={`tab${item.id === current.page ? ' on' : ''}`}
-                      aria-current={item.id === current.page ? 'page' : undefined}
-                      href={href(item.id)}
-                    >
-                      {item.title}
-                    </Link>
-                  ))}
-              </nav>
+            {datePage && (
+              <div className="range-context">
+                统计期间：{formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
+                {formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')} · 统计时区：{timezone}
+              </div>
             )}
-            {!setup && sitesQuery.error ? (
-              <QueryState query={sitesQuery}>{null}</QueryState>
-            ) : range.endAt - range.startAt > 1096 * 86400000 ? (
-              <Notice>日期范围上限 3 年，请调整日期后查看。</Notice>
-            ) : (
-              <FeaturePage
-                key={`${['tracking', 'install-check', 'website-settings', 'recorder-settings', 'goals', 'goal-editor', 'funnels', 'funnel-editor'].includes(current.page) || analysisPages.has(current.page) || extendedPages.has(current.page) || linksPixelsPages.has(current.page) ? siteId : user.id}:${current.page}:${current.id || ''}`}
-                page={current.page}
-              />
+            {websiteRequired && nav.query.clearedFilters === '1' && (
+              <Notice>已清除当前页面不支持的筛选，统计采用页面显示的条件。</Notice>
             )}
+            {websiteRequired &&
+              ![
+                'tracking',
+                'install-check',
+                'website-settings',
+                'recorder-settings',
+                'sharing',
+              ].includes(current.page) &&
+              siteId && (
+                <div className="analysis-tools">
+                  <Link href={href('filters', { from: current.page })}>高级筛选</Link>
+                  <Link href={href('annotations', { from: current.page })}>图表注释</Link>
+                  <Link href={href('exports', { from: current.page })}>导出数据</Link>
+                </div>
+              )}
+            {content}
           </main>
         </div>
         {toast && (
@@ -374,6 +485,7 @@ export function FeatureApp({
         {dateOpen && (
           <Drawer title="日期范围" onClose={() => setDateOpen(false)}>
             <Form
+              trackUnsaved={false}
               submitLabel="应用日期范围"
               onSubmit={async d => {
                 const startAt = +fromZonedTime(`${d.start}T00:00:00.000`, timezone);
@@ -410,32 +522,27 @@ export function FeatureApp({
             </Form>
           </Drawer>
         )}
-        {siteOpen && (
-          <Drawer title="切换网站" onClose={() => setSiteOpen(false)}>
-            <Form
-              submitLabel="切换网站"
-              onSubmit={async d => {
-                const selected = sites.find(s => s.id === d.site);
-                if (!selected) throw new Error('请选择可访问的网站');
-                nav.router.push(featureWebsiteSwitchHref(current, selected.id, nav.query));
-                setSiteOpen(false);
-              }}
-            >
-              <Select
-                label="网站"
-                name="site"
-                options={sites.map(s => [s.id, s.name])}
-                defaultValue={siteId}
-              />
-            </Form>
-          </Drawer>
-        )}
       </div>
     </FeatureProvider>
   );
 }
 
 function FeaturePage({ page }: { page: string }) {
+  if (['access-denied', 'session-expired', 'not-found'].includes(page))
+    return (
+      <Notice>
+        {page === 'access-denied'
+          ? '当前账户没有访问此资源的权限。'
+          : page === 'session-expired'
+            ? '请重新登录后继续。'
+            : '页面不存在或已被移除。'}
+        <div className="form-actions">
+          <Link className="btn" href={page === 'session-expired' ? '/login' : '/dashboard'}>
+            {page === 'session-expired' ? '重新登录' : '返回工作台'}
+          </Link>
+        </div>
+      </Notice>
+    );
   if (coreFeaturePages.has(page)) return <CorePages page={page} />;
   if (analysisPages.has(page)) return <AnalyticsPages page={page} />;
   if (extendedPages.has(page)) return <ExtendedPages page={page} />;
