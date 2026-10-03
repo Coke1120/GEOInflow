@@ -84,8 +84,8 @@
   height: 16px;
   flex-shrink: 0;
 }
-.siteSwitch,
-.accountToggle {
+.sidebar button.siteSwitch,
+.sidebar button.accountToggle {
   display: flex;
   align-items: center;
   gap: 10px;

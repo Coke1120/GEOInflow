@@ -443,7 +443,7 @@ async function geometry(page) {
         scope.querySelectorAll('.auth-form,form').length ||
         0,
       arrows,
-      title: document.querySelector('h1')?.textContent,
+      title: (main?.querySelector('h1') || document.querySelector('h1'))?.textContent,
       charts: scope.querySelectorAll('canvas').length,
       bodyText: document.body.innerText,
     };
