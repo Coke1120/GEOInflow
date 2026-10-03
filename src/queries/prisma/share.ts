@@ -1,6 +1,6 @@
-import type { Prisma, Share } from '@/generated/prisma/client';
-import prisma, { getRawQueryClient } from '@/lib/prisma';
-import { secureShareParameters, safeManagedShare } from '@/lib/liekan/upstream/share-security';
+import type { Prisma, PrismaClient, Share } from '@/generated/prisma/client';
+import { safeManagedShare, secureShareParameters } from '@/lib/liekan/upstream/share-security';
+import prisma, { getRawQueryClient, getSchema } from '@/lib/prisma';
 import type { PageResult, QueryFilters } from '@/lib/types';
 
 export async function findShare(criteria: Prisma.ShareFindUniqueArgs) {
@@ -70,20 +70,26 @@ export async function updateShare(
   shareId: string,
   data: Prisma.ShareUpdateInput | Prisma.ShareUncheckedUpdateInput,
 ) {
-  const previous = await getShare(shareId);
-  return safeManagedShare(
-    await prisma.client.share.update({
-      where: {
-        id: shareId,
-      },
-      data: {
-        ...data,
-        ...(data.parameters !== undefined
-          ? { parameters: secureShareParameters(data.parameters, previous?.parameters) }
-          : {}),
-      },
-    }),
-  );
+  const primary = getRawQueryClient(prisma.client, { write: true }) as PrismaClient;
+  if (data.parameters === undefined) {
+    return safeManagedShare(await primary.share.update({ where: { id: shareId }, data }));
+  }
+  return primary.$transaction(async tx => {
+    const schema = getSchema();
+    const table = schema ? `"${schema.replaceAll('"', '""')}"."share"` : '"share"';
+    // Serialize secret-preserving edits with password rotation and removal.
+    await tx.$queryRawUnsafe(
+      `SELECT share_id FROM ${table} WHERE share_id = $1::uuid FOR UPDATE`,
+      shareId,
+    );
+    const previous = await tx.share.findUnique({ where: { id: shareId } });
+    return safeManagedShare(
+      await tx.share.update({
+        where: { id: shareId },
+        data: { ...data, parameters: secureShareParameters(data.parameters, previous?.parameters) },
+      }),
+    );
+  });
 }
 
 export async function deleteShare(shareId: string) {

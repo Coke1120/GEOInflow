@@ -1,6 +1,6 @@
 import { Decimal } from '@prisma/client/runtime/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { featureAnalytics } from './feature-analytics';
+import { featureAnalytics, featureJourney } from './feature-analytics';
 
 const mocks = vi.hoisted(() => ({ rawQuery: vi.fn(), getQueryFilters: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
@@ -118,5 +118,44 @@ describe('native numeric response normalization', () => {
         },
       ],
     });
+  });
+});
+
+describe('explicit journey endpoints', () => {
+  it('observes a repeated starting node only after the initial node', async () => {
+    mocks.rawQuery.mockImplementation(async (sql: string) =>
+      sql.includes('SELECT COUNT(DISTINCT session_id) AS visitors FROM eligible')
+        ? [{ visitors: 0n }]
+        : [],
+    );
+    await featureJourney(websiteId, {
+      ...common,
+      type: 'pages',
+      steps: 3,
+      startStep: '/loop',
+      endStep: '/loop',
+    });
+    const [sql, params] = mocks.rawQuery.mock.calls[0];
+    expect(sql).toContain('MIN(o.rn) FILTER(WHERE o.rn>s.start_rn AND o.node={{endStep}})');
+    expect(params).toMatchObject({ startStep: '/loop', endStep: '/loop' });
+  });
+
+  it.each([2, 3, 4])('requires the terminal node to fit within %i steps', async steps => {
+    mocks.rawQuery.mockImplementation(async (sql: string) =>
+      sql.includes('SELECT COUNT(DISTINCT session_id) AS visitors FROM eligible')
+        ? [{ visitors: 0n }]
+        : [],
+    );
+    await featureJourney(websiteId, {
+      ...common,
+      type: 'pages',
+      steps,
+      startStep: '/a',
+      endStep: '/d',
+    });
+    const [sql, params] = mocks.rawQuery.mock.calls[0];
+    expect(sql).toContain('b.end_rn<=b.start_rn+{{steps}}::int-1');
+    expect(sql).toContain('o.rn BETWEEN b.start_rn AND b.end_rn');
+    expect(params).toMatchObject({ steps, startStep: '/a', endStep: '/d' });
   });
 });

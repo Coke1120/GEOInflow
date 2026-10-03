@@ -3,6 +3,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getBoardEntityIds } from '@/lib/boards';
 import {
   allowedShareSections,
   boardColumns,
@@ -105,12 +106,20 @@ function mount(children: ReactNode, provide = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
-  const value = (
+  const value = () => (
     <QueryClientProvider client={client}>
       {provide ? <FeatureProvider value={context}>{children}</FeatureProvider> : children}
     </QueryClientProvider>
   );
-  return { ...render(value), client };
+  const view = render(value());
+  return {
+    ...view,
+    client,
+    updateContext(next: any) {
+      context = next;
+      view.rerender(value());
+    },
+  };
 }
 
 beforeEach(() => {
@@ -399,6 +408,79 @@ describe('workspace permissions and native board persistence', () => {
     ]);
     expect(body.parameters.rows[0].columns[1].component.props).toEqual({ retain: 'one' });
   });
+  it('fixed-source widget edits inherit the board source and remove legacy resource fields on save', async () => {
+    context.route = { page: 'board-design', id: 'board-1' };
+    const board = structuredClone(nativeBoard);
+    Object.assign(board.parameters.rows[0].columns[0].component, {
+      entityType: 'website',
+      entityId: 'former-site',
+      websiteId: 'former-site',
+    });
+    const originalGet = mocks.get.getMockImplementation();
+    mocks.get.mockImplementation((path: string, ...args: any[]) =>
+      path === '/boards/board-1' ? board : originalGet(path, ...args),
+    );
+    mount(<WorkspacePages page="board-design" />);
+    const edit = await screen.findAllByRole('button', { name: '编辑' });
+    await userEvent.click(edit[0]);
+    await userEvent.click(await screen.findByRole('button', { name: '保存组件' }));
+    await userEvent.click(screen.getByRole('button', { name: '保存编排' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalled());
+    const parameters = mocks.post.mock.calls[0][1].parameters;
+    expect(parameters.rows[0].columns[0].component).toEqual(
+      nativeBoard.parameters.rows[0].columns[0].component,
+    );
+    expect(getBoardEntityIds({ type: 'website', parameters })).toEqual({
+      websiteIds: [site.id],
+      pixelIds: [],
+      linkIds: [],
+    });
+  });
+  it('changing a fixed board source keeps only the selected source in saved layout', async () => {
+    context.route = { page: 'board-editor', id: 'board-1' };
+    const other = { ...site, id: 'site-2', name: '新网站' };
+    context.sites = [site, other];
+    const board = structuredClone(nativeBoard);
+    Object.assign(board.parameters.rows[0].columns[0].component, {
+      entityType: 'website',
+      entityId: site.id,
+      websiteId: site.id,
+    });
+    mocks.get.mockResolvedValue(board);
+    mount(<WorkspacePages page="board-editor" />);
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: '关联资源' }),
+      other.id,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '保存并编排' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalled());
+    const parameters = mocks.post.mock.calls[0][1].parameters;
+    expect(getBoardEntityIds({ type: 'website', parameters })).toEqual({
+      websiteIds: [other.id],
+      pixelIds: [],
+      linkIds: [],
+    });
+    expect(parameters.rows[0].columns[0].component.props).toEqual({ retain: 'one' });
+  });
+  it('changing a fixed board to mixed preserves the original visible widget source', async () => {
+    context.route = { page: 'board-editor', id: 'board-1' };
+    mount(<WorkspacePages page="board-editor" />);
+    await userEvent.selectOptions(
+      await screen.findByRole('combobox', { name: '看板类型' }),
+      'mixed',
+    );
+    await userEvent.click(screen.getByRole('button', { name: '保存并编排' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalled());
+    const parameters = mocks.post.mock.calls[0][1].parameters;
+    expect(parameters.websiteId).toBeUndefined();
+    expect(
+      parameters.rows[0].columns.every(
+        (column: any) =>
+          column.component.entityType === 'website' && column.component.entityId === site.id,
+      ),
+    ).toBe(true);
+    expect(getBoardEntityIds({ type: 'mixed', parameters }).websiteIds).toEqual([site.id]);
+  });
   it('preserves native dashboard rows and saves only accessible selected websites', async () => {
     context.route = { page: 'dashboard-edit' };
     mount(<WorkspacePages page="dashboard-edit" />);
@@ -413,6 +495,78 @@ describe('workspace permissions and native board persistence', () => {
             rows: [],
             liekan: expect.objectContaining({ siteIds: [] }),
           }),
+        }),
+      ),
+    );
+  });
+  it('loads delayed workspace sites and team resources and keeps renamed site choices current', async () => {
+    context = { ...context, sites: [], teams: [], route: { page: 'board-editor' } };
+    const teamLink = { id: 'team-link', name: '团队推广链接', teamId: team.id };
+    mocks.all.mockImplementation(async (path: string) =>
+      path === `/teams/${team.id}/links` ? [teamLink] : [],
+    );
+    const view = mount(<WorkspacePages page="board-editor" />);
+    await screen.findByRole('combobox', { name: '关联资源' });
+    expect(screen.queryByRole('option', { name: site.name })).not.toBeInTheDocument();
+
+    view.updateContext({ ...context, sites: [site], teams: [team] });
+    expect(await screen.findByRole('option', { name: site.name })).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '看板类型' }), 'link');
+    expect(await screen.findByRole('option', { name: teamLink.name })).toBeInTheDocument();
+    expect(mocks.all).toHaveBeenCalledWith(`/teams/${team.id}/links`, {}, expect.any(AbortSignal));
+
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '看板类型' }), 'website');
+    view.updateContext({ ...context, sites: [{ ...site, name: '网站新名称' }] });
+    expect(await screen.findByRole('option', { name: '网站新名称' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: site.name })).not.toBeInTheDocument();
+
+    view.updateContext({ ...context, teams: [] });
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '看板类型' }), 'link');
+    await waitFor(() =>
+      expect(screen.queryByRole('option', { name: teamLink.name })).not.toBeInTheDocument(),
+    );
+  });
+  it('waits for delayed website hydration before initializing and saving existing dashboard pins', async () => {
+    context = {
+      ...context,
+      sites: [],
+      sitesLoading: true,
+      route: { page: 'dashboard-edit' },
+    };
+    const view = mount(<WorkspacePages page="dashboard-edit" />);
+    await waitFor(() =>
+      expect(mocks.get).toHaveBeenCalledWith('/dashboard', undefined, expect.any(AbortSignal)),
+    );
+    await waitFor(() =>
+      expect(view.client.getQueryCache().getAll()[0]?.state.status).toBe('success'),
+    );
+    expect(screen.queryByRole('button', { name: '保存工作台' })).not.toBeInTheDocument();
+
+    view.updateContext({ ...context, sites: [site], sitesLoading: false });
+    expect(await screen.findByRole('checkbox', { name: /产品网站/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: '保存工作台' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith(
+        '/dashboard',
+        expect.objectContaining({
+          parameters: expect.objectContaining({
+            extension: 'retained',
+            rows: [],
+            liekan: expect.objectContaining({ siteIds: [site.id] }),
+          }),
+        }),
+      ),
+    );
+  });
+  it('allows an actually empty accessible website set to save an empty dashboard', async () => {
+    context = { ...context, sites: [], sitesLoading: false, route: { page: 'dashboard-edit' } };
+    mount(<WorkspacePages page="dashboard-edit" />);
+    await userEvent.click(await screen.findByRole('button', { name: '保存工作台' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith(
+        '/dashboard',
+        expect.objectContaining({
+          parameters: expect.objectContaining({ liekan: expect.objectContaining({ siteIds: [] }) }),
         }),
       ),
     );

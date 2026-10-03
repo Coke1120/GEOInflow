@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import {
-  defineOperation,
+  apiErrorSchema,
   badRequestResponse,
-  unauthorizedResponse,
+  defineOperation,
   notFoundResponse,
+  unauthorizedResponse,
 } from '@/lib/liekan/upstream/feature-api-contracts';
 export const operations = [
   defineOperation({
@@ -51,6 +52,20 @@ export const operations = [
         400: badRequestResponse,
         401: unauthorizedResponse,
         404: notFoundResponse,
+        413: {
+          description: '分享密码请求内容超过 1 KiB。',
+          content: { 'application/json': { schema: apiErrorSchema } },
+        },
+        429: {
+          description: '分享密码验证次数或并发量达到上限，等待 Retry-After 后重试。',
+          headers: { 'Retry-After': { description: '重试前等待的秒数', schema: z.string() } },
+          content: { 'application/json': { schema: apiErrorSchema } },
+        },
+        503: {
+          description: '共享验证保护暂时不可用，等待 Retry-After 后重试。',
+          headers: { 'Retry-After': { description: '重试前等待的秒数', schema: z.string() } },
+          content: { 'application/json': { schema: apiErrorSchema } },
+        },
       },
     },
   }),

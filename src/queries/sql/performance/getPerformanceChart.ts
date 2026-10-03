@@ -21,10 +21,11 @@ async function relationalQuery(
 ): Promise<Pick<PerformanceResult, 'chart'>> {
   const { startDate, endDate, unit = 'day', timezone = 'utc', metric = 'lcp' } = parameters;
   const { getDateSQL, rawQuery, parseFilters } = prisma;
-  const { filterQuery, joinSessionQuery, cohortQuery, queryParams } = parseFilters({
-    ...filters,
-    websiteId,
-  });
+  const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
+    parseFilters({
+      ...filters,
+      websiteId,
+    });
 
   const chart = await rawQuery(
     `
@@ -35,6 +36,7 @@ async function relationalQuery(
       percentile_cont(0.95) within group (order by ${metric}) as p95
     from website_event
     ${cohortQuery}
+    ${excludeBounceQuery}
     ${joinSessionQuery}
     where website_event.website_id = {{websiteId::uuid}}
       and website_event.event_type = 5
@@ -56,7 +58,10 @@ async function clickhouseQuery(
 ): Promise<Pick<PerformanceResult, 'chart'>> {
   const { startDate, endDate, unit = 'day', timezone = 'utc', metric = 'lcp' } = parameters;
   const { getDateSQL, rawQuery, parseFilters } = clickhouse;
-  const { filterQuery, cohortQuery, queryParams } = parseFilters({ ...filters, websiteId });
+  const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
+    ...filters,
+    websiteId,
+  });
 
   const chart = await rawQuery<{ t: string; p50: number; p75: number; p95: number }[]>(
     `
@@ -67,6 +72,7 @@ async function clickhouseQuery(
       quantile(0.95)(${metric}) as p95
     from website_event
     ${cohortQuery}
+    ${excludeBounceQuery}
     where website_event.website_id = {websiteId:UUID}
       and website_event.event_type = 5
       and website_event.created_at between {startDate:DateTime64} and {endDate:DateTime64}

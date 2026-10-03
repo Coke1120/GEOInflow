@@ -11517,6 +11517,37 @@ export interface operations {
           'application/json': components['schemas']['ApiError'];
         };
       };
+      /** @description 分享密码请求内容超过 1 KiB。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 分享密码验证次数或并发量达到上限，等待 Retry-After 后重试。 */
+      429: {
+        headers: {
+          /** @description 重试前等待的秒数 */
+          'Retry-After'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 共享验证保护暂时不可用，等待 Retry-After 后重试。 */
+      503: {
+        headers: {
+          /** @description 重试前等待的秒数 */
+          'Retry-After'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
     };
   };
   getShare: {

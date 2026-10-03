@@ -1,10 +1,4 @@
-import prisma from '@/lib/prisma';
 import { Decimal } from '@prisma/client/runtime/client';
-import { getQueryFilters } from '@/lib/request';
-import { getWebsiteSegment, getReport } from '@/queries/prisma';
-import { canViewReport } from '@/permissions';
-import { goalParametersSchema } from '@/lib/analytics-schema';
-import type { Auth } from '@/lib/types';
 import {
   addDays,
   addHours,
@@ -21,10 +15,16 @@ import {
   startOfYear,
 } from 'date-fns';
 import { toZonedTime } from 'date-fns-tz';
-import { analysisQuery, journeyQuery, type JourneyData } from '@/lib/liekan/contracts/analysis';
-import { LiekanError } from './server';
-import { classifyEntrySource } from './analytics';
+import { goalParametersSchema } from '@/lib/analytics-schema';
+import { analysisQuery, type JourneyData, journeyQuery } from '@/lib/liekan/contracts/analysis';
+import prisma from '@/lib/prisma';
+import { getQueryFilters } from '@/lib/request';
+import type { Auth } from '@/lib/types';
+import { canViewReport } from '@/permissions';
+import { getReport, getWebsiteSegment } from '@/queries/prisma';
 import { getRelationalHeatmapFilterContext } from '@/queries/sql/heatmap/getHeatmap';
+import { classifyEntrySource } from './analytics';
+import { LiekanError } from './server';
 
 export function normalizeFeatureNumbers(value: any): any {
   if (typeof value === 'bigint') return Number(value);
@@ -359,7 +359,7 @@ export async function featureJourney(websiteId: string, input: unknown): Promise
       ...(p.type === 'all' ? {} : { eventType: p.type === 'pages' ? 1 : 2 }),
     }),
   );
-  const sql = `${cte}, annotated AS(SELECT *,COALESCE(NULLIF(event_name,''),url_path) AS node,LAG(COALESCE(NULLIF(event_name,''),url_path)) OVER(PARTITION BY visit_id ORDER BY created_at,event_id) AS previous FROM selected),deduplicated AS(SELECT * FROM annotated WHERE node IS DISTINCT FROM previous),ordered AS(SELECT *,ROW_NUMBER() OVER(PARTITION BY visit_id ORDER BY created_at,event_id)::int AS rn FROM deduplicated),starts AS(SELECT visit_id,MIN(rn) FILTER(WHERE {{startStep}}='' OR node={{startStep}}) AS start_rn FROM ordered GROUP BY visit_id),bounds AS(SELECT o.visit_id,s.start_rn,CASE WHEN {{endStep}}='' THEN s.start_rn+{{steps}}::int-1 ELSE MIN(o.rn) FILTER(WHERE o.rn>=s.start_rn AND o.node={{endStep}}) END AS end_rn FROM ordered o JOIN starts s ON s.visit_id=o.visit_id GROUP BY o.visit_id,s.start_rn),windowed AS(SELECT o.* FROM ordered o JOIN bounds b ON b.visit_id=o.visit_id WHERE b.start_rn IS NOT NULL AND b.end_rn IS NOT NULL AND o.rn BETWEEN b.start_rn AND LEAST(b.end_rn,b.start_rn+{{steps}}::int-1)),eligible AS(SELECT w.visit_id,w.session_id,ARRAY_AGG(w.node ORDER BY w.rn) AS nodes,EXTRACT(EPOCH FROM MAX(w.created_at)-MIN(w.created_at)) AS seconds,(SELECT e.referrer_domain FROM selected e WHERE e.visit_id=w.visit_id ORDER BY e.created_at,e.event_id LIMIT 1) AS source FROM windowed w GROUP BY w.visit_id,w.session_id HAVING COUNT(*)>=2)`;
+  const sql = `${cte}, annotated AS(SELECT *,COALESCE(NULLIF(event_name,''),url_path) AS node,LAG(COALESCE(NULLIF(event_name,''),url_path)) OVER(PARTITION BY visit_id ORDER BY created_at,event_id) AS previous FROM selected),deduplicated AS(SELECT * FROM annotated WHERE node IS DISTINCT FROM previous),ordered AS(SELECT *,ROW_NUMBER() OVER(PARTITION BY visit_id ORDER BY created_at,event_id)::int AS rn FROM deduplicated),starts AS(SELECT visit_id,MIN(rn) FILTER(WHERE {{startStep}}='' OR node={{startStep}}) AS start_rn FROM ordered GROUP BY visit_id),bounds AS(SELECT o.visit_id,s.start_rn,CASE WHEN {{endStep}}='' THEN s.start_rn+{{steps}}::int-1 ELSE MIN(o.rn) FILTER(WHERE o.rn>s.start_rn AND o.node={{endStep}}) END AS end_rn FROM ordered o JOIN starts s ON s.visit_id=o.visit_id GROUP BY o.visit_id,s.start_rn),windowed AS(SELECT o.* FROM ordered o JOIN bounds b ON b.visit_id=o.visit_id WHERE b.start_rn IS NOT NULL AND b.end_rn IS NOT NULL AND b.end_rn<=b.start_rn+{{steps}}::int-1 AND o.rn BETWEEN b.start_rn AND b.end_rn),eligible AS(SELECT w.visit_id,w.session_id,ARRAY_AGG(w.node ORDER BY w.rn) AS nodes,EXTRACT(EPOCH FROM MAX(w.created_at)-MIN(w.created_at)) AS seconds,(SELECT e.referrer_domain FROM selected e WHERE e.visit_id=w.visit_id ORDER BY e.created_at,e.event_id LIMIT 1) AS source FROM windowed w GROUP BY w.visit_id,w.session_id HAVING COUNT(*)>=2)`;
   const run = (query: string, extra: any = {}) =>
     prisma
       .rawQuery(

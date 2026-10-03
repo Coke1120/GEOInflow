@@ -1,33 +1,38 @@
 'use client';
-import Link from 'next/link';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { useNavigation, useFeatureDateRange } from '@/lib/liekan/upstream/client';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 import {
-  featureApi,
-  getFeaturePreferences,
-  clearFeatureLogin,
-  getAllFeatureRows,
-  refreshFeatureIdentity,
-  getFeatureSites,
-} from '@/lib/liekan/upstream/features-client';
-import {
-  rowsOf,
   type FeatureEntity,
   type FeatureRoute,
   type FeatureUser,
+  rowsOf,
 } from '@/lib/liekan/contracts/features';
-import { featureDateRange } from '@/lib/liekan/contracts/analysis';
+import { useFeatureDateRange, useNavigation } from '@/lib/liekan/upstream/client';
+import {
+  clearFeatureLogin,
+  featureApi,
+  getAllFeatureRows,
+  getFeaturePreferences,
+  getFeatureSites,
+  refreshFeatureIdentity,
+} from '@/lib/liekan/upstream/features-client';
 import '@/styles/liekan/Features.module.css';
-import { FeatureProvider } from './context';
-import { featureHref, featurePages } from './routes';
-import { CorePages } from './CorePages';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
+import { CorePages } from './CorePages';
+import { FeatureProvider } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
-import { WorkspacePages, workspacePages } from './WorkspacePages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
-import { Notice, Button, Drawer, Field, Form, Icon, QueryState, Select } from './ui';
+import {
+  featureHref,
+  featurePages,
+  featureWebsiteSwitchHref,
+  normalizeFeatureScope,
+} from './routes';
+import { Button, Drawer, Field, Form, Icon, Notice, QueryState, Select } from './ui';
+import { WorkspacePages, workspacePages } from './WorkspacePages';
 
 export const coreFeaturePages = new Set([
   'websites',
@@ -68,13 +73,14 @@ const groups: [string, string, string, string][] = [
 
 export function FeatureApp({
   user,
-  route,
+  route: requestedRoute,
   forceSetup = false,
 }: {
   user: FeatureUser;
   route: FeatureRoute;
   forceSetup?: boolean;
 }) {
+  const route = normalizeFeatureScope(requestedRoute);
   const nav = useNavigation();
   const client = useQueryClient();
   const [toast, setToast] = useState('');
@@ -200,6 +206,7 @@ export function FeatureApp({
     route: current,
     api: featureApi,
     sites,
+    sitesLoading: sitesQuery.isPending,
     teams,
     siteId,
     site,
@@ -410,7 +417,7 @@ export function FeatureApp({
               onSubmit={async d => {
                 const selected = sites.find(s => s.id === d.site);
                 if (!selected) throw new Error('请选择可访问的网站');
-                navigate(current.page, { websiteId: selected.id });
+                nav.router.push(featureWebsiteSwitchHref(current, selected.id, nav.query));
                 setSiteOpen(false);
               }}
             >

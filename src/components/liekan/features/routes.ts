@@ -2,6 +2,10 @@ import mapping from '@/lib/liekan/contracts/feature-pages.json';
 import type { FeatureRoute } from '@/lib/liekan/contracts/features';
 
 export const featurePages = mapping.pages;
+const globalPages = new Set(['dashboard', 'dashboard-edit']);
+export function normalizeFeatureScope(route: FeatureRoute): FeatureRoute {
+  return globalPages.has(route.page) ? { ...route, teamId: undefined } : route;
+}
 const uuid = '[a-fA-F0-9-]{36}';
 const aliases = mapping.routes.filter(
   r =>
@@ -20,7 +24,12 @@ export function matchFeatureRoute(
   if (path.startsWith('/liekan/')) {
     const page = path.slice(8).split('/')[0];
     if (featurePages.some(p => p.id === page))
-      return { page, websiteId: query.websiteId, id: query.id, teamId: team?.[1] || query.teamId };
+      return normalizeFeatureScope({
+        page,
+        websiteId: query.websiteId,
+        id: query.id,
+        teamId: team?.[1] || query.teamId,
+      });
     return { page: 'not-found' };
   }
   for (const route of aliases) {
@@ -32,7 +41,7 @@ export function matchFeatureRoute(
     const match = path.match(new RegExp(`^${pattern}/?$`));
     if (!match) continue;
     const values = Object.fromEntries(names.map((name, i) => [name, match[i + 1]]));
-    return {
+    return normalizeFeatureScope({
       page: route.target.replace('.html', ''),
       websiteId: values.websiteId,
       id:
@@ -44,7 +53,7 @@ export function matchFeatureRoute(
         values.userId ||
         values.teamId,
       teamId: team?.[1] || values.teamId || query.teamId,
-    };
+    });
   }
   return null;
 }
@@ -68,8 +77,35 @@ export function featureHref(page: string, params: Record<string, any> = {}): str
     if (
       value != null &&
       value !== '' &&
+      (key !== 'teamId' || !globalPages.has(page)) &&
       (!['websiteId', 'id'].includes(key) || path.startsWith('/liekan/'))
     )
       search.set(key, String(value));
   return `${path}${search.size ? '?' + search.toString() : ''}`;
+}
+export function featureWebsiteSwitchHref(
+  route: FeatureRoute,
+  websiteId: string,
+  query: Record<string, string>,
+) {
+  const lists: Record<string, string> = {
+    'session-detail': 'sessions',
+    'replay-player': 'replays',
+    'event-detail': 'events',
+    'path-detail': 'journeys',
+    'goal-editor': 'goals',
+    'funnel-editor': 'funnels',
+    'segment-editor': 'segments',
+    'cohort-editor': 'cohorts',
+  };
+  const page = lists[route.page] || route.page;
+  const time = Object.fromEntries(
+    Object.entries(query).filter(([key]) => ['date', 'unit', 'offset', 'compare'].includes(key)),
+  );
+  return featureHref(page, {
+    ...time,
+    websiteId,
+    ...(page === route.page && route.id ? { id: route.id } : {}),
+    ...(route.teamId ? { teamId: route.teamId } : {}),
+  });
 }

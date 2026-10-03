@@ -6,6 +6,7 @@ import type { FeatureEntity } from '@/lib/liekan/contracts/features';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import {
   allowedShareSections,
+  bindBoardComponent,
   boardColumns,
   boardEntity,
   boardParameters,
@@ -149,24 +150,28 @@ function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) 
 
 export function useWorkspaceEntities() {
   const c = useFeature();
-  return useData(['workspace-entities', c.route.teamId], async signal => {
-    const prefix = c.route.teamId ? `/teams/${c.route.teamId}` : '';
-    const [links, pixels, boards] = await Promise.all(
-      ['links', 'pixels', 'boards'].map(async kind => {
-        const personal = await getAllFeatureRows<FeatureEntity>(`${prefix}/${kind}`, {}, signal);
-        if (c.route.teamId) return personal;
-        const teams = await Promise.all(
-          c.teams.map(team =>
-            getAllFeatureRows<FeatureEntity>(`/teams/${team.id}/${kind}`, {}, signal),
-          ),
-        );
-        return [
-          ...new Map([...personal, ...teams.flat()].map(entity => [entity.id, entity])).values(),
-        ];
-      }),
-    );
-    return { website: c.sites, link: links, pixel: pixels, board: boards };
-  });
+  const query = useData(
+    ['workspace-entities', c.route.teamId, c.teams.map(team => team.id)],
+    async signal => {
+      const prefix = c.route.teamId ? `/teams/${c.route.teamId}` : '';
+      const [links, pixels, boards] = await Promise.all(
+        ['links', 'pixels', 'boards'].map(async kind => {
+          const personal = await getAllFeatureRows<FeatureEntity>(`${prefix}/${kind}`, {}, signal);
+          if (c.route.teamId) return personal;
+          const teams = await Promise.all(
+            c.teams.map(team =>
+              getAllFeatureRows<FeatureEntity>(`/teams/${team.id}/${kind}`, {}, signal),
+            ),
+          );
+          return [
+            ...new Map([...personal, ...teams.flat()].map(entity => [entity.id, entity])).values(),
+          ];
+        }),
+      );
+      return { link: links, pixel: pixels, board: boards };
+    },
+  );
+  return { ...query, data: query.data ? { ...query.data, website: c.sites } : undefined };
 }
 
 function TeamCreate({ onClose }: { onClose: () => void }) {
@@ -1418,7 +1423,7 @@ function BoardEditor({ board }: { board?: any }) {
                   name: values.name,
                   description: values.description,
                   type,
-                  parameters: boardParameters(board?.parameters, type, values.entity),
+                  parameters: boardParameters(board?.parameters, type, values.entity, board?.type),
                   ...(!board && c.route.teamId ? { teamId: c.route.teamId } : {}),
                 }),
               );
@@ -1501,19 +1506,21 @@ function WidgetDrawer({
             if (!entityId) throw new Error('请选择关联资源');
             if (eventOnly && actualType !== 'website') throw new Error('转化事件组件需要网站资源');
             onSave(
-              {
-                ...column?.component,
-                title: values.title,
-                type,
-                entityType: actualType,
-                entityId,
-                props: {
-                  ...column?.component?.props,
-                  ...(type === 'MetricsTable'
-                    ? { type: values.dimension || 'channel', liekanDisplay: 'bar' }
-                    : {}),
+              bindBoardComponent(
+                {
+                  ...column?.component,
+                  title: values.title,
+                  type,
+                  props: {
+                    ...column?.component?.props,
+                    ...(type === 'MetricsTable'
+                      ? { type: values.dimension || 'channel', liekanDisplay: 'bar' }
+                      : {}),
+                  },
                 },
-              },
+                fixed ? undefined : actualType,
+                fixed ? undefined : entityId,
+              ),
               values.full === 'on',
             );
             onClose();
@@ -1871,7 +1878,15 @@ function BoardCanvas({
                   disabled={!allowed || action.busy}
                   onClick={() =>
                     action.run(
-                      () => c.api.post(`/boards/${board.id}`, { parameters }),
+                      () =>
+                        c.api.post(`/boards/${board.id}`, {
+                          parameters: boardParameters(
+                            parameters,
+                            board.type,
+                            entity.entityId,
+                            board.type,
+                          ),
+                        }),
                       '编排已保存',
                     )
                   }
@@ -2230,7 +2245,9 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
   return (
     <QueryState query={q}>
       {editing ? (
-        <DashboardEdit key={q.data?.updatedAt || 'new'} board={q.data} />
+        <QueryState query={{ isPending: !!c.sitesLoading }}>
+          <DashboardEdit key={q.data?.updatedAt || 'new'} board={q.data} />
+        </QueryState>
       ) : (
         <>
           <QueryState query={stats}>

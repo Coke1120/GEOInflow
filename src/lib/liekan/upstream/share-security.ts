@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { hash, secret } from '@/lib/crypto';
 import { checkPassword, hashPassword } from '@/lib/password';
 import { LiekanError } from './errors';
@@ -40,6 +41,15 @@ export function verifySharePassword(input: string, parameters: any) {
   const a = Buffer.from(hash(input)),
     b = Buffer.from(hash(String(parameters.password)));
   return timingSafeEqual(a, b);
+}
+export async function verifySharePasswordAsync(input: string, parameters: any) {
+  if (typeof input !== 'string' || Buffer.byteLength(input) > 72) return false;
+  if (!parameters?.passwordHash) return verifySharePassword(input, parameters);
+  try {
+    return await bcrypt.compare(input, parameters.passwordHash);
+  } catch {
+    return false;
+  }
 }
 export function safeManagedShare<T extends { parameters: any }>(share: T): T {
   return share ? { ...share, parameters: publicShareParameters(share.parameters) } : share;

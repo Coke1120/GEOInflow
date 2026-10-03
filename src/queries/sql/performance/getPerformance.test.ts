@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { getPerformance } from './getPerformance';
 import { getPerformanceChart } from './getPerformanceChart';
-import { getPerformanceStats } from './getPerformanceStats';
 import { getPerformanceMetrics } from './getPerformanceMetrics';
+import { getPerformanceStats } from './getPerformanceStats';
 
 const mocks = vi.hoisted(() => ({
   backend: 'prisma',
@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
     filterQuery: 'and filtered',
     cohortQuery: '',
     joinSessionQuery: '',
+    excludeBounceQuery: '',
   })),
 }));
 vi.mock('@/lib/db', () => ({
@@ -45,6 +46,13 @@ describe.each(['prisma', 'clickhouse'])('%s performance datasets', backend => {
   beforeEach(() => {
     mocks.backend = backend;
     mocks.rawQuery.mockReset().mockResolvedValue([]);
+    mocks.parseFilters.mockReset().mockReturnValue({
+      queryParams: {},
+      filterQuery: 'and filtered',
+      cohortQuery: '',
+      joinSessionQuery: '',
+      excludeBounceQuery: '',
+    });
   });
   test('chart executes only the selected metric time series', async () => {
     expect(await getPerformanceChart('website', parameters, {})).toEqual({ chart: [] });
@@ -75,4 +83,37 @@ describe.each(['prisma', 'clickhouse'])('%s performance datasets', backend => {
     );
     expect(sql).toContain('group by url_path');
   });
+  test.each(['chart', 'stats', 'metrics'])(
+    '%s applies bounce exclusion with the other supported filters',
+    async kind => {
+      mocks.parseFilters.mockReturnValue({
+        queryParams: { websiteId: 'website', country: ['CN'] },
+        filterQuery: 'and dimension_filter and event_property_filter and session_property_filter',
+        cohortQuery: 'join selected_cohort',
+        joinSessionQuery: 'join filtered_session',
+        excludeBounceQuery: 'join excludeBounce',
+      });
+      const filters = { excludeBounce: true, country: 'eq.CN' };
+      if (kind === 'chart') await getPerformanceChart('website', parameters, filters);
+      else if (kind === 'stats') await getPerformanceStats('website', parameters, filters);
+      else await getPerformanceMetrics('website', parameters, filters, 'url_path');
+      const [sql, params] = mocks.rawQuery.mock.calls[0];
+      expect(sql).toContain('join excludeBounce');
+      expect(sql).toContain('join selected_cohort');
+      expect(sql).toContain(
+        'dimension_filter and event_property_filter and session_property_filter',
+      );
+      if (backend === 'prisma') expect(sql).toContain('join filtered_session');
+      expect(params).toMatchObject({
+        websiteId: 'website',
+        country: ['CN'],
+        startDate: parameters.startDate,
+        endDate: parameters.endDate,
+      });
+      expect(mocks.parseFilters).toHaveBeenCalledWith(
+        expect.objectContaining({ ...filters, websiteId: 'website' }),
+        ...(kind === 'metrics' && backend === 'prisma' ? [{ joinSession: false }] : []),
+      );
+    },
+  );
 });

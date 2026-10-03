@@ -356,6 +356,20 @@ try {
   report.apiCoverage = JSON.parse(
     fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/coverage/summary.json', 'utf8'),
   );
+  await run(process.execPath, ['scripts/liekan-feature-flows.mjs'], 'feature-flows', {
+    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+  });
+  report.featureFlows = JSON.parse(
+    fs.readFileSync('test-results/liekan-feature-flows/report.json', 'utf8'),
+  );
+  if (
+    !report.featureFlows.passed ||
+    report.featureFlows.head !== head ||
+    report.featureFlows.checks.length !== 7 ||
+    report.featureFlows.checks.some(check => !check.passed) ||
+    report.featureFlows.errors.length
+  )
+    throw new Error('Supplemental interaction acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-feature-visual.mjs'], 'feature-visual', {
     env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
   });

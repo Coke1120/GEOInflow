@@ -29,13 +29,14 @@ async function relationalQuery(
 ): Promise<RevenueStatsResult> {
   const { startDate, endDate, currency } = parameters;
   const { rawQuery, parseFilters } = prisma;
-  const { queryParams, filterQuery, cohortQuery, joinSessionQuery, dateQuery } = parseFilters({
-    ...filters,
-    websiteId,
-    startDate,
-    endDate,
-    currency,
-  });
+  const { queryParams, filterQuery, cohortQuery, joinSessionQuery, excludeBounceQuery, dateQuery } =
+    parseFilters({
+      ...filters,
+      websiteId,
+      startDate,
+      endDate,
+      currency,
+    });
 
   const total = await rawQuery(
     `
@@ -44,6 +45,7 @@ async function relationalQuery(
         select distinct website_event.website_id, website_event.session_id
         from website_event
         ${cohortQuery}
+        ${excludeBounceQuery}
         ${joinSessionQuery}
         where website_event.website_id = {{websiteId::uuid}}
           and website_event.event_type != ${EVENT_TYPE.performance}
@@ -83,7 +85,7 @@ async function clickhouseQuery(
 ): Promise<RevenueStatsResult> {
   const { startDate, endDate, currency } = parameters;
   const { rawQuery, parseFilters } = clickhouse;
-  const { filterQuery, cohortQuery, dateQuery, queryParams } = parseFilters({
+  const { filterQuery, cohortQuery, excludeBounceQuery, dateQuery, queryParams } = parseFilters({
     ...filters,
     websiteId,
     startDate,
@@ -103,6 +105,7 @@ async function clickhouseQuery(
         select website_id, session_id
         from website_event
         ${cohortQuery}
+        ${excludeBounceQuery}
         where website_id = {websiteId:UUID}
           and event_type != ${EVENT_TYPE.performance}
         ${dateQuery}

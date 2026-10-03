@@ -101,7 +101,7 @@ export function linkPayload(value: Record<string, any>, kind: 'link' | 'pixel', 
 export interface WorkspaceComponent {
   type: string;
   title?: string;
-  entityType?: string;
+  entityType?: 'website' | 'link' | 'pixel';
   entityId?: string;
   websiteId?: string;
   props?: Record<string, any>;
@@ -126,19 +126,54 @@ export interface WorkspaceParameters {
   pixelId?: string;
   [key: string]: any;
 }
-export function boardEntity(parameters: WorkspaceParameters = {}, type = 'mixed') {
-  const entityType = type === 'open' || type === 'mixed' || type === 'dashboard' ? '' : type;
+export function boardEntity(
+  parameters: WorkspaceParameters = {},
+  type = 'mixed',
+): { entityType: WorkspaceComponent['entityType'] | ''; entityId: string } {
+  const entityType = type === 'website' || type === 'link' || type === 'pixel' ? type : '';
   return { entityType, entityId: parameters[`${entityType}Id`] || '' };
+}
+export function bindBoardComponent(
+  component: WorkspaceComponent,
+  entityType?: WorkspaceComponent['entityType'],
+  entityId?: string,
+): WorkspaceComponent {
+  const { entityType: _type, entityId: _id, websiteId: _websiteId, ...rest } = component;
+  return { ...rest, ...(entityType && entityId ? { entityType, entityId } : {}) };
 }
 export function boardParameters(
   parameters: WorkspaceParameters = {},
   type: string,
   entityId?: string,
+  previousType?: string,
 ): WorkspaceParameters {
   const { websiteId, linkId, pixelId, ...rest } = parameters;
+  const fixed = ['website', 'link', 'pixel'].includes(type);
+  const previous = boardEntity(
+    parameters,
+    previousType || (websiteId ? 'website' : linkId ? 'link' : pixelId ? 'pixel' : 'mixed'),
+  );
   return {
     ...rest,
-    ...(['website', 'link', 'pixel'].includes(type) && entityId ? { [`${type}Id`]: entityId } : {}),
+    ...(fixed && entityId ? { [`${type}Id`]: entityId } : {}),
+    ...(rest.rows && {
+      rows: rest.rows.map(row => ({
+        ...row,
+        columns: row.columns.map(column => {
+          const component = column.component;
+          if (!component) return column;
+          // Fixed widgets inherit the board source. Opening a fixed board keeps each visible source.
+          return fixed || component.type === 'TextBlock'
+            ? { ...column, component: bindBoardComponent(component) }
+            : previous.entityType && previous.entityId
+              ? {
+                  ...column,
+                  component: bindBoardComponent(component, previous.entityType, previous.entityId),
+                }
+              : column;
+        }),
+      })),
+    }),
   };
 }
 export function boardColumns(parameters: WorkspaceParameters = {}) {

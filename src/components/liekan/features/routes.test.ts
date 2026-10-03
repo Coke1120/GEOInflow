@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { featureHref, featurePages, matchFeatureRoute } from './routes';
+import { featureHref, featurePages, featureWebsiteSwitchHref, matchFeatureRoute } from './routes';
+
 const uuid = '11111111-1111-4111-8111-111111111111';
 describe('approved scene routing', () => {
   it('registers every approved supplemental scene without duplicate IDs', () => {
@@ -39,5 +40,83 @@ describe('approved scene routing', () => {
       `/liekan/annotations?websiteId=${uuid}`,
     );
     expect(featureHref('overview', { websiteId: uuid })).toBe(`/websites/${uuid}/geo`);
+  });
+  it('keeps the user dashboard global when opened from a team workspace', () => {
+    for (const page of ['dashboard', 'dashboard-edit']) {
+      const url = new URL(featureHref(page, { teamId: uuid }), 'http://localhost');
+      expect(url.searchParams.has('teamId')).toBe(false);
+      expect(matchFeatureRoute(url.pathname, { teamId: uuid })?.teamId).toBeUndefined();
+      expect(matchFeatureRoute(`/liekan/${page}`, { teamId: uuid })?.teamId).toBeUndefined();
+    }
+    expect(matchFeatureRoute('/boards', { teamId: uuid })?.teamId).toBe(uuid);
+  });
+  it('clears website-owned records and filters while keeping the team and time selection', () => {
+    const websiteId = '22222222-2222-4222-8222-222222222222';
+    const query = {
+      date: 'range:0:100:day',
+      unit: 'day',
+      offset: '2',
+      compare: 'prev',
+      segment: uuid,
+      cohort: uuid,
+      retentionDate: '2026-10-01',
+      retentionDay: '1',
+      attributionStep: 'purchase',
+      attributionModel: 'first-click',
+      attributionType: 'event',
+      attributionSource: 'old-source',
+      event: 'eq.old',
+      drill_country: 'eq.CN',
+      spf0: '1.eq.plan.old',
+    };
+    for (const [page, list] of [
+      ['session-detail', 'sessions'],
+      ['replay-player', 'replays'],
+      ['event-detail', 'events'],
+      ['path-detail', 'journeys'],
+      ['goal-editor', 'goals'],
+      ['funnel-editor', 'funnels'],
+      ['segment-editor', 'segments'],
+      ['cohort-editor', 'cohorts'],
+    ]) {
+      const url = new URL(
+        featureWebsiteSwitchHref({ page, id: uuid, teamId: uuid }, websiteId, query),
+        'http://localhost',
+      );
+      expect(matchFeatureRoute(url.pathname, Object.fromEntries(url.searchParams))).toMatchObject({
+        page: list,
+        websiteId,
+        teamId: uuid,
+      });
+      expect(Object.fromEntries(url.searchParams)).toEqual({
+        date: query.date,
+        unit: 'day',
+        offset: '2',
+        compare: 'prev',
+        teamId: uuid,
+      });
+    }
+  });
+  it('preserves independent link, pixel and board records on a website switch', () => {
+    for (const page of [
+      'link-editor',
+      'link-detail',
+      'pixel-editor',
+      'pixel-detail',
+      'board-editor',
+      'board-design',
+      'board-view',
+    ]) {
+      const url = new URL(
+        featureWebsiteSwitchHref({ page, id: uuid, teamId: uuid }, uuid, { event: 'eq.old' }),
+        'http://localhost',
+      );
+      expect(matchFeatureRoute(url.pathname, Object.fromEntries(url.searchParams))).toMatchObject({
+        page,
+        id: uuid,
+        teamId: uuid,
+      });
+      expect(url.searchParams.has('event')).toBe(false);
+    }
   });
 });

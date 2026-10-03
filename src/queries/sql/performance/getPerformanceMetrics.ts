@@ -37,10 +37,8 @@ async function relationalQuery(
 ): Promise<PerformanceMetricsData[]> {
   const { startDate, endDate, metric = 'lcp' } = parameters;
   const { rawQuery, parseFilters } = prisma;
-  const { filterQuery, joinSessionQuery, cohortQuery, queryParams } = parseFilters(
-    { ...filters, websiteId },
-    { joinSession: SESSION_COLUMNS.includes(column) },
-  );
+  const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
+    parseFilters({ ...filters, websiteId }, { joinSession: SESSION_COLUMNS.includes(column) });
 
   return rawQuery(
     `
@@ -52,6 +50,7 @@ async function relationalQuery(
       count(${metric}) as count
     from website_event
     ${cohortQuery}
+    ${excludeBounceQuery}
     ${joinSessionQuery}
     where website_event.website_id = {{websiteId::uuid}}
       and website_event.event_type = 5
@@ -74,7 +73,10 @@ async function clickhouseQuery(
 ): Promise<PerformanceMetricsData[]> {
   const { startDate, endDate, metric = 'lcp' } = parameters;
   const { rawQuery, parseFilters } = clickhouse;
-  const { filterQuery, cohortQuery, queryParams } = parseFilters({ ...filters, websiteId });
+  const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
+    ...filters,
+    websiteId,
+  });
 
   return rawQuery<PerformanceMetricsData[]>(
     `
@@ -86,6 +88,7 @@ async function clickhouseQuery(
       countIf(${metric} IS NOT NULL) as count
     from website_event
     ${cohortQuery}
+    ${excludeBounceQuery}
     where website_event.website_id = {websiteId:UUID}
       and website_event.event_type = 5
       and website_event.created_at between {startDate:DateTime64} and {endDate:DateTime64}

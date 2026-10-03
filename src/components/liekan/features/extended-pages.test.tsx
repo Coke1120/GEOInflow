@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
     post: vi.fn(),
     construct: vi.fn(),
     setConfig: vi.fn(),
+    chart: vi.fn(),
     playerReady: new Promise<void>(resolve => {
       resolvePlayer = resolve;
     }),
@@ -28,7 +29,12 @@ vi.mock('./context', () => ({
     error: '',
   }),
 }));
-vi.mock('./Chart', () => ({ Chart: () => null }));
+vi.mock('./Chart', () => ({
+  Chart: (props: any) => {
+    mocks.chart(props);
+    return null;
+  },
+}));
 vi.mock('./Exports', () => ({ Exports: () => null }));
 vi.mock('@/lib/liekan/upstream/replay-client', () => ({
   prepareReplayEvents: (events: any[]) => events,
@@ -55,6 +61,7 @@ beforeEach(() => {
   mocks.post.mockReset().mockResolvedValue({});
   mocks.construct.mockClear();
   mocks.setConfig.mockClear();
+  mocks.chart.mockClear();
   mocks.context = {
     user: { id: 'owner', isAdmin: true },
     siteId: 'site',
@@ -109,4 +116,38 @@ it('retains the creation form for a replay that has not been saved', () => {
   const drawer = screen.getByRole('dialog');
   expect(drawer.querySelector('input[name="name"]')).not.toBeNull();
   expect(within(drawer).queryByRole('button', { name: '取消保存' })).not.toBeInTheDocument();
+});
+
+it('preserves decimal API amounts in revenue cards, transactions and cumulative tooltips', () => {
+  mocks.query['revenue-summary'] = {
+    sum: '99999999999999.99',
+    count: 2,
+    unique_count: 1,
+    average: 49999999999999.99,
+  };
+  mocks.query['revenue-sources'] = [{ name: 'search.test', value: '99999999999999.99' }];
+  mocks.query['revenue-transactions'] = {
+    rows: [{ id: 'event', sessionId: 'visitor', event: 'purchase', amount: '99999999999999.99' }],
+    count: 1,
+  };
+  mocks.query['revenue-chart'] = {
+    chart: [
+      { t: '2026-10-01', y: '99999999999999.98' },
+      { t: '2026-10-01', y: '0.01' },
+      { t: '2026-10-02', y: '0.01' },
+    ],
+  };
+  render(<ExtendedPages page="revenue" />);
+  expect(screen.getAllByText('¥99,999,999,999,999.99')).toHaveLength(3);
+  expect(screen.getByText('¥50,000,000,000,000.00')).toBeInTheDocument();
+  let props = mocks.chart.mock.calls.at(-1)![0];
+  expect(props.option.tooltip.valueFormatter(props.series[0].values[0], 0)).toBe(
+    '¥99,999,999,999,999.99',
+  );
+  fireEvent.click(screen.getByRole('tab', { name: '累计' }));
+  props = mocks.chart.mock.calls.at(-1)![0];
+  expect(props.option.tooltip.valueFormatter(props.series[0].values[1], 1)).toBe(
+    '¥100,000,000,000,000.00',
+  );
+  expect(props.option.series[0].data[1].exactAmount).toBe('100000000000000.00');
 });

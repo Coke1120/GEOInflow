@@ -1,19 +1,23 @@
 import { ROLES, SHARE_TOKEN_TYPE } from '@/lib/constants';
 import { secret } from '@/lib/crypto';
 import { createToken } from '@/lib/jwt';
-import prisma, { getRawQueryClient } from '@/lib/prisma';
-import redis from '@/lib/redis';
-import { json, notFound, unauthorized, badRequest } from '@/lib/response';
 import { readBody } from '@/lib/liekan/http';
+import { LiekanError } from '@/lib/liekan/upstream/errors';
+import { currentShareScope, loadShareEntity } from '@/lib/liekan/upstream/live-share';
+import {
+  acquireSharePasswordAttempt,
+  ShareAttemptError,
+} from '@/lib/liekan/upstream/share-attempts';
 import {
   hasSharePassword,
-  publicShareParameters,
   sharePasswordProof,
-  verifySharePassword,
+  verifySharePasswordAsync,
 } from '@/lib/liekan/upstream/share-security';
+import prisma, { getRawQueryClient } from '@/lib/prisma';
+import redis from '@/lib/redis';
+import { badRequest, json, notFound, payloadTooLarge, unauthorized } from '@/lib/response';
 import type { WhiteLabel } from '@/lib/types';
 import { getShareByCode } from '@/queries/prisma';
-import { currentShareScope, loadShareEntity } from '@/lib/liekan/upstream/live-share';
 
 async function getAccountId(entity: { userId?: string; teamId?: string }): Promise<string | null> {
   if (entity.userId) {
@@ -54,7 +58,7 @@ async function getWhiteLabel(accountId: string): Promise<WhiteLabel | null> {
 }
 
 async function resolveShare(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ slug: string }> },
   password?: string,
 ) {
@@ -67,8 +71,13 @@ async function resolveShare(
   }
   if (hasSharePassword(share.parameters)) {
     if (password === undefined) return json({ requiresPassword: true, name: share.name });
-    if (!verifySharePassword(password, share.parameters))
-      return unauthorized({ message: '分享密码不正确' });
+    const release = await acquireSharePasswordAttempt(request, share.id);
+    try {
+      if (!(await verifySharePasswordAsync(password, share.parameters)))
+        return unauthorized({ message: '分享密码不正确' });
+    } finally {
+      release();
+    }
   }
 
   const scope = await currentShareScope(share);
@@ -96,12 +105,36 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
   return resolveShare(request, context);
 }
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
+  let body: any;
   try {
-    const body = await readBody(request);
-    if (typeof body.password !== 'string' || Buffer.byteLength(body.password) > 72)
-      return badRequest({ message: '分享密码格式无效' });
-    return resolveShare(request, context, body.password);
-  } catch {
+    body = await readBody(request, 1024);
+  } catch (error) {
+    if (error instanceof LiekanError && error.status === 413)
+      return payloadTooLarge({ message: '分享密码请求上限 1 KiB' });
     return badRequest({ message: '请求格式无效' });
+  }
+  if (typeof body?.password !== 'string' || Buffer.byteLength(body.password) > 72)
+    return badRequest({ message: '分享密码格式无效' });
+  try {
+    return await resolveShare(request, context, body.password);
+  } catch (error) {
+    if (error instanceof ShareAttemptError)
+      return Response.json(
+        {
+          error: {
+            code: error.status === 429 ? 'share-password-throttled' : 'share-password-unavailable',
+            message: error.message,
+            status: error.status,
+          },
+        },
+        {
+          status: error.status,
+          headers: {
+            'Retry-After': String(error.retryAfter),
+            'Cache-Control': 'private, no-store',
+          },
+        },
+      );
+    throw error;
   }
 }

@@ -82,6 +82,7 @@ cp.spawnSync=(command,args,options={})=>{
  }
  if(args.includes('playwright.api.config.ts')){fs.mkdirSync('tests/api/.runtime/127.0.0.1-3302/coverage',{recursive:true});fs.writeFileSync('tests/api/.runtime/127.0.0.1-3302/coverage/summary.json','{}');}
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
+ if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:7},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:68*4},()=>({passed:true}))}));}
  if(args.includes('scripts/liekan-visual.mjs')){fs.mkdirSync('test-results/liekan-visual',{recursive:true});fs.writeFileSync('test-results/liekan-visual/geometry.json',JSON.stringify({passed:true,head}));}
  return {status:0};
@@ -166,6 +167,11 @@ describe('isolated acceptance CLI failure paths', () => {
     'restore-error',
     'data-regression-failed',
     'feature-ui-label',
+    'feature-flows-failed',
+    'feature-flows-head',
+    'feature-flows-count',
+    'feature-flows-check',
+    'feature-flows-errors',
     'feature-visual-failed',
     'feature-visual-head',
     'feature-visual-count',

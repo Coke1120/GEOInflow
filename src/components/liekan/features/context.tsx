@@ -1,19 +1,20 @@
 'use client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, type ReactNode, useContext, useState } from 'react';
 import type {
   FeatureEntity,
   FeatureRange,
   FeatureRoute,
   FeatureUser,
 } from '@/lib/liekan/contracts/features';
-import { featureApi } from '@/lib/liekan/upstream/features-client';
+import type { featureApi } from '@/lib/liekan/upstream/features-client';
 
 export interface FeatureContextValue {
   user: FeatureUser;
   route: FeatureRoute;
   api: typeof featureApi;
   sites: FeatureEntity[];
+  sitesLoading?: boolean;
   teams: FeatureEntity[];
   siteId: string;
   site: FeatureEntity;

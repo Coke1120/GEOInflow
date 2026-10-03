@@ -1,5 +1,5 @@
 import { LiekanError } from './upstream/server';
-export async function readBody(request: Request) {
+export async function readBody(request: Request, maxBytes = 11 * 1024 * 1024) {
   const reader = request.body?.getReader();
   if (!reader) throw new LiekanError('请求内容为空');
   const chunks: Uint8Array[] = [];
@@ -8,9 +8,12 @@ export async function readBody(request: Request) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > 11 * 1024 * 1024) {
+    if (size > maxBytes) {
       await reader.cancel();
-      throw new LiekanError('文件上限 10 MiB', 413);
+      throw new LiekanError(
+        maxBytes === 11 * 1024 * 1024 ? '文件上限 10 MiB' : '请求内容超出上限',
+        413,
+      );
     }
     chunks.push(value);
   }

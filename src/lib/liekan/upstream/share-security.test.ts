@@ -1,4 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import bcrypt from 'bcryptjs';
+import { describe, expect, it, vi } from 'vitest';
+
 vi.mock('./server', () => ({
   LiekanError: class extends Error {
     constructor(
@@ -9,13 +11,16 @@ vi.mock('./server', () => ({
     }
   },
 }));
+
 import {
   hasSharePassword,
   publicShareParameters,
   secureShareParameters,
   sharePasswordProof,
   verifySharePassword,
+  verifySharePasswordAsync,
 } from './share-security';
+
 describe('live password shares', () => {
   it('hashes legacy passwords on the next write', () => {
     const migrated = secureShareParameters({ events: true }, { password: 'legacy' });
@@ -48,5 +53,16 @@ describe('live password shares', () => {
   });
   it('rejects passwords that exceed bcrypt byte limits', () => {
     expect(() => secureShareParameters({ password: '中'.repeat(25) })).toThrow('72 字节');
+  });
+  it('uses asynchronous bcrypt for public checks and preserves legacy password behavior', async () => {
+    const saved = secureShareParameters({ password: 'public-password' });
+    const sync = vi.spyOn(bcrypt, 'compareSync');
+    expect(await verifySharePasswordAsync('public-password', saved)).toBe(true);
+    expect(await verifySharePasswordAsync('wrong', saved)).toBe(false);
+    expect(sync).not.toHaveBeenCalled();
+    expect(await verifySharePasswordAsync('legacy', { password: 'legacy' })).toBe(true);
+    expect(await verifySharePasswordAsync('wrong', { password: 'legacy' })).toBe(false);
+    expect(await verifySharePasswordAsync('x'.repeat(73), saved)).toBe(false);
+    expect(await verifySharePasswordAsync('wrong', { passwordHash: 'invalid-hash' })).toBe(false);
   });
 });

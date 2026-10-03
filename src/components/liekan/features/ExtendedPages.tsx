@@ -1,10 +1,15 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import { duration, percentage } from '@/lib/liekan/contracts/analysis';
-import { useFeature, useData, useAction } from './context';
+import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
+import {
+  formatRevenueAmount,
+  formatRevenueAverage,
+  sumRevenueAmounts,
+} from '@/lib/liekan/contracts/revenue';
 import { Chart } from './Chart';
+import { useAction, useData, useFeature } from './context';
 import 'rrweb-player/dist/style.css';
 import { Exports } from './Exports';
 import {
@@ -218,18 +223,14 @@ function Revenue() {
   const totals = summary.data;
   const points = chart.data?.chart || [];
   const labels = [...new Set<string>(points.map((r: any) => r.t))];
-  let running = 0;
-  const series = labels.map(t => {
-    const value = points
-      .filter((r: any) => r.t === t)
-      .reduce((s: number, r: any) => s + Number(r.y), 0);
-    running += value;
+  let running = '0';
+  const exactSeries = labels.map(t => {
+    const value = sumRevenueAmounts(points.filter((r: any) => r.t === t).map((r: any) => r.y));
+    running = sumRevenueAmounts([running, value]);
     return mode === 'period' ? value : running;
   });
-  const money = (value: any) =>
-    value == null
-      ? '—'
-      : new Intl.NumberFormat('zh-CN', { style: 'currency', currency }).format(Number(value));
+  const series = exactSeries.map(Number);
+  const money = (value: unknown) => formatRevenueAmount(value, currency);
   return (
     <>
       <div className="row between">
@@ -258,14 +259,27 @@ function Revenue() {
           ['付费访客', totals ? n(totals.unique_count) : null, '独立访客'],
           [
             '平均事件金额',
-            totals && Number(totals.count) > 0 ? money(totals.average) : '—',
+            totals ? formatRevenueAverage(totals.sum, Number(totals.count), currency) : '—',
             '收入 / 付费事件',
           ],
         ]}
       />
       <Panel title="收入趋势" subtitle="按币种分开分析，累计从所选期间起点计算。">
         <QueryState query={chart}>
-          <Chart labels={labels} series={[{ name: currency, values: series }]} />
+          <Chart
+            labels={labels}
+            series={[{ name: currency, values: series }]}
+            option={{
+              tooltip: {
+                valueFormatter: (_value: unknown, index: number) => money(exactSeries[index]),
+              },
+              series: [
+                {
+                  data: exactSeries.map(amount => ({ value: Number(amount), exactAmount: amount })),
+                },
+              ],
+            }}
+          />
         </QueryState>
       </Panel>
       <div className="two">

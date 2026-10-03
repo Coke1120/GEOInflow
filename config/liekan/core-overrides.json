@@ -960,13 +960,15 @@
     },
     {
       "path": "src/app/api/share/[slug]/route.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "purpose": "Resolve protected public shares with asynchronous bounded verification, explicit retry responses and live primary authorization",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
-        "pnpm liekan:verify",
-        "Supplemental UI/API regression and isolated Docker acceptance"
+        "src/app/api/share/[slug]/route.test.ts",
+        "src/lib/liekan/upstream/share-attempts.test.ts",
+        "tests/api/liekan-share-throttling.spec.ts",
+        "pnpm liekan:verify"
       ]
     },
     {
@@ -1356,13 +1358,14 @@
     },
     {
       "path": "src/queries/prisma/share.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "purpose": "Preserve live share secrets atomically on primary row-locked updates alongside managed share response redaction",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
-        "pnpm liekan:verify",
-        "Supplemental UI/API regression and isolated Docker acceptance"
+        "src/lib/liekan/upstream/share-update.test.ts",
+        "tests/api/liekan-share-concurrency.spec.ts",
+        "pnpm liekan:verify"
       ]
     },
     {
@@ -1442,24 +1445,26 @@
     },
     {
       "path": "src/queries/sql/performance/getPerformance.test.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "purpose": "Verify PostgreSQL and ClickHouse performance response compatibility, non-null counts and supported filter composition",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
-        "pnpm liekan:verify",
-        "Supplemental UI/API regression and isolated Docker acceptance"
+        "src/queries/sql/performance/getPerformance.test.ts",
+        "tests/api/liekan-features.spec.ts",
+        "pnpm liekan:verify"
       ]
     },
     {
       "path": "src/queries/sql/performance/getPerformanceMetrics.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "purpose": "Preserve non-null metric sample counts and apply bounce exclusion consistently to performance dimensions",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
-        "pnpm liekan:verify",
-        "Supplemental UI/API regression and isolated Docker acceptance"
+        "src/queries/sql/performance/getPerformance.test.ts",
+        "tests/api/liekan-features.spec.ts",
+        "pnpm liekan:verify"
       ]
     },
     {
@@ -1494,8 +1499,14 @@
     },
     {
       "path": "src/queries/sql/revenue/getRevenueMetrics.ts",
-      "purpose": "Inherited device/geography compatibility",
-      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
+      "purpose": "Preserve inherited geography compatibility and apply bounce exclusion consistently to revenue dimensions",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts",
+        "src/queries/sql/revenue/getRevenue.test.ts",
+        "tests/api/liekan-features.spec.ts",
+        "pnpm liekan:verify"
+      ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1632,6 +1643,98 @@
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Exclude isolated rehearsal copies from the production type boundary",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/queries/sql/performance/getPerformanceChart.ts",
+      "purpose": "Apply bounce exclusion consistently to native performance chart and summary datasets",
+      "tests": [
+        "src/queries/sql/performance/getPerformance.test.ts",
+        "tests/api/liekan-features.spec.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Preserve native response fields, unfiltered totals and inherited geography behavior while applying the same supported filters across Liekan page datasets",
+      "removalCondition": "Remove when upstream applies equivalent dataset filters and the registered regression checks pass"
+    },
+    {
+      "path": "src/queries/sql/performance/getPerformanceStats.ts",
+      "purpose": "Apply bounce exclusion consistently to native performance chart and summary datasets",
+      "tests": [
+        "src/queries/sql/performance/getPerformance.test.ts",
+        "tests/api/liekan-features.spec.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Preserve native response fields, unfiltered totals and inherited geography behavior while applying the same supported filters across Liekan page datasets",
+      "removalCondition": "Remove when upstream applies equivalent dataset filters and the registered regression checks pass"
+    },
+    {
+      "path": "src/queries/sql/revenue/getRevenueChart.ts",
+      "purpose": "Apply bounce exclusion consistently to eligible revenue sessions while preserving native totals and response fields",
+      "tests": [
+        "src/queries/sql/revenue/getRevenue.test.ts",
+        "tests/api/liekan-features.spec.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Preserve native response fields, unfiltered totals and inherited geography behavior while applying the same supported filters across Liekan page datasets",
+      "removalCondition": "Remove when upstream applies equivalent dataset filters and the registered regression checks pass"
+    },
+    {
+      "path": "src/queries/sql/revenue/getRevenueStats.ts",
+      "purpose": "Apply bounce exclusion consistently to eligible revenue sessions while preserving native totals and response fields",
+      "tests": [
+        "src/queries/sql/revenue/getRevenue.test.ts",
+        "tests/api/liekan-features.spec.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Preserve native response fields, unfiltered totals and inherited geography behavior while applying the same supported filters across Liekan page datasets",
+      "removalCondition": "Remove when upstream applies equivalent dataset filters and the registered regression checks pass"
+    },
+    {
+      "path": "src/queries/sql/revenue/getRevenue.test.ts",
+      "purpose": "Verify PostgreSQL and ClickHouse revenue filter composition and unfiltered response compatibility",
+      "tests": [
+        "src/queries/sql/revenue/getRevenue.test.ts",
+        "tests/api/liekan-features.spec.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Preserve native response fields, unfiltered totals and inherited geography behavior while applying the same supported filters across Liekan page datasets",
+      "removalCondition": "Remove when upstream applies equivalent dataset filters and the registered regression checks pass"
+    },
+    {
+      "path": "tests/api/liekan-board-binding.spec.ts",
+      "purpose": "Verify fixed-board rebinding narrows public scope and remains editable after former resource ownership changes",
+      "tests": ["tests/api/liekan-board-binding.spec.ts", "pnpm liekan:verify"],
+      "owner": "Liekan integration maintenance",
+      "constraint": "Use isolated disposable shares and resources, preserve seeded entities and upstream API compatibility",
+      "removalCondition": "Remove when equivalent upstream regression checks cover the integrated behavior"
+    },
+    {
+      "path": "tests/api/liekan-share-concurrency.spec.ts",
+      "purpose": "Verify concurrent managed-share metadata edits preserve password rotation, removal and stale token revocation",
+      "tests": ["tests/api/liekan-share-concurrency.spec.ts", "pnpm liekan:verify"],
+      "owner": "Liekan integration maintenance",
+      "constraint": "Use isolated disposable shares and resources, preserve seeded entities and upstream API compatibility",
+      "removalCondition": "Remove when equivalent upstream regression checks cover the integrated behavior"
+    },
+    {
+      "path": "src/app/api/share/[slug]/route.test.ts",
+      "purpose": "Verify public share challenges, bounded password checks and retry responses with actual route handlers",
+      "tests": ["src/app/api/share/[slug]/route.test.ts", "pnpm liekan:verify"],
+      "owner": "Liekan integration security maintenance",
+      "constraint": "Preserve upstream unprotected sharing and live authorization; use only isolated synthetic resources",
+      "removalCondition": "Remove when upstream provides equivalent protected share request bounds and regression checks"
+    },
+    {
+      "path": "tests/api/liekan-share-throttling.spec.ts",
+      "purpose": "Verify public share password limits and retry headers against isolated real API requests",
+      "tests": ["tests/api/liekan-share-throttling.spec.ts", "pnpm liekan:verify"],
+      "owner": "Liekan integration security maintenance",
+      "constraint": "Preserve upstream unprotected sharing and live authorization; use only isolated synthetic resources",
+      "removalCondition": "Remove when upstream provides equivalent protected share request bounds and regression checks"
     }
   ]
 }
