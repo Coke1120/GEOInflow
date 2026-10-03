@@ -35,7 +35,8 @@ const commands = [
   ['run', 'check:api:client'],
   ['run', 'build:packages'],
   ['exec', 'tsc', '--noEmit', '--pretty', 'false'],
-  ['run', 'test'],
+  // Bound CPU contention so real bcrypt checks keep their existing timeout.
+  ['run', 'test', '--maxWorkers=2'],
   ['run', 'test:packages'],
   ['exec', 'node', 'scripts/liekan-static-check.mjs'],
   ['run', 'build:tracker'],
