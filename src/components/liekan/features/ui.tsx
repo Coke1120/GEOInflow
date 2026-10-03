@@ -74,7 +74,12 @@ export function Button({ children, primary = false, danger = false, onClick, ...
 export function LinkButton({ children, page, params, primary = false, ...props }: any) {
   const c = useFeature();
   return (
-    <Link className={`btn${primary ? ' primary' : ''}`} href={c.href(page, params)} {...props}>
+    <Link
+      prefetch={false}
+      className={`btn${primary ? ' primary' : ''}`}
+      href={c.href(page, params)}
+      {...props}
+    >
       {children}
     </Link>
   );

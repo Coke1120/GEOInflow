@@ -50,8 +50,15 @@ export function matchFeatureRoute(
 }
 export function featureHref(page: string, params: Record<string, any> = {}): string {
   const record = featurePages.find(p => p.id === page);
-  if (!record) return '/dashboard';
-  const base = record.route && !record.route.includes('[[...') ? record.route : `/liekan/${page}`;
+  const geo = page === 'overview' && params.websiteId ? `/websites/${params.websiteId}/geo` : '';
+  if (!record && !geo) return '/dashboard';
+  const base =
+    geo ||
+    (record.route &&
+    !record.route.includes('[[...') &&
+    mapping.routes.some(route => route.route === record.route)
+      ? record.route
+      : `/liekan/${page}`);
   let path = base.replace(/\[([^\]]+)\]/g, (_full, name) =>
     String(name === 'websiteId' ? params.websiteId || '' : params.id || ''),
   );

@@ -1003,7 +1003,7 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
     <div data-liekan-features>
       <div className="auth-page">
         <aside className="auth-info">
-          <Link className="auth-brand" href="/">
+          <Link prefetch={false} className="auth-brand" href="/">
             <img src={`${basePath}/liekan/features/logo.svg`} alt="" />
             <span className="brand-name" style={{ color: 'var(--ink)' }}>
               猎看统计<span className="brand-caption">LIEKAN GEO STATS</span>
@@ -1039,7 +1039,7 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
                   </Notice>
                 </div>
                 <div className="stack">
-                  <Link className="btn" href="/login">
+                  <Link prefetch={false} className="btn" href="/login">
                     返回用户名登录
                   </Link>
                 </div>
@@ -1072,7 +1072,7 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
                   submitLabel={page === 'login' ? '登录' : '确认登录'}
                   cancel={
                     page === 'login-2fa' ? (
-                      <Link className="btn" href="/login">
+                      <Link prefetch={false} className="btn" href="/login">
                         返回登录
                       </Link>
                     ) : undefined

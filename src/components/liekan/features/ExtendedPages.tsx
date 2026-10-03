@@ -290,7 +290,11 @@ function Revenue() {
                 masked(r.sessionId),
                 r.event,
                 money(r.amount),
-                <Link key={r.id} href={c.href('session-detail', { id: r.sessionId })}>
+                <Link
+                  prefetch={false}
+                  key={r.id}
+                  href={c.href('session-detail', { id: r.sessionId })}
+                >
                   详情 →
                 </Link>,
               ])}
@@ -575,6 +579,7 @@ function Replays() {
                 {tab === 'saved' ? '已保存' : '可播放'}
               </Badge>,
               <Link
+                prefetch={false}
                 href={c.href('replay-player', { id: tab === 'saved' ? r.visitId : r.id })}
                 key={r.id}
               >

@@ -109,6 +109,7 @@ function ActionLink({
   const c = useFeature();
   return (
     <Link
+      prefetch={false}
       href={c.href(page, {
         ...c.filters,
         date: `range:${c.range.startAt}:${c.range.endAt}:${c.range.unit}`,

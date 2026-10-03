@@ -27,4 +27,17 @@ describe('approved scene routing', () => {
     });
     expect(new URL(href, 'http://localhost').searchParams.get('drill_event')).toBe('eq.a&b');
   });
+  it('routes every private scene through an implemented page and preserves the GEO overview', () => {
+    for (const page of featurePages.filter(p => !['login', 'login-2fa', 'sso'].includes(p.id))) {
+      const url = new URL(featureHref(page.id, { websiteId: uuid, id: uuid }), 'http://localhost');
+      expect(
+        matchFeatureRoute(url.pathname, Object.fromEntries(url.searchParams)),
+        page.id,
+      ).toMatchObject({ page: page.id });
+    }
+    expect(featureHref('annotations', { websiteId: uuid })).toBe(
+      `/liekan/annotations?websiteId=${uuid}`,
+    );
+    expect(featureHref('overview', { websiteId: uuid })).toBe(`/websites/${uuid}/geo`);
+  });
 });

@@ -233,20 +233,21 @@ export function FeatureApp({
           <button className="nav-backdrop" aria-label="关闭导航" onClick={() => setMobile(false)} />
         )}
         <aside className={`sidebar${mobile ? ' open' : ''}`}>
-          <Link className="brand" href="/dashboard">
+          <Link prefetch={false} className="brand" href="/dashboard">
             <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
             <span className="brand-name">
               猎看统计<span className="brand-caption">LIEKAN GEO STATS</span>
             </span>
           </Link>
           <nav className="nav" aria-label="页面导航">
-            <Link className="nav-item nav-quick" href="/dashboard">
+            <Link prefetch={false} className="nav-item nav-quick" href="/dashboard">
               <Icon name="grid" />
               工作台
             </Link>
             <div className="nav-label">管理与分析</div>
             {groups.map(([id, title, first, symbol]) => (
               <Link
+                prefetch={false}
                 key={id}
                 className={`nav-item${page?.group === id ? ' on' : ''}`}
                 href={href(first)}
@@ -266,7 +267,12 @@ export function FeatureApp({
                   ['转化分析', '/conversions'],
                   ['实时请求', '/logs'],
                 ].map(([title, suffix]) => (
-                  <Link className="nav-item" key={title} href={`/websites/${siteId}/geo${suffix}`}>
+                  <Link
+                    prefetch={false}
+                    className="nav-item"
+                    key={title}
+                    href={`/websites/${siteId}/geo${suffix}`}
+                  >
                     <Icon name="bars" />
                     {title}
                   </Link>
@@ -330,6 +336,7 @@ export function FeatureApp({
                   .filter(item => item.group === page.group)
                   .map(item => (
                     <Link
+                      prefetch={false}
                       key={item.id}
                       className={`tab${item.id === current.page ? ' on' : ''}`}
                       aria-current={item.id === current.page ? 'page' : undefined}
