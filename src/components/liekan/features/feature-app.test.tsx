@@ -99,6 +99,24 @@ beforeEach(() => {
   mocks.post.mockResolvedValue({});
 });
 describe('feature navigation scope', () => {
+  it.each([
+    { page: 'admin-users' },
+    { page: 'admin-user', id: 'user-2' },
+    { page: 'admin-websites' },
+    { page: 'admin-teams' },
+    { page: 'admin-security' },
+    { page: 'website-settings', websiteId: personal.id, context: 'admin' },
+    { page: 'team-detail', id: teamId, context: 'admin' },
+  ])(
+    'keeps a non-administrator bookmarked admin URL in an explicit denied state: $page',
+    async route => {
+      const view = mount(route);
+      expect(await screen.findByText('当前账户没有访问此资源的权限。')).toBeInTheDocument();
+      expect(view.container.querySelectorAll('[data-navigation-group]')).toHaveLength(5);
+      expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
+      expect(mocks.get).not.toHaveBeenCalled();
+    },
+  );
   it('resolves a website-backed board name without implicitly selecting a website', async () => {
     mocks.get.mockResolvedValue({
       data: [

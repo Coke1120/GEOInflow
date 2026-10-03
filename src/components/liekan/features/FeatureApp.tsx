@@ -78,7 +78,7 @@ export function FeatureApp({
 }) {
   const [entity, setEntity] = useState<FeatureEntity>(null);
   const ownedEntity = entity?.id === requestedRoute.id ? entity : undefined;
-  const route = normalizeFeatureScope({
+  const scopedRoute = normalizeFeatureScope({
     ...requestedRoute,
     ...(ownedEntity &&
     navigationFor(requestedRoute).scope === 'global' &&
@@ -86,6 +86,10 @@ export function FeatureApp({
       ? { teamId: ownedEntity.teamId || undefined }
       : {}),
   });
+  const route: FeatureRoute =
+    navigationFor(scopedRoute).scope === 'admin' && !user.isAdmin
+      ? { page: 'access-denied' }
+      : scopedRoute;
   const nav = useNavigation();
   const client = useQueryClient();
   const [toast, setToast] = useState('');
