@@ -177,21 +177,23 @@ export function getBoardEntityIds(board?: Pick<Board, 'type' | 'parameters'> | P
     linkIds.add(boardEntity.entityId);
   }
 
-  if (board?.parameters?.websiteId) {
-    websiteIds.add(board.parameters.websiteId);
-  }
+  if (isOpenBoardType(getBoardType(board))) {
+    if (board?.parameters?.websiteId) {
+      websiteIds.add(board.parameters.websiteId);
+    }
 
-  if (board?.parameters?.pixelId) {
-    pixelIds.add(board.parameters.pixelId);
-  }
+    if (board?.parameters?.pixelId) {
+      pixelIds.add(board.parameters.pixelId);
+    }
 
-  if (board?.parameters?.linkId) {
-    linkIds.add(board.parameters.linkId);
+    if (board?.parameters?.linkId) {
+      linkIds.add(board.parameters.linkId);
+    }
   }
 
   for (const row of board?.parameters?.rows ?? []) {
     for (const column of row.columns ?? []) {
-      const entity = getComponentEntity(column.component);
+      const entity = getResolvedComponentEntity(board, column.component);
 
       if (entity.entityType === BOARD_ENTITY_TYPES.website && entity.entityId) {
         websiteIds.add(entity.entityId);

@@ -110,6 +110,7 @@ test.describe('Liekan integrated feature contracts', () => {
       endStep: '/d',
     };
     const sessions: string[] = [];
+    const visits: string[] = [];
     try {
       for (const [index, urls] of [
         ['/a', '/b', '/c', '/d'],
@@ -117,6 +118,8 @@ test.describe('Liekan integrated feature contracts', () => {
         ['/loop', '/between', '/loop'],
       ].entries()) {
         let cache: string | undefined;
+        const distinctId = `journey-${index}-${websiteId}`;
+        expect(distinctId.length).toBeLessThanOrEqual(50);
         for (const [step, url] of urls.entries()) {
           const response = await api.post(
             '/api/send',
@@ -127,7 +130,7 @@ test.describe('Liekan integrated feature contracts', () => {
                 hostname: 'journey-boundary.test',
                 url,
                 timestamp: timestamp + step,
-                id: `journey-boundary-${websiteId}-${index}`,
+                id: distinctId,
                 ip: '127.0.0.1',
                 userAgent:
                   'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -138,9 +141,16 @@ test.describe('Liekan integrated feature contracts', () => {
           expect(response.status).toBe(200);
           expect(response.body.cache).toBeTruthy();
           cache = response.body.cache;
-          if (step === 0) sessions.push(response.body.sessionId);
+          if (step === 0) {
+            expect(response.body.sessionId).toBeTruthy();
+            expect(response.body.visitId).toBeTruthy();
+            sessions.push(response.body.sessionId);
+            visits.push(response.body.visitId);
+          }
         }
       }
+      expect(new Set(sessions).size).toBe(3);
+      expect(new Set(visits).size).toBe(3);
       const path = `/api/liekan/websites/${websiteId}/journeys`;
       for (const [steps, expected] of [
         [2, []],
@@ -219,9 +229,13 @@ test.describe('Liekan integrated feature contracts', () => {
       unit: 'day',
       metric: 'lcp',
     };
+    const sessions: string[] = [];
+    const visits: string[] = [];
     try {
       for (const [index, pageviews] of [1, 2].entries()) {
         let cache: string | undefined;
+        const distinctId = `perf-${index}-${websiteId}`;
+        expect(distinctId.length).toBeLessThanOrEqual(50);
         for (let step = 0; step <= pageviews; step++) {
           const response = await api.post(
             '/api/send',
@@ -232,7 +246,7 @@ test.describe('Liekan integrated feature contracts', () => {
                 hostname: 'performance-bounce.test',
                 url: '/a',
                 timestamp: timestamp + step,
-                id: `performance-bounce-${websiteId}-${index}`,
+                id: distinctId,
                 ip: '127.0.0.1',
                 userAgent:
                   'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -244,8 +258,16 @@ test.describe('Liekan integrated feature contracts', () => {
           expect(response.status).toBe(200);
           expect(response.body.cache).toBeTruthy();
           cache = response.body.cache;
+          if (step === 0) {
+            expect(response.body.sessionId).toBeTruthy();
+            expect(response.body.visitId).toBeTruthy();
+            sessions.push(response.body.sessionId);
+            visits.push(response.body.visitId);
+          }
         }
       }
+      expect(new Set(sessions).size).toBe(2);
+      expect(new Set(visits).size).toBe(2);
       for (const [excludeBounce, count, p75] of [
         [false, 2, 7750],
         [true, 1, 1000],
@@ -294,10 +316,14 @@ test.describe('Liekan integrated feature contracts', () => {
       unit: 'day',
       currency: 'USD',
     };
+    const sessions: string[] = [];
+    const visits: string[] = [];
     try {
       // The collector supports a server purchase without a preceding pageview.
       for (const [index, pageviews] of [0, 2].entries()) {
         let cache: string | undefined;
+        const distinctId = `revenue-${index}-${websiteId}`;
+        expect(distinctId.length).toBeLessThanOrEqual(50);
         for (let step = 0; step <= pageviews; step++) {
           const purchase = step === pageviews;
           const response = await api.post(
@@ -309,7 +335,7 @@ test.describe('Liekan integrated feature contracts', () => {
                 hostname: 'revenue-bounce.test',
                 url: '/a',
                 timestamp: timestamp + step,
-                id: `revenue-bounce-${websiteId}-${index}`,
+                id: distinctId,
                 ip: '127.0.0.1',
                 userAgent:
                   'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -323,8 +349,16 @@ test.describe('Liekan integrated feature contracts', () => {
           expect(response.status).toBe(200);
           expect(response.body.cache).toBeTruthy();
           cache = response.body.cache;
+          if (step === 0) {
+            expect(response.body.sessionId).toBeTruthy();
+            expect(response.body.visitId).toBeTruthy();
+            sessions.push(response.body.sessionId);
+            visits.push(response.body.visitId);
+          }
         }
       }
+      expect(new Set(sessions).size).toBe(2);
+      expect(new Set(visits).size).toBe(2);
       for (const [excludeBounce, count, sum] of [
         [false, 2, 110],
         [true, 1, 100],
@@ -353,7 +387,103 @@ test.describe('Liekan integrated feature contracts', () => {
           expect(metrics.body.length).toBeGreaterThan(0);
           expect(
             metrics.body.reduce((total: number, row: any) => total + Number(row.value), 0),
+            type,
           ).toBe(sum);
+        }
+      }
+    } finally {
+      expect((await admin.del(`/api/websites/${websiteId}`)).status).toBe(200);
+    }
+  });
+  test('revenue equal first timestamps preserve one source and channel contribution', async ({
+    admin,
+    api,
+    seed,
+  }) => {
+    if (seed.db === 'clickhouse') return;
+    const created = await admin.post('/api/websites', {
+      name: uniqueName('revenue-tie'),
+      domain: 'revenue-tie.test',
+    });
+    expect(created.status).toBe(200);
+    const websiteId = created.body.id;
+    const timestamp = Math.floor(Date.now() / 86400000) * 86400 - 86400 + 3600;
+    const distinctId = `tie-${websiteId}`;
+    expect(distinctId.length).toBeLessThanOrEqual(50);
+    const common = {
+      startAt: (timestamp - 1) * 1000,
+      endAt: (timestamp + 100) * 1000,
+      timezone: 'UTC',
+      unit: 'day',
+      currency: 'USD',
+    };
+    let cache: string | undefined;
+    let sessionId: string | undefined;
+    let visitId: string | undefined;
+    try {
+      for (const [index, payload] of [
+        { url: '/a', referrer: 'https://google.com/search', timestamp },
+        { url: '/b', referrer: 'https://t.co/a', timestamp },
+        {
+          url: '/checkout',
+          name: 'purchase',
+          data: { revenue: 100, currency: 'USD' },
+          timestamp: timestamp + 1,
+        },
+      ].entries()) {
+        const response = await api.post(
+          '/api/send',
+          {
+            type: 'event',
+            payload: {
+              website: websiteId,
+              hostname: 'revenue-tie.test',
+              id: distinctId,
+              ip: '127.0.0.1',
+              userAgent:
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              ...payload,
+            },
+          },
+          { headers: cache ? { [CACHE_HEADER]: cache } : undefined },
+        );
+        expect(response.status).toBe(200);
+        expect(response.body.cache).toBeTruthy();
+        expect(response.body.sessionId).toBeTruthy();
+        expect(response.body.visitId).toBeTruthy();
+        if (index === 0) {
+          sessionId = response.body.sessionId;
+          visitId = response.body.visitId;
+        }
+        expect(response.body.sessionId === sessionId).toBe(true);
+        expect(response.body.visitId === visitId).toBe(true);
+        cache = response.body.cache;
+      }
+      for (const excludeBounce of [false, true]) {
+        const params = { ...common, ...(excludeBounce ? { excludeBounce: '1' } : {}) };
+        const transactions = await admin.get(`/api/liekan/websites/${websiteId}/analytics`, {
+          params: { ...params, kind: 'revenue' },
+        });
+        const base = `/api/websites/${websiteId}/revenue`;
+        const summary = await admin.get(base + '/stats', { params });
+        const chart = await admin.get(base + '/chart', { params });
+        for (const response of [transactions, summary, chart]) expect(response.status).toBe(200);
+        expect(transactions.body.count).toBe(1);
+        expect(transactions.body.rows).toHaveLength(1);
+        expect(Number(transactions.body.rows[0].amount)).toBe(100);
+        expect(Number(summary.body.sum)).toBe(100);
+        expect(summary.body.count).toBe(1);
+        expect(chart.body.chart).toHaveLength(1);
+        expect(Number(chart.body.chart[0].y)).toBe(100);
+        expect(chart.body.chart[0].count).toBe(1);
+        for (const type of ['referrer', 'channel']) {
+          const metrics = await admin.get(base + '/metrics', { params: { ...params, type } });
+          expect(metrics.status).toBe(200);
+          expect(
+            metrics.body.reduce((total: number, row: any) => total + Number(row.value), 0),
+            type,
+          ).toBe(100);
+          expect(metrics.body, type).toHaveLength(1);
         }
       }
     } finally {

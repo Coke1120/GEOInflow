@@ -85,6 +85,17 @@ async function relationalQuery(
     )
   `;
 
+  const firstEventsQuery = `
+    first_events as (
+      select distinct on (website_id, session_id)
+        website_id, session_id, referrer_domain, url_query, utm_medium, utm_source, hostname
+      from website_event
+      where website_id = {{websiteId::uuid}}
+        and created_at between {{startDate}} and {{endDate}}
+      order by website_id, session_id, created_at, event_id
+    )
+  `;
+
   if (type === 'country') {
     return rawQuery(
       `
@@ -131,6 +142,7 @@ async function relationalQuery(
       `
       with
       ${filteredSessionsQuery},
+      ${firstEventsQuery},
       events as (
         select
           revenue.website_id,
@@ -143,35 +155,15 @@ async function relationalQuery(
         where revenue.website_id = {{websiteId::uuid}}
           and revenue.created_at between {{startDate}} and {{endDate}}
           and upper(revenue.currency) = {{currency}}
-        group by revenue.website_id, revenue.session_id),
-
-      revenue_data as (
-        select
-          e.website_id,
-          e.session_id,
-          e.value,
-          we.min_date as created_at
-        from events e
-        join (
-          select session_id, min(created_at) as min_date
-          from website_event
-          where website_id = {{websiteId::uuid}}
-            and created_at between {{startDate}} and {{endDate}}
-          group by session_id
-        ) we on we.session_id = e.session_id)
+        group by revenue.website_id, revenue.session_id)
 
       select
         we.referrer_domain as "name",
-        sum(revenue_data.value) as "value"
-      from revenue_data
-      join (
-        select website_id, session_id, referrer_domain, created_at
-        from website_event
-        where website_id = {{websiteId::uuid}}
-          and created_at between {{startDate}} and {{endDate}}) we
-      on we.website_id = revenue_data.website_id
-        and we.session_id = revenue_data.session_id
-        and we.created_at = revenue_data.created_at
+        sum(events.value) as "value"
+      from events
+      join first_events we
+        on we.website_id = events.website_id
+       and we.session_id = events.session_id
       group by we.referrer_domain
       order by value desc
       `,
@@ -183,6 +175,7 @@ async function relationalQuery(
     `
     with
     ${filteredSessionsQuery},
+    ${firstEventsQuery},
     events as (
       select
         revenue.website_id,
@@ -197,21 +190,6 @@ async function relationalQuery(
         and upper(revenue.currency) = {{currency}}
       group by revenue.website_id, revenue.session_id),
 
-    revenue_data as (
-      select
-        e.website_id,
-        e.session_id,
-        e.value,
-        we.min_date as created_at
-      from events e
-      join (
-        select session_id, min(created_at) as min_date
-        from website_event
-        where website_id = {{websiteId::uuid}}
-          and created_at between {{startDate}} and {{endDate}}
-        group by session_id
-      ) we on we.session_id = e.session_id),
-
     revenue_prefix as (
       select
         case when we.utm_medium ilike '%cp%' OR
@@ -224,15 +202,10 @@ async function relationalQuery(
         we.utm_source,
         we.hostname,
         r.value
-      from revenue_data r
-      join (
-        select website_id, session_id, referrer_domain, url_query, utm_medium, utm_source, hostname, created_at
-        from website_event
-        where website_id = {{websiteId::uuid}}
-          and created_at between {{startDate}} and {{endDate}}) we
-      on we.website_id = r.website_id
-        and we.session_id = r.session_id
-        and we.created_at = r.created_at),
+      from events r
+      join first_events we
+        on we.website_id = r.website_id
+       and we.session_id = r.session_id),
 
     channels AS (
       select
@@ -311,6 +284,30 @@ async function clickhouseQuery(
     )
   `;
 
+  const firstEventsQuery = `
+    first_events as (
+      select
+        website_id,
+        session_id,
+        tupleElement(first_event, 1) as referrer_domain,
+        tupleElement(first_event, 2) as url_query,
+        tupleElement(first_event, 3) as utm_medium,
+        tupleElement(first_event, 4) as utm_source,
+        tupleElement(first_event, 5) as hostname
+      from (
+        select website_id, session_id,
+          argMin(
+            tuple(referrer_domain, url_query, utm_medium, utm_source, hostname),
+            tuple(created_at, event_id)
+          ) as first_event
+        from website_event
+        where website_id = {websiteId:UUID}
+          and created_at between {startDate:DateTime64} and {endDate:DateTime64}
+        group by website_id, session_id
+      )
+    )
+  `;
+
   if (type === 'country') {
     return rawQuery<{ name: string; value: number }[]>(
       `
@@ -357,6 +354,7 @@ async function clickhouseQuery(
       `
       with
       ${filteredSessionsQuery},
+      ${firstEventsQuery},
       events as (
         select
           website_revenue.website_id,
@@ -370,37 +368,15 @@ async function clickhouseQuery(
           and website_revenue.created_at between {startDate:DateTime64} and {endDate:DateTime64}
           and upper(website_revenue.currency) = {currency:String}
         group by 1, 2
-      ),
-
-      revenue as (
-        select
-          e.website_id,
-          e.session_id,
-          e.value,
-          we.min_date as created_at
-        from events e
-        join (
-          select session_id, min(created_at) min_date
-          from website_event
-          where website_id = {websiteId:UUID}
-            and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-          group by 1
-        ) we
-          on we.session_id = e.session_id
       )
 
       select
           website_event.referrer_domain as "name",
-          sum(revenue.value) as "value"
-      from revenue
-      any left join (
-        select website_id, session_id, referrer_domain, created_at
-        from website_event
-        where website_id = {websiteId:UUID}
-        and created_at between {startDate:DateTime64} and {endDate:DateTime64}) website_event
-      on website_event.website_id = revenue.website_id
-      and website_event.session_id = revenue.session_id
-      and website_event.created_at = revenue.created_at
+          sum(events.value) as "value"
+      from events
+      inner join first_events website_event
+        on website_event.website_id = events.website_id
+       and website_event.session_id = events.session_id
       group by 1
       order by value desc
       `,
@@ -412,6 +388,7 @@ async function clickhouseQuery(
     `
     with
     ${filteredSessionsQuery},
+    ${firstEventsQuery},
     events as (
       select
         website_revenue.website_id,
@@ -425,23 +402,6 @@ async function clickhouseQuery(
         and website_revenue.created_at between {startDate:DateTime64} and {endDate:DateTime64}
         and upper(website_revenue.currency) = {currency:String}
       group by 1, 2
-    ),
-
-    revenue as (
-      select
-          e.website_id,
-          e.session_id,
-          e.value,
-          we.min_date as created_at
-      from events e
-      join (
-        select session_id, min(created_at) min_date
-        from website_event
-        where website_id = {websiteId:UUID}
-          and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-        group by 1
-      ) we
-        on we.session_id = e.session_id
     ),
 
     channels as (
@@ -475,17 +435,11 @@ async function clickhouseQuery(
           )}]) != 0 or position(lower(utm_medium), 'video') > 0 then concat(prefix, 'Video')
           when referrer_domain != hostname and referrer_domain != '' then 'referral'
         else 'Unknown' end AS "name",
-        sum(revenue.value) as "value"
-      from revenue
-      any left join (
-        select *
-        from website_event
-        where website_id = {websiteId:UUID}
-          and created_at between {startDate:DateTime64} and {endDate:DateTime64}
-      ) website_event
-        on website_event.website_id = revenue.website_id
-       and website_event.session_id = revenue.session_id
-       and website_event.created_at = revenue.created_at
+        sum(events.value) as "value"
+      from events
+      inner join first_events website_event
+        on website_event.website_id = events.website_id
+       and website_event.session_id = events.session_id
       group by 1, 2
     )
 

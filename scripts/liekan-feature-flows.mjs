@@ -194,14 +194,26 @@ try {
   await page.waitForURL(u => u.pathname === `/websites/${switchSite.id}/sessions`);
   await page.waitForLoadState('networkidle');
   const switched = new URL(page.url());
+  const switchAlerts = await page
+    .locator('[data-liekan-features]')
+    .getByRole('alert')
+    .allTextContents();
   result.checks.push({
     name: 'website switch clears saved audience and association while preserving dates',
+    observed: {
+      date: switched.searchParams.get('date'),
+      expectedDate: date,
+      segment: switched.searchParams.has('segment'),
+      retentionDate: switched.searchParams.has('retentionDate'),
+      retentionDay: switched.searchParams.has('retentionDay'),
+      alerts: switchAlerts,
+    },
     passed:
       switched.searchParams.get('date') === date &&
       !switched.searchParams.has('segment') &&
       !switched.searchParams.has('retentionDate') &&
       !switched.searchParams.has('retentionDay') &&
-      !(await page.getByRole('alert').count()),
+      switchAlerts.length === 0,
   });
   await context.close();
   result.passed = result.checks.every(c => c.passed) && result.errors.length === 0;

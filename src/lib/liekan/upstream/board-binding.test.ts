@@ -41,7 +41,7 @@ vi.mock('@/queries/prisma', () => ({
 }));
 vi.mock('@/permissions', async () => import('@/permissions/board'));
 
-import { POST } from '@/app/api/boards/[boardId]/route';
+import { GET, POST } from '@/app/api/boards/[boardId]/route';
 import { getBoardEntityIds } from '@/lib/boards';
 import { ENTITY_TYPE } from '@/lib/constants';
 import { boardParameters } from '../contracts/workspace';
@@ -81,6 +81,51 @@ beforeEach(() => {
 });
 
 describe('board source authorization regression', () => {
+  it('an upgraded raw fixed board scopes new and existing share tokens to B before any resave', async () => {
+    state.board.parameters.websiteId = 'site-b';
+    const original = structuredClone(state.board);
+    const response = await GET(new Request('http://localhost/api/boards/board'), {
+      params: Promise.resolve({ boardId: 'board' }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(original);
+    state.share = {
+      id: 'share',
+      shareType: ENTITY_TYPE.board,
+      entityId: 'board',
+      parameters: { overview: true },
+    };
+    const scope = await currentShareScope(state.share);
+    expect(scope).toMatchObject({
+      boardId: 'board',
+      websiteIds: ['site-b'],
+      pixelIds: [],
+      linkIds: [],
+    });
+    expect(await validateLiveShare({ ...scope, websiteIds: ['site-a', 'site-b'] })).toMatchObject({
+      boardId: 'board',
+      websiteIds: ['site-b'],
+    });
+    expect(state.board).toEqual(original);
+  });
+
+  it('a raw upgraded fixed board remains editable after access to the unused source is lost', async () => {
+    state.board.parameters.websiteId = 'site-b';
+    state.websites.set('site-a', { id: 'site-a', userId: 'someone-else' });
+    const response = await POST(
+      new Request('http://localhost/api/boards/board', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Renamed', parameters: state.board.parameters }),
+      }),
+      { params: Promise.resolve({ boardId: 'board' }) },
+    );
+    expect(response.status).toBe(200);
+    const saved = await response.json();
+    expect(saved.parameters.rows[0].columns[0].component.entityId).toBe('site-a');
+    expect(getBoardEntityIds(saved)).toEqual({ websiteIds: ['site-b'], linkIds: [], pixelIds: [] });
+  });
+
   it('a regular owner can save after rebinding to B and losing access to A', async () => {
     const parameters = boardParameters(
       state.board.parameters,

@@ -112,4 +112,27 @@ describe.each(['prisma', 'clickhouse'])('%s revenue filters', backend => {
     });
     expect(mocks.rawQuery.mock.calls[0][0]).not.toContain('excludeBounce');
   });
+
+  test.each(['referrer', 'channel'] as const)(
+    '%s selects one complete first event when timestamps tie',
+    async kind => {
+      await query(kind, {});
+      const sql = mocks.rawQuery.mock.calls[0][0];
+      expect(sql.match(/first_events as/g)).toHaveLength(1);
+      if (backend === 'prisma') {
+        expect(sql).toContain('distinct on (website_id, session_id)');
+        expect(sql).toContain('order by website_id, session_id, created_at, event_id');
+      } else {
+        expect(sql).toContain('argMin(');
+        expect(sql).toContain(
+          'tuple(referrer_domain, url_query, utm_medium, utm_source, hostname)',
+        );
+        expect(sql).toContain('tuple(created_at, event_id)');
+        expect(sql).toContain('sum(events.value)');
+        expect(sql).not.toContain('sum(revenue.value)');
+      }
+      expect(sql).toContain('join first_events');
+      expect(sql).not.toContain('min(created_at)');
+    },
+  );
 });

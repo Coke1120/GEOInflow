@@ -1499,7 +1499,7 @@
     },
     {
       "path": "src/queries/sql/revenue/getRevenueMetrics.ts",
-      "purpose": "Preserve inherited geography compatibility and apply bounce exclusion consistently to revenue dimensions",
+      "purpose": "Preserve inherited geography compatibility, apply bounce exclusion consistently and resolve one deterministic first event per session for revenue attribution",
       "tests": [
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
@@ -1735,6 +1735,32 @@
       "owner": "Liekan integration security maintenance",
       "constraint": "Preserve upstream unprotected sharing and live authorization; use only isolated synthetic resources",
       "removalCondition": "Remove when upstream provides equivalent protected share request bounds and regression checks"
+    },
+    {
+      "path": "src/lib/boards.ts",
+      "purpose": "Resolve fixed-board permissions and live share scopes from the visible root source, including already-saved legacy component bindings",
+      "tests": [
+        "src/lib/boards.test.ts",
+        "src/lib/liekan/upstream/board-binding.test.ts",
+        "tests/api/liekan-board-binding.spec.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Preserve saved board records, rendering semantics, mixed-board sources and native contracts; narrow permissions to effective fixed-board sources",
+      "removalCondition": "Remove when upstream resource scope resolution matches its rendering and regression checks pass"
+    },
+    {
+      "path": "src/lib/boards.test.ts",
+      "purpose": "Verify effective fixed-board scopes and preserve mixed-board resource collection, legacy fallback and text-only layouts",
+      "tests": [
+        "src/lib/boards.test.ts",
+        "src/lib/liekan/upstream/board-binding.test.ts",
+        "tests/api/liekan-board-binding.spec.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan upstream compatibility",
+      "constraint": "Preserve saved board records, rendering semantics, mixed-board sources and native contracts; narrow permissions to effective fixed-board sources",
+      "removalCondition": "Remove when upstream resource scope resolution matches its rendering and regression checks pass"
     }
   ]
 }

@@ -4,7 +4,135 @@ import {
   BOARD_COMPONENT_COMPATIBILITY_MATRIX,
   getSupportedBoardComponentEntityTypes,
 } from './boardComponentCompatibility';
-import { BOARD_ENTITY_TYPES, isBoardComponentSupported } from './boards';
+import {
+  BOARD_ENTITY_TYPES,
+  getBoardEntityIds,
+  getResolvedComponentEntity,
+  isBoardComponentSupported,
+} from './boards';
+import type { BoardParameters } from './types';
+
+test.each(['website', 'pixel', 'link'] as const)(
+  'fixed %s board scope follows its rendered source without rewriting legacy bindings',
+  type => {
+    const parameters: BoardParameters = {
+      websiteId: 'unused-website',
+      pixelId: 'unused-pixel',
+      linkId: 'unused-link',
+      [`${type}Id`]: 'current-source',
+      rows: [
+        {
+          id: 'row',
+          columns: [
+            {
+              id: 'chart',
+              component: { type: 'WebsiteChart', entityType: 'website', entityId: 'old-source' },
+            },
+            {
+              id: 'text',
+              component: {
+                type: 'TextBlock',
+                websiteId: 'old-text-source',
+                props: { content: 'Notes' },
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const board = { type, parameters };
+    expect(getResolvedComponentEntity(board, parameters.rows[0].columns[0].component)).toEqual({
+      entityType: type,
+      entityId: 'current-source',
+    });
+    expect(getBoardEntityIds(board)).toEqual({
+      websiteIds: type === 'website' ? ['current-source'] : [],
+      pixelIds: type === 'pixel' ? ['current-source'] : [],
+      linkIds: type === 'link' ? ['current-source'] : [],
+    });
+    expect(parameters.rows[0].columns[0].component.entityId).toBe('old-source');
+    expect(parameters.rows[0].columns[1].component.props.content).toBe('Notes');
+  },
+);
+
+test.each(['mixed', 'open', 'dashboard'])(
+  '%s boards retain every independent and legacy resource reference',
+  type => {
+    const parameters: BoardParameters = {
+      websiteId: 'legacy-website',
+      linkId: 'legacy-link',
+      pixelId: 'legacy-pixel',
+      rows: [
+        {
+          id: 'row',
+          columns: [
+            {
+              id: 'website',
+              component: { type: 'WebsiteChart', entityType: 'website', entityId: 'website' },
+            },
+            {
+              id: 'pixel',
+              component: { type: 'MetricsTable', entityType: 'pixel', entityId: 'pixel' },
+            },
+            {
+              id: 'link',
+              component: { type: 'MetricsTable', entityType: 'link', entityId: 'link' },
+            },
+            { id: 'legacy', component: { type: 'WeeklyTraffic', websiteId: 'old-website' } },
+            { id: 'text', component: { type: 'TextBlock', props: { content: 'Notes' } } },
+          ],
+        },
+      ],
+    };
+    expect(getBoardEntityIds({ type, parameters })).toEqual({
+      websiteIds: ['legacy-website', 'website', 'old-website'],
+      linkIds: ['legacy-link', 'link'],
+      pixelIds: ['legacy-pixel', 'pixel'],
+    });
+  },
+);
+
+test('fixed boards without a root source retain the same component fallback as rendering', () => {
+  const board = {
+    type: 'website',
+    parameters: {
+      linkId: 'unused-root-link',
+      rows: [
+        {
+          id: 'row',
+          columns: [{ id: 'chart', component: { type: 'WebsiteChart', websiteId: 'fallback' } }],
+        },
+      ],
+    },
+  };
+  expect(getResolvedComponentEntity(board, board.parameters.rows[0].columns[0].component)).toEqual({
+    entityType: 'website',
+    entityId: 'fallback',
+  });
+  expect(getBoardEntityIds(board)).toEqual({ websiteIds: ['fallback'], linkIds: [], pixelIds: [] });
+});
+
+test('a fixed board keeps its root source when it contains only text or no components', () => {
+  expect(
+    getBoardEntityIds({ type: 'website', parameters: { websiteId: 'source' } }).websiteIds,
+  ).toEqual(['source']);
+  expect(
+    getBoardEntityIds({
+      type: 'website',
+      parameters: {
+        websiteId: 'source',
+        rows: [
+          {
+            id: 'row',
+            columns: [
+              { id: 'text', component: { type: 'TextBlock', props: { content: 'Notes' } } },
+            ],
+          },
+        ],
+      },
+    }).websiteIds,
+  ).toEqual(['source']);
+});
 
 test('isBoardComponentSupported allows events chart on website boards', () => {
   expect(isBoardComponentSupported('EventsChart', BOARD_ENTITY_TYPES.website)).toBe(true);
