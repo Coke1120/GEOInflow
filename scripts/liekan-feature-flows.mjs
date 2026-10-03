@@ -65,6 +65,46 @@ async function pageAt(path, slow = false) {
   return { page, context };
 }
 try {
+  let loginContext = await browser.newContext({ locale: 'zh-CN' });
+  let loginPage = await loginContext.newPage();
+  try {
+    await loginPage.goto(base + '/login');
+    await loginPage.locator('[name=username]').fill(seed.admin.username);
+    await loginPage.locator('[name=password]').fill(seed.admin.password);
+    await loginPage.getByRole('button', { name: '登录', exact: true }).click();
+    await loginPage.waitForURL(u => u.pathname === '/dashboard');
+    await loginPage.waitForLoadState('networkidle');
+    const saved = await loginContext.storageState();
+    assert(
+      saved.origins.some(origin => origin.localStorage.some(item => item.name === 'umami.auth')),
+    );
+    await loginContext.close();
+    loginContext = await browser.newContext({ locale: 'zh-CN', storageState: saved });
+    loginPage = await loginContext.newPage();
+    await loginPage.goto(base + '/login');
+    await loginPage.waitForURL(u => u.pathname === '/dashboard');
+    await loginPage.waitForLoadState('networkidle');
+    await loginPage.getByRole('button', { name: /个人账户/ }).click();
+    await loginPage.getByRole('button', { name: '退出登录', exact: true }).click();
+    await loginPage.waitForURL(u => u.pathname === '/login');
+    await loginPage.waitForLoadState('networkidle');
+    assert.equal(await loginPage.evaluate(() => localStorage.getItem('umami.auth')), null);
+    await loginPage.reload();
+    await loginPage.getByRole('button', { name: '登录', exact: true }).waitFor();
+    assert.equal(new URL(loginPage.url()).pathname, '/login');
+    await loginPage.evaluate(() =>
+      localStorage.setItem('umami.auth', JSON.stringify('expired-invalid')),
+    );
+    await loginPage.reload();
+    await loginPage.getByRole('button', { name: '登录', exact: true }).waitFor();
+    assert.equal(await loginPage.evaluate(() => localStorage.getItem('umami.auth')), null);
+    result.checks.push({
+      name: 'saved login restores in a new browser context while logout and expired credentials keep the login form available',
+      passed: true,
+    });
+  } finally {
+    await loginContext.close();
+  }
   await api('POST', '/dashboard', {
     name: '隔离 review 工作台',
     description: '',

@@ -1,5 +1,5 @@
 import { saveAuth } from '@/lib/auth';
-import { PARTIAL_AUTH_TOKEN_TYPE, ROLES } from '@/lib/constants';
+import { AUTH_SESSION_TTL, PARTIAL_AUTH_TOKEN_TYPE, ROLES } from '@/lib/constants';
 import { hash, secret } from '@/lib/crypto';
 import { createSecureToken } from '@/lib/jwt';
 import { checkPassword } from '@/lib/password';
@@ -54,9 +54,11 @@ export async function POST(request: Request) {
   let token: string;
 
   if (redis.enabled) {
-    token = await saveAuth({ userId: id, role, pwd });
+    token = await saveAuth({ userId: id, role, pwd }, AUTH_SESSION_TTL);
   } else {
-    token = createSecureToken({ userId: user.id, role, pwd }, secret());
+    token = createSecureToken({ userId: user.id, role, pwd }, secret(), {
+      expiresIn: AUTH_SESSION_TTL,
+    });
   }
 
   const teams = await getAllUserTeams(id);

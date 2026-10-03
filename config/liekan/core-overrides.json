@@ -1194,13 +1194,16 @@
     },
     {
       "path": "src/lib/auth.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; 90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
         "pnpm liekan:verify",
-        "Supplemental UI/API regression and isolated Docker acceptance"
+        "Supplemental UI/API regression and isolated Docker acceptance",
+        "src/lib/auth-session.test.ts",
+        "src/app/api/auth/login/route.test.ts",
+        "src/app/api/2fa/verify/route.test.ts"
       ]
     },
     {
@@ -1224,8 +1227,15 @@
     },
     {
       "path": "src/lib/constants.ts",
-      "purpose": "Inherited device/geography compatibility",
-      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
+      "purpose": "Inherited device/geography compatibility; 90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts",
+        "src/lib/auth-session.test.ts",
+        "src/app/api/auth/login/route.test.ts",
+        "src/app/api/2fa/verify/route.test.ts",
+        "pnpm liekan:verify"
+      ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1761,6 +1771,71 @@
       "owner": "Liekan upstream compatibility",
       "constraint": "Preserve saved board records, rendering semantics, mixed-board sources and native contracts; narrow permissions to effective fixed-board sources",
       "removalCondition": "Remove when upstream resource scope resolution matches its rendering and regression checks pass"
+    },
+    {
+      "path": "src/lib/auth-session.test.ts",
+      "purpose": "90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions",
+      "tests": [
+        "src/lib/auth-session.test.ts",
+        "src/app/api/auth/login/route.test.ts",
+        "src/app/api/2fa/verify/route.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan authentication compatibility",
+      "constraint": "Preserve opaque bearer token format, live account/password checks, five-minute partial 2FA challenge and existing SSO, API-key, share and tracker protocols",
+      "removalCondition": "Remove when upstream exposes a session-lifetime setting and the registered regression tests pass"
+    },
+    {
+      "path": "src/app/api/auth/login/route.ts",
+      "purpose": "90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions",
+      "tests": [
+        "src/lib/auth-session.test.ts",
+        "src/app/api/auth/login/route.test.ts",
+        "src/app/api/2fa/verify/route.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan authentication compatibility",
+      "constraint": "Preserve opaque bearer token format, live account/password checks, five-minute partial 2FA challenge and existing SSO, API-key, share and tracker protocols",
+      "removalCondition": "Remove when upstream exposes a session-lifetime setting and the registered regression tests pass"
+    },
+    {
+      "path": "src/app/api/auth/login/route.test.ts",
+      "purpose": "90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions",
+      "tests": [
+        "src/lib/auth-session.test.ts",
+        "src/app/api/auth/login/route.test.ts",
+        "src/app/api/2fa/verify/route.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan authentication compatibility",
+      "constraint": "Preserve opaque bearer token format, live account/password checks, five-minute partial 2FA challenge and existing SSO, API-key, share and tracker protocols",
+      "removalCondition": "Remove when upstream exposes a session-lifetime setting and the registered regression tests pass"
+    },
+    {
+      "path": "src/app/api/2fa/verify/route.ts",
+      "purpose": "90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions",
+      "tests": [
+        "src/lib/auth-session.test.ts",
+        "src/app/api/auth/login/route.test.ts",
+        "src/app/api/2fa/verify/route.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan authentication compatibility",
+      "constraint": "Preserve opaque bearer token format, live account/password checks, five-minute partial 2FA challenge and existing SSO, API-key, share and tracker protocols",
+      "removalCondition": "Remove when upstream exposes a session-lifetime setting and the registered regression tests pass"
+    },
+    {
+      "path": "src/app/api/2fa/verify/route.test.ts",
+      "purpose": "90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions",
+      "tests": [
+        "src/lib/auth-session.test.ts",
+        "src/app/api/auth/login/route.test.ts",
+        "src/app/api/2fa/verify/route.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan authentication compatibility",
+      "constraint": "Preserve opaque bearer token format, live account/password checks, five-minute partial 2FA challenge and existing SSO, API-key, share and tracker protocols",
+      "removalCondition": "Remove when upstream exposes a session-lifetime setting and the registered regression tests pass"
     }
   ]
 }

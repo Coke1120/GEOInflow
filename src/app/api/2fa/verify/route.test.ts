@@ -92,8 +92,10 @@ vi.mock('@/lib/redis', () => ({
 }));
 
 import { POST } from './route';
+import redis from '@/lib/redis';
 
 beforeEach(() => {
+  redis.enabled = false;
   mocks.getBearerToken.mockReset();
   mocks.saveAuth.mockReset();
   mocks.parseSecureToken.mockReset();
@@ -166,6 +168,7 @@ test('POST accepts a token-only payload and completes 2FA verification', async (
   expect(mocks.createSecureToken).toHaveBeenCalledWith(
     { userId: 'user-1', role: 'admin', pwd: 'pwd-fingerprint' },
     'app-secret',
+    { expiresIn: 7776000 },
   );
   const data = await response.json();
   expect(data).toMatchObject({
@@ -177,6 +180,23 @@ test('POST accepts a token-only payload and completes 2FA verification', async (
   });
   expect(data.user).not.toHaveProperty('password');
   expect(response.status).toBe(200);
+});
+
+test('Redis 2FA login uses the same 90-day session lifetime', async () => {
+  redis.enabled = true;
+  mocks.saveAuth.mockResolvedValue('redis-token');
+  const response = await POST(
+    new Request('http://localhost/api/2fa/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer partial-token' },
+      body: JSON.stringify({ token: '123456' }),
+    }),
+  );
+  expect(response.status).toBe(200);
+  expect(mocks.saveAuth).toHaveBeenCalledWith(
+    { userId: 'user-1', role: 'admin', pwd: 'pwd-fingerprint' },
+    7776000,
+  );
 });
 
 test('POST returns a configuration error when the encryption key is missing', async () => {

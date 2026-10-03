@@ -7,6 +7,7 @@ import {
   isApiKeyEnabled,
 } from '@/lib/api-key';
 import {
+  AUTH_SESSION_TTL,
   PARTIAL_AUTH_TOKEN_TYPE,
   ROLE_PERMISSIONS,
   ROLES,
@@ -91,7 +92,10 @@ export async function checkAuth(request: Request) {
     : null;
 
   let user = null;
-  const { userId, authKey } = payload || {};
+  // Apply the session limit to previously issued tokens that have no exp claim.
+  const expiredByAge =
+    typeof payload?.iat === 'number' && Date.now() >= (payload.iat + AUTH_SESSION_TTL) * 1000;
+  const { userId, authKey } = (expiredByAge ? null : payload) || {};
 
   if (userId) {
     user = await getUser(userId, { includePassword: true });
@@ -149,18 +153,14 @@ export async function checkAuth(request: Request) {
   };
 }
 
-export async function saveAuth(data: any, expire = 0) {
+export async function saveAuth(data: any, expire = AUTH_SESSION_TTL) {
   const authKey = `auth:${createAuthKey()}`;
 
   if (redis.enabled) {
-    await redis.client.set(authKey, data);
-
-    if (expire) {
-      await redis.client.expire(authKey, expire);
-    }
+    await redis.client.set(authKey, data, expire);
   }
 
-  return createSecureToken({ authKey }, secret());
+  return createSecureToken({ authKey }, secret(), { expiresIn: expire });
 }
 
 export async function hasPermission(role: string, permission: string | string[]) {

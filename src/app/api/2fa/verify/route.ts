@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { getBearerToken, saveAuth } from '@/lib/auth';
-import { PARTIAL_AUTH_TOKEN_TYPE, ROLES } from '@/lib/constants';
+import { AUTH_SESSION_TTL, PARTIAL_AUTH_TOKEN_TYPE, ROLES } from '@/lib/constants';
 import { hash, secret } from '@/lib/crypto';
 import { createSecureToken, parseSecureToken } from '@/lib/jwt';
 import prisma from '@/lib/prisma';
@@ -136,9 +136,11 @@ export async function POST(request: Request) {
 
   let fullToken: string;
   if (redis.enabled) {
-    fullToken = await saveAuth({ userId: id, role, pwd });
+    fullToken = await saveAuth({ userId: id, role, pwd }, AUTH_SESSION_TTL);
   } else {
-    fullToken = createSecureToken({ userId: id, role, pwd }, secret());
+    fullToken = createSecureToken({ userId: id, role, pwd }, secret(), {
+      expiresIn: AUTH_SESSION_TTL,
+    });
   }
 
   const teams = await getAllUserTeams(id);

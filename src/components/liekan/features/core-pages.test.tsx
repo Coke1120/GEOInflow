@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => ({
   verify: vi.fn(),
   sso: vi.fn(),
   login: vi.fn(),
+  resumeLogin: vi.fn(),
   replace: vi.fn(),
   params: new URLSearchParams(),
   queries: [] as any[],
@@ -92,6 +93,7 @@ vi.mock('./context', () => ({
 vi.mock('@/lib/liekan/upstream/features-client', () => ({
   featureApi: { post: mocks.post },
   acceptFeatureLogin: mocks.login,
+  resumeFeatureLogin: mocks.resumeLogin,
   clearFeatureLogin: vi.fn(),
   verifyFeatureTwoFactor: mocks.verify,
   verifyFeatureSso: mocks.sso,
@@ -106,6 +108,7 @@ vi.mock('@/lib/liekan/upstream/features-client', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.resumeLogin.mockResolvedValue(null);
   mocks.query = {};
   mocks.queryStates = {};
   mocks.queries = [];
@@ -131,6 +134,19 @@ beforeEach(() => {
 });
 
 describe('core API mappings', () => {
+  it('restores the saved login at the login entry and resumes its internal return path', async () => {
+    mocks.resumeLogin.mockResolvedValue('/websites');
+    render(<FeatureAuthPage page="login" />);
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/websites'));
+  });
+  it('aborts saved-login restoration when leaving the login page', () => {
+    mocks.resumeLogin.mockReturnValue(new Promise(() => {}));
+    const { unmount } = render(<FeatureAuthPage page="login" />);
+    expect(screen.getByRole('button', { name: '正在登录…' })).toBeDisabled();
+    const signal = mocks.resumeLogin.mock.calls[0][0];
+    unmount();
+    expect(signal.aborted).toBe(true);
+  });
   it('marks reordered funnel steps as unsaved without requiring text input', () => {
     const { container } = render(<CorePages page="funnel-editor" />);
     expect(container.querySelector('form')).not.toHaveAttribute('data-unsaved', 'true');

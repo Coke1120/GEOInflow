@@ -64,8 +64,10 @@ vi.mock('@/lib/two-factor/crypto', () => ({
 }));
 
 import { POST } from './route';
+import redis from '@/lib/redis';
 
 beforeEach(() => {
+  redis.enabled = false;
   mocks.parseRequest.mockReset();
   mocks.getUserByUsername.mockReset();
   mocks.checkPassword.mockReset();
@@ -91,6 +93,51 @@ beforeEach(() => {
   mocks.checkPassword.mockReturnValue(true);
   mocks.findTwoFactorAuth.mockResolvedValue({ userId: 'user-1', isEnabled: true });
   mocks.isTwoFactorConfigured.mockReturnValue(true);
+});
+
+test('password login issues a full session for exactly 90 days', async () => {
+  mocks.findTwoFactorAuth.mockResolvedValue(null);
+  mocks.secret.mockReturnValue('app-secret');
+  mocks.hash.mockReturnValue('pwd-fingerprint');
+  mocks.createSecureToken.mockReturnValue('full-token');
+  mocks.getAllUserTeams.mockResolvedValue([]);
+  const response = await POST(new Request('http://localhost/api/auth/login', { method: 'POST' }));
+  expect(response.status).toBe(200);
+  expect(mocks.createSecureToken).toHaveBeenCalledWith(
+    { userId: 'user-1', role: 'admin', pwd: 'pwd-fingerprint' },
+    'app-secret',
+    { expiresIn: 7776000 },
+  );
+});
+
+test('Redis password login uses the same 90-day session lifetime', async () => {
+  redis.enabled = true;
+  mocks.findTwoFactorAuth.mockResolvedValue(null);
+  mocks.hash.mockReturnValue('pwd-fingerprint');
+  mocks.saveAuth.mockResolvedValue('redis-token');
+  mocks.getAllUserTeams.mockResolvedValue([]);
+  const response = await POST(new Request('http://localhost/api/auth/login', { method: 'POST' }));
+  expect(response.status).toBe(200);
+  expect(mocks.saveAuth).toHaveBeenCalledWith(
+    { userId: 'user-1', role: 'admin', pwd: 'pwd-fingerprint' },
+    7776000,
+  );
+});
+
+test('the pending 2FA challenge remains valid for only five minutes', async () => {
+  mocks.secret.mockReturnValue('app-secret');
+  mocks.createSecureToken.mockReturnValue('partial-token');
+  const response = await POST(new Request('http://localhost/api/auth/login', { method: 'POST' }));
+  expect(await response.json()).toMatchObject({
+    requiresTwoFactor: true,
+    partialToken: 'partial-token',
+  });
+  expect(mocks.createSecureToken).toHaveBeenCalledWith(
+    { userId: 'user-1', type: 'partial-auth' },
+    'app-secret',
+    { expiresIn: '5m' },
+  );
+  expect(mocks.saveAuth).not.toHaveBeenCalled();
 });
 
 test('POST returns a configuration error instead of partial auth when 2FA is enabled but unavailable', async () => {

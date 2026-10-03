@@ -135,6 +135,23 @@ export function clearFeatureLogin() {
   setUser(null);
   sessionStorage.removeItem('umami.partial-token');
 }
+export async function resumeFeatureLogin(signal?: AbortSignal): Promise<string | null> {
+  const token = getClientAuthToken();
+  if (!token || signal?.aborted) return null;
+  try {
+    const user = await featureRequest('POST', '/auth/verify', {}, signal, undefined, token);
+    if (signal?.aborted || getClientAuthToken() !== token) return null;
+    setUser(user);
+    return consumeReturnUrl() ?? '/dashboard';
+  } catch (error) {
+    if (signal?.aborted || getClientAuthToken() !== token) return null;
+    if (error instanceof FeatureApiError && error.status === 401) {
+      clearFeatureLogin();
+      return null;
+    }
+    throw error;
+  }
+}
 export async function refreshFeatureIdentity() {
   const user = await featureApi.post('/auth/verify', {});
   setUser(user);

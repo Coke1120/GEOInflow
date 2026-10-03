@@ -21,6 +21,7 @@ import {
   clearFeatureLogin,
   featureApi,
   getFeaturePreferences,
+  resumeFeatureLogin,
   saveFeaturePreferences,
   verifyFeatureSso,
   verifyFeatureTwoFactor,
@@ -1239,11 +1240,28 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
   const router = useRouter(),
     search = useSearchParams();
   const [busy, setBusy] = useState(false),
+    [restoring, setRestoring] = useState(page === 'login'),
     [error, setError] = useState(''),
     [method, setMethod] = useState('otp');
   const [lockedUntil, setLockedUntil] = useState(0),
     [now, setNow] = useState(Date.now());
   const started = useRef(false);
+  useEffect(() => {
+    if (page !== 'login') return;
+    const controller = new AbortController();
+    setRestoring(true);
+    resumeFeatureLogin(controller.signal)
+      .then(path => {
+        if (!controller.signal.aborted && path) router.replace(appPath(path));
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError('暂时无法恢复登录，请重试或重新登录。');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setRestoring(false);
+      });
+    return () => controller.abort();
+  }, [page, router]);
   useEffect(() => {
     if (page === 'login-2fa' && !sessionStorage.getItem('umami.partial-token'))
       router.replace('/login');
@@ -1374,7 +1392,7 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
                 <Form
                   key={method}
                   onSubmit={submit}
-                  busy={busy || locked}
+                  busy={busy || locked || restoring}
                   error={error}
                   submitLabel={page === 'login' ? '登录' : '确认登录'}
                   cancel={
