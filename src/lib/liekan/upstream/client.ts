@@ -1,12 +1,31 @@
 'use client';
-import { useDateRange as useCoreDateRange } from '@/components/hooks/useDateRange';
+import { useMemo } from 'react';
+import { useLocale } from '@/components/hooks/useLocale';
 import { useNavigation as useCoreNavigation } from '@/components/hooks/useNavigation';
 import { DATE_RANGE_CONFIG, DEFAULT_DATE_RANGE_VALUE } from '@/lib/constants';
+import { getCompareDate } from '@/lib/date';
 import { getItem } from '@/lib/storage';
+import { readFeatureDateRange } from './date-range';
 export function useFeatureDateRange(timezone: string) {
   const { query } = useCoreNavigation();
+  const { locale } = useLocale();
   const date = query.date || getItem(DATE_RANGE_CONFIG) || DEFAULT_DATE_RANGE_VALUE;
-  return useCoreDateRange({ timezone, ignoreOffset: String(date).startsWith('range:') });
+  const { dateRange, invalidDate } = useMemo(
+    () =>
+      readFeatureDateRange(
+        String(date),
+        query.unit || '',
+        Number(query.offset || 0),
+        timezone,
+        locale,
+      ),
+    [date, query.unit, query.offset, timezone, locale],
+  );
+  return {
+    dateRange,
+    invalidDate,
+    dateCompare: getCompareDate(query.compare || 'prev', dateRange.startDate, dateRange.endDate),
+  };
 }
 export { AdminNav } from '@/app/(main)/admin/AdminNav';
 export { SettingsNav } from '@/app/(main)/settings/SettingsNav';

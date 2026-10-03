@@ -57,7 +57,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const { websiteId, teamId, pathname, query: params, router, updateParams } = useNavigation();
   const website = useWebsite();
   const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
-  const { dateRange } = useFeatureDateRange(timezone);
+  const { dateRange, invalidDate } = useFeatureDateRange(timezone);
   const actualRange = featureDateRange(dateRange, timezone);
   const route = { page: geoPageFromPath(pathname), websiteId };
   const href = (page: string, values: Record<string, any> = {}) =>
@@ -355,6 +355,20 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         <Link href={href('exports', { from: route.page })}>导出数据</Link>
         <Link href={href('sharing', { context: 'website' })}>分享当前网站</Link>
       </div>
+      {invalidDate && (
+        <div className={styles.tools} role="status">
+          日期参数无效，当前使用默认日期范围。
+          <button
+            onClick={() =>
+              router.replace(updateParams({ date: '30day', unit: undefined, offset: undefined }), {
+                scroll: false,
+              })
+            }
+          >
+            重置日期
+          </button>
+        </div>
+      )}
       {params.clearedFilters === '1' && (
         <div className={styles.notice}>已清除当前页面不支持的筛选，统计采用页面显示的条件。</div>
       )}

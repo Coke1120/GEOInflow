@@ -122,7 +122,7 @@ export function FeatureApp({
     ].includes(route.page);
   const preferences = getFeaturePreferences();
   const timezone = preferences.timezone || 'Asia/Shanghai';
-  const { dateRange } = useFeatureDateRange(timezone);
+  const { dateRange, invalidDate } = useFeatureDateRange(timezone);
   const range = useMemo(
     () => featureDateRange(dateRange, timezone),
     [+dateRange.startDate, +dateRange.endDate, dateRange.value, dateRange.unit, timezone],
@@ -423,7 +423,15 @@ export function FeatureApp({
                           featureHref(current.page, {
                             ...Object.fromEntries(
                               Object.entries(nav.query).filter(([key]) =>
-                                ['date', 'unit', 'search', 'sort', 'direction'].includes(key),
+                                [
+                                  'date',
+                                  'unit',
+                                  'offset',
+                                  'compare',
+                                  'search',
+                                  'sort',
+                                  'direction',
+                                ].includes(key),
                               ),
                             ),
                             ...(event.target.value === 'all'
@@ -450,6 +458,16 @@ export function FeatureApp({
             </div>
           </header>
           <main className="content" id="main-content">
+            {datePage && invalidDate && (
+              <Notice tone="amber">
+                日期参数无效，当前使用默认日期范围。
+                <Button
+                  onClick={() => updateQuery({ date: '30day', unit: undefined, offset: undefined })}
+                >
+                  重置日期
+                </Button>
+              </Notice>
+            )}
             {datePage && (
               <div className="range-context">
                 统计期间：{formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}

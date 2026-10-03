@@ -216,9 +216,14 @@ try {
       switchAlerts.length === 0,
   });
   await context.close();
-  ({ page, context } = await pageAt(
-    `/liekan/funnel-editor?${new URLSearchParams({ websiteId: seed.website.id, date })}`,
-  ));
+  ({ page, context } = await pageAt('/websites?date=range:bad:bad'));
+  assert(await page.getByText('日期参数无效，当前使用默认日期范围。').isVisible());
+  await page.getByRole('button', { name: '重置日期', exact: true }).click();
+  await page.waitForURL(u => u.searchParams.get('date') === '30day');
+  await page.goto(
+    base + `/liekan/funnel-editor?${new URLSearchParams({ websiteId: seed.website.id, date })}`,
+  );
+  await page.waitForLoadState('networkidle');
   await page.getByRole('button', { name: '下移步骤 1', exact: true }).click();
   const editorUrl = page.url();
   async function chooseNextSite() {
@@ -238,7 +243,7 @@ try {
   await page.waitForURL(u => u.pathname === `/websites/${switchSite.id}/funnels`);
   await page.waitForLoadState('networkidle');
   result.checks.push({
-    name: 'unsaved step reorder confirms website switch with one dialog and restores scrolling',
+    name: 'date recovery and unsaved website switch preserve usable navigation and scrolling',
     passed:
       new URL(page.url()).searchParams.get('date') === date &&
       (await page.getByRole('dialog').count()) === 0 &&
