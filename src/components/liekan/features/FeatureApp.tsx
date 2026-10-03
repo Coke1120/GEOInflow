@@ -211,6 +211,14 @@ export function FeatureApp({
     notify,
     refresh,
   };
+  if (current.page === 'share-preview')
+    return (
+      <FeatureProvider value={value}>
+        <div data-liekan-features lang="zh-CN" style={{ minHeight: '100dvh' }}>
+          <WorkspacePages page="share-preview" />
+        </div>
+      </FeatureProvider>
+    );
   return (
     <FeatureProvider value={value}>
       <div data-liekan-features lang="zh-CN" style={{ minHeight: '100dvh' }}>
@@ -313,6 +321,25 @@ export function FeatureApp({
             </div>
           </header>
           <main className="content" id="main-content">
+            {page && (
+              <nav
+                className="tabs section-tabs"
+                aria-label={`${groups.find(g => g[0] === page.group)?.[1] || '当前分组'}页面`}
+              >
+                {featurePages
+                  .filter(item => item.group === page.group)
+                  .map(item => (
+                    <Link
+                      key={item.id}
+                      className={`tab${item.id === current.page ? ' on' : ''}`}
+                      aria-current={item.id === current.page ? 'page' : undefined}
+                      href={href(item.id)}
+                    >
+                      {item.title}
+                    </Link>
+                  ))}
+              </nav>
+            )}
             {!setup && sitesQuery.error ? (
               <QueryState query={sitesQuery}>{null}</QueryState>
             ) : range.endAt - range.startAt > 1096 * 86400000 ? (

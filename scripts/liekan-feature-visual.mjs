@@ -193,7 +193,15 @@ async function geometry(page) {
     const rect = main?.getBoundingClientRect();
     const select = [...scope.querySelectorAll('select')].map(el => {
       const s = getComputedStyle(el);
-      return { right: s.backgroundPosition, padding: parseFloat(s.paddingRight) };
+      const wrap = el.closest('.select-wrap'),
+        arrow = wrap?.querySelector('svg');
+      return {
+        right: s.backgroundPosition,
+        padding: parseFloat(s.paddingRight),
+        inset: arrow
+          ? wrap.getBoundingClientRect().right - arrow.getBoundingClientRect().right
+          : null,
+      };
     });
     const panels = [...scope.querySelectorAll('.panel')].slice(0, 4).map(el => {
       const s = getComputedStyle(el);
@@ -222,6 +230,10 @@ async function geometry(page) {
       arrows,
       title: document.querySelector('h1')?.textContent,
       charts: scope.querySelectorAll('canvas').length,
+      sectionTabs: [...scope.querySelectorAll('.section-tabs a')].map(el => ({
+        title: el.textContent,
+        active: el.getAttribute('aria-current') === 'page' || el.classList.contains('on'),
+      })),
       bodyText: document.body.innerText,
     };
   });
@@ -235,6 +247,7 @@ async function ready(page) {
     {},
     { timeout: 30000 },
   );
+  await page.waitForLoadState('networkidle');
   await page.evaluate(() => document.fonts.ready);
   await page.waitForFunction(
     () => [...document.querySelectorAll('.chart')].every(el => el.querySelector('canvas,svg')),
@@ -294,78 +307,122 @@ try {
             : p.id === 'sso'
               ? '/sso'
               : `/liekan/${p.id}?${params(p.id)}`;
-      await page.goto(base + target);
-      await ready(page);
-      await reference.goto(base + '/__prototype/' + p.id + '.html');
-      await reference.waitForSelector('h1', { timeout: 15000 });
-      await reference.evaluate(() => document.fonts.ready);
-      await reference.waitForFunction(
-        () => [...document.querySelectorAll('.chart')].every(el => el.querySelector('canvas,svg')),
-        {},
-        { timeout: 15000 },
-      );
-      // Prototype-only review controls have no production counterpart.
-      await reference.evaluate(() =>
-        document.querySelectorAll('.preview-tools,.route-summary').forEach(el => el.remove()),
-      );
-      const current = await geometry(page),
-        expected = await geometry(reference);
-      assert.equal(
-        current.overflow,
-        0,
-        `${p.id} ${width}px overflows viewport by ${current.overflow}px`,
-      );
-      for (const key of ['brand', 'canvas', 'ink'])
+      try {
+        await page.goto(base + target);
+        await ready(page);
+        if (p.id === 'attribution') {
+          await page.locator('input[name=step]').fill(seed.data.eventNames[0]);
+          await page.getByRole('button', { name: '应用归因设置', exact: true }).click();
+          await ready(page);
+        }
+        await reference.goto(base + '/__prototype/' + p.id + '.html');
+        await reference.waitForSelector('h1:visible,.public-brand', { timeout: 15000 });
+        await reference.evaluate(() => document.fonts.ready);
+        await reference.waitForFunction(
+          () =>
+            [...document.querySelectorAll('.chart')].every(el => el.querySelector('canvas,svg')),
+          {},
+          { timeout: 15000 },
+        );
+        // Prototype-only review controls have no production counterpart.
+        await reference.evaluate(() =>
+          document.querySelectorAll('.preview-tools,.route-summary').forEach(el => el.remove()),
+        );
+        const current = await geometry(page),
+          expected = await geometry(reference);
+        if (!authPage && p.id !== 'share-preview')
+          assert.deepEqual(
+            current.sectionTabs,
+            expected.sectionTabs,
+            `${p.id} group navigation differs`,
+          );
+        assert(current.contentCount > 0, `${p.id} has no rendered content`);
+        if (expected.panels.length && p.id !== 'backup-codes')
+          assert(current.panels.length > 0, `${p.id} missing approved panel structure`);
+        const chartStates = {
+          funnels: 'No saved funnel fixture',
+          heatmaps: 'Collected page selection required',
+          'backup-codes': 'One-time codes require setup flow',
+        };
+        if (expected.charts > 0 && !chartStates[p.id])
+          assert(current.charts > 0, `${p.id} missing rendered statistical chart`);
         assert.equal(
-          current[key],
-          expected[key],
-          `${p.id} ${width}px ${key} differs from approved VI`,
+          current.overflow,
+          0,
+          `${p.id} ${width}px overflows viewport by ${current.overflow}px`,
         );
-      assert.equal(current.font, expected.font, `${p.id} ${width}px font differs from approved VI`);
-      for (const panel of current.panels)
-        assert.equal(panel.radius, '14px', `${p.id} panel radius`);
-      for (const select of current.select) {
-        assert(select.padding >= 38, `${p.id} select text needs arrow spacing`);
-        assert(select.right.includes('12px'), `${p.id} select arrow needs 12px right inset`);
+        for (const key of ['brand', 'canvas', 'ink'])
+          assert.equal(
+            current[key],
+            expected[key],
+            `${p.id} ${width}px ${key} differs from approved VI`,
+          );
+        assert.equal(
+          current.font,
+          expected.font,
+          `${p.id} ${width}px font differs from approved VI`,
+        );
+        for (const panel of current.panels)
+          assert.equal(panel.radius, '14px', `${p.id} panel radius`);
+        for (const select of current.select) {
+          assert(select.padding >= 38, `${p.id} select text needs arrow spacing`);
+          assert(
+            select.inset == null ? select.right.includes('12px') : Math.abs(select.inset - 12) < 1,
+            `${p.id} select arrow needs 12px right inset`,
+          );
+        }
+        for (const gap of current.arrows)
+          assert(gap >= 10, `${p.id} arrow/icon touches the right border (${gap}px)`);
+        if (!authPage && p.id !== 'share-preview')
+          assert.equal(current.title, p.title, `${p.id} title`);
+        assert(!current.bodyText.includes('读取失败'), `${p.id} failed to read actual data`);
+        if (expected.main && current.main && p.id !== 'share-preview' && !authPage) {
+          assert(
+            Math.abs(current.main.left - expected.main.left) < 2,
+            `${p.id} content left differs`,
+          );
+          assert(
+            Math.abs(current.main.width - expected.main.width) < 2,
+            `${p.id} content width differs`,
+          );
+        }
+        await page.screenshot({
+          path: `${out}/${p.id}-${width}-actual.png`,
+          fullPage: true,
+          animations: 'disabled',
+        });
+        await reference.screenshot({
+          path: `${out}/${p.id}-${width}-reference.png`,
+          fullPage: true,
+          animations: 'disabled',
+        });
+        results.push({
+          id: p.id,
+          width,
+          passed: true,
+          title: current.title,
+          charts: current.charts,
+          geometry: { main: current.main, select: current.select },
+          scope:
+            'Approved VI, shell geometry, control spacing and viewport containment; actual data and permission/setup states preserved',
+        });
+      } catch (error) {
+        console.error(`${p.id} ${width}px: ${error.message}`);
+        await page
+          .screenshot({ path: `${out}/${p.id}-${width}-failed.png`, fullPage: true })
+          .catch(() => {});
+        results.push({ id: p.id, width, passed: false, error: error.message });
       }
-      for (const gap of current.arrows)
-        assert(gap >= 10, `${p.id} arrow/icon touches the right border (${gap}px)`);
-      if (!authPage && p.id !== 'share-preview')
-        assert.equal(current.title, p.title, `${p.id} title`);
-      assert(!current.bodyText.includes('读取失败'), `${p.id} failed to read actual data`);
-      if (expected.main && current.main && p.id !== 'share-preview' && !authPage) {
-        assert(
-          Math.abs(current.main.left - expected.main.left) < 2,
-          `${p.id} content left differs`,
-        );
-        assert(
-          Math.abs(current.main.width - expected.main.width) < 2,
-          `${p.id} content width differs`,
-        );
-      }
-      await page.screenshot({
-        path: `${out}/${p.id}-${width}-actual.png`,
-        fullPage: true,
-        animations: 'disabled',
-      });
-      await reference.screenshot({
-        path: `${out}/${p.id}-${width}-reference.png`,
-        fullPage: true,
-        animations: 'disabled',
-      });
-      results.push({
-        id: p.id,
-        width,
-        passed: true,
-        title: current.title,
-        charts: current.charts,
-        geometry: { main: current.main, select: current.select },
-        scope:
-          'Approved VI, shell geometry, control spacing and viewport containment; actual data and permission/setup states preserved',
-      });
     }
   }
   assert.equal(errors.length, 0, errors.join('\n'));
+  assert(
+    results.every(r => r.passed),
+    results
+      .filter(r => !r.passed)
+      .map(r => `${r.id} ${r.width}: ${r.error}`)
+      .join('\n'),
+  );
   report.passed = true;
 } catch (error) {
   report.error = error.message;

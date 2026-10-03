@@ -355,7 +355,40 @@ export function buildDataset(now = Date.now()): Dataset {
           },
           {
             type: 2,
-            data: { node: { type: 0, childNodes: [] }, initialOffset: { left: 0, top: 0 } },
+            data: {
+              node: {
+                type: 0,
+                id: 1,
+                childNodes: [
+                  { type: 1, id: 2, name: 'html', publicId: '', systemId: '' },
+                  {
+                    type: 2,
+                    id: 3,
+                    tagName: 'html',
+                    attributes: {},
+                    childNodes: [
+                      { type: 2, id: 4, tagName: 'head', attributes: {}, childNodes: [] },
+                      {
+                        type: 2,
+                        id: 5,
+                        tagName: 'body',
+                        attributes: {},
+                        childNodes: [
+                          {
+                            type: 2,
+                            id: 6,
+                            tagName: 'p',
+                            attributes: {},
+                            childNodes: [{ type: 3, id: 7, textContent: '隔离采集样本' }],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+              initialOffset: { left: 0, top: 0 },
+            },
             timestamp: now + 10,
           },
           {

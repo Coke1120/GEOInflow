@@ -1587,12 +1587,32 @@
       "removalCondition": "Remove when equivalent upstream contract coverage protects all integrated scenes"
     },
     {
+      "path": "tests/api/report-migration.spec.ts",
+      "purpose": "Verify native saved goal aggregates remain identical with optional Liekan conversion series",
+      "tests": ["pnpm liekan:verify"],
+      "owner": "Liekan integration maintenance",
+      "constraint": "Preserve all native aggregate and resource scope assertions",
+      "removalCondition": "Remove when upstream native goal contracts include equivalent series coverage"
+    },
+    {
       "path": "tests/api/revenue.spec.ts",
       "purpose": "Compute seeded revenue session expectations across the default monthly anonymous salt boundaries",
       "tests": ["tests/api/revenue.spec.ts", "pnpm liekan:verify"],
       "owner": "Liekan upstream compatibility",
       "constraint": "Only correct date-dependent test expectations; preserve upstream revenue queries, default monthly identity rotation and exact purchase amount assertions",
       "removalCondition": "Remove when upstream revenue tests derive their expected session count from deterministic purchase dates across salt periods"
+    },
+    {
+      "path": "tests/api/seed/dataset.ts",
+      "purpose": "Provide a valid synthetic recorded document for actual player acceptance",
+      "tests": [
+        "tests/api/replays.spec.ts",
+        "scripts/liekan-feature-visual.mjs",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan integration maintenance",
+      "constraint": "Isolated synthetic data only; preserve API fixture events and IDs",
+      "removalCondition": "Remove when upstream replay fixture contains a valid HTML document"
     },
     {
       "path": "tests/e2e/helpers.ts",

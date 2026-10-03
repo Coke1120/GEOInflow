@@ -328,8 +328,8 @@ function EventDetail() {
     t = d?.totals;
   const properties = [...new Set<string>((d?.properties || []).map((r: any) => r.name))];
   useEffect(() => {
-    if (!properties.includes(property)) setProperty(properties[0] || '');
-  }, [JSON.stringify(properties)]);
+    if (d && !properties.includes(property)) setProperty(properties[0] || '');
+  }, [!!d, JSON.stringify(properties)]);
   if (!name)
     return (
       <Notice>

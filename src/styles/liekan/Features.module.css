@@ -644,7 +644,7 @@
 :global([data-liekan-features] .field .required) {
   color: var(--red);
 }
-:global([data-liekan-features] input:not([type="checkbox"]):not([type="range"])),
+:global([data-liekan-features] :where(input:not([type="checkbox"]):not([type="range"]))),
 :global([data-liekan-features] select),
 :global([data-liekan-features] textarea) {
   width: 100%;

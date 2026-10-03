@@ -12,7 +12,12 @@ vi.mock('next/link', () => ({
 }));
 vi.mock('./context', () => ({
   useFeature: () => mocks.context,
-  useData: (key: any[]) => ({ data: mocks.query[key[0]], error: null, isPending: false }),
+  useData: (key: any[]) => ({
+    data:
+      typeof mocks.query[key[0]] === 'function' ? mocks.query[key[0]](key) : mocks.query[key[0]],
+    error: null,
+    isPending: false,
+  }),
   useAction: () => ({
     run: async (action: () => Promise<any>) => action(),
     busy: false,
@@ -66,4 +71,32 @@ it('orders the breakdown chart by views and emits explicit missing-dimension dri
     'sessions',
     expect.objectContaining({ drill_path: 'eq./small', drill_country: 'eq.CN' }),
   );
+});
+
+it('keeps the selected event property while its value query is pending', () => {
+  mocks.context.query.eventName = 'signup';
+  const keys: string[] = [];
+  let initialReads = 0;
+  const data = {
+    totals: { total: 3, visitors: 2 },
+    properties: [{ name: 'plan', total: 3 }],
+    values: [{ value: 'pro', dataType: 1, total: 3 }],
+  };
+  mocks.query['event-detail'] = (key: any[]) => {
+    keys.push(key[2]);
+    if (!key[2] && initialReads++ < 2) return data;
+    return undefined;
+  };
+  const view = render(<AnalyticsPages page="event-detail" />);
+  expect(keys.at(-1)).toBe('plan');
+  view.rerender(<AnalyticsPages page="event-detail" />);
+  expect(keys.at(-1)).toBe('plan');
+  expect(keys.filter(key => key === '')).toHaveLength(1);
+  mocks.query['event-detail'] = (key: any[]) => {
+    keys.push(key[2]);
+    return data;
+  };
+  view.rerender(<AnalyticsPages page="event-detail" />);
+  expect(screen.getByText('plan 的各属性值对应触发次数。')).toBeInTheDocument();
+  expect(JSON.parse(screen.getByRole('img').textContent!).series[0].values).toEqual([3]);
 });
