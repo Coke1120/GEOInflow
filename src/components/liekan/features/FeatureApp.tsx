@@ -98,6 +98,27 @@ export function FeatureApp({
   const meta = navigationFor(route);
   const websiteRequired = needsWebsite(route);
   const datePage = hasDateControl(route);
+  const teamMetadataRequired =
+    meta.scope === 'global' &&
+    (resourceListPages.has(route.page) ||
+      [
+        'onboarding',
+        'board-editor',
+        'board-view',
+        'board-design',
+        'link-editor',
+        'pixel-editor',
+        'link-detail',
+        'pixel-detail',
+        'team-detail',
+      ].includes(route.page));
+  const sourceTeam =
+    !websiteRequired &&
+    route.teamId &&
+    (!route.id || ownedEntity) &&
+    ['boards', 'board-editor', 'board-view', 'board-design'].includes(route.page)
+      ? route.teamId
+      : undefined;
   const siteScope =
     [
       'dashboard',
@@ -139,9 +160,10 @@ export function FeatureApp({
       'sites',
       websiteRequired ? undefined : route.teamId,
       siteScope,
+      sourceTeam,
     ],
-    queryFn: ({ signal }) =>
-      getFeatureSites(
+    queryFn: async ({ signal }) => {
+      const source = getFeatureSites(
         signal,
         websiteRequired ||
           [
@@ -155,7 +177,11 @@ export function FeatureApp({
           ? undefined
           : route.teamId,
         siteScope,
-      ),
+      );
+      if (!sourceTeam) return source;
+      const collections = await Promise.all([source, getFeatureSites(signal, sourceTeam, 'all')]);
+      return [...new Map(collections.flat().map(site => [site.id, site])).values()];
+    },
     enabled: !setup && needsSites,
     retry: false,
   });
@@ -166,7 +192,31 @@ export function FeatureApp({
     enabled: !setup,
     retry: false,
   });
-  const teams: FeatureEntity[] = teamsQuery.data || [];
+  const listedTeams: FeatureEntity[] = teamsQuery.data || [];
+  const resolveTeam =
+    !setup &&
+    teamMetadataRequired &&
+    route.teamId &&
+    (!route.id ||
+      resourceListPages.has(route.page) ||
+      ownedEntity ||
+      route.page === 'team-detail') &&
+    teamsQuery.isSuccess &&
+    !listedTeams.some(team => team.id === route.teamId);
+  const scopeTeamQuery = useQuery<FeatureEntity>({
+    queryKey: ['liekan-feature', user.id, 'scope-team', route.teamId],
+    queryFn: ({ signal }) => featureApi.get(`/teams/${route.teamId}`, {}, signal),
+    enabled: !!resolveTeam,
+    retry: false,
+  });
+  const teams =
+    resolveTeam && scopeTeamQuery.data ? [...listedTeams, scopeTeamQuery.data] : listedTeams;
+  const teamState =
+    teamMetadataRequired && (teamsQuery.isPending || teamsQuery.error)
+      ? teamsQuery
+      : resolveTeam
+        ? scopeTeamQuery
+        : undefined;
   const siteId = websiteRequired ? route.websiteId || '' : '';
   const siteQuery = useQuery({
     queryKey: ['liekan-feature', user.id, 'site', siteId],
@@ -262,7 +312,9 @@ export function FeatureApp({
     group => group.id === meta.section,
   );
   const content =
-    !setup && websiteRequired && !siteId ? (
+    !setup && (teamState?.isPending || teamState?.error) ? (
+      <QueryState query={teamState}>{null}</QueryState>
+    ) : !setup && websiteRequired && !siteId ? (
       <Notice>
         请选择需要查看的网站。
         <QueryState query={sitesQuery}>
@@ -286,7 +338,7 @@ export function FeatureApp({
       </Notice>
     ) : !setup && websiteRequired && siteQuery.error ? (
       <QueryState query={siteQuery}>{null}</QueryState>
-    ) : !setup && needsSites && !websiteRequired && sitesQuery.error ? (
+    ) : !setup && needsSites && !websiteRequired && (sitesQuery.isPending || sitesQuery.error) ? (
       <QueryState query={sitesQuery}>{null}</QueryState>
     ) : datePage && range.endAt - range.startAt > 1096 * 86400000 ? (
       <Notice>日期范围上限 3 年，请调整日期后查看。</Notice>
@@ -448,6 +500,13 @@ export function FeatureApp({
                       }
                     >
                       <option value="">个人空间</option>
+                      {route.teamId && !teams.some(team => team.id === route.teamId) && (
+                        <option value={route.teamId} disabled>
+                          {teamsQuery.error || scopeTeamQuery.error
+                            ? '所选团队（无法访问）'
+                            : '正在确认团队空间'}
+                        </option>
+                      )}
                       {current.page === 'websites' && <option value="all">全部可访问网站</option>}
                       {teams.map(team => (
                         <option key={team.id} value={team.id}>
@@ -466,7 +525,15 @@ export function FeatureApp({
               <Notice tone="amber">
                 日期参数无效，当前使用默认日期范围。
                 <Button
-                  onClick={() => updateQuery({ date: '30day', unit: undefined, offset: undefined })}
+                  onClick={() =>
+                    updateQuery({
+                      date: '30day',
+                      unit: undefined,
+                      offset: undefined,
+                      dateMode: undefined,
+                      live: undefined,
+                    })
+                  }
                 >
                   重置日期
                 </Button>
@@ -491,9 +558,9 @@ export function FeatureApp({
               ].includes(current.page) &&
               siteId && (
                 <div className="analysis-tools">
-                  <Link href={href('filters', { from: current.page })}>高级筛选</Link>
-                  <Link href={href('annotations', { from: current.page })}>图表注释</Link>
-                  <Link href={href('exports', { from: current.page })}>导出数据</Link>
+                  <Link href={href('filters')}>高级筛选</Link>
+                  <Link href={href('annotations')}>图表注释</Link>
+                  <Link href={href('exports')}>导出数据</Link>
                 </div>
               )}
             {content}
@@ -520,6 +587,8 @@ export function FeatureApp({
                     date: `range:${startAt}:${endAt}:day`,
                     unit: 'day',
                     offset: undefined,
+                    dateMode: undefined,
+                    live: undefined,
                   }),
                 );
                 setDateOpen(false);

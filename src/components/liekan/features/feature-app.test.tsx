@@ -47,8 +47,8 @@ vi.mock('./AnalyticsPages', () => ({
 }));
 vi.mock('./ExtendedPages', () => ({ extendedPages: new Set(), ExtendedPages: () => null }));
 vi.mock('./LinksPixelsPages', () => ({
-  linksPixelsPages: new Set(),
-  LinksPixelsPages: () => null,
+  linksPixelsPages: new Set(['links', 'pixels', 'link-editor', 'pixel-editor']),
+  LinksPixelsPages: ({ page }: any) => <p>资源页面：{page}</p>,
 }));
 
 const user = { id: 'user-1', username: 'owner', role: 'user' };
@@ -65,11 +65,11 @@ const teamSite = {
   domain: 'team.example',
   teamId,
 };
-function mount(route: any) {
+function mount(route: any, identity: any = user) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <FeatureApp user={user} route={route} />
+      <FeatureApp user={identity} route={route} />
     </QueryClientProvider>,
   );
 }
@@ -99,6 +99,126 @@ beforeEach(() => {
   mocks.post.mockResolvedValue({});
 });
 describe('feature navigation scope', () => {
+  it.each(['link-editor', 'pixel-editor', 'board-editor', 'onboarding'])(
+    'waits for team destinations before mounting the %s creation form',
+    async page => {
+      let complete: (teams: any[]) => void;
+      mocks.all.mockImplementation(async (path: string) =>
+        path === '/me/teams'
+          ? new Promise(resolve => {
+              complete = resolve;
+            })
+          : [],
+      );
+      const view = mount({ page, teamId });
+      expect(view.container.querySelector('main form')).toBeNull();
+      expect(screen.queryByText(`资源页面：${page}`)).not.toBeInTheDocument();
+      expect(screen.getByText('正在读取当前范围的数据。')).toBeInTheDocument();
+      await waitFor(() => expect(complete).toBeTypeOf('function'));
+      complete([{ id: teamId, name: '团队', role: 'team-member' }]);
+      if (page === 'link-editor' || page === 'pixel-editor')
+        expect(await screen.findByText(`资源页面：${page}`)).toBeInTheDocument();
+      else if (page === 'board-editor')
+        expect(await screen.findByLabelText('所属空间')).toHaveValue(teamId);
+      else
+        await waitFor(() =>
+          expect(screen.queryByText('正在读取当前范围的数据。')).not.toBeInTheDocument(),
+        );
+    },
+  );
+  it('shows a failed team lookup with retry instead of a creation form', async () => {
+    mocks.all.mockRejectedValue(new Error('空间服务暂不可用'));
+    mount({ page: 'link-editor', teamId });
+    expect(await screen.findByText('空间服务暂不可用')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重试读取' })).toBeInTheDocument();
+    expect(screen.queryByText('资源页面：link-editor')).not.toBeInTheDocument();
+  });
+  it('resolves an accessible team outside the membership list before mounting creation', async () => {
+    mocks.all.mockResolvedValue([]);
+    mocks.get.mockImplementation(async path =>
+      path === `/teams/${teamId}`
+        ? {
+            id: teamId,
+            name: '可管理团队',
+            members: [{ userId: 'another-user', role: 'team-owner' }],
+          }
+        : { data: [] },
+    );
+    mount({ page: 'board-editor', teamId }, { ...user, role: 'admin', isAdmin: true });
+    expect(await screen.findByRole('option', { name: '可管理团队' })).toBeInTheDocument();
+    expect(screen.getByLabelText('所属空间')).toHaveValue(teamId);
+    expect(mocks.sites).toHaveBeenCalledWith(expect.any(AbortSignal), teamId, 'all');
+  });
+  it('keeps an unlisted team visible as pending scope until its metadata arrives', async () => {
+    mocks.all.mockResolvedValue([]);
+    let complete: (team: any) => void;
+    mocks.get.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          complete = resolve;
+        }),
+    );
+    mount({ page: 'sharing', id: 'board-1', teamId }, { ...user, role: 'admin', isAdmin: true });
+    const scope = screen.getByRole('combobox', { name: '所属空间' });
+    expect(scope).toHaveValue(teamId);
+    await waitFor(() => expect(complete).toBeTypeOf('function'));
+    complete({ id: teamId, name: '当前团队', members: [] });
+    await screen.findByRole('option', { name: '当前团队' });
+    expect(scope).toHaveValue(teamId);
+  });
+  it('waits for website sources before mounting an existing board editor', async () => {
+    let complete: (sites: any[]) => void;
+    mocks.sites.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          complete = resolve;
+        }),
+    );
+    mocks.get.mockResolvedValue({
+      id: 'board-1',
+      name: '已保存看板',
+      type: 'website',
+      userId: user.id,
+      parameters: { websiteId: personal.id },
+    });
+    const view = mount({ page: 'board-editor', id: 'board-1' });
+    await waitFor(() => expect(complete).toBeTypeOf('function'));
+    await waitFor(() => expect(view.container.querySelector('main form')).toBeNull());
+    complete([personal]);
+    expect(await screen.findByLabelText('关联资源')).toHaveValue(personal.id);
+  });
+  it('keeps an inaccessible team destination in its denied state', async () => {
+    mocks.all.mockResolvedValue([]);
+    mocks.get.mockRejectedValue(Object.assign(new Error('此团队没有访问权限'), { status: 403 }));
+    mount({ page: 'link-editor', teamId });
+    expect(await screen.findByText('此团队没有访问权限')).toBeInTheDocument();
+    expect(screen.queryByText('资源页面：link-editor')).not.toBeInTheDocument();
+  });
+  it.each([
+    { page: 'session-detail', id: 'record-1', source: 'sessions' },
+    { page: 'filters', from: 'events', source: 'events' },
+    { page: 'exports', from: 'geo-ai-pages', source: 'geo-ai-pages' },
+  ])('keeps the canonical source in the actual $page analysis tool links', async route => {
+    const view = mount({ ...route, websiteId: personal.id });
+    await screen.findByRole('button', { name: '切换网站，当前个人网站' });
+    for (const link of view.container.querySelectorAll<HTMLAnchorElement>('.analysis-tools a')) {
+      const url = new URL(link.href, 'http://liekan.local');
+      expect(url.searchParams.get('from')).toBe(route.source);
+      expect(url.searchParams.get('websiteId')).toBe(personal.id);
+      expect(url.searchParams.has('id')).toBe(false);
+    }
+    expect(view.container.querySelectorAll('.analysis-tools a')).toHaveLength(3);
+  });
+  it('clears automatic and live modes when the user chooses explicit history dates', async () => {
+    mocks.navigation.query = { dateMode: 'default', live: '1' };
+    mount({ page: 'events', websiteId: personal.id });
+    await screen.findByRole('button', { name: '切换网站，当前个人网站' });
+    await userEvent.click(screen.getByRole('button', { name: /2001-09-/ }));
+    await userEvent.click(screen.getByRole('button', { name: '应用日期范围' }));
+    expect(mocks.navigation.updateParams).toHaveBeenCalledWith(
+      expect.objectContaining({ dateMode: undefined, live: undefined }),
+    );
+  });
   it.each([
     { page: 'admin-users' },
     { page: 'admin-user', id: 'user-2' },

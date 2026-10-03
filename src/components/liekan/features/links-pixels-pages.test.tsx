@@ -98,7 +98,7 @@ describe('links and pixels use native resource and tracking contracts', () => {
   it('creates a link in the active team with its real target and native slug', async () => {
     mount('link-editor');
     await userEvent.type(await screen.findByLabelText(/链接名称/), '新品公告');
-    expect(screen.getByLabelText(/所属空间/)).toHaveValue('增长团队');
+    expect(screen.getByLabelText(/所属空间/)).toHaveValue('team-1');
     await userEvent.type(screen.getByLabelText(/目标 URL/), 'https://example.com/launch');
     fireEvent.change(screen.getByLabelText(/短链标识/), { target: { value: 'launch_2026' } });
     expect(screen.getByLabelText(/预览地址/)).toHaveValue('https://go.example/launch_2026');
@@ -111,8 +111,93 @@ describe('links and pixels use native resource and tracking contracts', () => {
         teamId: 'team-1',
       }),
     );
-    expect(mocks.navigate).toHaveBeenCalledWith('link-detail', { id: 'saved-link' });
+    expect(mocks.navigate).toHaveBeenCalledWith('link-detail', {
+      id: 'saved-link',
+      teamId: 'team-1',
+    });
     expect(mocks.notify).toHaveBeenCalledWith('链接已保存');
+  });
+  it.each(['link', 'pixel'] as const)(
+    'creates a %s in the chosen space and excludes read-only team destinations',
+    async kind => {
+      context.route = { page: `${kind}-editor` };
+      context.teams.push({
+        id: 'readonly-team',
+        name: '只读团队',
+        members: [{ userId: 'user-1', role: 'team-view-only' }],
+      });
+      mount(`${kind}-editor`);
+      const owner = await screen.findByRole('combobox', { name: /所属空间/ });
+      expect(owner).toHaveValue('');
+      expect(within(owner).getByRole('option', { name: '增长团队' })).toBeInTheDocument();
+      expect(within(owner).queryByRole('option', { name: '只读团队' })).not.toBeInTheDocument();
+      await userEvent.selectOptions(owner, 'team-1');
+      await userEvent.type(
+        screen.getByLabelText(kind === 'link' ? /链接名称/ : /像素名称/),
+        '增长资源',
+      );
+      if (kind === 'link')
+        await userEvent.type(screen.getByLabelText(/目标 URL/), 'https://example.com/launch');
+      await userEvent.click(
+        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素' }),
+      );
+      await waitFor(() =>
+        expect(mocks.post).toHaveBeenCalledWith(
+          `/${kind}s`,
+          expect.objectContaining({ teamId: 'team-1' }),
+        ),
+      );
+      expect(mocks.navigate).toHaveBeenCalledWith(`${kind}-detail`, {
+        id: 'saved-link',
+        teamId: 'team-1',
+      });
+    },
+  );
+  it.each(['link', 'pixel'] as const)(
+    'can change a new %s from team to personal space',
+    async kind => {
+      mount(`${kind}-editor`);
+      const owner = await screen.findByRole('combobox', { name: /所属空间/ });
+      expect(owner).toHaveValue('team-1');
+      await userEvent.selectOptions(owner, '');
+      await userEvent.type(
+        screen.getByLabelText(kind === 'link' ? /链接名称/ : /像素名称/),
+        '个人资源',
+      );
+      if (kind === 'link')
+        await userEvent.type(screen.getByLabelText(/目标 URL/), 'https://example.com/personal');
+      await userEvent.click(
+        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素' }),
+      );
+      await waitFor(() => expect(mocks.post).toHaveBeenCalled());
+      expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('teamId');
+      expect(mocks.navigate).toHaveBeenCalledWith(`${kind}-detail`, {
+        id: 'saved-link',
+        teamId: '',
+      });
+    },
+  );
+  it('rejects a forged creation space before sending a resource request', async () => {
+    mount('link-editor');
+    const owner = await screen.findByRole('combobox', { name: /所属空间/ });
+    const option = document.createElement('option');
+    option.value = 'foreign-team';
+    owner.append(option);
+    fireEvent.change(owner, { target: { value: 'foreign-team' } });
+    fireEvent.submit(screen.getByRole('button', { name: '保存链接' }).closest('form'));
+    expect(await screen.findByText('请选择有创建权限的所属空间')).toBeInTheDocument();
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+  it('lets a personal resource owner choose an allowed destination from a read-only team entry', async () => {
+    context.teams[0].members[0].role = 'team-view-only';
+    mount('pixel-editor');
+    const owner = await screen.findByRole('combobox', { name: /所属空间/ });
+    expect(owner).not.toBeDisabled();
+    await userEvent.selectOptions(owner, '');
+    await userEvent.type(screen.getByLabelText(/像素名称/), '个人像素');
+    await userEvent.click(screen.getByRole('button', { name: '保存像素' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalled());
+    expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('teamId');
   });
   it('keeps a personal list scoped to the route despite a team website in context', async () => {
     context.route = { page: 'links' };

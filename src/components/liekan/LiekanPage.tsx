@@ -350,9 +350,9 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               : '尚未导入'}
           </span>
         )}
-        <Link href={href('filters', { from: route.page })}>高级筛选</Link>
-        <Link href={href('annotations', { from: route.page })}>图表注释</Link>
-        <Link href={href('exports', { from: route.page })}>导出数据</Link>
+        <Link href={href('filters')}>高级筛选</Link>
+        <Link href={href('annotations')}>图表注释</Link>
+        <Link href={href('exports')}>导出数据</Link>
         <Link href={href('sharing', { context: 'website' })}>分享当前网站</Link>
       </div>
       {invalidDate && (

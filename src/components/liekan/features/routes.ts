@@ -1,6 +1,7 @@
 import mapping from '@/lib/liekan/contracts/feature-pages.json';
 import type { FeatureRoute } from '@/lib/liekan/contracts/features';
 import {
+  analysisSourcePage,
   geoPaths,
   navigationFor,
   needsWebsite,
@@ -134,6 +135,10 @@ export function featureHref(page: string, params: Record<string, any> = {}): str
       search.set(key, String(value));
   return `${path}${search.size ? '?' + search.toString() : ''}`;
 }
+const timeKeys = new Set(['date', 'unit', 'offset', 'compare', 'dateMode']);
+const isTimeParameter = (key: string, value: string) =>
+  timeKeys.has(key) && (key !== 'dateMode' || value === 'default');
+
 export function featureWebsiteSwitchHref(
   route: FeatureRoute,
   websiteId: string,
@@ -152,17 +157,18 @@ export function featureWebsiteSwitchHref(
   const page = lists[route.page] || route.page;
   if (!needsWebsite(route)) return featureHref(page, { id: route.id, teamId: route.teamId });
   const time = Object.fromEntries(
-    Object.entries(query).filter(([key]) => ['date', 'unit', 'offset', 'compare'].includes(key)),
+    Object.entries(query).filter(([key, value]) => isTimeParameter(key, value)),
   );
   return featureHref(page, {
     ...time,
+    ...(page === 'geo-logs' && query.live === '1' ? { live: '1' } : {}),
+    ...(safeReturnHref(query.returnTo) ? { returnTo: safeReturnHref(query.returnTo) } : {}),
     websiteId,
     ...(page === route.page && route.id ? { id: route.id } : {}),
     ...(route.context === 'website' ? { context: route.context } : {}),
   });
 }
 
-const timeKeys = new Set(['date', 'unit', 'offset', 'compare']);
 const websiteFilter =
   /^(drill_|(?:path|referrer|channel|title|query|os|tag|hostname|distinctId|language|country|region|city|browser|device|event)\d*$|utm|segment$|cohort$|match$|excludeBounce$|spf\d|epf\d)/;
 export function featureNavigationHref(
@@ -183,13 +189,22 @@ export function featureNavigationHref(
   } as FeatureRoute;
   const scoped = needsWebsite(target);
   const geo = page in geoPaths;
+  const analysisTools = new Set(['filters', 'annotations', 'exports']);
+  const journeySource =
+    ['journeys', 'path-detail'].includes(route.page) ||
+    (analysisTools.has(route.page) && analysisSourcePage(route.from) === 'journeys');
+  const journeyTarget =
+    ['journeys', 'path-detail'].includes(page) ||
+    (analysisTools.has(page) &&
+      analysisSourcePage(params.from || route.from || route.page) === 'journeys');
   const inherited = Object.fromEntries(
     Object.entries(query).filter(
-      ([key]) =>
-        timeKeys.has(key) ||
+      ([key, value]) =>
+        isTimeParameter(key, value) ||
         (key === 'returnTo' &&
           !!(scoped ? safeReturnHref(query[key]) : safeListReturnHref(query[key]))) ||
         (scoped && !geo && websiteFilter.test(key)) ||
+        (journeySource && journeyTarget && /^(type|steps|startStep|endStep)$/.test(key)) ||
         (['sessions', 'session-detail'].includes(page) &&
           /^(retentionDate|retentionDay|attributionStep|attributionModel|attributionType|attributionSource)$/.test(
             key,
@@ -198,14 +213,17 @@ export function featureNavigationHref(
   );
   const result: Record<string, any> = {
     ...inherited,
-    ...(scoped && ['filters', 'annotations', 'exports'].includes(page)
-      ? { from: route.from || route.page }
-      : {}),
     ...(scoped ? { websiteId: route.websiteId } : {}),
     ...(navigationFor(target).scope === 'global' && route.teamId ? { teamId: route.teamId } : {}),
     ...(target.context ? { context: target.context } : {}),
     ...params,
   };
+  if (scoped && analysisTools.has(page))
+    result.from = analysisSourcePage(params.from || route.from || route.page);
+  if ('date' in params) {
+    if (!('dateMode' in params)) delete result.dateMode;
+    if (!('live' in params)) delete result.live;
+  }
   if (geo && Object.keys(query).some(key => websiteFilter.test(key))) result.clearedFilters = '1';
   const returnTo = scoped ? safeReturnHref(query.returnTo) : safeListReturnHref(query.returnTo);
   if (returnTo) {

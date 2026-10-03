@@ -239,6 +239,13 @@ const titles: Record<string, string> = {
 };
 for (const [page, title] of Object.entries(titles)) pageNavigation[page].title = title;
 
+export function analysisSourcePage(page: string) {
+  if (pageNavigation[page]?.scope !== 'website') return 'overview';
+  let source = page;
+  while (pageNavigation[source]?.parent) source = pageNavigation[source].parent;
+  return source;
+}
+
 export function navigationFor(route: FeatureRoute): PageNavigation {
   const meta = pageNavigation[route.page] || { scope: 'state', section: 'dashboard' };
   if (
@@ -247,7 +254,11 @@ export function navigationFor(route: FeatureRoute): PageNavigation {
     pageNavigation[route.from]?.scope === 'website' &&
     !['filters', 'annotations', 'exports'].includes(route.from)
   )
-    return { ...meta, section: pageNavigation[route.from].section, parent: route.from };
+    return {
+      ...meta,
+      section: pageNavigation[route.from].section,
+      parent: analysisSourcePage(route.from),
+    };
   if (route.context === 'admin' && ['website-settings', 'team-detail'].includes(route.page))
     return {
       ...meta,

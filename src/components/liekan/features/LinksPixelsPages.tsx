@@ -26,6 +26,7 @@ import {
   Notice,
   Panel,
   QueryState,
+  Select,
   Table,
 } from './ui';
 import { ResourceAnalytics, ShareDrawer } from './WorkspacePages';
@@ -185,12 +186,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
   const path = kind === 'link' ? 'links' : 'pixels',
     url = resourceUrl(host.origin, basePath, kind, slug, host.configured),
     code = `<img src="${url}" width="1" height="1" alt="" />`;
-  const canEdit = record
-    ? canManageResource(c.user, record, c.teams)
-    : canCreateResource(
-        c.user,
-        c.teams.find(team => team.id === c.route.teamId),
-      );
+  const canEdit = record ? canManageResource(c.user, record, c.teams) : canCreateResource(c.user);
   return (
     <>
       <Panel
@@ -208,24 +204,42 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
               submitLabel={kind === 'link' ? '保存链接' : '保存像素'}
               cancel={<LinkButton page={path}>取消</LinkButton>}
               onSubmit={async (values: any) => {
-                const body = linkPayload(
-                  { ...values, slug },
-                  kind,
-                  !record ? c.route.teamId : undefined,
-                );
+                const owner = !record ? String(values.owner || '') : '';
+                const team = owner ? c.teams.find(team => team.id === owner) : undefined;
+                if (!record && ((owner && !team) || !canCreateResource(c.user, team)))
+                  throw new Error('请选择有创建权限的所属空间');
+                const body = linkPayload({ ...values, slug }, kind, !record ? owner : undefined);
                 const result = await action.run(
                   () => c.api.post(record ? `/${path}/${record.id}` : `/${path}`, body),
                   kind === 'link' ? '链接已保存' : '像素已保存',
                 );
-                c.navigate(`${kind}-detail`, { id: result.id });
+                c.navigate(`${kind}-detail`, {
+                  id: result.id,
+                  ...(!record ? { teamId: result.teamId || owner } : {}),
+                });
               }}
             >
-              <Field
-                label="所属空间"
-                value={spaceLabel(record ? record.teamId : c.route.teamId, c.teams)}
-                readOnly
-                help="链接与像素按所属空间管理，编辑时保留原有归属。"
-              />
+              {record ? (
+                <Field
+                  label="所属空间"
+                  value={spaceLabel(record.teamId, c.teams)}
+                  readOnly
+                  help="编辑时保留资源的原有归属。"
+                />
+              ) : (
+                <Select
+                  label="所属空间"
+                  name="owner"
+                  defaultValue={c.route.teamId || ''}
+                  options={[
+                    ['', '个人空间'],
+                    ...c.teams
+                      .filter(team => canCreateResource(c.user, team))
+                      .map(team => [team.id, team.name] as [string, string]),
+                  ]}
+                  help="选择此资源所属的个人空间或有创建权限的团队。"
+                />
+              )}
               <Field
                 label={kind === 'link' ? '链接名称' : '像素名称'}
                 name="name"

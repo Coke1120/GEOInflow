@@ -188,6 +188,39 @@ beforeEach(() => {
 });
 
 describe('workspace permissions and native board persistence', () => {
+  it('allows a read-only team entry to create a board in personal space', async () => {
+    const viewer = { ...owner, id: 'viewer' };
+    const readTeam = { ...team, members: [{ userId: viewer.id, role: 'team-view-only' }] };
+    context = {
+      ...context,
+      user: viewer,
+      teams: [readTeam],
+      route: { page: 'board-editor', teamId: team.id },
+    };
+    mocks.post.mockImplementation(async (_path: string, body: any) => ({
+      id: 'personal-board',
+      ...body,
+    }));
+    mount(<WorkspacePages page="board-editor" />);
+    const space = await screen.findByRole('combobox', { name: '所属空间' });
+    expect(space).toBeEnabled();
+    expect(screen.queryByRole('option', { name: team.name })).not.toBeInTheDocument();
+    await userEvent.selectOptions(space, '');
+    await userEvent.type(screen.getByRole('textbox', { name: /^看板名称/ }), '个人观察看板');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: '关联资源' }), site.id);
+    await userEvent.click(screen.getByRole('button', { name: '保存并编排' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith(
+        '/boards',
+        expect.objectContaining({ name: '个人观察看板' }),
+      ),
+    );
+    expect(mocks.post.mock.calls[0][1].teamId).toBeUndefined();
+    expect(mocks.navigate).toHaveBeenCalledWith('board-design', {
+      id: 'personal-board',
+      teamId: '',
+    });
+  });
   it('keeps member editing below the actor rank and grants read-only no resource writes', () => {
     expect(canManageMember(owner, team, { role: 'team-manager' })).toBe(true);
     expect(canManageMember({ ...owner, id: 'user-2' }, team, { role: 'team-manager' })).toBe(false);

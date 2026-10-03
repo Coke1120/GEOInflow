@@ -768,6 +768,25 @@ describe('core form flows', () => {
     expect(screen.queryByText(/最近导入日志/)).not.toBeInTheDocument();
     expect(screen.getByText('回放已启用 · 热力图已启用 · 数据状态未验证')).toBeInTheDocument();
   });
+  it('formats collection reception times in the displayed statistics timezone', () => {
+    mocks.context.query.section = 'collection';
+    mocks.context.range.timezone = 'Pacific/Honolulu';
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 1 };
+    mocks.query['website-setup-report'] = {
+      states: { logs: 'available', catalog: 'available' },
+      meta: { latestImportAt: '2026-10-03T00:00:00Z' },
+    };
+    const formatter = vi.spyOn(Date.prototype, 'toLocaleString');
+    try {
+      render(<CorePages page="website-settings" />);
+      expect(screen.getByText(/日志统计期间/)).toHaveTextContent('Pacific/Honolulu');
+      expect(formatter).toHaveBeenCalledWith('zh-CN', { timeZone: 'Pacific/Honolulu' });
+      expect(screen.getByText(/最近导入日志/)).toHaveTextContent('2026/10/2 14:00:00');
+    } finally {
+      formatter.mockRestore();
+    }
+  });
   it('does not treat custom event timestamps as the first browser pageview', () => {
     mocks.context.route = { page: 'website-settings' };
     mocks.query['site-record'] = mocks.context.site;

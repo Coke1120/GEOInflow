@@ -1,7 +1,7 @@
 name: liekan
 services:
   app:
-    image: liekan:0.2.2
+    image: liekan:0.2.3
     build:
       context: .
       dockerfile: Dockerfile.liekan

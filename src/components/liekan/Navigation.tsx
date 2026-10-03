@@ -65,6 +65,8 @@ export function Navigation({
   const [account, setAccount] = useState(meta.scope === 'account');
   const [switching, setSwitching] = useState(false);
   const [leaving, setLeaving] = useState('');
+  const [loggingOut, setLoggingOut] = useState(false);
+  const logoutStarted = useRef(false);
   const toggle = useRef<HTMLButtonElement>(null);
   const sidebar = useRef<HTMLElement>(null);
   const drag = useRef<number>(null);
@@ -85,6 +87,7 @@ export function Navigation({
     setAccount(meta.scope === 'account');
     setMobile(false);
     setSwitching(false);
+    setLeaving('');
   }, [nav.pathname, meta.section, meta.scope, route.websiteId, route.id]);
   useEffect(() => {
     if (!mobile) return;
@@ -299,14 +302,18 @@ export function Navigation({
               <button
                 type="button"
                 className={styles.item}
+                disabled={loggingOut}
                 onClick={async () => {
+                  if (logoutStarted.current) return;
+                  logoutStarted.current = true;
+                  setLoggingOut(true);
                   await featureApi.post('/auth/logout').catch(() => {});
                   clearFeatureLogin();
                   client.clear();
                   nav.router.replace('/login');
                 }}
               >
-                退出登录
+                {loggingOut ? '正在退出' : '退出登录'}
               </button>
             </nav>
           )}

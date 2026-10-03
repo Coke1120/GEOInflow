@@ -254,10 +254,152 @@ try {
       (await page.evaluate(() => document.body.style.overflow)) === '',
   });
   await context.close();
+  for (const kind of ['link', 'pixel']) {
+    ({ page, context } = await pageAt(`/liekan/${kind}-editor`));
+    await page.locator('[name=owner]').selectOption(seed.team.id);
+    await page.locator('[name=name]').fill(`隔离归属检查${kind} ${Date.now()}`);
+    if (kind === 'link') await page.locator('[name=url]').fill('https://example.com/review');
+    await page
+      .getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素', exact: true })
+      .click();
+    await page.waitForURL(u => new RegExp(`^/${kind}s/[^/]+$`).test(u.pathname));
+    const id = new URL(page.url()).pathname.split('/').pop();
+    created.push([`/${kind}s/${id}`]);
+    const savedResource = await api('GET', `/${kind}s/${id}`);
+    result.checks.push({
+      name: `${kind} creation honors the selected team destination`,
+      passed: savedResource.teamId === seed.team.id,
+    });
+    await context.close();
+  }
+  const adminToken = token;
+  let externalTeam;
+  try {
+    token = (await api('POST', '/auth/login', seed.user)).token;
+    externalTeam = (await api('POST', '/teams', { name: `隔离非成员团队 ${Date.now()}` }))[0];
+    created.push([`/teams/${externalTeam.id}`]);
+  } finally {
+    token = adminToken;
+  }
+  const memberships = await api('GET', '/me/teams?pageSize=100');
+  assert(!(memberships.data || memberships).some(team => team.id === externalTeam.id));
+  const externalSite = await api('POST', '/websites', {
+    name: '隔离非成员团队网站',
+    domain: 'external-team.test',
+    teamId: externalTeam.id,
+  });
+  created.push([`/websites/${externalSite.id}`]);
+  ({ page, context } = await pageAt(`/liekan/board-editor?teamId=${externalTeam.id}`, true));
+  assert.equal(await page.locator('[name=owner]').inputValue(), externalTeam.id);
+  await page.locator('[name=name]').fill(`隔离跨团队看板 ${Date.now()}`);
+  await page.locator('[name=entity]').selectOption(externalSite.id);
+  await page.getByRole('button', { name: '保存并编排', exact: true }).click();
+  await page.waitForURL(u => /^\/boards\/[^/]+\/edit$/.test(u.pathname));
+  const externalBoardId = new URL(page.url()).pathname.split('/')[2];
+  created.push([`/boards/${externalBoardId}`]);
+  const externalBoard = await api('GET', `/boards/${externalBoardId}`);
+  result.checks.push({
+    name: 'administrator creates a website board in a non-member team',
+    passed:
+      externalBoard.teamId === externalTeam.id &&
+      externalBoard.parameters.websiteId === externalSite.id,
+  });
+  await context.close();
+  ({ page, context } = await pageAt(
+    `/liekan/sharing?id=${externalBoardId}&teamId=${externalTeam.id}`,
+  ));
+  result.checks.push({
+    name: 'cold board sharing retains a non-member team scope and its actual name',
+    passed:
+      (await page.getByRole('combobox', { name: '所属空间' }).inputValue()) === externalTeam.id &&
+      (await page.getByRole('option', { name: externalTeam.name, exact: true }).count()) === 1,
+  });
+  await context.close();
+  ({ page, context } = await pageAt(
+    `/websites/${seed.website.id}/sessions/${seed.data.sessionId}`,
+  ));
+  await page
+    .locator('.analysis-tools')
+    .getByRole('link', { name: '高级筛选', exact: true })
+    .click();
+  await page.waitForURL(u => u.pathname === '/liekan/filters');
+  await page
+    .locator('.analysis-tools')
+    .getByRole('link', { name: '图表注释', exact: true })
+    .click();
+  await page.waitForURL(u => u.pathname === '/liekan/annotations');
+  const toolsUrl = new URL(page.url());
+  const toolsParent = page
+    .getByRole('navigation', { name: '页面位置' })
+    .getByRole('link', { name: '访问记录', exact: true });
+  result.checks.push({
+    name: 'detail-to-tool-to-tool keeps a reachable source list',
+    passed:
+      toolsUrl.searchParams.get('from') === 'sessions' &&
+      (await toolsParent.getAttribute('href')).includes(`/websites/${seed.website.id}/sessions`),
+  });
+  await context.close();
+  const readOnlyTeam = (await api('POST', '/teams', { name: `隔离只读团队 ${Date.now()}` }))[0];
+  created.push([`/teams/${readOnlyTeam.id}`]);
+  await api('POST', `/teams/${readOnlyTeam.id}/users`, {
+    userId: seed.user.id,
+    role: 'team-view-only',
+  });
+  try {
+    token = (await api('POST', '/auth/login', seed.user)).token;
+    ({ page, context } = await pageAt(`/liekan/board-editor?teamId=${readOnlyTeam.id}`, true));
+    const owner = page.locator('[name=owner]');
+    assert(await owner.isEnabled());
+    assert.equal(await owner.locator(`option[value="${readOnlyTeam.id}"]`).count(), 0);
+    await owner.selectOption('');
+    await page.locator('[name=name]').fill(`隔离个人看板 ${Date.now()}`);
+    await page.locator('[name=type]').selectOption('mixed');
+    await page.getByRole('button', { name: '保存并编排', exact: true }).click();
+    await page.waitForURL(u => /^\/boards\/[^/]+\/edit$/.test(u.pathname));
+    const personalBoardId = new URL(page.url()).pathname.split('/')[2];
+    created.push([`/boards/${personalBoardId}`]);
+    const personalBoard = await api('GET', `/boards/${personalBoardId}`);
+    result.checks.push({
+      name: 'read-only team entry can create a personal board with explicit ownership',
+      passed: !personalBoard.teamId && personalBoard.userId === seed.user.id,
+    });
+    await context.close();
+  } finally {
+    token = adminToken;
+  }
+  const journeyConditions = {
+    type: 'events',
+    steps: '5',
+    startStep: 'register',
+    endStep: 'purchase',
+  };
+  ({ page, context } = await pageAt(
+    `/liekan/path-detail?websiteId=${seed.website.id}&${new URLSearchParams(journeyConditions)}`,
+  ));
+  for (const [label, path] of [
+    ['高级筛选', '/liekan/filters'],
+    ['图表注释', '/liekan/annotations'],
+  ]) {
+    await page.locator('.analysis-tools').getByRole('link', { name: label, exact: true }).click();
+    await page.waitForURL(u => u.pathname === path);
+  }
+  await page
+    .getByRole('navigation', { name: '页面位置' })
+    .getByRole('link', { name: '访问旅程', exact: true })
+    .click();
+  await page.waitForURL(u => u.pathname.endsWith('/journeys'));
+  const journeyUrl = new URL(page.url());
+  result.checks.push({
+    name: 'journey detail retains step conditions after successive tools and breadcrumb return',
+    passed: Object.entries(journeyConditions).every(
+      ([key, value]) => journeyUrl.searchParams.get(key) === value,
+    ),
+  });
+  await context.close();
   result.passed = result.checks.every(c => c.passed) && result.errors.length === 0;
 } finally {
   try {
-    for (const [url] of created)
+    for (const [url] of [...created].reverse())
       try {
         await api('DELETE', url);
       } catch {

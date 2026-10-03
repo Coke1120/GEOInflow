@@ -54,7 +54,8 @@ import { WebsiteSharing } from './WorkspacePages';
 
 const basePath = process.env.basePath || '';
 const appPath = (path: string) => featureNavigationPath(path, basePath);
-const formatDate = (value: any) => (value ? new Date(value).toLocaleString('zh-CN') : '尚未接收');
+const formatDate = (value: any, timezone = getFeaturePreferences().timezone || 'Asia/Shanghai') =>
+  value ? new Date(value).toLocaleString('zh-CN', { timeZone: timezone }) : '尚未接收';
 const sitePath = (id: string) => `/websites/${id}`;
 const transientCodes = new Map<string, string[]>();
 
@@ -202,6 +203,7 @@ function TrackingCode({ websiteId, file = 'script.js' }: { websiteId: string; fi
   );
 }
 function InstallSteps({ query, websiteId }: { query: any; websiteId: string }) {
+  const c = useFeature();
   const received = !query.error && query.data?.pageviews > 0;
   return (
     <ul className="timeline">
@@ -240,7 +242,7 @@ function InstallSteps({ query, websiteId }: { query: any; websiteId: string }) {
         </div>
         <p>
           {received
-            ? `最近接收：${formatDate(query.data.lastAt)}`
+            ? `最近接收：${formatDate(query.data.lastAt, c.range.timezone)}`
             : '安装代码后打开目标网站，再检查首条页面访问。'}
         </p>
       </li>
@@ -373,7 +375,11 @@ function Websites() {
                         : '等待查询'}
                 </Badge>,
                 stat && !stat.error ? numberLabel(stat.views) : '—',
-                stat?.error ? '无法读取' : stat ? formatDate(stat.lastAt) : '等待查询',
+                stat?.error
+                  ? '无法读取'
+                  : stat
+                    ? formatDate(stat.lastAt, c.range.timezone)
+                    : '等待查询',
                 <div className="actions" key="actions">
                   <LinkButton page="website-settings" params={{ websiteId: site.id }}>
                     网站设置
@@ -733,7 +739,9 @@ function SetupStatus({
           ]}
         />
         {report.data?.meta?.latestImportAt && !report.error && (
-          <p className="field-help">最近导入日志：{formatDate(report.data.meta.latestImportAt)}</p>
+          <p className="field-help">
+            最近导入日志：{formatDate(report.data.meta.latestImportAt, c.range.timezone)}
+          </p>
         )}
         {report.data?.meta?.demo && !report.error && (
           <Notice tone="amber">日志与内容目录状态包含当前网站的演示数据。</Notice>
@@ -1895,8 +1903,8 @@ function ApiKeys() {
             rows={rowsOf<any>(query.data).map(key => [
               key.name,
               <code key="prefix">{key.keyPrefix}••••</code>,
-              formatDate(key.createdAt),
-              key.lastUsedAt ? formatDate(key.lastUsedAt) : '尚未使用',
+              formatDate(key.createdAt, c.range.timezone),
+              key.lastUsedAt ? formatDate(key.lastUsedAt, c.range.timezone) : '尚未使用',
               <Button key="revoke" onClick={() => open({ type: 'revoke', key })}>
                 撤销
               </Button>,

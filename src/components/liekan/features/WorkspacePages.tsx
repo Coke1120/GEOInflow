@@ -1425,12 +1425,7 @@ function BoardEditor({ board }: { board?: any }) {
     entities = useWorkspaceEntities(),
     [type, setType] = useState(board?.type === 'open' ? 'mixed' : board?.type || 'website');
   const selected = boardEntity(board?.parameters, board?.type),
-    allowed = board
-      ? canManageResource(c.user, board, c.teams)
-      : canCreateResource(
-          c.user,
-          c.teams.find(team => team.id === c.route.teamId),
-        );
+    allowed = board ? canManageResource(c.user, board, c.teams) : canCreateResource(c.user);
   return (
     <Panel title="看板信息" subtitle="资源类型沿用上游网站、像素、链接与混合看板。">
       <Body>
