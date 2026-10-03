@@ -103,9 +103,13 @@ try {
   });
   created.push(['/share/id/' + share.id]);
   ({ page, context } = await pageAt('/liekan/sharing?websiteId=' + seed.website.id, true));
+  const shareRow = page.getByRole('row').filter({ hasText: share.name });
   result.checks.push({
     name: 'cold sharing list includes website shares',
-    passed: (await page.getByText(share.name, { exact: true }).count()) === 1,
+    passed:
+      (await shareRow.count()) === 1 &&
+      (await shareRow.isVisible()) &&
+      (await shareRow.getByText(seed.website.name).count()) === 1,
   });
   await page.screenshot({ path: out + '/sharing.png', fullPage: true });
   await context.close();
