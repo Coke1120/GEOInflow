@@ -294,7 +294,7 @@ try {
   await page.locator('[name=name]').fill(`隔离跨团队看板 ${Date.now()}`);
   await page.locator('[name=entity]').selectOption(externalSite.id);
   await page.getByRole('button', { name: '保存并编排', exact: true }).click();
-  await page.waitForURL(u => /^\/boards\/[^/]+\/edit$/.test(u.pathname));
+  await page.waitForURL(u => /^\/boards\/[^/]+\/design$/.test(u.pathname));
   const externalBoardId = new URL(page.url()).pathname.split('/')[2];
   created.push([`/boards/${externalBoardId}`]);
   const externalBoard = await api('GET', `/boards/${externalBoardId}`);
@@ -355,7 +355,7 @@ try {
     await page.locator('[name=name]').fill(`隔离个人看板 ${Date.now()}`);
     await page.locator('[name=type]').selectOption('mixed');
     await page.getByRole('button', { name: '保存并编排', exact: true }).click();
-    await page.waitForURL(u => /^\/boards\/[^/]+\/edit$/.test(u.pathname));
+    await page.waitForURL(u => /^\/boards\/[^/]+\/design$/.test(u.pathname));
     const personalBoardId = new URL(page.url()).pathname.split('/')[2];
     created.push([`/boards/${personalBoardId}`]);
     const personalBoard = await api('GET', `/boards/${personalBoardId}`);
