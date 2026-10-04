@@ -57,7 +57,16 @@ export async function beginLoadingEntry(page, id) {
             if (!el.closest('[aria-busy="true"]') || el.querySelector('canvas,svg')) return;
             const { x, y, width, height } = el.getBoundingClientRect();
             const id = el.id || `${el.getAttribute('aria-label')}:${index}`;
-            observation.charts[id] = { id, x, y, width, height };
+            const previous = observation.charts[id];
+            observation.charts[id] = {
+              id,
+              x,
+              y,
+              width,
+              height,
+              minHeight: Math.min(previous?.minHeight ?? height, height),
+              maxHeight: Math.max(previous?.maxHeight ?? height, height),
+            };
           });
           requestAnimationFrame(sample);
         };
@@ -140,7 +149,8 @@ export async function beginLoadingEntry(page, id) {
         if (loaded)
           maxStableGeometryDelta = Math.max(
             maxStableGeometryDelta,
-            Math.abs(chart.height - loaded.height),
+            Math.abs(chart.minHeight - loaded.height),
+            Math.abs(chart.maxHeight - loaded.height),
           );
       }
       const dynamicLayout = ['dashboard', 'board-view', 'share-preview'].includes(id);
