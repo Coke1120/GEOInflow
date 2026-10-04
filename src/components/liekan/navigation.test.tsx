@@ -89,7 +89,7 @@ describe('website navigation dialog transitions', () => {
       ['链接', '/links'],
       ['像素', '/pixels'],
     ])
-      expect(within(primary).getByRole('link', { name: label, exact: true })).toHaveAttribute(
+      expect(within(primary).getByRole('link', { name: label })).toHaveAttribute(
         'href',
         href,
       );
