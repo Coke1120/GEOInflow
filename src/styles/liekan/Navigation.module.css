@@ -617,7 +617,7 @@
 }
 @media (max-width: 900px) {
   .preview .expandedItems .item {
-    min-height: 40px;
+    min-height: 44px;
   }
   .headerContext {
     flex-wrap: nowrap;
@@ -675,5 +675,47 @@
   }
   .segmentsButton {
     margin-left: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .item,
+  .expandedItems .item,
+  .accountToggle,
+  .preview .accountToggle,
+  .siteOption,
+  .siteSearch,
+  .siteSearch input {
+    min-height: 44px;
+  }
+  .footerIcon,
+  .mobileToggle,
+  .headerContext .back,
+  .headerContext .siteSwitch {
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+  }
+  .mobileToggle {
+    top: 6px;
+    width: 44px;
+  }
+  .siteSearch input {
+    font-size: 16px;
+  }
+  .sitePopover {
+    overscroll-behavior: contain;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  .segmentsButton {
+    min-height: 44px;
+  }
+  .pageTabs {
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 8px;
   }
 }

@@ -319,6 +319,8 @@ function Teams({ admin = false }: { admin?: boolean }) {
       >
         <QueryState query={q}>
           <Table
+            mobile
+            rowKeys={rows.map(team => team.id)}
             columns={
               admin
                 ? ['团队', '所有者', '成员', '网站', '操作']
@@ -535,6 +537,8 @@ function TeamDetail() {
             >
               <QueryState query={members}>
                 <Table
+                  mobile
+                  rowKeys={rowsOf<any>(members.data).map(member => member.id || member.userId)}
                   columns={['成员', '用户名', '角色', '双重验证', '加入时间', '操作']}
                   rows={rowsOf<any>(members.data).map(member => [
                     member.user?.username || member.userId,
@@ -600,6 +604,8 @@ function TeamDetail() {
             >
               <QueryState query={resources}>
                 <Table
+                  mobile
+                  rowKeys={rowsOf<FeatureEntity>(resources.data).map(site => site.id)}
                   columns={['网站', '域名', '状态', '操作']}
                   rows={rowsOf<FeatureEntity>(resources.data).map(site => [
                     site.name,
@@ -853,6 +859,8 @@ function AdminUsers() {
       >
         <QueryState query={q}>
           <Table
+            mobile
+            rowKeys={rowsOf<any>(q.data).map(user => user.id)}
             columns={['用户名', '系统角色', '团队', '双重验证', '状态', '操作']}
             rows={rowsOf<any>(q.data).map(user => [
               user.username,
@@ -999,6 +1007,12 @@ function AdminUser() {
           <Panel title="用户资源" subtitle="管理员查看该账户的网站和团队。">
             <QueryState query={resources}>
               <Table
+                mobile
+                identity={1}
+                rowKeys={[
+                  ...(resources.data?.teams || []).map((team: any) => `team:${team.id}`),
+                  ...(resources.data?.websites || []).map((site: any) => `site:${site.id}`),
+                ]}
                 columns={['类型', '资源名称', '角色', '操作']}
                 rows={[
                   ...(resources.data?.teams || []).map((team: any) => [
@@ -1093,6 +1107,8 @@ function AdminWebsites() {
       >
         <QueryState query={q}>
           <Table
+            mobile
+            rowKeys={rowsOf<any>(q.data).map(site => site.id)}
             columns={['网站', '域名', '所属空间', '所有者', '操作']}
             rows={rowsOf<any>(q.data).map(site => [
               site.name,
@@ -1411,6 +1427,8 @@ function Boards() {
       >
         <QueryState query={q}>
           <Table
+            mobile
+            rowKeys={rowsOf<any>(q.data).map(board => board.id)}
             columns={['名称', '类型', '关联资源', '更新时间', '操作']}
             rows={rowsOf<any>(q.data).map(board => {
               const entity = boardEntity(board.parameters, board.type);
@@ -2650,6 +2668,8 @@ function Sharing() {
         <QueryState query={entities}>
           <QueryState query={q}>
             <Table
+              mobile
+              rowKeys={rows.map((share: any) => share.id)}
               columns={['名称', '资源类型', '页面范围', '筛选权限', '状态', '操作', '分享链接']}
               rows={rows.map((share: any) => [
                 <div key="share-name">

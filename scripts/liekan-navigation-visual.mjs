@@ -195,7 +195,7 @@ export async function checkNavigation(page, expected, width, baseline) {
     const picker = page.getByRole('button', { name: /切换网站，当前/ });
     assert.equal(await picker.count(), 1);
     const height = await picker.evaluate(el => el.getBoundingClientRect().height);
-    assert.equal(height, mobile ? 40 : 36, 'Compact website picker height');
+    assert.equal(height, mobile ? 44 : 36, 'Compact website picker height');
     assert.equal(await page.getByRole('link', { name: '返回网站列表', exact: true }).count(), 1);
     await picker.click();
     const popover = page.getByRole('dialog', { name: '切换网站', exact: true });

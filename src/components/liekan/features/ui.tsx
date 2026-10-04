@@ -1,5 +1,6 @@
 'use client';
 import { useListState } from './listState';
+import { observeActiveTab } from '../tabVisibility';
 import Link from 'next/link';
 import {
   createContext,
@@ -127,7 +128,6 @@ export function Panel({
                     aria-label="搜索本页记录"
                     placeholder="搜索本页记录"
                     value={search}
-                    disabled={loading}
                     onChange={e => setSearch(e.target.value)}
                   />
                 </label>
@@ -362,8 +362,10 @@ export function Tabs({
   active: string;
   onChange: (id: string) => void;
 }) {
+  const tabs = useRef<HTMLDivElement>(null);
+  useEffect(() => observeActiveTab(tabs.current), [active]);
   return (
-    <div className="tabs" role="tablist">
+    <div ref={tabs} className="tabs" role="tablist">
       {items.map(([id, label]) => (
         <button
           type="button"
@@ -393,6 +395,9 @@ export function Table({
   pages,
   onPage,
   search = false,
+  mobile = false,
+  rowKeys,
+  identity = 0,
 }: {
   columns: string[];
   rows: ReactNode[][];
@@ -402,6 +407,9 @@ export function Table({
   pages?: number;
   onPage?: (page: number) => void;
   search?: boolean;
+  mobile?: boolean;
+  rowKeys?: string[];
+  identity?: number;
 }) {
   const c = useFeature();
   const loading = useDataLoading();
@@ -410,6 +418,8 @@ export function Table({
     if (!loading && pages >= 1 && page > pages) onPage?.(pages);
   }, [page, pages, onPage, loading]);
   const [text, setText] = useState('');
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const tableId = useId();
   const [sort, setSort] = useState<{ column: number; desc: boolean } | null>(() => {
     const index = columns.indexOf(c?.query?.sort);
     return index >= 0 ? { column: index, desc: c?.query?.direction === 'desc' } : null;
@@ -456,12 +466,20 @@ export function Table({
             aria-label="搜索本页记录"
             placeholder="搜索本页记录"
             value={text}
-            disabled={loading}
             onChange={e => setText(e.target.value)}
           />
         </label>
       )}
-      <div className="table-wrap" aria-busy={loading || undefined}>
+      <p className={`table-scroll-hint${mobile ? ' resource-hint' : ''}`}>
+        <span className="table-pan-hint">左右滑动表格可查看全部列。</span>
+        {mobile && (
+          <span className="table-expand-hint">点按展开详情可查看全部字段，表头可排序。</span>
+        )}
+      </p>
+      <div
+        className={`table-wrap${mobile ? ' resource-table' : ' stats-table'}`}
+        aria-busy={loading || undefined}
+      >
         <table
           style={
             {
@@ -501,22 +519,76 @@ export function Table({
               Array.from({ length: 3 }, (_, i) => (
                 <tr key={i} aria-hidden="true">
                   {columns.map((_, j) => (
-                    <td key={j} className={numeric.includes(j) ? 'numeric' : ''}>
+                    <td
+                      key={j}
+                      data-label={columns[j]}
+                      data-mobile-primary={(mobile && j === identity) || undefined}
+                      data-mobile-detail={
+                        (mobile &&
+                          j !== identity &&
+                          !/操作|状态|角色|所属|空间/.test(columns[j])) ||
+                        undefined
+                      }
+                      className={numeric.includes(j) ? 'numeric' : ''}
+                    >
                       <Skeleton width={j === 0 ? '80%' : '65%'} />
+                      {mobile && j === identity && (
+                        <span className="resource-expand">
+                          <Skeleton width="5em" />
+                        </span>
+                      )}
                     </td>
                   ))}
                 </tr>
               ))
             ) : filtered.length ? (
-              filtered.map((row, i) => (
-                <tr key={i}>
-                  {row.map((v, j) => (
-                    <td key={j} className={numeric.includes(j) ? 'numeric' : ''}>
-                      {v ?? '—'}
-                    </td>
-                  ))}
-                </tr>
-              ))
+              filtered.map((row, i) => {
+                const sourceIndex = rows.indexOf(row);
+                const rowKey =
+                  rowKeys?.[sourceIndex] ||
+                  (mobile ? `${sourceIndex}:${flatten(row[identity])}` : String(i));
+                const open = expanded.has(rowKey);
+                const detailColumns = columns
+                  .map((_, j) => j)
+                  .filter(j => j !== identity && !/操作|状态|角色|所属|空间/.test(columns[j]));
+                return (
+                  <tr key={rowKey} data-expanded={open || undefined}>
+                    {row.map((v, j) => (
+                      <td
+                        key={j}
+                        id={`${tableId}-${sourceIndex}-${j}`}
+                        data-label={columns[j]}
+                        data-mobile-primary={(mobile && j === identity) || undefined}
+                        data-mobile-detail={(mobile && detailColumns.includes(j)) || undefined}
+                        className={numeric.includes(j) ? 'numeric' : ''}
+                      >
+                        {v ?? '—'}
+                        {mobile && j === identity && detailColumns.length > 0 && (
+                          <button
+                            type="button"
+                            className="resource-expand"
+                            aria-expanded={open}
+                            aria-label={`${open ? '收起' : '展开'}${flatten(row[identity])}的详情`}
+                            aria-controls={detailColumns
+                              .map(j => `${tableId}-${sourceIndex}-${j}`)
+                              .join(' ')}
+                            onClick={() =>
+                              setExpanded(previous => {
+                                const next = new Set(previous);
+                                if (next.has(rowKey)) next.delete(rowKey);
+                                else next.add(rowKey);
+                                return next;
+                              })
+                            }
+                          >
+                            {open ? '收起详情' : '展开详情'}
+                          </button>
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td colSpan={columns.length}>
@@ -610,8 +682,35 @@ function pendingLayout(children: ReactNode): ReactNode {
   });
   return layout?.length ? layout : null;
 }
-export function QueryState({ query, children }: { query: any; children: ReactNode }) {
+export function QueryState({
+  query,
+  children,
+  readOnly = false,
+}: {
+  query: any;
+  children: ReactNode;
+  readOnly?: boolean;
+}) {
   const inherited = useDataLoading();
+  const restricted = [401, 403, 404].includes(query.error?.status);
+  if (readOnly && !restricted && (!query.error || query.data != null)) {
+    return (
+      <div
+        data-liekan-read-region
+        aria-busy={inherited || query.isPending || query.isFetching || undefined}
+      >
+        <DataLoading loading={inherited || !!query.isPending} label="正在读取数据">
+          {children}
+        </DataLoading>
+        {query.error && (
+          <Notice tone="red">
+            更新失败，当前显示上次读取的数据。
+            <Button onClick={() => query.refetch?.()}>重试读取</Button>
+          </Notice>
+        )}
+      </div>
+    );
+  }
   if (inherited || (query.isPending && query.data == null))
     return (
       <DataLoading loading label="正在读取数据">

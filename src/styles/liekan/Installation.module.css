@@ -325,3 +325,26 @@
     gap: 8px;
   }
 }
+
+@media (max-width: 900px) {
+  .details summary {
+    min-height: 44px;
+  }
+}
+@media (max-width: 600px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .methods {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .entryRow,
+  .sourceTitle,
+  .complete,
+  .summary {
+    flex-wrap: wrap;
+  }
+  .flow code {
+    overflow-wrap: anywhere;
+  }
+}

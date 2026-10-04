@@ -286,6 +286,8 @@ function Websites() {
       >
         <QueryState query={query}>
           <Table
+            mobile
+            rowKeys={c.sites.map(site => site.id)}
             columns={['网站', '所属空间', '浏览采集状态', '访问次数', '最近接收', '操作']}
             numeric={[3]}
             search
@@ -1790,6 +1792,8 @@ function ApiKeys() {
       >
         <QueryState query={query}>
           <Table
+            mobile
+            rowKeys={rowsOf<any>(query.data).map(key => key.id)}
             columns={['名称', '密钥', '创建时间', '最近使用', '操作']}
             search
             rows={rowsOf<any>(query.data).map(key => [
@@ -2063,6 +2067,8 @@ function Goals() {
       >
         <QueryState query={query}>
           <Table
+            mobile
+            rowKeys={goals.map(goal => goal.id)}
             columns={['目标', '触发条件', '转化次数', '转化率', '操作']}
             numeric={[2, 3]}
             search
@@ -2377,6 +2383,8 @@ function Funnels() {
               }
             >
               <Table
+                mobile
+                rowKeys={funnels.map(funnel => funnel.id)}
                 columns={['漏斗', '步骤数量', '转化窗口', '操作']}
                 page={page}
                 pages={Math.ceil((query.data?.count || 0) / 20)}

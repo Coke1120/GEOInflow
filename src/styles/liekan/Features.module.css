@@ -2037,3 +2037,232 @@
     min-height: 56px;
   }
 }
+
+:global([data-liekan-features] .resource-expand),
+:global([data-liekan-features] .table-scroll-hint) {
+  display: none;
+}
+@media (max-width: 900px) {
+  :global([data-liekan-features] :is(.btn, .tab, .table-sort, .context-select select)) {
+    min-height: 44px;
+  }
+  :global([data-liekan-features] .btn:has(> svg:only-child)) {
+    min-width: 44px;
+  }
+  :global([data-liekan-features] :is(.check, .switch-row)) {
+    min-height: 44px;
+  }
+  :global([data-liekan-features] .actions) {
+    flex-wrap: wrap;
+  }
+  :global([data-liekan-features] .table-scroll-hint) {
+    display: block;
+    margin: 10px 16px;
+    color: var(--sub);
+    font-size: 11.5px;
+  }
+  :global([data-liekan-features] .stats-table) {
+    overscroll-behavior-x: contain;
+  }
+  :global([data-liekan-features] .stats-table :is(th, td):first-child) {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #fff;
+    max-width: 168px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    box-shadow: 1px 0 var(--line);
+  }
+  :global([data-liekan-features] .stats-table th:first-child) {
+    background: var(--canvas);
+    z-index: 2;
+  }
+  :global([data-liekan-features] .heat-matrix :is(th, td):first-child) {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #fff;
+    box-shadow: 1px 0 var(--line);
+  }
+  :global([data-liekan-features] .heat-matrix .heat-cell) {
+    min-height: 44px;
+  }
+  :global([data-liekan-features] :is(.drawer, .modal)) {
+    max-height: 100dvh;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  :global([data-liekan-features] .modal) {
+    max-height: calc(100dvh - 24px);
+  }
+  :global([data-liekan-features] .drawer-head) {
+    flex-shrink: 0;
+  }
+  :global([data-liekan-features] .drawer-body) {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+  :global([data-liekan-features] :is(.drawer, .modal) .form-actions) {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding-block: 12px;
+    z-index: 2;
+  }
+  :global([data-liekan-features] .tabs) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    overscroll-behavior-x: contain;
+  }
+  :global([data-liekan-features] .tab) {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  :global([data-liekan-features] .browser-bar) {
+    overflow-wrap: anywhere;
+  }
+  :global([data-liekan-features] .replay-stage) {
+    max-width: 100%;
+    overflow: hidden;
+  }
+}
+@media (max-width: 540px) {
+  :global(
+    [data-liekan-features]
+      :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea)
+  ) {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  :global([data-liekan-features] .header-actions) {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  :global([data-liekan-features] .header-actions .btn) {
+    font-size: 12px;
+  }
+  :global([data-liekan-features] .condition) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :global([data-liekan-features] .condition > button) {
+    justify-self: end;
+  }
+  :global([data-liekan-features] .field),
+  :global([data-liekan-features] .field-help),
+  :global([data-liekan-features] .notice) {
+    overflow-wrap: anywhere;
+  }
+  :global([data-liekan-features] .backup-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :global([data-liekan-features] .resource-table),
+  :global([data-liekan-features] .resource-table table) {
+    overflow: visible;
+    min-width: 0 !important;
+    width: 100%;
+  }
+  :global([data-liekan-features] .resource-table :is(table, thead, tbody, tr, th, td)) {
+    display: block;
+  }
+  :global([data-liekan-features] .resource-table thead tr) {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    background: var(--canvas);
+    gap: 0 12px;
+  }
+  :global([data-liekan-features] .resource-table th) {
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+  :global([data-liekan-features] .resource-table tbody tr) {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  :global([data-liekan-features] .resource-table td) {
+    border: 0;
+    padding: 5px 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+  :global([data-liekan-features] .resource-table td[data-label]::before) {
+    content: attr(data-label);
+    display: block;
+    font-size: 11px;
+    color: var(--sub);
+    margin-bottom: 4px;
+  }
+  :global([data-liekan-features] .resource-table td[data-mobile-primary]::before) {
+    display: none;
+  }
+  :global([data-liekan-features] .resource-table tr:not([data-expanded]) td[data-mobile-detail]) {
+    display: none;
+  }
+  :global([data-liekan-features] .resource-expand) {
+    display: block;
+    min-height: 44px;
+    background: transparent;
+    border: 0;
+    padding: 8px 0;
+    color: var(--brand);
+    font: inherit;
+  }
+  :global([data-liekan-features] .resource-table .actions) {
+    gap: 8px;
+  }
+  :global([data-liekan-features] .resource-table .table-meta) {
+    white-space: normal;
+  }
+  :global([data-liekan-features] .resource-table tr[aria-hidden] td) {
+    display: block;
+  }
+  :global([data-liekan-features] .player-controls input[type="range"]) {
+    flex-basis: 100%;
+    width: 100%;
+    min-height: 44px;
+  }
+}
+:global([data-liekan-features] .chart-failure) {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+  background: #fff;
+  color: var(--sub);
+}
+
+@media (max-width: 900px) {
+  :global([data-liekan-features] .password-wrap button) {
+    min-width: 44px;
+    min-height: 44px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  :global([data-liekan-features] .table-wrap td a) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+:global([data-liekan-features] .table-expand-hint) {
+  display: none;
+}
+@media (max-width: 540px) {
+  :global([data-liekan-features] .resource-hint .table-pan-hint) {
+    display: none;
+  }
+  :global([data-liekan-features] .resource-hint .table-expand-hint) {
+    display: inline;
+  }
+}

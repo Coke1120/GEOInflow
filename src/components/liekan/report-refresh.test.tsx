@@ -14,10 +14,20 @@ vi.mock('next/link', () => ({
 }));
 vi.mock('./LiekanShell', () => ({ useLiekanShell: () => null }));
 vi.mock('./chartRuntime', () => ({ loadEcharts: () => Promise.resolve({}) }));
-vi.mock('./GeoLoading', async () => {
+vi.mock('./AnalysisLoading', async () => {
   const { useReportActions } = await import('./ReportContext');
   return {
-    geoViews: {
+    AnalysisLoading: () => {
+      const actions = useReportActions();
+      return (
+        <>
+          <span>pending</span>
+          <button onClick={() => actions.onAction('目录导入')}>打开管理</button>
+          <button onClick={() => actions.onAction('生成内容建议')}>生成内容建议</button>
+        </>
+      );
+    },
+    reportViews: {
       'human/overview': ({ report }: any) => <span>{report?.value}</span>,
       content: ({ report }: any) => {
         const actions = useReportActions();
@@ -237,7 +247,7 @@ it('reports a real post-write query failure to the saving drawer', async () => {
     await expect(state.afterSaved!()).rejects.toMatchObject({ status: 503 });
   });
   expect(screen.getByTestId('report-value')).toHaveTextContent('initial');
-  await screen.findByRole('alert');
+  await screen.findByText('更新失败，当前显示上次读取的数据');
 });
 
 it.each([false, true])(
@@ -345,7 +355,7 @@ it('reports a failed manual read while retaining the previous data', async () =>
   await screen.findByText('initial');
   state.get.mockRejectedValue(Object.assign(new Error('statistics unavailable'), { status: 503 }));
   fireEvent.click(screen.getByRole('button', { name: '生成内容建议' }));
-  await screen.findByText('无法读取此范围的数据');
-  await screen.findByRole('alert');
+  await screen.findByText('更新失败，当前显示上次读取的数据');
+  await screen.findByText('更新失败，当前显示上次读取的数据');
   expect(screen.getByTestId('report-value')).toHaveTextContent('initial');
 });

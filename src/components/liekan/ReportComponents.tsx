@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import styles from '@/styles/liekan/Shell.module.css';
 import { chartOptions } from './chartOptions';
 import { loadEcharts } from './chartRuntime';
+import { observeChartLayout } from './mobileChart';
 import { ChartLoading, LoadingLines, Skeleton, useDataLoading } from './DataLoading';
 import {
   columns,
@@ -77,10 +78,10 @@ export function ReferenceChart({
     if (loading || !hasData || !container.current) return;
     let disposed = false;
     let instance: any;
-    let observer: ResizeObserver;
+    let stopLayout: () => void;
     const cleanup = () => {
-      observer?.disconnect();
-      observer = undefined;
+      stopLayout?.();
+      stopLayout = undefined;
       try {
         instance?.dispose();
       } catch {}
@@ -117,15 +118,7 @@ export function ReferenceChart({
           if (axis.min != null && min < axis.min) axis.min = Math.max(0, Math.floor(min * 0.8));
           if (axis.max != null && max > axis.max) axis.max = Math.ceil(max * 1.1);
         });
-        instance.setOption(option);
-        observer = new ResizeObserver(() => {
-          try {
-            instance?.resize();
-          } catch {
-            fail();
-          }
-        });
-        observer.observe(container.current);
+        stopLayout = observeChartLayout(instance, container.current, option, fail);
       })
       .catch(fail);
     return () => {

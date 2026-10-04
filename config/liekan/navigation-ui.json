@@ -1391,7 +1391,7 @@
     "rowPitch": 36,
     "fontSize": 13.5,
     "contextHeight": 56,
-    "mobileRowHeight": 40
+    "mobileRowHeight": 44
   },
   "analysisTabs": {
     "geo-sources": [

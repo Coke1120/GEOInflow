@@ -1059,6 +1059,8 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
       >
         <QueryState query={query}>
           <Table
+            mobile
+            rowKeys={(query.data || []).map((row: any) => row.id)}
             search
             columns={
               cohort
@@ -2138,6 +2140,8 @@ function Annotations() {
       >
         <QueryState query={query}>
           <Table
+            mobile
+            rowKeys={(query.data || []).map((row: any) => row.id)}
             search
             columns={['日期', '注释', '操作']}
             rows={(query.data || []).map((r: any) => [

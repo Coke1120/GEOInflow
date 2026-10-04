@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { FeatureRoute } from '@/lib/liekan/contracts/features';
 import {
   analysisSourcePage,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/liekan/contracts/navigation';
 import styles from '@/styles/liekan/Navigation.module.css';
 import { NavigationFeedback } from './NavigationFeedback';
+import { observeActiveTab } from './tabVisibility';
 
 export function AnalysisTabs({
   route,
@@ -30,7 +31,7 @@ export function AnalysisTabs({
     : websiteAnalysisFamily(route);
   const tabs = trackingPage ? trackingNavigationTabs : websiteAnalysisTabs[family?.page];
   const links = useRef<HTMLDivElement>(null);
-  if (!tabs) return null;
+
   const source =
     trackingPage ||
     analysisSourcePage(
@@ -39,6 +40,8 @@ export function AnalysisTabs({
         : route.page,
     );
   const active = source === 'segments' ? 'cohorts' : source;
+  useEffect(() => observeActiveTab(links.current), [active]);
+  if (!tabs) return null;
   return (
     <div className={styles.tabsToolbar} data-analysis-family={family.page}>
       <div

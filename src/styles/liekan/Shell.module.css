@@ -509,3 +509,62 @@
     margin: 24px 20px;
   }
 }
+
+@media (max-width: 900px) {
+  .headerActions {
+    flex-wrap: wrap;
+  }
+  .headerActions button,
+  .analysisTools a,
+  .tools button,
+  .notice button,
+  .formActions button,
+  .close {
+    min-height: 44px;
+  }
+  .analysisTools a {
+    display: inline-flex;
+    align-items: center;
+  }
+  .close {
+    min-width: 44px;
+  }
+  .drawer {
+    height: 100dvh;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .drawerHeader {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 3;
+    padding-block: 8px;
+  }
+  .formActions {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding-block: 12px;
+    z-index: 2;
+    flex-wrap: wrap;
+  }
+  .dateButton {
+    min-height: 44px;
+  }
+}
+@media (max-width: 540px) {
+  .headerActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .headerActions button {
+    font-size: 12px !important;
+  }
+  .form :is(input, select, textarea) {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .drawer {
+    padding-inline: 16px;
+  }
+}

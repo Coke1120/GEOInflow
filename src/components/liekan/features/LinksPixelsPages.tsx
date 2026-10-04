@@ -120,6 +120,8 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
             </Notice>
           )}
           <Table
+            mobile
+            rowKeys={rows.map(row => row.id)}
             columns={
               kind === 'link'
                 ? ['名称', '目标地址', '短链标识', '点击次数', '操作']

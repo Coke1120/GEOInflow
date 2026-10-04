@@ -872,3 +872,33 @@
   padding-top: 14px;
   padding-bottom: 14px;
 }
+
+@media (max-width: 900px) {
+  .root main :global(.chip),
+  .root main button,
+  .root main a:has(> svg) {
+    min-height: 44px;
+  }
+  .root main :global(.overflow-hidden):has(table) {
+    overscroll-behavior-x: contain;
+  }
+  .root main table :is(th, td):first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: #fff;
+    max-width: 156px;
+    overflow-wrap: anywhere;
+    box-shadow: 1px 0 #e9ecf1;
+  }
+  .root main table th:first-child {
+    background: #f5f7fa;
+    z-index: 2;
+  }
+}
+@media (max-width: 540px) {
+  .root :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    font-size: 16px;
+    min-height: 44px;
+  }
+}

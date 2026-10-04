@@ -35,7 +35,10 @@ const report: LiekanReport = {
   meta: { demo: false, canManage: false, latestImportAt: null, ruleCount: 0 },
 };
 const instance = () => ({ setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn() });
-beforeEach(() => runtime.load.mockReset());
+beforeEach(() => {
+  runtime.load.mockReset();
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(480);
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe('recoverable chart runtime', () => {
