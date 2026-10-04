@@ -2340,9 +2340,14 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
                   key={id}
                   title={c.sites.find(site => site.id === id)?.name || id}
                   actions={
-                    <LinkButton page="website-settings" params={{ websiteId: id }}>
-                      网站设置
-                    </LinkButton>
+                    <>
+                      <LinkButton page="overview" params={{ websiteId: id }}>
+                        查看统计
+                      </LinkButton>
+                      <LinkButton page="website-settings" params={{ websiteId: id }}>
+                        网站设置
+                      </LinkButton>
+                    </>
                   }
                 >
                   <ResourceAnalytics id={id} metrics={false} title="" />
