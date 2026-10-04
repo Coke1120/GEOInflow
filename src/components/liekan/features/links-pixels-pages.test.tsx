@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { linkPayload, resourceUrl } from '@/lib/liekan/contracts/workspace';
@@ -391,5 +391,69 @@ describe('links and pixels use native resource and tracking contracts', () => {
       resourceUrl('https://app.example', '/stats', 'pixel', 'reference_01', 'https://px.example/'),
     ).toBe('https://px.example/reference_01');
     expect(() => linkPayload({ name: '邮件', slug: 'short' }, 'pixel')).toThrow('标识需要 8');
+  });
+});
+
+describe('resource addresses wait for host configuration', () => {
+  it.each(['link', 'pixel'] as const)(
+    'keeps %s operations unavailable until the configured address arrives',
+    async kind => {
+      context.route = { page: `${kind}-detail`, id: `${kind}-1`, teamId: 'team-1' };
+      const original = mocks.get.getMockImplementation()!;
+      let finish!: (value: any) => void;
+      const configuration = new Promise(resolve => {
+        finish = resolve;
+      });
+      mocks.get.mockImplementation((path: string, params: any, signal: any) => {
+        if (path === '/config') return configuration;
+        if (path === '/pixels/pixel-1') return Promise.resolve({ ...link, id: 'pixel-1' });
+        return original(path, params, signal);
+      });
+      const user = userEvent.setup();
+      const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+      mount(`${kind}-detail`);
+      const button = await screen.findByRole('button', {
+        name: kind === 'pixel' ? '复制图片代码' : '查看链接二维码',
+      });
+      expect(button).toBeDisabled();
+      if (kind === 'pixel') {
+        expect(screen.getByRole('button', { name: '复制图片地址' })).toBeDisabled();
+        expect(
+          screen.getByRole('heading', { name: '安装代码' }).closest('section')?.textContent,
+        ).not.toContain(window.location.origin);
+        await user.click(button);
+        expect(write).not.toHaveBeenCalled();
+      }
+      await act(async () =>
+        finish({ linksUrl: 'https://go.example', pixelsUrl: 'https://pixel.example' }),
+      );
+      await waitFor(() => expect(button).toBeEnabled());
+      if (kind === 'pixel') {
+        await user.click(button);
+        expect(write).toHaveBeenCalledWith(
+          '<img src="https://pixel.example/announcement" width="1" height="1" alt="" />',
+        );
+        await user.click(screen.getByRole('button', { name: '复制图片地址' }));
+        expect(write).toHaveBeenLastCalledWith('https://pixel.example/announcement');
+      } else {
+        expect(screen.getByText('https://go.example/announcement')).toBeInTheDocument();
+      }
+    },
+  );
+  it('uses the instance address after an empty configuration is successfully read', async () => {
+    context.route = { page: 'pixel-detail', id: 'pixel-1', teamId: 'team-1' };
+    const original = mocks.get.getMockImplementation()!;
+    mocks.get.mockImplementation((path: string, params: any, signal: any) => {
+      if (path === '/config') return Promise.resolve({});
+      if (path === '/pixels/pixel-1') return Promise.resolve({ ...link, id: 'pixel-1' });
+      return original(path, params, signal);
+    });
+    const user = userEvent.setup();
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    mount('pixel-detail');
+    const copy = await screen.findByRole('button', { name: '复制图片地址' });
+    await waitFor(() => expect(copy).toBeEnabled());
+    await user.click(copy);
+    expect(write).toHaveBeenCalledWith(`${window.location.origin}/p/announcement`);
   });
 });

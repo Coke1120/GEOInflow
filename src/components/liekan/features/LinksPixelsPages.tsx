@@ -46,7 +46,11 @@ function useResourceHost(kind: 'link' | 'pixel') {
     [origin, setOrigin] = useState('');
   useEffect(() => setOrigin(window.location.origin), []);
   const q = useData('resource-config', signal => c.api.get('/config', undefined, signal));
-  return { q, origin, configured: kind === 'link' ? q.data?.linksUrl : q.data?.pixelsUrl };
+  return {
+    q,
+    origin: q.data === undefined ? '' : origin,
+    configured: kind === 'link' ? q.data?.linksUrl : q.data?.pixelsUrl,
+  };
 }
 const format = (value: any) => {
   const metric = nativeMetric(value);
@@ -388,7 +392,13 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
       <div className="row between">
         <div>
           <h2>{record.name}</h2>
-          <p className="muted">{kind === 'link' ? url : `图片标识 · ${record.slug}`}</p>
+          {kind === 'link' ? (
+            <QueryState readOnly query={host.q}>
+              <p className="muted">{host.q.isPending ? '正在读取链接地址' : url}</p>
+            </QueryState>
+          ) : (
+            <p className="muted">图片标识 · {record.slug}</p>
+          )}
         </div>
         <div className="actions">
           <LinkButton page={`${kind}-editor`} params={{ id }}>
@@ -473,8 +483,8 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
       ) : (
         <Panel title="安装代码" subtitle="图片引用沿用现有图片地址格式。">
           <Body>
-            <QueryState query={host.q}>
-              <Code>{code}</Code>
+            <QueryState readOnly query={host.q}>
+              <Code>{host.q.isPending ? '正在读取图片地址' : code}</Code>
               <Button
                 disabled={!url}
                 onClick={async () => {

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ManagementDrawer } from './ManagementDrawer';
 import { FilterChip, MetricCard, ReportList, ReportRows, SortHeading } from './ReportComponents';
@@ -372,4 +372,67 @@ describe('real data states and interactions', () => {
       content: '[{"path":"/actual"}]',
     });
   });
+});
+
+it('keeps saved configuration locked until its report refresh completes', async () => {
+  const settings = { robots: 'User-agent: *', allowlist: [], rules: [] };
+  api.get.mockResolvedValue(settings);
+  api.put.mockResolvedValue(settings);
+  let finish!: () => void;
+  const updating = new Promise<void>(resolve => {
+    finish = resolve;
+  });
+  const onSaved = vi.fn(() => updating);
+  render(
+    <ManagementDrawer
+      action="robots.txt 编辑"
+      websiteId="site"
+      canManage
+      onClose={vi.fn()}
+      onSaved={onSaved}
+      onSearch={vi.fn()}
+      onRange={vi.fn()}
+    />,
+  );
+  const input = await screen.findByRole('textbox');
+  await waitFor(() => expect(input).toBeEnabled());
+  const save = screen.getByRole('button', { name: '保存' });
+  fireEvent.click(save);
+  await screen.findByText('robots.txt 编辑已保存');
+  expect(onSaved).toHaveBeenCalledOnce();
+  expect(input).toBeDisabled();
+  expect(save).toBeDisabled();
+  await act(async () => finish());
+  await waitFor(() => expect(input).toBeEnabled());
+  expect(save).toBeEnabled();
+});
+
+it('preserves write confirmation when the follow-up refresh fails', async () => {
+  const settings = { robots: 'User-agent: *', allowlist: [], rules: [] };
+  api.get.mockResolvedValue(settings);
+  api.put.mockResolvedValue(settings);
+  const onSaved = vi.fn(async () => {
+    throw new Error('identity refresh unavailable');
+  });
+  render(
+    <ManagementDrawer
+      action="robots.txt 编辑"
+      websiteId="site"
+      canManage
+      onClose={vi.fn()}
+      onSaved={onSaved}
+      onSearch={vi.fn()}
+      onRange={vi.fn()}
+    />,
+  );
+  const input = await screen.findByRole('textbox');
+  await waitFor(() => expect(input).toBeEnabled());
+  const save = screen.getByRole('button', { name: '保存' });
+  fireEvent.click(save);
+  await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+  await waitFor(() =>
+    expect(screen.getByRole('status')).toHaveTextContent('robots.txt 编辑已保存'),
+  );
+  expect(screen.getByRole('status')).toHaveTextContent('页面状态刷新失败');
+  expect(input).toBeEnabled();
 });
