@@ -4,6 +4,7 @@ import { randomUUID, randomBytes } from 'node:crypto';
 import { build } from 'esbuild';
 import { execFileSync, spawn } from 'node:child_process';
 import { resolve } from 'node:path';
+import { verifyEffectiveLogView } from '../tests/liekan/effective-log-view.mjs';
 const address = new URL(process.env.DATABASE_URL);
 if (address.hostname !== '127.0.0.1' || address.port !== '15435' || address.pathname !== '/liekan')
   throw new Error('Integration tests require the isolated local Liekan database host');
@@ -33,6 +34,13 @@ try {
   // A second run must be idempotent and preserve immutable registry checksums.
   run(process.execPath, ['scripts/liekan-migrate.mjs']);
   run(process.execPath, ['scripts/liekan-queue-bootstrap.mjs']);
+  const fixture = new Client({ connectionString: url.toString() });
+  await fixture.connect();
+  try {
+    await verifyEffectiveLogView(fixture);
+  } finally {
+    await fixture.end();
+  }
   await build({
     entryPoints: [
       process.argv.includes('--load')

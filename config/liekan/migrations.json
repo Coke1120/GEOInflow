@@ -14,5 +14,6 @@
   "010_ai_workspaces.sql": "7a4ec0ac0dc8e00e363a7e898fab3a6dd6476d5d391bd3a9781f23b75f5afceb",
   "010_oauth_cleanup.sql": "8acda80aad3ba44e716263728d57195737ba515e122b7a0289e2a132321ba519",
   "011_ai_config_audit.sql": "99e4b8f4b253e7921b0cea60a60ae33c6c1224cf3be901dc34adde5af6958795",
-  "012_ai_invariants_and_history.sql": "b1e7f79f218217f05f2e76a44f0eb1e874458c0db066d36ae3e78c2f18ac37dd"
+  "012_ai_invariants_and_history.sql": "b1e7f79f218217f05f2e76a44f0eb1e874458c0db066d36ae3e78c2f18ac37dd",
+  "013_effective_log_union.sql": "b34cec16ba9e2e872b9add3f85a67c4f1a26368c1d388a99cad522b01bf0117f"
 }
