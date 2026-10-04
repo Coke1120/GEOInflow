@@ -1606,3 +1606,45 @@ it('retains new recovery metadata after an unmounted test cancellation resolves'
   await act(async () => release(completed({ state: 'cancelled' })));
   expect(JSON.parse(sessionStorage.getItem(key)!)).toEqual(newMetadata);
 });
+
+it('keeps a restarted test alive when the previous cancellation returns after completion', async () => {
+  const user = userEvent.setup();
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  let releaseCancel!: (run: any) => void, finishFirst!: (run: any) => void;
+  mocks.cancel.mockReturnValue(
+    new Promise(resolve => {
+      releaseCancel = resolve;
+    }),
+  );
+  const firstResponse = new Promise(resolve => {
+    finishFirst = resolve;
+  });
+  mocks.stream
+    .mockImplementationOnce((_path: any, _body: any, _signal: any, onEvent: any) => {
+      onEvent({ type: 'started', runId });
+      return firstResponse;
+    })
+    .mockImplementation((_path: any, _body: any, _signal: any, onEvent: any) => {
+      onEvent({ type: 'started', runId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' });
+      return new Promise(() => {});
+    });
+  mount();
+  await user.click(await screen.findByRole('button', { name: '实时测试' }));
+  await waitFor(() => expect(mocks.stream).toHaveBeenCalledTimes(1));
+  await user.click(screen.getByRole('button', { name: '关闭' }));
+  await waitFor(() => expect(mocks.cancel).toHaveBeenCalled());
+  await act(async () =>
+    finishFirst(completed({ operation: 'test', result: { text: 'LIEKAN_OK' } })),
+  );
+  await user.click(await screen.findByRole('button', { name: '重新测试，发起新调用' }));
+  await waitFor(() => expect(mocks.stream).toHaveBeenCalledTimes(2));
+  const newRequest = mocks.stream.mock.calls[1][1];
+  const newSignal = mocks.stream.mock.calls[1][2];
+  expect(newSignal.aborted).toBe(false);
+  await act(async () => releaseCancel(completed({ operation: 'test' })));
+  expect(newSignal.aborted).toBe(false);
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(JSON.parse(sessionStorage.getItem(`liekan-ai:${id}:test:${connectionId}`)!)).toMatchObject(
+    { clientRequestId: newRequest.clientRequestId },
+  );
+});

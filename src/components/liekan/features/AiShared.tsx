@@ -356,7 +356,7 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
     runRef = useRef<AiRun | null>(null),
     generation = useRef(0),
     finish = useRef(onFinished),
-    stopPromise = useRef<Promise<boolean> | null>(null),
+    stopPromise = useRef<{ generation: number; promise: Promise<boolean> } | null>(null),
     keyRef = useRef(key);
   finish.current = onFinished;
   keyRef.current = key;
@@ -508,11 +508,13 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
     }
   };
   const stop = useCallback(async () => {
-    if (stopPromise.current) return stopPromise.current;
+    const g = generation.current;
+    if (stopPromise.current?.generation === g) return stopPromise.current.promise;
     const operation = (async () => {
       if (controller.current?.signal.aborted) return true;
       const m = metadata.current,
-        storageKey = keyRef.current;
+        storageKey = keyRef.current,
+        cancelledController = controller.current;
       if (!m || (runRef.current && !activeRun(runRef.current))) {
         controller.current?.abort();
         return true;
@@ -533,8 +535,10 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
         }
         if (!id) throw new Error('unknown');
         const saved = await aiClient.cancel(id);
-        controller.current?.abort();
-        if (mounted.current) {
+        cancelledController?.abort();
+        const current =
+          generation.current === g && metadata.current?.clientRequestId === m.clientRequestId;
+        if (mounted.current && current) {
           runRef.current = saved;
           setRun(saved);
           setStage(saved.state);
@@ -548,22 +552,22 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
             if (stored(storageKey)?.clientRequestId === m.clientRequestId)
               sessionStorage.removeItem(storageKey);
           } catch {}
-          metadata.current = null;
+          if (current) metadata.current = null;
         }
-        return true;
+        return current;
       } catch {
-        if (mounted.current) {
+        if (mounted.current && generation.current === g) {
           setError('取消请求未确认，任务可能仍在执行。请回查原任务。');
           setRecoverable(true);
         }
         return false;
       }
     })();
-    stopPromise.current = operation;
+    stopPromise.current = { generation: g, promise: operation };
     try {
       return await operation;
     } finally {
-      stopPromise.current = null;
+      if (stopPromise.current?.promise === operation) stopPromise.current = null;
     }
   }, []);
   useEffect(() => {
