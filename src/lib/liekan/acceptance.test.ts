@@ -38,6 +38,7 @@ import { syncBuiltinESMExports } from 'node:module';
 const head=${JSON.stringify(head)}, upstream=${JSON.stringify(upstream)}, lock=${JSON.stringify(lock)}, version=${JSON.stringify(version)}, fault=${JSON.stringify(fault)};
 let keepAlive, restoreStarted=false;
 const ledger=Object.entries(lock).map(([name,checksum])=>({name,checksum,appliedAt:'fixture'}));
+if(fault==='installation-checksum')ledger.find(row=>row.name==='006_website_installation.sql').checksum='changed';
 const official=[{migration_name:'26_add_api_key',checksum:createHash('sha256').update('SELECT 1;\\n').digest('hex'),finished_at:'fixture',rolled_back_at:null}];
 if(fault==='official-checksum')official[0].checksum='modified';
 if(fault==='official-missing')official[0].migration_name='deleted_official_migration';
@@ -61,6 +62,8 @@ cp.execFileSync=(command,args,options={})=>{
  }
  if(verb==='exec'&&args.includes('psql')){
   const sql=args.at(-1);
+  if(sql==="SELECT to_regclass('liekan_installation') IS NOT NULL")return args.includes('liekan_restore')&&((fault==='installation-old-backup'&&!restoreStarted)||(fault==='installation-missing'&&restoreStarted))?'f':'t';
+  if(sql.includes('FROM liekan_installation'))return JSON.stringify(!args.includes('liekan_restore')||fault==='installation-old-backup'?[]:[{websiteId:'fixture-website',method:'cloudflare',lastStep:fault==='installation-state'&&restoreStarted?'finish':'logs',browserCheckDeferred:true,logCheckDeferred:false,completedAt:null,updatedAt:'2026-10-04T00:00:00Z'}]);
   if(sql.includes('information_schema'))return JSON.stringify([{exists:true}]);
   if(sql.includes('_prisma_migrations'))return JSON.stringify(fault==='pending-upgrade'&&args.includes('liekan_restore')&&!restoreStarted?[]:official);
   if(sql==='SELECT count(*) FROM liekan_migration')return String(upstream.liekanMigration);
@@ -161,7 +164,29 @@ describe('isolated acceptance CLI failure paths', () => {
       fs.rmSync(setup.cwd, { recursive: true, force: true });
     }
   });
+  it('upgrades a backup predating website installation without losing the empty state', () => {
+    const setup = fixture('installation-old-backup');
+    try {
+      const result = spawnSync(process.execPath, setup.args, {
+        cwd: setup.cwd,
+        env: setup.env,
+        encoding: 'utf8',
+        timeout: 20000,
+      });
+      expect(result.status).toBe(0);
+      const report = JSON.parse(
+        fs.readFileSync(path.join(setup.cwd, 'outputs/acceptance.json'), 'utf8'),
+      );
+      expect(report.installationBefore).toEqual({ present: false });
+      expect(report.installationAfter).toMatchObject({ present: true, count: 0 });
+    } finally {
+      fs.rmSync(setup.cwd, { recursive: true, force: true });
+    }
+  });
   it.each([
+    'installation-checksum',
+    'installation-state',
+    'installation-missing',
     'backup-signal',
     'backup-error',
     'restore-signal',
