@@ -280,6 +280,41 @@ export async function checkMobileExperience({ base, seed, board, share, partial,
           assert(metrics.strip.every(strip => strip.selectedVisible));
           report.variants.push({ browser: name, width, id: 'rotation-settings', passed: true });
         }
+        await page.setViewportSize({ width: 375, height: 500 });
+        const toggle = page.getByRole('button', { name: '页面导航', exact: true });
+        await toggle.click();
+        await page.waitForFunction(() => document.body.style.overflow === 'hidden');
+        await page.setViewportSize({ width: 901, height: 500 });
+        await page.waitForFunction(
+          () =>
+            document.querySelector('[aria-label="页面导航"]').getAttribute('aria-expanded') ===
+            'false',
+        );
+        assert.notEqual(await page.evaluate(() => document.body.style.overflow), 'hidden');
+        const action = page.getByRole('button', { name: '删除网站', exact: true });
+        await action.focus();
+        await page.keyboard.press('Tab');
+        assert(
+          await page.evaluate(
+            () => !document.querySelector('#liekan-navigation').contains(document.activeElement),
+          ),
+          'Desktop content focus must be released after closing mobile navigation',
+        );
+        await action.click();
+        const dialog = page.getByRole('dialog');
+        await dialog.getByRole('button', { name: '关闭弹层', exact: true }).focus();
+        await page.keyboard.press('Tab');
+        assert(
+          await dialog.evaluate(el => el.contains(document.activeElement)),
+          'A desktop dialog must retain its own focus after a mobile breakpoint change',
+        );
+        await dialog.getByRole('button', { name: '关闭弹层', exact: true }).click();
+        report.variants.push({
+          browser: name,
+          width: 901,
+          id: 'open-menu-to-desktop',
+          passed: true,
+        });
       } catch (error) {
         report.variants.push({
           browser: name,

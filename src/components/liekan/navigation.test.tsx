@@ -117,6 +117,49 @@ describe('website navigation transitions', () => {
         .at(-1),
     ).toHaveFocus();
   });
+  it('releases navigation focus and page scrolling when an open mobile menu becomes desktop', () => {
+    let change: () => void;
+    const media = {
+      matches: true,
+      addEventListener: vi.fn((_event: string, callback: () => void) => {
+        change = callback;
+      }),
+      removeEventListener: vi.fn(),
+    };
+    const matchMedia = window.matchMedia;
+    window.matchMedia = vi.fn(() => media as any);
+    try {
+      const view = render(
+        <>
+          <Navigation
+            user={{ id: 'user', username: 'admin' } as any}
+            route={{ page: 'events', websiteId: 'site-a' }}
+            width={228}
+            onWidth={vi.fn()}
+          />
+          <button>主区操作</button>
+        </>,
+      );
+      const toggle = screen.getByRole('button', { name: '页面导航' });
+      fireEvent.click(toggle);
+      expect(document.body.style.overflow).toBe('hidden');
+      act(() => {
+        media.matches = false;
+        change?.();
+        window.dispatchEvent(new Event('resize'));
+      });
+      expect(toggle).toHaveAttribute('aria-expanded', 'false');
+      expect(document.body.style.overflow).toBe('');
+      const action = screen.getByRole('button', { name: '主区操作' });
+      action.focus();
+      expect(fireEvent.keyDown(action, { key: 'Tab' })).toBe(true);
+      expect(action).toHaveFocus();
+      view.unmount();
+      expect(media.removeEventListener).toHaveBeenCalledWith('change', change);
+    } finally {
+      window.matchMedia = matchMedia;
+    }
+  });
   it('searches by domain and closes the picker with Escape while restoring focus', () => {
     render(
       <Navigation

@@ -118,6 +118,14 @@ export function Navigation({
     setLeaving('');
   }, [nav.pathname, meta.section, meta.scope, route.websiteId, route.id]);
   useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    const closeDesktopMenu = () => {
+      if (!media.matches) setMobile(false);
+    };
+    media.addEventListener('change', closeDesktopMenu);
+    return () => media.removeEventListener('change', closeDesktopMenu);
+  }, []);
+  useEffect(() => {
     if (!mobile) return;
     const before = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
