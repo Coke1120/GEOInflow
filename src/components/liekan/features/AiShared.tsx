@@ -328,6 +328,7 @@ function stored(key: string): RunMetadata | null {
 }
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const eventLabels: Record<string, string> = {
+  submitting: '已发起请求，等待服务端确认',
   accepted: '请求已接受',
   preparing: '配置检查',
   calling: '发送请求',
@@ -455,9 +456,9 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
     setRun(null);
     setPreview('');
     setError('');
-    setStage('accepted');
+    setStage('submitting');
     setEventLogs([]);
-    logStage('accepted');
+    logStage('submitting');
     setBusy(true);
     setRecoverable(false);
     const m = { clientRequestId: crypto.randomUUID(), ...ids };
@@ -471,7 +472,10 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
           if (!mounted.current || generation.current !== g || ctrl.signal.aborted) return;
           save({ ...metadata.current, clientRequestId: m.clientRequestId, runId: event.runId });
           const data = record(event.data);
-          if (event.type === 'started') logStage('accepted');
+          if (event.type === 'started') {
+            setStage('accepted');
+            logStage('accepted');
+          }
           if (
             event.type === 'stage' &&
             typeof data.stage === 'string' &&
@@ -498,6 +502,7 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
         if (rejected) {
           metadata.current = null;
           setStage('failed');
+          logStage('failed');
           try {
             sessionStorage.removeItem(keyRef.current);
           } catch {}
@@ -621,6 +626,7 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
   };
 }
 const stageLabels: Record<string, string> = {
+  submitting: '等待接受请求',
   accepted: '请求已接受',
   preparing: '准备统计依据',
   calling: '调用模型',

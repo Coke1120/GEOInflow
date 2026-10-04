@@ -628,7 +628,6 @@ describe('AI call disclosure and test evidence', () => {
     mocks.connections.mockResolvedValue({ items: [connection()] });
     mocks.stream.mockImplementation((_p, _b, _s, callback) => {
       event = callback;
-      callback({ type: 'started', runId });
       return new Promise(resolve => {
         finish = resolve;
       });
@@ -636,6 +635,9 @@ describe('AI call disclosure and test evidence', () => {
     mount();
     await user.click(await screen.findByRole('button', { name: '实时测试' }));
     const modal = screen.getByRole('dialog', { name: '实时测试' });
+    expect(modal.querySelector('[data-ai-run-state="submitting"]')).toBeInTheDocument();
+    await act(async () => event({ type: 'started', runId }));
+    expect(modal.querySelector('[data-ai-run-state="accepted"]')).toBeInTheDocument();
     expect(within(modal).getByText(runId)).toBeInTheDocument();
     const phases = within(modal).getByRole('list', { name: '连接检查阶段' });
     expect(
@@ -1647,4 +1649,28 @@ it('keeps a restarted test alive when the previous cancellation returns after co
   expect(JSON.parse(sessionStorage.getItem(`liekan-ai:${id}:test:${connectionId}`)!)).toMatchObject(
     { clientRequestId: newRequest.clientRequestId },
   );
+});
+
+it('waits for server acknowledgement and records an early rejection without accepting it', async () => {
+  const user = userEvent.setup();
+  let reject: (reason: unknown) => void;
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  mocks.stream.mockImplementation(
+    () =>
+      new Promise((_resolve, fail) => {
+        reject = fail;
+      }),
+  );
+  mount();
+  await user.click(await screen.findByRole('button', { name: '实时测试' }));
+  const modal = screen.getByRole('dialog', { name: '实时测试' });
+  const logs = within(modal).getByRole('list', { name: '测试事件记录' });
+  expect(modal.querySelector('[data-ai-run-state="submitting"]')).toHaveTextContent('等待接受请求');
+  expect(logs).toHaveTextContent('已发起请求，等待服务端确认');
+  expect(logs).not.toHaveTextContent('请求已接受');
+  await act(async () => reject({ status: 403 }));
+  expect(await within(modal).findByRole('alert')).toHaveTextContent('当前账户没有执行此操作的权限');
+  expect(modal.querySelector('[data-ai-run-state="failed"]')).toBeInTheDocument();
+  expect(logs).toHaveTextContent('任务未完成');
+  expect(logs).not.toHaveTextContent('请求已接受');
 });
