@@ -421,6 +421,25 @@ try {
   await actual.locator('[data-test="input-password"] input').fill(credentials.LIEKAN_TEST_PASSWORD);
   await actual.locator('[data-test="button-submit"]').click();
   await actual.waitForURL(url => !url.pathname.includes('/login'));
+  const token = await actual.evaluate(() => JSON.parse(localStorage.getItem('umami.auth')));
+  assert.equal(typeof token, 'string', 'Authenticated visual fixture session required');
+  const readVisualIdentity = async path => {
+    try {
+      return await context.request.get(`${base}${path}`, {
+        headers: { authorization: `Bearer ${token}` },
+      });
+    } catch {
+      throw new Error('Visual fixture identity read failed');
+    }
+  };
+  const websitesResponse = await readVisualIdentity('/api/me/websites');
+  assert.equal(websitesResponse.status(), 200, 'Accessible visual fixture websites required');
+  const websites = await websitesResponse.json();
+  const visualWebsiteId = process.env.LIEKAN_VISUAL_WEBSITE_ID || websites.data?.[0]?.id;
+  assert.match(visualWebsiteId || '', /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i);
+  const websiteResponse = await readVisualIdentity(`/api/websites/${visualWebsiteId}`);
+  assert.equal(websiteResponse.status(), 200, 'Visual fixture website permission required');
+  assert.equal((await websiteResponse.json())?.id, visualWebsiteId, 'Visual fixture website must exist');
   await context.route('https://cdn.tailwindcss.com/**', route =>
     route.fulfill({ contentType: 'application/javascript', body: tailwind }),
   );
@@ -616,9 +635,20 @@ try {
       },
       { columns },
     );
-    await actual.route('**/api/liekan/**/report?*', route =>
-      route.fulfill({ contentType: 'application/json', body: JSON.stringify(payload) }),
-    );
+    payload.website.id = visualWebsiteId;
+    const reportRoute = `${base}/api/liekan/websites/${visualWebsiteId}/page-report?*`;
+    await actual.route(reportRoute, route => {
+      const now = Date.now();
+      const resource = new URL(route.request().url()).searchParams.get('resource');
+      return route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...payload,
+          resource,
+          meta: { ...payload.meta, generatedAt: now, expiresAt: now + 30000 },
+        }),
+      });
+    });
     await actual.goto(`${base}/websites/${payload.website.id}/geo${path}`);
     await actual.locator('main').waitFor();
     await actual.evaluate(async () => {
@@ -825,7 +855,7 @@ try {
       refGeometry,
       geometry,
     });
-    await actual.unroute('**/api/liekan/**/report?*');
+    await actual.unroute(reportRoute);
   }
   fs.writeFileSync(
     `${out}/geometry.json`,
@@ -837,6 +867,7 @@ try {
         originalReferenceHashesVerified: Object.keys(referenceHashes).length,
         errors,
         fixture: 'frozen prototype data intercepted in isolated browser; no writes to analytics',
+        visualWebsiteId,
         results,
         passed:
           errors.length === 0 &&
