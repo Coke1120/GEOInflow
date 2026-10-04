@@ -300,7 +300,7 @@ try {
     await page.locator('[name=name]').fill(`隔离归属检查${kind} ${Date.now()}`);
     if (kind === 'link') await page.locator('[name=url]').fill('https://example.com/review');
     await page
-      .getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素', exact: true })
+      .getByRole('button', { name: kind === 'link' ? '保存链接' : '保存图片', exact: true })
       .click();
     await page.waitForURL(u => new RegExp(`^/${kind}s/[^/]+$`).test(u.pathname));
     const id = new URL(page.url()).pathname.split('/').pop();
