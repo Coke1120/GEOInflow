@@ -37,7 +37,7 @@ export function ManagementDrawer({
   websiteId: string;
   canManage: boolean;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
   onSearch: (value: string) => void;
   onRange: (start: number, end: number) => void;
   report?: LiekanReport;
@@ -225,7 +225,11 @@ export function ManagementDrawer({
         setImportErrors(result.errors || []);
         setTotalErrors(result.rejected);
       }
-      onSaved();
+      try {
+        await onSaved();
+      } catch {
+        setStatus(current => `${current} 页面状态刷新失败，请刷新页面确认已保存结果。`);
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : '保存失败，请重试');
     } finally {

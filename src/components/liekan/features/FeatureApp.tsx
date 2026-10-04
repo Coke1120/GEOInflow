@@ -329,16 +329,17 @@ export function FeatureApp({
       : current.id && /-editor$/.test(current.page)
         ? (page?.title || '').replace(/^创建/, '编辑')
         : page?.title || '猎看统计';
+  const pageKey = `${siteId || current.teamId || user.id}:${current.page}:${current.id || ''}`;
+  const invalidRange = datePage && range.endAt - range.startAt > 1096 * 86400000;
+  const readOnlyGlobalPage = !setup && ['websites', 'dashboard'].includes(current.page);
+  const metadata = teamState?.isPending || teamState?.error ? teamState : sitesQuery;
   const content =
-    !setup && (teamState?.isPending || teamState?.error) ? (
-      <QueryState
-        readOnly={teamState.isPending && ['websites', 'dashboard'].includes(current.page)}
-        query={teamState}
-      >
-        {teamState.isPending && ['websites', 'dashboard'].includes(current.page) ? (
-          <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
-        ) : null}
+    readOnlyGlobalPage && !invalidRange ? (
+      <QueryState readOnly={!metadata.error} query={metadata}>
+        <FeaturePage key={pageKey} page={current.page} />
       </QueryState>
+    ) : !setup && (teamState?.isPending || teamState?.error) ? (
+      <QueryState query={teamState}>{null}</QueryState>
     ) : !setup && websiteRequired && !siteId ? (
       <Notice>
         请选择需要查看的网站。
@@ -364,21 +365,11 @@ export function FeatureApp({
     ) : !setup && websiteRequired && siteQuery.error ? (
       <QueryState query={siteQuery}>{null}</QueryState>
     ) : !setup && needsSites && !websiteRequired && (sitesQuery.isPending || sitesQuery.error) ? (
-      <QueryState
-        readOnly={sitesQuery.isPending && ['websites', 'dashboard'].includes(current.page)}
-        query={sitesQuery}
-      >
-        {sitesQuery.isPending && ['websites', 'dashboard'].includes(current.page) ? (
-          <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
-        ) : null}
-      </QueryState>
-    ) : datePage && range.endAt - range.startAt > 1096 * 86400000 ? (
+      <QueryState query={sitesQuery}>{null}</QueryState>
+    ) : invalidRange ? (
       <Notice>日期范围上限 3 年，请调整日期后查看。</Notice>
     ) : (
-      <FeaturePage
-        key={`${siteId || current.teamId || user.id}:${current.page}:${current.id || ''}`}
-        page={current.page}
-      />
+      <FeaturePage key={pageKey} page={current.page} />
     );
   if (setup)
     return (

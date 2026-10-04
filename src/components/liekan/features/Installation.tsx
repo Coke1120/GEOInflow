@@ -704,10 +704,7 @@ export function Installation({
                 websiteId={site.id}
                 canManage={canSave}
                 onClose={() => setImportOpen(false)}
-                onSaved={() => {
-                  void query.refetch();
-                  void c.refresh();
-                }}
+                onSaved={() => c.refresh()}
                 onSearch={search => c.navigate('geo-logs', { websiteId: site.id, search })}
                 onRange={(start, end) =>
                   c.navigate('geo-logs', { websiteId: site.id, date: `range:${start}:${end}` })

@@ -107,60 +107,84 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     const timer = window.setInterval(() => setLiveNow(Date.now()), 10000);
     return () => window.clearInterval(timer);
   }, [liveLogs]);
+  const currentReport = pageReportQuery(
+    userId,
+    websiteId,
+    {
+      resource,
+      startAt,
+      endAt,
+      timezone,
+      chartPeriod,
+      ...(resource === 'logs'
+        ? {
+            page: logPage,
+            filter:
+              filter === '仅 AI 蜘蛛'
+                ? 'ai'
+                : filter === '仅异常'
+                  ? 'abnormal'
+                  : filter === '仅人类'
+                    ? 'other'
+                    : '',
+            search: search.slice(0, 200),
+            ...(cursor ? { cursor, seek } : {}),
+          }
+        : {}),
+    },
+    teamId,
+    () => {
+      const value = forceRefresh.current;
+      forceRefresh.current = false;
+      return value;
+    },
+    liveLogs,
+  );
   const query = api.useQuery<LiekanReport>({
-    ...pageReportQuery(
-      userId,
-      websiteId,
-      {
-        resource,
-        startAt,
-        endAt,
-        timezone,
-        chartPeriod,
-        ...(resource === 'logs'
-          ? {
-              page: logPage,
-              filter:
-                filter === '仅 AI 蜘蛛'
-                  ? 'ai'
-                  : filter === '仅异常'
-                    ? 'abnormal'
-                    : filter === '仅人类'
-                      ? 'other'
-                      : '',
-              search: search.slice(0, 200),
-              ...(cursor ? { cursor, seek } : {}),
-            }
-          : {}),
-      },
-      teamId,
-      () => {
-        const value = forceRefresh.current;
-        forceRefresh.current = false;
-        return value;
-      },
-      liveLogs,
-    ),
+    ...currentReport,
     enabled: !!websiteId,
     refetchInterval: resource === 'logs' ? 10000 : false,
   });
+  const reportKey = JSON.stringify(currentReport.queryKey);
+  const activeReportKey = useRef(reportKey);
+  activeReportKey.current = reportKey;
+  const manualRefresh = useRef<{
+    key: string;
+    promise: Promise<boolean | undefined>;
+  }>(null);
   const previous = api.useQuery<LiekanReport>({
     ...pageReportQuery(userId, websiteId, { resource, ...shiftedRange, timezone }, teamId),
     enabled: compare && !!websiteId,
   });
   const report = hidesPreviousData(query.error) ? undefined : query.data;
   const refresh = () => {
-    forceRefresh.current = true;
-    return query.refetch({ cancelRefetch: false });
+    if (manualRefresh.current?.key === reportKey) return manualRefresh.current.promise;
+    const promise = (async () => {
+      await queryClient.cancelQueries({ queryKey: currentReport.queryKey, exact: true });
+      const updatesBefore = queryClient.getQueryState(currentReport.queryKey)?.dataUpdateCount || 0;
+      forceRefresh.current = true;
+      const result = await query.refetch({ cancelRefetch: false });
+      if (result.isError) return false;
+      // Cancelled reads can resolve with retained data; completion advances the update count.
+      const updatesAfter = queryClient.getQueryState(currentReport.queryKey)?.dataUpdateCount || 0;
+      return updatesAfter > updatesBefore ? true : undefined;
+    })();
+    const running = { key: reportKey, promise };
+    manualRefresh.current = running;
+    const release = () => {
+      if (manualRefresh.current === running) manualRefresh.current = null;
+    };
+    void promise.then(release, release);
+    return promise;
   };
-  const afterSaved = () => {
-    void queryClient.invalidateQueries({ queryKey: ['liekan', websiteId], refetchType: 'none' });
-    void queryClient.invalidateQueries({
-      queryKey: ['liekan-feature', userId],
-      refetchType: 'none',
-    });
+  const afterSaved = async () => {
+    const reads = [{ queryKey: ['liekan', websiteId] }, { queryKey: ['liekan-feature', userId] }];
+    await Promise.all(reads.map(filters => queryClient.cancelQueries(filters)));
+    forceRefresh.current = true;
     if (liveLogs) setLiveNow(Date.now());
-    void refresh();
+    await Promise.all(reads.map(filters => queryClient.invalidateQueries(filters)));
+    const error = queryClient.getQueryState(currentReport.queryKey)?.error;
+    if (error) throw error;
   };
   const rangeLabel = useMemo(() => {
     const date = (value: number) =>
@@ -251,8 +275,9 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       return;
     }
     if (label === '生成内容建议') {
-      refresh().then(result => {
-        setMessage(result.isError ? '读取数据失败，请重试' : '已根据当前数据重新生成内容建议');
+      refresh().then(succeeded => {
+        if (succeeded === undefined || activeReportKey.current !== reportKey) return;
+        setMessage(succeeded ? '已根据当前数据重新生成内容建议' : '读取数据失败，请重试');
       });
       return;
     }
@@ -437,7 +462,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             compare
               ? {
                   current: report,
-                  previous: previous.data,
+                  previous: hidesPreviousData(previous.error) ? undefined : previous.data,
                   startAt,
                   endAt,
                   previousStartAt: shiftedRange.startAt,

@@ -872,10 +872,7 @@ function WebsiteSettings() {
               websiteId={site.id}
               canManage={manage}
               onClose={() => setDrawer('')}
-              onSaved={() => {
-                void c.refresh();
-                void report.refetch();
-              }}
+              onSaved={() => c.refresh()}
               onSearch={search => c.navigate('geo-logs', { websiteId: site.id, search })}
               onRange={(start, end) =>
                 c.navigate('geo-logs', { websiteId: site.id, date: `range:${start}:${end}` })
