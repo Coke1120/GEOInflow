@@ -82,7 +82,7 @@ const visitor = (id: string) => `访客 ${id?.replaceAll('-', '').slice(-6) || '
 function date(value: any, timezone: string) {
   return value ? formatInTimeZone(value, timezone, 'yyyy-MM-dd HH:mm:ss') : '—';
 }
-function canManage(c: ReturnType<typeof useFeature>) {
+export function canManage(c: ReturnType<typeof useFeature>) {
   return (
     c.user.isAdmin ||
     c.site?.userId === c.user.id ||
@@ -1130,14 +1130,12 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
 function Retention() {
   const c = useFeature();
   const initial = formatInTimeZone(c.range.endAt, c.range.timezone, 'yyyy-MM');
+  const audience = c.filters.cohort
+    ? `cohort:${c.filters.cohort}`
+    : c.filters.segment
+      ? `segment:${c.filters.segment}`
+      : '';
   const [month, setMonth] = useState(initial),
-    [audience, setAudience] = useState(
-      c.filters.cohort
-        ? `cohort:${c.filters.cohort}`
-        : c.filters.segment
-          ? `segment:${c.filters.segment}`
-          : '',
-    ),
     [detail, setDetail] = useState<any>(null),
     [info, setInfo] = useState(false);
   const months = Array.from({ length: 12 }, (_, i) => {
@@ -1194,9 +1192,22 @@ function Retention() {
             value={audience}
             options={[
               ['', '全部访客'],
+              ...(audience && !(people.data || []).some(r => `${r.type}:${r.id}` === audience)
+                ? [{
+                    value: audience,
+                    label: `${type === 'cohort' ? '所选人群' : '所选分群'}（${people.isPending ? '正在读取' : people.error ? '读取失败' : '不可用'}）`,
+                    disabled: true,
+                  }]
+                : []),
               ...(people.data || []).map(r => [`${r.type}:${r.id}`, r.name] as [string, string]),
             ]}
-            onChange={e => setAudience(e.target.value)}
+            onChange={e => {
+              const [type, id] = e.target.value.split(':');
+              c.updateQuery({
+                cohort: type === 'cohort' ? id : undefined,
+                segment: type === 'segment' ? id : undefined,
+              });
+            }}
           />
         </div>
         <Button onClick={() => setInfo(true)}>口径说明</Button>

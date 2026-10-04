@@ -1,10 +1,17 @@
 'use client';
 import { type CSSProperties, createContext, type ReactNode, useContext, useState } from 'react';
 import type { FeatureUser } from '@/lib/liekan/contracts/features';
-import { geoPageFromPath } from '@/lib/liekan/contracts/navigation';
-import { useNavigation } from '@/lib/liekan/upstream/client';
+import {
+  geoPageFromPath,
+  navigationFor,
+  pageNavigation,
+  websiteAnalysisFamily,
+} from '@/lib/liekan/contracts/navigation';
+import { useNavigation, useWebsiteQuery } from '@/lib/liekan/upstream/client';
 import reference from '@/styles/liekan/Reference.module.css';
 import styles from '@/styles/liekan/Shell.module.css';
+import { AnalysisLoading } from './AnalysisLoading';
+import { AnalysisTabs } from './AnalysisTabs';
 import { featureNavigationHref, matchFeatureRoute } from './features/routes';
 import { Navigation, useSidebarWidth } from './Navigation';
 import type { LiekanReport } from './types';
@@ -23,6 +30,11 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
   const route = pathname.includes('/geo')
     ? { page: geoPageFromPath(pathname), websiteId }
     : matchFeatureRoute(pathname, query) || { page: 'dashboard' };
+  const metadata = useWebsiteQuery(isGeo ? websiteId : undefined);
+  const currentMetadata = metadata.data?.id === websiteId ? metadata.data : undefined;
+  const currentWebsite = website?.id === websiteId ? website : undefined;
+  const site = currentMetadata ? { ...currentWebsite, ...currentMetadata } : currentWebsite;
+  const [websiteContextTarget, setWebsiteContextTarget] = useState<HTMLDivElement>(null);
   const href = (page: string, params: Record<string, any> = {}) =>
     featureNavigationHref(route, query, page, params);
   return (
@@ -36,13 +48,44 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
         <Navigation
           user={user}
           route={route}
-          site={website && { ...website, teamId: (website as any).teamId }}
+          site={site}
           width={width}
           onWidth={setWidth}
           href={href}
+          websiteContextTarget={websiteContextTarget}
         />
         <div className={styles.content} id="main-content">
-          <div className={isGeo ? reference.root : styles.coreFrame}>{children}</div>
+          {navigationFor(route).scope === 'website' && (
+            <div className={styles.websiteContextBar} ref={setWebsiteContextTarget} />
+          )}
+          <div className={isGeo ? reference.root : styles.coreFrame}>
+            {isGeo && !currentMetadata ? (
+              <>
+                <div className={styles.header}>
+                  <div className={styles.headerInner}>
+                    <h1 className="text-[16px] font-bold tracking-tight">
+                      {websiteAnalysisFamily(route)?.label || pageNavigation[route.page]?.title}
+                    </h1>
+                  </div>
+                </div>
+                <div className={styles.tabsFrame}>
+                  <AnalysisTabs route={route} href={href} />
+                </div>
+                {metadata.isError ? (
+                  <div className={styles.notice} role="status">
+                    无法读取网站信息
+                    <button type="button" onClick={() => metadata.refetch()}>
+                      重试
+                    </button>
+                  </div>
+                ) : (
+                  <AnalysisLoading />
+                )}
+              </>
+            ) : (
+              children
+            )}
+          </div>
         </div>
       </div>
     </ShellContext.Provider>

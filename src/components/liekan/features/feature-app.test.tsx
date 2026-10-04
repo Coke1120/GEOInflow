@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   all: vi.fn(),
 }));
 vi.mock('next/link', () => ({
+  useLinkStatus: () => ({ pending: false }),
   default: ({ href, children, prefetch: _prefetch, ...props }: any) => (
     <a href={href} {...props}>
       {children}
@@ -99,6 +100,26 @@ beforeEach(() => {
   mocks.post.mockResolvedValue({});
 });
 describe('feature navigation scope', () => {
+  it.each(['links', 'pixels'])(
+    'renders %s under tracking management with both resource tabs',
+    async page => {
+      mocks.navigation.pathname = `/${page}`;
+      mount({ page });
+      expect(screen.getByRole('heading', { name: '追踪管理' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: '链接追踪' })).toHaveAttribute(
+        'href',
+        expect.stringContaining('/links'),
+      );
+      expect(screen.getByRole('tab', { name: '图片追踪' })).toHaveAttribute(
+        'href',
+        expect.stringContaining('/pixels'),
+      );
+      expect(
+        screen.getByRole('tab', { name: page === 'links' ? '链接追踪' : '图片追踪' }),
+      ).toHaveAttribute('aria-selected', 'true');
+      expect(await screen.findByText(`资源页面：${page}`)).toBeInTheDocument();
+    },
+  );
   it.each(['link-editor', 'pixel-editor', 'board-editor', 'onboarding'])(
     'waits for team destinations before mounting the %s creation form',
     async page => {
@@ -232,7 +253,7 @@ describe('feature navigation scope', () => {
     async route => {
       const view = mount(route);
       expect(await screen.findByText('当前账户没有访问此资源的权限。')).toBeInTheDocument();
-      expect(view.container.querySelectorAll('[data-navigation-group]')).toHaveLength(7);
+      expect(view.container.querySelectorAll('[data-navigation-group]')).toHaveLength(6);
       expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
       expect(mocks.get).not.toHaveBeenCalled();
     },
@@ -258,10 +279,10 @@ describe('feature navigation scope', () => {
     expect(mocks.sites).toHaveBeenCalledWith(expect.any(AbortSignal), undefined, 'all');
     expect(view.container.querySelector('.site-switch')).toBeNull();
   });
-  it('shows seven flat global entries and no implicit website on an account page', async () => {
+  it('shows six flat global entries and no implicit website on an account page', async () => {
     const view = mount({ page: 'account', websiteId: personal.id, teamId });
     const sidebar = view.container.querySelector('#liekan-navigation');
-    expect(sidebar.querySelectorAll('[data-navigation-group]')).toHaveLength(7);
+    expect(sidebar.querySelectorAll('[data-navigation-group]')).toHaveLength(6);
     expect(sidebar.querySelector('.site-switch')).toBeNull();
     expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
     expect(mocks.sites).not.toHaveBeenCalled();
@@ -318,8 +339,7 @@ describe('feature navigation scope', () => {
     const view = mount({ page: 'session-detail', websiteId: personal.id, id: 'old-record' });
     await waitFor(() => expect(mocks.sites).toHaveBeenCalled());
     await userEvent.click(view.container.querySelector('.site-switch') as HTMLElement);
-    await userEvent.selectOptions(await screen.findByLabelText('网站'), teamSite.id);
-    await userEvent.click(screen.getByRole('button', { name: '切换网站' }));
+    await userEvent.click(await screen.findByRole('button', { name: `选择网站 ${teamSite.name}` }));
     await waitFor(() => expect(mocks.push).toHaveBeenCalled());
     const url = new URL(mocks.push.mock.calls[0][0], 'http://localhost');
     expect(url.pathname).toBe(`/websites/${teamSite.id}/sessions`);

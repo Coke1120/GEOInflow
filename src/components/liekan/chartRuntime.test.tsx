@@ -8,6 +8,7 @@ import type { LiekanReport } from './types';
 const runtime = vi.hoisted(() => ({ load: vi.fn() }));
 vi.mock('./chartRuntime', () => ({ loadEcharts: runtime.load }));
 vi.mock('@/lib/liekan/upstream/client', () => ({
+  useWebsiteQuery: () => ({ data: { id: 'site', name: '站点', domain: 'example.test' } }),
   useNavigation: () => ({
     pathname: '/websites/site/geo',
     websiteId: 'site',

@@ -6,9 +6,11 @@ const mocks = vi.hoisted(() => ({
   context: null as any,
   query: {} as Record<string, any>,
   errors: {} as Record<string, Error>,
+  pending: {} as Record<string, boolean>,
   href: vi.fn(),
   post: vi.fn(),
   navigate: vi.fn(),
+  updateQuery: vi.fn(),
 }));
 vi.mock('next/link', () => ({
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
@@ -19,7 +21,7 @@ vi.mock('./context', () => ({
     data:
       typeof mocks.query[key[0]] === 'function' ? mocks.query[key[0]](key) : mocks.query[key[0]],
     error: mocks.errors[key[0]] || null,
-    isPending: false,
+    isPending: mocks.pending[key[0]] || false,
   }),
   useAction: () => ({
     run: async (action: () => Promise<any>) => action(),
@@ -39,9 +41,11 @@ vi.mock('@/lib/liekan/upstream/features-client', () => ({ getAllFeatureRows: vi.
 beforeEach(() => {
   mocks.query = {};
   mocks.errors = {};
+  mocks.pending = {};
   mocks.href.mockReset().mockReturnValue('/sessions');
   mocks.post.mockReset().mockResolvedValue({});
   mocks.navigate.mockReset();
+  mocks.updateQuery.mockReset();
   mocks.context = {
     user: { id: 'owner', isAdmin: true },
     siteId: 'site',
@@ -54,7 +58,55 @@ beforeEach(() => {
     api: { get: vi.fn(), post: mocks.post },
     href: mocks.href,
     navigate: mocks.navigate,
+    updateQuery: mocks.updateQuery,
   };
+});
+
+it('applies saved audiences to mounted retention queries and restores them from URL filters', () => {
+  const audiences: string[] = [];
+  mocks.context.route.page = 'retention';
+  mocks.context.range = {
+    startAt: Date.UTC(2026, 8, 1),
+    endAt: Date.UTC(2026, 8, 30),
+    timezone: 'UTC',
+  };
+  mocks.query['retention-audiences'] = [
+    { id: 'segment-a', type: 'segment', name: '移动访客' },
+    { id: 'cohort-a', type: 'cohort', name: '注册人群' },
+  ];
+  mocks.query.retention = (key: any[]) => {
+    audiences.push(key[2]);
+    return [];
+  };
+  const view = render(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('');
+  mocks.context = { ...mocks.context, filters: { segment: 'segment-a' } };
+  view.rerender(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('segment:segment-a');
+  expect(audiences.at(-1)).toBe('segment:segment-a');
+  fireEvent.change(screen.getByLabelText('人群'), { target: { value: 'cohort:cohort-a' } });
+  expect(mocks.updateQuery).toHaveBeenCalledWith({ cohort: 'cohort-a', segment: undefined });
+  mocks.context = { ...mocks.context, filters: {} };
+  view.rerender(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('');
+  expect(audiences.at(-1)).toBe('');
+});
+it('preserves the selected audience while choices load or fail, then resolves its name', () => {
+  mocks.context.filters = { segment: 'segment-a' };
+  mocks.pending['retention-audiences'] = true;
+  const view = render(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('segment:segment-a');
+  expect(screen.getByRole('option', { name: '所选分群（正在读取）' })).toBeDisabled();
+  mocks.pending['retention-audiences'] = false;
+  mocks.errors['retention-audiences'] = new Error('读取失败');
+  view.rerender(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('segment:segment-a');
+  expect(screen.getByRole('option', { name: '所选分群（读取失败）' })).toBeDisabled();
+  mocks.errors = {};
+  mocks.query['retention-audiences'] = [{ id: 'segment-a', type: 'segment', name: '移动访客' }];
+  view.rerender(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('segment:segment-a');
+  expect(screen.getByRole('option', { name: '移动访客' })).not.toBeDisabled();
 });
 
 it('explains continuous visits and exposes the access-record heading', () => {

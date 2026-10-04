@@ -15,12 +15,27 @@ import {
   globalNavigation,
   navigationFor,
   pageNavigation,
+  trackingSourcePage,
   websiteNavigation,
 } from './navigation';
 
 const site = '11111111-1111-4111-8111-111111111111';
 const team = '22222222-2222-4222-8222-222222222222';
 describe('navigation task boundaries', () => {
+  it.each([
+    ['links', 'links'],
+    ['link-editor', 'links'],
+    ['link-detail', 'links'],
+    ['pixels', 'pixels'],
+    ['pixel-editor', 'pixels'],
+    ['pixel-detail', 'pixels'],
+  ])('keeps the native %s resource under the shared tracking entry', (page, source) => {
+    const route = { page };
+    expect(navigationFor(route)).toMatchObject({ scope: 'global', section: 'tracking' });
+    expect(activeNavigationPage(route)).toBe('links');
+    expect(trackingSourcePage(route)).toBe(source);
+    expect(featureHref(source)).toBe(`/${source}`);
+  });
   it.each([
     ['session-detail', 'sessions'],
     ['replay-player', 'replays'],
@@ -243,22 +258,19 @@ describe('navigation task boundaries', () => {
       expect(activeNavigationPage({ page })).toBeTruthy();
     }
     expect(globalNavigation.map(group => group.label)).toEqual([
-      '工作台',
+      '数据总览',
       '网站管理',
-      '看板',
-      '分享链接',
-      '团队协作',
-      '链接',
-      '像素',
+      '数据看板',
+      '追踪管理',
+      '分享管理',
+      '团队管理',
     ]);
     expect(globalNavigation.every(group => !group.children)).toBe(true);
     expect(websiteNavigation.map(group => group.label)).toEqual([
       '流量总览',
       'AI 抓取分析',
       '访客与来源',
-      '内容与行为',
-      '转化分析',
-      '深度分析',
+      '内容与转化',
       '实时监测',
     ]);
   });

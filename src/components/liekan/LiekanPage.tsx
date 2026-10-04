@@ -2,7 +2,11 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
-import { geoPageFromPath, geoPaths, pageNavigation } from '@/lib/liekan/contracts/navigation';
+import {
+  geoPageFromPath,
+  pageNavigation,
+  websiteAnalysisFamily,
+} from '@/lib/liekan/contracts/navigation';
 import {
   useApi,
   useFeatureDateRange,
@@ -11,6 +15,8 @@ import {
 } from '@/lib/liekan/upstream/client';
 import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Shell.module.css';
+import { AnalysisLoading } from './AnalysisLoading';
+import { AnalysisTabs } from './AnalysisTabs';
 import {
   cardLabels,
   csvMatrix,
@@ -191,7 +197,12 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   }, [startAt, endAt, timezone]);
   useEffect(() => {
     if (!shell) return;
-    if (report?.website) shell.setWebsite({ ...report.website, teamId: website?.teamId } as any);
+    if (report?.website)
+      shell.setWebsite({
+        ...report.website,
+        teamId: website?.teamId,
+        demo: report.meta.demo,
+      } as any);
     else if (website)
       shell.setWebsite({
         id: website.id,
@@ -310,29 +321,21 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       <div className={styles.header}>
         <div className={styles.headerInner}>
           <div>
-            <nav className={styles.breadcrumbs} aria-label="页面位置">
-              <Link href={href('overview')}>网站</Link>
-              <span>/</span>
-              <span>{report?.website.name || website?.name || '当前网站'}</span>
-              <span>/</span>
-              <span aria-current="page">{pageNavigation[route.page]?.title || page.title}</span>
-            </nav>
             <h1 className="text-[16px] font-bold tracking-tight">
-              {pageNavigation[route.page]?.title || page.title}
+              {websiteAnalysisFamily(route)?.label ||
+                pageNavigation[route.page]?.title ||
+                page.title}
             </h1>
-            <p className={styles.subtitle}>
-              <button
-                type="button"
-                className={styles.dateButton}
-                onClick={() => setAction('统计范围')}
-                title="选择统计日期"
-              >
-                {report?.website.domain || website?.domain || '当前站点'} · {rangeLabel} ·{timezone}
-              </button>
-              {report?.meta.demo && <span className={styles.demoBadge}>演示数据</span>}
-            </p>
           </div>
           <div className={styles.headerActions}>
+            <button
+              type="button"
+              className="chip"
+              onClick={() => setAction('统计范围')}
+              title={`统计时区：${timezone}`}
+            >
+              {rangeLabel}
+            </button>
             {page.actions.map(label => (
               <button key={label} type="button" className="chip" onClick={() => onAction(label)}>
                 {label === '站点设置' ? '网站设置' : label === 'UTM 管理' ? 'UTM 活动' : label}
@@ -341,13 +344,20 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           </div>
         </div>
       </div>
+      <div className={styles.tabsFrame}>
+        <AnalysisTabs route={route} href={href} />
+      </div>
       <div className={styles.analysisTools}>
         {resource === 'logs' && (
           <span>
             每 10 秒刷新已导入日志 · 最近导入：
             {report?.meta.latestImportAt
               ? new Date(report.meta.latestImportAt).toLocaleString('zh-CN', { timeZone: timezone })
-              : '尚未导入'}
+              : query.isPending
+                ? '正在读取'
+                : query.isError
+                  ? '读取失败'
+                  : '尚未导入'}
           </span>
         )}
         <Link href={href('filters')}>高级筛选</Link>
@@ -397,14 +407,18 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           )}
         </div>
       )}
-      <View
-        report={report}
-        rangeLabel={rangeLabel}
-        live={liveLogs}
-        trendLabel={
-          chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
-        }
-      />
+      {report ? (
+        <View
+          report={report}
+          rangeLabel={rangeLabel}
+          live={liveLogs}
+          trendLabel={
+            chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
+          }
+        />
+      ) : query.isPending ? (
+        <AnalysisLoading />
+      ) : null}
       {(action || compare) && (
         <ManagementDrawer
           action={compare ? '对比上周' : action}

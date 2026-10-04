@@ -10,6 +10,7 @@ import {
   type SelectHTMLAttributes,
   useContext,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react';
@@ -529,14 +530,21 @@ export function QueryState({ query, children }: { query: any; children: ReactNod
 }
 export function Drawer({
   title,
+  subtitle,
   children,
   onClose,
+  variant = 'drawer',
+  className = '',
 }: {
   title: string;
+  subtitle?: string;
   children: ReactNode;
   onClose: () => void;
+  variant?: 'drawer' | 'modal';
+  className?: string;
 }) {
   const ref = useRef<HTMLElement>(null);
+  const descriptionId = useId();
   const close = useRef(onClose);
   close.current = onClose;
   useEffect(() => {
@@ -573,14 +581,28 @@ export function Drawer({
   return createPortal(
     <div
       data-liekan-features
-      className="dialog-overlay"
+      className={`dialog-overlay${variant === 'modal' ? ' modal-overlay' : ''}`}
       onMouseDown={e => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <section className="drawer" ref={ref} role="dialog" aria-modal="true" aria-label={title}>
+      <section
+        className={`${variant} ${className}`}
+        ref={ref}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        aria-describedby={subtitle ? descriptionId : undefined}
+      >
         <div className="drawer-head">
-          <h2>{title}</h2>
+          <div>
+            <h2>{title}</h2>
+            {subtitle && (
+              <p id={descriptionId} className="muted">
+                {subtitle}
+              </p>
+            )}
+          </div>
           <Button aria-label="关闭弹层" onClick={onClose}>
             <Icon name="close" />
           </Button>

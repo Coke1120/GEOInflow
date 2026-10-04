@@ -81,7 +81,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
   return (
     <>
       <Panel
-        title={kind === 'link' ? '追踪链接' : '追踪像素'}
+        title={kind === 'link' ? '链接追踪' : '图片追踪'}
         subtitle={`所属空间：${spaceLabel(c.route.teamId, c.teams)}。${
           kind === 'link' ? '查看短链的点击次数与访客。' : '查看图片请求次数，独立于网站访问统计。'
         }`}
@@ -90,7 +90,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
             <label className="search">
               <input
                 type="search"
-                aria-label={`搜索${kind === 'link' ? '链接' : '像素'}`}
+                aria-label={`搜索${kind === 'link' ? '链接' : '图片'}`}
                 placeholder="搜索名称或标识"
                 value={search}
                 onChange={e => {
@@ -102,7 +102,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
             {canCreate && (
               <LinkButton page={`${kind}-editor`} primary>
                 <Icon name="plus" />
-                创建{kind === 'link' ? '链接' : '像素'}
+                创建{kind === 'link' ? '链接追踪' : '图片追踪'}
               </LinkButton>
             )}
           </>
@@ -119,7 +119,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
             columns={
               kind === 'link'
                 ? ['名称', '目标地址', '短链标识', '点击次数', '操作']
-                : ['名称', '像素标识', '请求次数', '操作']
+                : ['名称', '图片标识', '请求次数', '操作']
             }
             rows={rows.map(row => [
               row.name,
@@ -131,7 +131,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
                   ? '读取失败'
                   : format(stats.data?.data?.[row.id]?.total),
               <LinkButton key="cell-linkbutton-2" page={`${kind}-detail`} params={{ id: row.id }}>
-                {kind === 'link' ? '查看链接' : '查看像素'}
+                {kind === 'link' ? '查看链接' : '查看图片'}
               </LinkButton>,
             ])}
             numeric={[kind === 'link' ? 3 : 2]}
@@ -144,7 +144,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
       <Notice>
         {kind === 'link'
           ? '点击次数按所选日期范围统计。短链地址会将访客重定向到目标 URL。'
-          : '邮件代理、缓存和重复请求会影响像素请求量。请求次数不能直接视为真实阅读人数。'}
+          : '邮件代理、缓存和重复请求会影响图片请求量。请求次数不能直接视为真实阅读人数。'}
       </Notice>
     </>
   );
@@ -190,9 +190,9 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
   return (
     <>
       <Panel
-        title={kind === 'link' ? '链接信息' : '像素信息'}
+        title={kind === 'link' ? '链接信息' : '图片信息'}
         subtitle={
-          kind === 'link' ? '名称、目标地址与自定义短链标识。' : '名称和自动生成的像素地址。'
+          kind === 'link' ? '名称、目标地址与自定义短链标识。' : '名称和自动生成的图片地址。'
         }
       >
         <Body>
@@ -201,7 +201,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
             <Form
               busy={action.busy}
               disabled={!canEdit}
-              submitLabel={kind === 'link' ? '保存链接' : '保存像素'}
+              submitLabel={kind === 'link' ? '保存链接' : '保存图片'}
               cancel={<LinkButton page={path}>取消</LinkButton>}
               onSubmit={async (values: any) => {
                 const owner = !record ? String(values.owner || '') : '';
@@ -211,7 +211,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
                 const body = linkPayload({ ...values, slug }, kind, !record ? owner : undefined);
                 const result = await action.run(
                   () => c.api.post(record ? `/${path}/${record.id}` : `/${path}`, body),
-                  kind === 'link' ? '链接已保存' : '像素已保存',
+                  kind === 'link' ? '链接已保存' : '图片已保存',
                 );
                 c.navigate(`${kind}-detail`, {
                   id: result.id,
@@ -241,7 +241,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
                 />
               )}
               <Field
-                label={kind === 'link' ? '链接名称' : '像素名称'}
+                label={kind === 'link' ? '链接名称' : '图片名称'}
                 name="name"
                 defaultValue={record?.name || ''}
                 required
@@ -280,7 +280,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
                 </>
               )}
               <Field
-                label={kind === 'link' ? '预览地址' : '像素地址'}
+                label={kind === 'link' ? '预览地址' : '图片地址'}
                 value={url}
                 readOnly
                 help={record ? '已保存资源的真实地址。' : '保存后此地址生效。'}
@@ -292,11 +292,11 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
                     disabled={!url || action.busy}
                     onClick={async () => {
                       await navigator.clipboard.writeText(code);
-                      c.notify('像素代码已复制');
+                      c.notify('图片代码已复制');
                     }}
                   >
                     <Icon name="copy" />
-                    复制像素代码
+                    复制图片代码
                   </Button>
                   <Button disabled={action.busy} onClick={() => setSlug(randomSlug())}>
                     重新生成地址
@@ -307,7 +307,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
                 <>
                   <hr className="divider" />
                   <Button danger disabled={action.busy || !canEdit} onClick={() => setRemove(true)}>
-                    删除{kind === 'link' ? '链接' : '像素'}
+                    删除{kind === 'link' ? '链接' : '图片'}
                   </Button>
                 </>
               )}
@@ -317,25 +317,25 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
       </Panel>
       {remove && (
         <Drawer
-          title={`删除${kind === 'link' ? '链接' : '像素'}`}
+          title={`删除${kind === 'link' ? '链接' : '图片'}`}
           onClose={() => !action.busy && setRemove(false)}
         >
           <Form
             busy={action.busy}
-            submitLabel={kind === 'link' ? '删除链接' : '删除像素'}
+            submitLabel={kind === 'link' ? '删除链接' : '删除图片'}
             onSubmit={async (values: any) => {
               if (values.confirmation !== record.name)
-                throw new Error(`请输入${kind === 'link' ? '链接' : '像素'}名称确认删除`);
+                throw new Error(`请输入${kind === 'link' ? '链接' : '图片'}名称确认删除`);
               await action.run(
                 () => c.api.del(`/${path}/${record.id}`),
-                kind === 'link' ? '链接已删除' : '像素已删除',
+                kind === 'link' ? '链接已删除' : '图片已删除',
               );
               c.navigate(path);
             }}
           >
             <Notice tone="red">
-              将删除{kind === 'link' ? '链接' : '像素'}“{record.name}”及其统计数据。
-              {kind === 'link' ? '短链地址' : '像素地址'}和分享链接将失效。
+              将删除{kind === 'link' ? '链接' : '图片'}“{record.name}”及其统计数据。
+              {kind === 'link' ? '短链地址' : '图片地址'}和分享链接将失效。
             </Notice>
             <Field
               label={`输入 ${record.name} 确认`}
@@ -388,21 +388,21 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
       <div className="row between">
         <div>
           <h2>{record.name}</h2>
-          <p className="muted">{kind === 'link' ? url : `像素标识 · ${record.slug}`}</p>
+          <p className="muted">{kind === 'link' ? url : `图片标识 · ${record.slug}`}</p>
         </div>
         <div className="actions">
           <LinkButton page={`${kind}-editor`} params={{ id }}>
-            编辑{kind === 'link' ? '链接' : '像素'}
+            编辑{kind === 'link' ? '链接' : '图片'}
           </LinkButton>
           <Button disabled={!allowed} onClick={() => setShare(true)}>
-            分享当前{kind === 'link' ? '链接' : '像素'}
+            分享当前{kind === 'link' ? '链接' : '图片'}
           </Button>
           {kind === 'link' && (
             <Button disabled={!url} onClick={() => setQr(true)}>
               查看链接二维码
             </Button>
           )}
-          <LinkButton page={path}>返回{kind === 'link' ? '链接' : '像素'}列表</LinkButton>
+          <LinkButton page={path}>返回{kind === 'link' ? '链接' : '图片'}列表</LinkButton>
         </div>
       </div>
       <QueryState query={stats}>
@@ -424,7 +424,7 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
                   ['目标网站', domain, record.url],
                 ]
               : [
-                  ['请求次数', format(stats.data?.stats?.pageviews), '按像素请求计数'],
+                  ['请求次数', format(stats.data?.stats?.pageviews), '按图片请求计数'],
                   ['统计口径', '图片请求', '包括代理与缓存影响'],
                   [
                     '主要环境',
@@ -450,7 +450,7 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
         id={id}
         kind={kind}
         metrics={false}
-        title={kind === 'link' ? '链接访问趋势' : '像素请求趋势'}
+        title={kind === 'link' ? '链接访问趋势' : '图片请求趋势'}
       />
       {kind === 'link' ? (
         <Panel title="来源与地域" subtitle="按真实来源与地域联合统计链接点击次数。">
@@ -470,7 +470,7 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
           </QueryState>
         </Panel>
       ) : (
-        <Panel title="安装代码" subtitle="图片引用沿用现有像素地址格式。">
+        <Panel title="安装代码" subtitle="图片引用沿用现有图片地址格式。">
           <Body>
             <QueryState query={host.q}>
               <Code>{code}</Code>
@@ -478,20 +478,20 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
                 disabled={!url}
                 onClick={async () => {
                   await navigator.clipboard.writeText(code);
-                  c.notify('像素代码已复制');
+                  c.notify('图片代码已复制');
                 }}
               >
                 <Icon name="copy" />
-                复制像素代码
+                复制图片代码
               </Button>
               <Button
                 disabled={!url}
                 onClick={async () => {
                   await navigator.clipboard.writeText(url);
-                  c.notify('像素地址已复制');
+                  c.notify('图片地址已复制');
                 }}
               >
-                复制像素地址
+                复制图片地址
               </Button>
             </QueryState>
           </Body>
@@ -530,7 +530,7 @@ function ResourcePage({ page, kind }: { page: string; kind: 'link' | 'pixel' }) 
       <ResourceEditor kind={kind} />
     ) : (
       <Notice>
-        请选择一个{kind === 'link' ? '链接' : '像素'}。<LinkButton page={path}>返回列表</LinkButton>
+        请选择一个{kind === 'link' ? '链接' : '图片'}。<LinkButton page={path}>返回列表</LinkButton>
       </Notice>
     );
   return (
