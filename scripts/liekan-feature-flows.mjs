@@ -44,6 +44,7 @@ async function pageAt(path, slow = false) {
   });
   await context.addInitScript(t => localStorage.setItem('umami.auth', JSON.stringify(t)), token);
   const page = await context.newPage();
+  page.setDefaultNavigationTimeout(30000);
   page.on('pageerror', e => result.errors.push(e.message));
   page.on('response', r => {
     if (r.url().includes('/api/') && r.status() >= 500) result.errors.push('HTTP ' + r.status());
@@ -233,8 +234,9 @@ try {
   ));
   await page.locator('.site-switch').click();
   const switchDialog = page.getByRole('dialog', { name: '切换网站' });
-  await switchDialog.locator('[name=site]').selectOption(switchSite.id);
-  await switchDialog.getByRole('button', { name: '切换网站', exact: true }).click();
+  await switchDialog
+    .getByRole('button', { name: `选择网站 ${switchSite.name}`, exact: true })
+    .click();
   await page.waitForURL(u => u.pathname === `/websites/${switchSite.id}/sessions`);
   await page.waitForLoadState('networkidle');
   const switched = new URL(page.url());
@@ -273,8 +275,7 @@ try {
   async function chooseNextSite() {
     await page.locator('.site-switch').click();
     const picker = page.getByRole('dialog', { name: '切换网站', exact: true });
-    await picker.locator('[name=site]').selectOption(switchSite.id);
-    await picker.getByRole('button', { name: '切换网站', exact: true }).click();
+    await picker.getByRole('button', { name: `选择网站 ${switchSite.name}`, exact: true }).click();
     await page.getByRole('dialog', { name: '当前修改尚未保存', exact: true }).waitFor();
     assert.equal(await page.getByRole('dialog').count(), 1);
   }
@@ -300,7 +301,7 @@ try {
     await page.locator('[name=name]').fill(`隔离归属检查${kind} ${Date.now()}`);
     if (kind === 'link') await page.locator('[name=url]').fill('https://example.com/review');
     await page
-      .getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素', exact: true })
+      .getByRole('button', { name: kind === 'link' ? '保存链接' : '保存图片', exact: true })
       .click();
     await page.waitForURL(u => new RegExp(`^/${kind}s/[^/]+$`).test(u.pathname));
     const id = new URL(page.url()).pathname.split('/').pop();
