@@ -238,6 +238,44 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+.setupGuide {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+  margin-top: 16px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  background: white;
+}
+.setupGuide > div + div {
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.setupGuide p {
+  margin: 0;
+}
+.setupGuide :global(.row) {
+  flex-wrap: wrap;
+}
+.setupGuide summary {
+  cursor: pointer;
+  min-height: 32px;
+}
+.setupGuide summary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+.setupChecks {
+  display: grid;
+  gap: 8px;
+}
+.setupChecks > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
 @media (max-width: 1050px) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
@@ -277,6 +315,9 @@
     flex-wrap: wrap;
   }
   .source {
+    padding: 14px;
+  }
+  .setupGuide {
     padding: 14px;
   }
   .checkRow {

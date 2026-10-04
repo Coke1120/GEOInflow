@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   api: { post: vi.fn(), put: vi.fn(), del: vi.fn() },
   notify: vi.fn(),
   query: {} as any,
+  user: { isAdmin: true },
 }));
 vi.mock('./context', () => ({ useFeature: () => mocks }));
 const site = '5b4c0de0-6c47-5b51-8f53-11e5e8c79001';
@@ -14,7 +15,51 @@ const status: any = { capabilities: { server: true, cloudflare: true }, sources:
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.query = {};
+  mocks.user = { isAdmin: true };
 });
+it.each(['server', 'cloudflare'] as const)(
+  'guides configuration in place for unavailable %s',
+  async method => {
+    mount(method, {
+      ...status,
+      capabilities: { server: false, cloudflare: false },
+      availability: {
+        [method]: {
+          reason: '管理员尚未配置公网 HTTPS 接收地址',
+          checks: [
+            { id: 'public-url', state: 'missing' },
+            { id: 'queue', state: 'ready' },
+            { id: 'worker', state: 'ready' },
+            ...(method === 'server'
+              ? [{ id: 'agent-package', state: 'ready' }]
+              : [
+                  { id: 'cloudflare-oauth', state: 'missing' },
+                  { id: 'credentials-key', state: 'missing' },
+                ]),
+          ],
+        },
+      },
+    });
+    fireEvent.click(screen.getByRole('button', { name: '开始配置' }));
+    expect(screen.getByRole('textbox', { name: '统计服务公网地址' })).toBeVisible();
+    fireEvent.change(screen.getByRole('textbox', { name: '统计服务公网地址' }), {
+      target: { value: 'http://localhost:3002' },
+    });
+    expect(screen.getByRole('button', { name: '复制地址配置' })).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: '统计服务公网地址' }), {
+      target: { value: 'https://stats.example.com' },
+    });
+    expect(screen.getByText('LIEKAN_PUBLIC_URL=https://stats.example.com')).toBeVisible();
+    expect(screen.getByRole('button', { name: '复制地址配置' })).toBeEnabled();
+    if (method === 'cloudflare')
+      expect(
+        screen.getByText('https://stats.example.com/api/liekan/oauth/cloudflare/callback'),
+      ).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '重新检查配置' }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    expect(mocks.api.post).not.toHaveBeenCalled();
+  },
+);
 function mount(method: 'server' | 'cloudflare', data = status) {
   return render(
     <StrictMode>
@@ -22,7 +67,7 @@ function mount(method: 'server' | 'cloudflare', data = status) {
     </StrictMode>,
   );
 }
-it('generates the installation command in Strict Mode and disables an unavailable receiver', async () => {
+it('generates the installation command in Strict Mode and guides an unavailable receiver', async () => {
   mocks.api.post.mockResolvedValue({
     command: 'signed-install-command',
     expiresAt: '2026-10-04T12:00:00Z',
@@ -41,7 +86,8 @@ it('generates the installation command in Strict Mode and disables an unavailabl
     availability: { server: { reason: '请配置公网 HTTPS 地址' } },
   });
   expect(screen.getByText('请配置公网 HTTPS 地址')).toBeVisible();
-  expect(screen.getByRole('button', { name: '生成一次安装命令' })).toBeDisabled();
+  expect(screen.queryByRole('button', { name: '生成一次安装命令' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '开始配置' })).toBeEnabled();
 });
 it('requires domain and fee confirmation before completing Cloudflare authorization', async () => {
   mocks.query = { flow: 'a-flow' };
@@ -98,4 +144,61 @@ it('ignores an obsolete authorization response after leaving the setup page', as
   await act(async () => finish({ sourceId: 'obsolete' }));
   expect(refresh).not.toHaveBeenCalled();
   expect(mocks.notify).not.toHaveBeenCalled();
+});
+it('offers deployment instructions to website users without generating a connection', () => {
+  mocks.user = { isAdmin: false };
+  mount('server', { ...status, capabilities: { server: false, cloudflare: false } });
+  fireEvent.click(screen.getByRole('button', { name: '查看配置说明' }));
+  expect(screen.getByText(/请将配置说明交给部署管理员/)).toBeVisible();
+  expect(mocks.api.post).not.toHaveBeenCalled();
+});
+it('keeps inspection failures visible and resumes generation only after runtime readiness', async () => {
+  const unavailable = { ...status, capabilities: { server: false, cloudflare: false } };
+  const view = mount('server', unavailable);
+  fireEvent.click(screen.getByRole('button', { name: '开始配置' }));
+  refresh.mockResolvedValueOnce({ error: new Error('配置读取失败') });
+  fireEvent.click(screen.getByRole('button', { name: '重新检查配置' }));
+  expect(await screen.findByText('配置读取失败')).toBeVisible();
+  expect(screen.queryByText(/已重新读取运行配置/)).not.toBeInTheDocument();
+  view.rerender(
+    <StrictMode>
+      <AutomaticLogSetup
+        websiteId={site}
+        method="server"
+        status={status}
+        manage
+        refresh={refresh}
+      />
+    </StrictMode>,
+  );
+  expect(screen.getByRole('button', { name: '生成一次安装命令' })).toBeEnabled();
+  expect(screen.getByRole('region', { name: '接收服务配置引导' })).toBeVisible();
+});
+it('copies normalized address configuration and reports clipboard failure', async () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+  mount('server', { ...status, capabilities: { server: false } });
+  fireEvent.click(screen.getByRole('button', { name: '开始配置' }));
+  fireEvent.change(screen.getByRole('textbox', { name: '统计服务公网地址' }), {
+    target: { value: 'https://stats.example.com/' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: '复制地址配置' }));
+  await waitFor(() =>
+    expect(writeText).toHaveBeenCalledWith('LIEKAN_PUBLIC_URL=https://stats.example.com'),
+  );
+  expect(mocks.notify).toHaveBeenCalledWith('配置说明已复制');
+  writeText.mockRejectedValueOnce(new Error('无法访问剪贴板'));
+  fireEvent.click(screen.getByRole('button', { name: '复制地址配置' }));
+  expect(await screen.findByText('无法访问剪贴板')).toBeVisible();
+});
+it('treats omitted legacy checks as unverified and keeps runtime readiness authoritative', async () => {
+  mount('cloudflare', {
+    ...status,
+    availability: { cloudflare: { available: true, reason: null, version: '1' } },
+  });
+  fireEvent.click(screen.getByRole('button', { name: '查看接收服务配置' }));
+  expect(screen.queryByRole('button', { name: '复制待配置项' })).not.toBeInTheDocument();
+  expect(screen.getByText(/尚未返回逐项检查结果/)).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: '重新检查配置' }));
+  expect(await screen.findByText(/接收服务已就绪/)).toBeVisible();
 });

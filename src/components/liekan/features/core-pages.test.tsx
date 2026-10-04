@@ -855,7 +855,10 @@ describe('core form flows', () => {
     });
     mocks.context.query = { section: 'install', step: 'logs', method: 'server' };
     rerender(<CorePages page="website-settings" />);
-    expect(screen.getByRole('button', { name: '生成一次安装命令' })).toBeDisabled();
+    const setup = screen.getByRole('button', { name: /开始配置|查看配置说明/ });
+    expect(setup).toBeEnabled();
+    await user.click(setup);
+    expect(screen.getByRole('region', { name: '接收服务配置引导' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: '跳过检查，继续' }));
     expect(mocks.post).toHaveBeenLastCalledWith('/liekan/websites/site-1/installation', {
       action: 'skip-logs',
