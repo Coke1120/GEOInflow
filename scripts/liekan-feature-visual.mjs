@@ -1,3 +1,8 @@
+import {
+  beginLoadingEntry,
+  checkRealtimeRefresh,
+  checkNavigationPersistence,
+} from './liekan-loading-checks.mjs';
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -210,6 +215,9 @@ const report = {
   widths: [1440, 1280, 375, 320],
   checks: results,
   contextChecks: contextResults,
+  loadingChecks: [],
+  refreshChecks: [],
+  transitionChecks: [],
   errors,
 };
 async function navigationAcceptance(page, expected, width) {
@@ -334,9 +342,12 @@ try {
             : p.id === 'sso'
               ? '/sso'
               : `/liekan/${p.id}?${params(p.id)}`;
+      const loading = width === 1440 ? await beginLoadingEntry(page, p.id) : null;
       try {
         await page.goto(base + target);
+        if (loading) await loading.capture();
         await ready(page);
+        if (loading) await loading.loaded();
         if (p.id === 'attribution') {
           await page.locator('input[name=step]').fill(seed.data.eventNames[0]);
           await page.getByRole('button', { name: '应用归因设置', exact: true }).click();
@@ -429,6 +440,9 @@ try {
           fullPage: true,
           animations: 'disabled',
         });
+        if (loading) report.loadingChecks.push({ id: p.id, ...(await loading.finish(ready)) });
+        if (width === 1440 && p.id === 'realtime')
+          report.refreshChecks = await checkRealtimeRefresh(page, ready);
         results.push({
           id: p.id,
           width,
@@ -446,8 +460,12 @@ try {
           .screenshot({ path: `${out}/${p.id}-${width}-failed.png`, fullPage: true })
           .catch(() => {});
         results.push({ id: p.id, width, passed: false, error: error.message });
+      } finally {
+        await loading?.cleanup();
       }
     }
+    if (width === 1440)
+      report.transitionChecks = await checkNavigationPersistence(actual, ready, seed.website.id);
     for (const approved of navigationBaseline.contextCases) {
       const target = approved.route
         .replace('{websiteId}', seed.website.id)
@@ -499,6 +517,13 @@ try {
       .map(r => `${r.id} ${r.width}: ${r.error}`)
       .join('\n'),
   );
+  assert.equal(
+    report.loadingChecks.length,
+    manifest.pages.length,
+    'Every route requires a cold and warm loading check',
+  );
+  assert.equal(report.refreshChecks.length, 10);
+  assert.equal(report.transitionChecks.length, 10);
   report.passed = true;
 } catch (error) {
   report.error = error.message;

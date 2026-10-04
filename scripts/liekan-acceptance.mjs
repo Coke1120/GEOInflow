@@ -379,7 +379,16 @@ try {
   if (
     !report.featureVisual.passed ||
     report.featureVisual.head !== head ||
-    report.featureVisual.checks.length !== 68 * 4
+    report.featureVisual.checks.length !== 68 * 4 ||
+    report.featureVisual.loadingChecks?.length !== 68 ||
+    report.featureVisual.refreshChecks?.length !== 10 ||
+    report.featureVisual.transitionChecks?.length !== 10 ||
+    [
+      ...report.featureVisual.checks,
+      ...report.featureVisual.loadingChecks,
+      ...report.featureVisual.refreshChecks,
+      ...report.featureVisual.transitionChecks,
+    ].some(check => !check.passed)
   )
     throw new Error('Supplemental visual acceptance incomplete');
   docker('rm', '-f', app);

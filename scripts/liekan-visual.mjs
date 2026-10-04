@@ -1,3 +1,4 @@
+import { beginLoadingEntry } from './liekan-loading-checks.mjs';
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -435,12 +436,16 @@ try {
     await actual.route('**/api/liekan/**/report?*', route =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify(payload) }),
     );
+    const loading = await beginLoadingEntry(actual, `geo:${name}`);
     await actual.goto(`${base}/websites/${payload.website.id}/geo${path}`);
+    await loading.capture();
+    await actual.waitForLoadState('networkidle');
     await actual.locator('main').waitFor();
     await actual.evaluate(async () => {
       await document.fonts.ready;
     });
     await actual.waitForTimeout(800);
+    await loading.loaded();
     const measure = page =>
       page.evaluate(() => {
         const body = [...document.querySelectorAll('main')].find(el =>
@@ -599,6 +604,12 @@ try {
       verticalOffset,
     );
     fs.writeFileSync(`${out}/${name}-diff.png`, Buffer.from(diff, 'base64'));
+    const loadingCheck = await loading.finish(async page => {
+      await page.waitForLoadState('networkidle');
+      await page.locator('main').waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      await page.waitForTimeout(800);
+    });
     const mobileChecks = [];
     for (const width of [375, 320]) {
       await actual.setViewportSize({ width, height: 1000 });
@@ -630,6 +641,7 @@ try {
     results.push({
       name,
       mobileChecks,
+      loadingCheck,
       metricGeometry: differences,
       chartGeometry: chartSizes,
       chartPixels,
@@ -662,6 +674,7 @@ try {
             r =>
               [...r.metricGeometry, ...r.chartGeometry].every(d => d.max <= 2) &&
               r.mobileChecks.length === 2 &&
+              r.loadingCheck?.passed &&
               r.fullPagePixels.comparedPixels > 0 &&
               r.fullPagePixels.ratio <= 0.01 &&
               r.chartPixels.every(c => c.ratio <= 0.01),
