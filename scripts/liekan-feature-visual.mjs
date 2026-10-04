@@ -278,6 +278,7 @@ async function ready(page) {
   await page.waitForSelector('[data-liekan-features]', { timeout: 30000 });
   await page.waitForFunction(
     () =>
+      !document.querySelector('[aria-busy="true"]') &&
       ![...document.querySelectorAll('.state-box')].some(el => el.textContent.includes('正在加载')),
     {},
     { timeout: 30000 },
