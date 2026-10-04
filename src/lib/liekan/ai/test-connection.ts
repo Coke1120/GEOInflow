@@ -19,7 +19,9 @@ export async function testAiConnection(request: Request, actor: AiActor, id: str
 export async function executeAiTest({ actor, handle, signal, emit }: AiExecution) {
   const connection = handle.connection;
   if (!connection) throw new AiError('invalidated', '连接已失效', 409);
+  signal.throwIfAborted();
   await setAiRunStage(actor, handle, 'preparing');
+  signal.throwIfAborted();
   emit('stage', { stage: 'preparing', label: '校验当前配置与连接权限' });
   const apiKey = decryptAiKey(connection.secret_envelope, {
     connectionId: connection.id,
@@ -44,6 +46,7 @@ export async function executeAiTest({ actor, handle, signal, emit }: AiExecution
       emit('delta', { text, preview: true });
     },
   });
+  signal.throwIfAborted();
   if (!result.text.includes('LIEKAN_OK'))
     throw new AiError(
       'test_incomplete',
@@ -53,6 +56,7 @@ export async function executeAiTest({ actor, handle, signal, emit }: AiExecution
       result.providerResponse,
     );
   await setAiRunStage(actor, handle, 'validating');
+  signal.throwIfAborted();
   emit('stage', { stage: 'validating', label: '保存已验证的文本响应' });
   const saved = await completeAiRun(
     actor,
@@ -64,7 +68,7 @@ export async function executeAiTest({ actor, handle, signal, emit }: AiExecution
       model: connection.model,
       providerResponse: result.providerResponse,
     },
-    { ttftMs: result.ttftMs, usage: result.usage, stream: result.stream },
+    { ttftMs: result.ttftMs, usage: result.usage, stream: result.stream, signal },
   );
   emit('answer', saved.result);
   emit('done', saved);

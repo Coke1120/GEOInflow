@@ -9,6 +9,7 @@ import {
 } from '@/lib/liekan/upstream/ai-client';
 import {
   AiButton,
+  AiCatalogMore,
   AiModal,
   AiNotice,
   type AiSpaceOption,
@@ -32,7 +33,8 @@ export function AiConfigPage() {
     [test, setTest] = useState<AiConnectionListItem | null>(null),
     [deleting, setDeleting] = useState<AiConnectionListItem | null>(null),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState('');
+    [error, setError] = useState(''),
+    [actionSpace, setActionSpace] = useState('');
   const data = catalog.data;
   const requestedSite = data?.websites.find(s => s.id === c.query.aiSite);
   const space = data?.spaces.find(
@@ -43,6 +45,18 @@ export function AiConfigPage() {
           ? `${requestedSite.space.kind}:${requestedSite.space.id}`
           : `personal:${c.user.id}`)),
   );
+  const spaceKey = space ? `${space.kind}:${space.id}` : '';
+  useEffect(() => {
+    setForm(null);
+    setTest(null);
+    setDeleting(null);
+    setError('');
+    setActionSpace('');
+  }, [spaceKey]);
+  const selectAction = (select: () => void) => {
+    setActionSpace(spaceKey);
+    select();
+  };
   const list = useQuery({
     queryKey: ['liekan-ai', c.user.id, 'connections', space?.kind, space?.id],
     queryFn: ({ signal }) => aiClient.connections(space, signal),
@@ -72,7 +86,7 @@ export function AiConfigPage() {
         <AiNotice>正在读取 AI 能力与空间权限…</AiNotice>
       </div>
     );
-  if (catalog.error)
+  if (catalog.error && !catalog.data)
     return (
       <div data-liekan-ai="ai-config" className={styles.workspace}>
         <AiNotice error>{aiError(catalog.error)}</AiNotice>
@@ -83,10 +97,11 @@ export function AiConfigPage() {
   return (
     <div data-liekan-ai="ai-config" className={styles.workspace} lang="zh-CN">
       <ModuleNotice catalog={data} />
+      <AiCatalogMore query={catalog} />
       {error && <AiNotice error>{error}</AiNotice>}
-      {form && space ? (
+      {form && space && actionSpace === spaceKey ? (
         <ConnectionForm
-          key={form === true ? 'new' : form.id}
+          key={`${spaceKey}:${form === true ? 'new' : form.id}`}
           catalog={data}
           space={space}
           existing={form === true ? undefined : form}
@@ -112,7 +127,7 @@ export function AiConfigPage() {
                 !space?.canManage ||
                 rows.length >= data.limits.connectionsPerSpace
               }
-              onClick={() => setForm(true)}
+              onClick={() => selectAction(() => setForm(true))}
             >
               新建 API
             </AiButton>
@@ -170,7 +185,7 @@ export function AiConfigPage() {
                     <h3>添加你的第一个模型 API</h3>
                     <p>选择平台并填写 API Key，其他参数由模板自动填写。</p>
                     {space?.canManage && (
-                      <AiButton primary onClick={() => setForm(true)}>
+                      <AiButton primary onClick={() => selectAction(() => setForm(true))}>
                         添加 API
                       </AiButton>
                     )}
@@ -261,13 +276,16 @@ export function AiConfigPage() {
                                   disabled={
                                     busy || !space?.canManage || !space?.canUse || !row.enabled
                                   }
-                                  onClick={() => setTest(row)}
+                                  onClick={() => selectAction(() => setTest({ ...row }))}
                                 >
                                   实时测试
                                 </AiButton>
                                 {space?.canManage && (
                                   <>
-                                    <AiButton disabled={busy} onClick={() => setForm(row)}>
+                                    <AiButton
+                                      disabled={busy}
+                                      onClick={() => selectAction(() => setForm(row))}
+                                    >
                                       编辑
                                     </AiButton>
                                     <AiButton
@@ -304,7 +322,10 @@ export function AiConfigPage() {
                                     >
                                       设为默认
                                     </AiButton>
-                                    <AiButton disabled={busy} onClick={() => setDeleting(row)}>
+                                    <AiButton
+                                      disabled={busy}
+                                      onClick={() => selectAction(() => setDeleting(row))}
+                                    >
                                       删除
                                     </AiButton>
                                   </>
@@ -337,16 +358,16 @@ export function AiConfigPage() {
           </div>
         </>
       )}
-      {test && (
+      {test && actionSpace === spaceKey && (
         <ConnectionTest
           key={test.id}
           connection={test}
           catalog={data}
-          onClose={() => setTest(null)}
+          onClose={() => setTest(current => (current === test ? null : current))}
           onFinished={() => void refresh()}
         />
       )}
-      {deleting && (
+      {deleting && actionSpace === spaceKey && (
         <AiModal
           title="删除 API 连接"
           onClose={() => {
@@ -484,7 +505,11 @@ function ConnectionForm({
   };
   const newKey =
     !!existing &&
-    (origin(values.baseUrl) !== origin(existing.baseUrl) || values.protocol !== existing.protocol);
+    (origin(values.baseUrl) !== origin(existing.baseUrl) ||
+      values.protocol !== existing.protocol ||
+      values.provider !== existing.provider ||
+      (values.provider === 'anthropic' ? values.workspaceId || null : null) !==
+        (existing.workspaceId || null));
   const choose = (id: string) => {
     const t = catalog.templates.find(t => t.id === id);
     if (!t) return;
@@ -654,10 +679,14 @@ function ConnectionForm({
               'API Key',
               'password',
               existing
-                ? '留空保留已有密钥。提交后输入框会清空。'
+                ? newKey
+                  ? '连接身份已变更，请重新填写 API Key。提交后输入框会清空。'
+                  : '留空保留已有密钥。提交后输入框会清空。'
                 : '密钥为只写字段，保存后无法读取原值。',
             )}
-            {newKey && <AiNotice>接口源或协议已变更，请填写新接口的 API Key。</AiNotice>}
+            {newKey && (
+              <AiNotice>供应商、协议、工作空间或接口域名已变更，请重新填写 API Key。</AiNotice>
+            )}
             <dl className={styles.summary}>
               <dt>模型</dt>
               <dd>{values.model || '请填写模型标识'}</dd>

@@ -66,6 +66,7 @@ export async function analyzeAiConversation(
         ttftMs: null,
         usage: null,
         local: true,
+        signal,
       });
       emit('answer', saved.result);
       emit('done', saved);
@@ -128,7 +129,9 @@ export async function analyzeAiConversation(
         connection.capabilities.keyVerified.structuredOutput === true ? prepared.schema : undefined,
       onText: text => emit('delta', { text, validated: false }),
     });
+    signal.throwIfAborted();
     await setAiRunStage(actor, handle, 'validating');
+    signal.throwIfAborted();
     emit('stage', { stage: 'validating', message: '正在核对回答结构、依据与页面入口' });
     const answer = validateAiAnswer(response.output ?? response.text, prepared.allowedContexts);
     const result = {
@@ -141,6 +144,7 @@ export async function analyzeAiConversation(
       ttftMs: response.ttftMs,
       usage: response.usage,
       stream: response.stream,
+      signal,
     });
     emit('answer', saved.result);
     emit('done', saved);

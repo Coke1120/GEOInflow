@@ -2109,6 +2109,30 @@
       "owner": "Liekan statistics maintenance",
       "constraint": "Preserve native confirmation, ownership permissions and lifecycle callbacks",
       "removalCondition": "Remove when upstream provides equivalent shared query invalidation"
+    },
+    {
+      "path": "packages/api-client/README.md",
+      "purpose": "Document Liekan AI JSON and SSE response forms, UUID recovery and bounded catalog pagination",
+      "tests": [
+        "pnpm --filter @umami/api-client typecheck",
+        "pnpm test:packages",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan API compatibility maintenance",
+      "constraint": "Preserve existing Umami operation signatures and response behavior while declaring the added AI response forms accurately",
+      "removalCondition": "Remove when upstream supports equivalent multi-content response contracts and their regression checks pass"
+    },
+    {
+      "path": "packages/api-client/src/client.test.ts",
+      "purpose": "Verify generated Liekan AI response unions and JSON/SSE runtime forms without replaying model requests",
+      "tests": [
+        "pnpm --filter @umami/api-client typecheck",
+        "pnpm test:packages",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan API compatibility maintenance",
+      "constraint": "Preserve existing Umami operation signatures and response behavior while declaring the added AI response forms accurately",
+      "removalCondition": "Remove when upstream supports equivalent multi-content response contracts and their regression checks pass"
     }
   ]
 }

@@ -149,7 +149,7 @@ export async function findAiRun(actor: AiActor, clientRequestId: string) {
 }
 export async function expireAiRuns(tx: AiTx) {
   await tx.execute(
-    "UPDATE liekan_ai_run SET state=CASE WHEN state='cancel_requested' THEN 'cancelled' ELSE 'interrupted' END,stage='interrupted',completed_at=now(),lease_until=NULL,error_code=CASE WHEN state='cancel_requested' THEN 'cancelled' ELSE 'interrupted' END WHERE state IN ('accepted','preparing','calling','validating','cancel_requested') AND (lease_until IS NULL OR lease_until<=now())",
+    "UPDATE liekan_ai_run SET state=CASE WHEN state='cancel_requested' THEN 'cancelled' ELSE 'interrupted' END,stage=CASE WHEN state='cancel_requested' THEN 'cancelled' ELSE 'interrupted' END,completed_at=now(),lease_until=NULL,error_code=CASE WHEN state='cancel_requested' THEN 'cancelled' ELSE 'interrupted' END WHERE state IN ('accepted','preparing','calling','validating','cancel_requested') AND (lease_until IS NULL OR lease_until<=now())",
   );
 }
 export async function acceptAiRun(actor: AiActor, input: AiRunInput): Promise<AiRunHandle> {
@@ -354,7 +354,7 @@ export async function heartbeatAiRun(actor: AiActor, handle: AiRunHandle) {
   return aiTransaction(async tx => {
     await validateLease(tx, actor, handle);
     const changed = await tx.execute(
-      "UPDATE liekan_ai_run SET lease_until=now()+interval '10 seconds' WHERE id=$1::uuid AND lease_token=$2::uuid AND lease_until>now() AND state IN ('accepted','preparing','calling','validating')",
+      "UPDATE liekan_ai_run SET lease_until=now()+interval '10 seconds' WHERE id=$1::uuid AND lease_token=$2::uuid AND lease_until>clock_timestamp() AND state IN ('accepted','preparing','calling','validating')",
       handle.row.id,
       handle.token,
     );
@@ -376,7 +376,7 @@ export async function setAiRunStage(
     }[state];
     if (!allowed.includes(current.state)) throw new AiError('conflict', '任务阶段不可回退', 409);
     const changed = await tx.execute(
-      "UPDATE liekan_ai_run SET state=$3,stage=$4,call_attempted=call_attempted OR $5 WHERE id=$1::uuid AND lease_token=$2::uuid AND lease_until>now() AND state IN ('accepted','preparing','calling','validating')",
+      "UPDATE liekan_ai_run SET state=$3,stage=$4,call_attempted=call_attempted OR $5 WHERE id=$1::uuid AND lease_token=$2::uuid AND lease_until>clock_timestamp() AND state IN ('accepted','preparing','calling','validating')",
       handle.row.id,
       handle.token,
       state,
@@ -470,10 +470,18 @@ export async function completeAiRun(
   actor: AiActor,
   handle: AiRunHandle,
   result: any,
-  stats: { ttftMs: number | null; usage: AiUsage | null; local?: boolean; stream?: boolean },
+  stats: {
+    ttftMs: number | null;
+    usage: AiUsage | null;
+    local?: boolean;
+    stream?: boolean;
+    signal?: AbortSignal;
+  },
 ) {
+  stats.signal?.throwIfAborted();
   return aiTransaction(async tx => {
     const row = await validateLease(tx, actor, handle);
+    stats.signal?.throwIfAborted();
     if (Buffer.byteLength(JSON.stringify(result)) > 32768)
       throw new AiError('oversize', '回答超过允许长度', 413);
     if (row.operation === 'analysis') {
@@ -492,7 +500,7 @@ export async function completeAiRun(
       );
     }
     const changed = await tx.execute(
-      "UPDATE liekan_ai_run SET state='completed',stage='completed',completed_at=now(),lease_until=NULL,test_result=$3::jsonb,usage=$4::jsonb,ttft_ms=$5,latency_ms=LEAST(2147483647,(extract(epoch FROM now()-created_at)*1000)::integer),daily_reserved=CASE WHEN $6 AND NOT call_attempted THEN false ELSE daily_reserved END WHERE id=$1::uuid AND lease_token=$2::uuid AND lease_until>now() AND state IN ('accepted','preparing','calling','validating')",
+      "UPDATE liekan_ai_run SET state='completed',stage='completed',completed_at=now(),lease_until=NULL,test_result=$3::jsonb,usage=$4::jsonb,ttft_ms=$5,latency_ms=LEAST(2147483647,(extract(epoch FROM now()-created_at)*1000)::integer),daily_reserved=CASE WHEN $6 AND NOT call_attempted THEN false ELSE daily_reserved END WHERE id=$1::uuid AND lease_token=$2::uuid AND lease_until>clock_timestamp() AND state IN ('accepted','preparing','calling','validating')",
       row.id,
       handle.token,
       row.operation === 'test' ? JSON.stringify(result) : null,
@@ -523,6 +531,17 @@ export async function completeAiRun(
       'SELECT * FROM liekan_ai_run WHERE id=$1::uuid',
       row.id,
     );
-    return dto(tx, saved);
+    const output = await dto(tx, saved);
+    stats.signal?.throwIfAborted();
+    // PostgreSQL now() is fixed at transaction start; final fences use wall-clock time.
+    const [fence] = await tx.query<{ leased: boolean; timely: boolean }>(
+      "SELECT $2::timestamptz>clock_timestamp() AS leased,created_at+CASE WHEN operation='test' THEN interval '45 seconds' ELSE interval '120 seconds' END>clock_timestamp() AS timely FROM liekan_ai_run WHERE id=$1::uuid",
+      row.id,
+      row.lease_until,
+    );
+    stats.signal?.throwIfAborted();
+    if (!fence?.timely) throw new AiError('timeout', 'AI 请求超时', 504);
+    if (!fence.leased) throw new AiError('interrupted', '结果保存时任务执行权已失效', 409);
+    return output;
   });
 }

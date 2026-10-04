@@ -11,6 +11,10 @@ export const aiConversationPublicSchema = z.strictObject({
   updatedAt: z.iso.datetime(),
   expiresAt: z.iso.datetime(),
 });
+export const aiCatalogQuerySchema = z.strictObject({
+  offset: z.coerce.number().int().min(0).max(1000000).default(0),
+  websiteId: z.uuid().optional(),
+});
 export const aiCatalogSchema = z.object({
   protocolVersion: z.literal(1),
   module: z.object({ enabled: z.boolean(), reason: z.string().optional() }),
@@ -51,6 +55,7 @@ export const aiCatalogSchema = z.object({
     }),
   ),
   websiteLimit: z.number(),
+  nextOffset: z.number().int().nonnegative().nullable(),
   limits: z.object({
     connectionsPerSpace: z.number(),
     maxDays: z.number(),

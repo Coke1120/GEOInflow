@@ -11,8 +11,9 @@ import {updateUser} from '../../../src/queries/prisma/user';
 import {deleteTeamUser,createTeamUser,updateTeamUser} from '../../../src/queries/prisma/teamUser';
 import {createAiConnection,listAiConnections} from '../../../src/lib/liekan/ai/connections';
 import {createAiConversation,getAiConversation} from '../../../src/lib/liekan/ai/conversations';
-import {acceptAiRun,getAiRun,setAiRunStage,completeAiRun} from '../../../src/lib/liekan/ai/runs';
-import {cleanupAiData,rotateAiKeys,resetRestoredAiData} from '../../../src/lib/liekan/ai/maintenance';
+import {acceptAiRun,getAiRun,setAiRunStage,completeAiRun,expireAiRuns} from '../../../src/lib/liekan/ai/runs';
+import {cleanupAiData,rotateAiKeys,resetRestoredAiData,aiMaintenanceCheck} from '../../../src/lib/liekan/ai/maintenance';
+import {getAiAccessCatalog} from '../../../src/lib/liekan/upstream/ai-catalog';
 import {decryptAiKey} from '../../../src/lib/liekan/ai/crypto';
 const url=new URL(process.env.DATABASE_URL!);
 assert.equal(url.hostname,'127.0.0.1');assert.equal(url.port,'15439');assert.equal(url.pathname,'/liekan_ai_acceptance');
@@ -25,7 +26,7 @@ if(!child){
   for(const table of ['user','team','team_user','website','liekan_log'])await primary.$executeRawUnsafe(`CREATE TABLE "${schema}"."${table}" (LIKE public."${table}" INCLUDING ALL)`);
   for(const migration of ['007_ai_connections.sql','008_ai_conversations.sql','009_ai_endpoint_limits.sql','010_ai_workspaces.sql','011_ai_config_audit.sql','012_ai_invariants_and_history.sql'])execFileSync('docker',['exec','-i','liekan-ai-acceptance-db','psql','-U','liekan_ai','-d','liekan_ai_acceptance','-v','ON_ERROR_STOP=1'],{input:`SET search_path TO "${schema}";\n`+readFileSync('db/liekan/migrations/'+migration,'utf8'),stdio:['pipe','pipe','pipe'],timeout:30000});
   const childUrl=new URL(url);childUrl.searchParams.set('schema',schema);
-  const result=spawnSync(process.execPath,['--import','tsx','tests/liekan/ai/lifecycle.integration.ts','--schema-child'],{cwd:process.cwd(),env:{...process.env,DATABASE_URL:childUrl.toString()},encoding:'utf8',timeout:60000});
+  const result=spawnSync(process.execPath,['--import','tsx','tests/liekan/ai/lifecycle.integration.ts','--schema-child',...process.argv.filter(value=>value.startsWith('--review-'))],{cwd:process.cwd(),env:{...process.env,DATABASE_URL:childUrl.toString()},encoding:'utf8',timeout:60000});
   if(result.stdout)process.stdout.write(result.stdout);if(result.stderr)process.stderr.write(result.stderr);
   assert.equal(result.status,0,'isolated custom-schema lifecycle child must pass');
  }finally{
@@ -70,6 +71,71 @@ if(!child){
   await transferWebsiteWithAi(siteId,{userId:adminId},{userId:memberId,teamId:null});
   await assert.rejects(()=>getAiConversation(admin,oldConversation.id),{status:404});
   assert.equal((await primary.website.findUnique({where:{id:siteId}})).userId,memberId);
+  if(process.argv.includes('--review-deadline')){
+   const deadlineRun=await acceptAiRun(admin,{operation:'test',targetId:personal.id,clientRequestId:randomUUID(),expectedConfigVersion:1});
+   await aiTransaction(tx=>tx.execute("UPDATE liekan_ai_run SET created_at=clock_timestamp()-interval '46 seconds' WHERE id=$1::uuid",deadlineRun.row.id));
+   await assert.rejects(()=>completeAiRun(admin,deadlineRun,{text:'LIEKAN_OK late'},{ttftMs:null,usage:null}),{code:'timeout'});
+   const blocked=await getAiRun(admin,deadlineRun.row.id);assert.notEqual(blocked.state,'completed');
+   await aiTransaction(tx=>tx.execute("UPDATE liekan_ai_run SET state='failed',lease_until=NULL WHERE id=$1::uuid",deadlineRun.row.id));
+   const crossing=await acceptAiRun(admin,{operation:'test',targetId:personal.id,clientRequestId:randomUUID(),expectedConfigVersion:1});
+   await aiTransaction(async tx=>{
+    await tx.execute("UPDATE liekan_ai_run SET created_at=clock_timestamp()-interval '44.9 seconds' WHERE id=$1::uuid",crossing.row.id);
+    await tx.execute("CREATE FUNCTION review_slow_commit() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.3); RETURN NEW; END $$");
+    await tx.execute("CREATE TRIGGER review_slow_commit BEFORE UPDATE ON liekan_ai_run FOR EACH ROW WHEN (NEW.state='completed') EXECUTE FUNCTION review_slow_commit()");
+   });
+   await assert.rejects(()=>completeAiRun(admin,crossing,{text:'LIEKAN_OK across deadline'},{ttftMs:null,usage:null}),{code:'timeout'});
+   assert.notEqual((await getAiRun(admin,crossing.row.id)).state,'completed');
+   const verified=await aiTransaction(tx=>tx.query('SELECT verified_config_version FROM liekan_ai_connection WHERE id=$1::uuid',personal.id));
+   assert.equal(verified[0].verified_config_version,null,'a deadline crossing must roll back connection verification');
+   await aiTransaction(tx=>tx.execute("UPDATE liekan_ai_run SET state='failed',lease_until=NULL WHERE id=$1::uuid",crossing.row.id));
+   const analysisConversation=await createAiConversation(member,{websiteId:siteId});
+   const analysisCrossing=await acceptAiRun(member,{...request,targetId:analysisConversation.id,localOnly:true,clientRequestId:randomUUID()});
+   await aiTransaction(tx=>tx.execute("UPDATE liekan_ai_run SET created_at=clock_timestamp()-interval '119.9 seconds' WHERE id=$1::uuid",analysisCrossing.row.id));
+   await assert.rejects(()=>completeAiRun(member,analysisCrossing,{summary:'isolated late analysis'},{ttftMs:null,usage:null,local:true}),{code:'timeout'});
+   const analysisMessage=await aiTransaction(tx=>tx.query('SELECT result FROM liekan_ai_message WHERE run_id=$1::uuid',analysisCrossing.row.id));
+   assert.equal(analysisMessage[0].result,null,'deadline crossing must roll back the formal analysis answer');
+   await aiTransaction(tx=>tx.execute("UPDATE liekan_ai_run SET state='failed',lease_until=NULL WHERE id=$1::uuid",analysisCrossing.row.id));
+   const leaseCrossing=await acceptAiRun(admin,{operation:'test',targetId:personal.id,clientRequestId:randomUUID(),expectedConfigVersion:1});
+   await aiTransaction(tx=>tx.execute("UPDATE liekan_ai_run SET lease_until=clock_timestamp()+interval '100 milliseconds' WHERE id=$1::uuid",leaseCrossing.row.id));
+   await assert.rejects(()=>completeAiRun(admin,leaseCrossing,{text:'LIEKAN_OK across lease'},{ttftMs:null,usage:null}),{code:'interrupted'});
+   assert.notEqual((await getAiRun(admin,leaseCrossing.row.id)).state,'completed');
+   await aiTransaction(async tx=>{
+    await tx.execute('DROP TRIGGER review_slow_commit ON liekan_ai_run');
+    await tx.execute('DROP FUNCTION review_slow_commit()');
+    await tx.execute("UPDATE liekan_ai_run SET state='failed',lease_until=NULL WHERE id=$1::uuid",leaseCrossing.row.id);
+   });
+   console.log('Review deadline integration passed: expired and commit-crossing test runs cannot complete or verify a connection.');
+  }
+  if(process.argv.includes('--review-cancel')){
+   const cancellation=await acceptAiRun(admin,{operation:'test',targetId:personal.id,clientRequestId:randomUUID(),expectedConfigVersion:1});
+   for(const cleaner of ['maintenance','expiry']){
+    await aiTransaction(tx=>tx.execute("UPDATE liekan_ai_run SET state='cancel_requested',stage='cancel_requested',lease_until=now()-interval '1 second' WHERE id=$1::uuid",cancellation.row.id));
+    if(cleaner==='maintenance') await cleanupAiData({apply:true});else await aiTransaction(expireAiRuns);
+    const recovered=await getAiRun(admin,cancellation.row.id);assert.equal(recovered.state,'cancelled');assert.equal(recovered.stage,'cancelled');assert.equal(recovered.error?.code,'cancelled');
+   }
+   console.log('Review cancellation integration passed: both expiry paths preserve the cancelled terminal state.');
+  }
+  if(process.argv.includes('--review-catalog')){
+   const extraWebsite=randomUUID(),extraTeam=randomUUID();
+   await aiTransaction(async tx=>{
+    await tx.execute("WITH teams AS (INSERT INTO team(team_id,name) SELECT gen_random_uuid(),'Z review team '||lpad(n::text,3,'0') FROM generate_series(1,101) n RETURNING team_id) INSERT INTO team_user(team_user_id,team_id,user_id,role) SELECT gen_random_uuid(),team_id,$1::uuid,'team-member' FROM teams",memberId);
+    await tx.execute("INSERT INTO website(website_id,name,domain,user_id) SELECT gen_random_uuid(),'B review site '||lpad(n::text,3,'0'),'review.example',$1::uuid FROM generate_series(1,101) n",memberId);
+    await tx.execute("INSERT INTO team(team_id,name) VALUES($1::uuid,'ZZ explicit selected team')",extraTeam);
+    await tx.execute("INSERT INTO team_user(team_user_id,team_id,user_id,role) VALUES(gen_random_uuid(),$1::uuid,$2::uuid,'team-member')",extraTeam,memberId);
+    await tx.execute("INSERT INTO website(website_id,name,domain,team_id) VALUES($1::uuid,'ZZ explicit selected website','selected.example',$2::uuid)",extraWebsite,extraTeam);
+   });
+   const first=await getAiAccessCatalog(member,{offset:0,websiteId:extraWebsite});
+   assert.ok(first.websites.some(row=>row.id===extraWebsite),'explicit accessible website must survive catalog pagination');
+   assert.ok(first.spaces.some(row=>row.id===extraTeam),'every returned website must include its space');
+   assert.equal(first.nextOffset,100);
+   const next=await getAiAccessCatalog(member,{offset:100});
+   assert.ok(next.websites.length>0);assert.ok(next.spaces.some(row=>row.name==='Z review team 101'));
+   const privateLookup=await getAiAccessCatalog(member,{websiteId:teamSiteId,offset:100});
+   assert.ok(privateLookup.websites.some(row=>row.id===teamSiteId));
+   const denied=await getAiAccessCatalog(member,{websiteId:personal.id});
+   assert.ok(!denied.websites.some(row=>row.id===personal.id));
+   console.log('Review catalog integration passed: 100+ websites and teams, explicit selection and complete ownership spaces.');
+  }
   const oldKey=process.env.LIEKAN_AI_ENCRYPTION_KEY!,newKey=randomBytes(32).toString('hex');
   const activeConversation=await createAiConversation(member,{websiteId:siteId});
   process.env.LIEKAN_AI_ENABLED='false';
@@ -84,6 +150,23 @@ if(!child){
    await tx.execute("INSERT INTO liekan_ai_message(id,conversation_id,question,origin,expires_at) SELECT gen_random_uuid(),$1::uuid,'isolated expired fixture','local',now()-interval '1 day' FROM generate_series(1,1001)",activeConversation.id);
   });
   const cleaned=await cleanupAiData({apply:true,requestBudget:true});assert.ok('deleted' in cleaned);assert.equal((cleaned as any).deleted+(cleaned as any).cleared,500);
+  await aiTransaction(async tx=>{
+   await tx.execute('DELETE FROM liekan_ai_message');
+   await tx.execute("UPDATE liekan_ai_conversation SET expires_at=now()-interval '1 day' WHERE id=$1::uuid",activeConversation.id);
+   await tx.execute("INSERT INTO liekan_ai_message(id,conversation_id,question,origin) SELECT gen_random_uuid(),$1::uuid,'isolated unexpired child fixture','local' FROM generate_series(1,1001)",activeConversation.id);
+   await tx.execute("INSERT INTO liekan_ai_context(id,conversation_id,website_epoch,facts,checksum) SELECT gen_random_uuid(),$1::uuid,gen_random_uuid(),'{}'::jsonb,'fixture' FROM generate_series(1,1001)",activeConversation.id);
+  });
+  for (let batch=0; batch<5; batch++) {
+   const beforeChildren=await aiTransaction(tx=>tx.query('SELECT (SELECT count(*) FROM liekan_ai_message WHERE conversation_id=$1::uuid)+(SELECT count(*) FROM liekan_ai_context WHERE conversation_id=$1::uuid)+(SELECT count(*) FROM liekan_ai_conversation WHERE id=$1::uuid) AS total',activeConversation.id));
+   const batchResult=await cleanupAiData({apply:true,requestBudget:true});
+   const afterChildren=await aiTransaction(tx=>tx.query('SELECT (SELECT count(*) FROM liekan_ai_message WHERE conversation_id=$1::uuid)+(SELECT count(*) FROM liekan_ai_context WHERE conversation_id=$1::uuid)+(SELECT count(*) FROM liekan_ai_conversation WHERE id=$1::uuid) AS total',activeConversation.id));
+   assert.ok(beforeChildren[0].total-afterChildren[0].total<=500n,'expired parents must not cascade beyond the cleanup budget');
+   assert.ok((batchResult as any).deleted+(batchResult as any).cleared<=500);
+   const maintenance=await aiMaintenanceCheck();
+   if(batch<4 && afterChildren[0].total>0n)assert.ok(BigInt((maintenance as any).backlog)>0n,'remaining expired-parent content must appear in maintenance backlog');
+   if(batch===4){assert.equal(afterChildren[0].total,0n,'repeated bounded batches must drain the expired parent and its children');assert.equal((maintenance as any).backlog,'0');}
+
+  }
   await resetRestoredAiData();
   const count=await aiTransaction(tx=>tx.query('SELECT (SELECT count(*) FROM liekan_ai_conversation) AS conversations,(SELECT count(*) FROM liekan_ai_connection WHERE secret_envelope IS NOT NULL OR is_default OR verified_config_version IS NOT NULL) AS usable,(SELECT count(*) FROM liekan_log) AS logs'));
   assert.equal(count[0].conversations,0n);assert.equal(count[0].usable,0n);assert.equal(count[0].logs,1n);

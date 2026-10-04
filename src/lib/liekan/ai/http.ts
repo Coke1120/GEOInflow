@@ -110,6 +110,7 @@ export async function aiRunResponse(
   );
   let heartbeatBusy = false;
   const heartbeat = setInterval(() => {
+    if (signal.aborted) return;
     if (heartbeatBusy || closed) return;
     heartbeatBusy = true;
     void (async () => {

@@ -92,13 +92,14 @@ const connection = () => ({
   capabilities: { keyVerified: { text: true, stream: true } },
 });
 function mount(page = 'ai-config') {
-  return render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const view = () => (
+    <QueryClientProvider client={client}>
       <AiPages page={page} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   );
+  const result = render(view());
+  return { ...result, refreshContext: () => result.rerender(view()) };
 }
 beforeEach(() => {
   vi.clearAllMocks();
@@ -1377,4 +1378,231 @@ describe('verified conversation resource scope', () => {
     expect(mocks.messages).not.toHaveBeenCalled();
     expect(mocks.stream).not.toHaveBeenCalled();
   });
+});
+
+describe('AI configuration scope changes', () => {
+  const teamId = '88888888-8888-4888-8888-888888888888';
+  const teamSiteId = '99999999-9999-4999-8999-999999999999';
+  it.each([
+    ['personal', siteId, teamSiteId],
+    ['team', teamSiteId, siteId],
+  ])(
+    'clears a pending %s credential when URL navigation changes its space',
+    async (_kind, from, to) => {
+      const user = userEvent.setup();
+      const data = catalog();
+      data.spaces.push({
+        kind: 'team',
+        id: teamId,
+        name: '团队空间',
+        canManage: true,
+        canUse: true,
+      } as any);
+      data.websites.push({
+        id: teamSiteId,
+        name: '团队站',
+        domain: 'team.example',
+        space: { kind: 'team', id: teamId },
+      } as any);
+      mocks.catalog.mockResolvedValue(data);
+      mocks.context.query = { aiSite: from };
+      const view = mount();
+      await user.click(await screen.findByRole('button', { name: '新建 API' }));
+      await user.type(screen.getByLabelText('API Key'), 'scope-private-canary');
+      mocks.context.query = { aiSite: to };
+      view.refreshContext();
+      await user.click(await screen.findByRole('button', { name: '新建 API' }));
+      expect(screen.getByLabelText('API Key')).toHaveValue('');
+      expect(mocks.createConnection).not.toHaveBeenCalled();
+      mocks.context.query = { aiSite: from };
+      view.refreshContext();
+      await user.click(await screen.findByRole('button', { name: '新建 API' }));
+      expect(screen.getByLabelText('API Key')).toHaveValue('');
+    },
+  );
+  it('closes an existing connection editor before another space can be displayed', async () => {
+    const user = userEvent.setup();
+    const data = catalog();
+    data.spaces.push({
+      kind: 'team',
+      id: teamId,
+      name: '团队空间',
+      canManage: true,
+      canUse: true,
+    } as any);
+    data.websites.push({
+      id: teamSiteId,
+      name: '团队站',
+      domain: 'team.example',
+      space: { kind: 'team', id: teamId },
+    } as any);
+    mocks.catalog.mockResolvedValue(data);
+    mocks.connections.mockResolvedValue({ items: [connection()] });
+    const view = mount();
+    await user.click(await screen.findByRole('button', { name: '编辑' }));
+    await user.type(screen.getByLabelText('API Key'), 'editor-private-canary');
+    mocks.context.query = { aiSite: teamSiteId };
+    view.refreshContext();
+    expect(await screen.findByLabelText('AI 所属空间')).toHaveValue('team:' + teamId);
+    expect(screen.queryByLabelText('API Key')).not.toBeInTheDocument();
+    expect(mocks.updateConnection).not.toHaveBeenCalled();
+  });
+  it.each([
+    ['wrkspc_A', 'wrkspc_B'],
+    ['', 'wrkspc_B'],
+    ['wrkspc_A', ''],
+  ])('requires a replacement credential for workspace %s to %s', async (from, to) => {
+    const user = userEvent.setup();
+    const existing = {
+      ...connection(),
+      provider: 'anthropic',
+      protocol: 'anthropic-messages',
+      workspaceId: from || null,
+    };
+    mocks.connections.mockResolvedValue({ items: [existing] });
+    mocks.updateConnection.mockResolvedValue(existing);
+    mount();
+    await user.click(await screen.findByRole('button', { name: '编辑' }));
+    await user.click(screen.getByText('高级配置'));
+    const field = screen.getByLabelText(/工作空间标识/);
+    await user.clear(field);
+    if (to) await user.type(field, to);
+    await user.click(screen.getByRole('button', { name: '保存 API' }));
+    expect(await screen.findByText('请填写当前接口的 API Key。')).toBeInTheDocument();
+    expect(mocks.updateConnection).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText('API Key'), 'replacement-fixture-key');
+    await user.click(screen.getByRole('button', { name: '保存 API' }));
+    await waitFor(() =>
+      expect(mocks.updateConnection).toHaveBeenCalledWith(
+        expect.objectContaining({ workspaceId: to || null, apiKey: 'replacement-fixture-key' }),
+      ),
+    );
+  });
+});
+
+it('loads a further bounded catalog page and keeps its website and team available', async () => {
+  const user = userEvent.setup();
+  const teamId = '88888888-8888-4888-8888-888888888888';
+  const teamSiteId = '99999999-9999-4999-8999-999999999999';
+  const first = { ...catalog(), nextOffset: 100 };
+  const second = {
+    ...catalog(),
+    nextOffset: null,
+    spaces: [{ kind: 'team', id: teamId, name: '分页团队', canManage: true, canUse: true }],
+    websites: [
+      {
+        id: teamSiteId,
+        name: '第101个网站',
+        domain: 'page.example',
+        space: { kind: 'team', id: teamId },
+      },
+    ],
+  };
+  mocks.catalog.mockResolvedValueOnce(first).mockResolvedValue(second);
+  mount('ai-chat');
+  expect(await screen.findByRole('option', { name: '研究站' })).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '加载更多网站与空间' }));
+  expect(await screen.findByRole('option', { name: '第101个网站' })).toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText('分析网站'), teamSiteId);
+  expect(await screen.findByLabelText('分析问题')).toBeEnabled();
+  expect(mocks.catalog).toHaveBeenLastCalledWith(expect.any(AbortSignal), { offset: 100 });
+  expect(mocks.stream).not.toHaveBeenCalled();
+});
+
+it('keeps an active site task when its delayed URL confirmation arrives', async () => {
+  const user = userEvent.setup();
+  const ui = twoSiteChat();
+  expect(await screen.findByText('site A conversation')).toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText('分析网站'), nextSiteId);
+  await waitFor(() => expect(screen.getByLabelText('分析网站')).toHaveValue(nextSiteId));
+  let finish!: (run: any) => void;
+  const pending = new Promise<any>(resolve => {
+    finish = resolve;
+  });
+  mocks.stream.mockReturnValue(pending);
+  await user.type(screen.getByLabelText('分析问题'), 'active site B analysis');
+  await user.click(screen.getByRole('button', { name: '发起分析' }));
+  await waitFor(() => expect(mocks.stream).toHaveBeenCalled());
+  mocks.catalog.mockReturnValue(new Promise(() => {}));
+  ui.route('', nextSiteId);
+  expect(screen.getByLabelText('分析网站')).toHaveValue(nextSiteId);
+  expect(mocks.cancel).not.toHaveBeenCalled();
+  await act(async () => finish(completed({ result: answer })));
+  expect(mocks.cancel).not.toHaveBeenCalled();
+});
+
+it('does not let an old test cancellation close a new space test dialog', async () => {
+  const user = userEvent.setup();
+  const data = catalog();
+  const teamId = '88888888-8888-4888-8888-888888888888';
+  const teamSiteId = '99999999-9999-4999-8999-999999999999';
+  data.spaces.push({
+    kind: 'team',
+    id: teamId,
+    name: '团队空间',
+    canManage: true,
+    canUse: true,
+  } as any);
+  data.websites.push({
+    id: teamSiteId,
+    name: '团队站',
+    domain: 'team.example',
+    space: { kind: 'team', id: teamId },
+  } as any);
+  mocks.catalog.mockResolvedValue(data);
+  const first = connection(),
+    second = { ...connection(), id: teamSiteId, name: 'Team model' };
+  mocks.connections.mockImplementation(async (space: any) => ({
+    items: [space.kind === 'team' ? second : first],
+  }));
+  const view = mount();
+  let release!: (run: any) => void;
+  mocks.cancel.mockReturnValue(
+    new Promise(resolve => {
+      release = resolve;
+    }),
+  );
+  mocks.stream.mockImplementation((_path: any, _body: any, _signal: any, onEvent: any) => {
+    onEvent({ type: 'started', runId, data: { state: 'accepted' } });
+    return new Promise(() => {});
+  });
+  await user.click(await screen.findByRole('button', { name: '实时测试' }));
+  await waitFor(() => expect(mocks.stream).toHaveBeenCalled());
+  await user.click(screen.getByRole('button', { name: '关闭' }));
+  await waitFor(() => expect(mocks.cancel).toHaveBeenCalled());
+  mocks.context.query = { aiSite: teamSiteId };
+  view.refreshContext();
+  await user.click(await screen.findByRole('button', { name: '实时测试' }));
+  expect(screen.getByRole('dialog')).toHaveTextContent('Team model');
+  await act(async () => release(completed({ state: 'cancelled' })));
+  expect(screen.getByRole('dialog')).toHaveTextContent('Team model');
+});
+
+it('retains new recovery metadata after an unmounted test cancellation resolves', async () => {
+  const user = userEvent.setup();
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  let release!: (run: any) => void;
+  mocks.cancel.mockReturnValue(
+    new Promise(resolve => {
+      release = resolve;
+    }),
+  );
+  mocks.stream.mockImplementation((_path: any, _body: any, _signal: any, onEvent: any) => {
+    onEvent({ type: 'started', runId });
+    return new Promise(() => {});
+  });
+  const ui = mount();
+  await user.click(await screen.findByRole('button', { name: '实时测试' }));
+  await waitFor(() => expect(mocks.stream).toHaveBeenCalled());
+  await user.click(screen.getByRole('button', { name: '关闭' }));
+  await waitFor(() => expect(mocks.cancel).toHaveBeenCalled());
+  ui.unmount();
+  const key = `liekan-ai:${id}:test:${connectionId}`;
+  const newMetadata = {
+    clientRequestId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    runId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  };
+  sessionStorage.setItem(key, JSON.stringify(newMetadata));
+  await act(async () => release(completed({ state: 'cancelled' })));
+  expect(JSON.parse(sessionStorage.getItem(key)!)).toEqual(newMetadata);
 });

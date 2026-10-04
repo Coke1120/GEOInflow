@@ -28,7 +28,8 @@ const client = () =>
     headers: { 'Cache-Control': 'no-store' },
   });
 export const aiClient = {
-  catalog: (signal?: AbortSignal) => client().getLiekanAiCatalog({}, { signal }),
+  catalog: (signal?: AbortSignal, input: OperationInput<'getLiekanAiCatalog'> = {}) =>
+    client().getLiekanAiCatalog(input, { signal }),
   connections: (space: { kind: 'personal' | 'team'; id: string }, signal?: AbortSignal) =>
     client().getLiekanAiConnections({ spaceKind: space.kind, spaceId: space.id }, { signal }),
   createConnection: (input: OperationInput<'createLiekanAiConnection'>) =>

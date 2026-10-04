@@ -1,5 +1,5 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
   type ButtonHTMLAttributes,
   type ReactNode,
@@ -99,6 +99,7 @@ export function aiError(error: unknown) {
   if (status === 409 || e.code === 'conflict') return '配置或网站归属已更新，请刷新后重试。';
   if (status === 429) return '请求频率或每日额度已达上限，请稍后重试。';
   const messages: Record<string, string> = {
+    key_required: '供应商、协议、工作空间或接口域名已变更，请重新填写 API Key。',
     credentials: 'AI 凭证或模型权限无效，请检查后重试。',
     model: '模型或接口暂不可用，请检查配置。',
     busy: 'AI 服务繁忙或额度不足，请稍后重试。',
@@ -145,11 +146,57 @@ export function AiNotice({ children, error = false }: { children: ReactNode; err
 }
 export function useAiCatalog() {
   const c = useFeature();
-  return useQuery({
+  const query = useInfiniteQuery({
     queryKey: ['liekan-ai', c.user.id, 'catalog'],
-    queryFn: ({ signal }) => aiClient.catalog(signal),
+    initialPageParam: 0,
+    queryFn: ({ signal, pageParam }) => aiClient.catalog(signal, { offset: pageParam }),
+    getNextPageParam: page => page.nextOffset ?? undefined,
     retry: false,
   });
+  const pages = query.data?.pages ?? [];
+  const requestedId = c.query.aiSite;
+  const needsSelected =
+    !!requestedId &&
+    uuid.test(requestedId) &&
+    !pages.some(page => page.websites.some(site => site.id === requestedId));
+  const selected = useQuery({
+    queryKey: ['liekan-ai', c.user.id, 'catalog-selected', requestedId || ''],
+    queryFn: ({ signal }) => aiClient.catalog(signal, { websiteId: requestedId }),
+    enabled: needsSelected,
+    retry: false,
+  });
+  const all = needsSelected && selected.data ? [...pages, selected.data] : pages;
+  const data = all.length
+    ? {
+        ...all[0],
+        spaces: [
+          ...new Map(
+            all.flatMap(page => page.spaces).map(space => [`${space.kind}:${space.id}`, space]),
+          ).values(),
+        ],
+        websites: [
+          ...new Map(all.flatMap(page => page.websites).map(site => [site.id, site])).values(),
+        ],
+      }
+    : undefined;
+  return {
+    ...query,
+    data,
+    isPending: query.isPending || (needsSelected && selected.isPending),
+    error: query.error || (needsSelected ? selected.error : null),
+    refetch: () => Promise.all([query.refetch(), ...(needsSelected ? [selected.refetch()] : [])]),
+  };
+}
+export function AiCatalogMore({ query }: { query: ReturnType<typeof useAiCatalog> }) {
+  if (!query.hasNextPage) return null;
+  return (
+    <>
+      {query.isFetchNextPageError && <AiNotice error>更多网站与空间暂未读取，请重试。</AiNotice>}
+      <AiButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
+        {query.isFetchingNextPage ? '正在读取更多网站与空间…' : '加载更多网站与空间'}
+      </AiButton>
+    </>
+  );
 }
 export function ModuleNotice({ catalog }: { catalog: AiCatalog }) {
   if (catalog.module.enabled) return null;
@@ -464,7 +511,8 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
     if (stopPromise.current) return stopPromise.current;
     const operation = (async () => {
       if (controller.current?.signal.aborted) return true;
-      const m = metadata.current;
+      const m = metadata.current,
+        storageKey = keyRef.current;
       if (!m || (runRef.current && !activeRun(runRef.current))) {
         controller.current?.abort();
         return true;
@@ -497,7 +545,8 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
         }
         if (!activeRun(saved)) {
           try {
-            sessionStorage.removeItem(keyRef.current);
+            if (stored(storageKey)?.clientRequestId === m.clientRequestId)
+              sessionStorage.removeItem(storageKey);
           } catch {}
           metadata.current = null;
         }

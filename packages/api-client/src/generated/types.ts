@@ -6813,7 +6813,12 @@ export interface operations {
   };
   getLiekanAiCatalog: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Number of rows to skip before returning results. */
+        offset?: number;
+        /** @description ID of the website. */
+        websiteId?: string;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -6839,6 +6844,7 @@ export interface operations {
               enabled: boolean;
               reason?: string;
             };
+            nextOffset: number | null;
             /** @constant */
             protocolVersion: 1;
             spaces: {

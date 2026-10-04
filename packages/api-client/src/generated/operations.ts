@@ -910,7 +910,7 @@ export const operations = {
     method: 'get',
     path: '/api/liekan/ai/catalog',
     pathParams: [],
-    queryParams: [],
+    queryParams: ['offset', 'websiteId'],
     hasBody: false,
   },
   getLiekanAiConnections: {
@@ -3468,9 +3468,7 @@ export type OperationInput<K extends OperationId> = OperationPathParams<K> &
 export type OperationOutput<K extends OperationId> = OperationTypes[K]['responses'] extends {
   200: { content: infer C };
 }
-  ? C extends { 'application/json': infer R }
-    ? R
-    : C[keyof C]
+  ? C[keyof C]
   : unknown;
 
 export abstract class GeneratedUmamiClient {

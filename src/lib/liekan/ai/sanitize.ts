@@ -6,36 +6,58 @@ const privatePathKey =
 function redactIdentityPath(path: string): string {
   const parts = path.split('/');
   let privateBranch = false;
-  return parts.map(part => {
-    const output = privateBranch && part ? redacted : part;
-    if(privatePathKey.test(part)) privateBranch = true;
-    return output;
-  }).join('/');
+  return parts
+    .map(part => {
+      const output = privateBranch && part ? redacted : part;
+      if (privatePathKey.test(part)) privateBranch = true;
+      return output;
+    })
+    .join('/');
 }
-const boundaryCount = (value:string) => (value.match(/[\/\\?#;=:\s"'@<>]|[\p{Cc}\p{Cf}]/gu) ?? []).length;
+const boundaryCount = (value: string) =>
+  (value.match(/[\/\\?#;=:\s"'@<>]|[\p{Cc}\p{Cf}]/gu) ?? []).length;
 /** Decoding may reveal an identity, but must never create a new lexical or URI boundary. */
 function decoded(value: string) {
-  if(/[\p{Cc}\p{Cf}]/u.test(value))return redacted;
+  if (/[\p{Cc}\p{Cf}]/u.test(value)) return redacted;
   let text = value;
   for (let i = 0; i < 8; i++) {
-    if(!/%[a-f0-9]{2}/i.test(text))return text;
+    if (!/%[a-f0-9]{2}/i.test(text)) return text;
     try {
       const next = decodeURIComponent(text);
-      if(next === text)return text;
-      if(boundaryCount(next)>boundaryCount(text))return redacted;
+      if (next === text) return text;
+      if (boundaryCount(next) > boundaryCount(text)) return redacted;
       text = next;
-    } catch { return redacted; }
+    } catch {
+      return redacted;
+    }
   }
   return /%[a-f0-9]{2}/i.test(text) ? redacted : text;
 }
 export function sanitizeAiText(value: unknown, maxLength = 200): string {
   if (typeof value !== 'string') throw new AiError('facts_invalid', '统计数据格式无效', 500);
-  if(/[\p{Cc}\p{Cf}]/u.test(value))return redacted;
+  if (/[\p{Cc}\p{Cf}]/u.test(value)) return redacted;
+  // A URL or private path followed by whitespace has an ambiguous value boundary.
+  // Redact its complete label before lexical projection can discard the identifying marker.
+  for (const match of value.matchAll(/\S+/gu)) {
+    const end = match.index! + match[0].length;
+    if (!value.slice(end).trim()) continue;
+    const token = decoded(match[0]).replace(/\\/g, '/');
+    if (
+      token === redacted ||
+      /https?:\/\/|\/\//i.test(token) ||
+      (token.includes('/') && /[?#;]/.test(token)) ||
+      token.split('/').some(part => privatePathKey.test(part))
+    )
+      return redacted;
+  }
   // Decode each original token while keeping encoded whitespace inside its privacy scope.
-  const normalized = value.replace(/[^\s]+/g, token => decoded(token).replace(/\\/g, '/')
-    .replace(/https?:\/\/[\s\S]*/gi,redacted)
-    .replace(/\/\/[\s\S]*/g,redacted)
-    .replace(/\/[\s\S]*/g,path=>redactIdentityPath(path.split(/[?#;]/,1)[0])));
+  const normalized = value.replace(/[^\s]+/g, token =>
+    decoded(token)
+      .replace(/\\/g, '/')
+      .replace(/https?:\/\/[\s\S]*/gi, redacted)
+      .replace(/\/\/[\s\S]*/g, redacted)
+      .replace(/\/[\s\S]*/g, path => redactIdentityPath(path.split(/[?#;]/, 1)[0])),
+  );
   return normalized
     .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
     .replace(/\b[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9.-]+\.[a-z]{2,}\b/gi, redacted)

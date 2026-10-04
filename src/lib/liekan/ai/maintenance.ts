@@ -5,6 +5,17 @@ import type { AiConnectionRow } from './connections';
 import { type AiEncryptionKey, decryptAiKey, encryptAiKey } from './crypto';
 import { AiError } from './error';
 
+const expiredContent = (table: 'liekan_ai_message' | 'liekan_ai_context') =>
+  `expires_at<=now() OR EXISTS(SELECT 1 FROM liekan_ai_conversation c WHERE c.id=${table}.conversation_id AND c.expires_at<=now() AND NOT EXISTS(SELECT 1 FROM liekan_ai_run r WHERE r.conversation_id=c.id AND r.lease_until>now() AND r.state IN ('accepted','preparing','calling','validating','cancel_requested')))`;
+const expiredEmptyConversation =
+  'expires_at<=now() AND NOT EXISTS(SELECT 1 FROM liekan_ai_message m WHERE m.conversation_id=liekan_ai_conversation.id) AND NOT EXISTS(SELECT 1 FROM liekan_ai_context c WHERE c.conversation_id=liekan_ai_conversation.id) AND NOT EXISTS(SELECT 1 FROM liekan_ai_run r WHERE r.conversation_id=liekan_ai_conversation.id)';
+const backlogSql =
+  `(SELECT count(*) FROM liekan_ai_message WHERE ${expiredContent('liekan_ai_message')})+` +
+  `(SELECT count(*) FROM liekan_ai_context WHERE ${expiredContent('liekan_ai_context')})+` +
+  `(SELECT count(*) FROM liekan_ai_conversation WHERE ${expiredEmptyConversation})+` +
+  `(SELECT count(*) FROM liekan_ai_run WHERE expires_at<=now() OR (expires_at>now() AND result_expires_at<=now() AND test_result IS NOT NULL))+` +
+  `(SELECT count(*) FROM liekan_ai_audit WHERE expires_at<=now())`;
+
 async function present(tx: AiTx) {
   const [row] = await tx.query<{ present: boolean }>(
     "SELECT to_regclass('liekan_ai_maintenance') IS NOT NULL AS present",
@@ -15,7 +26,7 @@ export async function aiMaintenanceCheck() {
   return aiTransaction(async tx => {
     if (!(await present(tx))) return { installed: false };
     const [row] = await tx.query(
-      "SELECT (SELECT count(*) FROM liekan_ai_connection) AS connections,(SELECT count(*) FROM liekan_ai_connection WHERE secret_envelope IS NOT NULL) AS encryptedKeys,(SELECT count(*) FROM liekan_ai_message) AS messages,(SELECT count(*) FROM liekan_ai_context) AS contexts,(SELECT count(*) FROM liekan_ai_run WHERE state IN ('accepted','preparing','calling','validating','cancel_requested') AND lease_until>now()) AS activeRuns,(SELECT count(*) FROM liekan_ai_message WHERE expires_at<=now())+(SELECT count(*) FROM liekan_ai_context WHERE expires_at<=now())+(SELECT count(*) FROM liekan_ai_run WHERE expires_at<=now()) AS backlog",
+      `SELECT (SELECT count(*) FROM liekan_ai_connection) AS connections,(SELECT count(*) FROM liekan_ai_connection WHERE secret_envelope IS NOT NULL) AS encryptedKeys,(SELECT count(*) FROM liekan_ai_message) AS messages,(SELECT count(*) FROM liekan_ai_context) AS contexts,(SELECT count(*) FROM liekan_ai_run WHERE state IN ('accepted','preparing','calling','validating','cancel_requested') AND lease_until>now()) AS activeRuns,${backlogSql} AS backlog`,
     );
     const [status] = await tx.query<{
       last_cleanup_at: Date | null;
@@ -63,14 +74,11 @@ async function performAiCleanup(options: { apply?: boolean; requestBudget?: bool
         );
       };
       await tx.execute(
-        "UPDATE liekan_ai_run SET state=CASE WHEN state='cancel_requested' THEN 'cancelled' ELSE 'interrupted' END,stage='interrupted',error_code='interrupted',completed_at=now(),lease_until=NULL WHERE id IN (SELECT id FROM liekan_ai_run WHERE state IN ('accepted','preparing','calling','validating','cancel_requested') AND lease_until<=now() ORDER BY lease_until LIMIT 3 FOR UPDATE SKIP LOCKED)",
+        "UPDATE liekan_ai_run SET state=CASE WHEN state='cancel_requested' THEN 'cancelled' ELSE 'interrupted' END,stage=CASE WHEN state='cancel_requested' THEN 'cancelled' ELSE 'interrupted' END,error_code=CASE WHEN state='cancel_requested' THEN 'cancelled' ELSE 'interrupted' END,completed_at=now(),lease_until=NULL WHERE id IN (SELECT id FROM liekan_ai_run WHERE state IN ('accepted','preparing','calling','validating','cancel_requested') AND lease_until<=now() ORDER BY lease_until LIMIT 3 FOR UPDATE SKIP LOCKED)",
       );
-      await remove('liekan_ai_message', 'expires_at<=now()');
-      await remove('liekan_ai_context', 'expires_at<=now()');
-      await remove(
-        'liekan_ai_conversation',
-        "expires_at<=now() AND NOT EXISTS(SELECT 1 FROM liekan_ai_run r WHERE r.conversation_id=liekan_ai_conversation.id AND r.lease_until>now() AND r.state IN ('accepted','preparing','calling','validating','cancel_requested'))",
-      );
+      await remove('liekan_ai_message', expiredContent('liekan_ai_message'));
+      await remove('liekan_ai_context', expiredContent('liekan_ai_context'));
+      await remove('liekan_ai_conversation', expiredEmptyConversation);
       await remove('liekan_ai_run', 'expires_at<=now()');
       await remove('liekan_ai_audit', 'expires_at<=now()');
       const cleared = await tx.execute(
@@ -78,7 +86,7 @@ async function performAiCleanup(options: { apply?: boolean; requestBudget?: bool
         500 - deleted,
       );
       await tx.execute(
-        'UPDATE liekan_ai_maintenance SET last_cleanup_at=now(),last_error_code=NULL,backlog=(SELECT count(*) FROM liekan_ai_message WHERE expires_at<=now())+(SELECT count(*) FROM liekan_ai_context WHERE expires_at<=now())+(SELECT count(*) FROM liekan_ai_run WHERE expires_at<=now()),updated_at=now() WHERE id=1',
+        `UPDATE liekan_ai_maintenance SET last_cleanup_at=now(),last_error_code=NULL,backlog=${backlogSql},updated_at=now() WHERE id=1`,
       );
       return { installed: true, deleted, cleared };
     },

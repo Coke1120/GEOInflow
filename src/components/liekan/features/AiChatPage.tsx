@@ -11,6 +11,7 @@ import {
 } from '@/lib/liekan/upstream/ai-client';
 import {
   AiButton,
+  AiCatalogMore,
   AiModal,
   AiNotice,
   aiError,
@@ -73,7 +74,7 @@ export function AiChatPage() {
         <AiNotice>正在读取 AI 能力与可访问网站…</AiNotice>
       </div>
     );
-  if (catalog.error)
+  if (catalog.error && !catalog.data)
     return (
       <div data-liekan-ai="ai-chat" className={styles.chatWorkspace}>
         <AiNotice error>{aiError(catalog.error)}</AiNotice>
@@ -94,6 +95,7 @@ export function AiChatPage() {
   return (
     <div data-liekan-ai="ai-chat" className={styles.chatWorkspace} lang="zh-CN">
       <ModuleNotice catalog={data} />
+      <AiCatalogMore query={catalog} />
       {site && space ? (
         <SiteConversation
           key={site.id}

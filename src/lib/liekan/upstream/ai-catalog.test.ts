@@ -14,7 +14,7 @@ const id = '11111111-1111-4111-8111-111111111111',
 beforeEach(() => {
   state.extra = false;
   state.tx.query.mockImplementation(async sql => {
-    if (sql.includes('FROM team_user tu'))
+    if (sql.startsWith('SELECT t.team_id'))
       return state.extra ? [] : [{ id: team, name: 'Team fixture', role: state.teamRole }];
     if (sql.startsWith('SELECT role FROM "user"')) return [{ role: state.role }];
     if (sql.startsWith('SELECT user_id FROM "user"')) return [{ user_id: id }];

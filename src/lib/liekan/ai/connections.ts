@@ -237,7 +237,10 @@ export async function updateAiConnection(actor: AiActor, id: string, input: unkn
       locked.workspace_id !== workspaceId ||
       new URL(locked.base_url).origin !== new URL(p.baseUrl).origin;
     if (originChanged && !p.apiKey)
-      throw new AiError('key_required', '变更供应商、协议或接口域名后，请重新输入 API Key');
+      throw new AiError(
+        'key_required',
+        '变更供应商、协议、工作空间或接口域名后，请重新输入 API Key',
+      );
     const envelope = p.apiKey
       ? encryptAiKey(p.apiKey, { connectionId: id, space })
       : locked.secret_envelope;

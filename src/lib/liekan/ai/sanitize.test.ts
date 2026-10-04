@@ -84,18 +84,74 @@ it('handles decoded whitespace, empty segments and backslash separators before d
     expect(sanitizeAiText('goal ' + value)).not.toContain('canarySecretValue');
   }
 });
-it('redacts an entire encoded token when decoding would change its privacy boundaries',()=>{
- for(const suffix of ['%00canarySecretValue','%E2%80%8BcanarySecretValue','%22canarySecretValue','%27canarySecretValue'])expect(sanitizeAiText('goal /callback?access_token='+suffix)).not.toContain('canarySecretValue');
- expect(sanitizeAiText('Bearer%20canarySecretValue')).not.toContain('canarySecretValue');
- for(const value of ['/auth/reset-password/abc%2FcanarySecretValue','/auth/reset-password/abc%252FcanarySecretValue','/auth/reset-password/abc/canarySecretValue']){
-  expect(cleanAiPath(value)).not.toContain('canarySecretValue');expect(sanitizeAiText('goal '+value)).not.toContain('canarySecretValue');
- }
- expect(cleanAiPath('/articles/%E4%B8%AD%E6%96%87')).toBe('/articles/中文');
+it('redacts an entire encoded token when decoding would change its privacy boundaries', () => {
+  for (const suffix of [
+    '%00canarySecretValue',
+    '%E2%80%8BcanarySecretValue',
+    '%22canarySecretValue',
+    '%27canarySecretValue',
+  ])
+    expect(sanitizeAiText('goal /callback?access_token=' + suffix)).not.toContain(
+      'canarySecretValue',
+    );
+  expect(sanitizeAiText('Bearer%20canarySecretValue')).not.toContain('canarySecretValue');
+  for (const value of [
+    '/auth/reset-password/abc%2FcanarySecretValue',
+    '/auth/reset-password/abc%252FcanarySecretValue',
+    '/auth/reset-password/abc/canarySecretValue',
+  ]) {
+    expect(cleanAiPath(value)).not.toContain('canarySecretValue');
+    expect(sanitizeAiText('goal ' + value)).not.toContain('canarySecretValue');
+  }
+  expect(cleanAiPath('/articles/%E4%B8%AD%E6%96%87')).toBe('/articles/中文');
 });
 
-it('keeps raw control and quote characters within an embedded URL privacy scope',()=>{
- for(const suffix of ['\u0000canarySecretValue','\u200bcanarySecretValue','"canarySecretValue"',"'canarySecretValue'"]){expect(sanitizeAiText('goal /callback?access_token='+suffix)).not.toContain('canarySecretValue');}
+it('keeps raw control and quote characters within an embedded URL privacy scope', () => {
+  for (const suffix of [
+    '\u0000canarySecretValue',
+    '\u200bcanarySecretValue',
+    '"canarySecretValue"',
+    "'canarySecretValue'",
+  ]) {
+    expect(sanitizeAiText('goal /callback?access_token=' + suffix)).not.toContain(
+      'canarySecretValue',
+    );
+  }
 });
-it('checks original control characters before splitting labels into lexical tokens',()=>{
- for(const separator of ['\n','\r','\t'])expect(sanitizeAiText('goal /callback?access_token='+separator+'canarySecretValue')).not.toContain('canarySecretValue');
+it('checks original control characters before splitting labels into lexical tokens', () => {
+  for (const separator of ['\n', '\r', '\t'])
+    expect(
+      sanitizeAiText('goal /callback?access_token=' + separator + 'canarySecretValue'),
+    ).not.toContain('canarySecretValue');
+});
+
+it('preserves the privacy scope of a label across raw whitespace and repeated sanitization', () => {
+  expect(sanitizeAiText('goal /articles/中文')).toBe('goal /articles/中文');
+  for (const separator of [' ', '\u00a0', '\u2028', '\u3000']) {
+    for (const prefix of [
+      'goal /callback?access_token=',
+      'goal /auth/reset-password/',
+      'goal https://example.com/callback?token=',
+    ]) {
+      for (const secret of ['canarySecretValue', '"canarySecretValue"']) {
+        const value = prefix + separator + secret;
+        expect(sanitizeAiText(value)).not.toContain('canarySecretValue');
+        expect(sanitizeAiText(sanitizeAiText(value))).not.toContain('canarySecretValue');
+      }
+    }
+  }
+});
+
+it('redacts a rejected encoded boundary together with later raw label values', () => {
+  expect(sanitizeAiText('goal /articles/%E4%B8%AD%E6%96%87')).toBe('goal /articles/中文');
+  for (const prefix of [
+    '/callback%3Faccess_token=',
+    '/callback?access_token%3D',
+    '/auth%2Freset-password/',
+    'https%3A%2F%2Fexample.com/callback?token=',
+  ]) {
+    const value = 'goal ' + prefix + ' canarySecretValue';
+    expect(sanitizeAiText(value)).not.toContain('canarySecretValue');
+    expect(sanitizeAiText(sanitizeAiText(value))).not.toContain('canarySecretValue');
+  }
 });
