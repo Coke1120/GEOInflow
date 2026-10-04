@@ -11,7 +11,7 @@ export function WebsiteLayout({ websiteId, children }: { websiteId: string; chil
   const { pathname, query } = useNavigation();
   const showLiekan = isLiekanRoute(pathname) || query.liekanShell === '1';
   return (
-    <WebsiteProvider websiteId={websiteId}>
+    <WebsiteProvider websiteId={websiteId} renderWhileLoading={isLiekanRoute(pathname)}>
       {showLiekan ? (
         children
       ) : (

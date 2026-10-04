@@ -1,6 +1,8 @@
+import { invalidateWebsiteAnalytics } from './upstream/query-cache';
 import { randomUUID } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import { parseCatalog, parseLogInput } from './ingest';
+import { verificationSnapshots } from './log-ingestion/ranges';
 import { BOT_RULES, BOT_TYPES, type BotRule } from './rules/bots';
 import {
   LiekanError,
@@ -68,7 +70,7 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
     if (body.rules.some(rule => !BOT_TYPES.includes(rule.type)))
       throw new LiekanError('规则类型仅支持训练、搜索、用户触发、传统搜索和其他');
   }
-  return transaction(async tx => {
+  const result = await transaction(async tx => {
     await lockWritableWebsite(tx, id, identity);
     const current = settingsFromRow((await tx.$queryRawUnsafe(settingsQuery, id))[0]);
     const next = {
@@ -85,6 +87,8 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
     );
     return { ...next, isDemo: current.isDemo };
   });
+  invalidateWebsiteAnalytics(id);
+  return result;
 }
 export async function importLogs(id: string, domain: string, input: any, identity?: WriteIdentity) {
   id = id.toLowerCase();
@@ -99,13 +103,14 @@ export async function importLogs(id: string, domain: string, input: any, identit
           throw new LiekanError('缺少 APP_SECRET，无法保护来源标识');
         })(),
       settings.rules as BotRule[],
+      await verificationSnapshots(),
     );
   } catch (error) {
     throw new LiekanError((error as Error).message);
   }
   if (!parsed.records.length)
     throw new LiekanError('没有有效日志；请检查时间、IP、路径、状态和 User-Agent');
-  return transaction(async tx => {
+  const result = await transaction(async tx => {
     // One importing transaction per website, including across replicas/processes.
     const lock = await tx.$queryRawUnsafe(
       'SELECT pg_try_advisory_xact_lock(hashtext($1)) AS acquired',
@@ -120,10 +125,22 @@ export async function importLogs(id: string, domain: string, input: any, identit
     );
     if (old.length) return { ...old[0], duplicate: true, inserted: 0, errors: parsed.errors };
     const rate = await tx.$queryRawUnsafe(
-      "SELECT count(*)::int AS count FROM liekan_import WHERE website_id=$1::uuid AND imported_at>now()-interval '1 minute'",
+      "SELECT count(*)::int AS count FROM liekan_import WHERE website_id=$1::uuid AND kind='manual' AND imported_at>now()-interval '1 minute'",
       id,
     );
     if (rate[0].count >= 5) throw new LiekanError('每站点每分钟上限 5 次导入', 429);
+    const intervals = await tx.$queryRawUnsafe('SELECT starts_at,ends_at FROM liekan_log_interval WHERE website_id=$1::uuid',id);
+    const allowed = parsed.records.filter((record,index) => {
+      const time = +new Date(record.time);
+      if (!intervals.some(row => time>=+new Date(row.starts_at) && (!row.ends_at || time<+new Date(row.ends_at)))) return true;
+      parsed.errors.push({line:parsed.validLines[index],reason:'时间范围与自动日志来源重叠'});
+      return false;
+    });
+    parsed.errors=parsed.errors.slice(0,100);
+    parsed.rejected += parsed.records.length-allowed.length;
+    parsed.records = allowed;
+    parsed.accepted = allowed.length;
+    if (!allowed.length) throw new LiekanError('日志时间范围与自动来源重叠，请导入其他时间段',409);
     const importId = randomUUID();
     await tx.$executeRawUnsafe(
       'INSERT INTO liekan_import (id,website_id,digest,accepted,rejected) VALUES ($1::uuid,$2::uuid,$3,$4,$5)',
@@ -145,6 +162,7 @@ export async function importLogs(id: string, domain: string, input: any, identit
         JSON.stringify(parsed.records.slice(offset, offset + 500)),
       );
     }
+    await tx.$executeRawUnsafe('INSERT INTO liekan_log_state(website_id,data_revision) VALUES ($1::uuid,1) ON CONFLICT(website_id) DO UPDATE SET data_revision=liekan_log_state.data_revision+1',id);
     return {
       id: importId,
       accepted: parsed.accepted,
@@ -154,6 +172,8 @@ export async function importLogs(id: string, domain: string, input: any, identit
       errors: parsed.errors,
     };
   });
+  invalidateWebsiteAnalytics(id);
+  return result;
 }
 export async function importCatalog(
   id: string,
@@ -216,5 +236,6 @@ export async function importCatalog(
       }
     }
   });
+  invalidateWebsiteAnalytics(id);
   return { accepted: rows.length, mode: 'upsert' };
 }

@@ -27,6 +27,7 @@ vi.mock('./upstream/server', () => ({ LiekanError: class extends Error {} }));
 vi.mock('@/queries/sql', () => ({ getFunnel: vi.fn() }));
 
 import { liekanReportSchema } from './contracts/report';
+import { pageReportParts, type ReportResource } from './contracts/page-report';
 import { buildReport } from './report';
 
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
@@ -83,6 +84,31 @@ describe('report evidence states', () => {
     expect(report.charts.f1).toMatchObject({ state: 'unsupported', labels: [], series: [] });
     expect(report.insights).toContain('已保存的漏斗配置无效，请检查目标配置');
     expect(liekanReportSchema.safeParse(report).success).toBe(true);
+  });
+  it('returns page insights only when the loaded facts support them', async () => {
+    const human = await mocks.human();
+    const logs = await mocks.logs();
+    mocks.human.mockResolvedValue({
+      ...human,
+      funnelError: '已保存的漏斗配置无效，请检查目标配置',
+    });
+    mocks.logs.mockImplementation(async (...args: any[]) => ({
+      ...logs,
+      latest: '2026-01-01',
+      summary: { requests: 1, ai: 1 },
+      pages: !args[9] || args[9].includes('pages')
+        ? [{ path: '/a', bot: 'GPTBot', requests: 1, lastCrawled: '2026-01-01' }]
+        : [],
+    }));
+    const full = await buildReport(website, false, params);
+    expect(full.insights).toContain('目录 1 个 URL，0 个在所选范围没有 AI 抓取。');
+    expect(full.insights).toContain('已保存的漏斗配置无效，请检查目标配置');
+    for (const resource of Object.keys(pageReportParts) as ReportResource[]) {
+      const page = await buildReport(website, false, { ...params, resource }, true);
+      expect(page.insights).toEqual(
+        resource === 'overview' || resource === 'ai/preference' ? full.insights : [],
+      );
+    }
   });
   it('joins encoded logs and catalog to upstream human paths without decoding human paths twice', async () => {
     const human = await mocks.human(),

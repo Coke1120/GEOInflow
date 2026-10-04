@@ -4,6 +4,7 @@ import prisma, { getRawQueryClient } from '@/lib/prisma';
 import type { Auth } from '@/lib/types';
 import { canUpdateWebsite, canViewWebsite } from '@/permissions';
 import { getWebsiteStats } from '@/queries/sql';
+import { getQuerySnapshot, withinQuerySnapshot } from './query-snapshot';
 
 import { LiekanError } from './errors';
 export { LiekanError } from './errors';
@@ -56,7 +57,22 @@ export async function lockWritableWebsite(tx: any, id: string, identity?: WriteI
 }
 const primary = (): any => getRawQueryClient(prisma.client, { write: true });
 export async function query<T = any>(sql: string, ...params: unknown[]): Promise<T[]> {
+  const snapshot = getQuerySnapshot();
+  if (snapshot) return snapshot.$queryRawUnsafe(sql, ...params) as Promise<T[]>;
   return transaction(tx => tx.$queryRawUnsafe(sql, ...params));
+}
+export async function sourceWebsite(tx: any, id: string, identity: WriteIdentity) {
+  await lockWritableWebsite(tx, id, identity);
+  return (await tx.$queryRawUnsafe('SELECT domain,user_id,team_id,reset_at FROM website WHERE website_id=$1::uuid', id))[0];
+}
+export async function reportSnapshot<T>(work: () => Promise<T>): Promise<T> {
+  if (getQuerySnapshot()) return work();
+  const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new LiekanError('数据库 schema 无效',500);
+  return primary().$transaction(async tx => {
+    await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+    return withinQuerySnapshot(tx, work);
+  }, { isolationLevel: 'RepeatableRead', timeout: 60000, maxWait: 10000 });
 }
 export async function transaction<T>(work: (tx: any) => Promise<T>): Promise<T> {
   const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
@@ -66,7 +82,7 @@ export async function transaction<T>(work: (tx: any) => Promise<T>): Promise<T> 
       await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
       return work(tx);
     },
-    { timeout: 60000 },
+    { timeout: 60000, maxWait: 60000 },
   )) as T;
 }
 export async function humanTotals(websiteId: string, startDate: Date, endDate: Date) {

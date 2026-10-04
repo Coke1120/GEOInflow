@@ -99,4 +99,17 @@ describe('saved funnel isolation', () => {
       { startDate: start, endDate: end },
     );
   });
+  it('preserves saved configuration errors in lightweight page projections without querying funnels', async () => {
+    configure({ window: 30, steps: [{ type: 'path', value: '/a' }, { type: 'event' }] });
+    const facts = await getHumanFacts('site', start, end, 'UTC', ['pages']);
+    expect(facts.funnelError).toBe('已保存的漏斗配置无效，请检查目标配置');
+    expect(getFunnel).not.toHaveBeenCalled();
+    configure({
+      window: 30,
+      steps: [{ type: 'path', value: '/a' }, { type: 'event', value: 'download' }],
+    });
+    expect((await getHumanFacts('site', start, end, 'UTC', ['pages'])).funnelError).toBeNull();
+    expect(getFunnel).not.toHaveBeenCalled();
+  });
+
 });

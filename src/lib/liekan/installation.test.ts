@@ -1,0 +1,194 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { GET, POST } from '@/app/api/liekan/websites/[websiteId]/installation/route';
+import { installationActionSchema } from './contracts/installation';
+import { getInstallation, saveInstallation } from './installation';
+import { LiekanError } from './upstream/errors';
+
+const mocks = vi.hoisted(() => ({
+  query: vi.fn(),
+  transaction: vi.fn(),
+  lock: vi.fn(),
+  authorize: vi.fn(),
+  execute: vi.fn(),
+  read: vi.fn(),
+}));
+vi.mock('./upstream/server', async () => ({
+  LiekanError: (await import('./upstream/errors')).LiekanError,
+  query: mocks.query,
+  transaction: mocks.transaction,
+  lockWritableWebsite: mocks.lock,
+  authorize: mocks.authorize,
+}));
+const id = '5b4c0de0-6c47-5b51-8f53-11e5e8c79001';
+const identity = { userId: '5b4c0de0-6c47-5b51-8f53-11e5e8c79002' };
+const params = { params: Promise.resolve({ websiteId: id }) };
+beforeEach(() => {
+  vi.clearAllMocks();
+  mocks.read.mockResolvedValue([]);
+  mocks.execute.mockResolvedValue(1);
+  mocks.lock.mockResolvedValue(undefined);
+  mocks.transaction.mockImplementation(work =>
+    work({ $queryRawUnsafe: mocks.read, $executeRawUnsafe: mocks.execute }),
+  );
+  mocks.query.mockImplementation(sql =>
+    Promise.resolve(
+      sql.includes('liekan_effective_log')
+        ? [{ total: 0, ai: 0, demo: false, latestAt: null, latestImportAt: null }]
+        : [],
+    ),
+  );
+  mocks.authorize.mockResolvedValue({
+    website: { id, domain: 'example.com' },
+    canManage: true,
+    writeIdentity: identity,
+  });
+});
+
+describe('website installation progress', () => {
+  it('keeps missing data and unavailable automatic connections distinct from saved completion', async () => {
+    const result = await getInstallation(id, false);
+    expect(result).toMatchObject({
+      canManage: false,
+      progress: { completedAt: null, browserCheckDeferred: false, logCheckDeferred: false },
+      logs: { total: 0, ai: 0 },
+      capabilities: { cloudflare: false, server: false },
+    });
+    expect(mocks.query.mock.calls.every(call => call[1] === id)).toBe(true);
+  });
+  it('rejects arbitrary connection or analytics state in guide actions', async () => {
+    for (const value of [
+      { action: 'finish', method: 'server', authorized: true },
+      { action: 'finish', method: 'other' },
+      { action: 'connected' },
+      { action: 'skip-browser', websiteId: 'other-site' },
+      { action: 'continue', step: 'complete', method: 'manual' },
+      { action: 'continue', step: 'finish', method: 'manual', completedAt: '2026-10-04' },
+    ]) {
+      expect(installationActionSchema.safeParse(value).success).toBe(false);
+      await expect(saveInstallation(id, value, identity)).rejects.toThrow('接入设置格式无效');
+    }
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+  it('locks website permissions before reading and changes only the selected progress fields', async () => {
+    const saved = {
+      method: 'cloudflare',
+      browserCheckDeferred: true,
+      logCheckDeferred: false,
+      completedAt: '2026-10-01T00:00:00.000Z',
+    };
+    mocks.read.mockResolvedValue([saved]);
+    const result = await saveInstallation(id, { action: 'skip-logs', method: 'server' }, identity);
+    expect(result.progress).toEqual({
+      ...saved,
+      method: 'server',
+      logCheckDeferred: true,
+      lastStep: 'finish',
+    });
+    expect(mocks.lock).toHaveBeenCalledWith(expect.anything(), id, identity);
+    expect(mocks.lock.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.read.mock.invocationCallOrder[0],
+    );
+    expect(mocks.execute).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO liekan_installation'),
+      id,
+      'server',
+      true,
+      true,
+      saved.completedAt,
+      'finish',
+    );
+    expect(mocks.execute.mock.calls[0][0]).not.toMatch(/liekan_log|liekan_import/);
+  });
+  it('records all postponed checks and makes repeated completion idempotent', async () => {
+    const deferred = await saveInstallation(
+      id,
+      { action: 'skip-checks', method: 'manual' },
+      identity,
+    );
+    expect(deferred.progress).toMatchObject({
+      browserCheckDeferred: true,
+      logCheckDeferred: true,
+      completedAt: null,
+    });
+    mocks.read.mockResolvedValue([deferred.progress]);
+    const first = await saveInstallation(id, { action: 'finish', method: 'manual' }, identity);
+    mocks.read.mockResolvedValue([first.progress]);
+    const second = await saveInstallation(id, { action: 'finish', method: 'manual' }, identity);
+    expect(first.progress.completedAt).toBeTruthy();
+    expect(second.progress).toEqual(first.progress);
+  });
+  it.each(['logs', 'finish'])(
+    'persists normal advancement to %s without changing check or completion state',
+    async step => {
+      const result = await saveInstallation(
+        id,
+        { action: 'continue', step, method: 'server' },
+        identity,
+      );
+      expect(result.progress).toEqual({
+        method: 'server',
+        lastStep: step,
+        browserCheckDeferred: false,
+        logCheckDeferred: false,
+        completedAt: null,
+      });
+      expect(mocks.execute).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO liekan_installation'),
+        id,
+        'server',
+        false,
+        false,
+        null,
+        step,
+      );
+      mocks.query.mockImplementation(sql =>
+        Promise.resolve(
+          sql.includes('liekan_effective_log')
+            ? [{ total: 0, ai: 0, demo: false, latestAt: null, latestImportAt: null }]
+            : [result.progress],
+        ),
+      );
+      expect((await getInstallation(id, true)).progress).toEqual(result.progress);
+    },
+  );
+  it('revalidates revoked ownership and rejects the write without persisting', async () => {
+    mocks.lock.mockRejectedValue(new LiekanError('站点管理权限已变更', 403));
+    await expect(
+      saveInstallation(id, { action: 'finish', method: 'manual' }, identity),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+  it('protects both endpoints with full website authorization and private responses', async () => {
+    const read = await GET(new Request('http://localhost/api'), params);
+    expect(read.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(mocks.authorize).toHaveBeenCalledWith(expect.any(Request), id);
+    const write = await POST(
+      new Request('http://localhost/api', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'skip-browser' }),
+      }),
+      params,
+    );
+    expect(write.status).toBe(200);
+    expect(mocks.authorize).toHaveBeenLastCalledWith(expect.any(Request), id, true);
+    for (const status of [401, 403, 404]) {
+      mocks.authorize.mockRejectedValue(new LiekanError('访问被拒绝', status));
+      expect((await GET(new Request('http://localhost/api'), params)).status).toBe(status);
+      expect(
+        (await POST(new Request('http://localhost/api', { method: 'POST', body: '{}' }), params))
+          .status,
+      ).toBe(status);
+    }
+  });
+  it('bounds setup requests without accepting oversized bodies', async () => {
+    const result = await POST(
+      new Request('http://localhost/api', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'skip-browser', extra: 'x'.repeat(2200) }),
+      }),
+      params,
+    );
+    expect(result.status).toBe(413);
+    expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+});

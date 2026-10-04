@@ -11,9 +11,11 @@ const mocks = vi.hoisted(() => ({
   pathname: '/websites/site-a/goals/create',
 }));
 vi.mock('next/link', () => ({
+  useLinkStatus: () => ({ pending: false }),
   default: ({ children, prefetch: _prefetch, ...props }: any) => <a {...props}>{children}</a>,
 }));
 vi.mock('@/lib/liekan/upstream/client', () => ({
+  useFeatureDateRange: () => ({ dateRange: { startDate: new Date(0), endDate: new Date(1000) } }),
   useNavigation: () => ({
     pathname: mocks.pathname,
     query: {},
@@ -21,10 +23,13 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
   }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ clear: mocks.clear }),
+  useQueryClient: () => ({
+    clear: mocks.clear,
+    prefetchQuery: vi.fn().mockResolvedValue(undefined),
+  }),
   useQuery: ({ queryKey }: any) => ({
     isPending: false,
-    data: queryKey.includes('navigation-sites')
+    data: queryKey.includes('sites')
       ? [
           { id: 'site-a', name: '网站 A', domain: 'a.test' },
           { id: 'site-b', name: '网站 B', domain: 'b.test' },
@@ -32,32 +37,166 @@ vi.mock('@tanstack/react-query', () => ({
       : [],
   }),
 }));
-vi.mock('@/lib/liekan/upstream/features-client', () => ({
+vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/liekan/upstream/features-client')>()),
   getFeatureSites: vi.fn(),
   getAllFeatureRows: vi.fn(),
   featureApi: { post: mocks.post },
   clearFeatureLogin: mocks.clearLogin,
 }));
 
-describe('website navigation dialog transitions', () => {
+describe('website navigation transitions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.pathname = '/websites/site-a/goals/create';
     document.body.style.overflow = '';
   });
+  it('keeps website switching and account actions available in the shared compact website layout', async () => {
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    try {
+      const view = render(
+        <Navigation
+          user={{ id: 'user', username: 'admin' } as any}
+          route={{ page: 'segments', websiteId: 'site-a' }}
+          site={{ id: 'site-a', name: '网站 A', domain: 'a.test' }}
+          width={228}
+          onWidth={vi.fn()}
+          websiteContextTarget={target}
+        />,
+      );
+      const primary = screen.getByRole('navigation', { name: '业务导航' });
+      expect(within(primary).getAllByRole('link')).toHaveLength(14);
+      expect(within(primary).queryAllByRole('button')).toHaveLength(0);
+      expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
+      for (const link of within(primary).getAllByRole('link')) {
+        expect(link.querySelector('svg')).not.toBeNull();
+        expect(link.getAttribute('href')).toContain('site-a');
+      }
+      expect(within(primary).queryByRole('link', { name: '深度分析' })).toBeNull();
+      expect(view.container.querySelector('aside .site-switch')).toBeNull();
+      fireEvent.click(within(target).getByRole('button', { name: /切换网站，当前/ }));
+      expect(screen.getByText('个人空间')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: '选择网站 网站 B' }));
+      await waitFor(() => expect(mocks.push).toHaveBeenCalledWith('/websites/site-b/segments'));
+      fireEvent.click(screen.getByRole('button', { name: '个人账户' }));
+      expect(screen.getByRole('link', { name: '账户安全' })).toHaveAttribute(
+        'href',
+        '/settings/security',
+      );
+      expect(screen.getByRole('link', { name: '网站设置' })).toHaveAttribute(
+        'href',
+        '/websites/site-a/settings',
+      );
+      view.unmount();
+      expect(target).toBeEmptyDOMElement();
+    } finally {
+      target.remove();
+    }
+  });
+  it('searches by domain and closes the picker with Escape while restoring focus', () => {
+    render(
+      <Navigation
+        user={{ id: 'user', username: 'admin' } as any}
+        route={{ page: 'events', websiteId: 'site-a' }}
+        site={{ id: 'site-a', name: '网站 A', domain: 'a.test' }}
+        width={228}
+        onWidth={vi.fn()}
+      />,
+    );
+    const picker = screen.getByRole('button', { name: /切换网站，当前/ });
+    fireEvent.click(picker);
+    const search = screen.getByRole('textbox', { name: '搜索网站' });
+    expect(search).toHaveFocus();
+    fireEvent.change(search, { target: { value: 'b.test' } });
+    expect(screen.queryByRole('button', { name: '选择网站 网站 A' })).toBeNull();
+    expect(screen.getByRole('button', { name: '选择网站 网站 B' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(picker).toHaveFocus();
+  });
+  it('restores picker focus when selecting the current website without navigating', () => {
+    render(
+      <Navigation
+        user={{ id: 'user', username: 'admin' } as any}
+        route={{ page: 'events', websiteId: 'site-a' }}
+        site={{ id: 'site-a', name: '网站 A' }}
+        width={228}
+        onWidth={vi.fn()}
+      />,
+    );
+    const picker = screen.getByRole('button', { name: /切换网站，当前/ });
+    fireEvent.click(picker);
+    fireEvent.keyDown(screen.getByRole('textbox', { name: '搜索网站' }), { key: 'ArrowDown' });
+    const current = screen.getByRole('button', { name: '选择网站 网站 A' });
+    expect(current).toHaveFocus();
+    fireEvent.click(current);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(picker).toHaveFocus();
+    expect(mocks.push).not.toHaveBeenCalled();
+  });
+  it('uses resolved website ownership for the footer list, including personal sites with a stale team parameter', () => {
+    const props = { user: { id: 'user', username: 'admin' } as any, width: 228, onWidth: vi.fn() };
+    const view = render(
+      <Navigation
+        {...props}
+        route={{ page: 'events', websiteId: 'site-a', teamId: 'stale-team' }}
+        site={{ id: 'site-a', name: '个人网站', teamId: null }}
+      />,
+    );
+    expect(screen.getByRole('link', { name: '网站列表' })).toHaveAttribute('href', '/websites');
+    view.rerender(
+      <Navigation
+        {...props}
+        route={{ page: 'events', websiteId: 'site-a', teamId: 'stale-team' }}
+        site={{ id: 'site-a', name: '团队网站', teamId: 'owner-team' }}
+      />,
+    );
+    expect(screen.getByRole('link', { name: '网站列表' })).toHaveAttribute(
+      'href',
+      '/websites?teamId=owner-team',
+    );
+  });
+  it('restores account focus and dismisses nested mobile menus one layer at a time', () => {
+    render(
+      <Navigation
+        user={{ id: 'user', username: 'admin' } as any}
+        route={{ page: 'events', websiteId: 'site-a' }}
+        width={228}
+        onWidth={vi.fn()}
+      />,
+    );
+    const account = screen.getByRole('button', { name: '个人账户' });
+    fireEvent.click(account);
+    screen.getByRole('link', { name: '账户安全' }).focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(account).toHaveFocus();
+    const toggle = screen.getByRole('button', { name: '页面导航' });
+    fireEvent.click(toggle);
+    fireEvent.click(account);
+    screen.getByRole('link', { name: '账户安全' }).focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(account).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(account).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveFocus();
+    expect(document.body.style.overflow).toBe('');
+  });
   it.each([
-    ['boards', '看板'],
-    ['board-editor', '看板'],
-    ['board-view', '看板'],
-    ['board-design', '看板'],
-    ['sharing', '分享链接'],
-    ['links', '链接'],
-    ['link-editor', '链接'],
-    ['link-detail', '链接'],
-    ['pixels', '像素'],
-    ['pixel-editor', '像素'],
-    ['pixel-detail', '像素'],
-  ])('shows flat global entries with the correct selection for %s', (page, selected) => {
+    ['boards', '数据看板'],
+    ['board-editor', '数据看板'],
+    ['board-view', '数据看板'],
+    ['board-design', '数据看板'],
+    ['sharing', '分享管理'],
+    ['links', '追踪管理'],
+    ['link-editor', '追踪管理'],
+    ['link-detail', '追踪管理'],
+    ['pixels', '追踪管理'],
+    ['pixel-editor', '追踪管理'],
+    ['pixel-detail', '追踪管理'],
+  ])('shows grouped global entries with the correct selection for %s', (page, selected) => {
     render(
       <Navigation
         user={{ id: 'user', username: 'admin', isAdmin: true } as any}
@@ -69,30 +208,28 @@ describe('website navigation dialog transitions', () => {
     const primary = screen.getByRole('navigation', { name: '业务导航' });
     const entries = within(primary).getAllByRole('link');
     expect(entries.map(entry => entry.textContent)).toEqual([
-      '工作台',
+      '数据总览',
       '网站管理',
-      '看板',
-      '分享链接',
-      '团队协作',
-      '链接',
-      '像素',
+      '数据看板',
+      '追踪管理',
+      '分享管理',
+      '团队管理',
     ]);
     expect(within(primary).queryAllByRole('button')).toHaveLength(0);
+    expect(within(primary).getByText('数据管理')).toBeInTheDocument();
+    expect(within(primary).getByText('协作管理')).toBeInTheDocument();
+    expect(primary.querySelectorAll('[data-navigation-group]')).toHaveLength(3);
     expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
     expect(within(primary).getByRole('link', { name: selected })).toHaveAttribute(
       'aria-current',
       'page',
     );
     for (const [label, href] of [
-      ['看板', '/boards'],
-      ['分享链接', '/liekan/sharing'],
-      ['链接', '/links'],
-      ['像素', '/pixels'],
+      ['数据看板', '/boards'],
+      ['分享管理', '/liekan/sharing'],
+      ['追踪管理', '/links'],
     ])
-      expect(within(primary).getByRole('link', { name: label })).toHaveAttribute(
-        'href',
-        href,
-      );
+      expect(within(primary).getByRole('link', { name: label })).toHaveAttribute('href', href);
   });
   it('runs logout once while a delayed request is pending', async () => {
     let complete: () => void;
@@ -137,10 +274,7 @@ describe('website navigation dialog transitions', () => {
       </>,
     );
     fireEvent.click(screen.getByRole('button', { name: /切换网站，当前/ }));
-    fireEvent.change(screen.getByRole('combobox', { name: '网站' }), {
-      target: { value: 'site-b' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: '切换网站' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择网站 网站 B' }));
     await screen.findByRole('dialog', { name: '当前修改尚未保存' });
     expect(document.body.style.overflow).toBe('hidden');
     mocks.pathname = '/websites/site-a/goals';
@@ -184,10 +318,7 @@ describe('website navigation dialog transitions', () => {
       </>,
     );
     fireEvent.click(screen.getByRole('button', { name: /切换网站，当前/ }));
-    fireEvent.change(screen.getByRole('combobox', { name: '网站' }), {
-      target: { value: 'site-b' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: '切换网站' }));
+    fireEvent.click(screen.getByRole('button', { name: '选择网站 网站 B' }));
     await screen.findByRole('dialog', { name: '当前修改尚未保存' });
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(mocks.push).not.toHaveBeenCalled();

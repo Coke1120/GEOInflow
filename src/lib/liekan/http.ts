@@ -23,9 +23,15 @@ export async function readBody(request: Request, maxBytes = 11 * 1024 * 1024) {
     throw new LiekanError('JSON 无效');
   }
 }
-export async function api(work: () => Promise<unknown>) {
+export async function api(
+  work: () => Promise<unknown>,
+  headers: () => Record<string, string> = () => ({}),
+) {
   try {
-    return Response.json(await work(), { headers: { 'Cache-Control': 'private, no-store' } });
+    const value = await work();
+    return Response.json(value, {
+      headers: { 'Cache-Control': 'private, no-store', ...headers() },
+    });
   } catch (error) {
     const status = error instanceof LiekanError ? error.status : 500;
     return Response.json(
@@ -36,7 +42,7 @@ export async function api(work: () => Promise<unknown>) {
           code: 'liekan-error',
         },
       },
-      { status },
+      { status, headers: {'Cache-Control':'private, no-store', ...([429,503].includes(status)?{'Retry-After':'60'}:{}) } },
     );
   }
 }

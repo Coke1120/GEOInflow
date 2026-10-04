@@ -1,0 +1,11 @@
+/* Official provider documentation checked on 2026-10-04. Credentials are never part of a preset. */
+window.LiekanModelPresets = [
+  {id:'openai',provider:'OpenAI',mark:'OA',name:'GPT-5.4 Mini',model:'gpt-5.4-mini',base:'https://api.openai.com/v1',protocol:'openai',region:'全球',note:'使用 OpenAI 平台的 API Key。',docs:'https://developers.openai.com/api/docs/models/gpt-5.4-mini'},
+  {id:'claude',provider:'Anthropic',mark:'CL',name:'Claude Sonnet 5.5',model:'claude-sonnet-5-5',base:'https://api.anthropic.com/v1',protocol:'anthropic',region:'官方服务',note:'使用 Claude API Key；自动采用 Messages 协议与版本头。多空间 Key 另需 workspace ID。',docs:'https://platform.claude.com/docs/en/api/overview',modelDocs:'https://platform.claude.com/docs/en/models/overview'},
+  {id:'gemini',provider:'Google',mark:'GE',name:'Gemini 3.8 Flash',model:'gemini-3.8-flash',base:'https://generativelanguage.googleapis.com/v1beta/openai',protocol:'openai',region:'全球',note:'使用 Google AI Studio 的 Gemini API Key，采用官方 OpenAI 兼容入口。',docs:'https://ai.google.dev/gemini-api/docs/openai'},
+  {id:'deepseek',provider:'DeepSeek',mark:'DS',name:'DeepSeek Flash',model:'deepseek-flash',base:'https://api.deepseek.com',protocol:'openai',region:'官方服务',note:'使用 DeepSeek 开放平台 API Key，自动填写官方 Chat Completions 地址。',docs:'https://api-docs.deepseek.com/'},
+  {id:'qwen',provider:'阿里云百炼',mark:'QW',name:'千问 Plus',model:'qwen-plus',base:'https://dashscope.aliyuncs.com/compatible-mode/v1',protocol:'openai',region:'北京',note:'默认北京地域，Key 须来自同一地域。现有域名仍可用；专属域名与其他地域可在高级配置中修改。',docs:'https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope'},
+  {id:'kimi',provider:'Moonshot AI',mark:'KM',name:'Kimi K3',model:'kimi-k3',base:'https://api.moonshot.cn/v1',protocol:'openai',region:'中国站',note:'使用 Kimi API 平台创建的 API Key，默认中国站地址。',docs:'https://platform.kimi.com/docs/get-api-key'},
+  {id:'minimax',provider:'MiniMax',mark:'MM',name:'MiniMax M3',model:'MiniMax-M3',base:'https://api.minimax.io/v1',protocol:'openai',region:'国际站',note:'默认国际站按量付费 API。中国站或其他套餐须按控制台调整地址与 Key。',docs:'https://platform.minimax.io/docs/api-reference/text-openai-api'},
+  {id:'custom',provider:'自定义',mark:'＋',name:'自定义兼容模型',model:'',base:'',protocol:'openai',region:'自定义',note:'适用于自建网关或其他服务，需自行填写 API 地址、模型名称与 Key。',docs:''}
+];

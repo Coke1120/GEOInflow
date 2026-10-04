@@ -11,9 +11,9 @@
   },
   "scripts": {
     "dev": "dotenv next dev --turbo",
-    "build": "npm-run-all check:env build:db check:db build:tracker build:recorder build:geo build:openapi build:packages build:app",
+    "build": "npm-run-all check:env build:db check:db build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker build:app",
     "start": "next start",
-    "build:docker": "npm-run-all build:db build:tracker build:recorder build:geo build:openapi build:packages build:app",
+    "build:docker": "npm-run-all build:db build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker build:app",
     "start:docker": "npm-run-all check:db update:tracker start:server",
     "start:env": "node scripts/start-env.js",
     "start:server": "node server.js",
@@ -69,7 +69,12 @@
     "liekan:upstream:report": "node scripts/liekan-upstream.mjs report",
     "liekan:upstream:prepare": "node scripts/liekan-upstream.mjs prepare",
     "liekan:verify": "node scripts/liekan-verify.mjs",
-    "liekan:seed-demo": "tsx scripts/liekan-seed-demo.ts"
+    "liekan:seed-demo": "tsx scripts/liekan-seed-demo.ts",
+    "liekan:queue-bootstrap": "node scripts/liekan-queue-bootstrap.mjs",
+    "liekan:build-worker": "node scripts/liekan-build-worker.mjs",
+    "liekan:build-agent": "node scripts/liekan-build-agent.mjs",
+    "liekan:worker": "node dist/liekan-worker.mjs",
+    "test:log-ingestion": "vitest run -c vitest.log-ingestion.config.ts --maxWorkers=2"
   },
   "cacheDirectories": [
     ".next/cache"
@@ -117,6 +122,8 @@
     "npm-run-all": "^4.1.5",
     "otplib": "^13.5.0",
     "papaparse": "^5.7.0",
+    "pg": "8.23.1",
+    "pg-boss": "12.36.0",
     "prisma": "^7.10.0",
     "prop-types": "^15.8.1",
     "punycode": "^2.3.1",

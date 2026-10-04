@@ -1,6 +1,11 @@
 'use client';
 import { useListState } from './listState';
 
+import {
+  freshnessStaleTime,
+  withClientFreshness,
+  shareWithFreshness,
+} from '@/lib/liekan/upstream/client-freshness';
 import { useQuery } from '@tanstack/react-query';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
@@ -34,6 +39,8 @@ import {
 } from '@/lib/liekan/contracts/workspace';
 import {
   featureRequest,
+  getFeatureWebsiteSummary,
+  mapFeatureRows,
   getAllFeatureRows,
   getFeaturePreferences,
 } from '@/lib/liekan/upstream/features-client';
@@ -51,6 +58,7 @@ import {
   Icon,
   LinkButton,
   Metrics,
+  StaticHeading,
   Notice,
   Panel,
   QueryState,
@@ -162,10 +170,8 @@ export function useWorkspaceEntities() {
         ['links', 'pixels', 'boards'].map(async kind => {
           const personal = await getAllFeatureRows<FeatureEntity>(`${prefix}/${kind}`, {}, signal);
           if (!allSources) return personal;
-          const teams = await Promise.all(
-            c.teams.map(team =>
-              getAllFeatureRows<FeatureEntity>(`/teams/${team.id}/${kind}`, {}, signal),
-            ),
+          const teams = await mapFeatureRows(c.teams, team =>
+            getAllFeatureRows<FeatureEntity>(`/teams/${team.id}/${kind}`, {}, signal),
           );
           return [
             ...new Map([...personal, ...teams.flat()].map(entity => [entity.id, entity])).values(),
@@ -276,6 +282,7 @@ function Teams({ admin = false }: { admin?: boolean }) {
     <>
       {!admin && (
         <Metrics
+          loading={q.isPending}
           items={[
             ['参与团队', myTeams.length, '当前账户'],
             [
@@ -1242,32 +1249,41 @@ export function ResourceAnalytics({
       variant,
       allowGoals,
     ],
-    queryFn: async ({ signal }) => {
-      const [stats, trend, aiTrend] = await Promise.all([
-        metrics ? get(`/websites/${id}/stats`, params, signal) : null,
-        get(`/websites/${id}/pageviews`, params, signal),
-        kind === 'website'
-          ? get(`/websites/${id}/pageviews`, { ...params, drill_channel: 'eq.AI 搜索引荐' }, signal)
-          : null,
-      ]);
-      const aiStats =
-        metrics && variant && kind === 'website'
-          ? await get(
-              `/websites/${id}/stats`,
-              { ...params, drill_channel: 'eq.AI 搜索引荐' },
-              signal,
-            )
-          : null;
-      let appointment: any = null;
-      if (metrics && variant && kind === 'website' && allowGoals) {
-        const goals = await allSharedRows(get, `/websites/${id}/goals`, signal);
-        const goal = goals.find((g: any) =>
-          /预约|appointment|book.*demo|demo.*book/i.test(g.name || ''),
-        );
-        if (goal) appointment = await get(`/websites/${id}/goals/${goal.id}/stats`, params, signal);
-      }
-      return { stats, trend, aiTrend, aiStats, appointment };
-    },
+    queryFn: ({ signal }) =>
+      withClientFreshness(signal, async () => {
+        const [stats, trend, aiTrend] = await Promise.all([
+          metrics ? get(`/websites/${id}/stats`, params, signal) : null,
+          get(`/websites/${id}/pageviews`, params, signal),
+          kind === 'website'
+            ? get(
+                `/websites/${id}/pageviews`,
+                { ...params, drill_channel: 'eq.AI 搜索引荐' },
+                signal,
+              )
+            : null,
+        ]);
+        const aiStats =
+          metrics && variant && kind === 'website'
+            ? await get(
+                `/websites/${id}/stats`,
+                { ...params, drill_channel: 'eq.AI 搜索引荐' },
+                signal,
+              )
+            : null;
+        let appointment: any = null;
+        if (metrics && variant && kind === 'website' && allowGoals) {
+          const goals = await allSharedRows(get, `/websites/${id}/goals`, signal);
+          const goal = goals.find((g: any) =>
+            /预约|appointment|book.*demo|demo.*book/i.test(g.name || ''),
+          );
+          if (goal)
+            appointment = await get(`/websites/${id}/goals/${goal.id}/stats`, params, signal);
+        }
+        return { stats, trend, aiTrend, aiStats, appointment };
+      }),
+    staleTime: query => freshnessStaleTime(query),
+    gcTime: 600000,
+    structuralSharing: shareWithFreshness,
     enabled: !!id,
     retry: false,
   });
@@ -1278,6 +1294,7 @@ export function ResourceAnalytics({
     <QueryState query={q}>
       {metrics && (
         <Metrics
+          loading={q.isPending}
           items={
             variant
               ? variant === 'board'
@@ -1752,6 +1769,7 @@ function NativeWidget({
       <QueryState query={q}>
         {component.type === 'Goal' ? (
           <Metrics
+            loading={q.isPending}
             items={[
               ['转化访客', readable(q.data?.num), '独立访客'],
               ['入组访客', readable(q.data?.total), '所选期间'],
@@ -1784,6 +1802,7 @@ function NativeWidget({
     return (
       <QueryState query={q}>
         <Metrics
+          loading={q.isPending}
           items={[
             ['事件次数', readable(q.data?.data?.events), '当前期间'],
             ['触发访客', readable(q.data?.data?.visitors), '独立访客'],
@@ -2264,26 +2283,24 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
     settings = q.data?.parameters?.liekan;
   const stats = useData(
     ['dashboard-stats', ids, settings?.showAI],
-    async signal =>
-      Promise.all(
-        ids.map(async id => {
-          const [value, aiStats] = await Promise.all([
-            c.api.get(`/websites/${id}/stats`, { ...c.range, ...c.filters }, signal),
+    async signal => {
+      const summaries = await getFeatureWebsiteSummary(ids, c.range, signal, c.api.get);
+      const failed = summaries.find(row => row.error);
+      if (failed) throw failed.error;
+      return Promise.all(
+        summaries.map(async value => {
+          const aiStats =
             settings?.showAI === false
               ? null
-              : c.api.get(
-                  `/websites/${id}/stats`,
+              : await c.api.get(
+                  `/websites/${value.id}/stats`,
                   { ...c.range, ...c.filters, drill_channel: 'eq.AI 搜索引荐' },
                   signal,
-                ),
-          ]);
-          return {
-            ...value,
-            id,
-            ai: nativeMetric(aiStats?.visitors),
-          };
+                );
+          return { ...value, ai: nativeMetric(aiStats?.visitors) };
         }),
-      ),
+      );
+    },
     !editing && !q.isPending && !q.error,
   );
   const sum = (key: string) =>
@@ -2313,6 +2330,7 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
         <>
           <QueryState query={stats}>
             <Metrics
+              loading={stats.isPending}
               items={[
                 [
                   '全部网站访客',
@@ -2330,7 +2348,7 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
             />
           </QueryState>
           <div className="row between">
-            <h2>固定的网站</h2>
+            <StaticHeading>固定的网站</StaticHeading>
             <LinkButton page="dashboard-edit">编辑工作台</LinkButton>
           </div>
           {ids.length ? (
@@ -2393,12 +2411,23 @@ export function ShareDrawer({
   const parameters = share?.parameters || {},
     permitted = entity ? canManageResource(c.user, entity, c.teams) : true;
   return (
-    <Drawer title="分享设置" onClose={() => !action.busy && onClose()}>
+    <Drawer
+      title={share ? '编辑分享链接' : '创建分享链接'}
+      subtitle="设置分享资源、统计页面范围与访问保护。"
+      variant="modal"
+      className="share-dialog"
+      onClose={() => !action.busy && onClose()}
+    >
       <QueryState query={entities}>
         <Form
           busy={action.busy}
           disabled={!permitted}
           submitLabel={share ? '保存分享链接' : '创建分享链接'}
+          cancel={
+            <Button disabled={action.busy} onClick={onClose}>
+              取消
+            </Button>
+          }
           onSubmit={async (values: any) => {
             const id = share?.entityId || entity?.id || values.entityId;
             if (!id) throw new Error('请选择分享资源');
@@ -2422,90 +2451,120 @@ export function ShareDrawer({
             onClose();
           }}
         >
-          <Field
-            label="分享名称"
-            name="name"
-            defaultValue={share?.name || entity?.name || ''}
-            required
-            maxLength={200}
-          />
-          <Select
-            label="分享类型"
-            value={kind}
-            onChange={e => setKind(e.target.value)}
-            disabled={!!share || !!entity}
-            options={Object.keys(shareTypes).map(key => [key, labels[key]])}
-          />
-          {!share && !entity && (
-            <Select
-              key={kind}
-              label="关联资源"
-              name="entityId"
-              required
-              options={[
-                ['', '请选择资源'],
-                ...(entities.data?.[kind] || [])
-                  .filter((resource: any) => canManageResource(c.user, resource, c.teams))
-                  .map((resource: any) => [resource.id, resource.name]),
-              ]}
-            />
-          )}
-          {(share || entity) && (
-            <Definition
-              items={[
-                [
-                  '关联资源',
-                  entity?.name ||
-                    entities.data?.[kind]?.find((resource: any) => resource.id === share?.entityId)
-                      ?.name ||
-                    share?.entityId,
-                ],
-              ]}
-            />
-          )}
-          <Check name="allowFilter" defaultChecked={parameters.allowFilter !== false}>
-            允许访客调整筛选
-          </Check>
-          <Select
-            label="主题"
-            name="theme"
-            defaultValue="light"
-            help="新界面当前支持浅色主题。保存后此分享使用浅色。"
-            options={[
-              { value: 'light', label: '浅色' },
-              { value: 'dark', label: '深色（暂不支持）', disabled: true },
-              { value: 'system', label: '跟随系统（暂不支持）', disabled: true },
-            ]}
-          />
-          <Field
-            label={parameters.hasPassword ? '修改分享密码（可选）' : '分享密码（可选）'}
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            help={
-              parameters.hasPassword
-                ? '留空保留当前密码。修改密码后，已验证的访客需要重新验证。'
-                : '设置后访客需要输入密码。'
-            }
-          />
-          {parameters.hasPassword && <Check name="removePassword">取消密码保护</Check>}
-          <h3>允许显示的统计页面</h3>
-          <div className="two">
-            {shareSections.map(([key, label]) => (
-              <Check
-                key={key}
-                name={key}
-                defaultChecked={
-                  typeof parameters[key] === 'boolean'
-                    ? parameters[key]
-                    : ['overview', 'events'].includes(key)
-                }
-              >
-                {label}
-              </Check>
-            ))}
+          <div className="share-settings-grid">
+            <div className="share-settings-column">
+              <section className="share-settings-section">
+                <div className="share-section-heading">
+                  <h3>基本信息</h3>
+                  <p className="muted">选择要分享的资源，方便访客识别。</p>
+                </div>
+                <Field
+                  label="分享名称"
+                  name="name"
+                  defaultValue={share?.name || entity?.name || ''}
+                  required
+                  maxLength={200}
+                />
+                <Select
+                  label="分享类型"
+                  value={kind}
+                  onChange={e => setKind(e.target.value)}
+                  disabled={!!share || !!entity}
+                  options={Object.keys(shareTypes).map(key => [key, labels[key]])}
+                />
+                {!share && !entity ? (
+                  <Select
+                    key={kind}
+                    label="关联资源"
+                    name="entityId"
+                    required
+                    options={[
+                      ['', '请选择资源'],
+                      ...(entities.data?.[kind] || [])
+                        .filter((resource: any) => canManageResource(c.user, resource, c.teams))
+                        .map((resource: any) => [resource.id, resource.name]),
+                    ]}
+                  />
+                ) : (
+                  <Field
+                    label="关联资源"
+                    readOnly
+                    value={
+                      entity?.name ||
+                      entities.data?.[kind]?.find(
+                        (resource: any) => resource.id === share?.entityId,
+                      )?.name ||
+                      share?.entityId ||
+                      ''
+                    }
+                  />
+                )}
+              </section>
+              <section className="share-settings-section">
+                <div className="share-section-heading">
+                  <h3>访问保护</h3>
+                  <p className="muted">按需设置密码，控制分享页面的访问。</p>
+                </div>
+                <Field
+                  label={parameters.hasPassword ? '修改分享密码（可选）' : '分享密码（可选）'}
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  help={
+                    parameters.hasPassword
+                      ? '留空保留当前密码。修改后访客需要重新验证。'
+                      : '设置后访客需要输入密码。'
+                  }
+                />
+                {parameters.hasPassword && <Check name="removePassword">取消密码保护</Check>}
+              </section>
+            </div>
+            <div className="share-settings-column">
+              <section className="share-settings-section">
+                <div className="share-section-heading">
+                  <h3>统计页面范围</h3>
+                  <p className="muted">访客只能查看已勾选的统计页面。</p>
+                </div>
+                <div className="share-page-options">
+                  {shareSections.map(([key, label]) => (
+                    <Check
+                      key={key}
+                      name={key}
+                      defaultChecked={
+                        typeof parameters[key] === 'boolean'
+                          ? parameters[key]
+                          : ['overview', 'events'].includes(key)
+                      }
+                    >
+                      {label}
+                    </Check>
+                  ))}
+                </div>
+              </section>
+              <section className="share-settings-section">
+                <div className="share-section-heading">
+                  <h3>浏览设置</h3>
+                </div>
+                <Switch
+                  name="allowFilter"
+                  label="允许访客调整筛选"
+                  help="访客可在分享范围内调整统计条件。"
+                  defaultChecked={parameters.allowFilter !== false}
+                />
+                <Select
+                  label="主题"
+                  name="theme"
+                  defaultValue="light"
+                  help="分享页面当前使用浅色主题。"
+                  options={[
+                    { value: 'light', label: '浅色' },
+                    { value: 'dark', label: '深色（暂不支持）', disabled: true },
+                    { value: 'system', label: '跟随系统（暂不支持）', disabled: true },
+                  ]}
+                />
+              </section>
+            </div>
           </div>
-          <Notice>公开访客可以查看允许的统计页面。</Notice>
         </Form>
       </QueryState>
     </Drawer>
@@ -2591,7 +2650,7 @@ function Sharing() {
         <QueryState query={entities}>
           <QueryState query={q}>
             <Table
-              columns={['名称', '资源类型', '页面范围', '筛选权限', '状态', '操作']}
+              columns={['名称', '资源类型', '页面范围', '筛选权限', '状态', '操作', '分享链接']}
               rows={rows.map((share: any) => [
                 <div key="share-name">
                   {share.name}
@@ -2643,6 +2702,23 @@ function Sharing() {
                     {share.parameters?.enabled === false ? '启用' : '停用'}
                   </Button>
                 </div>,
+                share.slug ? (
+                  <a
+                    key="share-visit"
+                    className="btn share-visit"
+                    href={`${process.env.basePath || ''}/share/${encodeURIComponent(share.slug)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`访问分享链接：${share.name}（新标签页）`}
+                  >
+                    访问分享链接
+                    <Icon name="external" />
+                  </a>
+                ) : (
+                  <span key="share-unavailable" className="muted">
+                    链接未生成
+                  </span>
+                ),
               ])}
               page={page}
               pages={Math.max(1, Math.ceil(filtered.length / 20))}

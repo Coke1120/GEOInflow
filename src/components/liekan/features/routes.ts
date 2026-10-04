@@ -6,6 +6,7 @@ import {
   navigationFor,
   needsWebsite,
   pageNavigation,
+  trackingSourcePage,
 } from '@/lib/liekan/contracts/navigation';
 
 export const featurePages = mapping.pages.map(page => ({
@@ -189,6 +190,9 @@ export function featureNavigationHref(
   } as FeatureRoute;
   const scoped = needsWebsite(target);
   const geo = page in geoPaths;
+  const trackingSource = trackingSourcePage(route);
+  const trackingSwitch =
+    trackingSource && ['links', 'pixels'].includes(page) && trackingSource !== page;
   const analysisTools = new Set(['filters', 'annotations', 'exports']);
   const journeySource =
     ['journeys', 'path-detail'].includes(route.page) ||
@@ -202,6 +206,7 @@ export function featureNavigationHref(
       ([key, value]) =>
         isTimeParameter(key, value) ||
         (key === 'returnTo' &&
+          !trackingSwitch &&
           !!(scoped ? safeReturnHref(query[key]) : safeListReturnHref(query[key]))) ||
         (scoped && !geo && websiteFilter.test(key)) ||
         (journeySource && journeyTarget && /^(type|steps|startStep|endStep)$/.test(key)) ||
@@ -226,7 +231,7 @@ export function featureNavigationHref(
   }
   if (geo && Object.keys(query).some(key => websiteFilter.test(key))) result.clearedFilters = '1';
   const returnTo = scoped ? safeReturnHref(query.returnTo) : safeListReturnHref(query.returnTo);
-  if (returnTo) {
+  if (returnTo && !trackingSwitch) {
     const targetUrl = new URL(returnTo, 'http://liekan.local');
     if (
       matchFeatureRoute(targetUrl.pathname, Object.fromEntries(targetUrl.searchParams))?.page ===
@@ -245,7 +250,7 @@ export function featureNavigationHref(
     'admin-websites',
     'admin-teams',
   ]);
-  if (lists.has(route.page) && route.page !== page) {
+  if (!trackingSwitch && lists.has(route.page) && route.page !== page) {
     const origin = featureHref(route.page, {
       ...(route.teamId ? { teamId: route.teamId } : {}),
       ...(route.id ? { id: route.id } : {}),

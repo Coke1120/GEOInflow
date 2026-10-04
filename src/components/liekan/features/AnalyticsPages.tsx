@@ -30,6 +30,7 @@ import {
   Icon,
   LinkButton,
   Metrics,
+  MatrixTable,
   Notice,
   Panel,
   QueryState,
@@ -82,7 +83,7 @@ const visitor = (id: string) => `访客 ${id?.replaceAll('-', '').slice(-6) || '
 function date(value: any, timezone: string) {
   return value ? formatInTimeZone(value, timezone, 'yyyy-MM-dd HH:mm:ss') : '—';
 }
-function canManage(c: ReturnType<typeof useFeature>) {
+export function canManage(c: ReturnType<typeof useFeature>) {
   return (
     c.user.isAdmin ||
     c.site?.userId === c.user.id ||
@@ -204,6 +205,7 @@ function Realtime() {
   return (
     <>
       <Metrics
+        loading={query.isPending}
         items={[
           ['当前活跃', totals ? n(totals.active) : null, '过去 5 分钟', 'blue'],
           ['页面访问', totals ? n(totals.views) : null, '过去 30 分钟'],
@@ -272,6 +274,7 @@ function Events() {
   return (
     <>
       <Metrics
+        loading={query.isPending}
         items={[
           ['事件触发次数', t ? n(t.total) : null, '当前期间'],
           ['事件种类', t ? n(t.types) : null, '按事件名称聚合'],
@@ -360,6 +363,7 @@ function EventDetail() {
         <LinkButton page="events">返回事件列表</LinkButton>
       </div>
       <Metrics
+        loading={query.isPending}
         items={[
           ['触发次数', t ? n(t.total) : null, '当前期间'],
           ['触发访客', t ? n(t.visitors) : null, '独立访客'],
@@ -557,6 +561,7 @@ function SessionDetail() {
       </div>
       {replays.error && <QueryState query={replays}>{null}</QueryState>}
       <Metrics
+        loading={query.isPending}
         items={[
           ['页面访问', t ? n(t.views) : null, '当前期间'],
           ['事件触发', t ? n(t.events) : null, '当前期间'],
@@ -1130,14 +1135,12 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
 function Retention() {
   const c = useFeature();
   const initial = formatInTimeZone(c.range.endAt, c.range.timezone, 'yyyy-MM');
+  const audience = c.filters.cohort
+    ? `cohort:${c.filters.cohort}`
+    : c.filters.segment
+      ? `segment:${c.filters.segment}`
+      : '';
   const [month, setMonth] = useState(initial),
-    [audience, setAudience] = useState(
-      c.filters.cohort
-        ? `cohort:${c.filters.cohort}`
-        : c.filters.segment
-          ? `segment:${c.filters.segment}`
-          : '',
-    ),
     [detail, setDetail] = useState<any>(null),
     [info, setInfo] = useState(false);
   const months = Array.from({ length: 12 }, (_, i) => {
@@ -1194,14 +1197,30 @@ function Retention() {
             value={audience}
             options={[
               ['', '全部访客'],
+              ...(audience && !(people.data || []).some(r => `${r.type}:${r.id}` === audience)
+                ? [
+                    {
+                      value: audience,
+                      label: `${type === 'cohort' ? '所选人群' : '所选分群'}（${people.isPending ? '正在读取' : people.error ? '读取失败' : '不可用'}）`,
+                      disabled: true,
+                    },
+                  ]
+                : []),
               ...(people.data || []).map(r => [`${r.type}:${r.id}`, r.name] as [string, string]),
             ]}
-            onChange={e => setAudience(e.target.value)}
+            onChange={e => {
+              const [type, id] = e.target.value.split(':');
+              c.updateQuery({
+                cohort: type === 'cohort' ? id : undefined,
+                segment: type === 'segment' ? id : undefined,
+              });
+            }}
           />
         </div>
         <Button onClick={() => setInfo(true)}>口径说明</Button>
       </div>
       <Metrics
+        loading={query.isPending}
         items={[
           [
             '入组访客',
@@ -1224,15 +1243,7 @@ function Retention() {
       >
         <QueryState query={query}>
           <div className="table-wrap">
-            <table className="heat-matrix">
-              <thead>
-                <tr>
-                  <th>入组日期 / 人数</th>
-                  {days.map(d => (
-                    <th key={d}>第 {d} 天</th>
-                  ))}
-                </tr>
-              </thead>
+            <MatrixTable headings={['入组日期 / 人数', ...days.map(d => `第 ${d} 天`)]}>
               <tbody>
                 {cohorts.map(cohort => {
                   const day = String(cohort.date).slice(0, 10);
@@ -1283,7 +1294,7 @@ function Retention() {
                   );
                 })}
               </tbody>
-            </table>
+            </MatrixTable>
           </div>
           {!cohorts.length && <Notice>当前月份与人群条件没有入组访客。</Notice>}
           <div className="table-footer">
@@ -1423,6 +1434,7 @@ function Journeys({ detail = false }: { detail?: boolean }) {
         </div>
         <QueryState query={query}>
           <Metrics
+            loading={query.isPending}
             items={[
               ['完成路径', row ? n(row.visitors) : '0', '独立访客'],
               [
@@ -1637,6 +1649,12 @@ function UTM() {
         onChange={setDimension}
       />
       <Metrics
+        loading={[
+          summary.isPending,
+          summary.isPending,
+          goals.isPending || (!!selected && goal.isPending),
+          false,
+        ]}
         items={[
           ['带 UTM 访问', summary.data ? n(summary.data.views) : null, '有至少一个 UTM 字段'],
           ['带 UTM 访客', summary.data ? n(summary.data.visitors) : null, '独立访客'],
@@ -1750,6 +1768,12 @@ function Attribution() {
         </Body>
       </Panel>
       <Metrics
+        loading={[
+          !!settings.step && query.isPending,
+          false,
+          !!settings.step && query.isPending,
+          !!settings.step && query.isPending,
+        ]}
         items={[
           ['归因转化', d ? n(total) : null, `目标：${settings.step || '待设置'}`],
           [
@@ -1976,6 +2000,7 @@ function Compare() {
       </div>
       <QueryState query={query}>
         <Metrics
+          loading={query.isPending}
           items={[
             [
               '访客',

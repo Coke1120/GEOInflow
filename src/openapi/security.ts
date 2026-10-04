@@ -1,6 +1,7 @@
 import type { ApiAuth } from '@/openapi/operation';
 
 export const securitySchemes = {
+  sourceToken:{type:'http' as const,scheme:'bearer',description:'Website-scoped collector or provider credential, issued during one-time pairing or OAuth finalization. Login and share tokens are not accepted.'},
   bearerAuth: {
     type: 'http' as const,
     scheme: 'bearer',
@@ -23,6 +24,7 @@ export const securitySchemes = {
 };
 
 export function getSecurityRequirements(auth: ApiAuth) {
+  if(auth==='source-token')return [{sourceToken:[]}];
   if (auth === 'none') {
     return [];
   }

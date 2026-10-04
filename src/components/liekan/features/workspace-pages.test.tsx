@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -53,7 +53,8 @@ vi.mock('./Chart', () => ({
     );
   },
 }));
-vi.mock('@/lib/liekan/upstream/features-client', () => ({
+vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/liekan/upstream/features-client')>()),
   featureRequest: mocks.request,
   getAllFeatureRows: mocks.all,
   getFeaturePreferences: mocks.preferences,
@@ -604,11 +605,172 @@ describe('workspace permissions and native board persistence', () => {
       ),
     );
   });
+  it('waits for the saved dashboard when website choices are already ready', async () => {
+    context = { ...context, sitesLoading: false, route: { page: 'dashboard-edit' } };
+    let complete: (dashboard: any) => void;
+    mocks.get.mockImplementation(
+      (path: string) =>
+        new Promise(resolve => {
+          if (path === '/dashboard') complete = resolve;
+        }),
+    );
+    mount(<WorkspacePages page="dashboard-edit" />);
+    await waitFor(() => expect(complete).toBeTypeOf('function'));
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保存工作台' })).not.toBeInTheDocument();
+    expect(mocks.post).not.toHaveBeenCalled();
+
+    const rows = structuredClone(nativeBoard.parameters.rows);
+    await act(async () => {
+      complete({
+        name: '已有工作台',
+        parameters: {
+          extension: 'retained',
+          rows,
+          liekan: { siteIds: [site.id], showAI: false, showCompare: true },
+        },
+      });
+    });
+    expect(await screen.findByRole('checkbox', { name: /产品网站/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: '保存工作台' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith(
+        '/dashboard',
+        expect.objectContaining({
+          parameters: expect.objectContaining({
+            extension: 'retained',
+            rows,
+            liekan: expect.objectContaining({ siteIds: [site.id], showAI: false }),
+          }),
+        }),
+      ),
+    );
+  });
   it('distinguishes absent analytics from a measured zero', () => {
     expect(nativeMetric(undefined)).toBeNull();
     expect(nativeMetric(null)).toBeNull();
     expect(nativeMetric(0)).toBe(0);
     expect(nativeMetric({ value: 0 })).toBe(0);
+  });
+});
+
+describe('share settings and public access from the list', () => {
+  const share = {
+    id: 'share-1',
+    entityId: site.id,
+    shareType: 1,
+    name: '客户分享',
+    slug: 'customer/share',
+    parameters: {
+      overview: true,
+      events: false,
+      utm: true,
+      goals: true,
+      funnels: true,
+      allowFilter: false,
+      hasPassword: true,
+      enabled: false,
+      extension: 'retained',
+    },
+  };
+  beforeEach(() => {
+    context.route = { page: 'sharing' };
+    mocks.all.mockImplementation(async (path: string) =>
+      path === `/websites/${site.id}/shares` ? [share] : [],
+    );
+  });
+
+  it('creates a share with the selected resource and submitted viewing permissions', async () => {
+    mount(<WorkspacePages page="sharing" />);
+    const trigger = await screen.findByRole('button', { name: '创建分享链接' });
+    await waitFor(() => expect(trigger).toBeEnabled());
+    await userEvent.click(trigger);
+    const dialog = screen.getByRole('dialog', { name: '创建分享链接' });
+    expect(dialog).toHaveAccessibleDescription('设置分享资源、统计页面范围与访问保护。');
+    await userEvent.type(within(dialog).getByLabelText(/分享名称/), '销售统计');
+    await userEvent.selectOptions(within(dialog).getByLabelText('关联资源'), site.id);
+    await userEvent.click(within(dialog).getByLabelText('总览'));
+    await userEvent.click(within(dialog).getByLabelText('UTM'));
+    await userEvent.click(within(dialog).getByLabelText('允许访客调整筛选'));
+    await userEvent.click(within(dialog).getByRole('button', { name: '创建分享链接' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(mocks.post).toHaveBeenCalledWith('/share', {
+      name: '销售统计',
+      entityId: site.id,
+      shareType: 1,
+      parameters: {
+        enabled: true,
+        allowFilter: false,
+        theme: 'light',
+        overview: false,
+        events: true,
+        utm: true,
+        goals: false,
+        funnels: false,
+      },
+    });
+  });
+
+  it('edits a share while preserving its slug, disabled state, password and extra parameters', async () => {
+    mount(<WorkspacePages page="sharing" />);
+    await userEvent.click(await screen.findByRole('button', { name: '编辑' }));
+    const dialog = screen.getByRole('dialog', { name: '编辑分享链接' });
+    expect(within(dialog).getByLabelText('关联资源')).toHaveValue(site.name);
+    expect(within(dialog).getByLabelText('分享类型')).toBeDisabled();
+    expect(within(dialog).getByLabelText(/修改分享密码/)).toHaveValue('');
+    const name = within(dialog).getByLabelText(/分享名称/);
+    await userEvent.clear(name);
+    await userEvent.type(name, '客户周报');
+    await userEvent.click(within(dialog).getByLabelText('事件'));
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存分享链接' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(mocks.post).toHaveBeenCalledWith('/share/id/share-1', {
+      name: '客户周报',
+      slug: share.slug,
+      parameters: { ...share.parameters, events: true, theme: 'light' },
+    });
+  });
+
+  it('keeps failed edits open and restores the trigger focus when cancelled', async () => {
+    mocks.post.mockRejectedValue(new Error('保存失败，请重试'));
+    mount(<WorkspacePages page="sharing" />);
+    const trigger = await screen.findByRole('button', { name: '编辑' });
+    await userEvent.click(trigger);
+    const dialog = screen.getByRole('dialog', { name: '编辑分享链接' });
+    await userEvent.click(within(dialog).getByRole('button', { name: '保存分享链接' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('保存失败，请重试');
+    await userEvent.click(within(dialog).getByRole('button', { name: '取消' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('traps keyboard focus in the dialog and closes on Escape without saving', async () => {
+    mount(<WorkspacePages page="sharing" />);
+    const trigger = await screen.findByRole('button', { name: '编辑' });
+    await userEvent.click(trigger);
+    const dialog = screen.getByRole('dialog', { name: '编辑分享链接' });
+    const close = within(dialog).getByRole('button', { name: '关闭弹层' });
+    expect(close).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(within(dialog).getByRole('button', { name: '取消' })).toHaveFocus();
+    await userEvent.tab();
+    expect(close).toHaveFocus();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+
+  it('opens the actual public share in a new tab even for a viewer without edit access', async () => {
+    context.user = { id: 'viewer', username: 'viewer', role: 'user' };
+    mount(<WorkspacePages page="sharing" />);
+    const link = await screen.findByRole('link', { name: /访问分享链接：客户分享/ });
+    expect(link).toHaveAttribute('href', '/share/customer%2Fshare');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(screen.getByRole('button', { name: '编辑' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '启用' })).toBeDisabled();
   });
 });
 

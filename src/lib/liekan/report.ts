@@ -1,3 +1,4 @@
+import { pageReportParts } from './contracts/page-report';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { reportQuery } from './contracts/query';
 import {
@@ -12,6 +13,7 @@ import {
   getHumanConversions,
   getHumanDays,
   getHumanFacts,
+  type HumanFact,
 } from './upstream/analytics';
 import { countryName, regionName } from './upstream/geography';
 import {
@@ -39,10 +41,13 @@ export async function buildReport(
   website: { id: string; name: string; domain: string },
   canManage: boolean,
   input: unknown,
+  pageOnly = false,
 ): Promise<LiekanReport> {
   const parsed = reportQuery.safeParse(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
   const p = parsed.data;
+  const parts = pageOnly ? pageReportParts[p.resource] : undefined;
+  const needed = (...resources: string[]) => !pageOnly || resources.includes(p.resource);
   if (
     p.endAt < p.startAt ||
     p.endAt - p.startAt > 1096 * 86400000 ||
@@ -74,15 +79,34 @@ export async function buildReport(
     plotHuman,
     plotLogs,
   ] = await Promise.all([
-    getHumanFacts(website.id, start, end, p.timezone),
-    getLogFacts(website.id, start, end, p.timezone, p.page, p.filter, p.search, p.cursor, p.seek),
+    getHumanFacts(website.id, start, end, p.timezone, parts?.human as readonly HumanFact[]),
+    getLogFacts(
+      website.id,
+      start,
+      end,
+      p.timezone,
+      p.page,
+      p.filter,
+      p.search,
+      p.cursor,
+      p.seek,
+      parts?.logs,
+    ),
     getSettings(website.id),
-    getLogToday(website.id, todayStart, new Date()),
-    getHumanConversions(website.id, todayStart, new Date(), p.timezone),
-    getContentImpact(website.id, start, end),
-    getMonthlyAiShare(website.id, end, p.timezone),
-    getHumanDays(website.id, plotStart, end, p.timezone, p.chartPeriod === '24h'),
-    getPlotLogs(website.id, plotStart, end, p.timezone, p.chartPeriod === '24h'),
+    needed('overview', 'logs')
+      ? getLogToday(website.id, todayStart, new Date())
+      : Promise.resolve({ requests: 0, accepted: 0, abnormal: 0 }),
+    needed('overview', 'conversions')
+      ? getHumanConversions(website.id, todayStart, new Date(), p.timezone)
+      : Promise.resolve(0),
+    needed('content') ? getContentImpact(website.id, start, end) : Promise.resolve([]),
+    needed('ai/overview') ? getMonthlyAiShare(website.id, end, p.timezone) : Promise.resolve([]),
+    needed('overview', 'human/overview')
+      ? getHumanDays(website.id, plotStart, end, p.timezone, p.chartPeriod === '24h')
+      : Promise.resolve([]),
+    needed('overview', 'human/overview')
+      ? getPlotLogs(website.id, plotStart, end, p.timezone, p.chartPeriod === '24h')
+      : Promise.resolve([]),
   ]);
   const h = stringifySafe(rawHuman),
     l = stringifySafe(rawLogs),
@@ -778,22 +802,24 @@ export async function buildReport(
     '',
     '已接入日志中状态码 ≥400 的请求',
   );
-  r.insights = [
-    `${new Date(p.startAt).toISOString().slice(0, 10)} 至 ${new Date(p.endAt).toISOString().slice(0, 10)}：${t.pageviews} 次人类浏览、${t.visits} 次访问。`,
-    l.latest
-      ? `已导入日志识别 ${l.summary.ai} 次 AI 请求；按 UA 分类，官方 IP 范围匹配结果见访问流。`
-      : '接入服务器日志后可计算 AI 抓取统计。',
-    catalog.size && l.latest
-      ? `目录 ${catalog.size} 个 URL，${blind.length} 个在所选范围没有 AI 抓取。`
-      : '接入日志与 sitemap、CSV 或 JSON 目录后可计算完整覆盖率。',
-    '结构化评分来自导入元数据；抓取完成率仍需正文传输证据。',
-  ];
-  if (h.funnelError) r.insights.push(h.funnelError);
-  r.tables.recoList = r.insights.map((detail, i) => ({
-    name: `观察 ${i + 1}`,
-    detail,
-    state: '规则生成',
-  }));
+  if (!parts || parts.insights) {
+    r.insights = [
+      `${new Date(p.startAt).toISOString().slice(0, 10)} 至 ${new Date(p.endAt).toISOString().slice(0, 10)}：${t.pageviews} 次人类浏览、${t.visits} 次访问。`,
+      l.latest
+        ? `已导入日志识别 ${l.summary.ai} 次 AI 请求；按 UA 分类，官方 IP 范围匹配结果见访问流。`
+        : '接入服务器日志后可计算 AI 抓取统计。',
+      catalog.size && l.latest
+        ? `目录 ${catalog.size} 个 URL，${blind.length} 个在所选范围没有 AI 抓取。`
+        : '接入日志与 sitemap、CSV 或 JSON 目录后可计算完整覆盖率。',
+      '结构化评分来自导入元数据；抓取完成率仍需正文传输证据。',
+    ];
+    if (h.funnelError) r.insights.push(h.funnelError);
+    r.tables.recoList = r.insights.map((detail, i) => ({
+      name: `观察 ${i + 1}`,
+      detail,
+      state: '规则生成',
+    }));
+  }
   for (const [id, data] of Object.entries(r.charts)) {
     if (['not_connected', 'unsupported'].includes(data.state ?? '')) {
       data.series = [];
@@ -802,6 +828,21 @@ export async function buildReport(
     if (id === 'd1' && !l.latest) data.series[1].values = [];
     if (id === 'c1' && !l.latest && data.series[1]) data.series[1].values = [];
   }
-  liekanReportSchema.parse(r);
+  if (parts) {
+    r.cards = r.cards.filter(card => (parts.cards as readonly string[]).includes(card.label));
+    r.charts = Object.fromEntries(
+      Object.entries(r.charts).filter(([id]) => (parts.charts as readonly string[]).includes(id)),
+    );
+    r.tables = Object.fromEntries(
+      Object.entries(r.tables).filter(([id]) => (parts.tables as readonly string[]).includes(id)),
+    );
+    if (p.resource !== 'logs') {
+      delete r.meta.totalLogs;
+      delete r.meta.page;
+      delete r.meta.pageSize;
+      delete r.meta.nextCursor;
+      delete r.meta.previousCursor;
+    }
+  } else liekanReportSchema.parse(r);
   return r;
 }

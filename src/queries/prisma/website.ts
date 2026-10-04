@@ -1,3 +1,4 @@
+import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
 import { z } from 'zod';
 import type { Prisma, Website } from '@/generated/prisma/client';
 import { ROLES } from '@/lib/constants';
@@ -196,12 +197,16 @@ export async function updateWebsite(
   websiteId: string,
   data: Prisma.WebsiteUpdateInput | Prisma.WebsiteUncheckedUpdateInput,
 ) {
-  return prisma.client.website.update({
-    where: {
-      id: websiteId,
-    },
-    data,
+  const result = await prisma.transaction(async tx=>{
+    const before=await tx.website.findUnique({where:{id:websiteId}});
+    const updated=await tx.website.update({where:{id:websiteId},data});
+    if(before && (before.domain!==updated.domain || before.userId!==updated.userId || before.teamId!==updated.teamId)) {
+      await (await import('@/lib/liekan/upstream/lifecycle')).stopWebsiteSources(tx,websiteId);
+    }
+    return updated;
   });
+  invalidateWebsiteAnalytics(websiteId);
+  return result;
 }
 
 export async function resetWebsite(websiteId: string, identity?: { userId: string }) {
@@ -230,6 +235,7 @@ export async function resetWebsite(websiteId: string, identity?: { userId: strin
       timeout: 30000,
     },
   ).then(async data => {
+    invalidateWebsiteAnalytics(websiteId);
     if (cloudMode) {
       await redis.client.set(`website:${websiteId}`, data);
     }
@@ -244,6 +250,7 @@ export async function deleteWebsite(websiteId: string) {
 
   return transaction(
     async tx => {
+      await (await import('@/lib/liekan/upstream/lifecycle')).stopWebsiteSources(tx,websiteId,true);
       await deleteWebsiteDependentData(tx, websiteId);
 
       await tx.report.deleteMany({
@@ -279,6 +286,7 @@ export async function deleteWebsite(websiteId: string) {
       timeout: 30000,
     },
   ).then(async data => {
+    invalidateWebsiteAnalytics(websiteId);
     if (cloudMode) {
       await redis.client.del(`website:${websiteId}`);
     }

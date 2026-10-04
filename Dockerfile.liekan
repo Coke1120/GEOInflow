@@ -26,7 +26,7 @@ ARG LIEKAN_VERSION=0.2.4
 ARG LIEKAN_UPSTREAM=ec0ff50388c264ed8ce46f00967e92f7e71476ae
 ARG LIEKAN_UI=139d21c5ccde96c433fa1da3db6fa4cdd71f5e7660a9c6297d79861c19b38385
 ARG LIEKAN_FEATURE_UI=e0d8650251be7eb48baef8aec902c3cd6952c162ee6a5f81add5eb9ea89d6835
-ARG LIEKAN_MIGRATION=5
+ARG LIEKAN_MIGRATION=9
 LABEL org.opencontainers.image.title="Liekan 猎看统计" \
       org.opencontainers.image.version=$LIEKAN_VERSION \
       org.opencontainers.image.licenses="MIT" \
@@ -48,6 +48,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/db/liekan ./db/liekan
 COPY --from=builder /app/config/liekan ./config/liekan
 COPY --from=builder /app/generated ./generated
+COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/src/lib/two-factor/crypto.ts ./checks/two-factor.ts
 COPY --from=builder /app/LICENSE /app/THIRD_PARTY_NOTICES.md ./

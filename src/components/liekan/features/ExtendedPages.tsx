@@ -117,6 +117,7 @@ function Performance() {
         />
       </div>
       <Metrics
+        loading={summary.isPending}
         className="five"
         items={['lcp', 'inp', 'cls', 'fcp', 'ttfb'].map(
           (m, i) =>
@@ -255,6 +256,7 @@ function Revenue() {
         />
       </div>
       <Metrics
+        loading={summary.isPending}
         items={[
           ['收入', totals ? money(totals.sum) : null, `${currency} · 所选币种`],
           ['付费事件', totals ? n(totals.count) : null, '收入事件触发次数'],
@@ -403,6 +405,11 @@ function Heatmaps() {
         />
       </div>
       <Metrics
+        loading={
+          mode === 'click'
+            ? [query.isPending, query.isPending, query.isPending, recorder.isPending]
+            : !!path && exactScroll.isPending
+        }
         items={
           mode === 'click'
             ? [

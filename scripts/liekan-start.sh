@@ -5,5 +5,6 @@ node scripts/liekan-schema-check.mjs --migrations-only --allow-pending
 node scripts/check-db.js
 node scripts/liekan-schema-check.mjs
 node scripts/liekan-migrate.mjs
+node scripts/liekan-queue-bootstrap.mjs
 node scripts/update-tracker.js
 exec node server.js

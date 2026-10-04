@@ -13,21 +13,23 @@ import {
 import { useFeatureDateRange, useNavigation } from '@/lib/liekan/upstream/client';
 import {
   featureApi,
+  featureSiteQuery,
   getAllFeatureRows,
   getFeaturePreferences,
   getFeatureSites,
   refreshFeatureIdentity,
+  invalidateFeatureUserQueries,
 } from '@/lib/liekan/upstream/features-client';
 import '@/styles/liekan/Features.module.css';
 import {
-  globalNavigation,
   hasDateControl,
   navigationFor,
   needsWebsite,
-  pageNavigation,
   resourceListPages,
-  websiteNavigation,
+  websiteAnalysisFamily,
 } from '@/lib/liekan/contracts/navigation';
+import { AnalysisTabs } from '../AnalysisTabs';
+import { DataLoading } from '../DataLoading';
 import { Navigation, useSidebarWidth } from '../Navigation';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
@@ -35,7 +37,8 @@ import { FeatureProvider } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
 import { featureHref, featureNavigationHref, featurePages, normalizeFeatureScope } from './routes';
-import { Button, Drawer, Field, Form, Icon, Notice, QueryState, Select } from './ui';
+import { SavedSegments } from './SavedSegments';
+import { Button, Drawer, Field, Form, Icon, Notice, QueryState } from './ui';
 import { WorkspacePages, workspacePages } from './WorkspacePages';
 
 export const coreFeaturePages = new Set([
@@ -184,6 +187,8 @@ export function FeatureApp({
     },
     enabled: !setup && needsSites,
     retry: false,
+    staleTime: 300000,
+    gcTime: 600000,
   });
   const sites = rowsOf<FeatureEntity>(sitesQuery.data);
   const teamsQuery = useQuery({
@@ -191,6 +196,8 @@ export function FeatureApp({
     queryFn: ({ signal }) => getAllFeatureRows<FeatureEntity>('/me/teams', {}, signal),
     enabled: !setup,
     retry: false,
+    staleTime: 300000,
+    gcTime: 600000,
   });
   const listedTeams: FeatureEntity[] = teamsQuery.data || [];
   const resolveTeam =
@@ -219,13 +226,15 @@ export function FeatureApp({
         : undefined;
   const siteId = websiteRequired ? route.websiteId || '' : '';
   const siteQuery = useQuery({
-    queryKey: ['liekan-feature', user.id, 'site', siteId],
-    queryFn: ({ signal }) => featureApi.get(`/websites/${siteId}`, {}, signal),
+    ...featureSiteQuery(user.id, siteId),
     enabled: !!siteId && !setup,
     retry: false,
   });
   const site = siteQuery.data || sites.find(s => s.id === siteId);
   const current = forceSetup ? { ...route, page: 'two-factor' } : route;
+  const websiteLayout = meta.scope === 'website';
+  const [segmentsOpen, setSegmentsOpen] = useState(false);
+  const [websiteContextTarget, setWebsiteContextTarget] = useState<HTMLDivElement>(null);
   const page = featurePages.find(p => p.id === current.page);
   const href = useCallback(
     (page: string, params: Record<string, any> = {}) =>
@@ -255,7 +264,7 @@ export function FeatureApp({
   const notify = useCallback((message: string) => setToast(message), []);
   const refresh = useCallback(async () => {
     await refreshFeatureIdentity();
-    await client.invalidateQueries({ queryKey: ['liekan-feature', user.id] });
+    await invalidateFeatureUserQueries(client, user.id);
   }, [client, user.id]);
   const filters = useMemo(
     () =>
@@ -270,6 +279,7 @@ export function FeatureApp({
   );
   useEffect(() => {
     setDateOpen(false);
+    setSegmentsOpen(false);
   }, [nav.pathname, route.websiteId, route.id]);
   useEffect(() => {
     if (!toast) return;
@@ -304,16 +314,22 @@ export function FeatureApp({
         </div>
       </FeatureProvider>
     );
+  const family = websiteAnalysisFamily(current);
   const currentTitle =
-    current.id && /-editor$/.test(current.page)
-      ? (page?.title || '').replace(/^创建/, '编辑')
-      : page?.title || '猎看统计';
-  const section = [...globalNavigation, ...websiteNavigation].find(
-    group => group.id === meta.section,
-  );
+    family && !meta.parent && current.page !== 'segments'
+      ? family.label
+      : current.id && /-editor$/.test(current.page)
+        ? (page?.title || '').replace(/^创建/, '编辑')
+        : page?.title || '猎看统计';
   const content =
     !setup && (teamState?.isPending || teamState?.error) ? (
-      <QueryState query={teamState}>{null}</QueryState>
+      teamState.isPending && ['websites', 'dashboard'].includes(current.page) ? (
+        <DataLoading loading label="正在读取数据">
+          <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
+        </DataLoading>
+      ) : (
+        <QueryState query={teamState}>{null}</QueryState>
+      )
     ) : !setup && websiteRequired && !siteId ? (
       <Notice>
         请选择需要查看的网站。
@@ -338,6 +354,14 @@ export function FeatureApp({
       </Notice>
     ) : !setup && websiteRequired && siteQuery.error ? (
       <QueryState query={siteQuery}>{null}</QueryState>
+    ) : !setup &&
+      needsSites &&
+      !websiteRequired &&
+      sitesQuery.isPending &&
+      ['websites', 'dashboard'].includes(current.page) ? (
+      <DataLoading loading label="正在读取数据">
+        <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
+      </DataLoading>
     ) : !setup && needsSites && !websiteRequired && (sitesQuery.isPending || sitesQuery.error) ? (
       <QueryState query={sitesQuery}>{null}</QueryState>
     ) : datePage && range.endAt - range.startAt > 1096 * 86400000 ? (
@@ -354,6 +378,11 @@ export function FeatureApp({
         <div data-liekan-features lang="zh-CN" className="identity-flow">
           <main className="content" id="main-content">
             <h1>{currentTitle}</h1>
+            <AnalysisTabs
+              route={current}
+              href={href}
+              onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
+            />
             {content}
           </main>
           {toast && (
@@ -368,6 +397,7 @@ export function FeatureApp({
     <FeatureProvider value={value}>
       <div
         data-liekan-features
+        data-website-layout={websiteLayout || undefined}
         lang="zh-CN"
         style={
           {
@@ -387,75 +417,14 @@ export function FeatureApp({
           width={width}
           onWidth={setWidth}
           href={href}
+          websiteContextTarget={websiteContextTarget}
         />
         <div className="shell-content">
           <header className="header">
+            {websiteLayout && <div className="website-context-bar" ref={setWebsiteContextTarget} />}
             <div className="header-inner">
               <div>
-                <nav className="breadcrumbs" aria-label="页面位置">
-                  {meta.scope === 'website' ? (
-                    <>
-                      <Link href={href('overview')}>网站</Link>
-                      <span>/</span>
-                      <span title={site?.name}>{site?.name || '选择网站'}</span>
-                      <span>/</span>
-                    </>
-                  ) : (
-                    <>
-                      <Link
-                        href={featureHref(
-                          meta.scope === 'admin'
-                            ? 'admin-users'
-                            : meta.scope === 'account'
-                              ? 'account'
-                              : 'dashboard',
-                        )}
-                      >
-                        {meta.scope === 'admin'
-                          ? '系统管理'
-                          : meta.scope === 'account'
-                            ? '个人账户'
-                            : '全局管理'}
-                      </Link>
-                      <span>/</span>
-                    </>
-                  )}
-                  {section && section.label !== currentTitle && (
-                    <>
-                      <Link href={href(section.page)}>{section.label}</Link>
-                      <span>/</span>
-                    </>
-                  )}
-                  {meta.parent && meta.parent !== section?.page && (
-                    <>
-                      <Link
-                        href={href(
-                          meta.parent,
-                          current.page === 'board-design' ? { id: current.id } : {},
-                        )}
-                      >
-                        {pageNavigation[meta.parent]?.title ||
-                          featurePages.find(page => page.id === meta.parent)?.title ||
-                          '返回列表'}
-                      </Link>
-                      <span>/</span>
-                    </>
-                  )}
-                  <span aria-current="page">{currentTitle}</span>
-                  {current.id && (
-                    <span className="muted" title={ownedEntity?.name || current.id}>
-                      · {ownedEntity?.name || current.id.slice(0, 8)}
-                    </span>
-                  )}
-                </nav>
                 <h1>{currentTitle}</h1>
-                <div className="subtitle">
-                  {site?.domain ? `${site.domain} · ` : ''}
-                  {ownedEntity && !websiteRequired
-                    ? `${ownedEntity.teamId ? teams.find(team => team.id === ownedEntity.teamId)?.name || '团队空间' : '个人空间'} · `
-                    : ''}
-                  {page?.summary}
-                </div>
               </div>
               <div className="header-actions">
                 {datePage && (
@@ -563,6 +532,11 @@ export function FeatureApp({
                   <Link href={href('exports')}>导出数据</Link>
                 </div>
               )}
+            <AnalysisTabs
+              route={current}
+              href={href}
+              onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
+            />
             {content}
           </main>
         </div>
@@ -571,6 +545,7 @@ export function FeatureApp({
             {toast}
           </div>
         )}
+        {segmentsOpen && <SavedSegments onClose={() => setSegmentsOpen(false)} />}
         {dateOpen && (
           <Drawer title="日期范围" onClose={() => setDateOpen(false)}>
             <Form

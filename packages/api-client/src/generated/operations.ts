@@ -963,6 +963,26 @@ export const operations = {
     queryParams: ['startAt', 'endAt', 'timezone', 'page'],
     hasBody: false,
   },
+  getLiekanPageReport: {
+    operationId: 'getLiekanPageReport',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/page-report',
+    pathParams: ['websiteId'],
+    queryParams: [
+      'resource',
+      'startAt',
+      'endAt',
+      'timezone',
+      'page',
+      'cursor',
+      'seek',
+      'filter',
+      'search',
+      'chartPeriod',
+      'refresh',
+    ],
+    hasBody: false,
+  },
   getLiekanReport: {
     operationId: 'getLiekanReport',
     method: 'get',
@@ -988,6 +1008,14 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/settings',
     pathParams: ['websiteId'],
     queryParams: [],
+    hasBody: false,
+  },
+  getLiekanWebsiteSummary: {
+    operationId: 'getLiekanWebsiteSummary',
+    method: 'get',
+    path: '/api/liekan/websites/summary',
+    pathParams: [],
+    queryParams: ['ids', 'startAt', 'endAt', 'timezone'],
     hasBody: false,
   },
   getLink: {
@@ -4024,6 +4052,17 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * get selected Liekan page statistics
+   * `GET /api/liekan/websites/{websiteId}/page-report`
+   */
+  getLiekanPageReport(
+    input: OperationInput<'getLiekanPageReport'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanPageReport'>> {
+    return this.execute('getLiekanPageReport', input, options);
+  }
+
+  /**
    * get Liekan report
    * `GET /api/liekan/websites/{websiteId}/report`
    */
@@ -4043,6 +4082,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getLiekanSettings'>> {
     return this.execute('getLiekanSettings', input, options);
+  }
+
+  /**
+   * Read bounded website summaries
+   * `GET /api/liekan/websites/summary`
+   */
+  getLiekanWebsiteSummary(
+    input: OperationInput<'getLiekanWebsiteSummary'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanWebsiteSummary'>> {
+    return this.execute('getLiekanWebsiteSummary', input, options);
   }
 
   /**

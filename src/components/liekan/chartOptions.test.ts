@@ -67,4 +67,34 @@ describe('the 22 supplied ECharts definitions', () => {
     expect(option.series).toHaveLength(1);
     expect(option.series[0].name).toBe('ActualBot');
   });
+  it('keeps the overview bot legend in one row with the five largest request counts', () => {
+    const chart = {
+      labels: ['Bot A', 'Bot B', 'Bot C', 'Bot D', 'Bot E', 'Bot F', 'Bot G', 'Bot H'],
+      series: [{ name: '请求量', values: [5, 70, 10, 40, 90, 20, 30, 60] }],
+    };
+    const original = structuredClone(chart);
+    const option = chartOptions('d2', chart);
+    expect(option.legend).toMatchObject({
+      type: 'scroll',
+      left: 16,
+      right: 16,
+      bottom: 4,
+      data: ['Bot E', 'Bot B', 'Bot H', 'Bot D', 'Bot G'],
+    });
+    expect(option.series[0].data.map(({ name, value }) => [name, value])).toEqual(
+      chart.labels.map((name, index) => [name, chart.series[0].values[index]]),
+    );
+    expect(option.series[0]).toMatchObject({ radius: ['50%', '72%'], center: ['50%', '44%'] });
+    expect(option.tooltip).toMatchObject({ trigger: 'item', formatter: '{b}<br>{c} 次（{d}%）' });
+    expect(chart).toEqual(original);
+  });
+  it('uses the available bot names and stable ordering for tied request counts', () => {
+    expect(chartOptions('d2', data).legend.data).toEqual(['B', 'A']);
+    expect(chartOptions('d2', { labels: [], series: [] }).legend.data).toEqual([]);
+    expect(
+      chartOptions('d2', { labels: ['A', 'B', 'C'], series: [{ name: '请求量', values: [1, 1] }] })
+        .legend.data,
+    ).toEqual(['A', 'B', 'C']);
+    expect(chartOptions('d3', data).legend.type).toBeUndefined();
+  });
 });

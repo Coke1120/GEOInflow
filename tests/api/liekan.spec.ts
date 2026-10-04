@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { createWebsite, deleteWebsite } from './helpers/entities';
+import { pageReportParts } from '../../src/lib/liekan/contracts/page-report';
 
 test.describe('Liekan evidence and website boundary', () => {
   test.describe.configure({ mode: 'serial' });
@@ -224,6 +225,20 @@ test.describe('Liekan evidence and website boundary', () => {
     expect(cleared.body.charts.pf2.rows.some(row => row.path === '/plain')).toBe(false);
     expect(cleared.body.tables.apBody.find(row => row.path === '/plain').freshness).toBeNull();
   });
+  test('keeps installation metadata readable and persists setup changes', async ({ admin }) => {
+    const path = `/api/liekan/websites/${id}/installation`;
+    const before = await admin.get(path);
+    expect(before.status).toBe(200);
+    expect(before.body.canManage).toBe(true);
+    expect(before.body.logs.total).toBeGreaterThan(0);
+    const saved = await admin.post(path, { action: 'select-method', method: 'manual' });
+    expect(saved.status).toBe(200);
+    expect(saved.body.progress).toMatchObject({ method: 'manual', lastStep: 'logs' });
+    const after = await admin.get(path);
+    expect(after.body.progress).toEqual(saved.body.progress);
+    expect(after.body.logs.total).toBe(before.body.logs.total);
+  });
+
   test('clears statistics on reset and removes owned evidence on UUID reuse', async ({ admin }) => {
     const path = `/api/liekan/websites/${id}`;
     expect((await admin.post(`/api/websites/${id}/reset`, {})).status).toBe(200);
@@ -235,5 +250,131 @@ test.describe('Liekan evidence and website boundary', () => {
     const fresh = await admin.get(`${path}/report`, { params: report() });
     expect(fresh.body.states.catalog).toBe('not_connected');
     expect(fresh.body.meta.latestImportAt).toBeNull();
+  });
+});
+
+test.describe('Liekan statistics cache', () => {
+  test('keeps every page consistent with the complete report and shares concurrent reads', async ({
+    admin,
+    seed,
+  }) => {
+    const path = `/api/liekan/websites/${seed.website.id}`;
+    const params = { ...seed.range, timezone: 'Asia/Shanghai' };
+    const full = await admin.get(`${path}/report`, { params: { ...params, resource: 'overview' } });
+    expect(full.status).toBe(200);
+    for (const [resource, parts] of Object.entries(pageReportParts)) {
+      const page = await admin.get(`${path}/page-report`, { params: { ...params, resource } });
+      expect(page.status, resource).toBe(200);
+      expect(page.body.cards).toEqual(
+        full.body.cards.filter(card => parts.cards.includes(card.label as never)),
+      );
+      for (const name of parts.charts)
+        expect(page.body.charts[name], `${resource}:${name}`).toEqual(full.body.charts[name]);
+      for (const name of parts.tables)
+        expect(page.body.tables[name], `${resource}:${name}`).toEqual(full.body.tables[name]);
+    }
+    const range = { ...params, startAt: params.startAt + 7, resource: 'overview' };
+    const concurrent = await Promise.all(
+      Array.from({ length: 10 }, () => admin.get(`${path}/page-report`, { params: range })),
+    );
+    expect(concurrent.every(row => row.status === 200)).toBe(true);
+    expect(concurrent.filter(row => row.headers['x-liekan-cache'] === 'miss')).toHaveLength(1);
+    expect(new Set(concurrent.map(row => row.body.meta.generatedAt)).size).toBe(1);
+    const warm = await admin.get(`${path}/page-report`, { params: range });
+    expect(warm.headers['x-liekan-cache']).toBe('hit');
+    expect(warm.body.meta.expiresAt).toBe(concurrent[0].body.meta.expiresAt);
+    const fresh = await admin.get(`${path}/page-report`, { params: { ...range, refresh: '1' } });
+    expect(fresh.headers['x-liekan-cache']).toBe('miss');
+    expect(fresh.body.meta.generatedAt).toBeGreaterThan(warm.body.meta.generatedAt);
+    const expanded = await admin.get(`/api/websites/${seed.website.id}/metrics/expanded`, {
+      params: { ...params, type: 'path' },
+    });
+    expect(expanded.status).toBe(200);
+    expect(expanded.body.length).toBeGreaterThan(0);
+    expect(Number(expanded.headers['x-liekan-expires-at'])).toBeGreaterThan(0);
+  });
+
+  test('invalidates writes and checks revoked access before returning cached statistics', async ({
+    admin,
+    user,
+    api,
+    share,
+    seed,
+  }) => {
+    const website = await createWebsite(user);
+    const path = `/api/liekan/websites/${website.id}`;
+    const params = {
+      startAt: Date.now() - 86400000,
+      endAt: Date.now() + 1000,
+      timezone: 'Asia/Shanghai',
+      resource: 'ai/pages',
+    };
+    try {
+      for (const client of [api, await share()]) {
+        expect((await client.get(`${path}/page-report`, { params })).status).toBe(401);
+        expect(
+          (
+            await client.get('/api/liekan/websites/summary', {
+              params: { ...params, ids: website.id },
+            })
+          ).status,
+        ).toBe(401);
+      }
+      expect((await user.get(`${path}/page-report`, { params })).body.states.catalog).toBe(
+        'not_connected',
+      );
+      expect((await user.get(`${path}/page-report`, { params })).headers['x-liekan-cache']).toBe(
+        'hit',
+      );
+      expect(
+        (
+          await user.post(`${path}/logs/import`, {
+            format: 'json',
+            records: [
+              {
+                time: new Date(params.endAt - 1000).toISOString(),
+                ip: '203.0.113.9',
+                method: 'GET',
+                path: '/seen',
+                status: 200,
+                userAgent: 'GPTBot/1.0',
+              },
+            ],
+          })
+        ).status,
+      ).toBe(200);
+      const imported = await user.get(`${path}/page-report`, { params });
+      expect(imported.headers['x-liekan-cache']).toBe('miss');
+      expect(imported.body.states.logs).toBe('available');
+      expect(
+        (
+          await user.put(`${path}/catalog`, {
+            format: 'json',
+            content: JSON.stringify([{ path: '/new-page' }]),
+          })
+        ).status,
+      ).toBe(200);
+      const updated = await user.get(`${path}/page-report`, { params });
+      expect(updated.headers['x-liekan-cache']).toBe('miss');
+      expect(updated.body.states.catalog).toBe('available');
+      expect(updated.body.tables.blindList).toContainEqual(
+        expect.objectContaining({ path: '/new-page' }),
+      );
+      const summary = await user.get('/api/liekan/websites/summary', {
+        params: { ...params, ids: website.id },
+      });
+      expect(summary.status).toBe(200);
+      expect(
+        (await admin.post(`/api/websites/${website.id}/transfer`, { userId: seed.admin.id })).status,
+      ).toBe(200);
+      expect((await user.get(`${path}/page-report`, { params })).status).toBe(403);
+      expect(
+        (await user.get('/api/liekan/websites/summary', { params: { ...params, ids: website.id } }))
+          .status,
+      ).toBe(403);
+      expect((await admin.get(`${path}/page-report`, { params })).status).toBe(200);
+    } finally {
+      await deleteWebsite(admin, website.id);
+    }
   });
 });

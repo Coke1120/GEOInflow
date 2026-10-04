@@ -133,13 +133,13 @@ describe('links and pixels use native resource and tracking contracts', () => {
       expect(within(owner).queryByRole('option', { name: '只读团队' })).not.toBeInTheDocument();
       await userEvent.selectOptions(owner, 'team-1');
       await userEvent.type(
-        screen.getByLabelText(kind === 'link' ? /链接名称/ : /像素名称/),
+        screen.getByLabelText(kind === 'link' ? /链接名称/ : /图片名称/),
         '增长资源',
       );
       if (kind === 'link')
         await userEvent.type(screen.getByLabelText(/目标 URL/), 'https://example.com/launch');
       await userEvent.click(
-        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素' }),
+        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存图片' }),
       );
       await waitFor(() =>
         expect(mocks.post).toHaveBeenCalledWith(
@@ -161,13 +161,13 @@ describe('links and pixels use native resource and tracking contracts', () => {
       expect(owner).toHaveValue('team-1');
       await userEvent.selectOptions(owner, '');
       await userEvent.type(
-        screen.getByLabelText(kind === 'link' ? /链接名称/ : /像素名称/),
+        screen.getByLabelText(kind === 'link' ? /链接名称/ : /图片名称/),
         '个人资源',
       );
       if (kind === 'link')
         await userEvent.type(screen.getByLabelText(/目标 URL/), 'https://example.com/personal');
       await userEvent.click(
-        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素' }),
+        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存图片' }),
       );
       await waitFor(() => expect(mocks.post).toHaveBeenCalled());
       expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('teamId');
@@ -194,8 +194,8 @@ describe('links and pixels use native resource and tracking contracts', () => {
     const owner = await screen.findByRole('combobox', { name: /所属空间/ });
     expect(owner).not.toBeDisabled();
     await userEvent.selectOptions(owner, '');
-    await userEvent.type(screen.getByLabelText(/像素名称/), '个人像素');
-    await userEvent.click(screen.getByRole('button', { name: '保存像素' }));
+    await userEvent.type(screen.getByLabelText(/图片名称/), '个人像素');
+    await userEvent.click(screen.getByRole('button', { name: '保存图片' }));
     await waitFor(() => expect(mocks.post).toHaveBeenCalled());
     expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('teamId');
   });
@@ -312,10 +312,10 @@ describe('links and pixels use native resource and tracking contracts', () => {
   });
   it('pixel creation carries its native slug and uses the configured tracking host', async () => {
     mount('pixel-editor');
-    await userEvent.type(await screen.findByLabelText(/像素名称/), '邮件简报');
-    const url = (screen.getByLabelText(/像素地址/) as HTMLInputElement).value;
+    await userEvent.type(await screen.findByLabelText(/图片名称/), '邮件简报');
+    const url = (screen.getByLabelText(/图片地址/) as HTMLInputElement).value;
     expect(url).toMatch(/^https:\/\/pixel\.example\/[a-f0-9]{12}$/);
-    await userEvent.click(screen.getByRole('button', { name: '保存像素' }));
+    await userEvent.click(screen.getByRole('button', { name: '保存图片' }));
     await waitFor(() =>
       expect(mocks.post).toHaveBeenCalledWith('/pixels', {
         name: '邮件简报',
@@ -344,7 +344,7 @@ describe('links and pixels use native resource and tracking contracts', () => {
         return original(path, params, signal);
       });
       mount(`${kind}-detail`);
-      await screen.findByRole('img', { name: kind === 'link' ? '链接访问趋势' : '像素请求趋势' });
+      await screen.findByRole('img', { name: kind === 'link' ? '链接访问趋势' : '图片请求趋势' });
       const calls = mocks.get.mock.calls.filter(
         call => call[0].startsWith(`/websites/${id}/`) && !call[0].endsWith('/daterange'),
       );

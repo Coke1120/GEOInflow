@@ -8,7 +8,7 @@
   "pnpm": "12.3.4",
   "prisma": "7.10.0",
   "upstreamMigration": "26_add_api_key",
-  "liekanMigration": 5,
+  "liekanMigration": 6,
   "uiManifestSha256": "139d21c5ccde96c433fa1da3db6fa4cdd71f5e7660a9c6297d79861c19b38385",
   "featureUiManifestSha256": "e0d8650251be7eb48baef8aec902c3cd6952c162ee6a5f81add5eb9ea89d6835"
 }
