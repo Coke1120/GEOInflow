@@ -1,0 +1,525 @@
+import { randomUUID } from 'node:crypto';
+import prisma, { getRawQueryClient } from '@/lib/prisma';
+import { type AiConversationPost, aiConversationPostSchema } from '../ai/contracts';
+import { loadAiConversation } from '../ai/conversations';
+import { AiError } from '../ai/error';
+import {
+  type AiFact,
+  type AiFactsContext,
+  normalizeAiRange,
+  sanitizeAiFactsContext,
+} from '../ai/facts-contracts';
+import { aiChangePercent, safeAiCount, sanitizeAiText } from '../ai/sanitize';
+import type { AiActor } from './ai-access';
+import { aiTransaction } from './ai-db';
+import { channelFilterColumn } from './filter-extension';
+import { withinQuerySnapshot } from './query-snapshot';
+import { humanTotals, query } from './server';
+
+type Row = Record<string, any>;
+const ai = "bot_type IN ('训练','搜索','用户触发')";
+const error = '(status IN (403,404) OR status BETWEEN 500 AND 599)';
+const period = 'CASE WHEN created_at >= $2::timestamptz THEN 0 ELSE 1 END';
+const logRange =
+  'FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $4::timestamptz AND $3::timestamptz';
+const browserCte = `WITH events AS (
+ SELECT e.*, CASE WHEN e.created_at >= $2::timestamptz THEN 0 ELSE 1 END AS period
+ FROM website_event e JOIN session s ON s.website_id=e.website_id AND s.session_id=e.session_id
+ WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $4::timestamptz AND $3::timestamptz AND e.event_type != 5
+), visits AS (
+ SELECT period,visit_id,session_id,count(*) FILTER(WHERE event_type NOT IN (2,5)) AS pv
+ FROM events GROUP BY 1,2,3 HAVING count(*) FILTER(WHERE event_type NOT IN (2,5)) > 0
+)`;
+function topMetadata(rows: Row[], length = rows.length) {
+  const total = rows.length ? safeAiCount(rows[0].total) : 0;
+  return { total, omitted: Math.max(0, total - length), truncated: total > length };
+}
+function checkSignal(signal: AbortSignal) {
+  if (signal.aborted) throw new AiError('cancelled', 'AI 请求已取消', 409);
+}
+/** One primary, read-only repeatable-read snapshot; every SQL statement uses its remaining shared budget. */
+export async function buildAiFactsContext(input: {
+  actor: AiActor;
+  conversationId: string;
+  input: AiConversationPost;
+  signal: AbortSignal;
+}): Promise<AiFactsContext> {
+  const parsed = aiConversationPostSchema.safeParse(input.input);
+  if (!parsed.success) throw new AiError('invalid_request', 'AI 请求参数无效');
+  normalizeAiRange(parsed.data, new Date());
+  checkSignal(input.signal);
+  const authorized = await aiTransaction(tx =>
+    loadAiConversation(tx, input.actor, input.conversationId, true),
+  );
+  if (process.env.CLICKHOUSE_URL) return unsupportedAiFactsContext(authorized, parsed.data);
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) throw new AiError('database_unavailable', '数据库尚未配置', 503);
+  const schema = new URL(databaseUrl).searchParams.get('schema') || 'public';
+  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema))
+    throw new AiError('database_unavailable', '数据库设置无效', 503);
+  const primary: any = getRawQueryClient(prisma.client, { write: true });
+  const started = Date.now(),
+    deadline = started + 5000;
+  const context = await primary.$transaction(
+    async (raw: any) => {
+      await raw.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+      await raw.$executeRawUnsafe('SET TRANSACTION READ ONLY');
+      const remaining = async () => {
+        checkSignal(input.signal);
+        const ms = deadline - Date.now();
+        if (ms <= 0) throw new AiError('facts_timeout', '读取统计事实超时，请缩小范围后重试', 503);
+        await raw.$executeRawUnsafe(`SET LOCAL statement_timeout TO '${ms}ms'`);
+      };
+      const executor = {
+        aiPrivate: true,
+        $executeRawUnsafe: async (sql: string, ...params: unknown[]) => {
+          await remaining();
+          return raw.$executeRawUnsafe(`/* liekan_ai */ ${sql}`, ...params);
+        },
+        $queryRawUnsafe: async (sql: string, ...params: unknown[]) => {
+          await remaining();
+          const rows = await raw.$queryRawUnsafe(`/* liekan_ai */ ${sql}`, ...params);
+          checkSignal(input.signal);
+          return rows;
+        },
+      };
+      // A shared preprocessing lane keeps three admitted runs from competing with statistics browsing.
+      // Waiting consumes the same five-second deadline as the subsequent snapshot queries.
+      await executor.$queryRawUnsafe('SELECT true AS acquired FROM pg_advisory_xact_lock(12800073)');
+      await executor.$executeRawUnsafe('SET LOCAL max_parallel_workers_per_gather=0');
+      return withinQuerySnapshot(executor, async () => {
+        const [live] = await query<Row>(
+          `SELECT w.website_id AS id,w.name,w.domain,w.user_id AS owner,w.team_id AS team,s.epoch
+        FROM website w JOIN liekan_ai_website_state s ON s.website_id=w.website_id
+        JOIN liekan_ai_conversation c ON c.website_id=w.website_id AND c.id=$2::uuid AND c.creator_id=$3::uuid AND c.expires_at>now()
+        JOIN "user" actor ON actor.user_id=$3::uuid AND actor.deleted_at IS NULL
+        LEFT JOIN "user" owner ON owner.user_id=w.user_id AND owner.deleted_at IS NULL
+        LEFT JOIN team t ON t.team_id=w.team_id AND t.deleted_at IS NULL
+        LEFT JOIN team_user member ON member.team_id=w.team_id AND member.user_id=$3::uuid
+        WHERE w.website_id=$1::uuid AND w.deleted_at IS NULL AND c.website_epoch=s.epoch
+        AND c.owner_user_id IS NOT DISTINCT FROM w.user_id AND c.team_id IS NOT DISTINCT FROM w.team_id
+        AND s.owner_user_id IS NOT DISTINCT FROM w.user_id AND s.team_id IS NOT DISTINCT FROM w.team_id
+        AND ((w.user_id IS NOT NULL AND owner.user_id IS NOT NULL AND (w.user_id=$3::uuid OR actor.role='admin')) OR
+          (w.team_id IS NOT NULL AND t.team_id IS NOT NULL AND (member.user_id IS NOT NULL OR actor.role='admin')))
+        AND actor.role != 'view-only' AND (member.role IS NULL OR member.role != 'team-view-only')`,
+          authorized.site.id,
+          input.conversationId,
+          input.actor.id,
+        );
+        if (
+          !live ||
+          live.epoch !== authorized.row.website_epoch ||
+          live.owner !== authorized.site.ownerUserId ||
+          live.team !== authorized.site.teamId
+        )
+          throw new AiError('resource_unavailable', '网站归属或数据已更新，请新建对话', 404);
+        const generatedAt = new Date();
+        const range = normalizeAiRange(parsed.data, generatedAt);
+        const start = new Date(range.currentRange.startAt),
+          end = new Date(range.currentRange.endAt),
+          previousStart = new Date(range.previousRange.startAt),
+          previousEnd = new Date(range.previousRange.endAt);
+        const args = [live.id, start, end, previousStart];
+        const q = (sql: string) => query<Row>(sql, ...args.slice(0, sql.includes('$4') ? 4 : 3));
+        // Sequential execution keeps each remaining statement_timeout tied to the statement that uses it.
+        const current = await humanTotals(live.id, start, end);
+        const previous = await humanTotals(live.id, previousStart, previousEnd);
+        const [sources] = await query<Row>(
+          `SELECT EXISTS(SELECT 1 FROM liekan_import WHERE website_id=$1::uuid) AS connected,
+        EXISTS(SELECT 1 FROM website_event WHERE website_id=$1::uuid AND event_type NOT IN(2,5)) AS browser,
+        (SELECT count(*) FROM liekan_catalog WHERE website_id=$1::uuid) AS catalog,
+        (SELECT count(*) FROM report WHERE website_id=$1::uuid AND type='goal') AS goals,
+        (SELECT count(*) FROM report WHERE website_id=$1::uuid AND type='goal' AND NOT COALESCE(
+          (parameters->>'type' IN ('path','event') AND jsonb_typeof(parameters->'value')='string' AND length(parameters->>'value')>0 AND NOT(parameters ? 'steps')),false)) AS invalid`,
+          live.id,
+        );
+        const classifiedLogs = await q(`WITH bins AS MATERIALIZED (
+          SELECT ${period} AS period,bot AS name,vendor,bot_type,
+            CASE WHEN verification IN ('verified_range','range_mismatch') THEN verification ELSE 'unverified' END AS verification,
+            status,count(*) AS n ${logRange} GROUP BY 1,2,3,4,5,6
+        ), summary AS (
+          SELECT 'summary' AS kind,period,NULL::text AS name,NULL::text AS vendor,NULL::text AS class,NULL::text AS verification,
+            sum(n)::bigint AS requests,NULL::bigint AS previous,
+            coalesce(sum(n) FILTER(WHERE ${ai}),0)::bigint AS ai,
+            coalesce(sum(n) FILTER(WHERE status=403),0)::bigint AS e403,
+            coalesce(sum(n) FILTER(WHERE status=404),0)::bigint AS e404,
+            coalesce(sum(n) FILTER(WHERE status BETWEEN 500 AND 599),0)::bigint AS e5xx,NULL::bigint AS total
+          FROM bins GROUP BY period
+        ), bot_groups AS (
+          SELECT name,vendor,bot_type AS class,verification,
+            coalesce(sum(n) FILTER(WHERE period=0),0)::bigint AS requests,
+            coalesce(sum(n) FILTER(WHERE period=1),0)::bigint AS previous
+          FROM bins WHERE ${ai} GROUP BY 1,2,3,4
+        ), top_bots AS (
+          SELECT 'bot' AS kind,NULL::integer AS period,name,vendor,class,verification,requests,previous,
+            NULL::bigint AS ai,NULL::bigint AS e403,NULL::bigint AS e404,NULL::bigint AS e5xx,count(*) OVER() AS total
+          FROM bot_groups ORDER BY requests DESC,previous DESC,name,vendor,class,verification LIMIT 20
+        ) SELECT * FROM summary UNION ALL SELECT * FROM top_bots`);
+        const logs = classifiedLogs.filter(row => row.kind === 'summary');
+        const bots = classifiedLogs.filter(row => row.kind === 'bot');
+        const errorPaths = await q(`SELECT split_part(split_part(path,'?',1),'#',1) AS path,
+        CASE WHEN status=403 THEN '403' WHEN status=404 THEN '404' ELSE '5xx' END AS "statusGroup",count(*) AS requests,count(*) OVER() AS total
+        FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND ${error}
+        GROUP BY 1,2 ORDER BY requests DESC,path,"statusGroup" LIMIT 20`);
+        const samples = await q(
+          `SELECT created_at AS time,path,status,bot FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND ${error} ORDER BY created_at DESC,id DESC LIMIT 20`,
+        );
+        const referrals = await q(
+          browserCte +
+            `, entry_visits AS (
+        SELECT v.*,e.utm_source,e.utm_medium,e.referrer_domain FROM visits v LEFT JOIN LATERAL (
+          SELECT utm_source,utm_medium,referrer_domain FROM website_event e WHERE e.website_id=$1::uuid AND e.visit_id=v.visit_id AND e.session_id=v.session_id
+            AND e.created_at <= CASE WHEN v.period=0 THEN $3::timestamptz ELSE $2::timestamptz-interval '1 millisecond' END AND e.event_type NOT IN(2,5)
+          ORDER BY e.created_at,e.event_id LIMIT 1) e ON true
+        ) SELECT period,count(*) AS visits,coalesce(sum(pv),0)::bigint AS pv FROM entry_visits e WHERE ${channelFilterColumn('e.')}='AI 搜索引荐' GROUP BY 1`,
+        );
+        const pages = await q(`WITH humans AS (
+          SELECT split_part(split_part(url_path,'?',1),'#',1) AS path,
+            count(*) FILTER(WHERE created_at >= $2::timestamptz) AS pv,
+            count(*) FILTER(WHERE created_at < $2::timestamptz) AS "previousPv"
+          FROM website_event WHERE website_id=$1::uuid AND created_at BETWEEN $4::timestamptz AND $3::timestamptz AND event_type NOT IN(2,5) GROUP BY 1
+        ), bots AS (
+          SELECT split_part(split_part(path,'?',1),'#',1) AS path,
+            count(*) FILTER(WHERE created_at >= $2::timestamptz) AS ai,
+            count(*) FILTER(WHERE created_at < $2::timestamptz) AS "previousAi"
+          FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $4::timestamptz AND $3::timestamptz AND ${ai} GROUP BY 1
+        ) SELECT coalesce(h.path,b.path) AS path,coalesce(h.pv,0) AS pv,coalesce(h."previousPv",0) AS "previousPv",
+          coalesce(b.ai,0) AS ai,coalesce(b."previousAi",0) AS "previousAi",count(*) OVER() AS total
+        FROM humans h FULL JOIN bots b USING(path)
+        ORDER BY coalesce(h.pv,0)+coalesce(b.ai,0) DESC,coalesce(h."previousPv",0)+coalesce(b."previousAi",0) DESC,path LIMIT 20`);
+        const goals = await q(
+          browserCte +
+            `, definitions AS (
+        SELECT report_id,name,parameters FROM report WHERE website_id=$1::uuid AND type='goal' AND parameters->>'type' IN('path','event')
+        AND jsonb_typeof(parameters->'value')='string' AND length(parameters->>'value')>0 AND NOT(parameters ? 'steps')
+      ), matches AS (
+        SELECT d.report_id,e.period,e.event_id,e.visit_id,e.session_id FROM definitions d JOIN events e ON
+          ((d.parameters->>'type'='path' AND e.event_type=1 AND CASE WHEN left(d.parameters->>'value',1)='*' OR right(d.parameters->>'value',1)='*'
+            THEN e.url_path LIKE regexp_replace(regexp_replace(d.parameters->>'value','^[*]','%'),'[*]$','%') ELSE e.url_path=d.parameters->>'value' END) OR
+          (d.parameters->>'type'='event' AND e.event_type=2 AND CASE WHEN left(d.parameters->>'value',1)='*' OR right(d.parameters->>'value',1)='*'
+            THEN e.event_name LIKE regexp_replace(regexp_replace(d.parameters->>'value','^[*]','%'),'[*]$','%') ELSE e.event_name=d.parameters->>'value' END))
+      ) SELECT d.name,d.parameters->>'type' AS type,
+        count(distinct m.event_id) FILTER(WHERE m.period=0) AS count,count(distinct m.event_id) FILTER(WHERE m.period=1) AS previous,
+        count(distinct (m.visit_id,m.session_id)) FILTER(WHERE m.period=0 AND v.visit_id IS NOT NULL) AS converted,
+        count(distinct (m.visit_id,m.session_id)) FILTER(WHERE m.period=1 AND v.visit_id IS NOT NULL) AS "previousConverted",count(*) OVER() AS total
+        FROM definitions d LEFT JOIN matches m ON m.report_id=d.report_id LEFT JOIN visits v ON v.visit_id=m.visit_id AND v.session_id=m.session_id AND v.period=m.period
+        GROUP BY d.report_id,d.name,d.parameters ORDER BY count DESC,d.report_id LIMIT 20`,
+        );
+        if (Date.now() > deadline)
+          throw new AiError('facts_timeout', '读取统计事实超时，请缩小范围后重试', 503);
+        const emptyLog = { requests: 0n, ai: 0n, e403: 0n, e404: 0n, e5xx: 0n };
+        const logRow = (n: number) => {
+          const row = logs.find(row => row.period === n) ?? emptyLog;
+          return {
+            requests: safeAiCount(row.requests),
+            aiRequests: safeAiCount(row.ai),
+            errors403: safeAiCount(row.e403),
+            errors404: safeAiCount(row.e404),
+            errors5xx: safeAiCount(row.e5xx),
+          };
+        };
+        const logCurrent = sources.connected ? logRow(0) : null,
+          logPrevious = sources.connected ? logRow(1) : null;
+        const humanState = !sources.browser
+          ? 'not_connected'
+          : current.visits
+            ? 'available'
+            : 'empty';
+        const logState = !sources.connected
+          ? 'not_connected'
+          : logCurrent?.requests
+            ? 'available'
+            : 'empty';
+        const sourceStates = {
+          human: humanState,
+          logs: logState,
+          catalog: safeAiCount(sources.catalog) ? 'available' : 'not_connected',
+          goals: !safeAiCount(sources.goals)
+            ? 'not_connected'
+            : safeAiCount(sources.invalid) === safeAiCount(sources.goals)
+              ? 'unsupported'
+              : goals.some(row => safeAiCount(row.count) > 0)
+                ? 'available'
+                : 'empty',
+          aiReferrals: !sources.browser
+            ? 'not_connected'
+            : referrals.some(row => row.period === 0 && safeAiCount(row.visits) > 0)
+              ? 'available'
+              : 'empty',
+        } as AiFactsContext['sourceStates'];
+        const refRow = (n: number) =>
+          referrals.find(row => row.period === n) ?? { visits: 0n, pv: 0n };
+        const rc = refRow(0),
+          rp = refRow(1);
+        const errorCounts = (row: ReturnType<typeof logRow> | null) =>
+          row
+            ? {
+                requests: safeAiCount(row.errors403 + row.errors404 + row.errors5xx),
+                errors403: row.errors403,
+                errors404: row.errors404,
+                errors5xx: row.errors5xx,
+              }
+            : null;
+        const currentErrors = errorCounts(logCurrent),
+          previousErrors = errorCounts(logPrevious);
+        const totalErrors = currentErrors?.requests ?? 0;
+        const facts: AiFact[] = [
+          {
+            id: 'summary',
+            label: '网站统计概况',
+            state: humanState,
+            data: {
+              current: sources.browser
+                ? {
+                    pageviews: current.pageviews,
+                    visitors: current.visitors,
+                    visits: current.visits,
+                  }
+                : null,
+              previous: sources.browser
+                ? {
+                    pageviews: previous.pageviews,
+                    visitors: previous.visitors,
+                    visits: previous.visits,
+                  }
+                : null,
+              changePercent: {
+                pageviews: aiChangePercent(current.pageviews, previous.pageviews),
+                visitors: aiChangePercent(current.visitors, previous.visitors),
+                visits: aiChangePercent(current.visits, previous.visits),
+              },
+              logs: logCurrent,
+              previousLogs: logPrevious,
+              scope: 'human browser events and imported server logs',
+            },
+          },
+          {
+            id: 'bots',
+            label: 'AI 爬虫分类与变化',
+            state: logState,
+            data: {
+              ...topMetadata(bots),
+              requests: logCurrent?.aiRequests ?? null,
+              previousRequests: logPrevious?.aiRequests ?? null,
+              changePercent:
+                logCurrent && logPrevious
+                  ? aiChangePercent(logCurrent.aiRequests, logPrevious.aiRequests)
+                  : null,
+              rows: bots.map(row => ({
+                name: sanitizeAiText(row.name),
+                vendor: sanitizeAiText(row.vendor),
+                class: row.class,
+                verification: row.verification,
+                requests: safeAiCount(row.requests),
+                previousRequests: safeAiCount(row.previous),
+                changePercent: aiChangePercent(
+                  safeAiCount(row.requests),
+                  safeAiCount(row.previous),
+                ),
+              })),
+              scope: 'AI classes: 训练, 搜索, 用户触发; UA classification with verification states',
+            },
+          },
+          {
+            id: 'log-errors',
+            label: '日志 403、404 与服务端错误',
+            state: logState,
+            data: {
+              ...topMetadata(errorPaths),
+              requests: currentErrors?.requests ?? null,
+              previousRequests: previousErrors?.requests ?? null,
+              current: currentErrors,
+              previous: previousErrors,
+              changePercent:
+                currentErrors && previousErrors
+                  ? aiChangePercent(currentErrors.requests, previousErrors.requests)
+                  : null,
+              paths: errorPaths.map(row => ({
+                path: row.path,
+                statusGroup: row.statusGroup,
+                requests: safeAiCount(row.requests),
+              })),
+              samples: samples.map(row => ({
+                time: new Date(row.time).toISOString(),
+                path: row.path,
+                status: row.status,
+                bot: sanitizeAiText(row.bot),
+              })),
+              sampleTotal: totalErrors,
+              samplesOmitted: Math.max(0, totalErrors - samples.length),
+              samplesTruncated: totalErrors > samples.length,
+              sampleMethod: 'latest_by_created_at_desc_id_desc',
+              scope:
+                'imported logs: HTTP 403, 404 and 500–599; current and previous aggregate counts; paths and latest samples from current period; coverage unverified',
+            },
+          },
+          {
+            id: 'ai-referrals',
+            label: 'AI 来源引荐',
+            state: sourceStates.aiReferrals,
+            data: {
+              visits: sources.browser ? safeAiCount(rc.visits) : null,
+              pageviews: sources.browser ? safeAiCount(rc.pv) : null,
+              previousVisits: sources.browser ? safeAiCount(rp.visits) : null,
+              previousPageviews: sources.browser ? safeAiCount(rp.pv) : null,
+              changePercent: aiChangePercent(safeAiCount(rc.visits), safeAiCount(rp.visits)),
+              scope: 'first browser pageview attribution using the approved AI channel catalog',
+            },
+          },
+          {
+            id: 'pages',
+            label: '主要页面',
+            state:
+              current.pageviews || (logCurrent?.aiRequests ?? 0)
+                ? 'available'
+                : !sources.browser && !sources.connected
+                  ? 'not_connected'
+                  : 'empty',
+            data: {
+              ...topMetadata(pages),
+              rows: pages.map(row => ({
+                path: row.path,
+                humanPageviews: sources.browser ? safeAiCount(row.pv) : null,
+                previousHumanPageviews: sources.browser ? safeAiCount(row.previousPv) : null,
+                aiRequests: sources.connected ? safeAiCount(row.ai) : null,
+                previousAiRequests: sources.connected ? safeAiCount(row.previousAi) : null,
+              })),
+              scope:
+                'browser paths and encoded imported AI request paths; union of current and previous periods ranked by current then previous counts; stored forms may differ; query and fragment excluded',
+            },
+          },
+          {
+            id: 'goals',
+            label: '已配置转化目标',
+            state: sourceStates.goals,
+            data: {
+              ...topMetadata(goals),
+              configured: safeAiCount(sources.goals),
+              invalidDefinitions: safeAiCount(sources.invalid),
+              rows: goals.map(row => ({
+                name: sanitizeAiText(row.name),
+                type: row.type,
+                count: safeAiCount(row.count),
+                previousCount: safeAiCount(row.previous),
+                convertedVisits: safeAiCount(row.converted),
+                previousConvertedVisits: safeAiCount(row.previousConverted),
+                ratePercent: current.visits
+                  ? Math.round((safeAiCount(row.converted) / current.visits) * 10000) / 100
+                  : null,
+                previousRatePercent: previous.visits
+                  ? Math.round((safeAiCount(row.previousConverted) / previous.visits) * 10000) / 100
+                  : null,
+                changePercent: aiChangePercent(safeAiCount(row.count), safeAiCount(row.previous)),
+              })),
+              scope:
+                'configured goal matching events; rates use converted browser visits divided by browser visits',
+            },
+          },
+        ];
+        return sanitizeAiFactsContext({
+          protocolVersion: 1,
+          id: randomUUID(),
+          website: { id: live.id, name: sanitizeAiText(live.name), domain: live.domain ?? null },
+          space: authorized.space,
+          websiteEpoch: live.epoch,
+          ...range,
+          timeZone: parsed.data.timezone,
+          generatedAt: generatedAt.toISOString(),
+          metricVersion: 'liekan-ai-facts-v1',
+          promptVersion: 'liekan-ai-prompt-v1',
+          coverage: 'unverified',
+          sourceStates,
+          businessProfile: { state: 'unconfigured', value: null },
+          metrics: [
+            ...(['pageviews', 'visitors', 'visits'] as const).map(key => ({
+              key,
+              label: { pageviews: '人类浏览量', visitors: '人类访客', visits: '人类访问' }[key],
+              value: sources.browser ? current[key] : null,
+              state: humanState,
+              changePercent: aiChangePercent(current[key], previous[key]),
+            })),
+            {
+              key: 'aiRequests',
+              label: 'AI 爬虫请求',
+              value: logCurrent?.aiRequests ?? null,
+              state: logState,
+              changePercent:
+                logCurrent && logPrevious
+                  ? aiChangePercent(logCurrent.aiRequests, logPrevious.aiRequests)
+                  : null,
+            },
+            {
+              key: 'aiReferrals',
+              label: 'AI 引荐访问',
+              value: sources.browser ? safeAiCount(rc.visits) : null,
+              state: sourceStates.aiReferrals,
+              changePercent: aiChangePercent(safeAiCount(rc.visits), safeAiCount(rp.visits)),
+            },
+          ],
+          facts,
+        });
+      });
+    },
+    { timeout: 6000, maxWait: 1000, isolationLevel: 'RepeatableRead' },
+  ).catch(error=>{
+    checkSignal(input.signal);
+    if(error instanceof AiError)throw error;
+    const sqlState=error?.meta?.code ?? error?.meta?.driverAdapterError?.cause?.originalCode;
+    if(Date.now()>=deadline||sqlState==='57014'||error?.code==='P2028')throw new AiError('facts_timeout','读取统计事实超时，请缩小日期范围后重试',503);
+    throw new AiError('facts_unavailable','统计数据暂时不可读取，请稍后重试',503);
+  });
+  checkSignal(input.signal);
+  return context;
+}
+
+export function unsupportedAiFactsContext(
+  authorized: {
+    site: { id: string; name: string; domain: string | null };
+    space: AiFactsContext['space'];
+    row: { website_epoch: string };
+  },
+  input: AiConversationPost,
+): AiFactsContext {
+  const asOf = new Date(),
+    range = normalizeAiRange(input, asOf);
+  const keys = ['pageviews', 'visitors', 'visits', 'aiRequests', 'aiReferrals'] as const;
+  return sanitizeAiFactsContext({
+    protocolVersion: 1,
+    id: randomUUID(),
+    website: {
+      id: authorized.site.id,
+      name: sanitizeAiText(authorized.site.name),
+      domain: authorized.site.domain,
+    },
+    space: authorized.space,
+    websiteEpoch: authorized.row.website_epoch,
+    ...range,
+    timeZone: input.timezone,
+    generatedAt: asOf.toISOString(),
+    metricVersion: 'liekan-ai-facts-v1',
+    promptVersion: 'liekan-ai-prompt-v1',
+    coverage: 'unverified',
+    sourceStates: {
+      human: 'unsupported',
+      logs: 'unsupported',
+      catalog: 'unsupported',
+      goals: 'unsupported',
+      aiReferrals: 'unsupported',
+    },
+    businessProfile: { state: 'unconfigured', value: null },
+    metrics: keys.map(key => ({
+      key,
+      label: {
+        pageviews: '人类浏览量',
+        visitors: '人类访客',
+        visits: '人类访问',
+        aiRequests: 'AI 爬虫请求',
+        aiReferrals: 'AI 引荐访问',
+      }[key],
+      value: null,
+      state: 'unsupported',
+      changePercent: null,
+    })),
+    facts: [],
+  });
+}

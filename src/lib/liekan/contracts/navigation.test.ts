@@ -234,7 +234,7 @@ describe('navigation task boundaries', () => {
     }
   });
   it('assigns every supplemental and GEO page to a scope and an accessible parent', () => {
-    expect(featurePages).toHaveLength(68);
+    expect(featurePages).toHaveLength(70);
     expect(Object.keys(geoPaths)).toHaveLength(11);
     for (const page of [...featurePages.map(page => page.id), ...Object.keys(geoPaths)]) {
       expect(pageNavigation[page], page).toBeDefined();
@@ -243,13 +243,15 @@ describe('navigation task boundaries', () => {
       expect(activeNavigationPage({ page })).toBeTruthy();
     }
     expect(globalNavigation.map(group => group.label)).toEqual([
-      '工作台',
+      '快速发起',
+      '数据总览',
       '网站管理',
       '看板',
       '分享链接',
       '团队协作',
       '链接',
       '像素',
+      'AI配置器',
     ]);
     expect(globalNavigation.every(group => !group.children)).toBe(true);
     expect(websiteNavigation.map(group => group.label)).toEqual([
@@ -348,4 +350,24 @@ describe('navigation task boundaries', () => {
       parent: 'geo-ai-pages',
     });
   });
+});
+
+it('keeps AI pages global and drops inherited website filters', () => {
+  for (const page of ['ai-chat', 'ai-config']) {
+    expect(navigationFor({ page, websiteId: site, teamId: team })).toMatchObject({
+      scope: 'global',
+    });
+    const href = featureNavigationHref(
+      { page: 'geo-ai', websiteId: site },
+      { date: '7day', drill_country: 'eq.CN', aiConversation: team },
+      page,
+    );
+    expect(href).toBe(`/liekan/${page}`);
+    expect(matchFeatureRoute(href, { websiteId: site, teamId: team, id: site })).toMatchObject({
+      page,
+      websiteId: undefined,
+      teamId: undefined,
+      id: undefined,
+    });
+  }
 });

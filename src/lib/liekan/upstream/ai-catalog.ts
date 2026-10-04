@@ -1,0 +1,73 @@
+import { aiTransaction } from './ai-db';
+import { aiSpaceCapabilities, authorizeAiSpace, type AiActor } from './ai-access';
+export async function getAiAccessCatalog(actor: AiActor) {
+  return aiTransaction(async tx => {
+    const personal = await authorizeAiSpace(tx, actor, { kind: 'personal', id: actor.id });
+    const teams = await tx.query<{ id: string; name: string; role: string }>(
+      'SELECT t.team_id AS id,t.name,tu.role FROM team_user tu JOIN team t ON t.team_id=tu.team_id AND t.deleted_at IS NULL WHERE tu.user_id=$1::uuid ORDER BY t.name,t.team_id LIMIT 100',
+      actor.id,
+    );
+    const spaces = [
+      {
+        kind: 'personal' as const,
+        id: actor.id,
+        name: '个人空间',
+        canManage: personal.canManage,
+        canUse: personal.canUse,
+      },
+      ...teams.map(t => ({
+        kind: 'team' as const,
+        id: t.id,
+        name: t.name,
+        ...aiSpaceCapabilities(personal.role, 'team', false, t.role),
+      })),
+    ];
+    const websites = await tx.query<{
+      id: string;
+      name: string;
+      domain: string;
+      ownerUserId: string | null;
+      teamId: string | null;
+    }>(
+      'SELECT w.website_id AS id,w.name,w.domain,w.user_id AS "ownerUserId",w.team_id AS "teamId" FROM website w LEFT JOIN "user" u ON u.user_id=w.user_id LEFT JOIN team t ON t.team_id=w.team_id WHERE w.deleted_at IS NULL AND ((w.user_id IS NOT NULL)::int+(w.team_id IS NOT NULL)::int)=1 AND ((w.user_id IS NOT NULL AND u.user_id IS NOT NULL AND u.deleted_at IS NULL) OR (w.team_id IS NOT NULL AND t.team_id IS NOT NULL AND t.deleted_at IS NULL)) AND ($2 OR w.user_id=$1::uuid OR EXISTS(SELECT 1 FROM team_user tu WHERE tu.team_id=w.team_id AND tu.user_id=$1::uuid)) ORDER BY w.name,w.website_id LIMIT 100',
+      actor.id,
+      personal.role === 'admin',
+    );
+    if (personal.role === 'admin') {
+      const personalIds = [...new Set(websites.map(site => site.ownerUserId).filter(Boolean))];
+      const teamIds = [...new Set(websites.map(site => site.teamId).filter(Boolean))];
+      const extra = await tx.query<{
+        kind: 'personal' | 'team';
+        id: string;
+        name: string;
+        teamRole: string | null;
+      }>(
+        'SELECT \'personal\' AS kind,user_id AS id,username AS name,NULL::text AS "teamRole" FROM "user" WHERE user_id=ANY($1::uuid[]) AND deleted_at IS NULL UNION ALL SELECT \'team\' AS kind,t.team_id AS id,t.name,tu.role AS "teamRole" FROM team t LEFT JOIN team_user tu ON tu.team_id=t.team_id AND tu.user_id=$3::uuid WHERE t.team_id=ANY($2::uuid[]) AND t.deleted_at IS NULL',
+        personalIds,
+        teamIds,
+        actor.id,
+      );
+      for (const space of extra)
+        if (!spaces.some(existing => existing.kind === space.kind && existing.id === space.id))
+          spaces.push({
+            kind: space.kind,
+            id: space.id,
+            name: space.name,
+            ...aiSpaceCapabilities(
+              personal.role,
+              space.kind,
+              space.id === actor.id,
+              space.teamRole,
+            ),
+          });
+    }
+    return {
+      spaces,
+      websites: websites.map(w => ({
+        ...w,
+        space: w.teamId ? { kind: 'team', id: w.teamId } : { kind: 'personal', id: w.ownerUserId },
+      })),
+      websiteLimit: 100,
+    };
+  });
+}

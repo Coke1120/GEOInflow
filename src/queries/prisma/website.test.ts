@@ -9,6 +9,7 @@ const { transactionMock, redisDelMock, redisSetMock, resetLiekanMock } = vi.hois
 }));
 
 vi.mock('@/lib/liekan/upstream/lifecycle', () => ({ resetLiekanStatistics: resetLiekanMock }));
+vi.mock('@/lib/liekan/upstream/ai-lifecycle', () => ({clearAiWebsiteInTransaction:vi.fn()}));
 
 vi.mock('@/lib/prisma', () => ({
   default: {

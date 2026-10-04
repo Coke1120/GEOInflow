@@ -244,6 +244,7 @@ export async function deleteWebsite(websiteId: string) {
 
   return transaction(
     async tx => {
+      await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiWebsiteInTransaction(tx, websiteId);
       await deleteWebsiteDependentData(tx, websiteId);
 
       await tx.report.deleteMany({

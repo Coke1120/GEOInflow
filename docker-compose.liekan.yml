@@ -16,6 +16,8 @@ services:
       DISABLE_TELEMETRY: '1'
       NEXT_TELEMETRY_DISABLED: '1'
       DEFAULT_LOCALE: zh-CN
+      LIEKAN_AI_ENABLED: ${LIEKAN_AI_ENABLED:-false}
+      LIEKAN_AI_ENCRYPTION_KEY: ${LIEKAN_AI_ENCRYPTION_KEY:-}
     depends_on:
       db:
         condition: service_healthy

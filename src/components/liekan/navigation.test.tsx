@@ -47,6 +47,8 @@ describe('website navigation dialog transitions', () => {
   });
   it.each([
     ['boards', '看板'],
+    ['ai-chat', '快速发起'],
+    ['ai-config', 'AI配置器'],
     ['board-editor', '看板'],
     ['board-view', '看板'],
     ['board-design', '看板'],
@@ -69,13 +71,15 @@ describe('website navigation dialog transitions', () => {
     const primary = screen.getByRole('navigation', { name: '业务导航' });
     const entries = within(primary).getAllByRole('link');
     expect(entries.map(entry => entry.textContent)).toEqual([
-      '工作台',
+      '快速发起',
+      '数据总览',
       '网站管理',
       '看板',
       '分享链接',
       '团队协作',
       '链接',
       '像素',
+      'AI配置器',
     ]);
     expect(within(primary).queryAllByRole('button')).toHaveLength(0);
     expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
@@ -89,10 +93,7 @@ describe('website navigation dialog transitions', () => {
       ['链接', '/links'],
       ['像素', '/pixels'],
     ])
-      expect(within(primary).getByRole('link', { name: label })).toHaveAttribute(
-        'href',
-        href,
-      );
+      expect(within(primary).getByRole('link', { name: label })).toHaveAttribute('href', href);
   });
   it('runs logout once while a delayed request is pending', async () => {
     let complete: () => void;

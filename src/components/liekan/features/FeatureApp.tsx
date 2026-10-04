@@ -31,6 +31,7 @@ import {
 import { Navigation, useSidebarWidth } from '../Navigation';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
+import { AiPages, aiPages } from './AiPages';
 import { FeatureProvider } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
@@ -62,9 +63,14 @@ export const coreFeaturePages = new Set([
 export function canRenderFeatureRoute(route: FeatureRoute | null) {
   return (
     !!route &&
-    [coreFeaturePages, analysisPages, extendedPages, workspacePages, linksPixelsPages].some(pages =>
-      pages.has(route.page),
-    )
+    [
+      coreFeaturePages,
+      analysisPages,
+      extendedPages,
+      workspacePages,
+      linksPixelsPages,
+      aiPages,
+    ].some(pages => pages.has(route.page))
   );
 }
 export function FeatureApp({
@@ -634,6 +640,7 @@ function FeaturePage({ page }: { page: string }) {
         </div>
       </Notice>
     );
+  if (aiPages.has(page)) return <AiPages page={page} />;
   if (coreFeaturePages.has(page)) return <CorePages page={page} />;
   if (analysisPages.has(page)) return <AnalyticsPages page={page} />;
   if (extendedPages.has(page)) return <ExtendedPages page={page} />;

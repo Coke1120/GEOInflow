@@ -226,12 +226,19 @@ try {
       `LIEKAN_FEATURE_UI=${upstream.featureUiManifestSha256}`,
       '--build-arg',
       `LIEKAN_MIGRATION=${upstream.liekanMigration}`,
+      '--build-arg',
+      `LIEKAN_AI_UI=${upstream.aiUiManifestSha256}`,
       '-t',
       image,
       '.',
     ],
     'docker-build',
     { env: buildEnvironment },
+  );
+  await run(
+    'docker',
+    ['run', '--rm', '--entrypoint', 'node', image, 'generated/ai-maintenance.mjs', '--help'],
+    'ai-maintenance-runtime-help',
   );
   const labels = JSON.parse(
     docker('image', 'inspect', image, '--format', '{{json .Config.Labels}}'),
@@ -242,7 +249,8 @@ try {
     labels['io.liekan.ui.sha256'] !== upstream.uiManifestSha256 ||
     labels['io.liekan.upstream.revision'] !== upstream.commit ||
     labels['io.liekan.feature-ui.sha256'] !== upstream.featureUiManifestSha256 ||
-    labels['io.liekan.migration'] !== String(upstream.liekanMigration)
+    labels['io.liekan.migration'] !== String(upstream.liekanMigration) ||
+    labels['io.liekan.ai-ui.sha256'] !== upstream.aiUiManifestSha256
   )
     throw new Error('Candidate OCI metadata differs');
   report.imageId = docker('image', 'inspect', image, '--format', '{{.Id}}');
@@ -382,6 +390,18 @@ try {
     report.featureVisual.checks.length !== 68 * 4
   )
     throw new Error('Supplemental visual acceptance incomplete');
+  await run(process.execPath, ['scripts/liekan-ai-visual.mjs'], 'ai-visual', {
+    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+  });
+  report.aiVisual = JSON.parse(fs.readFileSync('test-results/liekan-ai/report.json', 'utf8'));
+  if (
+    !report.aiVisual.passed ||
+    report.aiVisual.head !== head ||
+    report.aiVisual.checks.length !== 8 ||
+    report.aiVisual.checks.some(check => check.passed !== true) ||
+    report.aiVisual.errors?.length
+  )
+    throw new Error('AI visual acceptance incomplete');
   docker('rm', '-f', app);
   appCreated = false;
   psql('CREATE DATABASE liekan_restore');

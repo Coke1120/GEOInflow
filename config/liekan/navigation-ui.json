@@ -5,8 +5,14 @@
   "groups": {
     "global": [
       {
+        "id": "ai-chat",
+        "label": "快速发起",
+        "page": "ai-chat",
+        "children": []
+      },
+      {
         "id": "dashboard",
-        "label": "工作台",
+        "label": "数据总览",
         "page": "dashboard",
         "children": []
       },
@@ -44,6 +50,12 @@
         "id": "pixels",
         "label": "像素",
         "page": "pixels",
+        "children": []
+      },
+      {
+        "id": "ai-config",
+        "label": "AI配置器",
+        "page": "ai-config",
         "children": []
       }
     ],
@@ -243,7 +255,7 @@
       "scope": "global",
       "section": "dashboard",
       "active": "dashboard",
-      "title": "工作台"
+      "title": "数据总览"
     },
     "dashboard-edit": {
       "scope": "global",
@@ -646,6 +658,18 @@
       "section": "dashboard",
       "active": "not-found",
       "title": "页面不存在"
+    },
+    "ai-chat": {
+      "scope": "global",
+      "section": "ai-chat",
+      "active": "ai-chat",
+      "title": "快速发起"
+    },
+    "ai-config": {
+      "scope": "global",
+      "section": "ai-config",
+      "active": "ai-config",
+      "title": "AI配置器"
     }
   },
   "geo": {
@@ -756,5 +780,8 @@
       "active": "website-settings",
       "title": "分享链接"
     }
-  ]
+  ],
+  "globalSectionLabels": {
+    "ai-config": "AI能力"
+  }
 }

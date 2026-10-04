@@ -3,5 +3,11 @@
   "002_catalog_evidence.sql": "d6b8f4ce0c69e37b54466aff03c34b6fc5f9d24ede9edbe545e7e8ad0b783121",
   "003_remove_upstream_foreign_keys.sql": "3e93f2dde579240a1fe194475ed415faf1c0f53ad931a75bb280d87e5a9605e0",
   "004_lifecycle_and_catalog_evidence.sql": "42464afb0eefce596b6350714fd339bf3d4ce6a5b1c2b3f48d4a2d58920dd4f0",
-  "005_default_admin_login.sql": "022db9c3d86a3e15bcf048fe4b5055dbafc2c65ef75a24267b34ce8efc8a88f7"
+  "005_default_admin_login.sql": "022db9c3d86a3e15bcf048fe4b5055dbafc2c65ef75a24267b34ce8efc8a88f7",
+  "007_ai_connections.sql": "f10060b76667ebb72e18cda803402d139e08659ef5c1c70e7d16e5943380c4d9",
+  "008_ai_conversations.sql": "d7a3d79ef7379690858c9349aeda9c4ddbc5bb909b83314fe7da3601e8f9ebde",
+  "009_ai_endpoint_limits.sql": "6de599c77929a0c95c473c68e6d72d8ec4e6b814680014523e7b84bdd8dcb11a",
+  "010_ai_workspaces.sql": "7a4ec0ac0dc8e00e363a7e898fab3a6dd6476d5d391bd3a9781f23b75f5afceb",
+  "011_ai_config_audit.sql": "99e4b8f4b253e7921b0cea60a60ae33c6c1224cf3be901dc34adde5af6958795",
+  "012_ai_invariants_and_history.sql": "b1e7f79f218217f05f2e76a44f0eb1e874458c0db066d36ae3e78c2f18ac37dd"
 }

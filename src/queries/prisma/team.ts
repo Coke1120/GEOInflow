@@ -189,8 +189,7 @@ export async function deleteTeam(teamId: string) {
   };
 
   if (cloudMode) {
-    return transaction([
-      client.team.update({
+    return transaction(async tx => { await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiTeamInTransaction(tx, teamId); return [await tx.team.update({
         data: {
           deletedAt: new Date(),
           accessCode: null,
@@ -199,39 +198,35 @@ export async function deleteTeam(teamId: string) {
           id: teamId,
         },
       }),
-      client.share.deleteMany({ where: { entityId: { in: entityIds } } }),
-      // deletedAt: null avoids restamping rows that were already soft-deleted earlier.
-      client.link.updateMany({
+await tx.share.deleteMany({ where: { entityId: { in: entityIds } } }),
+await tx.link.updateMany({
         data: { deletedAt: new Date() },
         where: { teamId, deletedAt: null },
       }),
-      client.pixel.updateMany({
+await tx.pixel.updateMany({
         data: { deletedAt: new Date() },
         where: { teamId, deletedAt: null },
       }),
-      client.board.deleteMany({ where: { teamId } }),
-    ]).then(async result => {
+await tx.board.deleteMany({ where: { teamId } })]; }).then(async result => {
       await invalidateRedis();
       return result;
     });
   }
 
-  return transaction([
-    client.teamUser.deleteMany({
+  return transaction(async tx => { await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiTeamInTransaction(tx, teamId); return [await tx.teamUser.deleteMany({
       where: {
         teamId,
       },
     }),
-    client.share.deleteMany({ where: { entityId: { in: entityIds } } }),
-    client.link.deleteMany({ where: { teamId } }),
-    client.pixel.deleteMany({ where: { teamId } }),
-    client.board.deleteMany({ where: { teamId } }),
-    client.team.delete({
+await tx.share.deleteMany({ where: { entityId: { in: entityIds } } }),
+await tx.link.deleteMany({ where: { teamId } }),
+await tx.pixel.deleteMany({ where: { teamId } }),
+await tx.board.deleteMany({ where: { teamId } }),
+await tx.team.delete({
       where: {
         id: teamId,
       },
-    }),
-  ]).then(async result => {
+    })]; }).then(async result => {
     await invalidateRedis();
     return result;
   });

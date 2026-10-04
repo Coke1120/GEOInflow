@@ -3,6 +3,7 @@ import { ROLES } from '@/lib/constants';
 import { getRandomChars } from '@/lib/generate';
 import prisma from '@/lib/prisma';
 import redis from '@/lib/redis';
+import { invalidateAiActorRunsInTransaction } from '@/lib/liekan/upstream/ai-lifecycle';
 import { sanitizeSortFilters } from '@/lib/sort';
 import type { PageResult, QueryFilters, Role } from '@/lib/types';
 
@@ -104,17 +105,21 @@ export async function createUser(data: {
 }
 
 export async function updateUser(userId: string, data: Prisma.UserUpdateInput) {
-  return prisma.client.user.update({
-    where: {
-      id: userId,
-    },
-    data,
-    select: {
-      id: true,
-      username: true,
-      role: true,
-      createdAt: true,
-    },
+  return prisma.transaction(async tx => {
+    const result = await tx.user.update({
+      where: {
+        id: userId,
+      },
+      data,
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+    if (data.role !== undefined) await invalidateAiActorRunsInTransaction(tx, userId);
+    return result;
   });
 }
 
@@ -173,100 +178,113 @@ export async function deleteUser(userId: string) {
   };
 
   if (cloudMode) {
-    return transaction([
-      client.website.updateMany({
-        data: {
-          deletedAt: new Date(),
-        },
-        where: { id: { in: websiteIds } },
-      }),
-      client.user.update({
-        data: {
-          username: getRandomChars(32),
-          deletedAt: new Date(),
-        },
-        where: {
-          id: userId,
-        },
-      }),
-      client.share.deleteMany({ where: { entityId: { in: entityIds } } }),
-      // deletedAt: null avoids restamping rows that were already soft-deleted earlier.
-      client.link.updateMany({
-        data: { deletedAt: new Date() },
-        where: { userId, deletedAt: null },
-      }),
-      client.pixel.updateMany({
-        data: { deletedAt: new Date() },
-        where: { userId, deletedAt: null },
-      }),
-      client.board.deleteMany({ where: { userId } }),
-    ]).then(async result => {
+    return transaction(async tx => {
+      await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiUserInTransaction(
+        tx,
+        userId,
+        !cloudMode,
+      );
+      return [
+        await tx.website.updateMany({
+          data: {
+            deletedAt: new Date(),
+          },
+          where: { id: { in: websiteIds } },
+        }),
+        await tx.user.update({
+          data: {
+            username: getRandomChars(32),
+            deletedAt: new Date(),
+          },
+          where: {
+            id: userId,
+          },
+        }),
+        await tx.share.deleteMany({ where: { entityId: { in: entityIds } } }),
+        await tx.link.updateMany({
+          data: { deletedAt: new Date() },
+          where: { userId, deletedAt: null },
+        }),
+        await tx.pixel.updateMany({
+          data: { deletedAt: new Date() },
+          where: { userId, deletedAt: null },
+        }),
+        await tx.board.deleteMany({ where: { userId } }),
+      ];
+    }).then(async result => {
       await invalidateRedis();
       return result;
     });
   }
 
-  return transaction([
-    client.eventData.deleteMany({
-      where: { websiteId: { in: websiteIds } },
-    }),
-    client.sessionData.deleteMany({
-      where: { websiteId: { in: websiteIds } },
-    }),
-    client.websiteEvent.deleteMany({
-      where: { websiteId: { in: websiteIds } },
-    }),
-    client.session.deleteMany({
-      where: { websiteId: { in: websiteIds } },
-    }),
-    client.teamUser.deleteMany({
-      where: {
-        OR: [
-          {
-            teamId: {
-              in: teamIds,
+  return transaction(async tx => {
+    await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiUserInTransaction(
+      tx,
+      userId,
+      !cloudMode,
+    );
+    return [
+      await tx.eventData.deleteMany({
+        where: { websiteId: { in: websiteIds } },
+      }),
+      await tx.sessionData.deleteMany({
+        where: { websiteId: { in: websiteIds } },
+      }),
+      await tx.websiteEvent.deleteMany({
+        where: { websiteId: { in: websiteIds } },
+      }),
+      await tx.session.deleteMany({
+        where: { websiteId: { in: websiteIds } },
+      }),
+      await tx.teamUser.deleteMany({
+        where: {
+          OR: [
+            {
+              teamId: {
+                in: teamIds,
+              },
             },
-          },
-          {
-            userId,
-          },
-        ],
-      },
-    }),
-    client.team.deleteMany({
-      where: {
-        id: {
-          in: teamIds,
+            {
+              userId,
+            },
+          ],
         },
-      },
-    }),
-    client.report.deleteMany({
-      where: {
-        OR: [
-          {
-            websiteId: {
-              in: websiteIds,
+      }),
+      await tx.team.deleteMany({
+        where: {
+          id: {
+            in: teamIds,
+          },
+        },
+      }),
+      await tx.report.deleteMany({
+        where: {
+          OR: [
+            {
+              websiteId: {
+                in: websiteIds,
+              },
             },
-          },
-          {
-            userId,
-          },
-        ],
-      },
-    }),
-    client.share.deleteMany({ where: { entityId: { in: entityIds } } }),
-    client.link.deleteMany({ where: ownedFilter }),
-    client.pixel.deleteMany({ where: ownedFilter }),
-    client.board.deleteMany({ where: ownedFilter }),
-    client.website.deleteMany({
-      where: { id: { in: websiteIds } },
-    }),
-    client.user.delete({
-      where: {
-        id: userId,
-      },
-    }),
-  ]).then(async result => {
+            {
+              userId,
+            },
+          ],
+        },
+      }),
+      await tx.share.deleteMany({ where: { entityId: { in: entityIds } } }),
+      await tx.link.deleteMany({ where: ownedFilter }),
+      await tx.pixel.deleteMany({ where: ownedFilter }),
+      await tx.board.deleteMany({ where: ownedFilter }),
+      await tx.website.deleteMany({
+        where: { id: { in: websiteIds } },
+      }),
+      await tx.user.delete({
+        where: {
+          id: userId,
+        },
+      }),
+    ];
+  }).then(async result => {
     await invalidateRedis();
     return result;
   });

@@ -46,7 +46,7 @@ cp.execFileSync=(command,args,options={})=>{
  if(command==='git')return args[0]==='rev-parse'?head:'';
  const verb=args[0];
  if(verb==='create'&&options.env?.DATABASE_URL?.endsWith('/liekan_restore'))restoreStarted=true;
- if(verb==='image')return args.at(-1)==='{{.Id}}'?'sha256:fixture':JSON.stringify({'org.opencontainers.image.revision':head,'org.opencontainers.image.version':version,'io.liekan.ui.sha256':upstream.uiManifestSha256,'io.liekan.feature-ui.sha256':fault==='feature-ui-label'?'wrong':upstream.featureUiManifestSha256,'io.liekan.upstream.revision':upstream.commit,'io.liekan.migration':String(upstream.liekanMigration)});
+ if(verb==='image')return args.at(-1)==='{{.Id}}'?'sha256:fixture':JSON.stringify({'org.opencontainers.image.revision':head,'org.opencontainers.image.version':version,'io.liekan.ui.sha256':upstream.uiManifestSha256,'io.liekan.feature-ui.sha256':fault==='feature-ui-label'?'wrong':upstream.featureUiManifestSha256,'io.liekan.upstream.revision':upstream.commit,'io.liekan.migration':String(upstream.liekanMigration),'io.liekan.ai-ui.sha256':fault==='ai-ui-label'?'wrong':upstream.aiUiManifestSha256});
  if(verb==='compose')return 'fixture-source';
  if(verb==='inspect')return JSON.stringify({'com.docker.compose.project':'liekan','com.docker.compose.service':'db'});
  if(verb==='network'&&args[1]==='ls')return 'fixture-network';
@@ -84,6 +84,7 @@ cp.spawnSync=(command,args,options={})=>{
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:16},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:68*4},()=>({passed:true}))}));}
+ if(args.includes('scripts/liekan-ai-visual.mjs')){if(fault==='ai-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai',{recursive:true});fs.writeFileSync('test-results/liekan-ai/report.json',JSON.stringify({passed:true,head:fault==='ai-visual-head'?'other':head,checks:Array.from({length:fault==='ai-visual-count'?1:8},()=>({passed:fault!=='ai-visual-check'})),errors:fault==='ai-visual-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-visual.mjs')){fs.mkdirSync('test-results/liekan-visual',{recursive:true});fs.writeFileSync('test-results/liekan-visual/geometry.json',JSON.stringify({passed:true,head}));}
  return {status:0};
 };
@@ -167,6 +168,12 @@ describe('isolated acceptance CLI failure paths', () => {
     'restore-error',
     'data-regression-failed',
     'feature-ui-label',
+    'ai-ui-label',
+    'ai-visual-failed',
+    'ai-visual-head',
+    'ai-visual-count',
+    'ai-visual-check',
+    'ai-visual-errors',
     'feature-flows-failed',
     'feature-flows-head',
     'feature-flows-count',

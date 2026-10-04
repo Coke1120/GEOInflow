@@ -30,6 +30,7 @@ const commands = [
   ['install', '--frozen-lockfile'],
   ['exec', 'prisma', 'generate'],
   ['run', 'build:prisma:client'],
+  ['run', 'build:ai:maintenance'],
   ['run', 'build:openapi'],
   ['run', 'openapi:check', '--explicit'],
   ['run', 'check:api:client'],

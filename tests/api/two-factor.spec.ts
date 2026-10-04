@@ -1,3 +1,4 @@
+import { getAiEndpoints } from './helpers/ai-endpoints';
 import { expect, test } from './fixtures';
 import { login } from './helpers/auth';
 import { createUser, deleteUser } from './helpers/entities';
@@ -179,9 +180,14 @@ test.describe('Two-factor authentication', () => {
 
     partialToken = response.body.partialToken;
 
-    // NOTE: the partial token is currently accepted as a full session by
-    // checkAuth (it only looks at payload.userId, not payload.type), which
-    // bypasses the second factor. Not asserted here; reported as a bug.
+    const partial = api.bearer(partialToken);
+    for (const endpoint of getAiEndpoints()) {
+      const response = await partial.request(endpoint.method, endpoint.path, {
+        data: endpoint.method === 'GET' || endpoint.method === 'DELETE' ? undefined : {},
+      });
+      expect(response.status, `${endpoint.method} ${endpoint.path}`).toBe(401);
+      expect(response.body.error.code).toBe('session_required');
+    }
   });
 
   test('POST /api/2fa/verify rejects missing, invalid and non-partial tokens', async ({

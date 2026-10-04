@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 interface SnapshotExecutor {
+  aiPrivate?: boolean;
   $executeRawUnsafe: (query: string, ...params: any[]) => unknown;
   $queryRawUnsafe: (query: string, ...params: any[]) => unknown;
 }

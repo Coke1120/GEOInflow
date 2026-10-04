@@ -210,6 +210,7 @@ export function Navigation({
           {meta.scope === 'admin' && <div className={styles.caption}>系统管理</div>}
           {groups.map(group => (
             <div key={group.id} data-navigation-group={group.id}>
+              {group.sectionLabel && <div className={styles.caption}>{group.sectionLabel}</div>}
               <div
                 className={`${styles.group} ${meta.section === group.id ? styles.currentGroup : ''}`}
               >

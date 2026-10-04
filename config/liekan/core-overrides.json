@@ -107,7 +107,7 @@
     },
     {
       "path": "docker-compose.liekan.yml",
-      "purpose": "Isolate local Liekan runtime, database and immutable image revision",
+      "purpose": "Isolate local Liekan runtime, database and immutable image revision Pass optional AI runtime settings to the isolated Liekan service.",
       "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Isolate local Liekan runtime, database and immutable image revision",
@@ -126,24 +126,37 @@
     },
     {
       "path": "env.example",
-      "purpose": "Liekan release, branding or compatibility integration",
-      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
+      "purpose": "Liekan release, branding or compatibility integration Document optional AI activation and its independent encryption key without changing application startup defaults.",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance",
+        "src/lib/liekan/ai/crypto.test.ts"
+      ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
       "path": "next.config.ts",
-      "purpose": "Typed production build, local font/branding and explicit agent rule control",
-      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
+      "purpose": "Typed production build, local font/branding and explicit agent rule control Keep AI responses private and uncacheable in the actual Next.js header pipeline, including API URL aliases.",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance",
+        "tests/liekan/ai/http.integration.ts"
+      ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Typed production build, local font/branding and explicit agent rule control",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
       "path": "package.json",
-      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection",
-      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
+      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection；AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts",
+        "AI backend integration and lifecycle tests",
+        "pnpm liekan:verify"
+      ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Pin reproducible toolchain, offline prototype charts and license-compatible browser detection",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -196,8 +209,13 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection",
-      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
+      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection；AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "tests": [
+        "src/lib/country.test.ts",
+        "src/lib/detect.test.ts",
+        "AI backend integration and lifecycle tests",
+        "pnpm liekan:verify"
+      ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Pin reproducible toolchain, offline prototype charts and license-compatible browser detection",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -772,13 +790,14 @@
     },
     {
       "path": "scripts/generate-api-client.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses Allow formatting of the generated AI contracts after the schema file grows past the default formatter size.",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
         "pnpm liekan:verify",
-        "Supplemental UI/API regression and isolated Docker acceptance"
+        "Supplemental UI/API regression and isolated Docker acceptance",
+        "pnpm check:api:client"
       ]
     },
     {
@@ -1320,14 +1339,15 @@
     },
     {
       "path": "src/lib/prisma.ts",
-      "purpose": "Preserve device/geography compatibility, exact channel and drill filters, and request-local repeatable-read export snapshots",
+      "purpose": "Preserve device/geography compatibility, exact channel and drill filters, and request-local repeatable-read export snapshots；AI 加密配置、实时测试、授权分析与生命周期事务集成",
       "tests": [
         "src/lib/prisma.test.ts",
         "src/lib/country.test.ts",
         "src/lib/liekan/upstream/query-snapshot.test.ts",
         "src/lib/liekan/upstream/feature-exports.test.ts",
         "tests/api/liekan-features.spec.ts",
-        "pnpm liekan:verify"
+        "pnpm liekan:verify",
+        "AI backend integration and lifecycle tests"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation",
@@ -1380,16 +1400,25 @@
     },
     {
       "path": "src/queries/prisma/website.test.ts",
-      "purpose": "Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup",
-      "tests": ["src/queries/prisma/website.test.ts", "tests/api/liekan.spec.ts"],
+      "purpose": "Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup；AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "tests": [
+        "src/queries/prisma/website.test.ts",
+        "tests/api/liekan.spec.ts",
+        "AI backend integration and lifecycle tests",
+        "pnpm liekan:verify"
+      ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
       "path": "src/queries/prisma/website.ts",
-      "purpose": "Coordinate statistics reset with Liekan transactions and preserve upstream deletion lifecycle",
-      "tests": ["pnpm liekan:verify", "Liekan release acceptance"],
+      "purpose": "Coordinate statistics reset with Liekan transactions and preserve upstream deletion lifecycle；AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan release acceptance",
+        "AI backend integration and lifecycle tests"
+      ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Coordinate statistics reset with Liekan transactions and preserve upstream deletion lifecycle",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1836,6 +1865,94 @@
       "owner": "Liekan authentication compatibility",
       "constraint": "Preserve opaque bearer token format, live account/password checks, five-minute partial 2FA challenge and existing SSO, API-key, share and tracker protocols",
       "removalCondition": "Remove when upstream exposes a session-lifetime setting and the registered regression tests pass"
+    },
+    {
+      "path": "src/queries/prisma/user.ts",
+      "purpose": "AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "tests": ["AI backend integration and lifecycle tests", "pnpm liekan:verify"],
+      "owner": "Liekan AI integration",
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
+    },
+    {
+      "path": "src/queries/prisma/team.ts",
+      "purpose": "AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "tests": ["AI backend integration and lifecycle tests", "pnpm liekan:verify"],
+      "owner": "Liekan AI integration",
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/transfer/route.ts",
+      "purpose": "AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "tests": ["AI backend integration and lifecycle tests", "pnpm liekan:verify"],
+      "owner": "Liekan AI integration",
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
+    },
+    {
+      "path": "src/test/setup.ts",
+      "purpose": "AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "tests": ["AI backend integration and lifecycle tests", "pnpm liekan:verify"],
+      "owner": "Liekan AI integration",
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
+    },
+    {
+      "path": "src/queries/prisma/teamUser.ts",
+      "purpose": "Invalidate active AI execution in the transaction that revokes account or team membership permissions",
+      "tests": [
+        "src/queries/prisma/ai-revocation.test.ts",
+        "tests/liekan/ai/lifecycle.integration.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan AI integration",
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
+    },
+    {
+      "path": "src/queries/prisma/ai-revocation.test.ts",
+      "purpose": "Invalidate active AI execution in the transaction that revokes account or team membership permissions",
+      "tests": [
+        "src/queries/prisma/ai-revocation.test.ts",
+        "tests/liekan/ai/lifecycle.integration.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan AI integration",
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
+    },
+    {
+      "path": "scripts/liekan-static-check.mjs",
+      "purpose": "Preserve approved AI UI reference fingerprints",
+      "tests": ["pnpm liekan:verify"],
+      "owner": "Liekan AI integration",
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
+    },
+    {
+      "path": "tests/api/two-factor.spec.ts",
+      "purpose": "Verify that real partial two-factor tokens cannot access any private AI endpoint",
+      "tests": ["pnpm liekan:verify", "tests/api/two-factor.spec.ts"],
+      "owner": "Liekan AI maintenance",
+      "constraint": "Preserve the original two-factor lifecycle and exercise only its disposable test user",
+      "removalCondition": "Remove when upstream has an equivalent extension-point test for private AI endpoints"
+    },
+    {
+      "path": "tests/api/helpers/ai-endpoints.ts",
+      "purpose": "Derive private AI identity acceptance from the verified server operation registry",
+      "tests": ["pnpm liekan:verify"],
+      "owner": "Liekan AI maintenance",
+      "constraint": "Preserve original API scenarios and use only disposable acceptance identities",
+      "removalCondition": "Remove when upstream exposes equivalent private AI identity checks"
+    },
+    {
+      "path": "tests/api/liekan-ai.spec.ts",
+      "purpose": "Exercise complete-session catalog and reject public share, anonymous and account API Key identities at private AI endpoints",
+      "tests": ["pnpm liekan:verify"],
+      "owner": "Liekan AI maintenance",
+      "constraint": "Preserve original API scenarios and use only disposable acceptance identities",
+      "removalCondition": "Remove when upstream exposes equivalent private AI identity checks"
     }
   ]
 }
