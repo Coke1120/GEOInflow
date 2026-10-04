@@ -10,7 +10,7 @@ import {transferWebsiteWithAi} from '../../../src/lib/liekan/upstream/ai-lifecyc
 import {updateUser} from '../../../src/queries/prisma/user';
 import {deleteTeamUser,createTeamUser,updateTeamUser} from '../../../src/queries/prisma/teamUser';
 import {createAiConnection,listAiConnections} from '../../../src/lib/liekan/ai/connections';
-import {createAiConversation,getAiConversation} from '../../../src/lib/liekan/ai/conversations';
+import {createAiConversation,getAiConversation,listAiConversations} from '../../../src/lib/liekan/ai/conversations';
 import {acceptAiRun,getAiRun,setAiRunStage,completeAiRun,expireAiRuns} from '../../../src/lib/liekan/ai/runs';
 import {cleanupAiData,rotateAiKeys,resetRestoredAiData,aiMaintenanceCheck} from '../../../src/lib/liekan/ai/maintenance';
 import {getAiAccessCatalog} from '../../../src/lib/liekan/upstream/ai-catalog';
@@ -167,6 +167,27 @@ if(!child){
    if(batch===4){assert.equal(afterChildren[0].total,0n,'repeated bounded batches must drain the expired parent and its children');assert.equal((maintenance as any).backlog,'0');}
 
   }
+  const retainedParent=randomUUID(),oldTitleParent=randomUUID();
+  await aiTransaction(async tx=>{
+   await tx.execute("INSERT INTO liekan_ai_conversation(id,creator_id,owner_user_id,website_id,website_epoch,title,expires_at) VALUES($1::uuid,$2::uuid,$2::uuid,$3::uuid,gen_random_uuid(),'isolated private expired question title',now()-interval '1 day')",retainedParent,adminId,siteId);
+   await tx.execute("INSERT INTO liekan_ai_run(id,creator_id,identity_id,owner_user_id,client_request_id,request_hash,operation,connection_snapshot,config_version,conversation_id,state,stage) SELECT gen_random_uuid(),$2::uuid,$2::uuid,$2::uuid,gen_random_uuid(),'fixture','analysis','{}'::jsonb,1,$1::uuid,'completed','completed' FROM generate_series(1,501)",retainedParent,adminId);
+   await tx.execute("INSERT INTO liekan_ai_conversation(id,creator_id,owner_user_id,team_id,website_id,website_epoch,title,created_at,expires_at) SELECT $1::uuid,$2::uuid,w.user_id,w.team_id,w.website_id,s.epoch,'isolated private first-question title',now()-interval '91 days',now()+interval '30 days' FROM website w JOIN liekan_ai_website_state s ON s.website_id=w.website_id WHERE w.website_id=$3::uuid",oldTitleParent,adminId,siteId);
+  });
+  assert.equal((await getAiConversation(admin,oldTitleParent)).title,'网站分析','read DTO must hide the expired first-question title before cleanup');
+  process.env.LIEKAN_AI_ENABLED='true';
+  assert.equal((await listAiConversations(admin,siteId)).items.find(row=>row.id===oldTitleParent)?.title,'网站分析','history must hide the expired title before cleanup');
+  process.env.LIEKAN_AI_ENABLED='false';
+  const retainedBacklog=await aiMaintenanceCheck();
+  assert.ok(BigInt((retainedBacklog as any).backlog)>=503n,'retained run references and old question titles must remain in backlog');
+  for(let batch=0;batch<2;batch++){
+   const result=await cleanupAiData({apply:true});
+   assert.ok((result as any).deleted+(result as any).cleared+(result as any).detached<=500,'all content clearing and reference detachment share one budget');
+   const rows=await aiTransaction(tx=>tx.query('SELECT (SELECT count(*) FROM liekan_ai_conversation WHERE id=$1::uuid) AS parent,(SELECT count(*) FROM liekan_ai_run WHERE conversation_id=$1::uuid) AS linked,(SELECT count(*) FROM liekan_ai_run) AS runs,(SELECT title FROM liekan_ai_conversation WHERE id=$2::uuid) AS title',retainedParent,oldTitleParent));
+   assert.equal(rows[0].title,'网站分析','continued conversations must clear their first-question title after 90 days');
+   if(batch===0){assert.ok(rows[0].linked>0n);assert.ok(BigInt((await aiMaintenanceCheck() as any).backlog)>0n);}
+   if(batch===1){assert.equal(rows[0].parent,0n);assert.equal(rows[0].linked,0n);assert.ok(rows[0].runs>=501n,'180-day run metadata remains after 90-day content cleanup');assert.equal((await aiMaintenanceCheck() as any).backlog,'0');}
+  }
+  console.log('Review retention integration passed: old question titles clear at 90 days and 501 retained run pointers drain in bounded batches while metadata remains.');
   await resetRestoredAiData();
   const count=await aiTransaction(tx=>tx.query('SELECT (SELECT count(*) FROM liekan_ai_conversation) AS conversations,(SELECT count(*) FROM liekan_ai_connection WHERE secret_envelope IS NOT NULL OR is_default OR verified_config_version IS NOT NULL) AS usable,(SELECT count(*) FROM liekan_log) AS logs'));
   assert.equal(count[0].conversations,0n);assert.equal(count[0].usable,0n);assert.equal(count[0].logs,1n);

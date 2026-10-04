@@ -59,7 +59,8 @@ function publicConversation(row: AiConversationRow) {
   return {
     id: row.id,
     websiteId: row.website_id,
-    title: row.title,
+    // Continued activity preserves the original automatic question-title deadline.
+    title: row.created_at.getTime() <= Date.now() - 90 * 86400000 ? '网站分析' : row.title,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     expiresAt: row.expires_at.toISOString(),

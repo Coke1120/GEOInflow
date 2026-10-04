@@ -5,15 +5,20 @@ import type { AiConnectionRow } from './connections';
 import { type AiEncryptionKey, decryptAiKey, encryptAiKey } from './crypto';
 import { AiError } from './error';
 
+const inactiveConversation =
+  "NOT EXISTS(SELECT 1 FROM liekan_ai_run r WHERE r.conversation_id=c.id AND r.lease_until>now() AND r.state IN ('accepted','preparing','calling','validating','cancel_requested'))";
+const expiredConversation = `c.expires_at<=now() AND ${inactiveConversation}`;
 const expiredContent = (table: 'liekan_ai_message' | 'liekan_ai_context') =>
-  `expires_at<=now() OR EXISTS(SELECT 1 FROM liekan_ai_conversation c WHERE c.id=${table}.conversation_id AND c.expires_at<=now() AND NOT EXISTS(SELECT 1 FROM liekan_ai_run r WHERE r.conversation_id=c.id AND r.lease_until>now() AND r.state IN ('accepted','preparing','calling','validating','cancel_requested')))`;
+  `expires_at<=now() OR EXISTS(SELECT 1 FROM liekan_ai_conversation c WHERE c.id=${table}.conversation_id AND ${expiredConversation})`;
+const expiredTitle = `c.expires_at>now() AND c.created_at<=now()-interval '90 days' AND c.title NOT IN ('新的分析','网站分析') AND ${inactiveConversation}`;
+const expiredRunReference = `r.expires_at>now() AND EXISTS(SELECT 1 FROM liekan_ai_conversation c WHERE c.id=r.conversation_id AND ${expiredConversation})`;
 const expiredEmptyConversation =
   'expires_at<=now() AND NOT EXISTS(SELECT 1 FROM liekan_ai_message m WHERE m.conversation_id=liekan_ai_conversation.id) AND NOT EXISTS(SELECT 1 FROM liekan_ai_context c WHERE c.conversation_id=liekan_ai_conversation.id) AND NOT EXISTS(SELECT 1 FROM liekan_ai_run r WHERE r.conversation_id=liekan_ai_conversation.id)';
 const backlogSql =
   `(SELECT count(*) FROM liekan_ai_message WHERE ${expiredContent('liekan_ai_message')})+` +
   `(SELECT count(*) FROM liekan_ai_context WHERE ${expiredContent('liekan_ai_context')})+` +
-  `(SELECT count(*) FROM liekan_ai_conversation WHERE ${expiredEmptyConversation})+` +
-  `(SELECT count(*) FROM liekan_ai_run WHERE expires_at<=now() OR (expires_at>now() AND result_expires_at<=now() AND test_result IS NOT NULL))+` +
+  `(SELECT count(*) FROM liekan_ai_conversation c WHERE (${expiredConversation}) OR (${expiredTitle}))+` +
+  `(SELECT count(*) FROM liekan_ai_run r WHERE r.expires_at<=now() OR (r.expires_at>now() AND r.result_expires_at<=now() AND r.test_result IS NOT NULL) OR (${expiredRunReference}))+` +
   `(SELECT count(*) FROM liekan_ai_audit WHERE expires_at<=now())`;
 
 async function present(tx: AiTx) {
@@ -65,12 +70,15 @@ async function performAiCleanup(options: { apply?: boolean; requestBudget?: bool
         'SELECT pg_try_advisory_xact_lock(12800072) AS locked',
       );
       if (!lock.locked) return { skipped: true, deleted: 0 };
-      let deleted = 0;
+      let deleted = 0,
+        cleared = 0,
+        detached = 0;
+      const remaining = () => 500 - deleted - cleared - detached;
       const remove = async (table: string, condition: string) => {
-        if (deleted >= 500) return;
+        if (remaining() <= 0) return;
         deleted += await tx.execute(
           `DELETE FROM ${table} WHERE id IN (SELECT id FROM ${table} WHERE ${condition} ORDER BY expires_at LIMIT $1 FOR UPDATE SKIP LOCKED)`,
-          500 - deleted,
+          remaining(),
         );
       };
       await tx.execute(
@@ -78,17 +86,28 @@ async function performAiCleanup(options: { apply?: boolean; requestBudget?: bool
       );
       await remove('liekan_ai_message', expiredContent('liekan_ai_message'));
       await remove('liekan_ai_context', expiredContent('liekan_ai_context'));
-      await remove('liekan_ai_conversation', expiredEmptyConversation);
+      if (remaining() > 0)
+        cleared += await tx.execute(
+          `UPDATE liekan_ai_conversation SET title='网站分析' WHERE id IN (SELECT c.id FROM liekan_ai_conversation c WHERE ${expiredTitle} ORDER BY c.created_at,c.id LIMIT $1 FOR UPDATE OF c SKIP LOCKED)`,
+          remaining(),
+        );
       await remove('liekan_ai_run', 'expires_at<=now()');
+      if (remaining() > 0)
+        detached += await tx.execute(
+          `UPDATE liekan_ai_run SET conversation_id=NULL WHERE id IN (SELECT r.id FROM liekan_ai_run r WHERE ${expiredRunReference} ORDER BY r.created_at,r.id LIMIT $1 FOR UPDATE OF r SKIP LOCKED)`,
+          remaining(),
+        );
+      await remove('liekan_ai_conversation', expiredEmptyConversation);
       await remove('liekan_ai_audit', 'expires_at<=now()');
-      const cleared = await tx.execute(
-        'UPDATE liekan_ai_run SET test_result=NULL WHERE id IN (SELECT id FROM liekan_ai_run WHERE result_expires_at<=now() AND test_result IS NOT NULL LIMIT $1)',
-        500 - deleted,
-      );
+      if (remaining() > 0)
+        cleared += await tx.execute(
+          'UPDATE liekan_ai_run SET test_result=NULL WHERE id IN (SELECT id FROM liekan_ai_run WHERE result_expires_at<=now() AND test_result IS NOT NULL LIMIT $1 FOR UPDATE SKIP LOCKED)',
+          remaining(),
+        );
       await tx.execute(
         `UPDATE liekan_ai_maintenance SET last_cleanup_at=now(),last_error_code=NULL,backlog=${backlogSql},updated_at=now() WHERE id=1`,
       );
-      return { installed: true, deleted, cleared };
+      return { installed: true, deleted, cleared, detached };
     },
     {
       timeout: options.requestBudget ? 700 : 5000,
