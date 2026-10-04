@@ -27,6 +27,7 @@ services:
     restart: unless-stopped
   db:
     image: postgres:15-alpine
+    shm_size: '256mb'
     ports:
       - '127.0.0.1:15435:5432'
     environment:

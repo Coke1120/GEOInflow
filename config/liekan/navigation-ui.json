@@ -1,6 +1,6 @@
 {
   "baselineVersion": "liekan-navigation-v0.2.2",
-  "approval": "2026-10-04 用户确认紧凑站点选择、14 个常展开菜单、五组分析 Tab 与单行账户栏；全局入口统一为六个四字名称，链接与图片追踪合并到追踪管理",
+  "approval": "2026-10-04 用户确认紧凑站点选择、14 个常展开菜单、五组分析 Tab 与单行账户栏；全局保留数据总览，以数据管理和协作管理两个静态分类组织其余五个入口，链接与图片追踪合并到追踪管理",
   "originalReferencePolicy": "Original HTML, SHA-256 fingerprints, chart pixels, table columns and body VI remain authoritative. Approved navigation/header/toolbars have bounded independent checks.",
   "groups": {
     "global": [
@@ -11,34 +11,38 @@
         "children": []
       },
       {
-        "id": "websites",
-        "label": "网站管理",
+        "id": "data",
+        "label": "数据管理",
         "page": "websites",
-        "children": []
+        "children": [
+          {
+            "page": "websites",
+            "label": "网站管理"
+          },
+          {
+            "page": "boards",
+            "label": "数据看板"
+          },
+          {
+            "page": "links",
+            "label": "追踪管理"
+          }
+        ]
       },
       {
-        "id": "boards",
-        "label": "数据看板",
-        "page": "boards",
-        "children": []
-      },
-      {
-        "id": "tracking",
-        "label": "追踪管理",
-        "page": "links",
-        "children": []
-      },
-      {
-        "id": "sharing",
-        "label": "分享管理",
+        "id": "collaboration",
+        "label": "协作管理",
         "page": "sharing",
-        "children": []
-      },
-      {
-        "id": "teams",
-        "label": "团队管理",
-        "page": "teams",
-        "children": []
+        "children": [
+          {
+            "page": "sharing",
+            "label": "分享管理"
+          },
+          {
+            "page": "teams",
+            "label": "团队管理"
+          }
+        ]
       }
     ],
     "website": [

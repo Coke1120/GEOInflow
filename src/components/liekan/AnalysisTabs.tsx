@@ -24,7 +24,9 @@ export function AnalysisTabs({
 }) {
   const trackingPage = trackingSourcePage(route);
   const family = trackingPage
-    ? globalNavigation.find(group => group.id === 'tracking')
+    ? globalNavigation
+        .flatMap(group => group.children || [group])
+        .find(item => item.page === 'links')
     : websiteAnalysisFamily(route);
   const tabs = trackingPage ? trackingNavigationTabs : websiteAnalysisTabs[family?.page];
   const links = useRef<HTMLDivElement>(null);

@@ -253,7 +253,7 @@ describe('feature navigation scope', () => {
     async route => {
       const view = mount(route);
       expect(await screen.findByText('当前账户没有访问此资源的权限。')).toBeInTheDocument();
-      expect(view.container.querySelectorAll('[data-navigation-group]')).toHaveLength(6);
+      expect(view.container.querySelectorAll('[data-navigation-group]')).toHaveLength(3);
       expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
       expect(mocks.get).not.toHaveBeenCalled();
     },
@@ -282,7 +282,7 @@ describe('feature navigation scope', () => {
   it('shows six flat global entries and no implicit website on an account page', async () => {
     const view = mount({ page: 'account', websiteId: personal.id, teamId });
     const sidebar = view.container.querySelector('#liekan-navigation');
-    expect(sidebar.querySelectorAll('[data-navigation-group]')).toHaveLength(6);
+    expect(sidebar.querySelectorAll('[data-navigation-group]')).toHaveLength(3);
     expect(sidebar.querySelector('.site-switch')).toBeNull();
     expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
     expect(mocks.sites).not.toHaveBeenCalled();

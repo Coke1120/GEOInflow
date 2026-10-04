@@ -373,7 +373,11 @@ export function Navigation({
                     href={safeHref(item.page)}
                   >
                     <Icon
-                      name={website ? websiteNavigationIcons[item.page] || group.icon : group.icon}
+                      name={
+                        website
+                          ? websiteNavigationIcons[item.page] || group.icon
+                          : item.icon || group.icon
+                      }
                     />
                     <span>{item.label}</span>
                     <NavigationFeedback />

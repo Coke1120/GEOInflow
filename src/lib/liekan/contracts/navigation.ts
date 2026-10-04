@@ -4,6 +4,7 @@ export type PageScope = 'global' | 'website' | 'account' | 'admin' | 'auth' | 'p
 export interface NavigationItem {
   page: string;
   label: string;
+  icon?: string;
 }
 export interface NavigationGroup extends NavigationItem {
   id: string;
@@ -19,11 +20,27 @@ export interface PageNavigation {
 
 export const globalNavigation: NavigationGroup[] = [
   { id: 'dashboard', page: 'dashboard', label: '数据总览', icon: 'grid' },
-  { id: 'websites', page: 'websites', label: '网站管理', icon: 'globe' },
-  { id: 'boards', page: 'boards', label: '数据看板', icon: 'bars' },
-  { id: 'tracking', page: 'links', label: '追踪管理', icon: 'target' },
-  { id: 'sharing', page: 'sharing', label: '分享管理', icon: 'copy' },
-  { id: 'teams', page: 'teams', label: '团队管理', icon: 'users' },
+  {
+    id: 'data',
+    page: 'websites',
+    label: '数据管理',
+    icon: 'globe',
+    children: [
+      { page: 'websites', label: '网站管理', icon: 'globe' },
+      { page: 'boards', label: '数据看板', icon: 'bars' },
+      { page: 'links', label: '追踪管理', icon: 'target' },
+    ],
+  },
+  {
+    id: 'collaboration',
+    page: 'sharing',
+    label: '协作管理',
+    icon: 'users',
+    children: [
+      { page: 'sharing', label: '分享管理', icon: 'copy' },
+      { page: 'teams', label: '团队管理', icon: 'users' },
+    ],
+  },
 ];
 export const trackingNavigationTabs: NavigationItem[] = [
   { page: 'links', label: '链接追踪' },

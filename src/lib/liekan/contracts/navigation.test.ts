@@ -259,13 +259,26 @@ describe('navigation task boundaries', () => {
     }
     expect(globalNavigation.map(group => group.label)).toEqual([
       '数据总览',
+      '数据管理',
+      '协作管理',
+    ]);
+    const globalItems = globalNavigation.flatMap(group => group.children || [group]);
+    expect(globalItems.map(item => item.label)).toEqual([
+      '数据总览',
       '网站管理',
       '数据看板',
       '追踪管理',
       '分享管理',
       '团队管理',
     ]);
-    expect(globalNavigation.every(group => !group.children)).toBe(true);
+    expect(globalItems.map(item => item.icon)).toEqual([
+      'grid',
+      'globe',
+      'bars',
+      'target',
+      'copy',
+      'users',
+    ]);
     expect(websiteNavigation.map(group => group.label)).toEqual([
       '流量总览',
       'AI 抓取分析',

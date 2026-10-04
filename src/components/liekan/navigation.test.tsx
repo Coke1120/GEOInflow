@@ -191,7 +191,7 @@ describe('website navigation transitions', () => {
     ['pixels', '追踪管理'],
     ['pixel-editor', '追踪管理'],
     ['pixel-detail', '追踪管理'],
-  ])('shows flat global entries with the correct selection for %s', (page, selected) => {
+  ])('shows grouped global entries with the correct selection for %s', (page, selected) => {
     render(
       <Navigation
         user={{ id: 'user', username: 'admin', isAdmin: true } as any}
@@ -211,6 +211,9 @@ describe('website navigation transitions', () => {
       '团队管理',
     ]);
     expect(within(primary).queryAllByRole('button')).toHaveLength(0);
+    expect(within(primary).getByText('数据管理')).toBeInTheDocument();
+    expect(within(primary).getByText('协作管理')).toBeInTheDocument();
+    expect(primary.querySelectorAll('[data-navigation-group]')).toHaveLength(3);
     expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
     expect(within(primary).getByRole('link', { name: selected })).toHaveAttribute(
       'aria-current',
