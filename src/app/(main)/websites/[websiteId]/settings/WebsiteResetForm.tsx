@@ -1,3 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateFeatureWebsiteQueries } from '@/lib/liekan/upstream/features-client';
 import { TypeConfirmationForm } from '@/components/common/TypeConfirmationForm';
 import { useMessages, useUpdateQuery } from '@/components/hooks';
 
@@ -12,12 +14,14 @@ export function WebsiteResetForm({
   onSave?: () => void;
   onClose?: () => void;
 }) {
+  const queryClient = useQueryClient();
   const { t, labels } = useMessages();
   const { mutateAsync, isPending, error } = useUpdateQuery(`/websites/${websiteId}/reset`);
 
   const handleConfirm = async () => {
     await mutateAsync(null, {
       onSuccess: async () => {
+        await invalidateFeatureWebsiteQueries(queryClient, websiteId);
         onSave?.();
         onClose?.();
       },

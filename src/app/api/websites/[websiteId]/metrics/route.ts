@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { z } from 'zod';
 import { EVENT_COLUMNS, EVENT_TYPE, SESSION_COLUMNS } from '@/lib/constants';
 import { getQueryFilters, parseRequest } from '@/lib/request';
@@ -11,7 +12,7 @@ import {
   getSessionMetrics,
 } from '@/queries/sql';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -72,4 +73,8 @@ export async function GET(
   }
 
   return badRequest();
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

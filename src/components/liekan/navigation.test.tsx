@@ -14,6 +14,7 @@ vi.mock('next/link', () => ({
   default: ({ children, prefetch: _prefetch, ...props }: any) => <a {...props}>{children}</a>,
 }));
 vi.mock('@/lib/liekan/upstream/client', () => ({
+  useFeatureDateRange: () => ({ dateRange: { startDate: new Date(0), endDate: new Date(1000) } }),
   useNavigation: () => ({
     pathname: mocks.pathname,
     query: {},
@@ -21,10 +22,13 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
   }),
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ clear: mocks.clear }),
+  useQueryClient: () => ({
+    clear: mocks.clear,
+    prefetchQuery: vi.fn().mockResolvedValue(undefined),
+  }),
   useQuery: ({ queryKey }: any) => ({
     isPending: false,
-    data: queryKey.includes('navigation-sites')
+    data: queryKey.includes('sites')
       ? [
           { id: 'site-a', name: '网站 A', domain: 'a.test' },
           { id: 'site-b', name: '网站 B', domain: 'b.test' },
@@ -32,7 +36,8 @@ vi.mock('@tanstack/react-query', () => ({
       : [],
   }),
 }));
-vi.mock('@/lib/liekan/upstream/features-client', () => ({
+vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/liekan/upstream/features-client')>()),
   getFeatureSites: vi.fn(),
   getAllFeatureRows: vi.fn(),
   featureApi: { post: mocks.post },

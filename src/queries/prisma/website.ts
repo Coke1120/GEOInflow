@@ -1,3 +1,4 @@
+import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
 import { z } from 'zod';
 import type { Prisma, Website } from '@/generated/prisma/client';
 import { ROLES } from '@/lib/constants';
@@ -196,12 +197,14 @@ export async function updateWebsite(
   websiteId: string,
   data: Prisma.WebsiteUpdateInput | Prisma.WebsiteUncheckedUpdateInput,
 ) {
-  return prisma.client.website.update({
+  const result = await prisma.client.website.update({
     where: {
       id: websiteId,
     },
     data,
   });
+  invalidateWebsiteAnalytics(websiteId);
+  return result;
 }
 
 export async function resetWebsite(websiteId: string, identity?: { userId: string }) {
@@ -230,6 +233,7 @@ export async function resetWebsite(websiteId: string, identity?: { userId: strin
       timeout: 30000,
     },
   ).then(async data => {
+    invalidateWebsiteAnalytics(websiteId);
     if (cloudMode) {
       await redis.client.set(`website:${websiteId}`, data);
     }
@@ -279,6 +283,7 @@ export async function deleteWebsite(websiteId: string) {
       timeout: 30000,
     },
   ).then(async data => {
+    invalidateWebsiteAnalytics(websiteId);
     if (cloudMode) {
       await redis.client.del(`website:${websiteId}`);
     }

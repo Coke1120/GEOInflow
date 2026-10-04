@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import styles from '@/styles/liekan/Shell.module.css';
 import { chartOptions } from './chartOptions';
 import { loadEcharts } from './chartRuntime';
+import { ChartLoading, LoadingLines, Skeleton, useDataLoading } from './DataLoading';
 import {
   columns,
   formatCellValue,
@@ -33,15 +34,24 @@ export function MetricCard({
   valueClass: string;
   report?: LiekanReport;
 }) {
+  const loading = useDataLoading();
   const card = report?.cards.find(card => card.label === label);
   const display = formatMetricValue(card || { value: null, label });
   return (
-    <div className={className}>
+    <div className={className} aria-busy={loading || undefined}>
       <p className="text-[11.5px] text-sub">{label}</p>
-      <p className={`${valueClass} ${styles.metricValue}`}>{display}</p>
+      <p className={`${valueClass} ${styles.metricValue}`}>
+        {loading ? <Skeleton width="3.5em" /> : display}
+      </p>
       <p className="text-[10.5px] text-faint mt-1">
-        {card?.detail || stateLabels[card?.state || 'not_connected'] || '当前统计范围'}
-        {card?.state === 'estimated' && card.detail ? ' · 估算' : ''}
+        {loading ? (
+          <Skeleton width="75%" />
+        ) : (
+          <>
+            {card?.detail || stateLabels[card?.state || 'not_connected'] || '当前统计范围'}
+            {card?.state === 'estimated' && card.detail ? ' · 估算' : ''}
+          </>
+        )}
       </p>
     </div>
   );
@@ -55,6 +65,7 @@ export function ReferenceChart({
   height: number;
   report?: LiekanReport;
 }) {
+  const loading = useDataLoading();
   const container = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -63,7 +74,7 @@ export function ReferenceChart({
     !!chart && (chart.series.some(s => s.values.length > 0) || (chart.rows?.length || 0) > 0);
   useEffect(() => {
     setFailed(false);
-    if (!hasData || !container.current) return;
+    if (loading || !hasData || !container.current) return;
     let disposed = false;
     let instance: any;
     let observer: ResizeObserver;
@@ -121,7 +132,7 @@ export function ReferenceChart({
       disposed = true;
       cleanup();
     };
-  }, [id, chart, hasData, report?.states.logs, attempt]);
+  }, [id, chart, hasData, report?.states.logs, attempt, loading]);
   const state =
     chart?.state ||
     (id.startsWith('h') || id.startsWith('g') || id.startsWith('s')
@@ -134,7 +145,8 @@ export function ReferenceChart({
       id={id}
       style={{ height, position: 'relative' }}
       role={failed ? 'group' : 'img'}
-      aria-label={`${id} 数据图表${failed ? ': 加载失败' : hasData ? '' : `: ${stateLabels[state || 'not_connected']}`}`}
+      aria-busy={loading || undefined}
+      aria-label={`${id} 数据图表${loading ? ': 正在读取' : failed ? ': 加载失败' : hasData ? '' : `: ${stateLabels[state || 'not_connected']}`}`}
     >
       <div ref={container} style={{ width: '100%', height: '100%' }} />
       {hasData && failed && (
@@ -145,7 +157,8 @@ export function ReferenceChart({
           </button>
         </div>
       )}
-      {!hasData && (
+      {loading && <ChartLoading />}
+      {!loading && !hasData && (
         <div className={styles.chartEmpty}>
           {
             stateLabels[
@@ -159,6 +172,7 @@ export function ReferenceChart({
 }
 export function FilterChip({ label }: { label: string }) {
   const a = useReportActions();
+  const loading = useDataLoading();
   const isPeriod = ['30 天', '7 天', '24h'].includes(label);
   const active = isPeriod
     ? a.period === label
@@ -169,6 +183,7 @@ export function FilterChip({ label }: { label: string }) {
       type="button"
       className={`chip${active ? ' on' : ''}`}
       aria-pressed={active}
+      disabled={loading}
       onClick={() => a.onFilter(label)}
     >
       {label}
@@ -177,6 +192,7 @@ export function FilterChip({ label }: { label: string }) {
 }
 export function SortHeading({ className, label }: { className: string; label: string }) {
   const a = useReportActions();
+  const loading = useDataLoading();
   return (
     <th
       className={className}
@@ -184,7 +200,12 @@ export function SortHeading({ className, label }: { className: string; label: st
         a.sort.label === label ? (a.sort.direction === 1 ? 'ascending' : 'descending') : 'none'
       }
     >
-      <button className={styles.sort} type="button" onClick={() => a.onSort(label)}>
+      <button
+        className={styles.sort}
+        type="button"
+        disabled={loading}
+        onClick={() => a.onSort(label)}
+      >
         {label}
         {a.sort.label === label ? (
           <span aria-hidden="true">{a.sort.direction === 1 ? ' ↑' : ' ↓'}</span>
@@ -370,14 +391,25 @@ export function ReportRows({
   limit?: number;
 }) {
   const a = useReportActions();
+  const loading = useDataLoading();
   const fields = columns[table] || [];
   const selected = selectRows(report?.tables[table] || [], a.filter, a.sort, table, a.query);
   const displayLimit = limit ?? tableLimits[table];
   const rows = displayLimit ? selected.slice(0, displayLimit) : selected;
   const state = reportState(report, table);
   return (
-    <tbody className="divide-y divide-line/60" id={table}>
-      {rows.length ? (
+    <tbody className="divide-y divide-line/60" id={table} aria-busy={loading || undefined}>
+      {loading ? (
+        Array.from({ length: 3 }, (_, i) => (
+          <tr key={i} aria-hidden="true">
+            {fields.map(([field], j) => (
+              <td key={field} className={cellClasses[table]?.[j] || 'px-4 py-3'}>
+                <Skeleton width={j === 0 ? '80%' : '65%'} />
+              </td>
+            ))}
+          </tr>
+        ))
+      ) : rows.length ? (
         rows.map((row, i) => (
           <tr
             key={String(row.id || row.path || row.name || row.source || row.time || i) + i}
@@ -440,6 +472,7 @@ export function ReportList({
   className: string;
   report?: LiekanReport;
 }) {
+  const loading = useDataLoading();
   const sourceRows = report?.tables[id] || [];
   const rows = tableLimits[id] ? sourceRows.slice(0, tableLimits[id]) : sourceRows;
   const state =
@@ -462,6 +495,21 @@ export function ReportList({
       {i + 1}
     </span>
   );
+  if (loading)
+    return (
+      <div id={id} className={className} aria-busy="true">
+        {id === 'envGrid' ? (
+          ['浏览器', '操作系统'].map(label => (
+            <div key={label}>
+              <p className="text-[11px] text-faint mb-2">{label}</p>
+              <LoadingLines />
+            </div>
+          ))
+        ) : (
+          <LoadingLines />
+        )}
+      </div>
+    );
   if (id === 'envGrid') {
     const categories = ['browser', 'os'].filter(category =>
       rows.some(
@@ -601,18 +649,25 @@ export function InsightRows({
   report?: LiekanReport;
   variant?: 'rows' | 'paragraph';
 }) {
+  const loading = useDataLoading();
   if (variant === 'paragraph')
     return (
       <p className={className || 'text-[12px] text-sub leading-relaxed'}>
         <b className="text-ink">GEO 洞察：</b>
-        {report?.insights.length
-          ? report.insights.join(' ')
-          : '接入日志与页面目录后生成当前范围的 GEO 发现。'}
+        {loading ? (
+          <Skeleton width="70%" />
+        ) : report?.insights.length ? (
+          report.insights.join(' ')
+        ) : (
+          '接入日志与页面目录后生成当前范围的 GEO 发现。'
+        )}
       </p>
     );
   return (
     <div className={className || 'text-[12px] text-sub leading-relaxed'}>
-      {report?.insights.length ? (
+      {loading ? (
+        <LoadingLines />
+      ) : report?.insights.length ? (
         report.insights.map((insight, i) => (
           <p key={insight} className="flex gap-2">
             <span
@@ -629,20 +684,26 @@ export function InsightRows({
   );
 }
 export function LatestLog({ className, report }: { className: string; report?: LiekanReport }) {
+  const loading = useDataLoading();
   const row = report?.tables.logBody?.[0];
   return (
     <pre
       className={className}
       style={{ fontFamily: 'ui-monospace,monospace', whiteSpace: 'pre-wrap', minHeight: '5lh' }}
     >
-      {row
-        ? `${formatValue(row.ipMasked)} [${formatValue(row.time)}]\n"${row.method || 'GET'} ${formatValue(row.path)}" ${formatValue(row.status)}\n${formatValue(row.userAgent)}\n→ 判定: ${formatValue(row.classification)}`
-        : '待导入访问日志\n支持 combined 格式和 JSON 记录\n导入后显示最近一条脱敏日志'}
+      {loading ? (
+        <LoadingLines lines={3} />
+      ) : row ? (
+        `${formatValue(row.ipMasked)} [${formatValue(row.time)}]\n"${row.method || 'GET'} ${formatValue(row.path)}" ${formatValue(row.status)}\n${formatValue(row.userAgent)}\n→ 判定: ${formatValue(row.classification)}`
+      ) : (
+        '待导入访问日志\n支持 combined 格式和 JSON 记录\n导入后显示最近一条脱敏日志'
+      )}
     </pre>
   );
 }
 
 export function LiveStatus({ report, live }: { report?: LiekanReport; live?: boolean }) {
+  const loading = useDataLoading();
   const connected = report?.states.logs === 'available' || report?.states.logs === 'estimated';
   return (
     <>
@@ -658,7 +719,7 @@ export function LiveStatus({ report, live }: { report?: LiekanReport; live?: boo
             : '所选历史范围每 10 秒刷新，结束时间固定。'
         }
       >
-        {connected ? (live ? '10s 刷新' : '历史刷新') : '待接入'}
+        {loading ? '正在读取' : connected ? (live ? '10s 刷新' : '历史刷新') : '待接入'}
       </span>
     </>
   );

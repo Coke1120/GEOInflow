@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { Panel } from './ui';
+import { ChartLoading, Skeleton, useDataLoading } from '../DataLoading';
 export interface ChartSeries {
   name: string;
   values: (number | null)[];
@@ -30,10 +31,12 @@ export function Chart({
   children?: any;
   onClick?: (params: any) => void;
 }) {
+  const loading = useDataLoading();
   const ref = useRef<HTMLDivElement>(null),
     click = useRef(onClick);
   click.current = onClick;
   useEffect(() => {
+    if (loading) return;
     let chart: any,
       observer: ResizeObserver,
       canceled = false;
@@ -157,26 +160,33 @@ export function Chart({
       observer?.disconnect();
       chart?.dispose();
     };
-  }, [JSON.stringify({ labels, series, type, horizontal, option })]);
+  }, [JSON.stringify({ labels, series, type, horizontal, option }), loading]);
   const content = (
     <>
       <div
         className="chart"
-        style={{ height }}
+        style={{ height, position: 'relative' }}
         ref={ref}
         role="img"
-        aria-label={title || '统计图表'}
-      />
-      <div className="legend-note">
-        {!option && !series.some(s => s.values.some(v => v != null))
-          ? '当前范围没有数据'
-          : type === 'sankey'
-            ? '可悬停查看访客量，点击节点查看路径详情'
-            : horizontal
-              ? '可悬停查看数值，右侧同时显示数量'
-              : '可悬停查看数值，点击图例切换序列'}
+        aria-label={`${title || '统计图表'}${loading ? ': 正在读取' : ''}`}
+        aria-busy={loading || undefined}
+      >
+        {loading && <ChartLoading />}
       </div>
-      {children}
+      <div className="legend-note">
+        {loading ? (
+          <Skeleton width="12em" />
+        ) : !option && !series.some(s => s.values.some(v => v != null)) ? (
+          '当前范围没有数据'
+        ) : type === 'sankey' ? (
+          '可悬停查看访客量，点击节点查看路径详情'
+        ) : horizontal ? (
+          '可悬停查看数值，右侧同时显示数量'
+        ) : (
+          '可悬停查看数值，点击图例切换序列'
+        )}
+      </div>
+      {!loading && children}
     </>
   );
   return title ? (
@@ -187,3 +197,4 @@ export function Chart({
     content
   );
 }
+Chart.loadingLayout = true;

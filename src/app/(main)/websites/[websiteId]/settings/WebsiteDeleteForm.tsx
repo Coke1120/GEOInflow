@@ -1,3 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateFeatureWebsiteQueries } from '@/lib/liekan/upstream/features-client';
 import { TypeConfirmationForm } from '@/components/common/TypeConfirmationForm';
 import { useDeleteQuery, useMessages } from '@/components/hooks';
 
@@ -12,6 +14,7 @@ export function WebsiteDeleteForm({
   onSave?: () => void;
   onClose?: () => void;
 }) {
+  const queryClient = useQueryClient();
   const { t, labels } = useMessages();
   const { mutateAsync, isPending, error, touch } = useDeleteQuery(`/websites/${websiteId}`);
 
@@ -20,6 +23,7 @@ export function WebsiteDeleteForm({
       onSuccess: async () => {
         touch('websites');
         touch(`websites:${websiteId}`);
+        await invalidateFeatureWebsiteQueries(queryClient, websiteId);
         onSave?.();
         onClose?.();
       },

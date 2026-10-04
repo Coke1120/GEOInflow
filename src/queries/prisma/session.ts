@@ -1,3 +1,4 @@
+import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
 import prisma from '@/lib/prisma';
 
 export async function deleteSession(
@@ -6,7 +7,7 @@ export async function deleteSession(
 ): Promise<{ id: string } | null> {
   const transaction = prisma.transaction as <T>(input: (tx: any) => Promise<T>) => Promise<T>;
 
-  return transaction(async tx => {
+  const result = await transaction(async tx => {
     const session = await tx.session.findFirst({
       where: {
         id: sessionId,
@@ -118,4 +119,6 @@ export async function deleteSession(
 
     return session;
   });
+  invalidateWebsiteAnalytics(websiteId);
+  return result;
 }

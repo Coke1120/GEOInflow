@@ -5,23 +5,29 @@ import { useEffect, useRef, useState } from 'react';
 import type { FeatureEntity, FeatureRoute, FeatureUser } from '@/lib/liekan/contracts/features';
 import {
   accountNavigation,
+  geoPaths,
   activeNavigationPage,
   adminNavigation,
   globalNavigation,
   navigationFor,
   websiteNavigation,
 } from '@/lib/liekan/contracts/navigation';
-import { useNavigation } from '@/lib/liekan/upstream/client';
+import { featureDateRange } from '@/lib/liekan/contracts/analysis';
+import type { ReportResource } from '@/lib/liekan/contracts/page-report';
+import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
+import { useFeatureDateRange, useNavigation } from '@/lib/liekan/upstream/client';
 import {
   clearFeatureLogin,
   featureApi,
   getAllFeatureRows,
   getFeatureSites,
+  getFeaturePreferences,
 } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Navigation.module.css';
 import '@/styles/liekan/Features.module.css';
 import { featureHref, featureWebsiteSwitchHref, safeReturnHref } from './features/routes';
 import { Drawer, Form, Icon, Notice, QueryState, Select } from './features/ui';
+import { defaultDateRange } from './viewState';
 
 export function useSidebarWidth() {
   const [width, setWidth] = useState(228);
@@ -71,16 +77,20 @@ export function Navigation({
   const sidebar = useRef<HTMLElement>(null);
   const drag = useRef<number>(null);
   const sitesQuery = useQuery({
-    queryKey: ['liekan-feature', user.id, 'navigation-sites'],
+    queryKey: ['liekan-feature', user.id, 'sites', undefined, 'all', undefined],
     queryFn: ({ signal }) => getFeatureSites(signal),
     enabled: switching,
     retry: false,
+    staleTime: 300000,
+    gcTime: 600000,
   });
   const teamsQuery = useQuery({
     queryKey: ['liekan-feature', user.id, 'teams'],
     queryFn: ({ signal }) => getAllFeatureRows<FeatureEntity>('/me/teams', {}, signal),
     enabled: website,
     retry: false,
+    staleTime: 300000,
+    gcTime: 600000,
   });
   useEffect(() => {
     setExpanded(meta.section);
@@ -115,6 +125,57 @@ export function Navigation({
       toggle.current?.focus();
     };
   }, [mobile]);
+  const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
+  const { dateRange } = useFeatureDateRange(timezone);
+  const warmTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const warming = useRef(false);
+  const cancelWarm = () => clearTimeout(warmTimer.current);
+  useEffect(() => cancelWarm, []);
+  const warm = (page: string) => {
+    cancelWarm();
+    if (
+      !website ||
+      !route.websiteId ||
+      !(page in geoPaths) ||
+      page === 'geo-logs' ||
+      warming.current
+    )
+      return;
+    warmTimer.current = setTimeout(() => {
+      if (warming.current) return;
+      warming.current = true;
+      const path = geoPaths[page];
+      const resource = (
+        page === 'overview'
+          ? 'overview'
+          : page === 'geo-ai'
+            ? 'ai/overview'
+            : page === 'geo-human'
+              ? 'human/overview'
+              : path.slice(1)
+      ) as ReportResource;
+      const range = nav.query.date
+        ? featureDateRange(dateRange, timezone)
+        : defaultDateRange(Date.now(), timezone);
+      const chartPeriod =
+        ['overview', 'human/overview'].includes(resource) &&
+        ['24h', '7d'].includes(nav.query.chartPeriod)
+          ? nav.query.chartPeriod
+          : '30d';
+      void client
+        .prefetchQuery(
+          pageReportQuery(
+            user.id,
+            route.websiteId,
+            { resource, startAt: range.startAt, endAt: range.endAt, timezone, chartPeriod },
+            route.teamId,
+          ),
+        )
+        .finally(() => {
+          warming.current = false;
+        });
+    }, 150);
+  };
   const currentSite = site?.id === route.websiteId ? site : undefined;
   const siteName = currentSite?.name || '选择网站';
   const teamName =
@@ -218,6 +279,10 @@ export function Navigation({
                   className={`${styles.item} ${!group.children && activePage === group.page ? styles.selected : ''}`}
                   aria-current={!group.children && activePage === group.page ? 'page' : undefined}
                   href={safeHref(group.page)}
+                  onMouseEnter={() => warm(group.page)}
+                  onFocus={() => warm(group.page)}
+                  onMouseLeave={cancelWarm}
+                  onBlur={cancelWarm}
                   onClick={() => group.children && setExpanded(group.id)}
                 >
                   <Icon name={group.icon} />

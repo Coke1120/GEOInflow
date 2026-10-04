@@ -1,3 +1,6 @@
+import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './query-cache';
+import { bypassQueryCache, noteCacheResult } from './cache-context';
+import { statisticsCacheTtl } from './cache-policy';
 import { Decimal } from '@prisma/client/runtime/client';
 import {
   addDays,
@@ -83,6 +86,22 @@ export async function featureAnalytics(websiteId: string, input: unknown) {
     ...p,
     ...(p.eventName ? { drill_event: `eq.${p.eventName}` } : {}),
   });
+  if (
+    !bypassQueryCache() &&
+    ['events', 'utm', 'sources', 'performance', 'revenue', 'attribution'].includes(p.kind)
+  ) {
+    const result = await analyticsCache.read(
+      analyticsCacheKey('feature-analytics-v1', [process.env.DATABASE_URL, websiteId, p, filters]),
+      statisticsCacheTtl(p.endAt, p.timezone),
+      [websiteCacheTag(websiteId)],
+      () => computeFeatureAnalytics(websiteId, p, filters),
+    );
+    noteCacheResult(result);
+    return result.value;
+  }
+  return computeFeatureAnalytics(websiteId, p, filters);
+}
+async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) {
   let source = p.retentionDate ? 'cohort_events' : 'filtered_events';
   let { cte, params } = selectEvents(websiteId, filters, !!p.retentionDate, source);
   if (p.retentionDate) {

@@ -1,3 +1,4 @@
+import { withoutQueryCache } from '@/lib/liekan/upstream/cache-context';
 import JSZip from 'jszip';
 import Papa from 'papaparse';
 import { getQueryFilters, parseRequest } from '@/lib/request';
@@ -6,7 +7,7 @@ import { pagingParams, withDateRange } from '@/lib/schema';
 import { canViewAuthenticatedWebsite } from '@/permissions';
 import { getEventMetrics, getPageviewMetrics, getSessionMetrics } from '@/queries/sql';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -79,4 +80,8 @@ export async function GET(
   const base64 = content.toString('base64');
 
   return json({ zip: base64 });
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withoutQueryCache(() => getResponse(...args));
 }

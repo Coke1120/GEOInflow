@@ -53,7 +53,8 @@ vi.mock('./Chart', () => ({
     );
   },
 }));
-vi.mock('@/lib/liekan/upstream/features-client', () => ({
+vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/liekan/upstream/features-client')>()),
   featureRequest: mocks.request,
   getAllFeatureRows: mocks.all,
   getFeaturePreferences: mocks.preferences,
@@ -600,6 +601,47 @@ describe('workspace permissions and native board persistence', () => {
         '/dashboard',
         expect.objectContaining({
           parameters: expect.objectContaining({ liekan: expect.objectContaining({ siteIds: [] }) }),
+        }),
+      ),
+    );
+  });
+  it('waits for the saved dashboard when website choices are already ready', async () => {
+    context = { ...context, sitesLoading: false, route: { page: 'dashboard-edit' } };
+    let complete: (dashboard: any) => void;
+    mocks.get.mockImplementation(
+      (path: string) =>
+        new Promise(resolve => {
+          if (path === '/dashboard') complete = resolve;
+        }),
+    );
+    mount(<WorkspacePages page="dashboard-edit" />);
+    await waitFor(() => expect(complete).toBeTypeOf('function'));
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保存工作台' })).not.toBeInTheDocument();
+    expect(mocks.post).not.toHaveBeenCalled();
+
+    const rows = structuredClone(nativeBoard.parameters.rows);
+    await act(async () => {
+      complete({
+        name: '已有工作台',
+        parameters: {
+          extension: 'retained',
+          rows,
+          liekan: { siteIds: [site.id], showAI: false, showCompare: true },
+        },
+      });
+    });
+    expect(await screen.findByRole('checkbox', { name: /产品网站/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: '保存工作台' }));
+    await waitFor(() =>
+      expect(mocks.post).toHaveBeenCalledWith(
+        '/dashboard',
+        expect.objectContaining({
+          parameters: expect.objectContaining({
+            extension: 'retained',
+            rows,
+            liekan: expect.objectContaining({ siteIds: [site.id], showAI: false }),
+          }),
         }),
       ),
     );
