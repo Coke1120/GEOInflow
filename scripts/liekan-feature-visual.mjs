@@ -242,8 +242,9 @@ async function geometry(page) {
     const arrows = [...scope.querySelectorAll('.btn')].flatMap(el => {
       const icon = el.lastElementChild;
       if (icon?.tagName.toLowerCase() !== 'svg') return [];
-      const r = el.getBoundingClientRect(),
-        i = icon.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) return [];
+      const i = icon.getBoundingClientRect();
       return [r.right - i.right];
     });
     return {
