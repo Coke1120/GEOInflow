@@ -1,6 +1,9 @@
 import { expect, it, vi } from 'vitest';
+
 vi.mock('@/lib/client', () => ({ getClientAuthToken: () => 'isolated-fixture-token' }));
-import { streamAiRun } from './ai-client';
+
+import { aiClient, streamAiRun } from './ai-client';
+
 const id = '11111111-1111-4111-8111-111111111111';
 const frame = (sequence: number, type: string, data: unknown) =>
   `event: ${type}\ndata: ${JSON.stringify({ protocolVersion: 1, runId: id, sequence, type, data })}\n\n`;
@@ -54,13 +57,11 @@ it('returns the prior accepted JSON task without replaying its provider request'
   }
 });
 it('keeps the known run ID for recovery when the event stream stops before completion', async () => {
-  const boundary = vi
-    .spyOn(globalThis, 'fetch')
-    .mockResolvedValue(
-      new Response(frame(1, 'started', { runId: id }), {
-        headers: { 'content-type': 'text/event-stream' },
-      }),
-    );
+  const boundary = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    new Response(frame(1, 'started', { runId: id }), {
+      headers: { 'content-type': 'text/event-stream' },
+    }),
+  );
   try {
     await expect(
       streamAiRun('/liekan/ai/runs/' + id, {}, new AbortController().signal, () => {}),
@@ -87,6 +88,34 @@ it.each([
     await expect(
       streamAiRun('/liekan/ai/runs/' + id, {}, new AbortController().signal, () => {}),
     ).rejects.toMatchObject({ code: 'protocol' });
+    expect(boundary).toHaveBeenCalledTimes(1);
+  } finally {
+    boundary.mockRestore();
+  }
+});
+
+it('reads typed conversation metadata using a single authenticated GET and forwards cancellation', async () => {
+  const websiteId = '22222222-2222-4222-8222-222222222222';
+  const controller = new AbortController();
+  const boundary = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+    expect(new URL(String(url)).pathname).toBe(`/api/liekan/ai/conversations/${id}`);
+    expect(init?.method).toBe('GET');
+    expect(init?.body).toBeUndefined();
+    expect(init?.signal).toBe(controller.signal);
+    expect(new Headers(init?.headers).get('authorization')).toBe('Bearer isolated-fixture-token');
+    expect(new Headers(init?.headers).get('cache-control')).toBe('no-store');
+    return Response.json({
+      id,
+      websiteId,
+      title: '归属校验',
+      createdAt: '2026-10-04T00:00:00Z',
+      updatedAt: '2026-10-04T00:00:00Z',
+      expiresAt: '2026-11-03T00:00:00Z',
+    });
+  });
+  try {
+    const result = await aiClient.conversation(id, controller.signal);
+    expect(result).toMatchObject({ id, websiteId });
     expect(boundary).toHaveBeenCalledTimes(1);
   } finally {
     boundary.mockRestore();

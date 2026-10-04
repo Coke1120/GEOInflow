@@ -1,5 +1,5 @@
 'use client';
-import { UmamiClient, type OperationInput, type OperationOutput } from '@umami/api-client';
+import { type OperationInput, type OperationOutput, UmamiClient } from '@umami/api-client';
 import { getApiUrl } from '@/lib/api-url';
 import { getClientAuthToken } from '@/lib/client';
 import type { AiEvent } from '../ai/events';
@@ -38,6 +38,8 @@ export const aiClient = {
   deleteConnection: (id: string, rowVersion: number) =>
     client().deleteLiekanAiConnection({ id, rowVersion }),
   createConversation: (websiteId: string) => client().createLiekanAiConversation({ websiteId }),
+  conversation: (id: string, signal?: AbortSignal) =>
+    client().getLiekanAiConversation({ id }, { signal }),
   conversations: (websiteId: string, cursor?: string, signal?: AbortSignal) =>
     client().getLiekanAiConversations({ websiteId, cursor, limit: 25 }, { signal }),
   deleteConversation: (id: string) => client().deleteLiekanAiConversation({ id }),

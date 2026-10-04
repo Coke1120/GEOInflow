@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   updateConnection: vi.fn(),
   deleteConnection: vi.fn(),
   createConversation: vi.fn(),
+  conversation: vi.fn(),
   conversations: vi.fn(),
   messages: vi.fn(),
   contextCall: vi.fn(),
@@ -118,6 +119,10 @@ beforeEach(() => {
   mocks.conversations.mockResolvedValue({ items: [], nextCursor: null });
   mocks.messages.mockResolvedValue({ items: [], nextCursor: null });
   mocks.createConversation.mockResolvedValue({ id: conversationId, websiteId: siteId });
+  mocks.conversation.mockImplementation(async (value: string) => ({
+    id: value,
+    websiteId: siteId,
+  }));
 });
 describe('Liekan AI production interactions', () => {
   it('fills the provider preset and clears its write-only key after saving and reopening', async () => {
@@ -762,6 +767,7 @@ function routeChat() {
   const ui = render(page());
   return {
     ...ui,
+    client,
     route: (conversation: string, website: string = siteId) => {
       mocks.context = {
         ...mocks.context,
@@ -1062,6 +1068,10 @@ function twoSiteChat() {
     nextCursor: null,
   }));
   mocks.createConversation.mockResolvedValue({ id: nextConversationId, websiteId: nextSiteId });
+  mocks.conversation.mockImplementation(async (value: string) => ({
+    id: value,
+    websiteId: value === nextConversationId ? nextSiteId : siteId,
+  }));
   return routeChat();
 }
 
@@ -1234,4 +1244,137 @@ it('uses Chinese source and data-state copy with a safe unknown fallback', async
     expect(await within(modal).findByText(text)).toBeInTheDocument();
   expect(modal).not.toHaveTextContent('not_connected');
   expect(modal).not.toHaveTextContent('future_state');
+});
+
+describe('verified conversation resource scope', () => {
+  it('hides cached messages and recovered answers for a bookmarked conversation owned by another site', async () => {
+    const user = userEvent.setup();
+    let confirm: (value: any) => void;
+    const ui = twoSiteChat();
+    expect(await screen.findByText('site A conversation')).toBeInTheDocument();
+    mocks.conversation.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          confirm = resolve;
+        }),
+    );
+    mocks.run.mockResolvedValue(
+      completed({ result: { ...answer, summary: 'wrong-site recovered answer' } }),
+    );
+    sessionStorage.setItem(
+      `liekan-ai:${id}:analysis:${nextSiteId}`,
+      JSON.stringify({
+        clientRequestId: '66666666-6666-4666-8666-666666666666',
+        siteId: nextSiteId,
+        conversationId,
+        runId,
+      }),
+    );
+    ui.client.setQueryData(['liekan-ai', id, 'messages', nextSiteId, conversationId], {
+      pages: [
+        {
+          items: [
+            {
+              id,
+              question: 'cached site A secret history',
+              result: answer,
+              origin: 'local',
+              state: 'completed',
+              runId,
+            },
+          ],
+          nextCursor: null,
+        },
+      ],
+      pageParams: [undefined],
+    });
+    ui.route(conversationId, nextSiteId);
+    expect(screen.getByLabelText('分析问题')).toBeDisabled();
+    expect(screen.queryByText('cached site A secret history')).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(mocks.conversation).toHaveBeenCalledWith(conversationId, expect.any(AbortSignal)),
+    );
+    await act(async () => confirm({ id: conversationId, websiteId: siteId }));
+    expect(await screen.findByText(/对话属于其他网站/)).toBeInTheDocument();
+    await waitFor(() => expect(mocks.run).toHaveBeenCalledWith(runId, expect.any(AbortSignal)));
+    expect(screen.queryByText('wrong-site recovered answer')).not.toBeInTheDocument();
+    expect(screen.queryByText('site A conversation')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '查看生成时依据' })).not.toBeInTheDocument();
+    expect(mocks.messages).toHaveBeenCalledTimes(1);
+    expect(mocks.conversations).not.toHaveBeenCalledWith(
+      nextSiteId,
+      undefined,
+      expect.any(AbortSignal),
+    );
+    expect(mocks.stream).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '切换到「研究站」' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '新建当前网站对话' }));
+    await user.type(screen.getByLabelText('分析问题'), 'explicit new question for B');
+    await user.click(screen.getByRole('button', { name: '发起分析' }));
+    await waitFor(() => expect(mocks.stream).toHaveBeenCalledTimes(1));
+    expect(mocks.createConversation).toHaveBeenCalledWith(nextSiteId);
+    expect(mocks.stream.mock.calls[0][0]).toBe(
+      `/liekan/ai/conversations/${nextConversationId}/messages`,
+    );
+    expect(mocks.conversation).not.toHaveBeenCalledWith(
+      nextConversationId,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('does not read or submit an unavailable conversation and permits an explicit new conversation', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId, aiConversation: conversationId };
+    mocks.connections.mockResolvedValue({ items: [connection()] });
+    mocks.conversation.mockRejectedValue({ status: 404 });
+    mount('ai-chat');
+    expect(await screen.findByText(/资源或生成时依据不可访问/)).toBeInTheDocument();
+    expect(screen.getByLabelText('分析问题')).toBeDisabled();
+    expect(mocks.messages).not.toHaveBeenCalled();
+    expect(mocks.contextCall).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: '新建当前网站对话' }));
+    expect(screen.getByLabelText('分析问题')).toBeEnabled();
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
+
+  it('waits for matching metadata and ignores a late verification for a prior URL conversation', async () => {
+    let old: (value: any) => void, current: (value: any) => void;
+    mocks.context.query = { aiSite: siteId, aiConversation: conversationId };
+    mocks.connections.mockResolvedValue({ items: [connection()] });
+    mocks.conversation.mockImplementation(
+      value =>
+        new Promise(resolve => {
+          if (value === conversationId) old = resolve;
+          else current = resolve;
+        }),
+    );
+    historyByConversation();
+    const ui = routeChat();
+    await waitFor(() =>
+      expect(mocks.conversation).toHaveBeenCalledWith(conversationId, expect.any(AbortSignal)),
+    );
+    expect(screen.getByLabelText('分析问题')).toBeDisabled();
+    expect(mocks.messages).not.toHaveBeenCalled();
+    ui.route(nextConversationId);
+    await waitFor(() =>
+      expect(mocks.conversation).toHaveBeenCalledWith(nextConversationId, expect.any(AbortSignal)),
+    );
+    await act(async () => current({ id: nextConversationId, websiteId: siteId }));
+    expect(await screen.findByText('conversation B question')).toBeInTheDocument();
+    await act(async () => old({ id: conversationId, websiteId: siteId }));
+    expect(screen.queryByText('conversation A question')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('分析问题')).toBeEnabled();
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
+
+  it('rejects a metadata response for a different conversation ID even on the selected website', async () => {
+    mocks.context.query = { aiSite: siteId, aiConversation: conversationId };
+    mocks.conversation.mockResolvedValue({ id: nextConversationId, websiteId: siteId });
+    mount('ai-chat');
+    expect(await screen.findByText(/对话信息与当前地址不匹配/)).toBeInTheDocument();
+    expect(screen.getByLabelText('分析问题')).toBeDisabled();
+    expect(mocks.messages).not.toHaveBeenCalled();
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
 });

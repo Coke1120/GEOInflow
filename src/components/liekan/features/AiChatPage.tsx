@@ -3,7 +3,12 @@ import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-quer
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { DataState } from '@/lib/liekan/contracts/report';
-import { type AiCatalog, type AiMessage, aiClient } from '@/lib/liekan/upstream/ai-client';
+import {
+  type AiCatalog,
+  type AiConversation,
+  type AiMessage,
+  aiClient,
+} from '@/lib/liekan/upstream/ai-client';
 import {
   AiButton,
   AiModal,
@@ -48,6 +53,8 @@ function dataStateLabel(value: unknown) {
 function sourceLabel(value: string) {
   return Object.hasOwn(sourceLabels, value) ? sourceLabels[value] : '未知来源';
 }
+const conversationKey = (userId: string, siteId: string, conversationId: string) =>
+  ['liekan-ai', userId, 'conversation', siteId, conversationId] as const;
 const questions = [
   '分析最近 7 天的 AI 抓取趋势',
   '哪些页面值得优先优化？',
@@ -77,9 +84,12 @@ export function AiChatPage() {
   if (!data) return null;
   const site = data.websites.find(s => s.id === siteId),
     space = data.spaces.find(s => s.kind === site?.space.kind && s.id === site?.space.id);
-  const changeSite = (id: string) => {
+  const changeSite = (id: string, conversationId?: string) => {
     setSiteId(id);
-    c.navigate('ai-chat', id ? { aiSite: id } : {});
+    c.navigate(
+      'ai-chat',
+      id ? { aiSite: id, ...(conversationId ? { aiConversation: conversationId } : {}) } : {},
+    );
   };
   return (
     <div data-liekan-ai="ai-chat" className={styles.chatWorkspace} lang="zh-CN">
@@ -138,7 +148,7 @@ function SiteConversation({
   catalog: AiCatalog;
   site: AiCatalog['websites'][number];
   space: AiCatalog['spaces'][number];
-  changeSite: (id: string) => void;
+  changeSite: (id: string, conversationId?: string) => void;
 }) {
   const c = useFeature(),
     client = useQueryClient(),
@@ -253,6 +263,22 @@ function SiteConversation({
     else if (conversationRef.current !== restoredConversation)
       void selectConversation(routeRef.current || conversationRef.current, 'route');
   }, [routeScope, restoredConversation, selectConversation]);
+  const conversationInfo = useQuery({
+    queryKey: conversationKey(c.user.id, site.id, conversationId),
+    queryFn: ({ signal }) => aiClient.conversation(conversationId, signal),
+    enabled: !!conversationId && catalog.module.enabled,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const conversationVerified =
+    !conversationId ||
+    (conversationInfo.isSuccess &&
+      conversationInfo.data.id === conversationId &&
+      conversationInfo.data.websiteId === site.id);
+  const realSite =
+    conversationInfo.data?.id === conversationId
+      ? catalog.websites.find(value => value.id === conversationInfo.data.websiteId)
+      : undefined;
   const connections = useQuery({
     queryKey: ['liekan-ai', c.user.id, 'connections', space.kind, space.id],
     queryFn: ({ signal }) => aiClient.connections({ kind: space.kind, id: space.id }, signal),
@@ -274,31 +300,34 @@ function SiteConversation({
     queryFn: ({ pageParam, signal }) => aiClient.conversations(site.id, pageParam, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: last => last.nextCursor || undefined,
-    enabled: catalog.module.enabled,
+    enabled: catalog.module.enabled && conversationVerified,
     retry: false,
   });
   const messages = useInfiniteQuery({
-    queryKey: ['liekan-ai', c.user.id, 'messages', conversationId],
+    queryKey: ['liekan-ai', c.user.id, 'messages', site.id, conversationId],
     queryFn: ({ pageParam, signal }) => aiClient.messages(conversationId, pageParam, signal),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: last => last.nextCursor || undefined,
-    enabled: !!conversationId && catalog.module.enabled,
+    enabled: !!conversationId && catalog.module.enabled && conversationVerified,
     retry: false,
   });
-  const allMessages =
-    messages.data?.pages
-      .flatMap(p => p.items)
-      .slice()
-      .reverse() || [];
+  const allMessages = conversationVerified
+    ? messages.data?.pages
+        .flatMap(p => p.items)
+        .slice()
+        .reverse() || []
+    : [];
   const routePending = pendingConversation !== null || routeConversation !== observedRoute.current;
   const busy = task.busy || creating || switching || routePending;
   const showCurrentTask =
-    !task.metadata?.conversationId || task.metadata.conversationId === conversationId;
+    conversationVerified &&
+    (!task.metadata?.conversationId || task.metadata.conversationId === conversationId);
   const blocked =
     !catalog.module.enabled ||
     !space.canUse ||
     connections.isPending ||
     !!connections.error ||
+    !conversationVerified ||
     busy;
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -344,10 +373,13 @@ function SiteConversation({
           routeRef.current !== submittedRoute
         )
           return;
+        client.setQueryData(conversationKey(c.user.id, site.id, id), created);
         conversationRef.current = id;
         setConversationId(id);
         c.navigate('ai-chat', { aiSite: site.id, aiConversation: id });
       }
+      const verified = client.getQueryData<AiConversation>(conversationKey(c.user.id, site.id, id));
+      if (verified?.id !== id || verified.websiteId !== site.id) throw { code: 'conflict' };
       if (
         !alive.current ||
         epoch !== selectionEpoch.current ||
@@ -432,6 +464,39 @@ function SiteConversation({
           当前网站所属空间为只读权限，无法执行 AI 分析或付费测试。可以查看你自己的可访问历史。
         </AiNotice>
       )}
+      {conversationId && catalog.module.enabled && !conversationVerified && (
+        <>
+          <AiNotice error={!conversationInfo.isPending}>
+            {conversationInfo.isPending
+              ? '正在确认对话所属网站…'
+              : conversationInfo.error
+                ? aiError(conversationInfo.error)
+                : conversationInfo.data?.id !== conversationId
+                  ? '对话信息与当前地址不匹配，读取与分析已暂停。请新建当前网站对话。'
+                  : '对话属于其他网站，当前网站已暂停读取与分析。请新建对话或切换到对话所属网站。'}
+          </AiNotice>
+          {!conversationInfo.isPending && (
+            <div className={styles.actions}>
+              <AiButton disabled={busy} onClick={() => void selectConversation('')}>
+                新建当前网站对话
+              </AiButton>
+              {conversationInfo.error && (
+                <AiButton onClick={() => void conversationInfo.refetch()}>重新确认对话</AiButton>
+              )}
+              {realSite && realSite.id !== site.id && (
+                <AiButton
+                  disabled={busy}
+                  onClick={async () => {
+                    if (await task.stop()) changeSite(realSite.id, conversationId);
+                  }}
+                >
+                  切换到「{realSite.name}」
+                </AiButton>
+              )}
+            </div>
+          )}
+        </>
+      )}
       {connections.error && (
         <>
           <AiNotice error>{aiError(connections.error)}</AiNotice>
@@ -472,7 +537,9 @@ function SiteConversation({
         <details>
           <summary>我的历史对话</summary>
           <div className={styles.history}>
-            {history.error ? (
+            {!conversationVerified ? (
+              <p>请先确认对话所属网站后查看历史。</p>
+            ) : history.error ? (
               <AiNotice error>{aiError(history.error)}</AiNotice>
             ) : history.isPending ? (
               <p>正在读取历史…</p>
@@ -496,7 +563,7 @@ function SiteConversation({
                   </div>
                 ))
             )}
-            {history.hasNextPage && (
+            {conversationVerified && history.hasNextPage && (
               <AiButton
                 disabled={history.isFetchingNextPage}
                 onClick={() => void history.fetchNextPage()}
@@ -513,13 +580,13 @@ function SiteConversation({
           <p>结合 AI 抓取、访客来源、页面与转化记录，找到下一步。</p>
         </div>
       )}
-      {messages.error && (
+      {conversationVerified && messages.error && (
         <>
           <AiNotice error>{aiError(messages.error)}</AiNotice>
           <AiButton onClick={() => void selectConversation('')}>新建对话</AiButton>
         </>
       )}
-      {messages.hasNextPage && (
+      {conversationVerified && messages.hasNextPage && (
         <AiButton
           disabled={messages.isFetchingNextPage}
           onClick={() => void messages.fetchNextPage()}
@@ -593,7 +660,7 @@ function SiteConversation({
           value={question}
           maxLength={catalog.limits.maxQuestionCharacters}
           placeholder="问问网站最近发生了什么，或者描述你想核查的变化"
-          disabled={!catalog.module.enabled || !space.canUse || busy}
+          disabled={blocked}
           onChange={e => setQuestion(e.target.value)}
         />
         <div className={styles.composerActions}>
@@ -654,11 +721,7 @@ function SiteConversation({
           </div>
           <div className={styles.functionGrid}>
             {questions.map(text => (
-              <AiButton
-                key={text}
-                disabled={busy || !space.canUse || !catalog.module.enabled}
-                onClick={() => setQuestion(text)}
-              >
+              <AiButton key={text} disabled={blocked} onClick={() => setQuestion(text)}>
                 {text}
               </AiButton>
             ))}
@@ -668,7 +731,7 @@ function SiteConversation({
       <p className={styles.footnote}>
         回答基于本次统计快照。日志覆盖未经验证；当前页面可能随新数据变化。供应商调用可能产生费用。
       </p>
-      {reference && conversationId && (
+      {reference && conversationId && conversationVerified && (
         <ContextSnapshot
           conversationId={conversationId}
           contextId={reference}
