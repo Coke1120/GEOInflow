@@ -63,6 +63,8 @@ cp.execFileSync=(command,args,options={})=>{
   const sql=args.at(-1);
   if(sql.includes('information_schema'))return JSON.stringify([{exists:true}]);
   if(sql.includes('_prisma_migrations'))return JSON.stringify(fault==='pending-upgrade'&&args.includes('liekan_restore')&&!restoreStarted?[]:official);
+  if(sql.includes('to_regclass'))return fault==='installation-missing'||(fault==='installation-upgrade'&&args.includes('liekan_restore')&&!restoreStarted)?'':'liekan_installation';
+  if(sql==='SELECT count(*) FROM liekan_installation')return String(fault==='installation-upgrade'||(fault==='installation-lost'&&restoreStarted)?0:3);
   if(sql==='SELECT count(*) FROM liekan_migration')return String(upstream.liekanMigration);
   if(sql.startsWith('SELECT json_build_object'))return JSON.stringify({user:2,website:1,session:3,website_event:5,report:1,liekan_log:1,liekan_import:1,liekan_catalog:1,liekan_setting:1,liekan_migration:upstream.liekanMigration});
   if(sql.startsWith('SELECT json_agg'))return JSON.stringify(ledger.map(row=>sql.includes('appliedAt')?row:{name:row.name,checksum:row.checksum}));
@@ -160,7 +162,28 @@ describe('isolated acceptance CLI failure paths', () => {
       fs.rmSync(setup.cwd, { recursive: true, force: true });
     }
   });
+  it('upgrades a backup without installation progress and counts the new table after migration', () => {
+    const setup = fixture('installation-upgrade');
+    try {
+      const result = spawnSync(process.execPath, setup.args, {
+        cwd: setup.cwd,
+        env: setup.env,
+        encoding: 'utf8',
+        timeout: 20000,
+      });
+      if (result.status !== 0) throw new Error(result.stderr || result.stdout);
+      const report = JSON.parse(
+        fs.readFileSync(path.join(setup.cwd, 'outputs/acceptance.json'), 'utf8'),
+      );
+      expect(report.before.liekan_installation).toBe(0);
+      expect(report.after.liekan_installation).toBe(0);
+    } finally {
+      fs.rmSync(setup.cwd, { recursive: true, force: true });
+    }
+  });
   it.each([
+    'installation-missing',
+    'installation-lost',
     'backup-signal',
     'backup-error',
     'restore-signal',
