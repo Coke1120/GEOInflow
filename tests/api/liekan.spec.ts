@@ -273,7 +273,7 @@ test.describe('Liekan statistics cache', () => {
     expect(fresh.headers['x-liekan-cache']).toBe('miss');
     expect(fresh.body.meta.generatedAt).toBeGreaterThan(warm.body.meta.generatedAt);
     const expanded = await admin.get(`/api/websites/${seed.website.id}/metrics/expanded`, {
-      params: { ...params, type: 'url' },
+      params: { ...params, type: 'path' },
     });
     expect(expanded.status).toBe(200);
     expect(expanded.body.length).toBeGreaterThan(0);
@@ -352,6 +352,10 @@ test.describe('Liekan statistics cache', () => {
       expect(summary.status).toBe(200);
       expect(
         (await user.post(`/api/websites/${website.id}/transfer`, { userId: seed.admin.id })).status,
+      ).toBe(401);
+      expect((await user.get(`${path}/page-report`, { params })).status).toBe(200);
+      expect(
+        (await admin.post(`/api/websites/${website.id}/transfer`, { userId: seed.admin.id })).status,
       ).toBe(200);
       expect((await user.get(`${path}/page-report`, { params })).status).toBe(403);
       expect(
