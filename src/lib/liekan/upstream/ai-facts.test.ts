@@ -1,10 +1,16 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import 'dotenv/config';
-import prisma from '@/lib/prisma';
+import prisma, { getRawQueryClient } from '@/lib/prisma';
+import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from '@/generated/prisma/client';
+import { performance } from 'node:perf_hooks';
 import { prepareAiPrompt } from '../ai/prompt';
 import { aiTransaction } from './ai-db';
 import { buildAiFactsContext } from './ai-facts';
+import { disconnectAiFactsClient, getAiFactsClient } from './ai-facts-db';
+import { getLogFacts } from './logs';
+import { withLogStatisticsRead } from './ai-log-read-priority';
 
 // This public integration seam intentionally requires the named isolated acceptance database.
 const enabled = process.env.LIEKAN_AI_FACTS_TEST === '1';
@@ -29,7 +35,10 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
       throw new Error('Only the named isolated acceptance database is permitted');
     db = {
       query: (sql: string, params: unknown[] = []) => aiTransaction(tx => tx.query(sql, ...params)),
-      end: () => prisma.client.$disconnect(),
+      end: async () => {
+        await disconnectAiFactsClient();
+        await prisma.client.$disconnect();
+      },
     };
     await db.query('INSERT INTO "user"(user_id,username,password,role) VALUES($1,$2,$3,$4)', [
       ids.user,
@@ -520,13 +529,418 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
     });
     expect(JSON.stringify(context)).not.toContain('canaryKey');
   });
-  it('includes the shared read-queue wait in its five-second facts deadline',async()=>{
-    let ready:()=>void,release:()=>void;
-    const readyPromise=new Promise<void>(resolve=>{ready=resolve;}),releasePromise=new Promise<void>(resolve=>{release=resolve;});
-    const blocker=aiTransaction(async tx=>{await tx.query('SELECT true AS acquired FROM pg_advisory_xact_lock(12800073)');ready();await releasePromise;},{timeout:12000});
+  it('includes the shared read-queue wait in its five-second facts deadline', async () => {
+    let ready: () => void, release: () => void;
+    const readyPromise = new Promise<void>(resolve => {
+        ready = resolve;
+      }),
+      releasePromise = new Promise<void>(resolve => {
+        release = resolve;
+      });
+    const blocker = aiTransaction(
+      async tx => {
+        await tx.query('SELECT true AS acquired FROM pg_advisory_xact_lock(12800073)');
+        ready();
+        await releasePromise;
+      },
+      { timeout: 12000 },
+    );
     await readyPromise;
-    try{await expect(buildAiFactsContext({actor:{id:ids.user,role:'user'},conversationId:ids.conversation,input,signal:new AbortController().signal})).rejects.toMatchObject({code:'facts_timeout'});}
-    finally{release();await blocker;}
-  },10000);
+    try {
+      await expect(
+        buildAiFactsContext({
+          actor: { id: ids.user, role: 'user' },
+          conversationId: ids.conversation,
+          input,
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toMatchObject({ code: 'facts_timeout' });
+    } finally {
+      release();
+      await blocker;
+    }
+  }, 10000);
 
+  it('keeps facts lock waiters out of the ten-connection statistics pool', async () => {
+    const primary: any = getRawQueryClient(prisma.client, { write: true });
+    const blockerClient = new PrismaClient({
+      adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL!, max: 1 }),
+    });
+    let ready!: () => void, release!: () => void;
+    const readyPromise = new Promise<void>(resolve => {
+      ready = resolve;
+    });
+    const releasePromise = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    const blocker = blockerClient.$transaction(
+      async tx => {
+        await tx.$queryRawUnsafe('SELECT true AS acquired FROM pg_advisory_xact_lock(12800073)');
+        ready();
+        await releasePromise;
+      },
+      { timeout: 10000 },
+    );
+    const tasks: Promise<unknown>[] = [];
+    const wave = async () => {
+      const start = performance.now();
+      await Promise.all(
+        Array.from({ length: 10 }, () =>
+          primary.$queryRawUnsafe('SELECT true AS completed FROM pg_sleep(0.2)'),
+        ),
+      );
+      return performance.now() - start;
+    };
+    try {
+      await readyPromise;
+      await Promise.all(Array.from({ length: 10 }, () => primary.$queryRawUnsafe('SELECT 1')));
+      const baselineMs = await wave();
+      for (let i = 0; i < 3; i++)
+        tasks.push(
+          buildAiFactsContext({
+            actor: { id: ids.user, role: 'user' },
+            conversationId: ids.conversation,
+            input,
+            signal: new AbortController().signal,
+          }),
+        );
+      let waiting = 0;
+      const until = Date.now() + 1500;
+      while (!waiting && Date.now() < until) {
+        const [row] = await primary.$queryRawUnsafe(
+          "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND wait_event='advisory' AND query LIKE '%pg_advisory_xact_lock(12800073)%'",
+        );
+        waiting = row.n;
+        if (!waiting) await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      expect(waiting).toBeGreaterThan(0);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      const [row] = await primary.$queryRawUnsafe(
+        "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event_type='Lock' AND wait_event='advisory' AND query LIKE '%pg_advisory_xact_lock(12800073)%'",
+      );
+      const loadedMs = await wave();
+      console.log(
+        JSON.stringify({
+          factsLockWaiters: row.n,
+          statisticsBaselineMs: baselineMs,
+          statisticsLoadedMs: loadedMs,
+        }),
+      );
+      expect(row.n).toBe(1);
+      expect(loadedMs).toBeLessThanOrEqual(baselineMs * 1.2);
+    } finally {
+      release();
+      await blocker;
+      await Promise.allSettled(tasks);
+      await blockerClient.$disconnect();
+    }
+  }, 10000);
+
+  it('bounds private pool acquisition by the same five-second facts deadline', async () => {
+    let ready!: () => void, release!: () => void;
+    const readyPromise = new Promise<void>(resolve => {
+      ready = resolve;
+    });
+    const releasePromise = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    const blocker = getAiFactsClient().$transaction(
+      async () => {
+        ready();
+        await releasePromise;
+      },
+      { timeout: 12000 },
+    );
+    await readyPromise;
+    try {
+      await expect(
+        buildAiFactsContext({
+          actor: { id: ids.user, role: 'user' },
+          conversationId: ids.conversation,
+          input,
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toMatchObject({ code: 'facts_timeout' });
+    } finally {
+      release();
+      await blocker;
+    }
+    await expect(
+      buildAiFactsContext({
+        actor: { id: ids.user, role: 'user' },
+        conversationId: ids.conversation,
+        input,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toMatchObject({ website: { id: ids.website } });
+  }, 12000);
+
+  it('rejects a cancelled pool waiter and leaves the next facts read available', async () => {
+    let ready!: () => void, release!: () => void;
+    const readyPromise = new Promise<void>(resolve => {
+      ready = resolve;
+    });
+    const releasePromise = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    const blocker = getAiFactsClient().$transaction(
+      async () => {
+        ready();
+        await releasePromise;
+      },
+      { timeout: 10000 },
+    );
+    await readyPromise;
+    const controller = new AbortController();
+    const result = buildAiFactsContext({
+      actor: { id: ids.user, role: 'user' },
+      conversationId: ids.conversation,
+      input,
+      signal: controller.signal,
+    }).then(
+      () => ({ code: 'unexpected_success' }),
+      error => error,
+    );
+    try {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      controller.abort();
+    } finally {
+      release();
+      await blocker;
+    }
+    expect(await result).toMatchObject({ code: 'cancelled' });
+    await expect(
+      buildAiFactsContext({
+        actor: { id: ids.user, role: 'user' },
+        conversationId: ids.conversation,
+        input,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toMatchObject({ website: { id: ids.website } });
+  }, 10000);
+
+  it('prioritizes an already-started log read before a new facts scan', async () => {
+    const primary: any = getRawQueryClient(prisma.client, { write: true });
+    const blockerClient = new PrismaClient({
+      adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL!, max: 1 }),
+    });
+    let ready!: () => void, release!: () => void;
+    const readyPromise = new Promise<void>(resolve => {
+      ready = resolve;
+    });
+    const releasePromise = new Promise<void>(resolve => {
+      release = resolve;
+    });
+    const blocker = blockerClient.$transaction(
+      async tx => {
+        await tx.$executeRawUnsafe('LOCK TABLE liekan_log IN ACCESS EXCLUSIVE MODE');
+        ready();
+        await releasePromise;
+      },
+      { timeout: 10000 },
+    );
+    let foreground: Promise<any> | undefined, analysis: Promise<any> | undefined;
+    try {
+      await readyPromise;
+      foreground = getLogFacts(
+        ids.website,
+        new Date(input.startAt),
+        new Date(input.endAt),
+        'UTC',
+        1,
+        '',
+        '',
+        '',
+        'after',
+        ['summary'],
+      );
+      const until = Date.now() + 1500;
+      let started = 0;
+      while (!started && Date.now() < until) {
+        const [row] = await primary.$queryRawUnsafe(
+          "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event='relation' AND query LIKE '%count(distinct path)%'",
+        );
+        started = row.n;
+        if (!started) await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      expect(started).toBeGreaterThan(0);
+      analysis = buildAiFactsContext({
+        actor: { id: ids.user, role: 'user' },
+        conversationId: ids.conversation,
+        input,
+        signal: new AbortController().signal,
+      });
+      await new Promise(resolve => setTimeout(resolve, 200));
+      const [row] = await primary.$queryRawUnsafe(
+        "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event='relation' AND query LIKE '%liekan_ai%'",
+      );
+      console.log(JSON.stringify({ activeForegroundLogRead: started, competingFactsScans: row.n }));
+      expect(row.n).toBe(0);
+    } finally {
+      release();
+      await blocker;
+      const results = await Promise.allSettled([foreground, analysis].filter(Boolean));
+      await blockerClient.$disconnect();
+      expect(results).toHaveLength(2);
+      expect(results.every(result => result.status === 'fulfilled')).toBe(true);
+      const read = results[0] as PromiseFulfilledResult<any>,
+        facts = results[1] as PromiseFulfilledResult<any>;
+      expect(read.value.summary.requests).toBeGreaterThanOrEqual(0);
+      expect(facts.value.website.id).toBe(ids.website);
+    }
+  }, 10000);
+
+  it('defers authorization when a foreground read starts in the same turn', async () => {
+    const primary: any = getRawQueryClient(prisma.client, { write: true });
+    const blockerClient = new PrismaClient({
+      adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL!, max: 1 }),
+    });
+    let ready!: () => void, releaseLock!: () => void, releaseRead!: () => void;
+    const readyPromise = new Promise<void>(resolve => {
+      ready = resolve;
+    });
+    const lockPromise = new Promise<void>(resolve => {
+      releaseLock = resolve;
+    });
+    const readPromise = new Promise<void>(resolve => {
+      releaseRead = resolve;
+    });
+    const blocker = blockerClient.$transaction(
+      async tx => {
+        await tx.$executeRawUnsafe('LOCK TABLE liekan_ai_conversation IN ACCESS EXCLUSIVE MODE');
+        ready();
+        await lockPromise;
+      },
+      { timeout: 10000 },
+    );
+    await readyPromise;
+    const analysis = buildAiFactsContext({
+      actor: { id: ids.user, role: 'user' },
+      conversationId: ids.conversation,
+      input,
+      signal: new AbortController().signal,
+    });
+    const foreground = withLogStatisticsRead(() => readPromise);
+    const waiters = async () => {
+      const [row] = await primary.$queryRawUnsafe(
+        "SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND wait_event='relation' AND query LIKE '%liekan_ai%' AND query LIKE '%FROM liekan_ai_conversation%'",
+      );
+      return row.n;
+    };
+    try {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      expect(await waiters()).toBe(0);
+      releaseRead();
+      await foreground;
+      const deadline = Date.now() + 1500;
+      let pending = 0;
+      while (!pending && Date.now() < deadline) {
+        pending = await waiters();
+        if (!pending) await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      expect(pending).toBeGreaterThan(0);
+    } finally {
+      releaseRead();
+      releaseLock();
+      await foreground;
+      await blocker;
+      const facts = await analysis;
+      await blockerClient.$disconnect();
+      expect(facts.website.id).toBe(ids.website);
+    }
+  }, 10000);
+
+  it('checks new foreground reads after acquiring a queued private connection', async () => {
+    let ready!: () => void, releasePool!: () => void, releaseRead!: () => void;
+    const readyPromise = new Promise<void>(resolve => {
+      ready = resolve;
+    });
+    const poolPromise = new Promise<void>(resolve => {
+      releasePool = resolve;
+    });
+    const readPromise = new Promise<void>(resolve => {
+      releaseRead = resolve;
+    });
+    const blocker = getAiFactsClient().$transaction(
+      async () => {
+        ready();
+        await poolPromise;
+      },
+      { timeout: 10000 },
+    );
+    await readyPromise;
+    let finished = false;
+    const result = buildAiFactsContext({
+      actor: { id: ids.user, role: 'user' },
+      conversationId: ids.conversation,
+      input,
+      signal: new AbortController().signal,
+    }).then(value => {
+      finished = true;
+      return value;
+    });
+    await new Promise(resolve => setTimeout(resolve, 100));
+    const foreground = withLogStatisticsRead(() => readPromise);
+    try {
+      releasePool();
+      await blocker;
+      await new Promise(resolve => setTimeout(resolve, 100));
+      expect(finished).toBe(false);
+    } finally {
+      releaseRead();
+      await foreground;
+      const facts = await result;
+      expect(facts.website.id).toBe(ids.website);
+    }
+  }, 10000);
+
+  it('shares one five-second budget between foreground and private-pool waits', async () => {
+    let ready!: () => void, releasePool!: () => void, releaseRead!: () => void;
+    const readyPromise = new Promise<void>(resolve => {
+      ready = resolve;
+    });
+    const poolPromise = new Promise<void>(resolve => {
+      releasePool = resolve;
+    });
+    const readPromise = new Promise<void>(resolve => {
+      releaseRead = resolve;
+    });
+    const blocker = getAiFactsClient().$transaction(
+      async () => {
+        ready();
+        await poolPromise;
+      },
+      { timeout: 12000 },
+    );
+    await readyPromise;
+    const foreground = withLogStatisticsRead(() => readPromise);
+    const start = performance.now();
+    const timer = setTimeout(releaseRead, 3000);
+    try {
+      await expect(
+        buildAiFactsContext({
+          actor: { id: ids.user, role: 'user' },
+          conversationId: ids.conversation,
+          input,
+          signal: new AbortController().signal,
+        }),
+      ).rejects.toMatchObject({ code: 'facts_timeout' });
+      const elapsedMs = performance.now() - start;
+      console.log(JSON.stringify({ foregroundAndPoolWaitMs: elapsedMs }));
+      expect(elapsedMs).toBeLessThan(6000);
+    } finally {
+      clearTimeout(timer);
+      releaseRead();
+      releasePool();
+      await Promise.all([foreground, blocker]);
+    }
+    await expect(
+      buildAiFactsContext({
+        actor: { id: ids.user, role: 'user' },
+        conversationId: ids.conversation,
+        input,
+        signal: new AbortController().signal,
+      }),
+    ).resolves.toMatchObject({ website: { id: ids.website } });
+  }, 12000);
 });

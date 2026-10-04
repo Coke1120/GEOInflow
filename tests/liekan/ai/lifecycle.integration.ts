@@ -1,3 +1,4 @@
+import { disconnectAiFactsClient } from '../../../src/lib/liekan/upstream/ai-facts-db';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import {randomUUID,randomBytes} from 'node:crypto';
@@ -28,7 +29,7 @@ if(!child){
   if(result.stdout)process.stdout.write(result.stdout);if(result.stderr)process.stderr.write(result.stderr);
   assert.equal(result.status,0,'isolated custom-schema lifecycle child must pass');
  }finally{
-  await primary.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);await prisma.client.$disconnect();
+  await primary.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);await disconnectAiFactsClient(); await prisma.client.$disconnect();
  }
 }else{
  assert.match(url.searchParams.get('schema')??'',/^ai_lifecycle_[a-f0-9]{32}$/);
@@ -87,5 +88,5 @@ if(!child){
   const count=await aiTransaction(tx=>tx.query('SELECT (SELECT count(*) FROM liekan_ai_conversation) AS conversations,(SELECT count(*) FROM liekan_ai_connection WHERE secret_envelope IS NOT NULL OR is_default OR verified_config_version IS NOT NULL) AS usable,(SELECT count(*) FROM liekan_log) AS logs'));
   assert.equal(count[0].conversations,0n);assert.equal(count[0].usable,0n);assert.equal(count[0].logs,1n);
   console.log('Lifecycle integration passed: non-public schema transfer, role and member revoke/restore late-write fences, ordinary/readonly roles, atomic key rotation rollback, bounded cleanup and AI-only restore reset preserving statistics; zero provider calls.');
- }finally{await prisma.client.$disconnect();}
+ }finally{await disconnectAiFactsClient(); await prisma.client.$disconnect();}
 }

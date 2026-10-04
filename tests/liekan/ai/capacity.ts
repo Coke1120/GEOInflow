@@ -1,3 +1,4 @@
+import { disconnectAiFactsClient } from '../../../src/lib/liekan/upstream/ai-facts-db';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -122,44 +123,63 @@ try {
     );
     const original = () => getLogFacts(site, start, end, 'Asia/Shanghai');
     const baseline: number[] = [];
-    await original();
-    for (let i = 0; i < 20; i++) {
-      const r = await timed(original);
-      if (!r.success) throw Error('Original report baseline failed');
-      baseline.push(r.ms);
-    }
     const facts: any[] = [];
     const loaded: number[] = [];
+    const samples: any[] = [];
+    await original();
     for (let round = 0; round < 20; round++) {
-      const result = await Promise.all([
-        ...users.map((id, i) =>
-          timed(() =>
-            buildAiFactsContext({
-              actor: { id, role: 'user' },
-              conversationId: conversations[i].id,
-              input: {
-                clientRequestId: randomUUID(),
-                expectedConfigVersion: 1,
-                question: 'Isolated capacity fixture',
-                startAt: start.toISOString(),
-                endAt: end.toISOString(),
-                timezone: 'Asia/Shanghai',
-              },
-              signal: new AbortController().signal,
-            }),
+      const sample: any = { pairIndex: round, order: round % 2 ? 'load-first' : 'baseline-first' };
+      const measureBaseline = async () => {
+        sample.baselineStartedAt = new Date().toISOString();
+        const result = await timed(original);
+        if (!result.success) throw Error('Original report baseline failed');
+        baseline.push(result.ms);
+        sample.baselineMs = result.ms;
+      };
+      const measureLoad = async () => {
+        sample.loadStartedAt = new Date().toISOString();
+        const result = await Promise.all([
+          ...users.map((id, i) =>
+            timed(() =>
+              buildAiFactsContext({
+                actor: { id, role: 'user' },
+                conversationId: conversations[i].id,
+                input: {
+                  clientRequestId: randomUUID(),
+                  expectedConfigVersion: 1,
+                  question: 'Isolated capacity fixture',
+                  startAt: start.toISOString(),
+                  endAt: end.toISOString(),
+                  timezone: 'Asia/Shanghai',
+                },
+                signal: new AbortController().signal,
+              }),
+            ),
           ),
-        ),
-        timed(original),
-      ]);
-      facts.push(...result.slice(0, 3));
-      if (!result[3].success) throw Error('Original report under load failed');
-      loaded.push(result[3].ms);
+          timed(original),
+        ]);
+        facts.push(...result.slice(0, 3));
+        if (!result[3].success) throw Error('Original report under load failed');
+        loaded.push(result[3].ms);
+        sample.loadedMs = result[3].ms;
+        sample.facts = result.slice(0, 3);
+      };
+      if (round % 2) {
+        await measureLoad();
+        await measureBaseline();
+      } else {
+        await measureBaseline();
+        await measureLoad();
+      }
+      samples.push(sample);
     }
     const row = {
       days,
       logs: count,
       users: 3,
       iterations: 20,
+      measurementMethod: 'paired-alternating',
+      samples,
       databaseUsage: containerUsage(),
       windowCountPlan: queryPlan,
       factsP95Ms: p95(facts.map(f => f.ms)),
@@ -193,5 +213,6 @@ try {
   await primary.$executeRawUnsafe('DELETE FROM team WHERE team_id=$1::uuid', team);
   for (const id of users)
     await primary.$executeRawUnsafe('DELETE FROM "user" WHERE user_id=$1::uuid', id);
+  await disconnectAiFactsClient();
   await prisma.client.$disconnect();
 }

@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import prisma, { getRawQueryClient } from '@/lib/prisma';
 import { type AiConversationPost, aiConversationPostSchema } from '../ai/contracts';
 import { loadAiConversation } from '../ai/conversations';
 import { AiError } from '../ai/error';
@@ -11,7 +10,8 @@ import {
 } from '../ai/facts-contracts';
 import { aiChangePercent, safeAiCount, sanitizeAiText } from '../ai/sanitize';
 import type { AiActor } from './ai-access';
-import { aiTransaction } from './ai-db';
+import { getAiFactsClient } from './ai-facts-db';
+import { waitForLogStatisticsReads } from './ai-log-read-priority';
 import { channelFilterColumn } from './filter-extension';
 import { withinQuerySnapshot } from './query-snapshot';
 import { humanTotals, query } from './server';
@@ -48,29 +48,33 @@ export async function buildAiFactsContext(input: {
   if (!parsed.success) throw new AiError('invalid_request', 'AI 请求参数无效');
   normalizeAiRange(parsed.data, new Date());
   checkSignal(input.signal);
-  const authorized = await aiTransaction(tx =>
-    loadAiConversation(tx, input.actor, input.conversationId, true),
-  );
-  if (process.env.CLICKHOUSE_URL) return unsupportedAiFactsContext(authorized, parsed.data);
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new AiError('database_unavailable', '数据库尚未配置', 503);
   const schema = new URL(databaseUrl).searchParams.get('schema') || 'public';
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema))
     throw new AiError('database_unavailable', '数据库设置无效', 503);
-  const primary: any = getRawQueryClient(prisma.client, { write: true });
-  const started = Date.now(),
-    deadline = started + 5000;
-  const context = await primary.$transaction(
-    async (raw: any) => {
-      await raw.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
-      await raw.$executeRawUnsafe('SET TRANSACTION READ ONLY');
-      const remaining = async () => {
-        checkSignal(input.signal);
-        const ms = deadline - Date.now();
-        if (ms <= 0) throw new AiError('facts_timeout', '读取统计事实超时，请缩小范围后重试', 503);
-        await raw.$executeRawUnsafe(`SET LOCAL statement_timeout TO '${ms}ms'`);
-      };
-      const executor = {
+  const primary = getAiFactsClient();
+  const deadline = Date.now() + 5000;
+  const fail = (error: any): never => {
+    checkSignal(input.signal);
+    if (error instanceof AiError) throw error;
+    const sqlState = error?.meta?.code ?? error?.meta?.driverAdapterError?.cause?.originalCode;
+    if (Date.now() >= deadline || sqlState === '57014' || error?.code === 'P2028')
+      throw new AiError('facts_timeout', '读取统计事实超时，请缩小日期范围后重试', 503);
+    throw new AiError('facts_unavailable', '统计数据暂时不可读取，请稍后重试', 503);
+  };
+  const execution = (raw: any) => {
+    const remaining = async () => {
+      checkSignal(input.signal);
+      await waitForLogStatisticsReads(input.signal, deadline);
+      checkSignal(input.signal);
+      const ms = deadline - Date.now();
+      if (ms <= 0) throw new AiError('facts_timeout', '读取统计事实超时，请缩小范围后重试', 503);
+      await raw.$executeRawUnsafe(`SET LOCAL statement_timeout TO '${ms}ms'`);
+    };
+    return {
+      remaining,
+      executor: {
         aiPrivate: true,
         $executeRawUnsafe: async (sql: string, ...params: unknown[]) => {
           await remaining();
@@ -82,7 +86,28 @@ export async function buildAiFactsContext(input: {
           checkSignal(input.signal);
           return rows;
         },
-      };
+      },
+    };
+  };
+  await waitForLogStatisticsReads(input.signal, deadline);
+  // Authorization uses the private pool as well; its row locks end before the facts snapshot.
+  const authorized = await primary.$transaction(async raw => {
+    const { remaining, executor } = execution(raw);
+    await remaining();
+    await raw.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+    return loadAiConversation({
+      query: (sql, ...params) => executor.$queryRawUnsafe(sql, ...params),
+      execute: (sql, ...params) => executor.$executeRawUnsafe(sql, ...params),
+    }, input.actor, input.conversationId, true);
+  }, { timeout: 6000, maxWait: Math.max(1, deadline - Date.now()) }).catch(fail);
+  if (process.env.CLICKHOUSE_URL) return unsupportedAiFactsContext(authorized, parsed.data);
+  await waitForLogStatisticsReads(input.signal, deadline);
+  const context = await primary.$transaction(
+    async (raw: any) => {
+      const { remaining, executor } = execution(raw);
+      await remaining();
+      await raw.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+      await raw.$executeRawUnsafe('SET TRANSACTION READ ONLY');
       // A shared preprocessing lane keeps three admitted runs from competing with statistics browsing.
       // Waiting consumes the same five-second deadline as the subsequent snapshot queries.
       await executor.$queryRawUnsafe('SELECT true AS acquired FROM pg_advisory_xact_lock(12800073)');
@@ -460,14 +485,8 @@ export async function buildAiFactsContext(input: {
         });
       });
     },
-    { timeout: 6000, maxWait: 1000, isolationLevel: 'RepeatableRead' },
-  ).catch(error=>{
-    checkSignal(input.signal);
-    if(error instanceof AiError)throw error;
-    const sqlState=error?.meta?.code ?? error?.meta?.driverAdapterError?.cause?.originalCode;
-    if(Date.now()>=deadline||sqlState==='57014'||error?.code==='P2028')throw new AiError('facts_timeout','读取统计事实超时，请缩小日期范围后重试',503);
-    throw new AiError('facts_unavailable','统计数据暂时不可读取，请稍后重试',503);
-  });
+    { timeout: 6000, maxWait: Math.max(1, deadline - Date.now()), isolationLevel: 'RepeatableRead' },
+  ).catch(fail);
   checkSignal(input.signal);
   return context;
 }

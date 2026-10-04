@@ -1,3 +1,4 @@
+import { disconnectAiFactsClient } from '../../../src/lib/liekan/upstream/ai-facts-db';
 import 'dotenv/config';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -338,5 +339,6 @@ try {
     await tx.execute('DELETE FROM website WHERE website_id=$1::uuid', siteId);
     for (const id of ids) await tx.execute('DELETE FROM "user" WHERE user_id=$1::uuid', id);
   });
+  await disconnectAiFactsClient();
   await prisma.client.$disconnect();
 }

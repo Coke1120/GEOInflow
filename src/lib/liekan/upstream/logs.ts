@@ -1,3 +1,4 @@
+import { withLogStatisticsRead } from './ai-log-read-priority';
 import { formatInTimeZone } from 'date-fns-tz';
 import { decodeCursor, encodeCursor } from '../cursor';
 import { humanPathFromEncoded } from './paths';
@@ -8,7 +9,10 @@ export const staticRequestExtensionPattern =
   '[.](js|mjs|cjs|css|map|avif|webp|png|jpg|jpeg|gif|svg|ico|bmp|tif|tiff|woff|woff2|ttf|otf|eot|mp3|m4a|wav|ogg|mp4|webm|mov|avi)([?#]|$)';
 export const isStaticRequestPath = (path: string) =>
   new RegExp(staticRequestExtensionPattern, 'i').test(path);
-export async function getLogFacts(
+export async function getLogFacts(...args: Parameters<typeof readLogFacts>) {
+  return withLogStatisticsRead(() => readLogFacts(...args));
+}
+async function readLogFacts(
   id: string,
   start: Date,
   end: Date,
@@ -20,11 +24,13 @@ export async function getLogFacts(
   seek: 'after' | 'before' = 'after',
   fields?: readonly string[],
 ) {
+  const read = <T = any>(sql: string, ...params: any[]) =>
+    withLogStatisticsRead(() => query<T>(sql, ...params));
   const base =
     'FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND $4::text IS NOT NULL';
   const ai = " AND bot_type IN('训练','搜索','用户触发')";
   const args = [id, start, end, timezone];
-  const q = (sql: string) => query(sql, ...args);
+  const q = (sql: string) => read(sql, ...args);
   const filterSql =
     filter === 'ai'
       ? ai
@@ -80,19 +86,19 @@ export async function getLogFacts(
           )
         : Promise.resolve([]),
       needs('catalog')
-        ? query(
+        ? read(
             'SELECT path,title,content_type AS type,word_count AS "wordCount",published_at AS "publishedAt",content_updated_at AS "updatedAt",link_depth AS "linkDepth",evidence_source AS source,structured,structure_score AS "structureScore" FROM liekan_catalog WHERE website_id=$1::uuid ORDER BY path',
             id,
           )
         : Promise.resolve([]),
       needs('latest')
-        ? query(
+        ? read(
             'SELECT imported_at AS time FROM liekan_import WHERE website_id=$1::uuid ORDER BY imported_at DESC LIMIT 1',
             id,
           )
         : Promise.resolve([]),
       needs('recent')
-        ? query(
+        ? read(
             `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,bot_type AS "botType",verification ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT 100${paginationSql}`,
             ...args,
             search,
@@ -100,7 +106,7 @@ export async function getLogFacts(
           )
         : Promise.resolve([]),
       needs('count')
-        ? query(
+        ? read(
             `SELECT count(*)::int AS count ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0`,
             ...args,
             search,
@@ -121,7 +127,7 @@ export async function getLogFacts(
     previousCursor: page > 1 && recent.length ? encodeCursor(recent[0]) : '',
     totalLogs: count[0].count,
     previousBots: needs('previousBots')
-      ? await query(
+      ? await read(
           'SELECT bot AS name,vendor,bot_type AS type,count(*)::int AS requests FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3 GROUP BY 1,2,3',
           id,
           new Date(Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1))),
