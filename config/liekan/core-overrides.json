@@ -1841,6 +1841,14 @@
       "owner": "Liekan authentication compatibility",
       "constraint": "Preserve opaque bearer token format, live account/password checks, five-minute partial 2FA challenge and existing SSO, API-key, share and tracker protocols",
       "removalCondition": "Remove when upstream exposes a session-lifetime setting and the registered regression tests pass"
+    },
+    {
+      "path": "tests/api/liekan-installation.spec.ts",
+      "purpose": "Verify preserved website installation permissions, persisted progress and truthful collection status",
+      "tests": ["tests/api/liekan-installation.spec.ts", "pnpm liekan:verify"],
+      "owner": "Liekan integration maintenance",
+      "constraint": "Use isolated disposable websites, preserve seeded entities and authentication protocols",
+      "removalCondition": "Remove when equivalent upstream integration tests cover installation progress"
     }
   ]
 }
