@@ -26,7 +26,8 @@ ARG LIEKAN_VERSION=0.2.4
 ARG LIEKAN_UPSTREAM=ec0ff50388c264ed8ce46f00967e92f7e71476ae
 ARG LIEKAN_UI=139d21c5ccde96c433fa1da3db6fa4cdd71f5e7660a9c6297d79861c19b38385
 ARG LIEKAN_FEATURE_UI=e0d8650251be7eb48baef8aec902c3cd6952c162ee6a5f81add5eb9ea89d6835
-ARG LIEKAN_MIGRATION=10
+ARG LIEKAN_MIGRATION=16
+ARG LIEKAN_AI_UI=a28373e8cb9c6b8be13d2210297765b1bbafe1884f02d0e91a311c2442bbe702
 LABEL org.opencontainers.image.title="Liekan 猎看统计" \
       org.opencontainers.image.version=$LIEKAN_VERSION \
       org.opencontainers.image.licenses="MIT" \
@@ -34,7 +35,8 @@ LABEL org.opencontainers.image.title="Liekan 猎看统计" \
       io.liekan.upstream.revision=$LIEKAN_UPSTREAM \
       io.liekan.ui.sha256=$LIEKAN_UI \
       io.liekan.feature-ui.sha256=$LIEKAN_FEATURE_UI \
-      io.liekan.migration=$LIEKAN_MIGRATION
+      io.liekan.migration=$LIEKAN_MIGRATION \
+      io.liekan.ai-ui.sha256=$LIEKAN_AI_UI
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 # Preserve the frozen dependency graph for both Next and the migration CLI.
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules

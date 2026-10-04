@@ -35,6 +35,9 @@ assert.deepEqual(
   manifest.pages.map(p => p.id).sort(),
   'All 68 feature scenarios require independent navigation expectations',
 );
+const aiReference = JSON.parse(fs.readFileSync('config/liekan/ai-ui.json', 'utf8'));
+const originalPages = manifest.pages.filter(page => !aiReference.scope.includes(page.id));
+assert.equal(originalPages.length, 68, 'Preserve all original supplemental page checks');
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const out = 'test-results/liekan-features';
 fs.mkdirSync(out, { recursive: true });
@@ -207,7 +210,7 @@ const report = {
   passed: false,
   navigationBaseline: navigationBaseline.baselineVersion,
   originalReferenceHashesVerified: Object.keys(featureReference.files).length,
-  pages: 68,
+  pages: originalPages.length,
   widths: [1440, 1280, 375, 320],
   checks: results,
   contextChecks: contextResults,
@@ -325,7 +328,7 @@ try {
     await actual.setViewportSize({ width, height: 1000 });
     await reference.setViewportSize({ width, height: 1000 });
     await auth.setViewportSize({ width, height: 1000 });
-    for (const p of manifest.pages) {
+    for (const p of originalPages) {
       const authPage = ['login', 'login-2fa', 'sso'].includes(p.id),
         page = authPage ? auth : actual;
       const target =
@@ -495,7 +498,7 @@ try {
   );
   assert.equal(errors.length, 0, errors.join('\n'));
   assert(
-    results.length === manifest.pages.length * report.widths.length && results.every(r => r.passed),
+    results.length === originalPages.length * report.widths.length && results.every(r => r.passed),
     results
       .filter(r => !r.passed)
       .map(r => `${r.id} ${r.width}: ${r.error}`)
@@ -527,7 +530,7 @@ console.log(
   JSON.stringify({
     head,
     passed: true,
-    pages: manifest.pages.length,
+    pages: originalPages.length,
     widths: report.widths,
     checks: results.length,
     contextChecks: contextResults.length,

@@ -439,6 +439,7 @@ export function Navigation({
           {meta.scope === 'admin' && <div className={styles.caption}>系统管理</div>}
           {groups.map(group => (
             <div key={group.id} data-navigation-group={group.id}>
+              {group.sectionLabel && <div className={styles.sectionLabel}>{group.sectionLabel}</div>}
               {group.children && <div className={styles.sectionLabel}>{group.label}</div>}
               <div className={styles.expandedItems}>
                 {(group.children || [group]).map(item => (

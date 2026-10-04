@@ -1,6 +1,7 @@
 import { Prisma, type TeamUser } from '@/generated/prisma/client';
 import { uuid } from '@/lib/crypto';
 import prisma from '@/lib/prisma';
+import { invalidateAiActorRunsInTransaction } from '@/lib/liekan/upstream/ai-lifecycle';
 import type { PageResult, QueryFilters } from '@/lib/types';
 
 import TeamUserFindManyArgs = Prisma.TeamUserFindManyArgs;
@@ -59,19 +60,17 @@ export async function createTeamUser(userId: string, teamId: string, role: strin
 }
 
 export async function updateTeamUser(teamUserId: string, data: Prisma.TeamUserUpdateInput) {
-  return prisma.client.teamUser.update({
-    where: {
-      id: teamUserId,
-    },
-    data,
+  return prisma.transaction(async tx => {
+    const result = await tx.teamUser.update({ where: { id: teamUserId }, data });
+    if (data.role !== undefined)
+      await invalidateAiActorRunsInTransaction(tx, result.userId, result.teamId);
+    return result;
   });
 }
-
 export async function deleteTeamUser(teamId: string, userId: string) {
-  return prisma.client.teamUser.deleteMany({
-    where: {
-      teamId,
-      userId,
-    },
+  return prisma.transaction(async tx => {
+    const result = await tx.teamUser.deleteMany({ where: { teamId, userId } });
+    await invalidateAiActorRunsInTransaction(tx, userId, teamId);
+    return result;
   });
 }

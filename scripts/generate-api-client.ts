@@ -240,7 +240,7 @@ export type OperationInput<K extends OperationId> = OperationPathParams<K> &
 export type OperationOutput<K extends OperationId> = OperationTypes[K]['responses'] extends {
   200: { content: infer C };
 }
-  ? C extends { 'application/json': infer R } ? R : C[keyof C]
+  ? C[keyof C]
   : unknown;
 
 export abstract class GeneratedUmamiClient {
@@ -263,7 +263,7 @@ async function format(files: string[]) {
     process.platform === 'win32' ? 'biome.cmd' : 'biome',
   );
 
-  await execFileAsync(biome, ['format', '--write', ...files], {
+  await execFileAsync(biome, ['format', '--write', '--files-max-size=16777216', ...files], {
     cwd: projectRoot,
     shell: process.platform === 'win32',
   });

@@ -697,7 +697,7 @@ export function LatestLog({ className, report }: { className: string; report?: L
 
 export function LiveStatus({ report, live }: { report?: LiekanReport; live?: boolean }) {
   const loading = useDataLoading();
-  const connected = report?.states.logs === 'available' || report?.states.logs === 'estimated';
+  const connected = ['available', 'empty', 'estimated'].includes(report?.states.logs);
   return (
     <>
       <span

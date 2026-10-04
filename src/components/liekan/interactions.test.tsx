@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ManagementDrawer } from './ManagementDrawer';
-import { FilterChip, MetricCard, ReportList, ReportRows, SortHeading } from './ReportComponents';
+import { FilterChip, LiveStatus, MetricCard, ReportList, ReportRows, SortHeading } from './ReportComponents';
 import { type ReportActions, ReportContext } from './ReportContext';
 import type { LiekanReport } from './types';
 
@@ -435,4 +435,16 @@ it('preserves write confirmation when the follow-up refresh fails', async () => 
   );
   expect(screen.getByRole('status')).toHaveTextContent('页面状态刷新失败');
   expect(input).toBeEnabled();
+});
+
+it('keeps empty connected log ranges refreshing and distinguishes missing input', () => {
+  const input = report();
+  input.states.logs = 'empty';
+  const view = render(<LiveStatus report={input} live />);
+  expect(screen.getByText('10s 刷新')).toBeInTheDocument();
+  view.rerender(<LiveStatus report={input} />);
+  expect(screen.getByText('历史刷新')).toBeInTheDocument();
+  input.states.logs = 'not_connected';
+  view.rerender(<LiveStatus report={input} />);
+  expect(screen.getByText('待接入')).toBeInTheDocument();
 });

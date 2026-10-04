@@ -432,3 +432,10 @@ describe('report evidence states', () => {
     expect(report.tables.botBody).toHaveLength(2);
   });
 });
+
+it('shows an active log source without an import as empty and keeps its import time unknown', async () => {
+  mocks.logs.mockResolvedValue({ ...(await mocks.logs()), connected: true, latest: null });
+  const result = await buildReport(website, false, params);
+  expect(result.states.logs).toBe('empty');
+  expect(result.meta.latestImportAt).toBeNull();
+});

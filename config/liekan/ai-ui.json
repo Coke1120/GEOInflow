@@ -1,0 +1,17 @@
+{
+  "approval": "2026-10-04 已确认的 AI 原型和后端一期、二期方案",
+  "referenceRoot": "design/prototypes/liekan-ai-v1",
+  "sha256": {
+    "README.md": "2219c736990681539cbd231999b887f56de639db9c9da9be8f7b2d84a5f4c8a5",
+    "ai-chat.html": "16ede7c2af4ca39e6d92b33df17afd286f698e7badc5a1eb5729bac6e6b76e86",
+    "ai-config.html": "9630037813644d7a43af47f7c6f32accec7ac364fd41c67f4a28883a894a9e15",
+    "assets/ai.css": "b24da0c93e26fff1f1f0f275034544d4288cb00e64202395f11d61e6f22f2f88",
+    "assets/ai.js": "75568d76023e5fdaa1dc624d214d554bf419b87b2e6eaebbf48a3c67f39a2f84",
+    "assets/config.css": "e8244556eae4a8fbe1842555c6b9a920ea77001ec671465ad6eb89213519b63d",
+    "assets/config.js": "c6634145493ee1d241de017c9a2ec2b969657ac4af1ca5bebadf60c9ab8a0b5e",
+    "assets/model-presets.js": "21f2ac9f9f0b71beda52522c0b4f14f8e7c4b281d6661d795018095a9502d492",
+    "model-api-guide.md": "41c4343666950c35a6b190b6ab7a6424e1d029a2231d2453b7550a18346933c2"
+  },
+  "scope": ["ai-chat", "ai-config"],
+  "originalBodyPolicy": "保留原统计页面主体与图表验收，新增 AI 页面单独验收。"
+}

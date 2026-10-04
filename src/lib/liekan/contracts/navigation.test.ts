@@ -249,7 +249,7 @@ describe('navigation task boundaries', () => {
     }
   });
   it('assigns every supplemental and GEO page to a scope and an accessible parent', () => {
-    expect(featurePages).toHaveLength(68);
+    expect(featurePages).toHaveLength(70);
     expect(Object.keys(geoPaths)).toHaveLength(11);
     for (const page of [...featurePages.map(page => page.id), ...Object.keys(geoPaths)]) {
       expect(pageNavigation[page], page).toBeDefined();
@@ -258,26 +258,32 @@ describe('navigation task boundaries', () => {
       expect(activeNavigationPage({ page })).toBeTruthy();
     }
     expect(globalNavigation.map(group => group.label)).toEqual([
+      '快速发起',
       '数据总览',
       '数据管理',
       '协作管理',
+      'AI配置器',
     ]);
     const globalItems = globalNavigation.flatMap(group => group.children || [group]);
     expect(globalItems.map(item => item.label)).toEqual([
+      '快速发起',
       '数据总览',
       '网站管理',
       '数据看板',
       '追踪管理',
       '分享管理',
       '团队管理',
+      'AI配置器',
     ]);
     expect(globalItems.map(item => item.icon)).toEqual([
+      'plus',
       'grid',
       'globe',
       'bars',
       'target',
       'copy',
       'users',
+      'box',
     ]);
     expect(websiteNavigation.map(group => group.label)).toEqual([
       '流量总览',
@@ -373,4 +379,24 @@ describe('navigation task boundaries', () => {
       parent: 'geo-ai-pages',
     });
   });
+});
+
+it('keeps AI pages global and drops inherited website filters', () => {
+  for (const page of ['ai-chat', 'ai-config']) {
+    expect(navigationFor({ page, websiteId: site, teamId: team })).toMatchObject({
+      scope: 'global',
+    });
+    const href = featureNavigationHref(
+      { page: 'geo-ai', websiteId: site },
+      { date: '7day', drill_country: 'eq.CN', aiConversation: team },
+      page,
+    );
+    expect(href).toBe(`/liekan/${page}`);
+    expect(matchFeatureRoute(href, { websiteId: site, teamId: team, id: site })).toMatchObject({
+      page,
+      websiteId: undefined,
+      teamId: undefined,
+      id: undefined,
+    });
+  }
 });

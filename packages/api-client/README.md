@@ -80,3 +80,14 @@ pnpm check:api:client  # CI: fail if generated files are stale
 ```
 
 See [MIGRATION.md](./MIGRATION.md) if you are upgrading from the previous hand-written client.
+
+
+### Liekan AI responses
+
+AI test and analysis POST methods return a saved run object for an idempotent JSON response,
+or the complete SSE text as a string for a fresh request. Their response type includes both
+forms. Use native `fetch` with a stream reader when incremental events are needed. After a
+connection interruption, recover with `findLiekanAiRun` using the original request UUID;
+recovery reads the existing run. A new POST UUID starts a separate potentially billable request.
+The AI catalog accepts `offset` and an optional `websiteId`; use `nextOffset` for the next
+bounded page. An explicit website is included only when the current session can access it.

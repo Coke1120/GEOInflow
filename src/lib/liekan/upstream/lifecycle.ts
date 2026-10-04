@@ -1,9 +1,11 @@
+import {clearAiWebsiteInTransaction} from './ai-lifecycle';
 import { lockWritableWebsite, type WriteIdentity } from './server';
 export async function resetLiekanStatistics(tx: any, websiteId: string, identity?: WriteIdentity) {
   const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new Error('Invalid database schema');
   await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
   await lockWritableWebsite(tx, websiteId, identity);
+  await clearAiWebsiteInTransaction(tx, websiteId);
   await tx.$executeRawUnsafe("INSERT INTO liekan_log_state(website_id,epoch,reset_at,data_revision,policy_revision) VALUES($1::uuid,2,clock_timestamp(),1,1) ON CONFLICT(website_id) DO UPDATE SET epoch=liekan_log_state.epoch+1,reset_at=clock_timestamp(),data_revision=liekan_log_state.data_revision+1,policy_revision=liekan_log_state.policy_revision+1",websiteId);
   await tx.$executeRawUnsafe("UPDATE liekan_ingest_batch SET state='cancelled',payload=NULL WHERE website_id=$1::uuid AND state='pending'",websiteId);
   await tx.$executeRawUnsafe('DELETE FROM liekan_log_grant WHERE website_id=$1::uuid',websiteId);

@@ -5,6 +5,12 @@
   "groups": {
     "global": [
       {
+        "id": "ai-chat",
+        "label": "快速发起",
+        "page": "ai-chat",
+        "children": []
+      },
+      {
         "id": "dashboard",
         "label": "数据总览",
         "page": "dashboard",
@@ -43,6 +49,12 @@
             "label": "团队管理"
           }
         ]
+      },
+      {
+        "id": "ai-config",
+        "label": "AI配置器",
+        "page": "ai-config",
+        "children": []
       }
     ],
     "website": [
@@ -161,10 +173,22 @@
     ]
   },
   "account": [
-    ["account", "账户资料"],
-    ["security", "账户安全"],
-    ["api-keys", "API 密钥"],
-    ["preferences", "偏好设置"]
+    [
+      "account",
+      "账户资料"
+    ],
+    [
+      "security",
+      "账户安全"
+    ],
+    [
+      "api-keys",
+      "API 密钥"
+    ],
+    [
+      "preferences",
+      "偏好设置"
+    ]
   ],
   "pages": {
     "dashboard": {
@@ -1192,6 +1216,18 @@
       "title": "页面不存在",
       "tabs": [],
       "activeTab": null
+    },
+    "ai-chat": {
+      "scope": "global",
+      "section": "ai-chat",
+      "active": "ai-chat",
+      "title": "快速发起"
+    },
+    "ai-config": {
+      "scope": "global",
+      "section": "ai-config",
+      "active": "ai-config",
+      "title": "AI配置器"
     }
   },
   "geo": {
@@ -1341,7 +1377,13 @@
   "geoChartApproval": {
     "d2": {
       "approval": "2026-10-04 用户要求 AI 蜘蛛构成图例保持单行，仅显示按请求量排序的 Top 5；圆环保留全部类别与提示",
-      "legend": { "type": "scroll", "left": 16, "right": 16, "bottom": 4, "pageIconSize": 10 },
+      "legend": {
+        "type": "scroll",
+        "left": 16,
+        "right": 16,
+        "bottom": 4,
+        "pageIconSize": 10
+      },
       "legendLimit": 5
     }
   },
@@ -1476,5 +1518,8 @@
         "label": "对比分析"
       }
     ]
+  },
+  "globalSectionLabels": {
+    "ai-config": "AI能力"
   }
 }

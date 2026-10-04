@@ -274,17 +274,19 @@ describe('website navigation transitions', () => {
     const primary = screen.getByRole('navigation', { name: '业务导航' });
     const entries = within(primary).getAllByRole('link');
     expect(entries.map(entry => entry.textContent)).toEqual([
+      '快速发起',
       '数据总览',
       '网站管理',
       '数据看板',
       '追踪管理',
       '分享管理',
       '团队管理',
+      'AI配置器',
     ]);
     expect(within(primary).queryAllByRole('button')).toHaveLength(0);
     expect(within(primary).getByText('数据管理')).toBeInTheDocument();
     expect(within(primary).getByText('协作管理')).toBeInTheDocument();
-    expect(primary.querySelectorAll('[data-navigation-group]')).toHaveLength(3);
+    expect(primary.querySelectorAll('[data-navigation-group]')).toHaveLength(5);
     expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
     expect(within(primary).getByRole('link', { name: selected })).toHaveAttribute(
       'aria-current',

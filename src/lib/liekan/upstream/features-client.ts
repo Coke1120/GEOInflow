@@ -249,10 +249,12 @@ export async function invalidateFeatureUserQueries(client: QueryClient, userId: 
       const key = query.queryKey;
       return key[0] === 'liekan'
         ? key[13] === userId
-        : key[0] === 'liekan-feature' && key.includes(userId);
+        : (key[0] === 'liekan-feature' && key.includes(userId)) ||
+            (key[0] === 'liekan-ai' && key[1] === userId);
     },
   };
   await client.cancelQueries(filters);
+  client.removeQueries({ queryKey: ['liekan-ai', userId] });
   return client.invalidateQueries(filters);
 }
 export async function invalidateFeatureWebsiteQueries(client: QueryClient, websiteId: string) {
@@ -260,6 +262,7 @@ export async function invalidateFeatureWebsiteQueries(client: QueryClient, websi
     predicate: (query: { queryKey: readonly unknown[] }) => {
       const key = query.queryKey;
       if (key[0] === 'liekan') return key[1] === websiteId;
+      if (key[0] === 'liekan-ai') return key.includes(websiteId) || ['catalog','catalog-selected','context'].includes(String(key[2]));
       return (
         key[0] === 'liekan-feature' &&
         (key.includes(websiteId) ||
@@ -269,6 +272,7 @@ export async function invalidateFeatureWebsiteQueries(client: QueryClient, websi
     },
   };
   await client.cancelQueries(filters);
+  client.removeQueries({ predicate: query => query.queryKey[0] === 'liekan-ai' && filters.predicate(query) });
   return client.invalidateQueries(filters);
 }
 export async function getFeatureWebsiteSummary(

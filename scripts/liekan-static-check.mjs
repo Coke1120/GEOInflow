@@ -23,6 +23,12 @@ if (hash(JSON.stringify(featureUI.files)) !== baseline.featureUiManifestSha256)
 for (const [file, digest] of Object.entries(featureUI.files))
   if (hash(readFileSync(`${featureUI.directory}/${file}`)) !== digest)
     throw new Error(`Supplemental UI drift: ${file}`);
+const aiUI = JSON.parse(readFileSync('config/liekan/ai-ui.json', 'utf8'));
+if (hash(JSON.stringify(aiUI.sha256)) !== baseline.aiUiManifestSha256)
+  throw new Error('Approved AI UI fingerprint changed');
+for (const [file, digest] of Object.entries(aiUI.sha256))
+  if (hash(readFileSync(`${aiUI.referenceRoot}/${file}`)) !== digest)
+    throw new Error(`AI UI reference drift: ${file}`);
 const migrationLock = JSON.parse(readFileSync('config/liekan/migrations.json', 'utf8'));
 if (
   JSON.stringify(

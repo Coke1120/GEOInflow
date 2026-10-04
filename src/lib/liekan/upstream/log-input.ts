@@ -1,0 +1,2 @@
+// The website identifier is the first bound parameter in both analytics and AI snapshots.
+export const logInputConnectedSql = `(EXISTS(SELECT 1 FROM liekan_import WHERE website_id=$1::uuid AND accepted>0) OR EXISTS(SELECT 1 FROM liekan_log_source s JOIN liekan_log_interval i ON i.website_id=s.website_id AND i.source_id=s.id WHERE s.website_id=$1::uuid AND s.state='active' AND i.ends_at IS NULL))`;

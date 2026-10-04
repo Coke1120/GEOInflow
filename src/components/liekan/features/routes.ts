@@ -14,6 +14,8 @@ export const featurePages = mapping.pages.map(page => ({
   title: pageNavigation[page.id]?.title || page.title,
 }));
 const unscopedPages = new Set([
+  'ai-chat',
+  'ai-config',
   'dashboard',
   'dashboard-edit',
   'account',
@@ -37,6 +39,9 @@ const unscopedPages = new Set([
 export function normalizeFeatureScope(route: FeatureRoute): FeatureRoute {
   return {
     ...route,
+    ...(['ai-chat', 'ai-config'].includes(route.page)
+      ? { id: undefined, from: undefined, context: undefined }
+      : {}),
     ...(!needsWebsite(route) ? { websiteId: undefined } : {}),
     ...(unscopedPages.has(route.page) || navigationFor(route).scope === 'admin'
       ? { teamId: undefined }
@@ -100,6 +105,18 @@ export function matchFeatureRoute(
   return null;
 }
 export function featureHref(page: string, params: Record<string, any> = {}): string {
+  if (['ai-chat', 'ai-config'].includes(page)) {
+    const search = new URLSearchParams();
+    for (const key of ['aiSite', 'aiConversation', 'aiRun', 'aiRequest']) {
+      const value = params[key];
+      if (
+        typeof value === 'string' &&
+        /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value)
+      )
+        search.set(key, value);
+    }
+    return `/liekan/${page}${search.size ? '?' + search.toString() : ''}`;
+  }
   const record = featurePages.find(p => p.id === page);
   const geo =
     page in geoPaths && params.websiteId

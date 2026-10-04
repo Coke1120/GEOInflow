@@ -705,6 +705,7 @@ try {
         originalReferenceHashesVerified: Object.keys(referenceHashes).length,
         errors,
         fixture: 'frozen prototype data intercepted in isolated browser; no writes to analytics',
+        visualWebsiteId,
         results,
         passed:
           errors.length === 0 &&

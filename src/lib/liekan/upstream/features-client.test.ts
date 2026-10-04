@@ -219,3 +219,26 @@ describe('accessible website collection', () => {
     expect(get.mock.calls[0][1]).not.toHaveProperty('includeTeams');
   });
 });
+
+it('clears private AI data after user lifecycle refresh while preserving another identity', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+  const keys = [ ['liekan-ai','user','catalog'], ['liekan-ai','user','conversation','site','conversation'], ['liekan-ai','user','messages','site','conversation'], ['liekan-ai','user','context','conversation','snapshot'] ];
+  for (const key of keys) client.setQueryData(key, { private: 'old data' });
+  const other = ['liekan-ai','other','messages','site','conversation'];
+  client.setQueryData(other, { private: 'other identity' });
+  await invalidateFeatureUserQueries(client, 'user');
+  for (const key of keys) expect(client.getQueryData(key)).toBeUndefined();
+  expect(client.getQueryData(other)).toEqual({ private: 'other identity' });
+  client.clear();
+});
+it('clears website AI content and snapshot keys after website lifecycle refresh', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+  const keys = [ ['liekan-ai','user','catalog'], ['liekan-ai','user','catalog-selected','site'], ['liekan-ai','user','conversation','site','conversation'], ['liekan-ai','user','messages','site','conversation'], ['liekan-ai','user','history','site'], ['liekan-ai','user','context','conversation','snapshot'] ];
+  for (const key of keys) client.setQueryData(key, { private: 'old data' });
+  const other = ['liekan-ai','user','messages','other-site','conversation'];
+  client.setQueryData(other, { private: 'other website' });
+  await invalidateFeatureWebsiteQueries(client, 'site');
+  for (const key of keys) expect(client.getQueryData(key)).toBeUndefined();
+  expect(client.getQueryData(other)).toEqual({ private: 'other website' });
+  client.clear();
+});

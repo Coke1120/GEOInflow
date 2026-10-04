@@ -206,6 +206,28 @@ if (isProd && cloudMode) {
 }
 
 /** @type {import('next').NextConfig} */
+// Private AI replies include user questions, results and saved evidence.
+headers.push({
+  source: '/api/liekan/ai/:path*',
+  headers: [
+    { key: 'Cache-Control', value: 'private, no-store' },
+    { key: 'Vary', value: 'Authorization' },
+    { key: 'Access-Control-Allow-Methods', value: 'GET, DELETE, POST, PATCH' },
+  ],
+});
+if (isRelativeUrl(apiUrl)) {
+  const aiApiPrefix = normalizePath(apiUrl);
+  if (aiApiPrefix !== '/' && aiApiPrefix !== '/api')
+    headers.push({
+      source: `${aiApiPrefix}/liekan/ai/:path*`,
+      headers: [
+        { key: 'Cache-Control', value: 'private, no-store' },
+        { key: 'Vary', value: 'Authorization' },
+        { key: 'Access-Control-Allow-Methods', value: 'GET, DELETE, POST, PATCH' },
+      ],
+    });
+}
+
 export default withNextIntl({
   reactStrictMode: false,
   agentRules: false,

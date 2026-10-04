@@ -202,6 +202,7 @@ export async function updateWebsite(
     const updated=await tx.website.update({where:{id:websiteId},data});
     if(before && (before.domain!==updated.domain || before.userId!==updated.userId || before.teamId!==updated.teamId)) {
       await (await import('@/lib/liekan/upstream/lifecycle')).stopWebsiteSources(tx,websiteId);
+      await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiWebsiteInTransaction(tx, websiteId);
     }
     return updated;
   });
@@ -251,6 +252,7 @@ export async function deleteWebsite(websiteId: string) {
   return transaction(
     async tx => {
       await (await import('@/lib/liekan/upstream/lifecycle')).stopWebsiteSources(tx,websiteId,true);
+      await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiWebsiteInTransaction(tx, websiteId);
       await deleteWebsiteDependentData(tx, websiteId);
 
       await tx.report.deleteMany({

@@ -29,8 +29,9 @@ export async function checkMobileExperience({ base, seed, board, share, partial,
     funnel: '/conversions',
     logs: '/logs',
   };
+  const aiScope = JSON.parse(fs.readFileSync('config/liekan/ai-ui.json')).scope;
   const pages = [
-    ...manifest.pages.map(p => ({ id: p.id, expected: navigation.pages[p.id] })),
+    ...manifest.pages.filter(p => !aiScope.includes(p.id)).map(p => ({ id: p.id, expected: navigation.pages[p.id] })),
     ...Object.entries(geo).map(([id, suffix]) => ({
       id: `geo-${id}`,
       suffix,

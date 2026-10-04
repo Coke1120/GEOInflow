@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import ipaddr from 'ipaddr.js';
@@ -108,6 +108,21 @@ const psql = (sql, database = 'liekan_empty') =>
     '-Atc',
     sql,
   );
+const installationSnapshot = database => {
+  if (psql("SELECT to_regclass('liekan_installation') IS NOT NULL", database) !== 't')
+    return { present: false };
+  const rows = psql(
+    "SELECT coalesce(json_agg(json_build_object('websiteId',website_id,'method',method,'lastStep',last_step,'browserCheckDeferred',browser_check_deferred,'logCheckDeferred',log_check_deferred,'completedAt',completed_at,'updatedAt',updated_at) ORDER BY website_id),'[]'::json) FROM liekan_installation",
+    database,
+  );
+  const parsed = JSON.parse(rows);
+  if (!Array.isArray(parsed)) throw new Error('Installation snapshot is invalid');
+  return {
+    present: true,
+    count: parsed.length,
+    sha256: createHash('sha256').update(rows).digest('hex'),
+  };
+};
 const officialHistory = async (database, allowPending = false) => {
   const result = await assertUpstreamMigrations(
     {
@@ -226,12 +241,19 @@ try {
       `LIEKAN_FEATURE_UI=${upstream.featureUiManifestSha256}`,
       '--build-arg',
       `LIEKAN_MIGRATION=${upstream.liekanMigration}`,
+      '--build-arg',
+      `LIEKAN_AI_UI=${upstream.aiUiManifestSha256}`,
       '-t',
       image,
       '.',
     ],
     'docker-build',
     { env: buildEnvironment },
+  );
+  await run(
+    'docker',
+    ['run', '--rm', '--entrypoint', 'node', image, 'generated/ai-maintenance.mjs', '--help'],
+    'ai-maintenance-runtime-help',
   );
   const labels = JSON.parse(
     docker('image', 'inspect', image, '--format', '{{json .Config.Labels}}'),
@@ -242,7 +264,8 @@ try {
     labels['io.liekan.ui.sha256'] !== upstream.uiManifestSha256 ||
     labels['io.liekan.upstream.revision'] !== upstream.commit ||
     labels['io.liekan.feature-ui.sha256'] !== upstream.featureUiManifestSha256 ||
-    labels['io.liekan.migration'] !== String(upstream.liekanMigration)
+    labels['io.liekan.migration'] !== String(upstream.liekanMigration) ||
+    labels['io.liekan.ai-ui.sha256'] !== upstream.aiUiManifestSha256
   )
     throw new Error('Candidate OCI metadata differs');
   report.imageId = docker('image', 'inspect', image, '--format', '{{.Id}}');
@@ -320,6 +343,9 @@ try {
     }
   }
   await startApp('liekan_empty');
+  report.emptyInstallation = installationSnapshot('liekan_empty');
+  if (!report.emptyInstallation.present || report.emptyInstallation.count !== 0)
+    throw new Error('Fresh website installation bootstrap differs');
   report.emptyUpstreamMigrations = await officialHistory('liekan_empty');
   report.emptyMigrationCount = Number(psql('SELECT count(*) FROM liekan_migration'));
   if (report.emptyMigrationCount !== upstream.liekanMigration)
@@ -385,6 +411,18 @@ try {
     report.featureVisual.mobile.checks !== 79 * 4 * 2
   )
     throw new Error('Supplemental visual acceptance incomplete');
+  await run(process.execPath, ['scripts/liekan-ai-visual.mjs'], 'ai-visual', {
+    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+  });
+  report.aiVisual = JSON.parse(fs.readFileSync('test-results/liekan-ai/report.json', 'utf8'));
+  if (
+    !report.aiVisual.passed ||
+    report.aiVisual.head !== head ||
+    report.aiVisual.checks.length !== 8 ||
+    report.aiVisual.checks.some(check => check.passed !== true) ||
+    report.aiVisual.errors?.length
+  )
+    throw new Error('AI visual acceptance incomplete');
   docker('rm', '-f', app);
   appCreated = false;
   psql('CREATE DATABASE liekan_restore');
@@ -415,7 +453,17 @@ try {
   // Count the restored snapshot before upgrade, so concurrent source traffic cannot change this baseline.
   report.restoredUpstreamBefore = await officialHistory('liekan_restore', true);
   report.before = JSON.parse(psql(countsSQL, 'liekan_restore'));
+  report.installationBefore = installationSnapshot('liekan_restore');
   await startApp('liekan_restore');
+  report.installationAfter = installationSnapshot('liekan_restore');
+  if (
+    !report.installationAfter.present ||
+    (report.installationBefore.present
+      ? report.installationBefore.sha256 !== report.installationAfter.sha256 ||
+        report.installationBefore.count !== report.installationAfter.count
+      : report.installationAfter.count !== 0)
+  )
+    throw new Error('Restore changed website installation records');
   report.restoredUpstreamAfter = await officialHistory('liekan_restore');
   report.after = JSON.parse(psql(countsSQL, 'liekan_restore'));
   if (

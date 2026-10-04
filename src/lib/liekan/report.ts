@@ -113,7 +113,7 @@ export async function buildReport(
     days = Math.max(1, Math.ceil((p.endAt - p.startAt + 1) / 86400000));
   const t = h.totals;
   const humanState: DataState = t.visits ? 'available' : 'empty',
-    logState: DataState = l.latest ? (l.summary.requests ? 'available' : 'empty') : 'not_connected',
+    logState: DataState = (l.connected ?? Boolean(l.latest)) ? (l.summary.requests ? 'available' : 'empty') : 'not_connected',
     catalogState: DataState = l.catalog.length ? 'available' : 'not_connected',
     goalState: DataState = h.goals.length ? 'available' : 'not_connected';
   const r: LiekanReport = {

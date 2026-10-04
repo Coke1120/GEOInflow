@@ -5,6 +5,7 @@ import { resetTestNavigation } from './navigation';
 
 configure({ testIdAttribute: 'data-test' });
 
+if (typeof window !== 'undefined') {
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation((query: string) => ({
@@ -52,8 +53,10 @@ class IntersectionObserver {
 window.ResizeObserver = ResizeObserver;
 window.IntersectionObserver = IntersectionObserver;
 
+}
+
 afterEach(() => {
   cleanup();
-  resetTestNavigation();
+  if (typeof window !== 'undefined') resetTestNavigation();
   vi.restoreAllMocks();
 });

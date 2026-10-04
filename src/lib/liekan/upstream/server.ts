@@ -7,6 +7,7 @@ import { getWebsiteStats } from '@/queries/sql';
 import { getQuerySnapshot, withinQuerySnapshot } from './query-snapshot';
 
 import { LiekanError } from './errors';
+
 export { LiekanError } from './errors';
 export async function authorize(request: Request, websiteId: string, write = false) {
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(websiteId))
@@ -58,7 +59,7 @@ export async function lockWritableWebsite(tx: any, id: string, identity?: WriteI
 const primary = (): any => getRawQueryClient(prisma.client, { write: true });
 export async function query<T = any>(sql: string, ...params: unknown[]): Promise<T[]> {
   const snapshot = getQuerySnapshot();
-  if (snapshot) return snapshot.$queryRawUnsafe(sql, ...params) as Promise<T[]>;
+  if (snapshot) return (await snapshot.$queryRawUnsafe(sql, ...params)) as T[];
   return transaction(tx => tx.$queryRawUnsafe(sql, ...params));
 }
 export async function sourceWebsite(tx: any, id: string, identity: WriteIdentity) {

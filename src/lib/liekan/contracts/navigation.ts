@@ -10,6 +10,7 @@ export interface NavigationGroup extends NavigationItem {
   id: string;
   icon: string;
   children?: NavigationItem[];
+  sectionLabel?: string;
 }
 export interface PageNavigation {
   scope: PageScope;
@@ -19,6 +20,7 @@ export interface PageNavigation {
 }
 
 export const globalNavigation: NavigationGroup[] = [
+  { id: 'ai-chat', page: 'ai-chat', label: '快速发起', icon: 'plus' },
   { id: 'dashboard', page: 'dashboard', label: '数据总览', icon: 'grid' },
   {
     id: 'data',
@@ -41,6 +43,7 @@ export const globalNavigation: NavigationGroup[] = [
       { page: 'teams', label: '团队管理', icon: 'users' },
     ],
   },
+  { id: 'ai-config', page: 'ai-config', label: 'AI配置器', icon: 'box', sectionLabel: 'AI能力' },
 ];
 export const trackingNavigationTabs: NavigationItem[] = [
   { page: 'links', label: '链接追踪' },
@@ -189,6 +192,8 @@ export const geoPaths: Record<string, string> = {
 
 const pageDefinitions: Array<[PageScope, string, string | undefined, string[]]> = [
   ['global', 'dashboard', undefined, ['dashboard']],
+  ['global', 'ai-chat', undefined, ['ai-chat']],
+  ['global', 'ai-config', undefined, ['ai-config']],
   ['global', 'dashboard', 'dashboard', ['dashboard-edit']],
   ['global', 'websites', undefined, ['websites']],
   ['global', 'websites', 'websites', ['onboarding']],
@@ -250,6 +255,8 @@ for (const group of websiteNavigation) {
   }
 }
 const titles: Record<string, string> = {
+  'ai-chat': '快速发起',
+  'ai-config': 'AI配置器',
   'geo-content': '页面与内容',
   'geo-conversions': '转化概览',
   'two-factor': '设置双重验证',

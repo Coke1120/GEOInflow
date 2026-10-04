@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./server', () => ({ query: vi.fn(), LiekanError: class extends Error {} }));
 
-import { getContentImpact, getMonthlyAiShare, isStaticRequestPath } from './logs';
+import { getContentImpact, getLogFacts, getMonthlyAiShare, isStaticRequestPath } from './logs';
 import { query } from './server';
+import { waitForLogStatisticsReads } from './ai-log-read-priority';
 
 beforeEach(() => vi.resetAllMocks());
 
@@ -74,5 +75,97 @@ describe('monthly AI share calendar', () => {
         await getMonthlyAiShare('site', new Date('2026-01-01T04:00:00Z'), 'America/Los_Angeles')
       ).map(row => row.month),
     ).toEqual(['2025-07', '2025-08', '2025-09', '2025-10', '2025-11', '2025-12']);
+  });
+});
+
+describe('foreground log read priority', () => {
+  it('finishes the foreground response before waking queued AI work', async () => {
+    let release!: (value: any[]) => void;
+    const pending = new Promise<any[]>(resolve => {
+      release = resolve;
+    });
+    vi.mocked(query).mockReturnValue(pending);
+    const events: string[] = [];
+    const report = getLogFacts(
+      'site',
+      new Date('2026-10-01'),
+      new Date('2026-10-03'),
+      'UTC',
+      1,
+      '',
+      '',
+      '',
+      'after',
+      ['summary'],
+    ).then(() => {
+      events.push('foreground');
+    });
+    const waiting = waitForLogStatisticsReads(new AbortController().signal, Date.now() + 1000).then(
+      () => {
+        events.push('ai');
+      },
+    );
+    release([{ requests: 0, ai: 0, pages: 0, abnormal: 0 }]);
+    await Promise.all([report, waiting]);
+    expect(events).toEqual(['foreground', 'ai']);
+  });
+
+  it('retains unfinished queries when a sibling has already failed', async () => {
+    let release!: (value: any[]) => void;
+    const pending = new Promise<any[]>(resolve => {
+      release = resolve;
+    });
+    const error = new Error('test query failure');
+    vi.mocked(query)
+      .mockResolvedValue([])
+      .mockRejectedValueOnce(error)
+      .mockReturnValueOnce(pending);
+    const report = getLogFacts('site', new Date('2026-10-01'), new Date('2026-10-03'), 'UTC');
+    await expect(report).rejects.toBe(error);
+    let released = false;
+    const waiting = waitForLogStatisticsReads(new AbortController().signal, Date.now() + 1000).then(
+      () => {
+        released = true;
+      },
+    );
+    try {
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(released).toBe(false);
+    } finally {
+      release([]);
+      await waiting;
+    }
+    expect(released).toBe(true);
+  });
+
+  it('retains priority until previous-period bots have settled', async () => {
+    let release!: (value: any[]) => void;
+    const pending = new Promise<any[]>(resolve => {
+      release = resolve;
+    });
+    vi.mocked(query)
+      .mockResolvedValue([])
+      .mockResolvedValueOnce([{ requests: 0, ai: 0, pages: 0, abnormal: 0 }]);
+    for (let i = 0; i < 8; i++) vi.mocked(query).mockResolvedValueOnce([]);
+    vi.mocked(query)
+      .mockResolvedValueOnce([{ count: 0 }])
+      .mockReturnValueOnce(pending);
+    const report = getLogFacts('site', new Date('2026-10-01'), new Date('2026-10-03'), 'UTC');
+    await vi.waitFor(() => expect(vi.mocked(query)).toHaveBeenCalledTimes(11));
+    let released = false;
+    const waiting = waitForLogStatisticsReads(new AbortController().signal, Date.now() + 1000).then(
+      () => {
+        released = true;
+      },
+    );
+    try {
+      await Promise.resolve();
+      expect(released).toBe(false);
+    } finally {
+      release([]);
+      await Promise.all([report, waiting]);
+    }
+    expect(released).toBe(true);
   });
 });

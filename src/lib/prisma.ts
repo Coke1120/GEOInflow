@@ -1,7 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { readReplicas } from '@prisma/extension-read-replicas';
 import debug from 'debug';
-import { PrismaClient } from '@/generated/prisma/client';
+import { PrismaClient, type Prisma } from '@/generated/prisma/client';
 import {
   DATA_TYPE,
   DEFAULT_PAGE_SIZE,
@@ -13,6 +13,7 @@ import { getCountryFilterValues, getRegionFilterValues } from './country';
 import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
 import { channelFilterColumn } from './liekan/upstream/filter-extension';
+import { privateAiQueryLog } from './liekan/upstream/ai-query-logging';
 import { getQuerySnapshot } from './liekan/upstream/query-snapshot';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './liekan/upstream/query-cache';
 import { cacheHeadersEnabled, noteCacheResult } from './liekan/upstream/cache-context';
@@ -771,7 +772,7 @@ async function executeRawQuery(
   name?: string,
   write = false,
 ): Promise<any> {
-  if (process.env.LOG_QUERY) {
+  if (process.env.LOG_QUERY && !getQuerySnapshot()?.aiPrivate) {
     log('QUERY:\n', sql);
     log('PARAMETERS:\n', data);
     log('NAME:\n', name);
@@ -925,7 +926,10 @@ function getSearchParameters(query: string, filters: Record<string, any>[]) {
   };
 }
 
-function transaction<T>(input: (tx:any)=>Promise<T>, options?:any):Promise<T>;
+function transaction<T>(
+  input: (tx: Prisma.TransactionClient) => Promise<T>,
+  options?: any,
+): Promise<T>;
 function transaction(input: any[], options?:any):Promise<any[]>;
 function transaction(input: any, options?: any):any {
   return client.$transaction(input, options);
@@ -963,7 +967,7 @@ function getClient() {
   });
 
   if (logQuery) {
-    baseClient.$on('query', log);
+    baseClient.$on('query', event => log(privateAiQueryLog(event)));
   }
 
   if (!replicaUrl) {
@@ -981,7 +985,7 @@ function getClient() {
   });
 
   if (logQuery) {
-    replicaClient.$on('query', log);
+    replicaClient.$on('query', event => log(privateAiQueryLog(event)));
   }
 
   const extended = baseClient.$extends(
