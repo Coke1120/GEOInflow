@@ -11,7 +11,7 @@ const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
 
 // Exercise the real CLI in a disposable cwd. Built-in child-process mocks keep every
 // Docker/Git operation local to this fixture and prevent loading the private .env.
-function fixture(fault: string) {
+function fixture(fault: string, port = '3302') {
   fs.mkdirSync(path.join(root, 'tmp'), { recursive: true });
   const cwd = fs.mkdtempSync(path.join(root, 'tmp/liekan-acceptance-test-'));
   fs.mkdirSync(path.join(cwd, 'outputs'), { recursive: true });
@@ -82,7 +82,7 @@ cp.spawnSync=(command,args,options={})=>{
   if(fault==='data-regression-failed')return {status:1};
   fs.writeSync(options.stdio[1],JSON.stringify({passed:true,sourceHash:'a'.repeat(64),checks:Array.from({length:8},(_,i)=>'fixture '+i),readOnly:true,fixture:'synthetic-relations'})+'\\n');
  }
- if(args.includes('playwright.api.config.ts')){fs.mkdirSync('tests/api/.runtime/127.0.0.1-3302/coverage',{recursive:true});fs.writeFileSync('tests/api/.runtime/127.0.0.1-3302/coverage/summary.json','{}');}
+ if(args.includes('playwright.api.config.ts')){const runtime='tests/api/.runtime/'+new URL(options.env.PLAYWRIGHT_BASE_URL).host.replace(/[^a-z0-9.-]+/gi,'-')+'/coverage';fs.mkdirSync(runtime,{recursive:true});fs.writeFileSync(runtime+'/summary.json','{}');}
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:16},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:68*4},()=>({passed:true})),loadingChecks:Array.from({length:fault==='loading-count'?1:68},()=>({passed:fault!=='loading-check'})),refreshChecks:Array.from({length:fault==='refresh-count'?1:10},()=>({passed:fault!=='refresh-check'})),transitionChecks:Array.from({length:fault==='transition-count'?1:10},()=>({passed:fault!=='transition-check'}))}));}
@@ -115,6 +115,7 @@ globalThis.fetch=async(_url,options={})=>{
     env: {
       PATH: process.env.PATH,
       NODE_ENV: 'test' as const,
+      LIEKAN_ACCEPTANCE_PORT: port,
       APP_SECRET: 'fixture-secret',
       TWO_FACTOR_ENCRYPTION_KEY: 'a'.repeat(64),
     },
@@ -142,6 +143,48 @@ describe('isolated acceptance CLI failure paths', () => {
       fs.rmSync(setup.cwd, { recursive: true, force: true });
     }
   });
+  it('binds the complete candidate acceptance to an independent local port', () => {
+    const setup = fixture('none', '3303');
+    try {
+      const result = spawnSync(process.execPath, setup.args, {
+        cwd: setup.cwd,
+        env: setup.env,
+        encoding: 'utf8',
+        timeout: 20000,
+      });
+      if (result.status !== 0) throw new Error(result.stderr || result.stdout);
+      const report = JSON.parse(
+        fs.readFileSync(path.join(setup.cwd, 'outputs/acceptance.json'), 'utf8'),
+      );
+      expect(report.url).toBe('http://127.0.0.1:3303');
+      expect(
+        fs.existsSync(
+          path.join(setup.cwd, 'tests/api/.runtime/127.0.0.1-3303/coverage/summary.json'),
+        ),
+      ).toBe(true);
+    } finally {
+      fs.rmSync(setup.cwd, { recursive: true, force: true });
+    }
+  });
+  it.each(['3002', '0', 'invalid'])(
+    'rejects a non-acceptance port %s before starting resources',
+    port => {
+      const setup = fixture('none', port);
+      try {
+        const result = spawnSync(process.execPath, setup.args, {
+          cwd: setup.cwd,
+          env: setup.env,
+          encoding: 'utf8',
+          timeout: 20000,
+        });
+        expect(result.status).not.toBe(0);
+        expect(fs.existsSync(path.join(setup.cwd, 'outputs/acceptance.json'))).toBe(false);
+        expect(result.stderr).toContain('Acceptance port must be an integer from 3302 to 3999');
+      } finally {
+        fs.rmSync(setup.cwd, { recursive: true, force: true });
+      }
+    },
+  );
   it('allows the restored pending official migration before upgrade and requires it afterwards', () => {
     const setup = fixture('pending-upgrade');
     try {

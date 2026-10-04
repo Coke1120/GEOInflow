@@ -6,10 +6,18 @@ import { chromium } from '@playwright/test';
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
 const target = new URL(base);
 assert(
-  ['127.0.0.1', 'localhost'].includes(target.hostname) && target.port === '3302',
-  'Use the isolated candidate on port 3302',
+  ['127.0.0.1', 'localhost'].includes(target.hostname) &&
+    target.port === (process.env.LIEKAN_ACCEPTANCE_PORT || '3302') &&
+    Number(target.port) >= 3302 &&
+    Number(target.port) <= 3999,
+  'Use the isolated candidate on its assigned acceptance port',
 );
-const seed = JSON.parse(fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/seed.json', 'utf8'));
+const seed = JSON.parse(
+  fs.readFileSync(
+    `tests/api/.runtime/${target.host.replace(/[^a-z0-9.-]+/gi, '-')}/seed.json`,
+    'utf8',
+  ),
+);
 const out = 'test-results/liekan-feature-flows';
 fs.mkdirSync(out, { recursive: true });
 let token;

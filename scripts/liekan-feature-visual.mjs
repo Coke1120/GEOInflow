@@ -32,7 +32,12 @@ for (const [file, hash] of Object.entries(featureReference.files))
     hash,
     `Original feature reference changed: ${file}`,
   );
-const seed = JSON.parse(fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/seed.json', 'utf8'));
+const seed = JSON.parse(
+  fs.readFileSync(
+    `tests/api/.runtime/${new URL(base).host.replace(/[^a-z0-9.-]+/gi, '-')}/seed.json`,
+    'utf8',
+  ),
+);
 const manifest = JSON.parse(fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'));
 assert.deepEqual(
   Object.keys(navigationBaseline.pages).sort(),
