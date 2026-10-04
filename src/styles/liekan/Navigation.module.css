@@ -556,13 +556,6 @@
   font-weight: 600;
   border-bottom-color: #0f62fe;
 }
-.linkPending {
-  position: absolute;
-  inset: auto 0 0;
-  height: 2px;
-  background: #0f62fe;
-  pointer-events: none;
-}
 .preview .item {
   position: relative;
 }
