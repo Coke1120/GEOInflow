@@ -267,10 +267,10 @@ try {
   await page.getByRole('button', { name: '重置日期', exact: true }).click();
   await page.waitForURL(u => u.searchParams.get('date') === '30day');
   await page.waitForLoadState('networkidle');
-  await page.goto(
-    base + `/liekan/funnel-editor?${new URLSearchParams({ websiteId: seed.website.id, date })}`,
-  );
-  await page.waitForLoadState('networkidle');
+  await context.close();
+  ({ page, context } = await pageAt(
+    `/liekan/funnel-editor?${new URLSearchParams({ websiteId: seed.website.id, date })}`,
+  ));
   await page.getByRole('button', { name: '下移步骤 1', exact: true }).click();
   const editorUrl = page.url();
   async function chooseNextSite() {

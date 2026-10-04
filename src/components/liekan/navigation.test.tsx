@@ -104,9 +104,9 @@ describe('website navigation transitions', () => {
         onWidth={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: '页面导航', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: '页面导航' }));
     (document.activeElement as HTMLElement).blur();
-    const account = screen.getByRole('button', { name: '个人账户', exact: true });
+    const account = screen.getByRole('button', { name: '个人账户' });
     fireEvent.click(account);
     expect(account).toHaveFocus();
     expect(screen.getByRole('link', { name: '账户安全' })).toBeInTheDocument();
