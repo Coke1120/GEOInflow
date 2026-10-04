@@ -1,9 +1,249 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import type { InstallationStatus } from '@/lib/liekan/contracts/installation';
+import {
+  logPublicOrigin,
+  type InstallationStatus,
+  type LogCapability,
+  type LogSetupCheckId,
+} from '@/lib/liekan/contracts/installation';
 import { useFeature } from './context';
-import { Badge, Button, Code, Notice } from './ui';
+import { Badge, Button, Code, Field, Notice } from './ui';
 import styles from '@/styles/liekan/Installation.module.css';
+
+const setupLabels: Record<LogSetupCheckId, string> = {
+  'public-url': '公网 HTTPS 地址',
+  queue: '日志队列',
+  worker: '日志处理服务',
+  'agent-package': '签名安装包',
+  'cloudflare-oauth': 'Cloudflare 授权应用',
+  'credentials-key': '凭据加密密钥',
+};
+function ReceiverSetupGuide({
+  method,
+  capability,
+  available,
+  refresh,
+}: {
+  method: 'server' | 'cloudflare';
+  capability?: LogCapability;
+  available: boolean;
+  refresh: () => Promise<unknown>;
+}) {
+  const c = useFeature();
+  const [draft, setDraft] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [error, setError] = useState('');
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  const value = draft ?? capability?.publicUrl ?? '';
+  const origin = logPublicOrigin(value.trim());
+  const checks = capability?.checks ?? [];
+  const missing = (id: LogSetupCheckId) =>
+    checks.find(check => check.id === id)?.state === 'missing';
+  const credentialConfig = [
+    ...(missing('cloudflare-oauth')
+      ? ['CLOUDFLARE_OAUTH_CLIENT_ID=填写应用ID', 'CLOUDFLARE_OAUTH_CLIENT_SECRET=填写应用密钥']
+      : []),
+    ...(missing('credentials-key')
+      ? ['LIEKAN_LOG_CREDENTIALS_KEY=填写32字节随机密钥的Base64']
+      : []),
+  ].join('\n');
+  const copy = async (text: string) => {
+    await navigator.clipboard.writeText(text);
+    if (active.current) c.notify('配置说明已复制');
+  };
+  return (
+    <section className={styles.setupGuide} aria-label="接收服务配置引导">
+      <div>
+        <h3>配置日志接收服务</h3>
+        <p className="muted">
+          由部署管理员配置一次，供本实例的所有网站使用。填写地址后，按下方步骤应用到部署环境。
+        </p>
+        {!c.user?.isAdmin && (
+          <Notice tone="amber">
+            请将配置说明交给部署管理员。你可以在这里查看要求，并在配置完成后重新检查。
+          </Notice>
+        )}
+        {!checks.length && (
+          <Notice tone="amber">
+            当前服务尚未返回逐项检查结果。请重新检查，并由部署管理员确认已有配置后再修改。
+          </Notice>
+        )}
+      </div>
+      <div className="stack">
+        <strong>1. 准备统计服务的公网地址</strong>
+        <Field
+          label="统计服务公网地址"
+          aria-label="统计服务公网地址"
+          type="url"
+          placeholder="https://stats.example.com"
+          maxLength={255}
+          value={value}
+          onChange={event => {
+            setDraft(event.target.value);
+            setChecked(false);
+          }}
+          help="填写猎看统计的访问域名。域名需指向统计服务，配置有效的 HTTPS 证书，并允许外部访问日志接收接口。"
+          error={
+            value && !origin
+              ? '请输入 HTTPS 根地址，使用公网域名，去掉路径、参数和账号信息。'
+              : undefined
+          }
+        />
+        {origin && <Code>{`LIEKAN_PUBLIC_URL=${origin}`}</Code>}
+        <div className="row">
+          <Button disabled={!origin} onClick={() => copy(`LIEKAN_PUBLIC_URL=${origin}`)}>
+            复制地址配置
+          </Button>
+        </div>
+        <p className="field-help">
+          Docker 部署：更新猎看部署目录的 .env
+          中对应项。其他部署：在托管平台的环境变量中更新。页面填写用于生成配置说明。
+        </p>
+        {capability?.publicUrl && (
+          <p className="field-help">当前运行地址：{capability.publicUrl}</p>
+        )}
+      </div>
+      {method === 'cloudflare' && (
+        <div className="stack">
+          <strong>2. 配置 Cloudflare 授权应用</strong>
+          <p>
+            在 Cloudflare 账户的 Manage Account → OAuth clients 创建服务器端应用，使用 Authorization
+            Code 流程和 client_secret_basic，配置读取 Zone 与管理 Logpush 所需权限。
+          </p>
+          <a
+            href="https://developers.cloudflare.com/fundamentals/oauth/create-an-oauth-client/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            查看 Cloudflare 官方配置指南 ↗
+          </a>
+          <span className="field-help">将以下地址登记为应用的回调地址：</span>
+          {origin ? (
+            <>
+              <Code>{`${origin}/api/liekan/oauth/cloudflare/callback`}</Code>
+              <div className="row">
+                <Button onClick={() => copy(`${origin}/api/liekan/oauth/cloudflare/callback`)}>
+                  复制回调地址
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="muted">填写有效的公网地址后显示回调地址。</p>
+          )}
+          {(missing('cloudflare-oauth') || missing('credentials-key')) && (
+            <>
+              <p className="field-help">
+                在部署环境补齐下列待配置项，用真实值替换占位文字；应用密钥和加密密钥由部署管理员保管。
+              </p>
+              <Code>{credentialConfig}</Code>
+              <div className="row">
+                <Button onClick={() => copy(credentialConfig)}>复制待配置项</Button>
+              </div>
+              {missing('credentials-key') && (
+                <details>
+                  <summary>如何生成凭据加密密钥</summary>
+                  <p className="field-help">
+                    在部署服务器运行下方命令，将结果填入对应环境变量；已有密钥请保留，轮换需按部署文档执行。
+                  </p>
+                  <Code>{`node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64'))"`}</Code>
+                </details>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      <div className="stack">
+        <strong>{method === 'cloudflare' ? '3' : '2'}. 应用配置并重新检查</strong>
+        <p>
+          应用与日志处理服务需使用同一份配置。Docker
+          部署在猎看部署目录执行下方命令；其他部署请更新并重启这两个进程。
+        </p>
+        <p className="field-help">配置完成后，通过该公网域名打开猎看，再继续授权或安装。</p>
+        <Code>docker compose -f docker-compose.liekan.yml up -d --no-deps app log-worker</Code>
+        {missing('queue') && (
+          <details>
+            <summary>日志队列待初始化或无法读取</summary>
+            <p className="field-help">
+              确认数据库可连接、增量迁移已完成，再由部署管理员初始化队列。
+            </p>
+            <Code>
+              {
+                'docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-queue-bootstrap.mjs'
+              }
+            </Code>
+          </details>
+        )}
+        {method === 'server' && missing('agent-package') && (
+          <details>
+            <summary>准备签名安装包</summary>
+            <p className="field-help">
+              在受控构建环境设置 LIEKAN_AGENT_SIGNING_KEY_FILE，执行下方命令，再重新构建并部署包含
+              public/liekan-agent 的应用镜像。
+            </p>
+            <Code>pnpm liekan:build-agent</Code>
+          </details>
+        )}
+        <div className={styles.setupChecks} aria-label="当前运行配置">
+          {checks.map(check => (
+            <div key={check.id}>
+              <span>{setupLabels[check.id]}</span>
+              <Badge tone={check.state === 'ready' ? 'green' : 'gray'}>
+                {check.state === 'ready'
+                  ? '已就绪'
+                  : check.state === 'unverified'
+                    ? '未能读取'
+                    : '待配置'}
+              </Badge>
+            </div>
+          ))}
+        </div>
+        <p className="field-help">
+          检查核对运行中的配置、服务心跳和安装资产。公网连通性与真实日志到达可在连接后继续检查。
+        </p>
+        <div className="row">
+          <Button
+            primary
+            disabled={checking}
+            onClick={async () => {
+              setChecking(true);
+              setError('');
+              setChecked(false);
+              try {
+                const result: any = await refresh();
+                if (result?.error) throw result.error;
+                if (active.current) setChecked(true);
+              } catch (e) {
+                if (active.current)
+                  setError(e instanceof Error ? e.message : '配置读取失败，请重试。');
+              } finally {
+                if (active.current) setChecking(false);
+              }
+            }}
+          >
+            {checking ? '正在检查配置…' : '重新检查配置'}
+          </Button>
+        </div>
+        <div aria-live="polite">
+          {checked && (
+            <p className="field-help">
+              {available
+                ? '接收服务已就绪，可以继续生成授权链接或安装命令。'
+                : '已重新读取运行配置，请继续完成上方待配置项。'}
+            </p>
+          )}
+        </div>
+        {error && <Notice tone="red">{error}</Notice>}
+      </div>
+    </section>
+  );
+}
 
 export function AutomaticLogSetup({
   websiteId,
@@ -23,6 +263,7 @@ export function AutomaticLogSetup({
     [error, setError] = useState('');
   const [command, setCommand] = useState<{ command: string; expiresAt: string } | null>(null);
   const [authorization, setAuthorization] = useState<string | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [zones, setZones] = useState<{
     domain: string;
     zones: { id: string; name: string }[];
@@ -86,25 +327,49 @@ export function AutomaticLogSetup({
   return (
     <>
       <p className="muted">{available ? '按下方引导完成连接，检查可稍后进行。' : reason}</p>
+      {!available && (
+        <p className="field-help">
+          先完成实例配置，再为当前网站连接日志来源。下方引导可直接查看待配置项和操作步骤。
+        </p>
+      )}
       <div className="form-actions">
-        <Button
-          primary
-          disabled={!available || !manage || busy}
-          onClick={() =>
-            run(async () => {
-              const data: any = await c.api.post(
-                `/liekan/websites/${websiteId}/log-sources/${method === 'server' ? 'server/pairing' : 'cloudflare/start'}`,
-                {},
-              );
-              if (!alive.current) return;
-              if (method === 'server') setCommand(data);
-              else setAuthorization(data.authorizationUrl);
-            })
-          }
-        >
-          {busy ? '正在处理…' : method === 'server' ? '生成一次安装命令' : '生成授权链接'}
-        </Button>
+        {!available ? (
+          <Button primary aria-expanded={setupOpen} onClick={() => setSetupOpen(!setupOpen)}>
+            {setupOpen ? '收起配置引导' : c.user?.isAdmin ? '开始配置' : '查看配置说明'}
+          </Button>
+        ) : (
+          <>
+            <Button
+              primary
+              disabled={!available || !manage || busy}
+              onClick={() =>
+                run(async () => {
+                  const data: any = await c.api.post(
+                    `/liekan/websites/${websiteId}/log-sources/${method === 'server' ? 'server/pairing' : 'cloudflare/start'}`,
+                    {},
+                  );
+                  if (!alive.current) return;
+                  if (method === 'server') setCommand(data);
+                  else setAuthorization(data.authorizationUrl);
+                })
+              }
+            >
+              {busy ? '正在处理…' : method === 'server' ? '生成一次安装命令' : '生成授权链接'}
+            </Button>
+            <Button aria-expanded={setupOpen} onClick={() => setSetupOpen(!setupOpen)}>
+              {setupOpen ? '收起配置引导' : '查看接收服务配置'}
+            </Button>
+          </>
+        )}
       </div>
+      {setupOpen && (
+        <ReceiverSetupGuide
+          method={method}
+          capability={status.availability?.[method]}
+          available={available}
+          refresh={refresh}
+        />
+      )}
       {command && (
         <div className="stack">
           <p>在网站服务器执行。安装会询问当前网站的日志路径，并在本机校验读取权限。</p>

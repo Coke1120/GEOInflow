@@ -64,7 +64,11 @@ describe('website installation progress', () => {
       logs: { total: 0, ai: 0 },
       capabilities: { cloudflare: false, server: false },
     });
-    expect(mocks.query.mock.calls.every(call => call[1] === id)).toBe(true);
+    const websiteQueries = mocks.query.mock.calls.filter(
+      call => !call[0].includes('liekan_worker_state'),
+    );
+    expect(websiteQueries.length).toBeGreaterThan(0);
+    expect(websiteQueries.every(call => call[1] === id)).toBe(true);
   });
   it('rejects arbitrary connection or analytics state in guide actions', async () => {
     for (const value of [

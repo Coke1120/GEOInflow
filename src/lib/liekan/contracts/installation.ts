@@ -17,6 +17,43 @@ export const installationActionSchema = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('finish'), method: logMethodSchema }),
 ]);
 export type InstallationAction = z.infer<typeof installationActionSchema>;
+export type LogSetupCheckId =
+  | 'public-url'
+  | 'queue'
+  | 'worker'
+  | 'agent-package'
+  | 'cloudflare-oauth'
+  | 'credentials-key';
+export interface LogSetupCheck {
+  id: LogSetupCheckId;
+  state: 'ready' | 'missing' | 'unverified';
+}
+export interface LogCapability {
+  available: boolean;
+  reason: string | null;
+  version: string;
+  publicUrl?: string | null;
+  checks?: LogSetupCheck[];
+}
+export function logPublicOrigin(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== '/' ||
+      !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/.test(url.hostname) ||
+      /(?:^|\.)(?:localhost|local|internal)$/.test(url.hostname)
+    )
+      return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
 export interface InstallationProgress {
   method: LogMethod;
   lastStep: 'js' | 'logs' | 'finish';
@@ -35,10 +72,7 @@ export interface InstallationStatus {
     demo: boolean;
   };
   capabilities: { cloudflare: boolean; server: boolean };
-  availability?: Record<
-    'server' | 'cloudflare',
-    { available: boolean; reason: string | null; version: string }
-  >;
+  availability?: Record<'server' | 'cloudflare', LogCapability>;
   sources?: {
     id: string;
     kind: 'server' | 'cloudflare';

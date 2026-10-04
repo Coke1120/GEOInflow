@@ -1,5 +1,6 @@
 import { randomUUID, createHmac } from 'node:crypto';
 import { z } from 'zod';
+import { logPublicOrigin } from '../contracts/installation';
 import { getSettings } from '../store';
 import { invalidateWebsiteAnalytics } from '../upstream/query-cache';
 import {
@@ -42,24 +43,9 @@ export const uuid = (id: string) => {
 export function publicUrl() {
   const value = process.env.LIEKAN_PUBLIC_URL;
   if (!value) throw new LiekanError('尚未配置公网 HTTPS 接收地址', 503);
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new LiekanError('公网地址需要可信 HTTPS 域名', 503);
-  }
-  if (
-    url.protocol !== 'https:' ||
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
-    url.pathname !== '/' ||
-    !/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z][a-z0-9-]{1,62}$/.test(url.hostname) ||
-    /(?:^|\.)(?:localhost|local|internal)$/.test(url.hostname)
-  )
-    throw new LiekanError('公网地址需要可信 HTTPS 域名', 503);
-  return url.origin;
+  const origin = logPublicOrigin(value);
+  if (!origin) throw new LiekanError('公网地址需要可信 HTTPS 域名', 503);
+  return origin;
 }
 export async function ensureState(tx: any, websiteId: string) {
   await tx.$executeRawUnsafe(
