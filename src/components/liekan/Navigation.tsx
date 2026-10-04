@@ -126,16 +126,22 @@ export function Navigation({
       if (event.key === 'Escape' && !sidebar.current?.querySelector('#account-navigation'))
         setMobile(false);
       if (event.key !== 'Tab') return;
-      const nodes = sidebar.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled)');
-      const first = nodes?.[0],
-        last = nodes?.[nodes.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
+      const nodes = Array.from(
+        sidebar.current?.querySelectorAll<HTMLElement>(
+          'a[href]:not([tabindex="-1"]),button:not(:disabled):not([tabindex="-1"])',
+        ) || [],
+      );
+      if (!nodes.length) return;
+      const current = nodes.indexOf(document.activeElement as HTMLElement);
+      const next = event.shiftKey
+        ? current <= 0
+          ? nodes.length - 1
+          : current - 1
+        : current < 0 || current === nodes.length - 1
+          ? 0
+          : current + 1;
+      event.preventDefault();
+      nodes[next].focus();
     };
     document.addEventListener('keydown', onKey);
     return () => {

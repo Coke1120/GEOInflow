@@ -110,6 +110,8 @@ describe('website navigation transitions', () => {
     fireEvent.click(account);
     expect(account).toHaveFocus();
     expect(screen.getByRole('link', { name: '账户安全' })).toBeInTheDocument();
+    expect(fireEvent.keyDown(document, { key: 'Tab', shiftKey: true })).toBe(false);
+    expect(screen.getByRole('link', { name: '网站设置' })).toHaveFocus();
   });
   it('searches by domain and closes the picker with Escape while restoring focus', () => {
     render(
