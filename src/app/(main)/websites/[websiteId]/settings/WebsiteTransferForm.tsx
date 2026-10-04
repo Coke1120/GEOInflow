@@ -1,3 +1,5 @@
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateFeatureWebsiteQueries } from '@/lib/liekan/upstream/features-client';
 import {
   Button,
   Form,
@@ -29,6 +31,7 @@ export function WebsiteTransferForm({
 }) {
   const { user } = useLoginQuery();
   const website = useWebsite();
+  const queryClient = useQueryClient();
   const { t, labels, messages, getErrorMessage } = useMessages();
   const { mutateAsync, error, isPending } = useUpdateQuery(`/websites/${websiteId}/transfer`);
   const { data: teams, isLoading } = useUserTeamsQuery(user.id);
@@ -50,6 +53,7 @@ export function WebsiteTransferForm({
       },
       {
         onSuccess: async () => {
+          await invalidateFeatureWebsiteQueries(queryClient, websiteId);
           onSave?.();
           onClose?.();
         },

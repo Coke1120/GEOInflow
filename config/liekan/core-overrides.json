@@ -1036,13 +1036,14 @@
     },
     {
       "path": "src/app/api/websites/[websiteId]/metrics/route.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; Bounded derived-statistics caching, live authorization and write invalidation",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
         "pnpm liekan:verify",
-        "Supplemental UI/API regression and isolated Docker acceptance"
+        "Supplemental UI/API regression and isolated Docker acceptance",
+        "pnpm exec vitest run src/lib/liekan/upstream/query-cache.test.ts src/lib/liekan/upstream/page-report-route.test.ts"
       ]
     },
     {
@@ -1339,7 +1340,7 @@
     },
     {
       "path": "src/lib/prisma.ts",
-      "purpose": "Preserve device/geography compatibility, exact channel and drill filters, and request-local repeatable-read export snapshots；AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "purpose": "Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation",
       "tests": [
         "src/lib/prisma.test.ts",
         "src/lib/country.test.ts",
@@ -1347,7 +1348,8 @@
         "src/lib/liekan/upstream/feature-exports.test.ts",
         "tests/api/liekan-features.spec.ts",
         "pnpm liekan:verify",
-        "AI backend integration and lifecycle tests"
+        "AI backend integration and lifecycle tests",
+        "pnpm exec vitest run src/lib/liekan/upstream/query-cache.test.ts src/lib/liekan/upstream/page-report-route.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation",
@@ -1413,11 +1415,12 @@
     },
     {
       "path": "src/queries/prisma/website.ts",
-      "purpose": "Coordinate statistics reset with Liekan transactions and preserve upstream deletion lifecycle；AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "purpose": "Coordinate statistics reset and deletion with Liekan AI lifecycle transactions and invalidate bounded statistics caches while preserving upstream behavior",
       "tests": [
         "pnpm liekan:verify",
         "Liekan release acceptance",
-        "AI backend integration and lifecycle tests"
+        "AI backend integration and lifecycle tests",
+        "pnpm exec vitest run src/lib/liekan/upstream/query-cache.test.ts src/lib/liekan/upstream/page-report-route.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Coordinate statistics reset with Liekan transactions and preserve upstream deletion lifecycle",
@@ -1953,6 +1956,159 @@
       "owner": "Liekan AI maintenance",
       "constraint": "Preserve original API scenarios and use only disposable acceptance identities",
       "removalCondition": "Remove when upstream exposes equivalent private AI identity checks"
+    },
+    {
+      "path": "src/queries/prisma/report.ts",
+      "purpose": "Bounded derived-statistics caching, live authorization and write invalidation",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan API statistics equivalence and cache authorization checks"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve parameterized SQL, snapshot exports, live permissions and existing tracker/database contracts",
+      "removalCondition": "Remove when upstream provides equivalent bounded caching and freshness propagation"
+    },
+    {
+      "path": "src/queries/prisma/segment.ts",
+      "purpose": "Bounded derived-statistics caching, live authorization and write invalidation",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan API statistics equivalence and cache authorization checks"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve parameterized SQL, snapshot exports, live permissions and existing tracker/database contracts",
+      "removalCondition": "Remove when upstream provides equivalent bounded caching and freshness propagation"
+    },
+    {
+      "path": "src/app/(main)/websites/WebsiteProvider.tsx",
+      "purpose": "Share authenticated website metadata and mount private GEO layouts during metadata loading; preserve native and public-share gates",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan API statistics equivalence and cache authorization checks"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve parameterized SQL, snapshot exports, live permissions and existing tracker/database contracts",
+      "removalCondition": "Remove when upstream provides equivalent bounded caching and freshness propagation"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/stats/route.ts",
+      "purpose": "Bounded derived-statistics caching, live authorization and write invalidation",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan API statistics equivalence and cache authorization checks"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve parameterized SQL, snapshot exports, live permissions and existing tracker/database contracts",
+      "removalCondition": "Remove when upstream provides equivalent bounded caching and freshness propagation"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/pageviews/route.ts",
+      "purpose": "Bounded derived-statistics caching, live authorization and write invalidation",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan API statistics equivalence and cache authorization checks"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve parameterized SQL, snapshot exports, live permissions and existing tracker/database contracts",
+      "removalCondition": "Remove when upstream provides equivalent bounded caching and freshness propagation"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/events/stats/route.ts",
+      "purpose": "Bounded derived-statistics caching, live authorization and write invalidation",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan API statistics equivalence and cache authorization checks"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve parameterized SQL, snapshot exports, live permissions and existing tracker/database contracts",
+      "removalCondition": "Remove when upstream provides equivalent bounded caching and freshness propagation"
+    },
+    {
+      "path": "src/queries/prisma/session.ts",
+      "purpose": "Derived-statistics cache invalidation, original export bypass and shared metadata compatibility",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan statistics cache and metadata regressions"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve original SQL, live permission checks, source statistics and public-share compatibility",
+      "removalCondition": "Remove when upstream supports equivalent cache and metadata integration"
+    },
+    {
+      "path": "src/components/hooks/queries/useWebsiteQuery.ts",
+      "purpose": "Derived-statistics cache invalidation, original export bypass and shared metadata compatibility",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan statistics cache and metadata regressions"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve original SQL, live permission checks, source statistics and public-share compatibility",
+      "removalCondition": "Remove when upstream supports equivalent cache and metadata integration"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/metrics/expanded/route.ts",
+      "purpose": "Derived-statistics cache invalidation, original export bypass and shared metadata compatibility",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan statistics cache and metadata regressions"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve original SQL, live permission checks, source statistics and public-share compatibility",
+      "removalCondition": "Remove when upstream supports equivalent cache and metadata integration"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/events/series/route.ts",
+      "purpose": "Derived-statistics cache invalidation, original export bypass and shared metadata compatibility",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan statistics cache and metadata regressions"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve original SQL, live permission checks, source statistics and public-share compatibility",
+      "removalCondition": "Remove when upstream supports equivalent cache and metadata integration"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/export/route.ts",
+      "purpose": "Derived-statistics cache invalidation, original export bypass and shared metadata compatibility",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "Liekan statistics cache and metadata regressions"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve original SQL, live permission checks, source statistics and public-share compatibility",
+      "removalCondition": "Remove when upstream supports equivalent cache and metadata integration"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/sessions/SessionDeleteButton.tsx",
+      "purpose": "Invalidate shared Liekan statistics after deleting a visitor session",
+      "tests": ["src/lib/liekan/upstream/session-invalidation.test.ts", "pnpm liekan:verify"],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve the native deletion confirmation, permissions and session lifecycle",
+      "removalCondition": "Remove when upstream provides equivalent shared query invalidation"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteResetForm.tsx",
+      "purpose": "Invalidate shared Liekan statistics and ownership metadata after native website lifecycle changes",
+      "tests": ["src/lib/liekan/upstream/website-lifecycle-client.test.tsx", "pnpm liekan:verify"],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve native confirmation, ownership permissions and lifecycle callbacks",
+      "removalCondition": "Remove when upstream provides equivalent shared query invalidation"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteDeleteForm.tsx",
+      "purpose": "Invalidate shared Liekan statistics and ownership metadata after native website lifecycle changes",
+      "tests": ["src/lib/liekan/upstream/website-lifecycle-client.test.tsx", "pnpm liekan:verify"],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve native confirmation, ownership permissions and lifecycle callbacks",
+      "removalCondition": "Remove when upstream provides equivalent shared query invalidation"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteTransferForm.tsx",
+      "purpose": "Invalidate shared Liekan statistics and ownership metadata after native website lifecycle changes",
+      "tests": ["src/lib/liekan/upstream/website-lifecycle-client.test.tsx", "pnpm liekan:verify"],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve native confirmation, ownership permissions and lifecycle callbacks",
+      "removalCondition": "Remove when upstream provides equivalent shared query invalidation"
     }
   ]
 }

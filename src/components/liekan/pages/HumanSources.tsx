@@ -1,8 +1,10 @@
 import { formatPercentage, formatValue, stateLabels } from '../data';
 import { MetricCard, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
+import { Skeleton, useDataLoading } from '../DataLoading';
 
 export function HumanSources({ report, rangeLabel }: ReportViewProps) {
+  const loading = useDataLoading();
   const aiRows = report?.tables.srcBody?.filter(row => row.channel === 'AI 搜索引荐') || [];
   const sessions = aiRows.reduce((sum, row) => sum + Number(row.sessions || 0), 0);
   const bounceRows = aiRows.filter(
@@ -81,15 +83,21 @@ export function HumanSources({ report, rangeLabel }: ReportViewProps) {
       <section className="rounded-xl bg-wash p-4 fade-in d3">
         <p className="text-[12px] text-sub leading-relaxed">
           <b className="text-ink">GEO 洞察：</b>
-          {sessions
-            ? `当前范围识别 ${formatValue(sessions)} 次 AI 引荐会话；跳出率 ${formatPercentage(bounceRate)}，转化率 ${formatPercentage(conversion?.value)}。`
-            : !report || report.states.human === 'not_connected'
-              ? '引荐数据待接入。'
-              : '当前范围暂无可识别的 AI 引荐会话。'}
-          {conversion?.value == null
-            ? `转化指标${stateLabels[conversion?.state || 'not_connected']}。`
-            : ''}
-          引荐依据会话首个 Referer 归类；抓取频率与 AI 引用量的关系尚缺引用证据。
+          {loading ? (
+            <Skeleton width="65%" />
+          ) : (
+            <>
+              {sessions
+                ? `当前范围识别 ${formatValue(sessions)} 次 AI 引荐会话；跳出率 ${formatPercentage(bounceRate)}，转化率 ${formatPercentage(conversion?.value)}。`
+                : !report || report.states.human === 'not_connected'
+                  ? '引荐数据待接入。'
+                  : '当前范围暂无可识别的 AI 引荐会话。'}
+              {conversion?.value == null
+                ? `转化指标${stateLabels[conversion?.state || 'not_connected']}。`
+                : ''}
+              引荐依据会话首个 Referer 归类；抓取频率与 AI 引用量的关系尚缺引用证据。
+            </>
+          )}
         </p>
       </section>
     </main>

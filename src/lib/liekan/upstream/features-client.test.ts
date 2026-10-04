@@ -1,3 +1,4 @@
+import { QueryClient } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getClientAuthToken, setClientAuthToken } from '@/lib/client';
 import { setReturnUrl } from '@/lib/return-url';
@@ -6,9 +7,117 @@ import {
   acceptFeatureLogin,
   clearFeatureLogin,
   featureApi,
+  FeatureApiError,
+  getFeatureWebsiteSummary,
   getFeatureSites,
+  invalidateFeatureWebsiteQueries,
+  invalidateFeatureUserQueries,
   resumeFeatureLogin,
 } from './features-client';
+
+it('isolates a revoked website within a summary batch while retaining accessible statistics', async () => {
+  const get = vi.fn(async (_path: string, params: any) => {
+    const ids = params.ids.split(',');
+    if (ids.includes('revoked')) throw new FeatureApiError('无权访问', 403);
+    return ids.map((id: string) => ({ id, views: 7, received: true }));
+  });
+  const rows = await getFeatureWebsiteSummary(
+    ['a', 'revoked', 'b'],
+    { startAt: 0, endAt: 1000 },
+    undefined,
+    get as any,
+  );
+  expect(rows.find(row => row.id === 'a').views).toBe(7);
+  expect(rows.find(row => row.id === 'b').views).toBe(7);
+  expect(rows.find(row => row.id === 'revoked').error.status).toBe(403);
+});
+it('cancels pre-save website reads so their late results cannot refresh the cache', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const key = ['liekan', 'site', undefined, 'overview'];
+  const other = ['liekan', 'other', undefined, 'overview'];
+  client.setQueryData(key, { value: 'before' });
+  let finish!: (value: any) => void;
+  let oldSignal!: AbortSignal;
+  const pending = client.prefetchQuery({
+    queryKey: key,
+    queryFn: ({ signal }) => {
+      oldSignal = signal;
+      return new Promise(resolve => {
+        finish = resolve;
+      });
+    },
+  });
+  await client.prefetchQuery({ queryKey: other, queryFn: async () => ({ value: 'other' }) });
+  await invalidateFeatureWebsiteQueries(client, 'site');
+  expect(oldSignal.aborted).toBe(true);
+  finish({ value: 'stale' });
+  await pending;
+  expect(client.getQueryData(key)).toEqual({ value: 'before' });
+  expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+  expect(client.getQueryState(other)?.isInvalidated).toBe(false);
+});
+it('invalidates GEO, metadata and resource queries after a global settings refresh', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const geo = (user: string) => [
+    'liekan',
+    'site',
+    undefined,
+    'overview',
+    0,
+    1,
+    'UTC',
+    '30d',
+    '',
+    '',
+    1,
+    '',
+    '',
+    user,
+  ];
+  const keys = [
+    geo('user'),
+    ['liekan-feature', 'user', 'site', 'site'],
+    ['liekan-feature', 'resource-analytics', 'user', 'site'],
+  ];
+  for (const key of [...keys, geo('other-user')]) client.setQueryData(key, { value: 'before' });
+  let finish!: (value: any) => void;
+  let oldSignal!: AbortSignal;
+  const pending = client.prefetchQuery({
+    queryKey: keys[0],
+    queryFn: ({ signal }) => {
+      oldSignal = signal;
+      return new Promise(resolve => {
+        finish = resolve;
+      });
+    },
+  });
+  await invalidateFeatureUserQueries(client, 'user');
+  expect(oldSignal.aborted).toBe(true);
+  finish({ value: 'stale' });
+  await pending;
+  for (const key of keys) expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+  expect(client.getQueryData(keys[0])).toEqual({ value: 'before' });
+  expect(client.getQueryState(geo('other-user'))?.isInvalidated).toBe(false);
+});
+it('loads large team memberships through a bounded request window', async () => {
+  const teams = Array.from({ length: 201 }, (_, index) => ({ id: `team-${index}` }));
+  const fetch = vi.fn(async (input: URL) => {
+    const url = new URL(String(input));
+    if (url.pathname.endsWith('/me/teams')) {
+      const page = Number(url.searchParams.get('page'));
+      return Response.json({
+        data: teams.slice((page - 1) * 100, page * 100),
+        count: teams.length,
+      });
+    }
+    if (url.pathname.endsWith('/me/websites')) return Response.json({ data: [], count: 0 });
+    const team = url.pathname.match(/teams\/(team-\d+)\/websites/)[1];
+    return Response.json({ data: [{ id: `site-${team}` }], count: 1 });
+  });
+  vi.stubGlobal('fetch', fetch);
+  expect(await getFeatureSites()).toHaveLength(201);
+  expect(fetch).toHaveBeenCalledTimes(205);
+});
 
 afterEach(() => {
   vi.restoreAllMocks();

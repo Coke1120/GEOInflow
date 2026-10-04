@@ -30,7 +30,8 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
     },
   }),
 }));
-vi.mock('@/lib/liekan/upstream/features-client', () => ({
+vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/liekan/upstream/features-client')>()),
   featureApi: { get: mocks.get, post: mocks.post, del: vi.fn() },
   getFeatureSites: mocks.sites,
   getAllFeatureRows: mocks.all,
@@ -113,7 +114,7 @@ describe('feature navigation scope', () => {
       const view = mount({ page, teamId });
       expect(view.container.querySelector('main form')).toBeNull();
       expect(screen.queryByText(`资源页面：${page}`)).not.toBeInTheDocument();
-      expect(screen.getByText('正在读取当前范围的数据。')).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('正在读取数据');
       await waitFor(() => expect(complete).toBeTypeOf('function'));
       complete([{ id: teamId, name: '团队', role: 'team-member' }]);
       if (page === 'link-editor' || page === 'pixel-editor')
@@ -122,7 +123,7 @@ describe('feature navigation scope', () => {
         expect(await screen.findByLabelText('所属空间')).toHaveValue(teamId);
       else
         await waitFor(() =>
-          expect(screen.queryByText('正在读取当前范围的数据。')).not.toBeInTheDocument(),
+          expect(screen.queryByRole('status')).not.toBeInTheDocument(),
         );
     },
   );

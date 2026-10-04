@@ -8,7 +8,13 @@ import type {
   FeatureUser,
 } from '@/lib/liekan/contracts/features';
 import { hasDateControl, needsWebsite } from '@/lib/liekan/contracts/navigation';
+import {
+  freshnessStaleTime,
+  withClientFreshness,
+  shareWithFreshness,
+} from '@/lib/liekan/upstream/client-freshness';
 import type { featureApi } from '@/lib/liekan/upstream/features-client';
+import { useDataLoading } from '../DataLoading';
 
 export interface FeatureContextValue {
   user: FeatureUser;
@@ -49,10 +55,12 @@ export function useData<T = any>(
   key: string | any[],
   load: (signal: AbortSignal) => Promise<T>,
   enabled = true,
+  cache?: { queryKey: any[]; staleTime: number },
 ) {
   const c = useFeature();
-  return useQuery<T>({
-    queryKey: [
+  const loading = useDataLoading();
+  const result = useQuery<T>({
+    queryKey: cache?.queryKey ?? [
       'liekan-feature',
       c?.user?.id,
       c?.siteId,
@@ -64,10 +72,20 @@ export function useData<T = any>(
       c?.route && needsWebsite(c.route) ? c?.filters : undefined,
       ...(Array.isArray(key) ? key : [key]),
     ],
-    queryFn: ({ signal }) => load(signal),
-    enabled,
+    queryFn: ({ signal }) => withClientFreshness(signal, () => load(signal)),
+    enabled: enabled && !loading,
     retry: false,
+    staleTime: query =>
+      ['realtime', 'session-detail', 'replay-view'].includes(c?.route?.page)
+        ? 0
+        : freshnessStaleTime(
+            query,
+            cache?.staleTime ?? (c?.route && hasDateControl(c.route) ? 30000 : 300000),
+          ),
+    gcTime: 600000,
+    structuralSharing: shareWithFreshness,
   });
+  return loading ? { ...result, data: undefined, isPending: true } : result;
 }
 export function useAction() {
   const c = useFeature();
@@ -79,11 +97,30 @@ export function useAction() {
     setError('');
     try {
       const result = await action();
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ['liekan-feature'] }),
-        client.invalidateQueries({ queryKey: ['2fa-status'] }),
-      ]);
       c?.notify(message);
+      await client.invalidateQueries({ queryKey: ['2fa-status'] });
+      const websiteId = c?.siteId;
+      const globalEdit =
+        !websiteId || ['website-settings', 'websites', 'onboarding'].includes(c?.route?.page);
+      const filters = {
+        predicate: (query: { queryKey: readonly unknown[] }) => {
+          const key = query.queryKey;
+          if (key[0] === 'liekan')
+            return key[13] === c?.user?.id && (!websiteId || key[1] === websiteId);
+          if (key[0] !== 'liekan-feature' || !key.includes(c?.user?.id)) return false;
+          return (
+            globalEdit ||
+            key.includes(websiteId) ||
+            (!!c?.route?.id && key.includes(c.route.id)) ||
+            key.includes('resource-analytics') ||
+            key.some(value => Array.isArray(value) && value.includes(websiteId))
+          );
+        },
+      };
+      await client.cancelQueries(filters);
+      const updating = client.invalidateQueries(filters);
+      if (['board-design', 'board-editor'].includes(c?.route?.page)) await updating;
+      else void updating.catch(() => c?.notify('已保存，部分数据更新失败，请重试读取'));
       return result;
     } catch (e: any) {
       setError(e?.message || '操作失败');

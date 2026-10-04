@@ -9,7 +9,15 @@ export type ReportActions = {
   onSort: (label: string) => void;
   onAction: (label: string) => void;
 };
-export const ReportContext = createContext<ReportActions>(null);
+export const ReportContext = createContext<ReportActions>({
+  filter: '',
+  query: '',
+  sort: { label: '', direction: -1 },
+  period: '30 天',
+  onFilter() {},
+  onSort() {},
+  onAction() {},
+});
 export function useReportActions() {
   return useContext(ReportContext);
 }

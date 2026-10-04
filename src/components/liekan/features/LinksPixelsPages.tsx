@@ -407,6 +407,7 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
       </div>
       <QueryState query={stats}>
         <Metrics
+          loading={stats.isPending}
           items={
             kind === 'link'
               ? [

@@ -909,6 +909,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/websites/{websiteId}/page-report': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** get selected Liekan page statistics */
+    get: operations['getLiekanPageReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/websites/{websiteId}/report': {
     parameters: {
       query?: never;
@@ -937,6 +954,23 @@ export interface paths {
     get: operations['getLiekanSettings'];
     /** put Liekan settings */
     put: operations['putLiekanSettings'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/summary': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read bounded website summaries */
+    get: operations['getLiekanWebsiteSummary'];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -11050,6 +11084,203 @@ export interface operations {
       };
     };
   };
+  getLiekanPageReport: {
+    parameters: {
+      query: {
+        chartPeriod?: '30d' | '7d' | '24h';
+        cursor?: string;
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt: number;
+        filter?: '' | 'ai' | 'abnormal' | 'other';
+        /** @description Page number, starting at 1. */
+        page?: number;
+        refresh?: '0' | '1';
+        resource:
+          | 'overview'
+          | 'ai/overview'
+          | 'ai/bots'
+          | 'ai/pages'
+          | 'ai/preference'
+          | 'human/overview'
+          | 'human/geo'
+          | 'human/sources'
+          | 'content'
+          | 'conversions'
+          | 'logs';
+        /** @description Search text used to filter results. */
+        search?: string;
+        seek?: 'after' | 'before';
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Selected page statistics and freshness */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cards: {
+              detail?: string;
+              key: string;
+              label: string;
+              /** @enum {string} */
+              state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @description Time interval used to group results: minute, hour, day, month, or year. */
+              unit?: string;
+              value: number | string | null;
+            }[];
+            charts: {
+              [key: string]: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+            };
+            /** @constant */
+            contractVersion: 1;
+            insights: string[];
+            meta: {
+              canManage: boolean;
+              demo: boolean;
+              /** @description Date and time the credential expires. */
+              expiresAt: number;
+              generatedAt: number;
+              latestImportAt: string | null;
+              nextCursor?: string;
+              /** @description Page number, starting at 1. */
+              page?: number;
+              /** @description Number of results per page. */
+              pageSize?: number;
+              previousCursor?: string;
+              ruleCount: number;
+              totalLogs?: number;
+            };
+            range: {
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            };
+            /** @enum {string} */
+            resource:
+              | 'overview'
+              | 'ai/overview'
+              | 'ai/bots'
+              | 'ai/pages'
+              | 'ai/preference'
+              | 'human/overview'
+              | 'human/geo'
+              | 'human/sources'
+              | 'content'
+              | 'conversions'
+              | 'logs';
+            states: {
+              /** @enum {string} */
+              catalog: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @enum {string} */
+              goals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @enum {string} */
+              human: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @enum {string} */
+              logs: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+            };
+            tables: {
+              [key: string]: {
+                [key: string]: string | number | boolean | null;
+              }[];
+            };
+            website: {
+              /** @description Domain name associated with the resource. */
+              domain: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @description Display name of the resource. */
+              name: string;
+            };
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
   getLiekanReport: {
     parameters: {
       query: {
@@ -11618,6 +11849,123 @@ export interface operations {
           'application/json': {
             [key: string]: unknown;
           };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanWebsiteSummary: {
+    parameters: {
+      query: {
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt: number;
+        /** @description Comma-separated resource IDs. Provide between 1 and 20 IDs. */
+        ids: string;
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Website totals and installation state */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @description Number of visits with only one pageview. */
+            bounces: number;
+            /** @description Analytics for the comparison period. */
+            comparison: {
+              /** @description Number of visits with only one pageview. */
+              bounces: number;
+              /** @description Pageview counts for the selected period. */
+              pageviews: number;
+              /** @description Total visit duration in seconds. */
+              totaltime: number;
+              /** @description Unique visitor counts for the selected period. */
+              visitors: number;
+              /** @description Visit counts for the selected period. */
+              visits: number;
+            };
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            /** @description Date and time of the most recent recorded activity. */
+            lastAt: string | null;
+            /** @description Pageview counts for the selected period. */
+            pageviews: number;
+            received: boolean;
+            /** @description Total visit duration in seconds. */
+            totaltime: number;
+            /** @description Pageview counts for the selected period. */
+            views: number;
+            /** @description Unique visitor counts for the selected period. */
+            visitors: number;
+            /** @description Visit counts for the selected period. */
+            visits: number;
+          }[];
         };
       };
       /** @description Bad request. */

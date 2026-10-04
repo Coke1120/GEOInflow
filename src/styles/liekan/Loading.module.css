@@ -1,0 +1,49 @@
+.status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skeleton {
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: middle;
+  border-radius: 4px;
+  background: #edf0f5;
+  animation: breathe 1.8s ease-in-out infinite;
+}
+.lines {
+  display: grid;
+  gap: 12px;
+  padding: 12px 0;
+}
+.chart {
+  position: absolute;
+  inset: 20px 24px 20px 48px;
+  display: flex;
+  flex-direction: column;
+}
+.plot {
+  flex: 1;
+  border-left: 1px solid #e9ecf1;
+  border-bottom: 1px solid #e9ecf1;
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0,
+    transparent calc(25% - 1px),
+    #f0f2f6 calc(25% - 1px),
+    #f0f2f6 25%
+  );
+}
+@keyframes breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

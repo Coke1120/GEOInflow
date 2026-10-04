@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 import { geoPageFromPath, geoPaths, pageNavigation } from '@/lib/liekan/contracts/navigation';
 import {
@@ -8,9 +9,13 @@ import {
   useFeatureDateRange,
   useNavigation,
   useWebsite,
+  useFeatureAppState,
 } from '@/lib/liekan/upstream/client';
+import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
 import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Shell.module.css';
+import { AnalysisLoading, reportViews } from './AnalysisLoading';
+import { useDataLoading } from './DataLoading';
 import {
   cardLabels,
   csvMatrix,
@@ -24,36 +29,16 @@ import {
 import { featureNavigationHref } from './features/routes';
 import { useLiekanShell } from './LiekanShell';
 import { ManagementDrawer } from './ManagementDrawer';
-import { AiBots } from './pages/AiBots';
-import { AiOverview } from './pages/AiOverview';
-import { AiPages } from './pages/AiPages';
-import { AiPreference } from './pages/AiPreference';
-import { Content } from './pages/Content';
-import { Conversions } from './pages/Conversions';
-import { HumanGeo } from './pages/HumanGeo';
-import { HumanOverview } from './pages/HumanOverview';
-import { HumanSources } from './pages/HumanSources';
-import { Logs } from './pages/Logs';
-import { Overview } from './pages/Overview';
 import { ReportContext } from './ReportContext';
 import type { LiekanReport, Resource } from './types';
 import { defaultDateRange, isLiveLogView, previousWeekRange, readViewState } from './viewState';
 
-const views = {
-  overview: Overview,
-  'ai/overview': AiOverview,
-  'ai/bots': AiBots,
-  'ai/pages': AiPages,
-  'ai/preference': AiPreference,
-  'human/overview': HumanOverview,
-  'human/geo': HumanGeo,
-  'human/sources': HumanSources,
-  content: Content,
-  conversions: Conversions,
-  logs: Logs,
-};
 export function LiekanPage({ resource }: { resource: Resource }) {
+  const metadataLoading = useDataLoading();
   const api = useApi();
+  const userId = useFeatureAppState(state => state.user?.id);
+  const forceRefresh = useRef(false);
+  const queryClient = useQueryClient();
   const { websiteId, teamId, pathname, query: params, router, updateParams } = useNavigation();
   const website = useWebsite();
   const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
@@ -114,23 +99,10 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     return () => window.clearInterval(timer);
   }, [liveLogs]);
   const query = api.useQuery<LiekanReport>({
-    queryKey: [
-      'liekan',
+    ...pageReportQuery(
+      userId,
       websiteId,
-      teamId,
-      resource,
-      startAt,
-      endAt,
-      timezone,
-      chartPeriod,
-      resource === 'logs' ? filter : '',
-      resource === 'logs' ? search : '',
-      resource === 'logs' ? logPage : 1,
-      resource === 'logs' ? cursor : '',
-      resource === 'logs' ? seek : '',
-    ],
-    queryFn: () =>
-      api.get(`/liekan/websites/${websiteId}/report`, {
+      {
         resource,
         startAt,
         endAt,
@@ -151,35 +123,48 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               ...(cursor ? { cursor, seek } : {}),
             }
           : {}),
-      }),
+      },
+      teamId,
+      () => {
+        const value = forceRefresh.current;
+        forceRefresh.current = false;
+        return value;
+      },
+    ),
     enabled: !!websiteId,
     placeholderData: (previous, previousQuery) =>
       previous?.website.id === websiteId &&
       previousQuery?.queryKey[3] === resource &&
+      previousQuery?.queryKey[13] === userId &&
       (liveLogs || (previous.range.startAt === startAt && previous.range.endAt === endAt))
         ? previous
         : undefined,
     refetchInterval: resource === 'logs' && !liveLogs ? 10000 : false,
   });
   const previous = api.useQuery<LiekanReport>({
-    queryKey: [
-      'liekan',
-      websiteId,
-      teamId,
-      resource,
-      shiftedRange.startAt,
-      shiftedRange.endAt,
-      timezone,
-    ],
-    queryFn: () =>
-      api.get(`/liekan/websites/${websiteId}/report`, {
-        resource,
-        ...shiftedRange,
-        timezone,
-      }),
+    ...pageReportQuery(userId, websiteId, { resource, ...shiftedRange, timezone }, teamId),
     enabled: compare && !!websiteId,
   });
-  const report = query.data;
+  const restricted = [401, 403, 404].includes((query.error as any)?.status);
+  const previousRestricted = [401, 403, 404].includes((previous.error as any)?.status);
+  const report = restricted || metadataLoading ? undefined : query.data;
+  const refresh = () => {
+    forceRefresh.current = true;
+    return query.refetch();
+  };
+  const afterSaved = async () => {
+    await Promise.all([
+      queryClient.cancelQueries({ queryKey: ['liekan', websiteId] }),
+      queryClient.cancelQueries({ queryKey: ['liekan-feature', userId] }),
+    ]);
+    void queryClient.invalidateQueries({ queryKey: ['liekan', websiteId], refetchType: 'none' });
+    void queryClient.invalidateQueries({
+      queryKey: ['liekan-feature', userId],
+      refetchType: 'none',
+    });
+    if (liveLogs) setLiveNow(Date.now());
+    else void refresh();
+  };
   const rangeLabel = useMemo(() => {
     const date = (value: number) =>
       new Intl.DateTimeFormat('zh-CN', {
@@ -264,7 +249,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       return;
     }
     if (label === '生成内容建议') {
-      query.refetch().then(result => {
+      refresh().then(result => {
         setMessage(result.isError ? '读取数据失败，请重试' : '已根据当前数据重新生成内容建议');
       });
       return;
@@ -288,7 +273,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     setAction(label);
   };
   const period = chartPeriod === '24h' ? '24h' : chartPeriod === '7d' ? '7 天' : '30 天';
-  const View = views[resource];
+  const View = reportViews[resource];
   return (
     <ReportContext.Provider
       value={{
@@ -374,9 +359,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       )}
       {(query.isError || message || search) && (
         <div className={styles.notice} role="status">
-          {query.isError ? '无法读取此范围的数据' : message || `查询：${search}`}
+          {query.isError
+            ? report
+              ? '更新失败，当前显示上次读取的数据'
+              : '无法读取此范围的数据'
+            : message || `查询：${search}`}
           {query.isError && (
-            <button type="button" onClick={() => query.refetch()}>
+            <button type="button" onClick={() => refresh()}>
               重试
             </button>
           )}
@@ -397,21 +386,36 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           )}
         </div>
       )}
-      <View
-        report={report}
-        rangeLabel={rangeLabel}
-        live={liveLogs}
-        trendLabel={
-          chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
-        }
-      />
+      {report && query.isFetching && (
+        <div className={styles.notice} role="status">
+          正在更新统计数据
+        </div>
+      )}
+      {report ? (
+        <View
+          report={report}
+          rangeLabel={rangeLabel}
+          live={liveLogs}
+          trendLabel={
+            chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
+          }
+        />
+      ) : metadataLoading || query.isPending ? (
+        <AnalysisLoading
+          resource={resource}
+          rangeLabel={rangeLabel}
+          trendLabel={
+            chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
+          }
+        />
+      ) : null}
       {(action || compare) && (
         <ManagementDrawer
           action={compare ? '对比上周' : action}
           websiteId={websiteId}
           canManage={report?.meta.canManage || false}
           onClose={close}
-          onSaved={() => (liveLogs ? setLiveNow(Date.now()) : query.refetch())}
+          onSaved={afterSaved}
           onSearch={value =>
             updateView({
               search: value.slice(0, 200),
@@ -439,7 +443,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             compare
               ? {
                   current: report,
-                  previous: previous.data,
+                  previous: previousRestricted || metadataLoading ? undefined : previous.data,
                   startAt,
                   endAt,
                   previousStartAt: shiftedRange.startAt,

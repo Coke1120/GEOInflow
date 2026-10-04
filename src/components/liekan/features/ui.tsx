@@ -3,6 +3,8 @@ import { useListState } from './listState';
 import Link from 'next/link';
 import {
   createContext,
+  Children,
+  cloneElement,
   Fragment,
   type InputHTMLAttributes,
   isValidElement,
@@ -16,6 +18,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useFeature } from './context';
 import { featureIcons } from './icons';
+import { DataLoading, LoadingLines, Skeleton, useDataLoading } from '../DataLoading';
 
 export function Icon({ name = 'down' }: { name?: string }) {
   const paths = {
@@ -47,12 +50,14 @@ export function Icon({ name = 'down' }: { name?: string }) {
 }
 export function Button({ children, primary = false, danger = false, onClick, ...props }: any) {
   const [error, setError] = useState('');
+  const loading = useDataLoading();
   return (
     <>
       <button
         type="button"
         className={`btn${primary ? ' primary' : ''}${danger ? ' danger' : ''}`}
         {...props}
+        disabled={loading || props.disabled}
         onClick={async e => {
           try {
             setError('');
@@ -74,12 +79,16 @@ export function Button({ children, primary = false, danger = false, onClick, ...
 }
 export function LinkButton({ children, page, params, primary = false, ...props }: any) {
   const c = useFeature();
+  const loading = useDataLoading();
   return (
     <Link
       prefetch={false}
       className={`btn${primary ? ' primary' : ''}`}
       href={c.href(page, params)}
       {...props}
+      aria-disabled={loading || undefined}
+      tabIndex={loading ? -1 : props.tabIndex}
+      onClick={loading ? e => e.preventDefault() : props.onClick}
     >
       {children}
     </Link>
@@ -97,6 +106,7 @@ export function Panel({
   actions?: ReactNode;
   children: ReactNode;
 }) {
+  const loading = useDataLoading();
   const [search, setSearch] = useListState('search', '');
   const [searchable, setSearchable] = useState(false);
   return (
@@ -116,6 +126,7 @@ export function Panel({
                     aria-label="搜索本页记录"
                     placeholder="搜索本页记录"
                     value={search}
+                    disabled={loading}
                     onChange={e => setSearch(e.target.value)}
                   />
                 </label>
@@ -143,30 +154,58 @@ export const Badge = ({ children, tone = 'gray' }: { children: ReactNode; tone?:
 export const Metrics = ({
   items,
   className = '',
+  loading = false,
 }: {
   items: [string, ReactNode, ReactNode?, string?][];
   className?: string;
-}) => (
-  <div className={`metrics ${className}`}>
-    {items.map(([label, value, description, color], i) => (
-      <div className="metric" key={i}>
-        <p className="metric-label">{label}</p>
-        <p className={`metric-value num ${color || 'blue'}`}>{value ?? '—'}</p>
-        {description && <p className="metric-foot">{description}</p>}
-      </div>
-    ))}
-  </div>
-);
-export const Definition = ({ items }: { items: [string, ReactNode][] }) => (
-  <dl className="definition">
-    {items.map(([key, value], i) => (
-      <Fragment key={i}>
-        <dt>{key}</dt>
-        <dd>{value ?? '—'}</dd>
-      </Fragment>
-    ))}
-  </dl>
-);
+  loading?: boolean | boolean[];
+}) => {
+  const inherited = useDataLoading();
+  return (
+    <div className={`metrics ${className}`}>
+      {items.map(([label, value, description, color], i) => (
+        <div
+          className="metric"
+          key={i}
+          aria-busy={inherited || (Array.isArray(loading) ? loading[i] : loading) || undefined}
+        >
+          <p className="metric-label">{label}</p>
+          <p className={`metric-value num ${color || 'blue'}`}>
+            {inherited || (Array.isArray(loading) ? loading[i] : loading) ? (
+              <Skeleton width="3.5em" />
+            ) : (
+              (value ?? '—')
+            )}
+          </p>
+          {description && (
+            <p className="metric-foot">
+              {inherited || (Array.isArray(loading) ? loading[i] : loading) ? (
+                <Skeleton width="75%" />
+              ) : (
+                description
+              )}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+Metrics.loadingLayout = true;
+export const Definition = ({ items }: { items: [string, ReactNode][] }) => {
+  const loading = useDataLoading();
+  return (
+    <dl className="definition">
+      {items.map(([key, value], i) => (
+        <Fragment key={i}>
+          <dt>{key}</dt>
+          <dd>{loading ? <Skeleton width="8em" /> : (value ?? '—')}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+};
+Definition.loadingLayout = true;
 export function Field({
   label,
   help,
@@ -364,10 +403,11 @@ export function Table({
   search?: boolean;
 }) {
   const c = useFeature();
+  const loading = useDataLoading();
   const panel = useContext(SearchContext);
   useEffect(() => {
-    if (pages >= 1 && page > pages) onPage?.(pages);
-  }, [page, pages, onPage]);
+    if (!loading && pages >= 1 && page > pages) onPage?.(pages);
+  }, [page, pages, onPage, loading]);
   const [text, setText] = useState('');
   const [sort, setSort] = useState<{ column: number; desc: boolean } | null>(() => {
     const index = columns.indexOf(c?.query?.sort);
@@ -415,11 +455,12 @@ export function Table({
             aria-label="搜索本页记录"
             placeholder="搜索本页记录"
             value={text}
+            disabled={loading}
             onChange={e => setText(e.target.value)}
           />
         </label>
       )}
-      <div className="table-wrap">
+      <div className="table-wrap" aria-busy={loading || undefined}>
         <table
           style={
             {
@@ -438,6 +479,7 @@ export function Table({
                 >
                   <button
                     className="table-sort"
+                    disabled={loading}
                     onClick={() => {
                       const desc = sort?.column === i ? !sort.desc : false;
                       setSort({ column: i, desc });
@@ -454,7 +496,17 @@ export function Table({
             </tr>
           </thead>
           <tbody>
-            {filtered.length ? (
+            {loading ? (
+              Array.from({ length: 3 }, (_, i) => (
+                <tr key={i} aria-hidden="true">
+                  {columns.map((_, j) => (
+                    <td key={j} className={numeric.includes(j) ? 'numeric' : ''}>
+                      <Skeleton width={j === 0 ? '80%' : '65%'} />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : filtered.length ? (
               filtered.map((row, i) => (
                 <tr key={i}>
                   {row.map((v, j) => (
@@ -475,8 +527,10 @@ export function Table({
         </table>
       </div>
       <div className="table-footer">
-        <span>{filtered.length} 条记录 · 表头可排序</span>
-        {pages > 1 ? (
+        <span>
+          {loading ? <Skeleton width="8em" /> : <>{filtered.length} 条记录 · 表头可排序</>}
+        </span>
+        {!loading && pages > 1 ? (
           <div className="actions">
             <span>
               {page} / {pages}
@@ -495,15 +549,77 @@ export function Table({
     </>
   );
 }
+Table.loadingLayout = true;
+
+export function MatrixTable({ headings, children }: { headings: string[]; children: ReactNode }) {
+  const loading = useDataLoading();
+  return (
+    <table className="heat-matrix" aria-busy={loading || undefined}>
+      <thead>
+        <tr>
+          {headings.map(label => (
+            <th key={label}>{label}</th>
+          ))}
+        </tr>
+      </thead>
+      {loading ? (
+        <tbody>
+          {Array.from({ length: 3 }, (_, i) => (
+            <tr key={i} aria-hidden="true">
+              {headings.map(label => (
+                <td key={label}>
+                  <Skeleton width="65%" />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      ) : (
+        children
+      )}
+    </table>
+  );
+}
+MatrixTable.loadingLayout = true;
+
+export const StaticHeading = ({ children }: { children: ReactNode }) => <h2>{children}</h2>;
+StaticHeading.loadingLayout = true;
+
+function pendingLayout(children: ReactNode): ReactNode {
+  const layout = Children.map(children, child => {
+    if (!isValidElement(child)) return null;
+    const props = child.props as { children?: ReactNode };
+    if (
+      (child.type as any).loadingLayout ||
+      [QueryState, LinkButton, Button, Icon].includes(child.type as any)
+    )
+      return child;
+    if (
+      child.type === Panel ||
+      child.type === Body ||
+      child.type === Fragment ||
+      ['div', 'section', 'main'].includes(child.type as string)
+    ) {
+      return cloneElement(child as any, {
+        ...(child.type === Panel ? { actions: undefined } : {}),
+        children: pendingLayout(props.children) || <LoadingLines />,
+      });
+    }
+    return <LoadingLines />;
+  });
+  return layout?.length ? layout : null;
+}
 export function QueryState({ query, children }: { query: any; children: ReactNode }) {
-  if (query.isPending)
+  const inherited = useDataLoading();
+  if (inherited || (query.isPending && query.data == null))
     return (
-      <div className="state-box" role="status">
-        <h3>正在加载</h3>
-        <p>正在读取当前范围的数据。</p>
-      </div>
+      <DataLoading loading label="正在读取数据">
+        {pendingLayout(children) || <LoadingLines />}
+      </DataLoading>
     );
-  if (query.error)
+  const cachedError =
+    query.error && query.data != null && ![401, 403, 404].includes(query.error.status);
+  if (query.error && !cachedError)
     return (
       <div className="state-box" role="alert">
         <h3>
@@ -525,7 +641,17 @@ export function QueryState({ query, children }: { query: any; children: ReactNod
         )}
       </div>
     );
-  return <>{children}</>;
+  return (
+    <>
+      {cachedError && (
+        <Notice tone="red">
+          更新失败，当前显示上次读取的数据。
+          <Button onClick={() => query.refetch?.()}>重试读取</Button>
+        </Notice>
+      )}
+      {children}
+    </>
+  );
 }
 export function Drawer({
   title,

@@ -46,7 +46,7 @@ function sourceFacts(rows: any[]) {
 }
 
 // All knowledge of upstream storage and metric semantics is confined here.
-const cte = `WITH events AS (SELECT e.*,s.country,s.region,s.city,s.browser,s.os,s.device FROM website_event e
+const cte = `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country,s.region,s.city,s.browser,s.os,s.device FROM website_event e
   JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
   WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz AND e.event_type != 5 AND $4::text IS NOT NULL),
 visit_totals AS (SELECT visit_id,session_id,count(*) FILTER(WHERE event_type NOT IN(2,5))::int AS pv,
@@ -82,87 +82,102 @@ function humanBinsSql(hour = false) {
     SELECT e.day,e.uv,e.pv,coalesce(v.sessions,0)::int AS sessions,v.duration,coalesce(v.bounces,0)::int AS bounces,coalesce(v.conversions,0)::int AS conversions
     FROM event_bins e LEFT JOIN visit_bins v USING(day) ORDER BY e.day`;
 }
-export async function getHumanFacts(id: string, start: Date, end: Date, timezone: string) {
+export type HumanFact =
+  | 'daily'
+  | 'geo'
+  | 'sources'
+  | 'environment'
+  | 'pages'
+  | 'heatmap'
+  | 'goals'
+  | 'converted'
+  | 'journeys'
+  | 'exits'
+  | 'dailySources'
+  | 'newVisitors'
+  | 'dailyConversions'
+  | 'previousSources'
+  | 'previousGoals'
+  | 'funnel';
+export async function getHumanFacts(
+  id: string,
+  start: Date,
+  end: Date,
+  timezone: string,
+  fields?: readonly HumanFact[],
+) {
   const args = [id, start, end, timezone];
-  const sql = (tail: string) => query(cte + tail, ...args);
-  const [
-    totals,
-    daily,
-    geo,
-    sources,
-    environment,
-    pages,
-    heatmap,
-    goals,
-    converted,
-    definitions,
-    journeys,
-    exits,
-    dailySources,
-    newVisitors,
-    previousSources,
-    previousGoals,
-    dailyConversions,
-  ] = await Promise.all([
-    humanTotals(id, start, end),
-    sql(humanBinsSql()),
-    sql(
-      ` SELECT ${getPostgresCountrySQL('v.country')} AS country,${getPostgresRegionSQL('v.country', 'v.region')} AS region,v.city,${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3 ORDER BY sessions DESC`,
-    ),
-    sql(
-      ` SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3,4 ORDER BY sessions DESC`,
-    ),
-    sql(
-      ` SELECT device,browser,os,count(*)::int AS sessions FROM visits GROUP BY 1,2,3 ORDER BY sessions DESC`,
-    ),
-    sql(`, ordered AS (SELECT *,row_number() OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id) AS ordinal,extract(epoch FROM lead(created_at) OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id)-created_at)::float AS dwell FROM events WHERE event_type NOT IN(2,5))
+  const selected = new Set(fields);
+  const needs = (field: HumanFact) => !fields || selected.has(field);
+  const statements: Record<string, string> = {
+    daily: humanBinsSql(),
+    geo: ` SELECT ${getPostgresCountrySQL('v.country')} AS country,${getPostgresRegionSQL('v.country', 'v.region')} AS region,v.city,${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3 ORDER BY sessions DESC`,
+    sources: ` SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3,4 ORDER BY sessions DESC`,
+    environment: ` SELECT device,browser,os,count(*)::int AS sessions FROM visits GROUP BY 1,2,3 ORDER BY sessions DESC`,
+    pages: `, ordered AS (SELECT *,row_number() OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id) AS ordinal,extract(epoch FROM lead(created_at) OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id)-created_at)::float AS dwell FROM events WHERE event_type NOT IN(2,5))
       SELECT e.url_path AS path,count(*)::int AS pv,count(distinct e.session_id)::int AS uv,count(*) FILTER(WHERE e.ordinal=1)::int AS entries,avg(e.dwell)::float AS duration,count(e.dwell)::int AS samples,
-      count(*) FILTER(WHERE e.ordinal=1 AND v.pv=1 AND v.custom=0)::int AS bounces FROM ordered e JOIN visits v USING(visit_id,session_id) GROUP BY 1 ORDER BY pv DESC`),
-    sql(
-      ` SELECT extract(dow FROM started AT TIME ZONE $4)::int AS weekday,extract(hour FROM started AT TIME ZONE $4)::int AS hour,count(*)::int AS count FROM visits GROUP BY 1,2`,
-    ),
-    sql(
-      ` SELECT d.report_id AS id,d.name,d.parameters->>'value' AS path,count(distinct m.event_id)::int AS count,count(distinct (m.visit_id,m.session_id)) FILTER(WHERE v.visit_id IS NOT NULL)::int AS "convertedSessions" FROM definitions d LEFT JOIN matches m USING(report_id) LEFT JOIN visits v ON v.visit_id=m.visit_id AND v.session_id=m.session_id GROUP BY 1,2,3`,
-    ),
-    sql(
-      ` SELECT count(*)::int AS count,(SELECT count(distinct event_id)::int FROM matches) AS events FROM visits v JOIN converted cv USING(visit_id,session_id)`,
-    ),
+      count(*) FILTER(WHERE e.ordinal=1 AND v.pv=1 AND v.custom=0)::int AS bounces FROM ordered e JOIN visits v USING(visit_id,session_id) GROUP BY 1 ORDER BY pv DESC`,
+    heatmap: ` SELECT extract(dow FROM started AT TIME ZONE $4)::int AS weekday,extract(hour FROM started AT TIME ZONE $4)::int AS hour,count(*)::int AS count FROM visits GROUP BY 1,2`,
+    goals: ` SELECT d.report_id AS id,d.name,d.parameters->>'value' AS path,count(distinct m.event_id)::int AS count,count(distinct (m.visit_id,m.session_id)) FILTER(WHERE v.visit_id IS NOT NULL)::int AS "convertedSessions" FROM definitions d LEFT JOIN matches m USING(report_id) LEFT JOIN visits v ON v.visit_id=m.visit_id AND v.session_id=m.session_id GROUP BY 1,2,3`,
+    converted: ` SELECT count(*)::int AS count,(SELECT count(distinct event_id)::int FROM matches) AS events FROM visits v JOIN converted cv USING(visit_id,session_id)`,
+    journeys: `, paths AS (SELECT visit_id,(array_agg(url_path ORDER BY created_at,event_id))[1:6] AS path FROM events WHERE event_type=1 GROUP BY visit_id) SELECT array_to_string(path,' → ') AS path,count(*)::int AS count FROM paths GROUP BY 1 ORDER BY count DESC LIMIT 6`,
+    exits: `, lasts AS (SELECT DISTINCT ON(visit_id,session_id) url_path AS path FROM events WHERE event_type=1 ORDER BY visit_id,session_id,created_at DESC,event_id DESC) SELECT path,count(*)::int AS count FROM lasts GROUP BY 1 ORDER BY count DESC LIMIT 1`,
+    dailySources: ` SELECT to_char(started AT TIME ZONE $4,'YYYY-MM-DD') AS day,referrer,"utmSource","utmMedium","utmCampaign",count(*)::int AS count FROM visits GROUP BY 1,2,3,4,5 ORDER BY 1`,
+    newVisitors: ` SELECT count(distinct v.session_id)::int AS count FROM visits v JOIN session s ON s.session_id=v.session_id AND s.website_id=$1::uuid WHERE s.created_at BETWEEN $2 AND $3`,
+    dailyConversions: ` SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,count(distinct event_id)::int AS count FROM matches GROUP BY 1 ORDER BY 1`,
+  };
+  const projections = Object.entries(statements)
+    .filter(([key]) => needs(key as HumanFact))
+    .map(([key, tail]) => {
+      const select = tail.trimStart().startsWith(',') ? 'WITH ' + tail.trimStart().slice(1) : tail;
+      return `'${key}',(SELECT coalesce(jsonb_agg(to_jsonb(fact)), '[]'::jsonb) FROM (${select}) fact)`;
+    });
+  const [totals, definitions, current, previousSources, previousGoals] = await Promise.all([
+    humanTotals(id, start, end),
     query(
       "SELECT report_id AS id,name,type,parameters FROM report WHERE website_id=$1::uuid AND type IN('goal','funnel') ORDER BY created_at LIMIT 100",
       id,
     ),
-    sql(
-      `, paths AS (SELECT visit_id,(array_agg(url_path ORDER BY created_at,event_id))[1:6] AS path FROM events WHERE event_type=1 GROUP BY visit_id) SELECT array_to_string(path,' → ') AS path,count(*)::int AS count FROM paths GROUP BY 1 ORDER BY count DESC LIMIT 6`,
-    ),
-    sql(
-      `, lasts AS (SELECT DISTINCT ON(visit_id,session_id) url_path AS path FROM events WHERE event_type=1 ORDER BY visit_id,session_id,created_at DESC,event_id DESC) SELECT path,count(*)::int AS count FROM lasts GROUP BY 1 ORDER BY count DESC LIMIT 1`,
-    ),
-    sql(
-      ` SELECT to_char(started AT TIME ZONE $4,'YYYY-MM-DD') AS day,referrer,"utmSource","utmMedium","utmCampaign",count(*)::int AS count FROM visits GROUP BY 1,2,3,4,5 ORDER BY 1`,
-    ),
-    sql(
-      ` SELECT count(distinct v.session_id)::int AS count FROM visits v JOIN session s ON s.session_id=v.session_id AND s.website_id=$1::uuid WHERE s.created_at BETWEEN $2 AND $3`,
-    ),
-    query(
-      cte +
-        ` SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",count(*)::int AS sessions,count(*) FILTER(WHERE cv.visit_id IS NOT NULL)::int AS conversions FROM visits v ${convertedJoin} GROUP BY 1,2,3,4`,
-      id,
-      new Date(Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1))),
-      new Date(start.getTime() - 1),
-      timezone,
-    ),
-    query(
-      cte +
-        ` SELECT report_id AS id,count(distinct event_id)::int AS count FROM matches GROUP BY 1`,
-      id,
-      new Date(Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1))),
-      new Date(start.getTime() - 1),
-      timezone,
-    ),
-    sql(
-      ` SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,count(distinct event_id)::int AS count FROM matches GROUP BY 1 ORDER BY 1`,
-    ),
+    projections.length
+      ? query(cte + ` SELECT jsonb_build_object(${projections.join(',')}) AS facts`, ...args)
+      : Promise.resolve([]),
+    needs('previousSources')
+      ? query(
+          cte +
+            ` SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",count(*)::int AS sessions,count(*) FILTER(WHERE cv.visit_id IS NOT NULL)::int AS conversions FROM visits v ${convertedJoin} GROUP BY 1,2,3,4`,
+          id,
+          new Date(Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1))),
+          new Date(start.getTime() - 1),
+          timezone,
+        )
+      : Promise.resolve([]),
+    needs('previousGoals')
+      ? query(
+          cte +
+            ` SELECT report_id AS id,count(distinct event_id)::int AS count FROM matches GROUP BY 1`,
+          id,
+          new Date(Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1))),
+          new Date(start.getTime() - 1),
+          timezone,
+        )
+      : Promise.resolve([]),
   ]);
+  const facts = current[0]?.facts ?? {};
+  const {
+    daily = [],
+    geo = [],
+    sources = [],
+    environment = [],
+    pages = [],
+    heatmap = [],
+    goals = [],
+    converted = [],
+    journeys = [],
+    exits = [],
+    dailySources = [],
+    newVisitors = [],
+    dailyConversions = [],
+  } = facts;
   const allGoals = definitions
     .filter(d => d.type === 'goal' && d.parameters?.value && !Array.isArray(d.parameters?.steps))
     .map(d => ({
@@ -182,7 +197,7 @@ export async function getHumanFacts(id: string, start: Date, end: Date, timezone
     if (!parsed.success) {
       funnelState = 'unsupported';
       funnelError = '已保存的漏斗配置无效，请检查目标配置';
-    } else {
+    } else if (needs('funnel')) {
       funnel = await getFunnel(
         id,
         { ...parsed.data, startDate: start, endDate: end },

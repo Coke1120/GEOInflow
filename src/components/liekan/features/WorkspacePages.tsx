@@ -1,6 +1,11 @@
 'use client';
 import { useListState } from './listState';
 
+import {
+  freshnessStaleTime,
+  withClientFreshness,
+  shareWithFreshness,
+} from '@/lib/liekan/upstream/client-freshness';
 import { useQuery } from '@tanstack/react-query';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
@@ -34,6 +39,8 @@ import {
 } from '@/lib/liekan/contracts/workspace';
 import {
   featureRequest,
+  getFeatureWebsiteSummary,
+  mapFeatureRows,
   getAllFeatureRows,
   getFeaturePreferences,
 } from '@/lib/liekan/upstream/features-client';
@@ -51,6 +58,7 @@ import {
   Icon,
   LinkButton,
   Metrics,
+  StaticHeading,
   Notice,
   Panel,
   QueryState,
@@ -162,10 +170,8 @@ export function useWorkspaceEntities() {
         ['links', 'pixels', 'boards'].map(async kind => {
           const personal = await getAllFeatureRows<FeatureEntity>(`${prefix}/${kind}`, {}, signal);
           if (!allSources) return personal;
-          const teams = await Promise.all(
-            c.teams.map(team =>
-              getAllFeatureRows<FeatureEntity>(`/teams/${team.id}/${kind}`, {}, signal),
-            ),
+          const teams = await mapFeatureRows(c.teams, team =>
+            getAllFeatureRows<FeatureEntity>(`/teams/${team.id}/${kind}`, {}, signal),
           );
           return [
             ...new Map([...personal, ...teams.flat()].map(entity => [entity.id, entity])).values(),
@@ -276,6 +282,7 @@ function Teams({ admin = false }: { admin?: boolean }) {
     <>
       {!admin && (
         <Metrics
+          loading={q.isPending}
           items={[
             ['参与团队', myTeams.length, '当前账户'],
             [
@@ -1242,32 +1249,41 @@ export function ResourceAnalytics({
       variant,
       allowGoals,
     ],
-    queryFn: async ({ signal }) => {
-      const [stats, trend, aiTrend] = await Promise.all([
-        metrics ? get(`/websites/${id}/stats`, params, signal) : null,
-        get(`/websites/${id}/pageviews`, params, signal),
-        kind === 'website'
-          ? get(`/websites/${id}/pageviews`, { ...params, drill_channel: 'eq.AI 搜索引荐' }, signal)
-          : null,
-      ]);
-      const aiStats =
-        metrics && variant && kind === 'website'
-          ? await get(
-              `/websites/${id}/stats`,
-              { ...params, drill_channel: 'eq.AI 搜索引荐' },
-              signal,
-            )
-          : null;
-      let appointment: any = null;
-      if (metrics && variant && kind === 'website' && allowGoals) {
-        const goals = await allSharedRows(get, `/websites/${id}/goals`, signal);
-        const goal = goals.find((g: any) =>
-          /预约|appointment|book.*demo|demo.*book/i.test(g.name || ''),
-        );
-        if (goal) appointment = await get(`/websites/${id}/goals/${goal.id}/stats`, params, signal);
-      }
-      return { stats, trend, aiTrend, aiStats, appointment };
-    },
+    queryFn: ({ signal }) =>
+      withClientFreshness(signal, async () => {
+        const [stats, trend, aiTrend] = await Promise.all([
+          metrics ? get(`/websites/${id}/stats`, params, signal) : null,
+          get(`/websites/${id}/pageviews`, params, signal),
+          kind === 'website'
+            ? get(
+                `/websites/${id}/pageviews`,
+                { ...params, drill_channel: 'eq.AI 搜索引荐' },
+                signal,
+              )
+            : null,
+        ]);
+        const aiStats =
+          metrics && variant && kind === 'website'
+            ? await get(
+                `/websites/${id}/stats`,
+                { ...params, drill_channel: 'eq.AI 搜索引荐' },
+                signal,
+              )
+            : null;
+        let appointment: any = null;
+        if (metrics && variant && kind === 'website' && allowGoals) {
+          const goals = await allSharedRows(get, `/websites/${id}/goals`, signal);
+          const goal = goals.find((g: any) =>
+            /预约|appointment|book.*demo|demo.*book/i.test(g.name || ''),
+          );
+          if (goal)
+            appointment = await get(`/websites/${id}/goals/${goal.id}/stats`, params, signal);
+        }
+        return { stats, trend, aiTrend, aiStats, appointment };
+      }),
+    staleTime: query => freshnessStaleTime(query),
+    gcTime: 600000,
+    structuralSharing: shareWithFreshness,
     enabled: !!id,
     retry: false,
   });
@@ -1278,6 +1294,7 @@ export function ResourceAnalytics({
     <QueryState query={q}>
       {metrics && (
         <Metrics
+          loading={q.isPending}
           items={
             variant
               ? variant === 'board'
@@ -1752,6 +1769,7 @@ function NativeWidget({
       <QueryState query={q}>
         {component.type === 'Goal' ? (
           <Metrics
+            loading={q.isPending}
             items={[
               ['转化访客', readable(q.data?.num), '独立访客'],
               ['入组访客', readable(q.data?.total), '所选期间'],
@@ -1784,6 +1802,7 @@ function NativeWidget({
     return (
       <QueryState query={q}>
         <Metrics
+          loading={q.isPending}
           items={[
             ['事件次数', readable(q.data?.data?.events), '当前期间'],
             ['触发访客', readable(q.data?.data?.visitors), '独立访客'],
@@ -2264,26 +2283,24 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
     settings = q.data?.parameters?.liekan;
   const stats = useData(
     ['dashboard-stats', ids, settings?.showAI],
-    async signal =>
-      Promise.all(
-        ids.map(async id => {
-          const [value, aiStats] = await Promise.all([
-            c.api.get(`/websites/${id}/stats`, { ...c.range, ...c.filters }, signal),
+    async signal => {
+      const summaries = await getFeatureWebsiteSummary(ids, c.range, signal, c.api.get);
+      const failed = summaries.find(row => row.error);
+      if (failed) throw failed.error;
+      return Promise.all(
+        summaries.map(async value => {
+          const aiStats =
             settings?.showAI === false
               ? null
-              : c.api.get(
-                  `/websites/${id}/stats`,
+              : await c.api.get(
+                  `/websites/${value.id}/stats`,
                   { ...c.range, ...c.filters, drill_channel: 'eq.AI 搜索引荐' },
                   signal,
-                ),
-          ]);
-          return {
-            ...value,
-            id,
-            ai: nativeMetric(aiStats?.visitors),
-          };
+                );
+          return { ...value, ai: nativeMetric(aiStats?.visitors) };
         }),
-      ),
+      );
+    },
     !editing && !q.isPending && !q.error,
   );
   const sum = (key: string) =>
@@ -2313,6 +2330,7 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
         <>
           <QueryState query={stats}>
             <Metrics
+              loading={stats.isPending}
               items={[
                 [
                   '全部网站访客',
@@ -2330,7 +2348,7 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
             />
           </QueryState>
           <div className="row between">
-            <h2>固定的网站</h2>
+            <StaticHeading>固定的网站</StaticHeading>
             <LinkButton page="dashboard-edit">编辑工作台</LinkButton>
           </div>
           {ids.length ? (

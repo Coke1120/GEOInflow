@@ -13,10 +13,12 @@ import {
 import { useFeatureDateRange, useNavigation } from '@/lib/liekan/upstream/client';
 import {
   featureApi,
+  featureSiteQuery,
   getAllFeatureRows,
   getFeaturePreferences,
   getFeatureSites,
   refreshFeatureIdentity,
+  invalidateFeatureUserQueries,
 } from '@/lib/liekan/upstream/features-client';
 import '@/styles/liekan/Features.module.css';
 import {
@@ -28,6 +30,7 @@ import {
   resourceListPages,
   websiteNavigation,
 } from '@/lib/liekan/contracts/navigation';
+import { DataLoading } from '../DataLoading';
 import { Navigation, useSidebarWidth } from '../Navigation';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
@@ -190,6 +193,8 @@ export function FeatureApp({
     },
     enabled: !setup && needsSites,
     retry: false,
+    staleTime: 300000,
+    gcTime: 600000,
   });
   const sites = rowsOf<FeatureEntity>(sitesQuery.data);
   const teamsQuery = useQuery({
@@ -197,6 +202,8 @@ export function FeatureApp({
     queryFn: ({ signal }) => getAllFeatureRows<FeatureEntity>('/me/teams', {}, signal),
     enabled: !setup,
     retry: false,
+    staleTime: 300000,
+    gcTime: 600000,
   });
   const listedTeams: FeatureEntity[] = teamsQuery.data || [];
   const resolveTeam =
@@ -225,8 +232,7 @@ export function FeatureApp({
         : undefined;
   const siteId = websiteRequired ? route.websiteId || '' : '';
   const siteQuery = useQuery({
-    queryKey: ['liekan-feature', user.id, 'site', siteId],
-    queryFn: ({ signal }) => featureApi.get(`/websites/${siteId}`, {}, signal),
+    ...featureSiteQuery(user.id, siteId),
     enabled: !!siteId && !setup,
     retry: false,
   });
@@ -261,7 +267,7 @@ export function FeatureApp({
   const notify = useCallback((message: string) => setToast(message), []);
   const refresh = useCallback(async () => {
     await refreshFeatureIdentity();
-    await client.invalidateQueries({ queryKey: ['liekan-feature', user.id] });
+    await invalidateFeatureUserQueries(client, user.id);
   }, [client, user.id]);
   const filters = useMemo(
     () =>
@@ -319,7 +325,13 @@ export function FeatureApp({
   );
   const content =
     !setup && (teamState?.isPending || teamState?.error) ? (
-      <QueryState query={teamState}>{null}</QueryState>
+      teamState.isPending && ['websites', 'dashboard'].includes(current.page) ? (
+        <DataLoading loading label="正在读取数据">
+          <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
+        </DataLoading>
+      ) : (
+        <QueryState query={teamState}>{null}</QueryState>
+      )
     ) : !setup && websiteRequired && !siteId ? (
       <Notice>
         请选择需要查看的网站。
@@ -344,6 +356,14 @@ export function FeatureApp({
       </Notice>
     ) : !setup && websiteRequired && siteQuery.error ? (
       <QueryState query={siteQuery}>{null}</QueryState>
+    ) : !setup &&
+      needsSites &&
+      !websiteRequired &&
+      sitesQuery.isPending &&
+      ['websites', 'dashboard'].includes(current.page) ? (
+      <DataLoading loading label="正在读取数据">
+        <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
+      </DataLoading>
     ) : !setup && needsSites && !websiteRequired && (sitesQuery.isPending || sitesQuery.error) ? (
       <QueryState query={sitesQuery}>{null}</QueryState>
     ) : datePage && range.endAt - range.startAt > 1096 * 86400000 ? (

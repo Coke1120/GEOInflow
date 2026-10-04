@@ -70,7 +70,7 @@ export async function transaction<T>(work: (tx: any) => Promise<T>): Promise<T> 
       await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
       return work(tx);
     },
-    { timeout: 60000 },
+    { timeout: 60000, maxWait: 60000 },
   )) as T;
 }
 export async function humanTotals(websiteId: string, startDate: Date, endDate: Date) {

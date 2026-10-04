@@ -1,4 +1,5 @@
 'use client';
+import { invalidateFeatureWebsiteQueries } from '@/lib/liekan/upstream/features-client';
 import { useQueryClient } from '@tanstack/react-query';
 import { ConfirmationForm } from '@/components/common/ConfirmationForm';
 import { useDeleteQuery, useMessages } from '@/components/hooks';
@@ -37,9 +38,10 @@ export function SessionDeleteButton({
         touch('replays');
         touch('revenue-sessions');
 
-        await Promise.all(
-          invalidationKeys.map(queryKey => queryClient.invalidateQueries({ queryKey })),
-        );
+        await Promise.all([
+          invalidateFeatureWebsiteQueries(queryClient, websiteId),
+          ...invalidationKeys.map(queryKey => queryClient.invalidateQueries({ queryKey })),
+        ]);
 
         onSave?.();
         close();
