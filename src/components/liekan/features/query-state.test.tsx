@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { QueryState, Table } from './ui';
+import { QueryRegion, QueryState, Table } from './ui';
 
 describe('read-only query presentation', () => {
   const data = { name: '当前范围结果' };
@@ -65,4 +65,24 @@ describe('read-only query presentation', () => {
     expect(screen.queryByText('当前范围没有数据')).not.toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('正在读取当前范围的数据');
   });
+});
+
+it('shows one accessible cached failure notice and retries every affected summary read', () => {
+  const first = vi.fn(),
+    second = vi.fn();
+  render(
+    <QueryRegion
+      queries={[
+        { data: { views: 1 }, error: { status: 503 }, refetch: first },
+        { data: { count: 1 }, error: { status: 503 }, refetch: second },
+      ]}
+    >
+      <div>有效摘要</div>
+    </QueryRegion>,
+  );
+  expect(screen.getAllByRole('alert')).toHaveLength(1);
+  expect(screen.getByText('有效摘要')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '重试读取' }));
+  expect(first).toHaveBeenCalledExactlyOnceWith({ cancelRefetch: false });
+  expect(second).toHaveBeenCalledExactlyOnceWith({ cancelRefetch: false });
 });

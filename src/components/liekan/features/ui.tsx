@@ -518,6 +518,41 @@ export function Table({
     </>
   );
 }
+// Independent summary reads keep their own values and share one non-flow feedback anchor.
+export function QueryRegion({ queries, children }: { queries: any[]; children: ReactNode }) {
+  const errors = queries.filter(query => query.error);
+  const retained = errors.filter(
+    query => query.data !== undefined && !hidesPreviousData(query.error),
+  );
+  const unavailable = errors.filter(
+    query => query.data === undefined || hidesPreviousData(query.error),
+  );
+  const updates = retained.map(query => query.dataUpdatedAt).filter(Boolean);
+  const feedback = {
+    isFetching: queries.some(query => query.isFetching),
+    data: retained.length ? true : undefined,
+    error: retained[0]?.error,
+    dataUpdatedAt: updates.length ? Math.min(...updates) : undefined,
+    refetch: () =>
+      Promise.allSettled(retained.map(query => query.refetch?.({ cancelRefetch: false }))),
+  };
+  return (
+    <div
+      className={loadingStyles.readRegion}
+      data-liekan-read-region
+      aria-busy={queries.some(query => query.isPending || query.isFetching) || undefined}
+    >
+      {children}
+      <QueryFeedback query={feedback} />
+      {unavailable.map((query, index) => (
+        <QueryState key={index} query={query}>
+          {null}
+        </QueryState>
+      ))}
+    </div>
+  );
+}
+
 export function QueryState({
   query,
   children,

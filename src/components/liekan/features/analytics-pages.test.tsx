@@ -241,3 +241,28 @@ it.each(['utm-total', 'utm-goal-list', 'utm-goal'])(
     expect(screen.getByRole('alert')).toHaveTextContent('更新失败，显示上次结果');
   },
 );
+
+it.each([
+  ['utm-goal-list', 503],
+  ['utm-goal', 404],
+])('keeps independently measured UTM cards after the first %s failure', (key, status) => {
+  mocks.query['utm-total'] = { views: 120, visitors: 30 };
+  mocks.query['utm-goal-list'] =
+    key === 'utm-goal' ? [{ id: 'goal-a', name: '注册目标' }] : undefined;
+  mocks.errors[key] = Object.assign(new Error('转化目标暂不可用'), { status });
+  mocks.query['utm-dimension'] = { rows: [], dimensionTotal: 0 };
+  render(<AnalyticsPages page="utm" />);
+  expect(screen.getByText('120')).toBeInTheDocument();
+  expect(screen.getByText('30')).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toBeInTheDocument();
+});
+
+it('keeps successful UTM visit values while the selected goal is pending', () => {
+  mocks.query['utm-total'] = { views: 120, visitors: 30 };
+  mocks.query['utm-goal-list'] = [{ id: 'goal-a', name: '注册目标' }];
+  mocks.pending['utm-goal'] = true;
+  mocks.query['utm-dimension'] = { rows: [], dimensionTotal: 0 };
+  render(<AnalyticsPages page="utm" />);
+  expect(screen.getByText('120')).toBeInTheDocument();
+  expect(screen.getByText('30')).toBeInTheDocument();
+});

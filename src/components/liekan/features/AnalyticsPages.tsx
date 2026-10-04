@@ -19,6 +19,7 @@ import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import { getAllFeatureRows } from '@/lib/liekan/upstream/features-client';
 import { useFeature, useData, useAction } from './context';
 import { Chart } from './Chart';
+import { hidesPreviousData } from '../LoadingState';
 import {
   Badge,
   Body,
@@ -33,6 +34,7 @@ import {
   Notice,
   Panel,
   QueryState,
+  QueryRegion,
   Select,
   Table,
   Tabs,
@@ -1689,6 +1691,7 @@ function UTM() {
   const [dimension, setDimension] = useState('source');
   const scope = useScope();
   const summary = useWebsiteData(['utm-total'], 'analytics', { ...scope, kind: 'utm' }, true, true);
+  const summaryData = hidesPreviousData(summary.error) ? undefined : summary.data;
   const query = useWebsiteData(
     ['utm-dimension', dimension],
     'analytics',
@@ -1735,37 +1738,33 @@ function UTM() {
         active={dimension}
         onChange={setDimension}
       />
-      <QueryState readOnly query={summary}>
-        <QueryState readOnly query={goals}>
-          <QueryState readOnly query={{ ...goal, isPending: !!selected && !!goal.isPending }}>
-            <Metrics
-              loading={!!summary.isPending}
-              items={[
-                ['带 UTM 访问', summary.data ? n(summary.data.views) : null, '有至少一个 UTM 字段'],
-                ['带 UTM 访客', summary.data ? n(summary.data.visitors) : null, '独立访客'],
-                [
-                  '已标记转化',
-                  goals.error || goal.error
-                    ? '读取失败'
-                    : goals.isPending || (selected && goal.isPending)
-                      ? '正在读取'
-                      : selected && goal.data
-                        ? n(goal.data.conversions)
-                        : selected
-                          ? '未提供'
-                          : '尚未配置',
-                  selected
-                    ? `目标：${selected.name}`
-                    : goals.error
-                      ? '目标读取失败'
-                      : '请先创建网站目标',
-                ],
-                ['字段缺失', '分别保留', '未提供字段不补推断'],
-              ]}
-            />
-          </QueryState>
-        </QueryState>
-      </QueryState>
+      <QueryRegion queries={[summary, goals, ...(selected ? [goal] : [])]}>
+        <Metrics
+          loading={!!summary.isPending}
+          items={[
+            ['带 UTM 访问', summaryData ? n(summaryData.views) : null, '有至少一个 UTM 字段'],
+            ['带 UTM 访客', summaryData ? n(summaryData.visitors) : null, '独立访客'],
+            [
+              '已标记转化',
+              goals.error || goal.error
+                ? '读取失败'
+                : goals.isPending || (selected && goal.isPending)
+                  ? '正在读取'
+                  : selected && goal.data
+                    ? n(goal.data.conversions)
+                    : selected
+                      ? '未提供'
+                      : '尚未配置',
+              selected
+                ? `目标：${selected.name}`
+                : goals.error
+                  ? '目标读取失败'
+                  : '请先创建网站目标',
+            ],
+            ['字段缺失', '分别保留', '未提供字段不补推断'],
+          ]}
+        />
+      </QueryRegion>
       <QueryState readOnly query={query}>
         <div className="two">
           <Chart

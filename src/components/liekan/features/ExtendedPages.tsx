@@ -9,6 +9,7 @@ import {
   sumRevenueAmounts,
 } from '@/lib/liekan/contracts/revenue';
 import { Chart } from './Chart';
+import { hidesPreviousData } from '../LoadingState';
 import { useAction, useData, useFeature } from './context';
 import 'rrweb-player/dist/style.css';
 import { Exports } from './Exports';
@@ -26,6 +27,7 @@ import {
   Notice,
   Panel,
   QueryState,
+  QueryRegion,
   Select,
   Table,
   Tabs,
@@ -89,13 +91,14 @@ function Performance() {
     type: environment,
     limit: 100,
   });
-  const data = counts.data,
+  const summaryData = hidesPreviousData(summary.error) ? undefined : summary.data;
+  const data = hidesPreviousData(counts.error) ? undefined : counts.data,
     points = chart.data?.chart || [];
   const value = (m: string) =>
     data
       ? data[`${m}${percentile.charAt(0).toUpperCase() + percentile.slice(1)}`]
-      : summary.data?.count
-        ? summary.data?.[m]?.[percentile]
+      : summaryData?.count
+        ? summaryData?.[m]?.[percentile]
         : null;
   return (
     <>
@@ -116,26 +119,24 @@ function Performance() {
           ]}
         />
       </div>
-      <QueryState readOnly query={summary}>
-        <QueryState readOnly query={counts}>
-          <Metrics
-            loading={!!summary.isPending}
-            className="five"
-            items={['lcp', 'inp', 'cls', 'fcp', 'ttfb'].map(
-              (m, i) =>
-                [
-                  m.toUpperCase(),
-                  perfValue(value(m), m),
-                  `${['最大内容绘制', '交互延迟', '累计布局偏移', '首次内容绘制', '首字节时间'][i]} · ${percentile}`,
-                  m === metric ? 'blue' : '',
-                ] as any,
-            )}
-          />
-        </QueryState>
-      </QueryState>
+      <QueryRegion queries={[summary, counts]}>
+        <Metrics
+          loading={!!summary.isPending}
+          className="five"
+          items={['lcp', 'inp', 'cls', 'fcp', 'ttfb'].map(
+            (m, i) =>
+              [
+                m.toUpperCase(),
+                perfValue(value(m), m),
+                `${['最大内容绘制', '交互延迟', '累计布局偏移', '首次内容绘制', '首字节时间'][i]} · ${percentile}`,
+                m === metric ? 'blue' : '',
+              ] as any,
+          )}
+        />
+      </QueryRegion>
       <Panel
         title={`${metric.toUpperCase()} 分位数趋势`}
-        subtitle={`p50、p75、p95 · ${data ? n(data[`${metric}Count`]) : summary.data ? n(summary.data.count) : '—'} 次采样`}
+        subtitle={`p50、p75、p95 · ${data ? n(data[`${metric}Count`]) : summaryData ? n(summaryData.count) : '—'} 次采样`}
       >
         <QueryState readOnly query={chart}>
           <Chart
@@ -225,7 +226,7 @@ function Revenue() {
     true,
     true,
   );
-  const totals = summary.data;
+  const totals = hidesPreviousData(summary.error) ? undefined : summary.data;
   const points = chart.data?.chart || [];
   const labels = [...new Set<string>(points.map((r: any) => r.t))];
   let running = '0';
@@ -257,7 +258,7 @@ function Revenue() {
           onChange={setMode}
         />
       </div>
-      <QueryState readOnly query={summary}>
+      <QueryRegion queries={[summary]}>
         <Metrics
           loading={!!summary.isPending}
           items={[
@@ -271,7 +272,7 @@ function Revenue() {
             ],
           ]}
         />
-      </QueryState>
+      </QueryRegion>
       <Panel title="收入趋势" subtitle={`金额单位：${currency}。累计从所选期间起点计算。`}>
         <QueryState readOnly query={chart}>
           <Chart

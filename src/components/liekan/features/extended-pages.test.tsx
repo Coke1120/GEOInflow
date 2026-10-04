@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     context: null as any,
     query: {} as Record<string, any>,
     errors: {} as Record<string, Error>,
+    pending: {} as Record<string, boolean>,
     post: vi.fn(),
     construct: vi.fn(),
     setConfig: vi.fn(),
@@ -26,7 +27,7 @@ vi.mock('./context', () => ({
   useData: (key: any[]) => ({
     data: mocks.query[key[0]],
     error: mocks.errors[key[0]] || null,
-    isPending: false,
+    isPending: mocks.pending[key[0]] || false,
   }),
   useAction: () => ({
     run: async (action: () => Promise<any>) => action(),
@@ -61,6 +62,7 @@ vi.mock('rrweb-player', async () => {
 beforeEach(() => {
   mocks.query = {};
   mocks.errors = {};
+  mocks.pending = {};
   mocks.post.mockReset().mockResolvedValue({});
   mocks.construct.mockClear();
   mocks.setConfig.mockClear();
@@ -261,3 +263,27 @@ it.each([
     expect(screen.getByRole('alert')).toHaveTextContent('更新失败，显示上次结果');
   },
 );
+
+it('keeps successful performance summary values while independent counts fail', () => {
+  mocks.query['performance-summary'] = { count: 2, lcp: { p75: 800 } };
+  mocks.errors['performance-real-counts'] = Object.assign(new Error('采样汇总暂不可用'), {
+    status: 503,
+  });
+  render(<ExtendedPages page="performance" />);
+  expect(screen.getByText('800 ms')).toBeInTheDocument();
+  expect(screen.getByRole('alert')).toHaveTextContent('采样汇总暂不可用');
+});
+
+it('keeps successful performance fallback values while counts are still pending', () => {
+  mocks.query['performance-summary'] = { count: 2, lcp: { p75: 800 } };
+  mocks.pending['performance-real-counts'] = true;
+  render(<ExtendedPages page="performance" />);
+  expect(screen.getByText('800 ms')).toBeInTheDocument();
+});
+it.each([401, 403, 404])('hides the previous revenue amount on status %i', status => {
+  mocks.query['revenue-summary'] = { sum: '10', count: 1, unique_count: 1 };
+  mocks.errors['revenue-summary'] = Object.assign(new Error('不可访问'), { status });
+  render(<ExtendedPages page="revenue" />);
+  expect(screen.queryByText('¥10.00')).not.toBeInTheDocument();
+  expect(screen.getByRole('alert')).toBeInTheDocument();
+});
