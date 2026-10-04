@@ -141,6 +141,19 @@ const countsSQL =
     .map(t => `'${t}',(SELECT count(*) FROM "${t}")`)
     .join(',') +
   ')';
+const dataCounts = (database, allowPending = false) => {
+  const counts = JSON.parse(psql(countsSQL, database));
+  const installationTable = psql(
+    "SELECT coalesce(to_regclass('public.liekan_installation')::text, '')",
+    database,
+  );
+  if (!installationTable && !allowPending)
+    throw new Error('Installation migration table is missing');
+  counts.liekan_installation = installationTable
+    ? Number(psql('SELECT count(*) FROM liekan_installation', database))
+    : 0;
+  return counts;
+};
 const pause = cancellation.pause;
 const healthy = async () => {
   for (let attempt = 0; attempt < 180; attempt++) {
@@ -420,10 +433,10 @@ try {
   assertProcessSuccess(loaded, 'Candidate backup restore');
   // Count the restored snapshot before upgrade, so concurrent source traffic cannot change this baseline.
   report.restoredUpstreamBefore = await officialHistory('liekan_restore', true);
-  report.before = JSON.parse(psql(countsSQL, 'liekan_restore'));
+  report.before = dataCounts('liekan_restore', true);
   await startApp('liekan_restore');
   report.restoredUpstreamAfter = await officialHistory('liekan_restore');
-  report.after = JSON.parse(psql(countsSQL, 'liekan_restore'));
+  report.after = dataCounts('liekan_restore');
   if (
     Object.entries(report.before).some(
       ([table, count]) => table !== 'liekan_migration' && report.after[table] !== count,

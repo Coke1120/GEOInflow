@@ -552,6 +552,27 @@ try {
     });
     const chartPixels = [];
     for (const chart of geometry.charts) {
+      const approvedChart = navigationBaseline.geoChartApproval?.[chart.id];
+      if (approvedChart) {
+        await reference.evaluate(
+          ({ id, legend, limit }) => {
+            const instance = window.echarts.getInstanceByDom(document.getElementById(id));
+            const option = instance.getOption();
+            const data = option.series[0].data;
+            instance.setOption({
+              legend: {
+                ...option.legend[0],
+                ...legend,
+                data: [...data]
+                  .sort((a, b) => b.value - a.value)
+                  .slice(0, limit)
+                  .map(row => row.name),
+              },
+            });
+          },
+          { id: chart.id, legend: approvedChart.legend, limit: approvedChart.legendLimit },
+        );
+      }
       const ref = reference.locator('#' + chart.id),
         live = actual.locator('#' + chart.id);
       const refPath = `${out}/${name}-${chart.id}-reference.png`,

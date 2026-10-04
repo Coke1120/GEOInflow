@@ -12,7 +12,6 @@ import {
   goalPayload,
   recorderPayload,
   safeCallbackUrl,
-  trackerSnippet,
 } from '@/lib/liekan/contracts/core';
 import { countOf, type FeatureEntity, numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import type { DataState, LiekanReport } from '@/lib/liekan/contracts/report';
@@ -53,6 +52,9 @@ import {
   Textarea,
 } from './ui';
 import { WebsiteSharing } from './WorkspacePages';
+import { Installation, InstallationEntry } from './Installation';
+import { TrackingCode } from './TrackingCode';
+import { installationParams } from '@/lib/liekan/contracts/installation';
 
 const basePath = process.env.basePath || '';
 const appPath = (path: string) => featureNavigationPath(path, basePath);
@@ -170,40 +172,6 @@ function ReadonlyNotice() {
   return <Notice tone="amber">当前角色可以查看此配置。保存操作需要网站管理权限。</Notice>;
 }
 
-function TrackingCode({ websiteId, file = 'script.js' }: { websiteId: string; file?: string }) {
-  const c = useFeature();
-  const [tab, setTab] = useState('html');
-  const [origin, setOrigin] = useState('');
-  useEffect(() => setOrigin(window.location.origin), []);
-  const snippet = origin ? trackerSnippet(origin, basePath, websiteId, tab, file) : '';
-  return (
-    <>
-      <Tabs
-        items={[
-          ['html', 'HTML'],
-          ['next', 'Next.js'],
-          ['gtm', '标签管理器'],
-        ]}
-        active={tab}
-        onChange={setTab}
-      />
-      <Code>{snippet || '正在生成安装代码…'}</Code>
-      <div className="row">
-        <Button
-          disabled={!snippet}
-          onClick={async () => {
-            await navigator.clipboard.writeText(snippet);
-            c.notify('安装代码已复制');
-          }}
-        >
-          <Icon name="copy" />
-          复制安装代码
-        </Button>
-        <span className="muted">使用当前网站标识与本实例地址。</span>
-      </div>
-    </>
-  );
-}
 function InstallSteps({ query, websiteId }: { query: any; websiteId: string }) {
   const c = useFeature();
   const received = !query.error && query.data?.pageviews > 0;
@@ -532,9 +500,14 @@ function Onboarding() {
                 <LinkButton page="website-settings" params={{ websiteId: created.id }}>
                   编辑网站信息
                 </LinkButton>
-                <Button primary onClick={() => setStep(3)}>
-                  已安装，开始验证
-                </Button>
+                <Button onClick={() => setStep(3)}>检查安装（可选）</Button>
+                <LinkButton
+                  page="website-settings"
+                  params={installationParams(created.id, 'js')}
+                  primary
+                >
+                  继续接入设置
+                </LinkButton>
               </div>
             </>
           ) : (
@@ -554,6 +527,9 @@ function Onboarding() {
               </QueryState>
               <div className="form-actions">
                 <Button onClick={() => setStep(2)}>返回安装代码</Button>
+                <LinkButton page="website-settings" params={installationParams(created.id, 'js')}>
+                  跳过检查，继续设置
+                </LinkButton>
                 <Button primary disabled={install.isFetching} onClick={() => install.refetch()}>
                   检查真实访问
                 </Button>
@@ -593,85 +569,22 @@ function Onboarding() {
   );
 }
 function Tracking({ check = false }: { check?: boolean }) {
-  const c = useFeature(),
-    site = useSiteRecord();
+  const c = useFeature();
+  const site = useSiteRecord();
   const install = useInstall(c.siteId, site.data?.createdAt);
   if (!c.siteId) return <MissingWebsite />;
-  if (check)
-    return (
-      <Panel title="安装诊断" subtitle="根据本实例收到的真实浏览访问检查采集状态。">
-        <Body>
-          <QueryState query={site}>
-            <div className="row between">
-              <Definition
-                items={[
-                  ['网站', site.data?.name],
-                  ['域名', site.data?.domain],
-                ]}
-              />
-              <Button primary disabled={install.isFetching} onClick={() => install.refetch()}>
-                重新检查
-              </Button>
-            </div>
-          </QueryState>
-          <hr className="divider" />
-          <QueryState query={install}>
-            <InstallSteps query={install} websiteId={c.siteId} />
-            <hr className="divider" />
-            <Notice tone={install.data?.pageviews > 0 ? 'blue' : 'amber'}>
-              {install.data?.pageviews > 0
-                ? '已收到页面访问。脚本加载情况仍需在目标网站的浏览器中核对。'
-                : '尚未收到访问。安装代码后打开目标网站，再检查首条页面访问。'}
-            </Notice>
-          </QueryState>
-          <div className="form-actions">
-            <LinkButton page="tracking" params={{ websiteId: c.siteId }}>
-              查看跟踪代码
-            </LinkButton>
-            <LinkButton page="websites">返回网站管理</LinkButton>
-          </div>
-        </Body>
-      </Panel>
-    );
   return (
-    <div className="wide-narrow">
-      <Panel title="安装跟踪代码" subtitle="将代码添加到需要统计的网站页面。">
-        <Body>
-          <TrackingCode websiteId={c.siteId} />
-          <hr className="divider" />
-          <h3>自定义事件示例</h3>
-          <p className="muted">用于目标、漏斗和事件属性分析。</p>
-          <Code>{"umami.track('demo_submit', { plan: 'growth', placement: 'header' });"}</Code>
-          <div className="form-actions">
-            <LinkButton page="install-check" params={{ websiteId: c.siteId }} primary>
-              检查浏览采集
-            </LinkButton>
-          </div>
-        </Body>
-      </Panel>
-      <Panel title="常见接入问题" subtitle="检查顺序与验证结果一致。">
-        <Body>
-          <div className="stack">
-            <div>
-              <h3>单页应用</h3>
-              <p className="muted">默认跟踪路由变化，保留 Umami SDK 接口。</p>
-            </div>
-            <div>
-              <h3>内容安全策略</h3>
-              <p className="muted">允许统计服务的脚本与采集请求域名。</p>
-            </div>
-            <div>
-              <h3>本地验证</h3>
-              <p className="muted">检查脚本加载、网站标识和采集响应。</p>
-            </div>
-          </div>
-          <hr className="divider" />
-          <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
-            回放与热力图设置
-          </LinkButton>
-        </Body>
-      </Panel>
-    </div>
+    <QueryState query={site}>
+      {site.data && (
+        <Installation
+          key={`${site.data.id}:${c.user.id}`}
+          site={site.data}
+          browser={install}
+          manage={canManageSite(c, site.data)}
+          entry={check ? 'check' : 'js'}
+        />
+      )}
+    </QueryState>
   );
 }
 const websiteSections: [string, string][] = [
@@ -804,101 +717,90 @@ function WebsiteSettings() {
             onChange={next => c.navigate('website-settings', { websiteId: site.id, section: next })}
           />
           {section === 'basic' ? (
-            <div className="two">
-              <Panel title="基本信息" subtitle="编辑名称和域名不改变网站标识。">
-                <Body>
-                  {!manage && <ReadonlyNotice />}
-                  <Form
-                    key={`${site.id}:${site.name}:${site.domain}`}
-                    busy={action.busy}
-                    error={action.error}
-                    disabled={!manage}
-                    submitLabel="保存网站设置"
-                    onSubmit={async values => {
-                      if (!manage) throw new Error('需要网站管理权限。');
-                      await action.run(
-                        () =>
-                          c.api.post(sitePath(site.id), {
-                            name: values.name,
-                            domain: values.domain,
-                          }),
-                        `「${values.name}」的网站设置已保存`,
-                      );
-                    }}
-                  >
-                    <Field
-                      label="网站 ID"
-                      name="id"
-                      defaultValue={site.id}
-                      readOnly
-                      help="当前网站的永久标识。"
-                    />
-                    <Field
-                      label="网站名称"
-                      name="name"
-                      defaultValue={site.name}
-                      required
-                      readOnly={!manage}
-                      maxLength={100}
-                    />
-                    <Field
-                      label="域名"
-                      name="domain"
-                      defaultValue={site.domain}
-                      required
-                      readOnly={!manage}
-                      maxLength={500}
-                    />
-                  </Form>
-                </Body>
-              </Panel>
-              <Panel title="网站归属" subtitle="在当前网站的设置中管理安装、采集与分享。">
-                <Body>
-                  <Definition
-                    items={[
-                      [
-                        '所属空间',
-                        c.teams.find(team => team.id === site.teamId)?.name ||
-                          (site.teamId ? '团队空间' : '个人空间'),
-                      ],
-                      ['公开分享', site.shareId ? '已启用' : '未启用'],
-                    ]}
-                  />
-                  <div className="form-actions">
-                    <LinkButton page="overview" params={{ websiteId: site.id }}>
-                      查看该网站统计
-                    </LinkButton>
-                    <LinkButton page="sharing" params={{ websiteId: site.id, context: 'website' }}>
-                      分享设置
-                    </LinkButton>
-                  </div>
-                </Body>
-              </Panel>
-            </div>
-          ) : section === 'install' ? (
             <>
-              <SetupStatus browser={install} report={report} site={site} />
-              <Tracking />
-              <Panel title="日志安装" subtitle="导入服务器或 CDN 访问日志后查看蜘蛛访问。">
-                <Body>
-                  <p className="muted">
-                    准备真实访问日志，可使用 Combined、JSON 或 Cloudflare
-                    格式。浏览器跟踪代码采集浏览访问；服务器日志记录请求与蜘蛛访问。
-                  </p>
-                  <div className="form-actions">
-                    <Button disabled={!manage} onClick={() => setDrawer('导入日志')}>
-                      导入该网站日志
-                    </Button>
-                    <LinkButton page="install-check" params={{ websiteId: site.id }}>
-                      检查浏览采集
-                    </LinkButton>
-                    <LinkButton page="geo-logs" params={{ websiteId: site.id }}>
-                      查看该网站日志
-                    </LinkButton>
-                  </div>
-                </Body>
-              </Panel>
+              <div className="two">
+                <Panel title="基本信息" subtitle="编辑名称和域名不改变网站标识。">
+                  <Body>
+                    {!manage && <ReadonlyNotice />}
+                    <Form
+                      key={`${site.id}:${site.name}:${site.domain}`}
+                      busy={action.busy}
+                      error={action.error}
+                      disabled={!manage}
+                      submitLabel="保存网站设置"
+                      onSubmit={async values => {
+                        if (!manage) throw new Error('需要网站管理权限。');
+                        await action.run(
+                          () =>
+                            c.api.post(sitePath(site.id), {
+                              name: values.name,
+                              domain: values.domain,
+                            }),
+                          `「${values.name}」的网站设置已保存`,
+                        );
+                      }}
+                    >
+                      <Field
+                        label="网站 ID"
+                        name="id"
+                        defaultValue={site.id}
+                        readOnly
+                        help="当前网站的永久标识。"
+                      />
+                      <Field
+                        label="网站名称"
+                        name="name"
+                        defaultValue={site.name}
+                        required
+                        readOnly={!manage}
+                        maxLength={100}
+                      />
+                      <Field
+                        label="域名"
+                        name="domain"
+                        defaultValue={site.domain}
+                        required
+                        readOnly={!manage}
+                        maxLength={500}
+                      />
+                    </Form>
+                  </Body>
+                </Panel>
+                <Panel title="网站归属" subtitle="在当前网站的设置中管理安装、采集与分享。">
+                  <Body>
+                    <Definition
+                      items={[
+                        [
+                          '所属空间',
+                          c.teams.find(team => team.id === site.teamId)?.name ||
+                            (site.teamId ? '团队空间' : '个人空间'),
+                        ],
+                        ['公开分享', site.shareId ? '已启用' : '未启用'],
+                      ]}
+                    />
+                    <div className="form-actions">
+                      <LinkButton page="overview" params={{ websiteId: site.id }}>
+                        查看该网站统计
+                      </LinkButton>
+                      <LinkButton
+                        page="sharing"
+                        params={{ websiteId: site.id, context: 'website' }}
+                      >
+                        分享设置
+                      </LinkButton>
+                    </div>
+                  </Body>
+                </Panel>
+              </div>
+              <InstallationEntry key={`${site.id}:${c.user.id}`} site={site} browser={install} />
             </>
+          ) : section === 'install' ? (
+            <Installation
+              key={`${site.id}:${c.user.id}`}
+              site={site}
+              browser={install}
+              manage={manage}
+            />
           ) : section === 'collection' ? (
             <>
               <SetupStatus browser={install} report={report} site={site} />

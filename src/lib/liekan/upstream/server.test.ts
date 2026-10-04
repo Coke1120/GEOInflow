@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   view: vi.fn(),
   update: vi.fn(),
   stats: vi.fn(),
+  raw: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({
   checkAuth: mocks.auth,
@@ -17,11 +18,11 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/permissions', () => ({ canViewWebsite: mocks.view, canUpdateWebsite: mocks.update }));
 vi.mock('@/lib/prisma', () => ({
   default: { client: { website: { findFirst: mocks.website } } },
-  getRawQueryClient: vi.fn(),
+  getRawQueryClient: mocks.raw,
 }));
 vi.mock('@/queries/sql', () => ({ getWebsiteStats: mocks.stats }));
 
-import { authorize, humanTotals, lockWritableWebsite } from './server';
+import { authorize, humanTotals, lockWritableWebsite, query } from './server';
 
 const id = '5b4c0de0-6c47-5b51-8f53-11e5e8c79001';
 const request = new Request(`http://localhost/api/liekan/websites/${id}/report`);
@@ -164,6 +165,45 @@ describe('upstream human metric contract', () => {
         status: 500,
         message: '统计数据契约不兼容',
       });
+    }
+  });
+});
+
+describe('queued analytics queries', () => {
+  it('waits for a pooled connection while other report queries are running', async () => {
+    vi.useFakeTimers();
+    const originalUrl = process.env.DATABASE_URL;
+    process.env.DATABASE_URL = 'postgresql://localhost/liekan';
+    const tx = {
+      $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+      $queryRawUnsafe: vi.fn().mockResolvedValue([{ value: 1 }]),
+    };
+    mocks.raw.mockReturnValue({
+      $transaction: (work: (tx: any) => Promise<any>, options: { maxWait?: number }) =>
+        new Promise((resolve, reject) => {
+          const deadline = setTimeout(() => {
+            clearTimeout(acquire);
+            reject(new Error('Unable to start a transaction in the given time'));
+          }, options.maxWait ?? 2000);
+          const acquire = setTimeout(() => {
+            clearTimeout(deadline);
+            Promise.resolve(work(tx)).then(resolve, reject);
+          }, 3000);
+        }),
+    });
+    try {
+      const result = query('SELECT 1 AS value').then(
+        value => ({ value }),
+        error => ({ error }),
+      );
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(await result).toEqual({ value: [{ value: 1 }] });
+      expect(tx.$queryRawUnsafe).toHaveBeenCalledWith('SELECT 1 AS value');
+      expect(tx.$executeRawUnsafe).toHaveBeenCalledWith('SET LOCAL search_path TO "public"');
+    } finally {
+      if (originalUrl === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = originalUrl;
+      vi.useRealTimers();
     }
   });
 });

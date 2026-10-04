@@ -161,22 +161,10 @@
     ]
   },
   "account": [
-    [
-      "account",
-      "账户资料"
-    ],
-    [
-      "security",
-      "账户安全"
-    ],
-    [
-      "api-keys",
-      "API 密钥"
-    ],
-    [
-      "preferences",
-      "偏好设置"
-    ]
+    ["account", "账户资料"],
+    ["security", "账户安全"],
+    ["api-keys", "API 密钥"],
+    ["preferences", "偏好设置"]
   ],
   "pages": {
     "dashboard": {
@@ -1349,6 +1337,13 @@
     "maxVerticalOffset": 144,
     "geometryTolerance": 2,
     "pixelRatio": 0.01
+  },
+  "geoChartApproval": {
+    "d2": {
+      "approval": "2026-10-04 用户要求 AI 蜘蛛构成图例保持单行，仅显示按请求量排序的 Top 5；圆环保留全部类别与提示",
+      "legend": { "type": "scroll", "left": 16, "right": 16, "bottom": 4, "pageIconSize": 10 },
+      "legendLimit": 5
+    }
   },
   "standaloneHeadings": {
     "login": "欢迎回来",

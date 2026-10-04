@@ -1,0 +1,286 @@
+.flow {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.context,
+.summary,
+.footer,
+.inlineStatus,
+.entryRow,
+.sourceTitle,
+.complete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.context > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.context span {
+  overflow-wrap: anywhere;
+}
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.steps a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  color: var(--sub);
+  background: white;
+  min-height: 48px;
+}
+.steps a[aria-current] {
+  color: var(--brand);
+  background: var(--selected);
+  border-color: var(--brand);
+}
+.steps a > span {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--canvas);
+  font-size: 11px;
+}
+.steps a[aria-current] > span {
+  color: white;
+  background: var(--brand);
+}
+.steps a:active {
+  transform: scale(0.98);
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(240px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.layout > *,
+.summary > *,
+.receipts > *,
+.entryRow > * {
+  min-width: 0;
+}
+.details {
+  margin-top: 20px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.details summary {
+  cursor: pointer;
+  font-weight: 500;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.details summary::before {
+  content: "+";
+  color: var(--sub);
+}
+.details[open] summary::before {
+  content: "−";
+}
+.details summary:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+.details > div {
+  margin-top: 10px;
+}
+.details p,
+.source p {
+  line-height: 1.75;
+}
+.inlineStatus {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.footer {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.methods {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.methods legend {
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+.methods label {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-control);
+  cursor: pointer;
+}
+.methods label:has(:checked) {
+  border-color: var(--brand);
+  background: var(--selected);
+}
+.methods label:has(:focus-visible) {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+}
+.methods input {
+  margin: 3px 0 0;
+  accent-color: var(--brand);
+  width: 16px;
+  height: 16px;
+  min-height: 16px;
+  padding: 0;
+  flex-shrink: 0;
+}
+.methods label > span:first-of-type {
+  flex: 1;
+  min-width: 140px;
+}
+.methods small {
+  display: block;
+  margin-top: 5px;
+}
+.source {
+  padding: 20px;
+  margin: 18px 0;
+  background: var(--canvas);
+  border-radius: var(--r-control);
+}
+.sourceTitle {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.receipts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 20px 0;
+}
+.receipts > div {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+}
+.receipts p {
+  margin: 0;
+}
+.checks {
+  display: grid;
+  gap: 0;
+}
+.checkRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.checkRow > div {
+  min-width: 0;
+}
+.checkRow > span {
+  flex-shrink: 0;
+}
+.checkRow p {
+  margin: 6px 0 0;
+}
+.entryRow {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.entryRow p {
+  margin: 5px 0 0;
+}
+.complete {
+  justify-content: flex-start;
+  padding-bottom: 4px;
+}
+.complete > span {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  background: #edf8f3;
+  color: var(--green);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+@media (max-width: 1050px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .methods {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 600px) {
+  .steps {
+    gap: 5px;
+  }
+  .steps a {
+    padding: 10px 6px;
+    gap: 5px;
+    font-size: 11px;
+  }
+  .steps a > span {
+    width: 20px;
+    height: 20px;
+  }
+  .context,
+  .summary,
+  .entryRow {
+    flex-wrap: wrap;
+  }
+  .context {
+    align-items: flex-start;
+  }
+  .receipts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .footer {
+    align-items: flex-start;
+  }
+  .footer :global(.row) {
+    flex-wrap: wrap;
+  }
+  .source {
+    padding: 14px;
+  }
+  .checkRow {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
