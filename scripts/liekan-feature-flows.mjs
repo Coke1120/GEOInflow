@@ -266,6 +266,7 @@ try {
   assert(await page.getByText('日期参数无效，当前使用默认日期范围。').isVisible());
   await page.getByRole('button', { name: '重置日期', exact: true }).click();
   await page.waitForURL(u => u.searchParams.get('date') === '30day');
+  await page.waitForLoadState('networkidle');
   await page.goto(
     base + `/liekan/funnel-editor?${new URLSearchParams({ websiteId: seed.website.id, date })}`,
   );

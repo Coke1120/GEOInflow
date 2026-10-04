@@ -2053,6 +2053,14 @@
       "owner": "Liekan statistics maintenance",
       "constraint": "Preserve report schema and website permissions",
       "removalCondition": "Remove when upstream exposes equivalent snapshot boundaries"
+    },
+    {
+      "path": "tests/api/liekan-log-sources.spec.ts",
+      "purpose": "Verify automatic log source access boundaries in the disposable API acceptance environment",
+      "tests": ["pnpm liekan:verify", "Liekan isolated API acceptance"],
+      "owner": "Liekan release maintenance",
+      "constraint": "Exercise existing authorization and invalid input paths without changing product endpoints or contacting external providers",
+      "removalCondition": "Remove when equivalent upstream log source API boundary coverage is available"
     }
   ]
 }

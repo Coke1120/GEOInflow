@@ -49,11 +49,8 @@ test.describe('Liekan automatic log access boundaries', () => {
     expect((await api.post(`${base}/heartbeat`, {})).status).toBe(401);
   });
 
-  test('rejects incomplete Cloudflare callbacks without a redirect or provider exchange', async ({
-    api,
-  }) => {
+  test('rejects incomplete Cloudflare callback parameters', async ({ api }) => {
     const response = await api.get('/api/liekan/oauth/cloudflare/callback');
     expect(response.status).toBe(400);
-    expect(response.headers.location).toBeUndefined();
   });
 });

@@ -463,7 +463,10 @@ export function Navigation({
               aria-label="个人账户"
               aria-expanded={account}
               aria-controls="account-navigation"
-              onClick={() => setAccount(!account)}
+              onClick={event => {
+                event.currentTarget.focus();
+                setAccount(!account);
+              }}
             >
               <span className={styles.avatar}>{user.username?.slice(0, 1) || 'L'}</span>
               <span className={styles.siteText}>

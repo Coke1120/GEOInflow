@@ -94,6 +94,23 @@ describe('website navigation transitions', () => {
       target.remove();
     }
   });
+  it('keeps account focus inside an open mobile sidebar after pointer blur', () => {
+    render(
+      <Navigation
+        user={{ id: 'user', username: 'admin' } as any}
+        route={{ page: 'events', websiteId: 'site-a' }}
+        site={{ id: 'site-a', name: '网站 A', domain: 'a.test' }}
+        width={228}
+        onWidth={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '页面导航', exact: true }));
+    (document.activeElement as HTMLElement).blur();
+    const account = screen.getByRole('button', { name: '个人账户', exact: true });
+    fireEvent.click(account);
+    expect(account).toHaveFocus();
+    expect(screen.getByRole('link', { name: '账户安全' })).toBeInTheDocument();
+  });
   it('searches by domain and closes the picker with Escape while restoring focus', () => {
     render(
       <Navigation
