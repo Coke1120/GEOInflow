@@ -1,7 +1,7 @@
 'use client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { FeatureEntity, FeatureRoute, FeatureUser } from '@/lib/liekan/contracts/features';
 import {
@@ -25,24 +25,50 @@ import '@/styles/liekan/Features.module.css';
 import { featureHref, featureWebsiteSwitchHref, safeReturnHref } from './features/routes';
 import { Drawer, Icon, Notice, QueryState } from './features/ui';
 import { NavigationFeedback } from './NavigationFeedback';
+import {
+  NavigationRegistrationContext,
+  SidebarWidthContext,
+  type NavigationProps,
+} from './NavigationFrameContext';
 
 export function useSidebarWidth() {
+  const shared = useContext(SidebarWidthContext);
   const [width, setWidth] = useState(228);
-  useEffect(() => {
-    const saved = Number(localStorage.getItem('lk-side-w'));
-    if (saved) setWidth(Math.max(180, Math.min(320, saved)));
-  }, []);
-  return [
-    width,
-    (next: number) => {
-      const value = Math.max(180, Math.min(320, Math.round(next)));
-      setWidth(value);
+  useLayoutEffect(() => {
+    if (shared) return;
+    try {
+      const saved = Number(localStorage.getItem('lk-side-w'));
+      if (Number.isFinite(saved) && saved > 0) setWidth(Math.max(180, Math.min(320, saved)));
+    } catch {}
+  }, [!!shared]);
+  const update = useCallback((next: number) => {
+    const value = Number.isFinite(next) ? Math.max(180, Math.min(320, Math.round(next))) : 228;
+    setWidth(value);
+    try {
       localStorage.setItem('lk-side-w', String(value));
-    },
-  ] as const;
+    } catch {}
+  }, []);
+  return shared || ([width, update] as const);
 }
 
-export function Navigation({
+export function Navigation(props: NavigationProps) {
+  const register = useContext(NavigationRegistrationContext);
+  const { pathname } = useNavigation();
+  useLayoutEffect(() => {
+    if (register) return register(pathname, props);
+  }, [
+    register,
+    pathname,
+    props.user,
+    props.route,
+    props.site,
+    props.href,
+    props.websiteContextTarget,
+  ]);
+  return register ? null : <NavigationView {...props} />;
+}
+
+export function NavigationView({
   user,
   route,
   site,

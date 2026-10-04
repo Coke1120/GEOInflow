@@ -802,10 +802,15 @@
     },
     {
       "path": "src/app/(main)/App.tsx",
-      "purpose": "Liekan release, branding or compatibility integration",
-      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
+      "purpose": "Liekan presentation shell and stable navigation across authenticated page transitions",
+      "tests": [
+        "src/components/liekan/navigation-frame.test.tsx",
+        "src/components/liekan/features/feature-app.test.tsx",
+        "pnpm liekan:verify",
+        "Liekan loading and original visual acceptance"
+      ],
       "owner": "Liekan interface integration",
-      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
+      "constraint": "Preserve authentication, 2FA, permissions, resource gates, legacy layout, page provider lifetimes and reset keys; keep only navigation presentation mounted during authorized transitions",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
