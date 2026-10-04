@@ -515,6 +515,7 @@
   min-width: 0;
 }
 .queryFeedback {
+  pointer-events: none;
   position: absolute;
   z-index: 2;
   top: 4px;
@@ -529,6 +530,7 @@
   box-shadow: 0 2px 8px #16181d08;
 }
 .queryFeedback button {
+  pointer-events: auto;
   color: #0f62fe;
   margin-left: 8px;
 }

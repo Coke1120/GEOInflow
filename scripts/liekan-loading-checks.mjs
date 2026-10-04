@@ -39,14 +39,37 @@ export async function beginLoadingEntry(page, id) {
     await route.fallback().catch(() => {});
   };
   await page.route('**/api/**', handler);
-  let first, completed, completedAt;
+  let first,
+    completed,
+    completedAt,
+    pendingCharts = [];
   const started = performance.now();
   return {
     async capture() {
       await page.locator('h1').first().waitFor({ state: 'visible', timeout: 30000 });
       first = await frame(page);
+      await page.evaluate(() => {
+        const observation = { active: true, charts: {} };
+        window.__liekanLoadingObservation = observation;
+        const sample = () => {
+          if (!observation.active) return;
+          [...document.querySelectorAll('.chart,[id][role="img"]')].forEach((el, index) => {
+            if (!el.closest('[aria-busy="true"]') || el.querySelector('canvas,svg')) return;
+            const { x, y, width, height } = el.getBoundingClientRect();
+            const id = el.id || `${el.getAttribute('aria-label')}:${index}`;
+            observation.charts[id] = { id, x, y, width, height };
+          });
+          requestAnimationFrame(sample);
+        };
+        sample();
+      });
     },
     async loaded() {
+      pendingCharts = await page.evaluate(() => {
+        const observation = window.__liekanLoadingObservation;
+        if (observation) observation.active = false;
+        return Object.values(observation?.charts || {});
+      });
       completed = await frame(page);
       assert(!completed.busy, `${id}: data is still pending`);
       completedAt = performance.now();
@@ -111,7 +134,7 @@ export async function beginLoadingEntry(page, id) {
             Math.abs(first.heading[axis] - complete.heading[axis]),
           );
       }
-      for (const chart of first?.charts || []) {
+      for (const chart of pendingCharts) {
         const loaded = complete.charts.find(candidate => candidate.id === chart.id);
         assert(loaded, `Pending chart ${chart.id} disappeared`);
         if (loaded)
@@ -124,7 +147,7 @@ export async function beginLoadingEntry(page, id) {
       if (!dynamicLayout)
         for (const chart of complete.charts)
           assert(
-            first?.charts.some(candidate => candidate.id === chart.id),
+            pendingCharts.some(candidate => candidate.id === chart.id),
             `Chart ${chart.id} has no pending frame`,
           );
       assert(maxStableGeometryDelta <= 1, `Loading frame shifted ${maxStableGeometryDelta}px`);
@@ -132,6 +155,7 @@ export async function beginLoadingEntry(page, id) {
         milliseconds: (completedAt || performance.now()) - started,
         reads,
         pendingObserved: first?.busy || false,
+        pendingChartFrames: pendingCharts.length,
         maxStableGeometryDelta,
       };
       await page.unroute('**/api/**', handler);
@@ -141,6 +165,11 @@ export async function beginLoadingEntry(page, id) {
       return { cold, warm: { milliseconds: performance.now() - warmStarted }, passed: true };
     },
     async cleanup() {
+      await page
+        .evaluate(() => {
+          if (window.__liekanLoadingObservation) window.__liekanLoadingObservation.active = false;
+        })
+        .catch(() => {});
       await page.unroute('**/api/**', handler);
     },
   };

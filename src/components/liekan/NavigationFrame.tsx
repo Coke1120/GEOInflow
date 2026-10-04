@@ -47,7 +47,13 @@ export function NavigationFrame({
           <div
             data-liekan-features
             lang="zh-CN"
-            style={{ '--lk-side-w': `${width}px`, '--side': `${width}px` } as CSSProperties}
+            style={
+              {
+                display: 'contents',
+                '--lk-side-w': `${width}px`,
+                '--side': `${width}px`,
+              } as CSSProperties
+            }
           >
             <NavigationView {...props} width={width} onWidth={setWidth} />
           </div>

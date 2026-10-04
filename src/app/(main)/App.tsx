@@ -57,6 +57,14 @@ export function App({ children }) {
     }
   }, [user, isLoading, pathname, query.legacy, router]);
 
+  const showProductNavigation =
+    (showFeature || showLiekan) &&
+    !(
+      showFeature &&
+      (needsTwoFactorSetup ||
+        ['share-preview', 'two-factor', 'backup-codes'].includes(featureRoute.page))
+    );
+
   if (isLoading || !config) {
     return <Loading placement="absolute" />;
   }
@@ -85,17 +93,16 @@ export function App({ children }) {
             ? { page: geoPageFromPath(pathname), websiteId }
             : featureRoute || { page: 'dashboard' }
         }
-        enabled={
-          (showFeature || showLiekan) &&
-          !(
-            showFeature &&
-            (needsTwoFactorSetup ||
-              ['share-preview', 'two-factor', 'backup-codes'].includes(featureRoute.page))
-          )
-        }
+        enabled={showProductNavigation}
       >
         {teamId && isTeamLoading ? (
-          <PageLoadingFrame page={featureRoute?.page || 'dashboard'} />
+          showProductNavigation ? (
+            <PageLoadingFrame
+              page={isGeo ? geoPageFromPath(pathname) : featureRoute?.page || 'dashboard'}
+            />
+          ) : (
+            <Loading placement="absolute" />
+          )
         ) : showFeature ? (
           <FeatureApp user={user} route={featureRoute} forceSetup={needsTwoFactorSetup} />
         ) : showLiekan ? (
