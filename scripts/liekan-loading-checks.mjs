@@ -28,6 +28,33 @@ const frame = page =>
     };
   });
 
+export async function assertReadRegionLayout(page) {
+  const layout = await page.evaluate(() => {
+    const regions = [...document.querySelectorAll('[data-liekan-read-region]')];
+    const stacks = regions.flatMap((region, index) => {
+      const parent = getComputedStyle(region.parentElement);
+      const children = [...region.children].filter(child => {
+        const style = getComputedStyle(child);
+        const box = child.getBoundingClientRect();
+        return box.width > 0 && box.height > 0 && !['absolute', 'fixed'].includes(style.position);
+      });
+      if (parent.display !== 'grid' || children.length < 2) return [];
+      const style = getComputedStyle(region);
+      return [{ index, display: style.display, rowGap: style.rowGap, parentRowGap: parent.rowGap }];
+    });
+    return { regions: regions.length, stacks };
+  });
+  for (const stack of layout.stacks) {
+    assert.equal(stack.display, 'grid', `Read region ${stack.index} changed its inherited layout`);
+    assert.equal(
+      stack.rowGap,
+      stack.parentRowGap,
+      `Read region ${stack.index} lost its original spacing`,
+    );
+  }
+  return layout;
+}
+
 // Delays are confined to the isolated browser. No production data or app settings change.
 export async function beginLoadingEntry(page, id) {
   let reads = 0;
@@ -42,7 +69,8 @@ export async function beginLoadingEntry(page, id) {
   let first,
     completed,
     completedAt,
-    pendingCharts = [];
+    pendingCharts = [],
+    loadedLayout;
   const started = performance.now();
   return {
     async capture() {
@@ -79,6 +107,7 @@ export async function beginLoadingEntry(page, id) {
         if (observation) observation.active = false;
         return Object.values(observation?.charts || {});
       });
+      loadedLayout = await assertReadRegionLayout(page);
       completed = await frame(page);
       assert(!completed.busy, `${id}: data is still pending`);
       completedAt = performance.now();
@@ -170,12 +199,20 @@ export async function beginLoadingEntry(page, id) {
         pendingObserved: first?.busy || false,
         pendingChartFrames: pendingCharts.length,
         maxStableGeometryDelta,
+        loadedLayout,
       };
       await page.unroute('**/api/**', handler);
       const warmStarted = performance.now();
       await page.reload();
       await ready(page);
-      return { cold, warm: { milliseconds: performance.now() - warmStarted }, passed: true };
+      return {
+        cold,
+        warm: {
+          milliseconds: performance.now() - warmStarted,
+          layout: await assertReadRegionLayout(page),
+        },
+        passed: true,
+      };
     },
     async cleanup() {
       await page

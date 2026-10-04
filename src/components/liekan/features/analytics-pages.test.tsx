@@ -223,3 +223,21 @@ it('distinguishes missing attribution input from an active data read', async () 
   view.rerender(<AnalyticsPages page="attribution" />);
   expect(view.container.querySelector('[aria-busy="true"]')).toBeNull();
 });
+
+it.each(['utm-total', 'utm-goal-list', 'utm-goal'])(
+  'keeps UTM cards in their existing flow position after a cached %s failure',
+  key => {
+    mocks.query['utm-total'] = { views: 10, visitors: 2 };
+    mocks.query['utm-goal-list'] = [{ id: 'goal-a', name: '注册目标' }];
+    mocks.query['utm-goal'] = { conversions: 1 };
+    mocks.query['utm-dimension'] = { rows: [], dimensionTotal: 0 };
+    const view = render(<AnalyticsPages page="utm" />);
+    const metrics = view.container.querySelector('.metrics');
+    const siblings = view.container.children.length;
+    mocks.errors[key] = Object.assign(new Error('暂时不可用'), { status: 503 });
+    view.rerender(<AnalyticsPages page="utm" />);
+    expect(view.container.querySelector('.metrics')).toBe(metrics);
+    expect(view.container.children.length).toBe(siblings);
+    expect(screen.getByRole('alert')).toHaveTextContent('更新失败，显示上次结果');
+  },
+);

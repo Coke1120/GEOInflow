@@ -242,3 +242,22 @@ it('preserves decimal API amounts in revenue cards, transactions and cumulative 
   );
   expect(props.option.series[0].data[1].exactAmount).toBe('100000000000000.00');
 });
+
+it.each([
+  ['performance', 'performance-summary', { count: 2, lcp: { p75: 800 } }],
+  ['performance', 'performance-real-counts', { lcpCount: 2, lcpP75: 800 }],
+  ['revenue', 'revenue-summary', { sum: '10', count: 1, unique_count: 1 }],
+])(
+  'keeps %s summary content in its existing flow position after a cached read failure',
+  (page, key, data) => {
+    mocks.query[key] = data;
+    const view = render(<ExtendedPages page={page as string} />);
+    const metrics = view.container.querySelector('.metrics');
+    const siblings = view.container.children.length;
+    mocks.errors[key] = Object.assign(new Error('暂时不可用'), { status: 503 });
+    view.rerender(<ExtendedPages page={page as string} />);
+    expect(view.container.querySelector('.metrics')).toBe(metrics);
+    expect(view.container.children.length).toBe(siblings);
+    expect(screen.getByRole('alert')).toHaveTextContent('更新失败，显示上次结果');
+  },
+);

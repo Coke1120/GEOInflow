@@ -513,6 +513,8 @@
 .readRegion {
   position: relative;
   min-width: 0;
+  display: inherit;
+  gap: inherit;
 }
 .queryFeedback {
   pointer-events: none;

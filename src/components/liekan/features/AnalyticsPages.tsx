@@ -1735,42 +1735,37 @@ function UTM() {
         active={dimension}
         onChange={setDimension}
       />
-      <Metrics
-        loading={!!summary.isPending}
-        items={[
-          ['带 UTM 访问', summary.data ? n(summary.data.views) : null, '有至少一个 UTM 字段'],
-          ['带 UTM 访客', summary.data ? n(summary.data.visitors) : null, '独立访客'],
-          [
-            '已标记转化',
-            goals.error || goal.error
-              ? '读取失败'
-              : goals.isPending || (selected && goal.isPending)
-                ? '正在读取'
-                : selected && goal.data
-                  ? n(goal.data.conversions)
-                  : selected
-                    ? '未提供'
-                    : '尚未配置',
-            selected ? `目标：${selected.name}` : goals.error ? '目标读取失败' : '请先创建网站目标',
-          ],
-          ['字段缺失', '分别保留', '未提供字段不补推断'],
-        ]}
-      />
-      {summary.error && (
-        <QueryState readOnly query={summary}>
-          {null}
-        </QueryState>
-      )}
-      {goals.error && (
+      <QueryState readOnly query={summary}>
         <QueryState readOnly query={goals}>
-          {null}
+          <QueryState readOnly query={{ ...goal, isPending: !!selected && !!goal.isPending }}>
+            <Metrics
+              loading={!!summary.isPending}
+              items={[
+                ['带 UTM 访问', summary.data ? n(summary.data.views) : null, '有至少一个 UTM 字段'],
+                ['带 UTM 访客', summary.data ? n(summary.data.visitors) : null, '独立访客'],
+                [
+                  '已标记转化',
+                  goals.error || goal.error
+                    ? '读取失败'
+                    : goals.isPending || (selected && goal.isPending)
+                      ? '正在读取'
+                      : selected && goal.data
+                        ? n(goal.data.conversions)
+                        : selected
+                          ? '未提供'
+                          : '尚未配置',
+                  selected
+                    ? `目标：${selected.name}`
+                    : goals.error
+                      ? '目标读取失败'
+                      : '请先创建网站目标',
+                ],
+                ['字段缺失', '分别保留', '未提供字段不补推断'],
+              ]}
+            />
+          </QueryState>
         </QueryState>
-      )}
-      {goal.error && (
-        <QueryState readOnly query={goal}>
-          {null}
-        </QueryState>
-      )}
+      </QueryState>
       <QueryState readOnly query={query}>
         <div className="two">
           <Chart

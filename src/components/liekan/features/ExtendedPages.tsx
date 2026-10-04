@@ -116,19 +116,23 @@ function Performance() {
           ]}
         />
       </div>
-      <Metrics
-        loading={!!summary.isPending}
-        className="five"
-        items={['lcp', 'inp', 'cls', 'fcp', 'ttfb'].map(
-          (m, i) =>
-            [
-              m.toUpperCase(),
-              perfValue(value(m), m),
-              `${['最大内容绘制', '交互延迟', '累计布局偏移', '首次内容绘制', '首字节时间'][i]} · ${percentile}`,
-              m === metric ? 'blue' : '',
-            ] as any,
-        )}
-      />
+      <QueryState readOnly query={summary}>
+        <QueryState readOnly query={counts}>
+          <Metrics
+            loading={!!summary.isPending}
+            className="five"
+            items={['lcp', 'inp', 'cls', 'fcp', 'ttfb'].map(
+              (m, i) =>
+                [
+                  m.toUpperCase(),
+                  perfValue(value(m), m),
+                  `${['最大内容绘制', '交互延迟', '累计布局偏移', '首次内容绘制', '首字节时间'][i]} · ${percentile}`,
+                  m === metric ? 'blue' : '',
+                ] as any,
+            )}
+          />
+        </QueryState>
+      </QueryState>
       <Panel
         title={`${metric.toUpperCase()} 分位数趋势`}
         subtitle={`p50、p75、p95 · ${data ? n(data[`${metric}Count`]) : summary.data ? n(summary.data.count) : '—'} 次采样`}
@@ -198,16 +202,6 @@ function Performance() {
         </Panel>
       </div>
       <Notice>性能数据需采集对应浏览器指标。没有样本时显示“未采集”。CLS 不使用时间单位。</Notice>
-      {counts.error && (
-        <QueryState readOnly query={counts}>
-          {null}
-        </QueryState>
-      )}
-      {summary.error && (
-        <QueryState readOnly query={summary}>
-          {null}
-        </QueryState>
-      )}
     </>
   );
 }
@@ -263,24 +257,21 @@ function Revenue() {
           onChange={setMode}
         />
       </div>
-      <Metrics
-        loading={!!summary.isPending}
-        items={[
-          ['收入', totals ? money(totals.sum) : null, `${currency} · 所选币种`],
-          ['付费事件', totals ? n(totals.count) : null, '收入事件触发次数'],
-          ['付费访客', totals ? n(totals.unique_count) : null, '独立访客'],
-          [
-            '平均事件金额',
-            totals ? formatRevenueAverage(totals.sum, Number(totals.count), currency) : '—',
-            '收入 / 付费事件',
-          ],
-        ]}
-      />
-      {summary.error && (
-        <QueryState readOnly query={summary}>
-          {null}
-        </QueryState>
-      )}
+      <QueryState readOnly query={summary}>
+        <Metrics
+          loading={!!summary.isPending}
+          items={[
+            ['收入', totals ? money(totals.sum) : null, `${currency} · 所选币种`],
+            ['付费事件', totals ? n(totals.count) : null, '收入事件触发次数'],
+            ['付费访客', totals ? n(totals.unique_count) : null, '独立访客'],
+            [
+              '平均事件金额',
+              totals ? formatRevenueAverage(totals.sum, Number(totals.count), currency) : '—',
+              '收入 / 付费事件',
+            ],
+          ]}
+        />
+      </QueryState>
       <Panel title="收入趋势" subtitle={`金额单位：${currency}。累计从所选期间起点计算。`}>
         <QueryState readOnly query={chart}>
           <Chart

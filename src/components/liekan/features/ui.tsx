@@ -537,6 +537,7 @@ export function QueryState({
     return (
       <div
         className={loadingStyles.readRegion}
+        data-liekan-read-region
         aria-busy={query.isPending || query.isFetching || undefined}
       >
         <DataLoadingContext.Provider value={!!query.isPending}>
