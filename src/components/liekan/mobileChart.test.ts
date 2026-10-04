@@ -110,3 +110,29 @@ it('recalculates exact geometry when shrinking within the same tick-density grou
   stop();
   vi.unstubAllGlobals();
 });
+
+it('preserves date-prefixed event names and invalid timestamp categories', () => {
+  const labels = [
+    '2026-10-04_signup',
+    '2026-10-04_purchase',
+    '2026-10-04 25:30',
+    '2026-10-04 10:90',
+    '2026-10-04 10:30 extra',
+  ];
+  const axis = mobileChartOptions(
+    { ...source, xAxis: { type: 'category', data: labels } },
+    280,
+    true,
+  ).xAxis;
+  labels.forEach((label, index) => expect(axis.axisLabel.formatter(label, index)).toBe(label));
+});
+it('formats complete timestamps with seconds and offsets', () => {
+  const labels = ['2026-10-04T09:00:00.000Z', '2026-10-04T10:30:59+08:00'];
+  const axis = mobileChartOptions(
+    { ...source, xAxis: { type: 'category', data: labels } },
+    280,
+    true,
+  ).xAxis;
+  expect(axis.axisLabel.formatter(labels[0], 0)).toBe('09:00');
+  expect(axis.axisLabel.formatter(labels[1], 1)).toBe('10:30');
+});

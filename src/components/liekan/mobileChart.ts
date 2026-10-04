@@ -1,5 +1,7 @@
 // Responsive display options preserve the original series and full tooltip values.
 const list = (value: any) => (Array.isArray(value) ? value : value ? [value] : []);
+const dateLabelPattern =
+  /^(\d{4}[-/](?:0[1-9]|1[0-2])[-/](?:0[1-9]|[12]\d|3[01]))(?:[ T]((?:[01]\d|2[0-3]):[0-5]\d)(?::[0-5]\d(?:\.\d{1,9})?)?(?:Z|[+-](?:[01]\d|2[0-3]):?[0-5]\d)?)?$/;
 const sameShape = (source: any, values: any[]) => (Array.isArray(source) ? values : values[0]);
 export function mobileChartOptions(source: any, width: number, compact: boolean) {
   if (!compact) return source;
@@ -31,17 +33,15 @@ export function mobileChartOptions(source: any, width: number, compact: boolean)
             );
             const formatter = label.formatter;
             const timestamps = (axis.data || [])
-              .map((value: any) =>
-                String(value).match(/^(\d{4}[-/]\d{2}[-/]\d{2})[ T](\d{2}:\d{2})/),
-              )
-              .filter(Boolean);
+              .map((value: any) => String(value).match(dateLabelPattern))
+              .filter((match: string[] | null) => match?.[2]);
             const dates = new Set(timestamps.map((match: string[]) => match[1]));
             const times = new Set(timestamps.map((match: string[]) => match[2]));
             const showTime = times.size > 1 || [...times].some(time => time !== '00:00');
             label.formatter = (value: string, index: number) => {
               if (typeof formatter === 'function') return formatter(value, index);
               if (typeof formatter === 'string') return formatter.replace('{value}', String(value));
-              const match = String(value).match(/^(\d{4}[-/]\d{2}[-/]\d{2})(?:[ T](\d{2}:\d{2}))?/);
+              const match = String(value).match(dateLabelPattern);
               if (match)
                 return showTime && match[2]
                   ? `${dates.size > 1 ? `${match[1].slice(5)}\n` : ''}${match[2]}`

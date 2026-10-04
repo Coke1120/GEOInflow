@@ -186,6 +186,7 @@ export function syntheticRelations() {
         'website_id uuid,created_at timestamptz,path text,bot text,bot_type text',
         logs,
       ),
+      'liekan_effective_log AS (SELECT * FROM liekan_log)',
     ].join(',')
   );
 }
