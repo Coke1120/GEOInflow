@@ -1,4 +1,5 @@
 import { checkNavigation } from './liekan-navigation-visual.mjs';
+import { checkMobileExperience } from './liekan-mobile-visual.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -499,6 +500,15 @@ try {
       .map(r => `${r.id} ${r.width}: ${r.error}`)
       .join('\n'),
   );
+  report.mobile = await checkMobileExperience({
+    base,
+    seed,
+    board,
+    share,
+    partial,
+    journey,
+    token: adminToken,
+  });
   report.passed = true;
 } catch (error) {
   report.error = error.message;

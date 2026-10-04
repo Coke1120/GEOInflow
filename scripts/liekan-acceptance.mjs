@@ -379,7 +379,10 @@ try {
   if (
     !report.featureVisual.passed ||
     report.featureVisual.head !== head ||
-    report.featureVisual.checks.length !== 68 * 4
+    report.featureVisual.checks.length !== 68 * 4 ||
+    !report.featureVisual.mobile?.passed ||
+    report.featureVisual.mobile.head !== head ||
+    report.featureVisual.mobile.checks !== 79 * 4 * 2
   )
     throw new Error('Supplemental visual acceptance incomplete');
   docker('rm', '-f', app);

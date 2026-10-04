@@ -237,6 +237,20 @@ try {
   await actual.locator('[data-test="input-password"] input').fill(credentials.LIEKAN_TEST_PASSWORD);
   await actual.locator('[data-test="button-submit"]').click();
   await actual.waitForURL(url => !url.pathname.includes('/login'));
+  const token = await actual.evaluate(() => JSON.parse(localStorage.getItem('umami.auth')));
+  const available = await context.request.get(`${base}/api/me/websites`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  assert.equal(available.status(), 200, 'Accessible visual fixture websites required');
+  const websites = await available.json();
+  const visualWebsiteId = websites.data?.[0]?.id;
+  assert.match(visualWebsiteId || '', /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i);
+  const identity = await context.request.get(`${base}/api/websites/${visualWebsiteId}`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  assert.equal(identity.status(), 200, 'Visual fixture website permission required');
+  assert.equal((await identity.json()).id, visualWebsiteId);
+
   await context.route('https://cdn.tailwindcss.com/**', route =>
     route.fulfill({ contentType: 'application/javascript', body: tailwind }),
   );
@@ -274,7 +288,7 @@ try {
     });
     await reference.waitForTimeout(800);
     const payload = await reference.evaluate(
-      ({ columns }) => {
+      ({ columns, websiteId }) => {
         const charts = {};
         document.querySelectorAll('main [id]').forEach(el => {
           const instance = window.echarts?.getInstanceByDom(el);
@@ -404,7 +418,7 @@ try {
         return {
           contractVersion: 1,
           website: {
-            id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001',
+            id: websiteId,
             name: '视觉验收夹具',
             domain: 'www.liekan.com',
           },
@@ -430,7 +444,7 @@ try {
           },
         };
       },
-      { columns },
+      { columns, websiteId: visualWebsiteId },
     );
     let fixtureRequests = 0;
     await actual.route('**/api/liekan/**/page-report?*', route => {
