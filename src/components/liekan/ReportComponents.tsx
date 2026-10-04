@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useMemo } from 'react';
 import styles from '@/styles/liekan/Shell.module.css';
 import { chartOptions } from './chartOptions';
-import { loadEcharts } from './chartRuntime';
+import { useStableChart } from './useStableChart';
+import { useDataLoading } from './LoadingState';
 import {
   columns,
   formatCellValue,
@@ -33,6 +34,7 @@ export function MetricCard({
   valueClass: string;
   report?: LiekanReport;
 }) {
+  const loading = useDataLoading();
   const card = report?.cards.find(card => card.label === label);
   const display = formatMetricValue(card || { value: null, label });
   return (
@@ -40,7 +42,9 @@ export function MetricCard({
       <p className="text-[11.5px] text-sub">{label}</p>
       <p className={`${valueClass} ${styles.metricValue}`}>{display}</p>
       <p className="text-[10.5px] text-faint mt-1">
-        {card?.detail || stateLabels[card?.state || 'not_connected'] || '当前统计范围'}
+        {loading
+          ? '正在读取'
+          : card?.detail || stateLabels[card?.state || 'not_connected'] || '当前统计范围'}
         {card?.state === 'estimated' && card.detail ? ' · 估算' : ''}
       </p>
     </div>
@@ -55,73 +59,33 @@ export function ReferenceChart({
   height: number;
   report?: LiekanReport;
 }) {
-  const container = useRef<HTMLDivElement>(null);
-  const [failed, setFailed] = useState(false);
-  const [attempt, setAttempt] = useState(0);
+  const loading = useDataLoading();
   const chart = report?.charts[id];
   const hasData =
     !!chart && (chart.series.some(s => s.values.length > 0) || (chart.rows?.length || 0) > 0);
-  useEffect(() => {
-    setFailed(false);
-    if (!hasData || !container.current) return;
-    let disposed = false;
-    let instance: any;
-    let observer: ResizeObserver;
-    const cleanup = () => {
-      observer?.disconnect();
-      observer = undefined;
-      try {
-        instance?.dispose();
-      } catch {}
-      instance = undefined;
-    };
-    const fail = () => {
-      if (disposed) return;
-      cleanup();
-      setFailed(true);
-    };
-    loadEcharts()
-      .then(echarts => {
-        if (disposed || !container.current) return;
-        instance = echarts.init(container.current);
-        const option = chartOptions(id, chart);
-        if (id === 'd1' && report?.states.logs === 'not_connected')
-          option.series = option.series.slice(0, 1);
-        option.animation = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        const axes = Array.isArray(option.yAxis)
-          ? option.yAxis
-          : option.yAxis
-            ? [option.yAxis]
-            : [];
-        axes.forEach((axis: any, index: number) => {
-          if (axis.type !== 'value') return;
-          const values = option.series.flatMap((series: any) =>
-            (series.yAxisIndex || 0) === index
-              ? series.data.filter((value: any) => typeof value === 'number')
-              : [],
-          );
-          if (!values.length) return;
-          const min = Math.min(...values),
-            max = Math.max(...values);
-          if (axis.min != null && min < axis.min) axis.min = Math.max(0, Math.floor(min * 0.8));
-          if (axis.max != null && max > axis.max) axis.max = Math.ceil(max * 1.1);
-        });
-        instance.setOption(option);
-        observer = new ResizeObserver(() => {
-          try {
-            instance?.resize();
-          } catch {
-            fail();
-          }
-        });
-        observer.observe(container.current);
-      })
-      .catch(fail);
-    return () => {
-      disposed = true;
-      cleanup();
-    };
-  }, [id, chart, hasData, report?.states.logs, attempt]);
+  const option = useMemo(() => {
+    if (!hasData) return { series: [] };
+    const option = chartOptions(id, chart);
+    if (id === 'd1' && report?.states.logs === 'not_connected')
+      option.series = option.series.slice(0, 1);
+    option.animation = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const axes = Array.isArray(option.yAxis) ? option.yAxis : option.yAxis ? [option.yAxis] : [];
+    axes.forEach((axis: any, index: number) => {
+      if (axis.type !== 'value') return;
+      const values = option.series.flatMap((series: any) =>
+        (series.yAxisIndex || 0) === index
+          ? series.data.filter((value: any) => typeof value === 'number')
+          : [],
+      );
+      if (!values.length) return;
+      const min = Math.min(...values),
+        max = Math.max(...values);
+      if (axis.min != null && min < axis.min) axis.min = Math.max(0, Math.floor(min * 0.8));
+      if (axis.max != null && max > axis.max) axis.max = Math.ceil(max * 1.1);
+    });
+    return option;
+  }, [id, chart, hasData, report?.states.logs]);
+  const { container, failed, retry } = useStableChart(id, option, undefined, !loading && hasData);
   const state =
     chart?.state ||
     (id.startsWith('h') || id.startsWith('g') || id.startsWith('s')
@@ -134,24 +98,25 @@ export function ReferenceChart({
       id={id}
       style={{ height, position: 'relative' }}
       role={failed ? 'group' : 'img'}
-      aria-label={`${id} 数据图表${failed ? ': 加载失败' : hasData ? '' : `: ${stateLabels[state || 'not_connected']}`}`}
+      aria-busy={loading || undefined}
+      aria-label={`${id} 数据图表${loading ? ': 正在读取' : failed ? ': 加载失败' : hasData ? '' : `: ${stateLabels[state || 'not_connected']}`}`}
     >
       <div ref={container} style={{ width: '100%', height: '100%' }} />
       {hasData && failed && (
         <div className={`${styles.chartEmpty} ${styles.chartFailure}`} role="alert">
           <span>图表加载失败</span>
-          <button type="button" className="chip" onClick={() => setAttempt(value => value + 1)}>
+          <button type="button" className="chip" onClick={retry}>
             重试图表
           </button>
         </div>
       )}
       {!hasData && (
         <div className={styles.chartEmpty}>
-          {
-            stateLabels[
-              state === 'available' || state === 'estimated' ? 'empty' : state || 'not_connected'
-            ]
-          }
+          {loading
+            ? '正在读取统计数据'
+            : stateLabels[
+                state === 'available' || state === 'estimated' ? 'empty' : state || 'not_connected'
+              ]}
         </div>
       )}
     </div>
@@ -370,6 +335,7 @@ export function ReportRows({
   limit?: number;
 }) {
   const a = useReportActions();
+  const loading = useDataLoading();
   const fields = columns[table] || [];
   const selected = selectRows(report?.tables[table] || [], a.filter, a.sort, table, a.query);
   const displayLimit = limit ?? tableLimits[table];
@@ -377,7 +343,17 @@ export function ReportRows({
   const state = reportState(report, table);
   return (
     <tbody className="divide-y divide-line/60" id={table}>
-      {rows.length ? (
+      {loading ? (
+        Array.from({ length: 5 }, (_, i) => (
+          <tr key={i} aria-hidden="true">
+            {fields.map(([field], j) => (
+              <td key={field} className={cellClasses[table]?.[j] || 'px-4 py-3'}>
+                <span className={styles.loadingCell} />
+              </td>
+            ))}
+          </tr>
+        ))
+      ) : rows.length ? (
         rows.map((row, i) => (
           <tr
             key={String(row.id || row.path || row.name || row.source || row.time || i) + i}
@@ -440,6 +416,7 @@ export function ReportList({
   className: string;
   report?: LiekanReport;
 }) {
+  const loading = useDataLoading();
   const sourceRows = report?.tables[id] || [];
   const rows = tableLimits[id] ? sourceRows.slice(0, tableLimits[id]) : sourceRows;
   const state =
@@ -450,11 +427,11 @@ export function ReportList({
         : report?.states.logs;
   const empty = (
     <p className={styles.listEmpty}>
-      {
-        stateLabels[
-          state === 'available' || state === 'estimated' ? 'empty' : state || 'not_connected'
-        ]
-      }
+      {loading
+        ? '正在读取统计数据'
+        : stateLabels[
+            state === 'available' || state === 'estimated' ? 'empty' : state || 'not_connected'
+          ]}
     </p>
   );
   const step = (i: number) => (
@@ -601,13 +578,16 @@ export function InsightRows({
   report?: LiekanReport;
   variant?: 'rows' | 'paragraph';
 }) {
+  const loading = useDataLoading();
   if (variant === 'paragraph')
     return (
       <p className={className || 'text-[12px] text-sub leading-relaxed'}>
         <b className="text-ink">GEO 洞察：</b>
         {report?.insights.length
           ? report.insights.join(' ')
-          : '接入日志与页面目录后生成当前范围的 GEO 发现。'}
+          : loading
+            ? '正在读取统计数据'
+            : '接入日志与页面目录后生成当前范围的 GEO 发现。'}
       </p>
     );
   return (
@@ -623,12 +603,15 @@ export function InsightRows({
           </p>
         ))
       ) : (
-        <p className={styles.listEmpty}>接入日志与页面目录后生成当前范围的 GEO 发现。</p>
+        <p className={styles.listEmpty}>
+          {loading ? '正在读取统计数据' : '接入日志与页面目录后生成当前范围的 GEO 发现。'}
+        </p>
       )}
     </div>
   );
 }
 export function LatestLog({ className, report }: { className: string; report?: LiekanReport }) {
+  const loading = useDataLoading();
   const row = report?.tables.logBody?.[0];
   return (
     <pre
@@ -637,12 +620,15 @@ export function LatestLog({ className, report }: { className: string; report?: L
     >
       {row
         ? `${formatValue(row.ipMasked)} [${formatValue(row.time)}]\n"${row.method || 'GET'} ${formatValue(row.path)}" ${formatValue(row.status)}\n${formatValue(row.userAgent)}\n→ 判定: ${formatValue(row.classification)}`
-        : '待导入访问日志\n支持 combined 格式和 JSON 记录\n导入后显示最近一条脱敏日志'}
+        : loading
+          ? '正在读取统计数据'
+          : '待导入访问日志\n支持 combined 格式和 JSON 记录\n导入后显示最近一条脱敏日志'}
     </pre>
   );
 }
 
 export function LiveStatus({ report, live }: { report?: LiekanReport; live?: boolean }) {
+  const loading = useDataLoading();
   const connected = report?.states.logs === 'available' || report?.states.logs === 'estimated';
   return (
     <>
@@ -658,7 +644,7 @@ export function LiveStatus({ report, live }: { report?: LiekanReport; live?: boo
             : '所选历史范围每 10 秒刷新，结束时间固定。'
         }
       >
-        {connected ? (live ? '10s 刷新' : '历史刷新') : '待接入'}
+        {loading ? '正在读取' : connected ? (live ? '10s 刷新' : '历史刷新') : '待接入'}
       </span>
     </>
   );

@@ -124,9 +124,13 @@ function ActionLink({
 export function SessionTable({
   title = '访问记录',
   params = {},
+  live = false,
+  refreshToken = 0,
 }: {
   title?: string;
   params?: any;
+  live?: boolean;
+  refreshToken?: number;
 }) {
   const c = useFeature();
   const [page, setPage] = useState(1);
@@ -135,7 +139,30 @@ export function SessionTable({
     () => setPage(1),
     [c.siteId, JSON.stringify(c.filters), c.range.startAt, c.range.endAt, JSON.stringify(params)],
   );
-  const query = useWebsiteData(['sessions-rich', scope], 'analytics', scope, true, true);
+  const query = useData(
+    ['sessions-rich', live ? { ...c.filters, timezone: c.range.timezone, page, live } : scope],
+    signal => {
+      const endAt = Date.now();
+      return c.api.get(
+        `/liekan/websites/${c.siteId}/analytics`,
+        live
+          ? {
+              ...scope,
+              startAt: endAt - 30 * 60000,
+              endAt,
+            }
+          : scope,
+        signal,
+      );
+    },
+    !!c.siteId,
+    live ? { refetchOnMount: 'always', staleTime: 0 } : {},
+  );
+  useEffect(() => {
+    if (!live || refreshToken === 0) return;
+    if (page !== 1) setPage(1);
+    else void query.refetch?.({ cancelRefetch: false });
+  }, [refreshToken]);
   const data = query.data;
   return (
     <Panel
@@ -143,7 +170,7 @@ export function SessionTable({
       subtitle="按当前日期与条件读取访问记录。会话是一次连续访问，访客标识脱敏显示。"
       actions={<LinkButton page="filters">筛选</LinkButton>}
     >
-      <QueryState query={query}>
+      <QueryState readOnly query={query}>
         <Table
           search
           columns={['访客', '访问时间', '地域', '来源', '当前页面', '页面数', '时长', '操作']}
@@ -170,23 +197,29 @@ export function SessionTable({
 }
 function Realtime() {
   const c = useFeature();
-  const [tick, setTick] = useState(Date.now());
-  const scope = {
-    startAt: tick - 30 * 60000,
-    endAt: tick,
-    timezone: c.range.timezone,
-    unit: 'minute',
-    ...c.filters,
-  };
-  const query = useWebsiteData(
-    ['realtime-rich', tick],
-    'analytics',
-    { ...scope, kind: 'realtime' },
-    true,
-    true,
+  const [refreshToken, setRefreshToken] = useState(0);
+  const query = useData(
+    ['realtime-rich', c.range.timezone],
+    signal => {
+      const endAt = Date.now();
+      return c.api.get(
+        `/liekan/websites/${c.siteId}/analytics`,
+        {
+          startAt: endAt - 30 * 60000,
+          endAt,
+          timezone: c.range.timezone,
+          unit: 'minute',
+          ...c.filters,
+          kind: 'realtime',
+        },
+        signal,
+      );
+    },
+    !!c.siteId,
+    { refetchOnMount: 'always', staleTime: 0 },
   );
   const timeline = useData(
-    ['realtime-series', tick],
+    ['realtime-series', c.range.timezone],
     signal =>
       c.api.get(
         `/realtime/${c.siteId}`,
@@ -194,16 +227,29 @@ function Realtime() {
         signal,
       ),
     !!c.siteId,
+    { refetchOnMount: 'always', staleTime: 0 },
   );
+  const refresh = () => {
+    setRefreshToken(value => value + 1);
+    return Promise.all([
+      query.refetch?.({ cancelRefetch: false }),
+      timeline.refetch?.({ cancelRefetch: false }),
+    ]);
+  };
   useEffect(() => {
-    const id = setInterval(() => setTick(Date.now()), 30000);
-    return () => clearInterval(id);
-  }, []);
+    const timer = setInterval(() => {
+      void query.refetch?.({ cancelRefetch: false });
+      void timeline.refetch?.({ cancelRefetch: false });
+      setRefreshToken(value => value + 1);
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [query.refetch, timeline.refetch]);
   const totals = query.data?.totals;
   const series = timeline.data?.series?.visitors || [];
   return (
     <>
       <Metrics
+        loading={!!query.isPending}
         items={[
           ['当前活跃', totals ? n(totals.active) : null, '过去 5 分钟', 'blue'],
           ['页面访问', totals ? n(totals.views) : null, '过去 30 分钟'],
@@ -214,9 +260,9 @@ function Realtime() {
       <Panel
         title="过去 30 分钟的访客"
         subtitle="每 30 秒更新，访客序列以分钟聚合。"
-        actions={<Button onClick={() => setTick(Date.now())}>刷新</Button>}
+        actions={<Button onClick={refresh}>刷新</Button>}
       >
-        <QueryState query={timeline}>
+        <QueryState readOnly query={timeline}>
           <Chart
             type="bar"
             labels={series.map((r: any) => r.x)}
@@ -226,7 +272,7 @@ function Realtime() {
       </Panel>
       <div className="two">
         <Panel title="热门页面" subtitle="当前活跃访客访问的页面。">
-          <QueryState query={query}>
+          <QueryState readOnly query={query}>
             <Table
               columns={['页面', '活跃访客']}
               rows={(query.data?.pages || []).map((r: any) => [r.name, n(r.value)])}
@@ -235,7 +281,7 @@ function Realtime() {
           </QueryState>
         </Panel>
         <Panel title="访问来源" subtitle="来源识别基于可用的引荐信息。">
-          <QueryState query={query}>
+          <QueryState readOnly query={query}>
             <Table
               columns={['来源', '活跃访客']}
               rows={(query.data?.sources || []).map((r: any) => [r.name, n(r.value)])}
@@ -244,7 +290,7 @@ function Realtime() {
           </QueryState>
         </Panel>
       </div>
-      <SessionTable title="最新访问" params={scope} />
+      <SessionTable title="最新访问" live refreshToken={refreshToken} />
     </>
   );
 }
@@ -272,6 +318,7 @@ function Events() {
   return (
     <>
       <Metrics
+        loading={!!query.isPending}
         items={[
           ['事件触发次数', t ? n(t.total) : null, '当前期间'],
           ['事件种类', t ? n(t.types) : null, '按事件名称聚合'],
@@ -280,7 +327,7 @@ function Events() {
         ]}
       />
       <Panel title="事件触发趋势" subtitle="日期范围与下方明细一致。">
-        <QueryState query={timeline}>
+        <QueryState readOnly query={timeline}>
           <Chart
             labels={labels}
             series={names.map(name => ({
@@ -293,7 +340,7 @@ function Events() {
         </QueryState>
       </Panel>
       <Panel title="事件列表" subtitle="点击事件名称查看属性分布与关联访问记录。">
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Table
             search
             columns={['事件名称', '触发次数', '触发访客', '属性数', '最近触发', '操作']}
@@ -360,6 +407,7 @@ function EventDetail() {
         <LinkButton page="events">返回事件列表</LinkButton>
       </div>
       <Metrics
+        loading={!!query.isPending}
         items={[
           ['触发次数', t ? n(t.total) : null, '当前期间'],
           ['触发访客', t ? n(t.visitors) : null, '独立访客'],
@@ -371,7 +419,7 @@ function EventDetail() {
           ['最近触发', t ? date(t.lastAt, c.range.timezone) : null, '当前期间'],
         ]}
       />
-      <QueryState query={query}>
+      <QueryState readOnly query={query}>
         <div className="two">
           <Panel
             title="事件属性分布"
@@ -449,7 +497,7 @@ function Sessions() {
             tab === 'properties' ? '按已提供的身份属性查看人群。' : '以脱敏访客标识聚合访问。'
           }
         >
-          <QueryState query={query}>
+          <QueryState readOnly query={query}>
             <Table
               search
               columns={
@@ -555,8 +603,13 @@ function SessionDetail() {
           )}
         </div>
       </div>
-      {replays.error && <QueryState query={replays}>{null}</QueryState>}
+      {replays.error && (
+        <QueryState readOnly query={replays}>
+          {null}
+        </QueryState>
+      )}
       <Metrics
+        loading={!!record.isPending}
         items={[
           ['页面访问', t ? n(t.views) : null, '当前期间'],
           ['事件触发', t ? n(t.events) : null, '当前期间'],
@@ -572,7 +625,7 @@ function SessionDetail() {
       <div className="narrow-wide">
         <Panel title="访客信息" subtitle="环境信息与已提供的会话属性。">
           <Body>
-            <QueryState query={record}>
+            <QueryState readOnly query={record}>
               <Definition
                 items={[
                   ['地域', [r?.city, r?.country].filter(Boolean).join('，') || '未提供'],
@@ -589,22 +642,28 @@ function SessionDetail() {
             <hr className="divider" />
             <h3>会话属性</h3>
             <div style={{ marginTop: 12 }}>
-              <QueryState query={props}>
+              <QueryState readOnly query={props}>
                 <Definition
                   items={(props.data || []).map((p: any) => [
                     p.dataKey,
                     p.stringValue ?? p.numberValue ?? p.dateValue ?? <Badge>未提供</Badge>,
                   ])}
                 />
-                {!props.data?.length && <Notice>当前会话未提供属性。</Notice>}
+                {!props.isPending && !props.data?.length && <Notice>当前会话未提供属性。</Notice>}
               </QueryState>
             </div>
           </Body>
         </Panel>
         <Panel title="访问时间线" subtitle="按当前期间的发生时间排列页面与事件。">
           <Body>
-            <QueryState query={query}>
+            <QueryState readOnly query={query}>
               <ul className="timeline">
+                {query.isPending &&
+                  Array.from({ length: 5 }, (_, i) => (
+                    <li key={`loading-${i}`} aria-hidden="true">
+                      <span className="skeleton" />
+                    </li>
+                  ))}
                 {rows.map((e: any) => (
                   <li key={e.eventId}>
                     <time className="timeline-time">{date(e.createdAt, c.range.timezone)}</time>
@@ -621,7 +680,7 @@ function SessionDetail() {
                   </li>
                 ))}
               </ul>
-              {!rows.length && <Notice>当前范围没有访问行为。</Notice>}
+              {!query.isPending && !rows.length && <Notice>当前范围没有访问行为。</Notice>}
               {(query.data?.more || page > 1) && (
                 <div className="actions">
                   <Button disabled={page === 1} onClick={() => setPage(page - 1)}>
@@ -1052,7 +1111,7 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
           )
         }
       >
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Table
             search
             columns={
@@ -1100,7 +1159,11 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
           />
         </QueryState>
       </Panel>
-      {!cohort && total.error && <QueryState query={total}>{null}</QueryState>}
+      {!cohort && total.error && (
+        <QueryState readOnly query={total}>
+          {null}
+        </QueryState>
+      )}
       {cohort ? (
         <div className="two">
           <Panel title="行为人群与留存" subtitle="观察完成行为后的访客是否返回。">
@@ -1193,11 +1256,13 @@ function Retention() {
             options={[
               ['', '全部访客'],
               ...(audience && !(people.data || []).some(r => `${r.type}:${r.id}` === audience)
-                ? [{
-                    value: audience,
-                    label: `${type === 'cohort' ? '所选人群' : '所选分群'}（${people.isPending ? '正在读取' : people.error ? '读取失败' : '不可用'}）`,
-                    disabled: true,
-                  }]
+                ? [
+                    {
+                      value: audience,
+                      label: `${type === 'cohort' ? '所选人群' : '所选分群'}（${people.isPending ? '正在读取' : people.error ? '读取失败' : '不可用'}）`,
+                      disabled: true,
+                    },
+                  ]
                 : []),
               ...(people.data || []).map(r => [`${r.type}:${r.id}`, r.name] as [string, string]),
             ]}
@@ -1213,6 +1278,7 @@ function Retention() {
         <Button onClick={() => setInfo(true)}>口径说明</Button>
       </div>
       <Metrics
+        loading={!!query.isPending}
         items={[
           [
             '入组访客',
@@ -1233,7 +1299,7 @@ function Retention() {
         title="日队列留存矩阵"
         subtitle="点击单元格查看分子、分母及关联记录。未到观察日的格子显示“待观察”。"
       >
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <div className="table-wrap">
             <table className="heat-matrix">
               <thead>
@@ -1245,58 +1311,72 @@ function Retention() {
                 </tr>
               </thead>
               <tbody>
-                {cohorts.map(cohort => {
-                  const day = String(cohort.date).slice(0, 10);
-                  return (
-                    <tr key={day}>
-                      <td>
-                        <strong>{day.slice(5)}</strong>
-                        <small style={{ display: 'block' }}>{n(cohort.visitors)} 位访客</small>
-                      </td>
-                      {days.map(d => {
-                        const target = new Date(`${day}T00:00:00Z`);
-                        target.setUTCDate(target.getUTCDate() + d);
-                        if (target.toISOString().slice(0, 10) > cutoff)
-                          return (
-                            <td key={d}>
-                              <span className="heat-cell unobserved" style={{ display: 'block' }}>
-                                待观察
-                              </span>
-                            </td>
-                          );
-                        const returned = Number(
-                          rows.find(r => String(r.date).slice(0, 10) === day && Number(r.day) === d)
-                            ?.returnVisitors || 0,
-                        );
-                        const pct = (returned / Number(cohort.visitors)) * 100;
-                        return (
-                          <td key={d}>
-                            <button
-                              className="heat-cell"
-                              style={{ background: `rgba(15,98,254,${pct / 90 + 0.06})` }}
-                              aria-label={`${day} 入组，第 ${d} 天，留存 ${pct.toFixed(2)}%`}
-                              onClick={() =>
-                                setDetail({
-                                  day,
-                                  date: day,
-                                  offset: d,
-                                  total: Number(cohort.visitors),
-                                  returned,
-                                })
-                              }
-                            >
-                              {pct.toFixed(2)}%
-                            </button>
+                {query.isPending
+                  ? Array.from({ length: 5 }, (_, index) => (
+                      <tr key={index} aria-hidden="true">
+                        {['date', ...days].map(day => (
+                          <td key={day}>
+                            <span className="skeleton" />
                           </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
+                        ))}
+                      </tr>
+                    ))
+                  : cohorts.map(cohort => {
+                      const day = String(cohort.date).slice(0, 10);
+                      return (
+                        <tr key={day}>
+                          <td>
+                            <strong>{day.slice(5)}</strong>
+                            <small style={{ display: 'block' }}>{n(cohort.visitors)} 位访客</small>
+                          </td>
+                          {days.map(d => {
+                            const target = new Date(`${day}T00:00:00Z`);
+                            target.setUTCDate(target.getUTCDate() + d);
+                            if (target.toISOString().slice(0, 10) > cutoff)
+                              return (
+                                <td key={d}>
+                                  <span
+                                    className="heat-cell unobserved"
+                                    style={{ display: 'block' }}
+                                  >
+                                    待观察
+                                  </span>
+                                </td>
+                              );
+                            const returned = Number(
+                              rows.find(
+                                r => String(r.date).slice(0, 10) === day && Number(r.day) === d,
+                              )?.returnVisitors || 0,
+                            );
+                            const pct = (returned / Number(cohort.visitors)) * 100;
+                            return (
+                              <td key={d}>
+                                <button
+                                  className="heat-cell"
+                                  style={{ background: `rgba(15,98,254,${pct / 90 + 0.06})` }}
+                                  aria-label={`${day} 入组，第 ${d} 天，留存 ${pct.toFixed(2)}%`}
+                                  onClick={() =>
+                                    setDetail({
+                                      day,
+                                      date: day,
+                                      offset: d,
+                                      total: Number(cohort.visitors),
+                                      returned,
+                                    })
+                                  }
+                                >
+                                  {pct.toFixed(2)}%
+                                </button>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
               </tbody>
             </table>
           </div>
-          {!cohorts.length && <Notice>当前月份与人群条件没有入组访客。</Notice>}
+          {!query.isPending && !cohorts.length && <Notice>当前月份与人群条件没有入组访客。</Notice>}
           <div className="table-footer">
             <span>深浅表示留存比例，百分比同时显示。</span>
             <span>观察截止：{cutoff}</span>
@@ -1432,7 +1512,7 @@ function Journeys({ detail = false }: { detail?: boolean }) {
             返回访问旅程
           </LinkButton>
         </div>
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Metrics
             items={[
               ['完成路径', row ? n(row.visitors) : '0', '独立访客'],
@@ -1448,6 +1528,12 @@ function Journeys({ detail = false }: { detail?: boolean }) {
           <Panel title="路径节点" subtitle="展示所选行为路径。">
             <Body>
               <ol className="timeline">
+                {query.isPending &&
+                  Array.from({ length: 3 }, (_, i) => (
+                    <li key={`loading-${i}`} aria-hidden="true">
+                      <span className="skeleton" />
+                    </li>
+                  ))}
                 {row?.nodes.map((node, i) => (
                   <li key={`${i}:${node}`}>
                     <strong>{node}</strong>
@@ -1461,7 +1547,9 @@ function Journeys({ detail = false }: { detail?: boolean }) {
                   </li>
                 ))}
               </ol>
-              {!row && <Notice>当前条件没有匹配路径，请返回访问旅程调整条件。</Notice>}
+              {!query.isPending && !row && (
+                <Notice>当前条件没有匹配路径，请返回访问旅程调整条件。</Notice>
+              )}
             </Body>
           </Panel>
           <Panel
@@ -1544,8 +1632,8 @@ function Journeys({ detail = false }: { detail?: boolean }) {
         title="从内容到转化的访问路径"
         subtitle="连线宽度代表访客量，下方路径明细可查看关联访问记录。"
       >
-        <QueryState query={query}>
-          {rows.length ? (
+        <QueryState readOnly query={query}>
+          {query.isPending || rows.length ? (
             <Chart
               type="sankey"
               height={400}
@@ -1571,7 +1659,7 @@ function Journeys({ detail = false }: { detail?: boolean }) {
         </QueryState>
       </Panel>
       <Panel title="路径明细" subtitle="按选定条件展示行为组合。">
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Table
             search
             columns={['路径', '访客', '完成比例', '操作']}
@@ -1648,6 +1736,7 @@ function UTM() {
         onChange={setDimension}
       />
       <Metrics
+        loading={!!summary.isPending}
         items={[
           ['带 UTM 访问', summary.data ? n(summary.data.views) : null, '有至少一个 UTM 字段'],
           ['带 UTM 访客', summary.data ? n(summary.data.visitors) : null, '独立访客'],
@@ -1667,10 +1756,22 @@ function UTM() {
           ['字段缺失', '分别保留', '未提供字段不补推断'],
         ]}
       />
-      {summary.error && <QueryState query={summary}>{null}</QueryState>}
-      {goals.error && <QueryState query={goals}>{null}</QueryState>}
-      {goal.error && <QueryState query={goal}>{null}</QueryState>}
-      <QueryState query={query}>
+      {summary.error && (
+        <QueryState readOnly query={summary}>
+          {null}
+        </QueryState>
+      )}
+      {goals.error && (
+        <QueryState readOnly query={goals}>
+          {null}
+        </QueryState>
+      )}
+      {goal.error && (
+        <QueryState readOnly query={goal}>
+          {null}
+        </QueryState>
+      )}
+      <QueryState readOnly query={query}>
         <div className="two">
           <Chart
             title={`utm_${dimension} 分布`}
@@ -1761,6 +1862,7 @@ function Attribution() {
         </Body>
       </Panel>
       <Metrics
+        loading={!!query.isPending}
         items={[
           ['归因转化', d ? n(total) : null, `目标：${settings.step || '待设置'}`],
           [
@@ -1773,7 +1875,7 @@ function Attribution() {
         ]}
       />
       {settings.step ? (
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Chart
             title="渠道贡献"
             subtitle="按所选模型分配转化访客。"
@@ -1843,7 +1945,7 @@ function Breakdown() {
           选择维度
         </Button>
       </div>
-      <QueryState query={query}>
+      <QueryState readOnly query={query}>
         <Chart
           title={`${labels.join(' × ')}的访问次数`}
           subtitle="维度组合按访问次数排序。"
@@ -1985,8 +2087,9 @@ function Compare() {
         </span>
         <Button onClick={() => setOpen(true)}>调整对照期间</Button>
       </div>
-      <QueryState query={query}>
+      <QueryState readOnly query={query}>
         <Metrics
+          loading={!!query.isPending}
           items={[
             [
               '访客',
@@ -2122,7 +2225,7 @@ function Annotations() {
           )
         }
       >
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Table
             search
             columns={['日期', '注释', '操作']}
@@ -2137,7 +2240,7 @@ function Annotations() {
         </QueryState>
       </Panel>
       <Panel title="访问趋势" subtitle="日期注释显示在相应时间节点。">
-        <QueryState query={chart}>
+        <QueryState readOnly query={chart}>
           <Chart
             labels={dates}
             series={[{ name: '访问', values: points.map((r: any) => Number(r.y)) }]}

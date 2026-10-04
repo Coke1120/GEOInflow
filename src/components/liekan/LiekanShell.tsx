@@ -1,5 +1,12 @@
 'use client';
-import { type CSSProperties, createContext, type ReactNode, useContext, useState } from 'react';
+import {
+  type CSSProperties,
+  createContext,
+  type ReactNode,
+  useContext,
+  useState,
+  useEffect,
+} from 'react';
 import type { FeatureUser } from '@/lib/liekan/contracts/features';
 import {
   geoPageFromPath,
@@ -10,7 +17,9 @@ import {
 import { useNavigation, useWebsiteQuery } from '@/lib/liekan/upstream/client';
 import reference from '@/styles/liekan/Reference.module.css';
 import styles from '@/styles/liekan/Shell.module.css';
-import { AnalysisLoading } from './AnalysisLoading';
+import { GeoLoading } from './GeoLoading';
+import { hidesPreviousData } from './LoadingState';
+import { loadEcharts } from './chartRuntime';
 import { AnalysisTabs } from './AnalysisTabs';
 import { featureNavigationHref, matchFeatureRoute } from './features/routes';
 import { Navigation, useSidebarWidth } from './Navigation';
@@ -27,12 +36,19 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
   const [website, setWebsite] = useState<LiekanReport['website']>(null);
   const [, setBotCount] = useState<number>(null);
   const isGeo = pathname.includes('/geo');
+  useEffect(() => {
+    if (isGeo) void loadEcharts().catch(() => {});
+  }, [isGeo]);
   const route = pathname.includes('/geo')
     ? { page: geoPageFromPath(pathname), websiteId }
     : matchFeatureRoute(pathname, query) || { page: 'dashboard' };
   const metadata = useWebsiteQuery(isGeo ? websiteId : undefined);
-  const currentMetadata = metadata.data?.id === websiteId ? metadata.data : undefined;
-  const currentWebsite = website?.id === websiteId ? website : undefined;
+  const currentMetadata =
+    metadata.data?.id === websiteId && !hidesPreviousData(metadata.error)
+      ? metadata.data
+      : undefined;
+  const currentWebsite =
+    website?.id === websiteId && !hidesPreviousData(metadata.error) ? website : undefined;
   const site = currentMetadata ? { ...currentWebsite, ...currentMetadata } : currentWebsite;
   const [websiteContextTarget, setWebsiteContextTarget] = useState<HTMLDivElement>(null);
   const href = (page: string, params: Record<string, any> = {}) =>
@@ -79,7 +95,17 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
                     </button>
                   </div>
                 ) : (
-                  <AnalysisLoading />
+                  <GeoLoading
+                    resource={
+                      route.page === 'geo-overview'
+                        ? 'overview'
+                        : { ai: 'ai/overview', human: 'human/overview' }[
+                            pathname.split('/geo/')[1]
+                          ] ||
+                          pathname.split('/geo/')[1] ||
+                          'overview'
+                    }
+                  />
                 )}
               </>
             ) : (

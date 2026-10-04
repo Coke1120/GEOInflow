@@ -1,7 +1,9 @@
+import { useDataLoading } from '../LoadingState';
 import { MetricCard, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
 export function Conversions({ report, rangeLabel }: ReportViewProps) {
+  const loading = useDataLoading();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -35,11 +37,13 @@ export function Conversions({ report, rangeLabel }: ReportViewProps) {
           <div className="px-6 pt-5 pb-2">
             <h2 className="text-[14px] font-bold tracking-tight">主转化漏斗（{rangeLabel}）</h2>
             <p className="text-[11.5px] text-faint mt-0.5">
-              {report?.charts.f1?.labels.length
-                ? report.charts.f1.labels.join(' → ')
-                : report?.charts.f1?.state === 'unsupported'
-                  ? '已保存的漏斗配置无效，请检查目标配置'
-                  : '转化漏斗待配置'}
+              {loading
+                ? '正在读取转化路径'
+                : report?.charts.f1?.labels.length
+                  ? report.charts.f1.labels.join(' → ')
+                  : report?.charts.f1?.state === 'unsupported'
+                    ? '已保存的漏斗配置无效，请检查目标配置'
+                    : '转化漏斗待配置'}
             </p>
           </div>
           <ReferenceChart id="f1" height={290} report={report} />

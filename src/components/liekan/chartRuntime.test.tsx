@@ -34,10 +34,38 @@ const report: LiekanReport = {
   meta: { demo: false, canManage: false, latestImportAt: null, ruleCount: 0 },
 };
 const instance = () => ({ setOption: vi.fn(), resize: vi.fn(), dispose: vi.fn() });
-beforeEach(() => runtime.load.mockReset());
+beforeEach(() => runtime.load.mockReset().mockResolvedValue({ init: () => instance() }));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('recoverable chart runtime', () => {
+  it('updates an existing instance with full options and removes obsolete series', async () => {
+    const chart = instance();
+    const init = vi.fn().mockReturnValue(chart);
+    runtime.load.mockResolvedValue({ init });
+    const { rerender, unmount } = render(<ReferenceChart id="h1" height={260} report={report} />);
+    await waitFor(() => expect(chart.setOption).toHaveBeenCalledOnce());
+    rerender(
+      <ReferenceChart
+        id="h1"
+        height={260}
+        report={{
+          ...report,
+          charts: {
+            h1: { labels: ['新范围'], series: [{ name: 'UV', values: [8] }] },
+          },
+        }}
+      />,
+    );
+    await waitFor(() => expect(chart.setOption).toHaveBeenCalledTimes(2));
+    expect(init).toHaveBeenCalledOnce();
+    expect(chart.dispose).not.toHaveBeenCalled();
+    expect(chart.setOption.mock.calls[1][1]).toEqual({ notMerge: true });
+    rerender(<ReferenceChart id="h1" height={260} report={{ ...report, charts: {} }} />);
+    await waitFor(() => expect(chart.setOption.mock.calls.at(-1)[0].series).toEqual([]));
+    expect(init).toHaveBeenCalledOnce();
+    unmount();
+    expect(chart.dispose).toHaveBeenCalledOnce();
+  });
   it('recovers from a rejected bundle load without changing chart geometry', async () => {
     const chart = instance();
     const init = vi.fn().mockReturnValue(chart);

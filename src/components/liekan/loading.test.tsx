@@ -17,7 +17,7 @@ vi.mock('./Navigation', () => ({
   Navigation: ({ site }: any) => <div data-test="site-name">{site?.name}</div>,
 }));
 vi.mock('./pages/Content', () => ({
-  Content: ({ report }: any) => <div>{report ? '实际报表' : '待接入'}</div>,
+  Content: ({ report }: any) => <div>{report ? '实际报表' : '报表占位'}</div>,
 }));
 vi.mock('@/lib/liekan/upstream/client', () => ({
   useWebsiteQuery: () => mocks.metadata,
@@ -96,4 +96,18 @@ describe('analysis loading states', () => {
     expect(screen.getByText('实际报表')).toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
+});
+
+it('uses the human overview frame for the human parent route before metadata arrives', () => {
+  mocks.pathname = '/websites/site-a/geo/human';
+  mocks.metadata = { data: undefined, isPending: true };
+  render(
+    <LiekanShell user={{ id: 'user' } as any}>
+      <div>业务正文</div>
+    </LiekanShell>,
+  );
+  expect(screen.getByRole('img', { name: 'h1 数据图表: 正在读取' })).toHaveStyle({
+    height: '270px',
+  });
+  expect(screen.queryByRole('img', { name: /d1 数据图表/ })).not.toBeInTheDocument();
 });

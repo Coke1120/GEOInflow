@@ -15,7 +15,10 @@ import {
 } from '@/lib/liekan/upstream/client';
 import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Shell.module.css';
-import { AnalysisLoading } from './AnalysisLoading';
+import { geoViews } from './GeoLoading';
+import { DataLoadingContext, hidesPreviousData } from './LoadingState';
+import { QueryFeedback } from './QueryFeedback';
+import { loadEcharts } from './chartRuntime';
 import { AnalysisTabs } from './AnalysisTabs';
 import {
   cardLabels,
@@ -30,36 +33,15 @@ import {
 import { featureNavigationHref } from './features/routes';
 import { useLiekanShell } from './LiekanShell';
 import { ManagementDrawer } from './ManagementDrawer';
-import { AiBots } from './pages/AiBots';
-import { AiOverview } from './pages/AiOverview';
-import { AiPages } from './pages/AiPages';
-import { AiPreference } from './pages/AiPreference';
-import { Content } from './pages/Content';
-import { Conversions } from './pages/Conversions';
-import { HumanGeo } from './pages/HumanGeo';
-import { HumanOverview } from './pages/HumanOverview';
-import { HumanSources } from './pages/HumanSources';
-import { Logs } from './pages/Logs';
-import { Overview } from './pages/Overview';
 import { ReportContext } from './ReportContext';
 import type { LiekanReport, Resource } from './types';
 import { defaultDateRange, isLiveLogView, previousWeekRange, readViewState } from './viewState';
 
-const views = {
-  overview: Overview,
-  'ai/overview': AiOverview,
-  'ai/bots': AiBots,
-  'ai/pages': AiPages,
-  'ai/preference': AiPreference,
-  'human/overview': HumanOverview,
-  'human/geo': HumanGeo,
-  'human/sources': HumanSources,
-  content: Content,
-  conversions: Conversions,
-  logs: Logs,
-};
 export function LiekanPage({ resource }: { resource: Resource }) {
   const api = useApi();
+  useEffect(() => {
+    void loadEcharts().catch(() => {});
+  }, []);
   const { websiteId, teamId, pathname, query: params, router, updateParams } = useNavigation();
   const website = useWebsite();
   const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
@@ -185,7 +167,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       }),
     enabled: compare && !!websiteId,
   });
-  const report = query.data;
+  const report = hidesPreviousData(query.error) ? undefined : query.data;
   const rangeLabel = useMemo(() => {
     const date = (value: number) =>
       new Intl.DateTimeFormat('zh-CN', {
@@ -299,7 +281,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     setAction(label);
   };
   const period = chartPeriod === '24h' ? '24h' : chartPeriod === '7d' ? '7 天' : '30 天';
-  const View = views[resource];
+  const View = geoViews[resource];
   return (
     <ReportContext.Provider
       value={{
@@ -382,7 +364,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       {params.clearedFilters === '1' && (
         <div className={styles.notice}>已清除当前页面不支持的筛选，统计采用页面显示的条件。</div>
       )}
-      {(query.isError || message || search) && (
+      {((query.isError && !report) || message || search) && (
         <div className={styles.notice} role="status">
           {query.isError ? '无法读取此范围的数据' : message || `查询：${search}`}
           {query.isError && (
@@ -407,18 +389,26 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           )}
         </div>
       )}
-      {report ? (
-        <View
-          report={report}
-          rangeLabel={rangeLabel}
-          live={liveLogs}
-          trendLabel={
-            chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
-          }
-        />
-      ) : query.isPending ? (
-        <AnalysisLoading />
-      ) : null}
+      <div className={styles.readRegion}>
+        {report && <QueryFeedback query={query} />}
+        {report || query.isPending ? (
+          <DataLoadingContext.Provider value={!!query.isPending}>
+            {query.isPending && (
+              <span className={styles.srOnly} role="status">
+                正在读取统计数据
+              </span>
+            )}
+            <View
+              report={report}
+              rangeLabel={rangeLabel}
+              live={liveLogs}
+              trendLabel={
+                chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
+              }
+            />
+          </DataLoadingContext.Provider>
+        ) : null}
+      </div>
       {(action || compare) && (
         <ManagementDrawer
           action={compare ? '对比上周' : action}

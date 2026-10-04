@@ -1,7 +1,9 @@
+import { useDataLoading } from '../LoadingState';
 import { InsightRows, MetricCard, ReferenceChart, ReportList } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
 export function AiPreference({ report, rangeLabel }: ReportViewProps) {
+  const loading = useDataLoading();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -50,9 +52,11 @@ export function AiPreference({ report, rangeLabel }: ReportViewProps) {
           <div className="px-6 pt-5 pb-2">
             <h2 className="text-[14px] font-bold tracking-tight">抓取路径分析（典型会话）</h2>
             <p className="text-[11.5px] text-faint mt-0.5">
-              {report?.tables.pathList?.[0]?.bot
-                ? `${report.tables.pathList[0].bot} 最近抓取顺序 · 会话估算`
-                : '会话未识别，显示最近 AI 抓取记录'}
+              {loading
+                ? '正在读取 AI 抓取记录'
+                : report?.tables.pathList?.[0]?.bot
+                  ? `${report.tables.pathList[0].bot} 最近抓取顺序 · 会话估算`
+                  : '会话未识别，显示最近 AI 抓取记录'}
             </p>
           </div>
           <ReportList id="pathList" className="px-6 pb-5 pt-2 space-y-2" report={report} />

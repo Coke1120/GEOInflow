@@ -16,6 +16,9 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useFeature } from './context';
+import { DataLoadingContext, hidesPreviousData, useDataLoading } from '../LoadingState';
+import { QueryFeedback } from '../QueryFeedback';
+import loadingStyles from '@/styles/liekan/Shell.module.css';
 import { featureIcons } from './icons';
 
 export function Icon({ name = 'down' }: { name?: string }) {
@@ -141,33 +144,41 @@ export const Notice = ({ children, tone = '' }: { children: ReactNode; tone?: st
 export const Badge = ({ children, tone = 'gray' }: { children: ReactNode; tone?: string }) => (
   <span className={`badge ${tone}`}>{children}</span>
 );
-export const Metrics = ({
+export function Metrics({
   items,
   className = '',
+  loading = false,
 }: {
   items: [string, ReactNode, ReactNode?, string?][];
   className?: string;
-}) => (
-  <div className={`metrics ${className}`}>
-    {items.map(([label, value, description, color], i) => (
-      <div className="metric" key={i}>
-        <p className="metric-label">{label}</p>
-        <p className={`metric-value num ${color || 'blue'}`}>{value ?? '—'}</p>
-        {description && <p className="metric-foot">{description}</p>}
-      </div>
-    ))}
-  </div>
-);
-export const Definition = ({ items }: { items: [string, ReactNode][] }) => (
-  <dl className="definition">
-    {items.map(([key, value], i) => (
-      <Fragment key={i}>
-        <dt>{key}</dt>
-        <dd>{value ?? '—'}</dd>
-      </Fragment>
-    ))}
-  </dl>
-);
+  loading?: boolean;
+}) {
+  const pending = useDataLoading() || loading;
+  return (
+    <div className={`metrics ${className}`} aria-busy={pending || undefined}>
+      {items.map(([label, value, description, color], i) => (
+        <div className="metric" key={i}>
+          <p className="metric-label">{label}</p>
+          <p className={`metric-value num ${color || 'blue'}`}>{pending ? '—' : (value ?? '—')}</p>
+          {description && <p className="metric-foot">{pending ? '正在读取' : description}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+export function Definition({ items }: { items: [string, ReactNode][] }) {
+  const loading = useDataLoading();
+  return (
+    <dl className="definition">
+      {items.map(([key, value], i) => (
+        <Fragment key={i}>
+          <dt>{key}</dt>
+          <dd>{loading ? '正在读取' : (value ?? '—')}</dd>
+        </Fragment>
+      ))}
+    </dl>
+  );
+}
 export function Field({
   label,
   help,
@@ -366,9 +377,10 @@ export function Table({
 }) {
   const c = useFeature();
   const panel = useContext(SearchContext);
+  const loading = useDataLoading();
   useEffect(() => {
-    if (pages >= 1 && page > pages) onPage?.(pages);
-  }, [page, pages, onPage]);
+    if (!loading && pages >= 1 && page > pages) onPage?.(pages);
+  }, [loading, page, pages, onPage]);
   const [text, setText] = useState('');
   const [sort, setSort] = useState<{ column: number; desc: boolean } | null>(() => {
     const index = columns.indexOf(c?.query?.sort);
@@ -455,7 +467,17 @@ export function Table({
             </tr>
           </thead>
           <tbody>
-            {filtered.length ? (
+            {loading ? (
+              Array.from({ length: 5 }, (_, i) => (
+                <tr key={i} aria-hidden="true">
+                  {columns.map((column, j) => (
+                    <td key={j}>
+                      <span className={loadingStyles.loadingCell} />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : filtered.length ? (
               filtered.map((row, i) => (
                 <tr key={i}>
                   {row.map((v, j) => (
@@ -476,7 +498,7 @@ export function Table({
         </table>
       </div>
       <div className="table-footer">
-        <span>{filtered.length} 条记录 · 表头可排序</span>
+        <span>{loading ? '正在读取记录' : `${filtered.length} 条记录 · 表头可排序`}</span>
         {pages > 1 ? (
           <div className="actions">
             <span>
@@ -496,7 +518,40 @@ export function Table({
     </>
   );
 }
-export function QueryState({ query, children }: { query: any; children: ReactNode }) {
+export function QueryState({
+  query,
+  children,
+  readOnly = false,
+  loadingFallback,
+}: {
+  query: any;
+  children: ReactNode;
+  readOnly?: boolean;
+  loadingFallback?: ReactNode;
+}) {
+  if (
+    readOnly &&
+    !hidesPreviousData(query.error) &&
+    (query.isPending || query.data !== undefined || !query.error)
+  ) {
+    return (
+      <div
+        className={loadingStyles.readRegion}
+        aria-busy={query.isPending || query.isFetching || undefined}
+      >
+        <DataLoadingContext.Provider value={!!query.isPending}>
+          {query.isPending && loadingFallback ? loadingFallback : children}
+        </DataLoadingContext.Provider>
+        {query.isPending ? (
+          <span className={loadingStyles.srOnly} role="status">
+            正在读取当前范围的数据
+          </span>
+        ) : (
+          <QueryFeedback query={query} />
+        )}
+      </div>
+    );
+  }
   if (query.isPending)
     return (
       <div className="state-box" role="status">

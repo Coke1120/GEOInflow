@@ -509,3 +509,45 @@
     margin: 24px 20px;
   }
 }
+
+.readRegion {
+  position: relative;
+  min-width: 0;
+}
+.queryFeedback {
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  right: 8px;
+  max-width: min(100%, 380px);
+  padding: 6px 10px;
+  border: 1px solid #e9ecf1;
+  border-radius: 7px;
+  background: #fff;
+  color: #697386;
+  font-size: 11px;
+  box-shadow: 0 2px 8px #16181d08;
+}
+.queryFeedback button {
+  color: #0f62fe;
+  margin-left: 8px;
+}
+.loadingCell {
+  display: block;
+  width: 65%;
+  height: 12px;
+  margin: 3px 0;
+  border-radius: 4px;
+  background: #f0f2f6;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

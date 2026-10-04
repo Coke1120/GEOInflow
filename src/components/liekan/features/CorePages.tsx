@@ -308,6 +308,7 @@ function Websites() {
   return (
     <>
       <Metrics
+        loading={!!query.isPending}
         items={[
           ['管理网站', String(c.sites.length), scope],
           [
@@ -341,7 +342,7 @@ function Websites() {
           )
         }
       >
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Table
             columns={['网站', '所属空间', '浏览采集状态', '访问次数', '最近接收', '操作']}
             numeric={[3]}
@@ -1914,7 +1915,7 @@ function ApiKeys() {
           </Button>
         }
       >
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Table
             columns={['名称', '密钥', '创建时间', '最近使用', '操作']}
             search
@@ -2145,6 +2146,7 @@ function Goals() {
   return (
     <>
       <Metrics
+        loading={!!query.isPending}
         items={[
           [
             '目标数量',
@@ -2181,7 +2183,7 @@ function Goals() {
           )
         }
       >
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Table
             columns={['目标', '触发条件', '转化次数', '转化率', '操作']}
             numeric={[2, 3]}
@@ -2212,7 +2214,7 @@ function Goals() {
         </QueryState>
       </Panel>
       {goals.length > 0 ? (
-        <QueryState query={stats}>
+        <QueryState readOnly query={stats}>
           <Chart
             title={`${first.name}的转化趋势`}
             subtitle="当前所选期间"
@@ -2399,6 +2401,7 @@ function Funnels() {
   return (
     <>
       <Metrics
+        loading={!!query.isPending}
         items={[
           [
             '进入漏斗',
@@ -2419,7 +2422,15 @@ function Funnels() {
           ],
         ]}
       />
-      <QueryState query={query}>
+      <QueryState
+        readOnly
+        query={query}
+        loadingFallback={
+          <Panel title="网站漏斗" subtitle="正在读取已保存配置。">
+            <Table columns={['漏斗', '步骤数量', '转化窗口', '操作']} rows={[]} />
+          </Panel>
+        }
+      >
         {funnel ? (
           <>
             <Panel
@@ -2444,7 +2455,7 @@ function Funnels() {
                     options={funnels.map(funnel => [funnel.id, funnel.name])}
                   />
                 )}
-                <QueryState query={stats}>
+                <QueryState readOnly query={stats}>
                   {results.map((step, i) => (
                     <div className="funnel-row" key={i}>
                       <strong>

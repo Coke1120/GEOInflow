@@ -276,6 +276,7 @@ function Teams({ admin = false }: { admin?: boolean }) {
     <>
       {!admin && (
         <Metrics
+          loading={!!q.isPending}
           items={[
             ['参与团队', myTeams.length, '当前账户'],
             [
@@ -310,7 +311,7 @@ function Teams({ admin = false }: { admin?: boolean }) {
           </>
         }
       >
-        <QueryState query={q}>
+        <QueryState readOnly query={q}>
           <Table
             columns={
               admin
@@ -844,7 +845,7 @@ function AdminUsers() {
           </>
         }
       >
-        <QueryState query={q}>
+        <QueryState readOnly query={q}>
           <Table
             columns={['用户名', '系统角色', '团队', '双重验证', '状态', '操作']}
             rows={rowsOf<any>(q.data).map(user => [
@@ -1084,7 +1085,7 @@ function AdminWebsites() {
           </>
         }
       >
-        <QueryState query={q}>
+        <QueryState readOnly query={q}>
           <Table
             columns={['网站', '域名', '所属空间', '所有者', '操作']}
             rows={rowsOf<any>(q.data).map(site => [
@@ -1392,7 +1393,7 @@ function Boards() {
           </>
         }
       >
-        <QueryState query={q}>
+        <QueryState readOnly query={q}>
           <Table
             columns={['名称', '类型', '关联资源', '更新时间', '操作']}
             rows={rowsOf<any>(q.data).map(board => {
@@ -1749,7 +1750,7 @@ function NativeWidget({
     );
   if (conversion)
     return (
-      <QueryState query={q}>
+      <QueryState readOnly query={q}>
         {component.type === 'Goal' ? (
           <Metrics
             items={[
@@ -1782,7 +1783,7 @@ function NativeWidget({
     );
   if (eventMetrics)
     return (
-      <QueryState query={q}>
+      <QueryState readOnly query={q}>
         <Metrics
           items={[
             ['事件次数', readable(q.data?.data?.events), '当前期间'],
@@ -1807,7 +1808,7 @@ function NativeWidget({
     );
   if (table || events)
     return (
-      <QueryState query={q}>
+      <QueryState readOnly query={q}>
         {events ? (
           <Chart {...eventChartData(rowsOf<any>(q.data))} type="line" />
         ) : component?.props?.liekanDisplay === 'bar' ? (
@@ -2629,8 +2630,8 @@ function Sharing() {
           </>
         }
       >
-        <QueryState query={entities}>
-          <QueryState query={q}>
+        <QueryState readOnly query={entities}>
+          <QueryState readOnly query={q}>
             <Table
               columns={['名称', '资源类型', '页面范围', '筛选权限', '状态', '操作', '分享链接']}
               rows={rows.map((share: any) => [
@@ -2881,7 +2882,18 @@ function PublicStats({
       />
     );
   return (
-    <QueryState query={q}>
+    <QueryState
+      readOnly
+      query={q}
+      loadingFallback={
+        active === 'overview' ? (
+          <div style={{ minHeight: 320, padding: 24 }}>
+            <h2>正在读取看板</h2>
+            <span className="skeleton" />
+          </div>
+        ) : undefined
+      }
+    >
       {active === 'overview' ? (
         q.data && (
           <BoardCanvas

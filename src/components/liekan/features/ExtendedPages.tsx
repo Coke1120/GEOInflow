@@ -117,6 +117,7 @@ function Performance() {
         />
       </div>
       <Metrics
+        loading={!!summary.isPending}
         className="five"
         items={['lcp', 'inp', 'cls', 'fcp', 'ttfb'].map(
           (m, i) =>
@@ -132,7 +133,7 @@ function Performance() {
         title={`${metric.toUpperCase()} 分位数趋势`}
         subtitle={`p50、p75、p95 · ${data ? n(data[`${metric}Count`]) : summary.data ? n(summary.data.count) : '—'} 次采样`}
       >
-        <QueryState query={chart}>
+        <QueryState readOnly query={chart}>
           <Chart
             labels={points.map((r: any) => r.t)}
             series={['p50', 'p75', 'p95'].map(p => ({
@@ -153,7 +154,7 @@ function Performance() {
       </Panel>
       <div className="two">
         <Panel title="页面性能" subtitle="所选指标和分位数，保留单位。">
-          <QueryState query={pages}>
+          <QueryState readOnly query={pages}>
             <Table
               columns={['页面', `${metric.toUpperCase()} · ${percentile}`, '采样数']}
               rows={(pages.data || []).map((r: any) => [
@@ -179,7 +180,7 @@ function Performance() {
             />
           }
         >
-          <QueryState query={devices}>
+          <QueryState readOnly query={devices}>
             <Table
               columns={[
                 environment === 'device' ? '设备' : '浏览器',
@@ -197,8 +198,16 @@ function Performance() {
         </Panel>
       </div>
       <Notice>性能数据需采集对应浏览器指标。没有样本时显示“未采集”。CLS 不使用时间单位。</Notice>
-      {counts.error && <QueryState query={counts}>{null}</QueryState>}
-      {summary.error && <QueryState query={summary}>{null}</QueryState>}
+      {counts.error && (
+        <QueryState readOnly query={counts}>
+          {null}
+        </QueryState>
+      )}
+      {summary.error && (
+        <QueryState readOnly query={summary}>
+          {null}
+        </QueryState>
+      )}
     </>
   );
 }
@@ -255,6 +264,7 @@ function Revenue() {
         />
       </div>
       <Metrics
+        loading={!!summary.isPending}
         items={[
           ['收入', totals ? money(totals.sum) : null, `${currency} · 所选币种`],
           ['付费事件', totals ? n(totals.count) : null, '收入事件触发次数'],
@@ -266,9 +276,13 @@ function Revenue() {
           ],
         ]}
       />
-      {summary.error && <QueryState query={summary}>{null}</QueryState>}
+      {summary.error && (
+        <QueryState readOnly query={summary}>
+          {null}
+        </QueryState>
+      )}
       <Panel title="收入趋势" subtitle={`金额单位：${currency}。累计从所选期间起点计算。`}>
-        <QueryState query={chart}>
+        <QueryState readOnly query={chart}>
           <Chart
             labels={labels}
             series={[{ name: currency, values: series }]}
@@ -287,7 +301,7 @@ function Revenue() {
       </Panel>
       <div className="two">
         <Panel title="收入来源" subtitle={`当前币种 ${currency} 的收入贡献。`}>
-          <QueryState query={sources}>
+          <QueryState readOnly query={sources}>
             <Table
               columns={['来源', '收入', '占比']}
               rows={(sources.data || []).map((r: any) => [
@@ -300,7 +314,7 @@ function Revenue() {
           </QueryState>
         </Panel>
         <Panel title="交易访问记录" subtitle={`事件金额与币种属性，金额单位：${currency}。`}>
-          <QueryState query={transactions}>
+          <QueryState readOnly query={transactions}>
             <Table
               columns={['会话', '事件', '金额', '操作']}
               rows={(transactions.data?.rows || []).map((r: any) => [
@@ -403,6 +417,7 @@ function Heatmaps() {
         />
       </div>
       <Metrics
+        loading={!!query.isPending}
         items={
           mode === 'click'
             ? [
@@ -440,7 +455,9 @@ function Heatmaps() {
         }
       />
       {exactScroll.error && mode === 'scroll' && (
-        <QueryState query={exactScroll}>{null}</QueryState>
+        <QueryState readOnly query={exactScroll}>
+          {null}
+        </QueryState>
       )}
       <div className="wide-narrow">
         <Panel
@@ -448,14 +465,18 @@ function Heatmaps() {
           subtitle="热度表达聚合强度，右侧同时提供数值。"
         >
           <Body>
-            <QueryState query={query}>
+            <QueryState readOnly query={query}>
               <div
                 className="browser-stage"
                 ref={stage}
                 style={{ maxHeight: 720, overflow: 'auto' }}
               >
                 <div className="browser-bar">{snapshot?.url || path || '选择已采集页面'}</div>
-                {snapshot ? (
+                {query.isPending ? (
+                  <div style={{ height: 400 }} aria-label="正在读取页面预览">
+                    <span className="skeleton" />
+                  </div>
+                ) : snapshot ? (
                   <div style={{ position: 'relative', height, overflow: 'hidden' }}>
                     <iframe
                       title="采集页面预览"
@@ -527,7 +548,7 @@ function Heatmaps() {
               ]}
             />
             <hr className="divider" />
-            <QueryState query={query}>
+            <QueryState readOnly query={query}>
               <Table
                 columns={mode === 'click' ? ['区域', '点击'] : ['深度', '到达会话']}
                 rows={
@@ -549,7 +570,11 @@ function Heatmaps() {
           </Body>
         </Panel>
       </div>
-      {recorder.error && <QueryState query={recorder}>{null}</QueryState>}
+      {recorder.error && (
+        <QueryState readOnly query={recorder}>
+          {null}
+        </QueryState>
+      )}
     </>
   );
 }
@@ -591,7 +616,7 @@ function Replays() {
           </LinkButton>
         }
       >
-        <QueryState query={query}>
+        <QueryState readOnly query={query}>
           <Table
             search
             columns={['录制', '来源', '设备', '时长', '页面数', '状态', '操作']}
@@ -618,7 +643,7 @@ function Replays() {
             pages={Math.ceil((query.data?.count || 0) / 25)}
             onPage={setPage}
           />
-          {!rows.length && (
+          {!query.isPending && !rows.length && (
             <Notice>
               当前日期与筛选条件下没有录制。会话是一次连续访问，录制需要提前开启行为采集。
               <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>

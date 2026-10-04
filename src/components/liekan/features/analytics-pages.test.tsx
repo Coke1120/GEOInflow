@@ -196,3 +196,15 @@ it('keeps the selected event property while its value query is pending', () => {
   expect(screen.getByText('plan 的各属性值对应触发次数。')).toBeInTheDocument();
   expect(JSON.parse(screen.getByRole('img').textContent!).series[0].values).toEqual([3]);
 });
+
+it('reserves the journey chart while reading and distinguishes the completed empty result', () => {
+  mocks.context.route.page = 'journeys';
+  mocks.pending['journey-rich'] = true;
+  const view = render(<AnalyticsPages page="journeys" />);
+  expect(screen.getByRole('img')).toBeInTheDocument();
+  expect(screen.queryByText(/当前条件没有匹配路径/)).not.toBeInTheDocument();
+  mocks.pending['journey-rich'] = false;
+  mocks.query['journey-rich'] = { rows: [], visitors: 0 };
+  view.rerender(<AnalyticsPages page="journeys" />);
+  expect(screen.getByText(/当前条件没有匹配路径/)).toBeInTheDocument();
+});

@@ -108,7 +108,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
           </>
         }
       >
-        <QueryState query={q}>
+        <QueryState readOnly query={q}>
           {stats.error && (
             <Notice tone="red">
               统计读取失败：{stats.error.message}
@@ -405,7 +405,7 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
           <LinkButton page={path}>返回{kind === 'link' ? '链接' : '图片'}列表</LinkButton>
         </div>
       </div>
-      <QueryState query={stats}>
+      <QueryState readOnly query={stats}>
         <Metrics
           items={
             kind === 'link'
@@ -454,7 +454,7 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
       />
       {kind === 'link' ? (
         <Panel title="来源与地域" subtitle="按真实来源与地域联合统计链接点击次数。">
-          <QueryState query={jointSources}>
+          <QueryState readOnly query={jointSources}>
             <Table
               columns={['来源', '地域', '点击次数']}
               rows={(jointSources.data?.rows || []).map((row: any) => [
@@ -472,7 +472,7 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
       ) : (
         <Panel title="安装代码" subtitle="图片引用沿用现有图片地址格式。">
           <Body>
-            <QueryState query={host.q}>
+            <QueryState readOnly query={host.q}>
               <Code>{code}</Code>
               <Button
                 disabled={!url}

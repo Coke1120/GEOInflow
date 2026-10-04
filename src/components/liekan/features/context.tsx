@@ -1,5 +1,6 @@
 'use client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { hidesPreviousData } from '../LoadingState';
 import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import type {
   FeatureEntity,
@@ -49,9 +50,10 @@ export function useData<T = any>(
   key: string | any[],
   load: (signal: AbortSignal) => Promise<T>,
   enabled = true,
+  options: { refetchOnMount?: 'always'; staleTime?: 0 } = {},
 ) {
   const c = useFeature();
-  return useQuery<T>({
+  const query = useQuery<T>({
     queryKey: [
       'liekan-feature',
       c?.user?.id,
@@ -67,7 +69,9 @@ export function useData<T = any>(
     queryFn: ({ signal }) => load(signal),
     enabled,
     retry: false,
+    ...options,
   });
+  return hidesPreviousData(query.error) ? { ...query, data: undefined } : query;
 }
 export function useAction() {
   const c = useFeature();
