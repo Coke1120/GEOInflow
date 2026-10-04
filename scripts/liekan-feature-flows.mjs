@@ -233,8 +233,9 @@ try {
   ));
   await page.locator('.site-switch').click();
   const switchDialog = page.getByRole('dialog', { name: '切换网站' });
-  await switchDialog.locator('[name=site]').selectOption(switchSite.id);
-  await switchDialog.getByRole('button', { name: '切换网站', exact: true }).click();
+  await switchDialog
+    .getByRole('button', { name: `选择网站 ${switchSite.name}`, exact: true })
+    .click();
   await page.waitForURL(u => u.pathname === `/websites/${switchSite.id}/sessions`);
   await page.waitForLoadState('networkidle');
   const switched = new URL(page.url());
@@ -273,8 +274,7 @@ try {
   async function chooseNextSite() {
     await page.locator('.site-switch').click();
     const picker = page.getByRole('dialog', { name: '切换网站', exact: true });
-    await picker.locator('[name=site]').selectOption(switchSite.id);
-    await picker.getByRole('button', { name: '切换网站', exact: true }).click();
+    await picker.getByRole('button', { name: `选择网站 ${switchSite.name}`, exact: true }).click();
     await page.getByRole('dialog', { name: '当前修改尚未保存', exact: true }).waitFor();
     assert.equal(await page.getByRole('dialog').count(), 1);
   }

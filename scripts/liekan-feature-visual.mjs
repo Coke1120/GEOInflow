@@ -226,7 +226,10 @@ async function navigationAcceptance(page, expected, width) {
 
 async function geometry(page) {
   return page.evaluate(() => {
-    const scope = document.querySelector('[data-liekan-features]') || document.body;
+    const scope =
+      document.querySelector('#main-content')?.closest('[data-liekan-features]') ||
+      document.querySelector('[data-liekan-features]') ||
+      document.body;
     const style = getComputedStyle(scope),
       main = document.querySelector('#main-content') || document.querySelector('main');
     const rect = main?.getBoundingClientRect();
