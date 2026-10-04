@@ -369,9 +369,7 @@ try {
     .click();
   await page.waitForURL(u => u.pathname === '/liekan/annotations');
   const toolsUrl = new URL(page.url());
-  const toolsParent = page
-    .getByRole('navigation', { name: '页面位置' })
-    .getByRole('link', { name: '访问记录', exact: true });
+  const toolsParent = page.getByRole('tab', { name: '访问记录', exact: true });
   result.checks.push({
     name: 'detail-to-tool-to-tool keeps a reachable source list',
     passed:
@@ -423,14 +421,11 @@ try {
     await page.locator('.analysis-tools').getByRole('link', { name: label, exact: true }).click();
     await page.waitForURL(u => u.pathname === path);
   }
-  await page
-    .getByRole('navigation', { name: '页面位置' })
-    .getByRole('link', { name: '访问旅程', exact: true })
-    .click();
+  await page.getByRole('tab', { name: '访问旅程', exact: true }).click();
   await page.waitForURL(u => u.pathname.endsWith('/journeys'));
   const journeyUrl = new URL(page.url());
   result.checks.push({
-    name: 'journey detail retains step conditions after successive tools and breadcrumb return',
+    name: 'journey detail retains step conditions after successive tools and analysis tab return',
     passed: Object.entries(journeyConditions).every(
       ([key, value]) => journeyUrl.searchParams.get(key) === value,
     ),
