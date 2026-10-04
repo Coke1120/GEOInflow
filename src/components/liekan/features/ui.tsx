@@ -498,6 +498,7 @@ export function Table({
                 >
                   <button
                     className="table-sort"
+                    disabled={loading}
                     onClick={() => {
                       const desc = sort?.column === i ? !sort.desc : false;
                       setSort({ column: i, desc });
