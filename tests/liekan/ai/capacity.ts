@@ -9,6 +9,7 @@ import prisma, { getRawQueryClient } from '../../../src/lib/prisma';
 import { buildAiFactsContext } from '../../../src/lib/liekan/upstream/ai-facts';
 import { createAiConversation } from '../../../src/lib/liekan/ai/conversations';
 import { getLogFacts } from '../../../src/lib/liekan/upstream/logs';
+import { waitForLogStatisticsReads } from '../../../src/lib/liekan/upstream/ai-log-read-priority';
 const url = new URL(process.env.DATABASE_URL!);
 assert.equal(url.hostname, '127.0.0.1');
 assert.equal(url.port, '15439');
@@ -23,6 +24,7 @@ const users = Array.from({ length: 3 }, () => randomUUID()),
 const end = new Date(Date.now() - 60000),
   p95 = (values: number[]) =>
     [...values].sort((a, b) => a - b)[Math.ceil(values.length * 0.95) - 1];
+const revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const rows: any[] = [];
 let environment: unknown;
 const containerUsage = () =>
@@ -106,10 +108,13 @@ try {
       await fn();
       return { ms: performance.now() - started, success: true };
     } catch (error) {
+      const sqlState =
+        (error as any)?.meta?.code ?? (error as any)?.meta?.driverAdapterError?.cause?.originalCode;
       return {
         ms: performance.now() - started,
         success: false,
         code: (error as any)?.code ?? 'query_error',
+        sqlState: /^[0-9A-Z]{5}$/.test(sqlState ?? '') ? sqlState : undefined,
       };
     }
   };
@@ -126,15 +131,26 @@ try {
     const facts: any[] = [];
     const loaded: number[] = [];
     const samples: any[] = [];
-    await original();
+    const baselineFailures: any[] = [],
+      loadedFailures: any[] = [];
+    const originalWarmup = await timed(original);
+    if (!originalWarmup.success) {
+      if (!pressure) throw Error('Original report warmup failed');
+      await waitForLogStatisticsReads(new AbortController().signal, Date.now() + 65000);
+    }
     for (let round = 0; round < 20; round++) {
       const sample: any = { pairIndex: round, order: round % 2 ? 'load-first' : 'baseline-first' };
       const measureBaseline = async () => {
         sample.baselineStartedAt = new Date().toISOString();
         const result = await timed(original);
-        if (!result.success) throw Error('Original report baseline failed');
+        if (!result.success) {
+          if (!pressure) throw Error('Original report baseline failed');
+          baselineFailures.push(result);
+          await waitForLogStatisticsReads(new AbortController().signal, Date.now() + 65000);
+        }
         baseline.push(result.ms);
         sample.baselineMs = result.ms;
+        sample.baseline = result;
       };
       const measureLoad = async () => {
         sample.loadStartedAt = new Date().toISOString();
@@ -159,7 +175,12 @@ try {
           timed(original),
         ]);
         facts.push(...result.slice(0, 3));
-        if (!result[3].success) throw Error('Original report under load failed');
+        if (!result[3].success) {
+          if (!pressure) throw Error('Original report under load failed');
+          loadedFailures.push(result[3]);
+          await waitForLogStatisticsReads(new AbortController().signal, Date.now() + 65000);
+        }
+        sample.originalLoaded = result[3];
         loaded.push(result[3].ms);
         sample.loadedMs = result[3].ms;
         sample.facts = result.slice(0, 3);
@@ -173,34 +194,39 @@ try {
       }
       samples.push(sample);
     }
+    const originalFailed =
+      !originalWarmup.success || baselineFailures.length > 0 || loadedFailures.length > 0;
     const row = {
       days,
       logs: count,
       users: 3,
       iterations: 20,
       measurementMethod: 'paired-alternating',
+      originalWarmup,
       samples,
       databaseUsage: containerUsage(),
       windowCountPlan: queryPlan,
       factsP95Ms: p95(facts.map(f => f.ms)),
       factsFailures: facts.filter(f => !f.success).length,
       failureCodes: [...new Set(facts.filter(f => !f.success).map(f => f.code))],
-      originalBaselineP95Ms: p95(baseline),
-      originalLoadedP95Ms: p95(loaded),
-      originalDegradationPercent: (p95(loaded) / p95(baseline) - 1) * 100,
+      originalBaselineFailures: baselineFailures,
+      originalLoadedFailures: loadedFailures,
+      originalBaselineP95Ms: originalFailed ? null : p95(baseline),
+      originalLoadedP95Ms: originalFailed ? null : p95(loaded),
+      originalDegradationPercent: originalFailed ? null : (p95(loaded) / p95(baseline) - 1) * 100,
     };
     rows.push(row);
     await mkdir('outputs', { recursive: true });
     await writeFile(
       `outputs/ai-capacity-${count}.json`,
-      JSON.stringify({ fixture: true, postgresVersion: 15, environment, rows }, null, 2),
+      JSON.stringify({ fixture: true, revision, postgresVersion: 15, environment, rows }, null, 2),
     );
     console.log(JSON.stringify(row));
   }
   await mkdir('outputs', { recursive: true });
   await writeFile(
     `outputs/ai-capacity-${count}.json`,
-    JSON.stringify({ fixture: true, postgresVersion: 15, environment, rows }, null, 2),
+    JSON.stringify({ fixture: true, revision, postgresVersion: 15, environment, rows }, null, 2),
   );
   if (
     !pressure &&
