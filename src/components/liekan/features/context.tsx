@@ -1,6 +1,11 @@
 'use client';
+import {
+  withClientFreshness,
+  freshnessStaleTime,
+  shareWithFreshness,
+} from '@/lib/liekan/upstream/client-freshness';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { hidesPreviousData } from '../LoadingState';
+import { hidesPreviousData, useDataLoading } from '../LoadingState';
 import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import type {
   FeatureEntity,
@@ -50,11 +55,12 @@ export function useData<T = any>(
   key: string | any[],
   load: (signal: AbortSignal) => Promise<T>,
   enabled = true,
-  options: { refetchOnMount?: 'always'; staleTime?: 0 } = {},
+  options: { queryKey?: any[]; refetchOnMount?: 'always'; staleTime?: number } = {},
 ) {
   const c = useFeature();
+  const prerequisitesLoading = useDataLoading();
   const query = useQuery<T>({
-    queryKey: [
+    queryKey: options.queryKey ?? [
       'liekan-feature',
       c?.user?.id,
       c?.siteId,
@@ -66,11 +72,22 @@ export function useData<T = any>(
       c?.route && needsWebsite(c.route) ? c?.filters : undefined,
       ...(Array.isArray(key) ? key : [key]),
     ],
-    queryFn: ({ signal }) => load(signal),
-    enabled,
+    queryFn: ({ signal }) => withClientFreshness(signal, () => load(signal)),
+    enabled: enabled && !prerequisitesLoading,
     retry: false,
-    ...options,
+    staleTime: query =>
+      options.staleTime === 0 ||
+      ['realtime', 'session-detail', 'replay-view'].includes(c?.route?.page)
+        ? 0
+        : freshnessStaleTime(
+            query,
+            options.staleTime ?? (c?.route && hasDateControl(c.route) ? 30000 : 300000),
+          ),
+    gcTime: 600000,
+    structuralSharing: shareWithFreshness,
+    ...(options.refetchOnMount ? { refetchOnMount: options.refetchOnMount } : {}),
   });
+  if (prerequisitesLoading) return { ...query, data: undefined, isPending: true, error: null };
   return hidesPreviousData(query.error) ? { ...query, data: undefined } : query;
 }
 export function useAction() {
@@ -83,11 +100,29 @@ export function useAction() {
     setError('');
     try {
       const result = await action();
-      await Promise.all([
-        client.invalidateQueries({ queryKey: ['liekan-feature'] }),
-        client.invalidateQueries({ queryKey: ['2fa-status'] }),
-      ]);
       c?.notify(message);
+      await client.invalidateQueries({ queryKey: ['2fa-status'] });
+      const websiteId = c?.siteId;
+      const globalEdit =
+        !websiteId || ['website-settings', 'websites', 'onboarding'].includes(c?.route?.page);
+      const filters = {
+        predicate: (query: { queryKey: readonly unknown[] }) => {
+          const key = query.queryKey;
+          if (key[0] === 'liekan')
+            return key[13] === c?.user?.id && (!websiteId || key[1] === websiteId);
+          if (key[0] !== 'liekan-feature' || !key.includes(c?.user?.id)) return false;
+          return (
+            globalEdit ||
+            key.includes(websiteId) ||
+            (!!c?.route?.id && key.includes(c.route.id)) ||
+            key.includes('resource-analytics') ||
+            key.some(value => Array.isArray(value) && value.includes(websiteId))
+          );
+        },
+      };
+      await client.cancelQueries(filters);
+      const updating = client.invalidateQueries(filters);
+      await updating;
       return result;
     } catch (e: any) {
       setError(e?.message || '操作失败');

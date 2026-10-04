@@ -37,3 +37,5 @@ export { useApi } from '@/components/hooks/useApi';
 export { useDateRange } from '@/components/hooks/useDateRange';
 export { useNavigation } from '@/components/hooks/useNavigation';
 export { UserButton } from '@/components/input/UserButton';
+
+export { useApp as useFeatureAppState } from '@/store/app';

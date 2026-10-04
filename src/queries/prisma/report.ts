@@ -1,3 +1,4 @@
+import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
 import { Prisma, type Report } from '@/generated/prisma/client';
 import prisma from '@/lib/prisma';
 import type { PageResult, QueryFilters } from '@/lib/types';
@@ -88,13 +89,19 @@ export async function getWebsiteReports(websiteId: string, filters: QueryFilters
 }
 
 export async function createReport(data: Prisma.ReportUncheckedCreateInput) {
-  return prisma.client.report.create({ data });
+  const result = await prisma.client.report.create({ data });
+  invalidateWebsiteAnalytics(result.websiteId);
+  return result;
 }
 
 export async function updateReport(reportId: string, data: any) {
-  return prisma.client.report.update({ where: { id: reportId }, data });
+  const result = await prisma.client.report.update({ where: { id: reportId }, data });
+  invalidateWebsiteAnalytics(result.websiteId);
+  return result;
 }
 
 export async function deleteReport(reportId: string) {
-  return prisma.client.report.delete({ where: { id: reportId } });
+  const result = await prisma.client.report.delete({ where: { id: reportId } });
+  invalidateWebsiteAnalytics(result.websiteId);
+  return result;
 }

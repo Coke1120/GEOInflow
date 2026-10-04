@@ -53,7 +53,8 @@ vi.mock('./Chart', () => ({
     );
   },
 }));
-vi.mock('@/lib/liekan/upstream/features-client', () => ({
+vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/liekan/upstream/features-client')>()),
   featureRequest: mocks.request,
   getAllFeatureRows: mocks.all,
   getFeaturePreferences: mocks.preferences,
@@ -417,8 +418,8 @@ describe('workspace permissions and native board persistence', () => {
     await act(async () => {
       await client.invalidateQueries();
     });
+    await screen.findByRole('heading', { name: '没有访问权限' });
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '没有访问权限' })).toBeInTheDocument();
   });
   it('native metrics-only and trend widgets keep one outer panel per widget', async () => {
     context.route = { page: 'board-view', id: 'board-1' };

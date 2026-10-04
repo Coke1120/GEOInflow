@@ -19,6 +19,8 @@ import {
   acceptFeatureLogin,
   clearFeatureLogin,
   featureApi,
+  featureSiteQuery,
+  getFeatureWebsiteSummary,
   getFeaturePreferences,
   resumeFeatureLogin,
   saveFeaturePreferences,
@@ -106,6 +108,7 @@ function useSiteRecord() {
     ['site-record', c.siteId],
     signal => c.api.get<FeatureEntity>(sitePath(c.siteId), undefined, signal),
     !!c.siteId,
+    featureSiteQuery(c.user.id, c.siteId),
   );
 }
 function useInstall(id: string, createdAt?: string) {
@@ -221,41 +224,12 @@ function InstallSteps({ query, websiteId }: { query: any; websiteId: string }) {
 }
 function Websites() {
   const c = useFeature();
-  const query = useData(['website-management-stats', c.sites.map(site => site.id)], async signal =>
-    Promise.all(
-      c.sites.map(async site => {
-        try {
-          const [stats, dates, lifetime] = await Promise.all([
-            c.api.get(`${sitePath(site.id)}/stats`, { ...c.range, ...c.filters }, signal),
-            c.api.get(`${sitePath(site.id)}/daterange`, undefined, signal),
-            c.api.get(
-              `${sitePath(site.id)}/stats`,
-              {
-                startAt: site.createdAt ? +new Date(site.createdAt) : 0,
-                endAt: Date.now(),
-                timezone: c.range.timezone,
-              },
-              signal,
-            ),
-          ]);
-          if (
-            stats?.pageviews == null ||
-            !Number.isFinite(countOf(stats.pageviews)) ||
-            lifetime?.pageviews == null ||
-            !Number.isFinite(countOf(lifetime.pageviews))
-          )
-            throw new Error('统计响应缺少有效的访问次数。');
-          return {
-            id: site.id,
-            views: countOf(stats.pageviews),
-            received: countOf(lifetime?.pageviews) > 0,
-            lastAt: dates.endDate,
-          };
-        } catch (error: any) {
-          if (error.name === 'AbortError') throw error;
-          return { id: site.id, error };
-        }
-      }),
+  const query = useData(['website-management-stats', c.sites.map(site => site.id)], signal =>
+    getFeatureWebsiteSummary(
+      c.sites.map(site => site.id),
+      c.range,
+      signal,
+      c.api.get,
     ),
   );
   const stats = query.data || [];

@@ -1,6 +1,8 @@
 'use client';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 import {
   geoPageFromPath,
@@ -12,6 +14,7 @@ import {
   useFeatureDateRange,
   useNavigation,
   useWebsite,
+  useFeatureAppState,
 } from '@/lib/liekan/upstream/client';
 import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Shell.module.css';
@@ -39,6 +42,9 @@ import { defaultDateRange, isLiveLogView, previousWeekRange, readViewState } fro
 
 export function LiekanPage({ resource }: { resource: Resource }) {
   const api = useApi();
+  const userId = useFeatureAppState(state => state.user?.id);
+  const forceRefresh = useRef(false);
+  const queryClient = useQueryClient();
   useEffect(() => {
     void loadEcharts().catch(() => {});
   }, []);
@@ -102,23 +108,10 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     return () => window.clearInterval(timer);
   }, [liveLogs]);
   const query = api.useQuery<LiekanReport>({
-    queryKey: [
-      'liekan',
+    ...pageReportQuery(
+      userId,
       websiteId,
-      teamId,
-      resource,
-      startAt,
-      endAt,
-      timezone,
-      chartPeriod,
-      resource === 'logs' ? filter : '',
-      resource === 'logs' ? search : '',
-      resource === 'logs' ? logPage : 1,
-      resource === 'logs' ? cursor : '',
-      resource === 'logs' ? seek : '',
-    ],
-    queryFn: () =>
-      api.get(`/liekan/websites/${websiteId}/report`, {
+      {
         resource,
         startAt,
         endAt,
@@ -139,35 +132,36 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               ...(cursor ? { cursor, seek } : {}),
             }
           : {}),
-      }),
+      },
+      teamId,
+      () => {
+        const value = forceRefresh.current;
+        forceRefresh.current = false;
+        return value;
+      },
+      liveLogs,
+    ),
     enabled: !!websiteId,
-    placeholderData: (previous, previousQuery) =>
-      previous?.website.id === websiteId &&
-      previousQuery?.queryKey[3] === resource &&
-      (liveLogs || (previous.range.startAt === startAt && previous.range.endAt === endAt))
-        ? previous
-        : undefined,
-    refetchInterval: resource === 'logs' && !liveLogs ? 10000 : false,
+    refetchInterval: resource === 'logs' ? 10000 : false,
   });
   const previous = api.useQuery<LiekanReport>({
-    queryKey: [
-      'liekan',
-      websiteId,
-      teamId,
-      resource,
-      shiftedRange.startAt,
-      shiftedRange.endAt,
-      timezone,
-    ],
-    queryFn: () =>
-      api.get(`/liekan/websites/${websiteId}/report`, {
-        resource,
-        ...shiftedRange,
-        timezone,
-      }),
+    ...pageReportQuery(userId, websiteId, { resource, ...shiftedRange, timezone }, teamId),
     enabled: compare && !!websiteId,
   });
   const report = hidesPreviousData(query.error) ? undefined : query.data;
+  const refresh = () => {
+    forceRefresh.current = true;
+    return query.refetch({ cancelRefetch: false });
+  };
+  const afterSaved = () => {
+    void queryClient.invalidateQueries({ queryKey: ['liekan', websiteId], refetchType: 'none' });
+    void queryClient.invalidateQueries({
+      queryKey: ['liekan-feature', userId],
+      refetchType: 'none',
+    });
+    if (liveLogs) setLiveNow(Date.now());
+    void refresh();
+  };
   const rangeLabel = useMemo(() => {
     const date = (value: number) =>
       new Intl.DateTimeFormat('zh-CN', {
@@ -257,7 +251,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       return;
     }
     if (label === '生成内容建议') {
-      query.refetch().then(result => {
+      refresh().then(result => {
         setMessage(result.isError ? '读取数据失败，请重试' : '已根据当前数据重新生成内容建议');
       });
       return;
@@ -368,7 +362,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         <div className={styles.notice} role="status">
           {query.isError ? '无法读取此范围的数据' : message || `查询：${search}`}
           {query.isError && (
-            <button type="button" onClick={() => query.refetch()}>
+            <button type="button" onClick={() => refresh()}>
               重试
             </button>
           )}
@@ -415,7 +409,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           websiteId={websiteId}
           canManage={report?.meta.canManage || false}
           onClose={close}
-          onSaved={() => (liveLogs ? setLiveNow(Date.now()) : query.refetch())}
+          onSaved={afterSaved}
           onSearch={value =>
             updateView({
               search: value.slice(0, 200),

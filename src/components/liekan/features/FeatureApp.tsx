@@ -13,6 +13,8 @@ import {
 import { useFeatureDateRange, useNavigation } from '@/lib/liekan/upstream/client';
 import {
   featureApi,
+  featureSiteQuery,
+  invalidateFeatureUserQueries,
   getAllFeatureRows,
   getFeaturePreferences,
   getFeatureSites,
@@ -26,6 +28,7 @@ import {
   resourceListPages,
   websiteAnalysisFamily,
 } from '@/lib/liekan/contracts/navigation';
+import { hidesPreviousData } from '../LoadingState';
 import { AnalysisTabs } from '../AnalysisTabs';
 import { Navigation, useSidebarWidth } from '../Navigation';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
@@ -184,15 +187,23 @@ export function FeatureApp({
     },
     enabled: !setup && needsSites,
     retry: false,
+    staleTime: 300000,
+    gcTime: 600000,
   });
-  const sites = rowsOf<FeatureEntity>(sitesQuery.data);
+  const sites = rowsOf<FeatureEntity>(
+    hidesPreviousData(sitesQuery.error) ? undefined : sitesQuery.data,
+  );
   const teamsQuery = useQuery({
     queryKey: ['liekan-feature', user.id, 'teams'],
     queryFn: ({ signal }) => getAllFeatureRows<FeatureEntity>('/me/teams', {}, signal),
     enabled: !setup,
     retry: false,
+    staleTime: 300000,
+    gcTime: 600000,
   });
-  const listedTeams: FeatureEntity[] = teamsQuery.data || [];
+  const listedTeams: FeatureEntity[] = hidesPreviousData(teamsQuery.error)
+    ? []
+    : teamsQuery.data || [];
   const resolveTeam =
     !setup &&
     teamMetadataRequired &&
@@ -210,7 +221,9 @@ export function FeatureApp({
     retry: false,
   });
   const teams =
-    resolveTeam && scopeTeamQuery.data ? [...listedTeams, scopeTeamQuery.data] : listedTeams;
+    resolveTeam && scopeTeamQuery.data && !hidesPreviousData(scopeTeamQuery.error)
+      ? [...listedTeams, scopeTeamQuery.data]
+      : listedTeams;
   const teamState =
     teamMetadataRequired && (teamsQuery.isPending || teamsQuery.error)
       ? teamsQuery
@@ -219,12 +232,13 @@ export function FeatureApp({
         : undefined;
   const siteId = websiteRequired ? route.websiteId || '' : '';
   const siteQuery = useQuery({
-    queryKey: ['liekan-feature', user.id, 'site', siteId],
-    queryFn: ({ signal }) => featureApi.get(`/websites/${siteId}`, {}, signal),
+    ...featureSiteQuery(user.id, siteId),
     enabled: !!siteId && !setup,
     retry: false,
   });
-  const site = siteQuery.data || sites.find(s => s.id === siteId);
+  const site = hidesPreviousData(siteQuery.error)
+    ? undefined
+    : siteQuery.data || sites.find(s => s.id === siteId);
   const current = forceSetup ? { ...route, page: 'two-factor' } : route;
   const websiteLayout = meta.scope === 'website';
   const [segmentsOpen, setSegmentsOpen] = useState(false);
@@ -258,7 +272,7 @@ export function FeatureApp({
   const notify = useCallback((message: string) => setToast(message), []);
   const refresh = useCallback(async () => {
     await refreshFeatureIdentity();
-    await client.invalidateQueries({ queryKey: ['liekan-feature', user.id] });
+    await invalidateFeatureUserQueries(client, user.id);
   }, [client, user.id]);
   const filters = useMemo(
     () =>
@@ -317,7 +331,14 @@ export function FeatureApp({
         : page?.title || '猎看统计';
   const content =
     !setup && (teamState?.isPending || teamState?.error) ? (
-      <QueryState query={teamState}>{null}</QueryState>
+      <QueryState
+        readOnly={teamState.isPending && ['websites', 'dashboard'].includes(current.page)}
+        query={teamState}
+      >
+        {teamState.isPending && ['websites', 'dashboard'].includes(current.page) ? (
+          <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
+        ) : null}
+      </QueryState>
     ) : !setup && websiteRequired && !siteId ? (
       <Notice>
         请选择需要查看的网站。
@@ -343,7 +364,14 @@ export function FeatureApp({
     ) : !setup && websiteRequired && siteQuery.error ? (
       <QueryState query={siteQuery}>{null}</QueryState>
     ) : !setup && needsSites && !websiteRequired && (sitesQuery.isPending || sitesQuery.error) ? (
-      <QueryState query={sitesQuery}>{null}</QueryState>
+      <QueryState
+        readOnly={sitesQuery.isPending && ['websites', 'dashboard'].includes(current.page)}
+        query={sitesQuery}
+      >
+        {sitesQuery.isPending && ['websites', 'dashboard'].includes(current.page) ? (
+          <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
+        ) : null}
+      </QueryState>
     ) : datePage && range.endAt - range.startAt > 1096 * 86400000 ? (
       <Notice>日期范围上限 3 年，请调整日期后查看。</Notice>
     ) : (

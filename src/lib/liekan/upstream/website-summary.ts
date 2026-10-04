@@ -1,0 +1,142 @@
+import { checkAuth } from '@/lib/auth';
+import { DEFAULT_RESET_DATE } from '@/lib/constants';
+import { getCompareDate } from '@/lib/date';
+import prisma from '@/lib/prisma';
+import { getQueryFilters } from '@/lib/request';
+import type { Auth } from '@/lib/types';
+import { canViewWebsiteSection } from '@/permissions';
+import { getWebsiteDateRange, getWebsiteStats } from '@/queries/sql';
+import { websiteSummaryQuery, websiteSummarySchema } from '../contracts/website-summary';
+import { statisticsCacheTtl } from './cache-policy';
+import { noteCacheResult, withoutQueryCache } from './cache-context';
+import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './query-cache';
+import { LiekanError, query } from './server';
+
+export async function readWebsiteSummary(request: Request, input: unknown) {
+  const parsed = websiteSummaryQuery.safeParse(input);
+  if (!parsed.success) throw new LiekanError('网站或日期参数无效');
+  const p = {
+    ...parsed.data,
+    ids: parsed.data.ids
+      ? [...new Set(parsed.data.ids.split(',').map(id => id.toLowerCase()))].sort()
+      : [],
+  };
+  try {
+    new Intl.DateTimeFormat('zh-CN', { timeZone: p.timezone }).format();
+  } catch {
+    throw new LiekanError('时区无效');
+  }
+  const auth = await checkAuth(request);
+  if (!auth?.user || auth.user.deletedAt || ('shareToken' in auth && auth.shareToken))
+    throw new LiekanError('需要完整登录', 401);
+  // Check current ownership and permissions before every cache read.
+  const sites = await prisma.client.website.findMany({
+    where: { id: { in: p.ids }, deletedAt: null },
+    select: { id: true, createdAt: true, resetAt: true },
+  });
+  if (sites.length !== p.ids.length) throw new LiekanError('网站不存在', 404);
+  const allowed = await Promise.all(
+    p.ids.map(id => canViewWebsiteSection(auth as Auth, id, ['overview', 'compare'])),
+  );
+  if (allowed.some(value => !value)) throw new LiekanError('无权访问网站', 403);
+  const ttl = Math.min(30000, statisticsCacheTtl(p.endAt, p.timezone));
+  if (!p.ids.length) return [];
+  const current = { startDate: new Date(p.startAt), endDate: new Date(p.endAt) };
+  const windows = sites.flatMap(site => {
+    const start = new Date(Math.max(p.startAt, site.resetAt ? +site.resetAt : p.startAt));
+    const previous = getCompareDate('prev', start, current.endDate);
+    return [
+      { website_id: site.id, label: 'current', start_at: start, end_at: current.endDate },
+      {
+        website_id: site.id,
+        label: 'previous',
+        start_at: previous.startDate,
+        end_at: previous.endDate,
+      },
+    ];
+  });
+  const zero = { pageviews: 0, visitors: 0, visits: 0, bounces: 0, totaltime: 0 };
+  const normalize = (row: any) =>
+    Object.fromEntries(Object.keys(zero).map(key => [key, Number(row?.[key] ?? 0)])) as typeof zero;
+  const result = await analyticsCache.read(
+    analyticsCacheKey('website-summary-v1', [
+      process.env.DATABASE_URL,
+      process.env.CLICKHOUSE_URL,
+      p,
+      sites,
+    ]),
+    ttl,
+    p.ids.map(websiteCacheTag),
+    async () => {
+      if (process.env.CLICKHOUSE_URL || process.env.CLOUD_MODE) {
+        const rows = [];
+        // Bound compatibility fallback fan-out; PostgreSQL uses one grouped query.
+        for (const site of sites) {
+          const filters = await getQueryFilters(
+            { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
+            site.id,
+          );
+          const comparisonFilters = getCompareDate('prev', filters.startDate, filters.endDate);
+          const lifetimeFilters = await getQueryFilters(
+            { startAt: +site.createdAt, endAt: Date.now() },
+            site.id,
+          );
+          const [stats, comparison, dates, lifetime] = await withoutQueryCache(() =>
+            Promise.all([
+              getWebsiteStats(site.id, filters),
+              getWebsiteStats(site.id, { ...filters, ...comparisonFilters }),
+              getWebsiteDateRange(site.id),
+              getWebsiteStats(site.id, lifetimeFilters),
+            ]),
+          );
+          rows.push({
+            id: site.id,
+            ...normalize(stats),
+            comparison: normalize(comparison),
+            views: normalize(stats).pageviews,
+            received: normalize(lifetime).pageviews > 0,
+            lastAt: dates?.endDate ? new Date(dates.endDate).toISOString() : null,
+          });
+        }
+        return websiteSummarySchema.parse(rows);
+      }
+      const facts = await query(
+        `WITH windows AS (SELECT * FROM jsonb_to_recordset($2::jsonb) AS bounds(website_id uuid,label text,start_at timestamptz,end_at timestamptz)), visits AS (
+        SELECT e.website_id,w.label,e.session_id,e.visit_id,
+          COUNT(*) FILTER(WHERE e.event_type NOT IN (2,5)) AS c,
+          MIN(e.created_at) FILTER(WHERE e.event_type NOT IN (2,5)) AS first_at,
+          MAX(e.created_at) FILTER(WHERE e.event_type NOT IN (2,5)) AS last_at,
+          MAX(CASE WHEN e.event_type=2 THEN 1 ELSE 0 END) AS custom
+        FROM website_event e JOIN windows w ON e.website_id=w.website_id AND e.created_at BETWEEN w.start_at AND w.end_at
+        WHERE e.website_id=ANY($1::uuid[]) AND e.event_type!=5
+        GROUP BY 1,2,3,4 HAVING COUNT(*) FILTER(WHERE e.event_type NOT IN (2,5))>0
+      ), totals AS (
+        SELECT website_id,label,SUM(c) AS pageviews,COUNT(DISTINCT session_id) AS visitors,COUNT(DISTINCT visit_id) AS visits,
+          SUM(CASE WHEN c=1 AND custom=0 THEN 1 ELSE 0 END) AS bounces,SUM(FLOOR(EXTRACT(epoch FROM last_at-first_at))) AS totaltime
+        FROM visits GROUP BY 1,2
+      ) SELECT w.website_id AS id,
+        COALESCE((SELECT row_to_json(t) FROM totals t WHERE t.website_id=w.website_id AND label='current'),'{}') AS current,
+        COALESCE((SELECT row_to_json(t) FROM totals t WHERE t.website_id=w.website_id AND label='previous'),'{}') AS previous,
+        EXISTS(SELECT 1 FROM website_event e WHERE e.website_id=w.website_id AND e.event_type NOT IN (2,5) AND e.created_at BETWEEN GREATEST(w.created_at,COALESCE(w.reset_at,w.created_at)) AND $3::timestamptz) AS received,
+        (SELECT MAX(e.created_at) FROM website_event e WHERE e.website_id=w.website_id AND e.created_at >= $4::timestamptz) AS last_at
+        FROM website w WHERE w.website_id=ANY($1::uuid[]) ORDER BY w.website_id`,
+        p.ids,
+        JSON.stringify(windows),
+        new Date(),
+        new Date(DEFAULT_RESET_DATE),
+      );
+      return websiteSummarySchema.parse(
+        facts.map(row => ({
+          id: row.id,
+          ...normalize(row.current),
+          comparison: normalize(row.previous),
+          views: normalize(row.current).pageviews,
+          received: row.received,
+          lastAt: row.last_at?.toISOString() ?? null,
+        })),
+      );
+    },
+  );
+  noteCacheResult(result);
+  return result.value;
+}

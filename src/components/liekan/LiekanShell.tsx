@@ -14,6 +14,7 @@ import {
   pageNavigation,
   websiteAnalysisFamily,
 } from '@/lib/liekan/contracts/navigation';
+import { featureSiteQuery } from '@/lib/liekan/upstream/features-client';
 import { useNavigation, useWebsiteQuery } from '@/lib/liekan/upstream/client';
 import reference from '@/styles/liekan/Reference.module.css';
 import styles from '@/styles/liekan/Shell.module.css';
@@ -42,7 +43,11 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
   const route = pathname.includes('/geo')
     ? { page: geoPageFromPath(pathname), websiteId }
     : matchFeatureRoute(pathname, query) || { page: 'dashboard' };
-  const metadata = useWebsiteQuery(isGeo ? websiteId : undefined);
+  const metadata = useWebsiteQuery(isGeo ? websiteId : undefined, {
+    ...featureSiteQuery(user?.id, websiteId),
+    placeholderData: undefined,
+    enabled: isGeo && !!websiteId && !!user?.id,
+  });
   const currentMetadata =
     metadata.data?.id === websiteId && !hidesPreviousData(metadata.error)
       ? metadata.data

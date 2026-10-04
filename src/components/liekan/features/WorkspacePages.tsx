@@ -1,6 +1,11 @@
 'use client';
 import { useListState } from './listState';
 
+import {
+  freshnessStaleTime,
+  withClientFreshness,
+  shareWithFreshness,
+} from '@/lib/liekan/upstream/client-freshness';
 import { useQuery } from '@tanstack/react-query';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
@@ -34,6 +39,8 @@ import {
 } from '@/lib/liekan/contracts/workspace';
 import {
   featureRequest,
+  getFeatureWebsiteSummary,
+  mapFeatureRows,
   getAllFeatureRows,
   getFeaturePreferences,
 } from '@/lib/liekan/upstream/features-client';
@@ -162,10 +169,8 @@ export function useWorkspaceEntities() {
         ['links', 'pixels', 'boards'].map(async kind => {
           const personal = await getAllFeatureRows<FeatureEntity>(`${prefix}/${kind}`, {}, signal);
           if (!allSources) return personal;
-          const teams = await Promise.all(
-            c.teams.map(team =>
-              getAllFeatureRows<FeatureEntity>(`/teams/${team.id}/${kind}`, {}, signal),
-            ),
+          const teams = await mapFeatureRows(c.teams, team =>
+            getAllFeatureRows<FeatureEntity>(`/teams/${team.id}/${kind}`, {}, signal),
           );
           return [
             ...new Map([...personal, ...teams.flat()].map(entity => [entity.id, entity])).values(),
@@ -1243,32 +1248,41 @@ export function ResourceAnalytics({
       variant,
       allowGoals,
     ],
-    queryFn: async ({ signal }) => {
-      const [stats, trend, aiTrend] = await Promise.all([
-        metrics ? get(`/websites/${id}/stats`, params, signal) : null,
-        get(`/websites/${id}/pageviews`, params, signal),
-        kind === 'website'
-          ? get(`/websites/${id}/pageviews`, { ...params, drill_channel: 'eq.AI 搜索引荐' }, signal)
-          : null,
-      ]);
-      const aiStats =
-        metrics && variant && kind === 'website'
-          ? await get(
-              `/websites/${id}/stats`,
-              { ...params, drill_channel: 'eq.AI 搜索引荐' },
-              signal,
-            )
-          : null;
-      let appointment: any = null;
-      if (metrics && variant && kind === 'website' && allowGoals) {
-        const goals = await allSharedRows(get, `/websites/${id}/goals`, signal);
-        const goal = goals.find((g: any) =>
-          /预约|appointment|book.*demo|demo.*book/i.test(g.name || ''),
-        );
-        if (goal) appointment = await get(`/websites/${id}/goals/${goal.id}/stats`, params, signal);
-      }
-      return { stats, trend, aiTrend, aiStats, appointment };
-    },
+    queryFn: ({ signal }) =>
+      withClientFreshness(signal, async () => {
+        const [stats, trend, aiTrend] = await Promise.all([
+          metrics ? get(`/websites/${id}/stats`, params, signal) : null,
+          get(`/websites/${id}/pageviews`, params, signal),
+          kind === 'website'
+            ? get(
+                `/websites/${id}/pageviews`,
+                { ...params, drill_channel: 'eq.AI 搜索引荐' },
+                signal,
+              )
+            : null,
+        ]);
+        const aiStats =
+          metrics && variant && kind === 'website'
+            ? await get(
+                `/websites/${id}/stats`,
+                { ...params, drill_channel: 'eq.AI 搜索引荐' },
+                signal,
+              )
+            : null;
+        let appointment: any = null;
+        if (metrics && variant && kind === 'website' && allowGoals) {
+          const goals = await allSharedRows(get, `/websites/${id}/goals`, signal);
+          const goal = goals.find((g: any) =>
+            /预约|appointment|book.*demo|demo.*book/i.test(g.name || ''),
+          );
+          if (goal)
+            appointment = await get(`/websites/${id}/goals/${goal.id}/stats`, params, signal);
+        }
+        return { stats, trend, aiTrend, aiStats, appointment };
+      }),
+    staleTime: query => freshnessStaleTime(query),
+    gcTime: 600000,
+    structuralSharing: shareWithFreshness,
     enabled: !!id,
     retry: false,
   });
@@ -2265,26 +2279,24 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
     settings = q.data?.parameters?.liekan;
   const stats = useData(
     ['dashboard-stats', ids, settings?.showAI],
-    async signal =>
-      Promise.all(
-        ids.map(async id => {
-          const [value, aiStats] = await Promise.all([
-            c.api.get(`/websites/${id}/stats`, { ...c.range, ...c.filters }, signal),
+    async signal => {
+      const summaries = await getFeatureWebsiteSummary(ids, c.range, signal, c.api.get);
+      const failed = summaries.find(row => row.error);
+      if (failed) throw failed.error;
+      return Promise.all(
+        summaries.map(async value => {
+          const aiStats =
             settings?.showAI === false
               ? null
-              : c.api.get(
-                  `/websites/${id}/stats`,
+              : await c.api.get(
+                  `/websites/${value.id}/stats`,
                   { ...c.range, ...c.filters, drill_channel: 'eq.AI 搜索引荐' },
                   signal,
-                ),
-          ]);
-          return {
-            ...value,
-            id,
-            ai: nativeMetric(aiStats?.visitors),
-          };
+                );
+          return { ...value, ai: nativeMetric(aiStats?.visitors) };
         }),
-      ),
+      );
+    },
     !editing && !q.isPending && !q.error,
   );
   const sum = (key: string) =>
@@ -2305,14 +2317,14 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
       : `前期 ${numberLabel(previous)} · 变化 ${numberLabel(current - previous)}`;
   };
   return (
-    <QueryState query={q}>
+    <QueryState readOnly={!editing} query={q}>
       {editing ? (
         <QueryState query={{ isPending: !!c.sitesLoading }}>
           <DashboardEdit key={q.data?.updatedAt || 'new'} board={q.data} />
         </QueryState>
       ) : (
         <>
-          <QueryState query={stats}>
+          <QueryState readOnly query={stats}>
             <Metrics
               items={[
                 [

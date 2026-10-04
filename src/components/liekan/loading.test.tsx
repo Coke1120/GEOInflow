@@ -8,6 +8,10 @@ const mocks = vi.hoisted(() => ({
   report: { data: undefined, isPending: true, isError: false, refetch: vi.fn() } as any,
   pathname: '/websites/site-a/geo/content',
 }));
+vi.mock('@tanstack/react-query', async importOriginal => ({
+  ...(await importOriginal<typeof import('@tanstack/react-query')>()),
+  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+}));
 vi.mock('next/link', () => ({
   default: ({ children, prefetch: _prefetch, ...props }: any) => <a {...props}>{children}</a>,
   useLinkStatus: () => ({ pending: false }),
@@ -20,6 +24,7 @@ vi.mock('./pages/Content', () => ({
   Content: ({ report }: any) => <div>{report ? '实际报表' : '报表占位'}</div>,
 }));
 vi.mock('@/lib/liekan/upstream/client', () => ({
+  useFeatureAppState: (select: any) => select({ user: { id: 'current-user' } }),
   useWebsiteQuery: () => mocks.metadata,
   useWebsite: () => ({ id: 'site-a', name: '当前网站', domain: 'a.test' }),
   useFeatureDateRange: () => ({

@@ -1,3 +1,4 @@
+import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
 import type { Prisma, Segment } from '@/generated/prisma/client';
 import prisma from '@/lib/prisma';
 import type { PageResult, QueryFilters } from '@/lib/types';
@@ -52,13 +53,19 @@ export async function getWebsiteSegments(websiteId: string, type: string, filter
 }
 
 export async function createSegment(data: Prisma.SegmentUncheckedCreateInput) {
-  return prisma.client.segment.create({ data });
+  const result = await prisma.client.segment.create({ data });
+  invalidateWebsiteAnalytics(result.websiteId);
+  return result;
 }
 
 export async function updateSegment(SegmentId: string, data: Prisma.SegmentUpdateInput) {
-  return prisma.client.segment.update({ where: { id: SegmentId }, data });
+  const result = await prisma.client.segment.update({ where: { id: SegmentId }, data });
+  invalidateWebsiteAnalytics(result.websiteId);
+  return result;
 }
 
 export async function deleteSegment(SegmentId: string) {
-  return prisma.client.segment.delete({ where: { id: SegmentId } });
+  const result = await prisma.client.segment.delete({ where: { id: SegmentId } });
+  invalidateWebsiteAnalytics(result.websiteId);
+  return result;
 }

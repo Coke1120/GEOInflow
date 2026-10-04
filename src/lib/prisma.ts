@@ -14,6 +14,9 @@ import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
 import { channelFilterColumn } from './liekan/upstream/filter-extension';
 import { getQuerySnapshot } from './liekan/upstream/query-snapshot';
+import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './liekan/upstream/query-cache';
+import { cacheHeadersEnabled, noteCacheResult } from './liekan/upstream/cache-context';
+import { statisticsCacheTtl } from './liekan/upstream/cache-policy';
 
 const log = debug('umami:prisma');
 
@@ -801,6 +804,34 @@ async function executeRawQuery(
 }
 
 async function rawQuery(sql: string, data: Record<string, any>, name?: string): Promise<any> {
+  const cacheable = new Set([
+    'getWebsiteStats',
+    'getChannelMetrics',
+    'getChannelExpandedMetrics',
+    'getPageviewStats',
+    'getPageviewMetrics',
+    'getPageviewExpandedMetrics',
+    'getEventStats',
+    'getEventMetrics',
+    'getSessionStats',
+    'getSessionMetrics',
+    'getSessionExpandedMetrics',
+  ]);
+  if (data.websiteId && cacheable.has(name) && !getQuerySnapshot() && cacheHeadersEnabled()) {
+    const result = await analyticsCache.read(
+      analyticsCacheKey('native-statistics-v1', [
+        process.env.DATABASE_URL,
+        process.env.DATABASE_REPLICA_URL,
+        sql,
+        data,
+      ]),
+      data.endDate ? statisticsCacheTtl(data.endDate, data.timezone) : 30000,
+      [websiteCacheTag(data.websiteId)],
+      () => executeRawQuery(sql, data, name),
+    );
+    noteCacheResult(result);
+    return result.value;
+  }
   return executeRawQuery(sql, data, name);
 }
 

@@ -96,7 +96,8 @@ vi.mock('./context', () => ({
     };
   },
 }));
-vi.mock('@/lib/liekan/upstream/features-client', () => ({
+vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/liekan/upstream/features-client')>()),
   featureApi: { post: mocks.post },
   acceptFeatureLogin: mocks.login,
   resumeFeatureLogin: mocks.resumeLogin,

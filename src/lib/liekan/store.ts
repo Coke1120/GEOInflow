@@ -1,3 +1,4 @@
+import { invalidateWebsiteAnalytics } from './upstream/query-cache';
 import { randomUUID } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import { parseCatalog, parseLogInput } from './ingest';
@@ -68,7 +69,7 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
     if (body.rules.some(rule => !BOT_TYPES.includes(rule.type)))
       throw new LiekanError('规则类型仅支持训练、搜索、用户触发、传统搜索和其他');
   }
-  return transaction(async tx => {
+  const result = await transaction(async tx => {
     await lockWritableWebsite(tx, id, identity);
     const current = settingsFromRow((await tx.$queryRawUnsafe(settingsQuery, id))[0]);
     const next = {
@@ -85,6 +86,8 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
     );
     return { ...next, isDemo: current.isDemo };
   });
+  invalidateWebsiteAnalytics(id);
+  return result;
 }
 export async function importLogs(id: string, domain: string, input: any, identity?: WriteIdentity) {
   id = id.toLowerCase();
@@ -105,7 +108,7 @@ export async function importLogs(id: string, domain: string, input: any, identit
   }
   if (!parsed.records.length)
     throw new LiekanError('没有有效日志；请检查时间、IP、路径、状态和 User-Agent');
-  return transaction(async tx => {
+  const result = await transaction(async tx => {
     // One importing transaction per website, including across replicas/processes.
     const lock = await tx.$queryRawUnsafe(
       'SELECT pg_try_advisory_xact_lock(hashtext($1)) AS acquired',
@@ -154,6 +157,8 @@ export async function importLogs(id: string, domain: string, input: any, identit
       errors: parsed.errors,
     };
   });
+  invalidateWebsiteAnalytics(id);
+  return result;
 }
 export async function importCatalog(
   id: string,
@@ -216,5 +221,6 @@ export async function importCatalog(
       }
     }
   });
+  invalidateWebsiteAnalytics(id);
   return { accepted: rows.length, mode: 'upsert' };
 }

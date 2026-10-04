@@ -1,4 +1,8 @@
 'use client';
+import type { QueryClient } from '@tanstack/react-query';
+import { RequestPool } from './request-pool';
+import { rememberFreshness, freshnessExpiry, rememberRequestFreshness } from './client-freshness';
+import type { WebsiteSummary } from '../contracts/website-summary';
 import { getApiUrl } from '@/lib/api-url';
 import { getClientAuthToken, removeClientAuthToken, setClientAuthToken } from '@/lib/client';
 import { DATE_RANGE_CONFIG, LOCALE_CONFIG, THEME_CONFIG, TIMEZONE_CONFIG } from '@/lib/constants';
@@ -69,6 +73,7 @@ export class FeatureApiError extends Error {
     super(message);
   }
 }
+const reads = new RequestPool();
 export async function featureRequest<T = any>(
   method: string,
   path: string,
@@ -94,21 +99,30 @@ export async function featureRequest<T = any>(
     const token = tokenOverride ?? getClientAuthToken();
     if (token) headers.authorization = `Bearer ${token}`;
   }
-  const response = await fetch(url, {
-    method,
-    headers,
-    signal,
-    cache: 'no-store',
-    ...(method !== 'GET' && params && { body: JSON.stringify(params) }),
-  });
-  const data = await response.json().catch(() => null);
-  if (!response.ok)
-    throw new FeatureApiError(
-      data?.error?.message || data?.message || `请求失败 (${response.status})`,
-      response.status,
-      data?.error?.code,
-      data?.error,
-    );
+  const load = async (requestSignal?: AbortSignal) => {
+    const response = await fetch(url, {
+      method,
+      headers,
+      signal: requestSignal,
+      cache: 'no-store',
+      ...(method !== 'GET' && params && { body: JSON.stringify(params) }),
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok)
+      throw new FeatureApiError(
+        data?.error?.message || data?.message || `请求失败 (${response.status})`,
+        response.status,
+        data?.error?.code,
+        data?.error,
+      );
+    const expiresAt = Number(response.headers.get('X-Liekan-Expires-At'));
+    if (response.headers.has('X-Liekan-Expires-At')) rememberFreshness(data, expiresAt);
+    return data;
+  };
+  const data = await (method === 'GET'
+    ? reads.read(JSON.stringify([url.href, headers]), load, signal)
+    : load(signal));
+  if (data && typeof data === 'object') rememberRequestFreshness(data, signal);
   return data;
 }
 export const featureApi = {
@@ -212,12 +226,90 @@ export async function getFeatureSites(
     getAllFeatureRows('/me/websites', {}, signal),
     getAllFeatureRows<any>('/me/teams', {}, signal),
   ]);
-  const collections = await Promise.all(
-    teams.map(team => getAllFeatureRows(`/teams/${team.id}/websites`, {}, signal)),
+  const collections = await mapFeatureRows(teams, team =>
+    getAllFeatureRows(`/teams/${team.id}/websites`, {}, signal),
   );
   return [
     ...new Map([...personal, ...collections.flat()].map((site: any) => [site.id, site])).values(),
   ];
+}
+export function featureSiteQuery(userId: string, websiteId: string) {
+  return {
+    queryKey: ['liekan-feature', userId, 'site', websiteId],
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      featureApi.get(`/websites/${websiteId}`, {}, signal),
+    staleTime: 300000,
+    gcTime: 600000,
+    retry: false as const,
+  };
+}
+export async function invalidateFeatureUserQueries(client: QueryClient, userId: string) {
+  const filters = {
+    predicate: (query: { queryKey: readonly unknown[] }) => {
+      const key = query.queryKey;
+      return key[0] === 'liekan'
+        ? key[13] === userId
+        : key[0] === 'liekan-feature' && key.includes(userId);
+    },
+  };
+  await client.cancelQueries(filters);
+  return client.invalidateQueries(filters);
+}
+export async function invalidateFeatureWebsiteQueries(client: QueryClient, websiteId: string) {
+  const filters = {
+    predicate: (query: { queryKey: readonly unknown[] }) => {
+      const key = query.queryKey;
+      if (key[0] === 'liekan') return key[1] === websiteId;
+      return (
+        key[0] === 'liekan-feature' &&
+        (key.includes(websiteId) ||
+          key.includes('sites') ||
+          key.some(value => Array.isArray(value) && value.includes(websiteId)))
+      );
+    },
+  };
+  await client.cancelQueries(filters);
+  return client.invalidateQueries(filters);
+}
+export async function getFeatureWebsiteSummary(
+  ids: string[],
+  range: Record<string, any>,
+  signal?: AbortSignal,
+  get = featureApi.get,
+) {
+  const sorted = [...new Set(ids)].sort();
+  const rows: any[] = [];
+  const readChunk = async (chunk: string[]): Promise<any[]> => {
+    try {
+      const result = await get<WebsiteSummary>(
+        '/liekan/websites/summary',
+        {
+          ids: chunk.join(','),
+          startAt: range.startAt,
+          endAt: range.endAt,
+          timezone: range.timezone,
+        },
+        signal,
+      );
+      const expiry = freshnessExpiry(result);
+      if (expiry) rememberFreshness(rows, Math.min(freshnessExpiry(rows) ?? Infinity, expiry));
+      return result;
+    } catch (error: any) {
+      if (error.name === 'AbortError') throw error;
+      if ([403, 404].includes(error.status) && chunk.length > 1) {
+        const middle = Math.ceil(chunk.length / 2);
+        const halves = await Promise.all([
+          readChunk(chunk.slice(0, middle)),
+          readChunk(chunk.slice(middle)),
+        ]);
+        return halves.flat();
+      }
+      return chunk.map(id => ({ id, error }));
+    }
+  };
+  for (let start = 0; start < sorted.length; start += 50)
+    rows.push(...(await readChunk(sorted.slice(start, start + 50))));
+  return rows;
 }
 export function saveFeaturePreferences(value: {
   range: string;
@@ -238,4 +330,14 @@ export function saveFeaturePreferences(value: {
   setItem(THEME_CONFIG, value.theme);
   setTimezone(value.timezone);
   setLocale(value.language);
+}
+
+export async function mapFeatureRows<T, R>(
+  items: T[],
+  load: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  for (let index = 0; index < items.length; index += 4)
+    results.push(...(await Promise.all(items.slice(index, index + 4).map(load))));
+  return results;
 }

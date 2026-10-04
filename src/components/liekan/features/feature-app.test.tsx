@@ -31,7 +31,15 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
     },
   }),
 }));
-vi.mock('@/lib/liekan/upstream/features-client', () => ({
+vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
+  ...(await importOriginal<typeof import('@/lib/liekan/upstream/features-client')>()),
+  featureSiteQuery: (userId: string, websiteId: string) => ({
+    queryKey: ['liekan-feature', userId, 'site', websiteId],
+    queryFn: ({ signal }: any) => mocks.get(`/websites/${websiteId}`, {}, signal),
+    staleTime: 300000,
+    gcTime: 600000,
+    retry: false,
+  }),
   featureApi: { get: mocks.get, post: mocks.post, del: vi.fn() },
   getFeatureSites: mocks.sites,
   getAllFeatureRows: mocks.all,

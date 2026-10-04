@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { getCompareDate } from '@/lib/date';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { json, unauthorized } from '@/lib/response';
@@ -5,7 +6,7 @@ import { filterParams, withDateRange } from '@/lib/schema';
 import { canViewWebsiteSection } from '@/permissions';
 import { getWebsiteStats } from '@/queries/sql';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -27,19 +28,20 @@ export async function GET(
 
   const filters = await getQueryFilters(query, websiteId);
 
-  const data = await getWebsiteStats(websiteId, filters);
-
   const { startDate, endDate } = getCompareDate(
     filters.compare ?? 'prev',
     filters.startDate,
     filters.endDate,
   );
 
-  const comparison = await getWebsiteStats(websiteId, {
-    ...filters,
-    startDate,
-    endDate,
-  });
+  const [data, comparison] = await Promise.all([
+    getWebsiteStats(websiteId, filters),
+    getWebsiteStats(websiteId, { ...filters, startDate, endDate }),
+  ]);
 
   return json({ ...data, comparison });
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }
