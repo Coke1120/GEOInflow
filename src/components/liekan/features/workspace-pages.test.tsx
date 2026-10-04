@@ -389,6 +389,37 @@ describe('workspace permissions and native board persistence', () => {
       expect.any(AbortSignal),
     );
   });
+  it('resource statistics keep the display through pending and server failure, then hide it on forbidden', async () => {
+    let resolve: () => void;
+    const gate = new Promise<void>(done => {
+      resolve = done;
+    });
+    const original = mocks.get.getMockImplementation();
+    mocks.get.mockImplementation(async (...args: any[]) => {
+      await gate;
+      return original(...args);
+    });
+    const { container, client } = mount(<ResourceAnalytics id="link-1" kind="link" />);
+    const chart = screen.getByRole('img', { name: '访问趋势' });
+    expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument();
+    await act(async () => {
+      resolve();
+    });
+    await waitFor(() => expect(container.querySelector('.metric-value')).toHaveTextContent('8'));
+    expect(screen.getByRole('img', { name: '访问趋势' })).toBe(chart);
+    mocks.get.mockRejectedValue(Object.assign(new Error('暂时无法读取'), { status: 503 }));
+    await act(async () => {
+      await client.invalidateQueries();
+    });
+    expect(screen.getByRole('img', { name: '访问趋势' })).toBe(chart);
+    expect(container.querySelector('.metric-value')).toHaveTextContent('8');
+    mocks.get.mockRejectedValue(Object.assign(new Error('访问已被收回'), { status: 403 }));
+    await act(async () => {
+      await client.invalidateQueries();
+    });
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '没有访问权限' })).toBeInTheDocument();
+  });
   it('native metrics-only and trend widgets keep one outer panel per widget', async () => {
     context.route = { page: 'board-view', id: 'board-1' };
     const original = mocks.get.getMockImplementation();

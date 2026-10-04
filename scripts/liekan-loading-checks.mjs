@@ -13,8 +13,8 @@ const frame = page =>
     };
     return {
       navigation: box(document.querySelector('#liekan-navigation')),
-      heading: box(document.querySelector('h1')),
-      headingText: document.querySelector('h1')?.textContent,
+      heading: box(document.querySelector('h1, .public-head')),
+      headingText: document.querySelector('h1, .public-head')?.textContent,
       charts: [...document.querySelectorAll('.chart,[id][role="img"]')].map((el, index) => ({
         id: el.id || `feature-chart:${index}`,
         ...box(el),
@@ -46,7 +46,7 @@ export async function beginLoadingEntry(page, id) {
   const started = performance.now();
   return {
     async capture() {
-      await page.locator('h1').first().waitFor({ state: 'visible', timeout: 30000 });
+      await page.locator('h1, .public-head').first().waitFor({ state: 'visible', timeout: 30000 });
       first = await frame(page);
       await page.evaluate(() => {
         const observation = { active: true, charts: {} };
@@ -93,6 +93,9 @@ export async function beginLoadingEntry(page, id) {
         'cohorts',
         'dashboard',
         'board-view',
+        'board-design',
+        'share-preview',
+        'attribution',
         'team-detail',
         'sharing',
         'realtime',
@@ -250,13 +253,13 @@ export async function checkNavigationPersistence(page, ready, websiteId) {
     ['实时', /\/realtime(?:\?|$)/],
     ['GEO', /\/geo(?:\?|$)/],
     ['AI 抓取总览', /\/geo\/ai(?:\/overview)?(?:\?|$)/],
-    ['网站列表', /(?:\/liekan)?\/websites(?:\?|$)/],
-    ['数据总览', /(?:\/liekan)?\/dashboard(?:\?|$)/],
-    ['账户资料', /\/(?:liekan\/account|settings\/profile)(?:\?|$)/],
-    ['系统管理', /\/(?:liekan\/admin-users|admin\/users)(?:\?|$)/],
-    ['网站列表', /(?:\/liekan)?\/websites(?:\?|$)/],
-    ['数据看板', /(?:\/liekan)?\/boards(?:\?|$)/],
-    ['团队管理', /(?:\/liekan)?\/teams(?:\?|$)/],
+    ['网站列表', /^\/(?:liekan\/)?websites(?:\?|$)/],
+    ['数据总览', /^\/(?:liekan\/)?dashboard(?:\?|$)/],
+    ['账户资料', /^\/(?:liekan\/account|settings\/profile)(?:\?|$)/],
+    ['系统管理', /^\/(?:liekan\/admin-users|admin\/users)(?:\?|$)/],
+    ['网站列表', /^\/(?:liekan\/)?websites(?:\?|$)/],
+    ['数据看板', /^\/(?:liekan\/)?boards(?:\?|$)/],
+    ['团队管理', /^\/(?:liekan\/)?teams(?:\?|$)/],
   ];
   for (const [label, pattern] of steps) {
     if (label === '账户资料')

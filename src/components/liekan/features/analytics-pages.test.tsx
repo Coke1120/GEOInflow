@@ -208,3 +208,18 @@ it('reserves the journey chart while reading and distinguishes the completed emp
   view.rerender(<AnalyticsPages page="journeys" />);
   expect(screen.getByText(/当前条件没有匹配路径/)).toBeInTheDocument();
 });
+
+it('distinguishes missing attribution input from an active data read', async () => {
+  mocks.context.route.page = 'attribution';
+  mocks.pending.attribution = true;
+  const view = render(<AnalyticsPages page="attribution" />);
+  expect(view.container.querySelector('[aria-busy="true"]')).toBeNull();
+  expect(screen.getByText('填写转化步骤并应用设置后显示真实归因。')).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText(/转化步骤/), { target: { value: 'signup' } });
+  fireEvent.submit(screen.getByRole('button', { name: '应用归因设置' }).closest('form'));
+  await waitFor(() => expect(view.container.querySelector('[aria-busy="true"]')).not.toBeNull());
+  mocks.pending.attribution = false;
+  mocks.query.attribution = { total: { visitors: 0, attributed: 0 }, referrer: [] };
+  view.rerender(<AnalyticsPages page="attribution" />);
+  expect(view.container.querySelector('[aria-busy="true"]')).toBeNull();
+});

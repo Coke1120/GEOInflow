@@ -1276,7 +1276,7 @@ export function ResourceAnalytics({
     points = trend?.pageviews || [],
     sessions = trend?.sessions || [];
   return (
-    <QueryState query={q}>
+    <QueryState readOnly query={q}>
       {metrics && (
         <Metrics
           items={

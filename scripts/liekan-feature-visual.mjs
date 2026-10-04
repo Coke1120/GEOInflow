@@ -349,14 +349,15 @@ try {
       const loading = width === 1440 ? await beginLoadingEntry(page, p.id) : null;
       try {
         await page.goto(base + target);
+        if (p.id === 'attribution') {
+          // The read begins only after a conversion step is supplied.
+          await ready(page);
+          await page.locator('input[name=step]').fill(seed.data.eventNames[0]);
+          await page.getByRole('button', { name: '应用归因设置', exact: true }).click();
+        }
         if (loading) await loading.capture();
         await ready(page);
         if (loading) await loading.loaded();
-        if (p.id === 'attribution') {
-          await page.locator('input[name=step]').fill(seed.data.eventNames[0]);
-          await page.getByRole('button', { name: '应用归因设置', exact: true }).click();
-          await ready(page);
-        }
         await reference.goto(base + '/__prototype/' + p.id + '.html');
         await reference.waitForSelector('h1:visible,.public-brand', { timeout: 15000 });
         await reference.evaluate(() => document.fonts.ready);

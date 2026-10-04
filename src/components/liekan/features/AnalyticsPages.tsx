@@ -1862,7 +1862,7 @@ function Attribution() {
         </Body>
       </Panel>
       <Metrics
-        loading={!!query.isPending}
+        loading={!!settings.step && !!query.isPending}
         items={[
           ['归因转化', d ? n(total) : null, `目标：${settings.step || '待设置'}`],
           [

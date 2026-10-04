@@ -329,7 +329,7 @@
   position: relative;
   min-width: 0;
 }
-.headerContext .siteSwitch {
+.headerContext .sitePicker > .siteSwitch {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -344,13 +344,13 @@
   white-space: nowrap;
   color: #16181d;
 }
-.headerContext .siteSwitch > svg {
+.headerContext .sitePicker > .siteSwitch > svg {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
   color: #697386;
 }
-.headerContext .siteSwitch > svg:first-child {
+.headerContext .sitePicker > .siteSwitch > svg:first-child {
   width: 16px;
   height: 16px;
 }
@@ -369,7 +369,7 @@
   padding: 0 5px;
   border-radius: 4px;
 }
-.siteSwitch[aria-expanded="true"] {
+.headerContext .sitePicker > .siteSwitch[aria-expanded="true"] {
   border-color: #a6c1ff;
 }
 .sitePopover {
@@ -606,7 +606,7 @@
     background: #edf2ff;
     color: #0f62fe;
   }
-  .siteSwitch:hover {
+  .headerContext .sitePicker > .siteSwitch:hover {
     border-color: #c8d5eb;
   }
   .tabsToolbar .pageTab:hover,
@@ -627,14 +627,14 @@
   .headerContext .back {
     width: 34px;
   }
-  .headerContext .siteSwitch {
+  .headerContext .sitePicker > .siteSwitch {
     min-height: 40px;
     height: 40px;
     max-width: calc(100vw - 110px);
     gap: 6px;
     padding: 7px 8px;
   }
-  .headerContext .siteSwitch > svg:first-child {
+  .headerContext .sitePicker > .siteSwitch > svg:first-child {
     display: none;
   }
   .siteName {
