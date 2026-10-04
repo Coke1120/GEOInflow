@@ -287,8 +287,9 @@ export async function checkMobileExperience({ base, seed, board, share, partial,
         await page.setViewportSize({ width: 901, height: 500 });
         await page.waitForFunction(
           () =>
-            document.querySelector('[aria-label="页面导航"]').getAttribute('aria-expanded') ===
-            'false',
+            document
+              .querySelector('button[aria-controls="liekan-navigation"]')
+              .getAttribute('aria-expanded') === 'false',
         );
         assert.notEqual(await page.evaluate(() => document.body.style.overflow), 'hidden');
         const action = page.getByRole('button', { name: '删除网站', exact: true });
