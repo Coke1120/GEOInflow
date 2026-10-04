@@ -35,11 +35,15 @@ Cloudflare 应用应按[官方 OAuth 指南](https://developers.cloudflare.com/f
 
 授权流程绑定网站、创建者、网站管理权限、域名、重置代次、短期 state、PKCE 和 HttpOnly 浏览器 Cookie。回调仅暂存加密授权结果；用户返回网站设置后，使用完整登录确认匹配 Zone 和费用，再由后台创建或复用本平台拥有的 Logpush 任务。
 
+授权凭据在查询 Zone 前进入独立的加密清理台账。授权失败、浏览器流程过期、网站重置或变更后，处理进程保留凭据并重试撤销；确认连接时，凭据和清理责任在同一事务转移到日志来源。清理台账随平台密钥轮换一起重新加密。
+
 Logpush 只接收当前网站域名的 `eyeball` 请求，采样率为 1，包括静态资源、缓存命中及有效拦截请求。所需字段缺失、域名不匹配或无效日志会返回拒绝计数。Ray ID 配合高精度事件时间与请求特征生成事件标识，保持重新分批后的去重能力。
 
 日志输出固定使用 `rfc3339ns`，保留纳秒时间供事件识别，遵循[官方输出选项](https://developers.cloudflare.com/logs/logpush/logpush-job/log-output-options/)。
 
 接入使用[Cloudflare 官方 OAuth 端点](https://developers.cloudflare.com/fundamentals/oauth/integrate-with-cloudflare/)，凭据撤销遵循 [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)。后台维护检查任务归属、启停状态和重置代次。只有供应商返回 refresh token 时才使用刷新流程；其他过期授权显示重新授权。断开连接、网站变更或权限撤销后，后台禁用属于该来源的远端任务并撤销该授权凭据，记录停用阶段以支持撤销请求重试。供应商授权已经失效时，清理会持续显示待处理，需要账户所有者在 Cloudflare 核对停用结果。
+
+来源切换与重置导致的配置冲突保留授权，允许在网站设置重新确认。恢复暂停任务时先更新完整配置和当前采集代次，再启用任务。平台记录已配置的接收域名，迁移公网域名后仍可核对并停用原有任务；重复清理失败保留重试状态。
 
 ## 统计与数据保护
 
@@ -53,7 +57,7 @@ Logpush 只接收当前网站域名的 `eyeball` 请求，采样率为 1，包�
 
 网站重置递增采集代次，撤销临时配对与授权流程，取消旧批次并更新来源口径；转移、域名变更和删除立即撤销来源接收凭据。处理进程另外独立检查全部来源的创建者权限，供应商维护失败不会延后此检查。跨进程缓存通过数据版本及口径版本更新。
 
-凭据密钥轮换时，先让应用与 worker 使用新 `LIEKAN_LOG_CREDENTIALS_KEY`，将旧密钥暂放 `LIEKAN_LOG_PREVIOUS_KEYS`（逗号分隔，最多三个）。运行 `node dist/liekan-worker.mjs --rekey` 重新加密现有供应商凭据及授权流程；确认完成后移除旧密钥并重启。APP_SECRET 保持既有统计标识兼容，变更前需单独评估事件去重与来源标识影响。
+凭据密钥轮换时，先让应用与 worker 使用新 `LIEKAN_LOG_CREDENTIALS_KEY`，将旧密钥暂放 `LIEKAN_LOG_PREVIOUS_KEYS`（逗号分隔，最多三个）。运行 `node dist/liekan-worker.mjs --rekey` 重新加密现有供应商凭据、授权流程及待清理凭据；确认完成后移除旧密钥并重启。APP_SECRET 保持既有统计标识兼容，变更前需单独评估事件去重与来源标识影响。
 
 ## 验证
 

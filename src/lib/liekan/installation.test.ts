@@ -45,6 +45,17 @@ beforeEach(() => {
 });
 
 describe('website installation progress', () => {
+  it('reports a source-state read failure instead of presenting an empty source list', async () => {
+    const original = mocks.query.getMockImplementation();
+    mocks.query.mockImplementation((sql, ...params) =>
+      sql.includes('FROM liekan_log_source')
+        ? Promise.reject(new LiekanError('日志接入状态暂时无法读取', 503))
+        : original(sql, ...params),
+    );
+    const result = await GET(new Request('http://localhost/api'), params);
+    expect(result.status).toBe(503);
+    expect(await result.json()).toMatchObject({ error: { message: '日志接入状态暂时无法读取' } });
+  });
   it('keeps missing data and unavailable automatic connections distinct from saved completion', async () => {
     const result = await getInstallation(id, false);
     expect(result).toMatchObject({

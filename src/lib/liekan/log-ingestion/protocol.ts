@@ -196,6 +196,7 @@ export async function decodeUpload(request: Request, kind: 'server' | 'cloudflar
     if (error instanceof LiekanError) throw error;
     throw new LiekanError('日志格式或压缩内容无效');
   } finally {
+    await reader.cancel().catch(() => {});
     raw.destroy();
     stream.destroy();
   }

@@ -1,8 +1,8 @@
-import { readFile, mkdir, open } from 'node:fs/promises';
+import { readFile, mkdir } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { resolve, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Collector, atomicWrite, type AgentConfig } from './collector';
+import { Collector, atomicWrite, openRegularLog, type AgentConfig } from './collector';
 
 async function main() {
   const args = process.argv.slice(2);
@@ -81,18 +81,13 @@ async function main() {
   }
   const agent = new Collector(config);
   await agent.initialize();
-  const log = await open(config.logPath, 'r');
-  try {
-    if (!(await log.stat()).isFile()) throw new Error();
-  } finally {
-    await log.close();
-  }
+  const log = await openRegularLog(config.logPath);
+  await log.close();
   await atomicWrite(
     join(config.stateDir, 'ready.json'),
     JSON.stringify({ pid: process.pid, sourceId: config.sourceId }),
   );
   let stopped = false,
-    active = !!agent.state.authorized,
     nextHealth = 0,
     nextFlush = 0,
     backoff = 1000;
@@ -106,10 +101,10 @@ async function main() {
   try {
     while (!stopped) {
       if (Date.now() >= nextHealth) {
-        active = await agent.synchronize();
+        await agent.synchronize();
         nextHealth = Date.now() + 60000;
       }
-      if (active) {
+      if (agent.state.authorized) {
         await agent.read();
         if (Date.now() >= nextFlush) {
           const success = await agent.flush();
@@ -117,7 +112,9 @@ async function main() {
           nextFlush = Date.now() + backoff;
         }
       }
-      await delay(active ? 1000 : 5000, undefined, { signal: stop.signal }).catch(() => {});
+      await delay(agent.state.authorized ? 1000 : 5000, undefined, { signal: stop.signal }).catch(
+        () => {},
+      );
     }
   } finally {
     await agent.close();

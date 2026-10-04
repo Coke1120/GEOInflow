@@ -39,14 +39,18 @@ export async function getInstallation(id: string, canManage: boolean): Promise<I
       id,
     ),
   ]);
-  const availability=await getLogCapabilities();
-  const sources=await listSources(id).catch(()=>[]);
+  const availability = await getLogCapabilities();
+  const sources = await listSources(id);
   return {
     progress: progressFromRow(rows[0]),
     canManage,
     logs: logs[0],
-    capabilities: { cloudflare: availability.cloudflare.available, server: availability.server.available },
-    availability, sources,
+    capabilities: {
+      cloudflare: availability.cloudflare.available,
+      server: availability.server.available,
+    },
+    availability,
+    sources,
   };
 }
 export async function saveInstallation(id: string, body: unknown, identity: WriteIdentity) {

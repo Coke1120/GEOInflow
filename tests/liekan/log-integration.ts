@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { reviewLifecycle } from './log-lifecycle-review';
 import { randomUUID } from 'node:crypto';
 import prisma from '../../src/lib/prisma';
 import { transaction, query } from '../../src/lib/liekan/upstream/server';
@@ -322,6 +323,7 @@ try {
 } finally {
   globalThis.fetch = originalFetch;
 }
+await reviewLifecycle(userId);
 // The rolling limit retains room for a burst that follows ordinary traffic.
 const quotaId = randomUUID();
 await prisma.client.website.create({

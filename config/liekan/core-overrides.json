@@ -2031,6 +2031,28 @@
       "owner": "Liekan automatic logs maintenance",
       "constraint": "Keep the existing browser test environment unchanged",
       "removalCondition": "Remove when the primary test configuration supports explicit multi-environment projects"
+    },
+    {
+      "path": "src/app/api/liekan/websites/[websiteId]/report/route.ts",
+      "purpose": "Read the full Liekan report in a consistent snapshot during automatic log processing",
+      "tests": [
+        "src/app/api/liekan/websites/[websiteId]/report/route.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve report schema and website permissions",
+      "removalCondition": "Remove when upstream exposes equivalent snapshot boundaries"
+    },
+    {
+      "path": "src/app/api/liekan/websites/[websiteId]/report/route.test.ts",
+      "purpose": "Read the full Liekan report in a consistent snapshot during automatic log processing",
+      "tests": [
+        "src/app/api/liekan/websites/[websiteId]/report/route.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve report schema and website permissions",
+      "removalCondition": "Remove when upstream exposes equivalent snapshot boundaries"
     }
   ]
 }

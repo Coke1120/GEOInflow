@@ -1,4 +1,16 @@
-import { mkdtemp, readFile, readdir, writeFile, appendFile, rename, rm } from 'node:fs/promises';
+import {
+  mkdtemp,
+  readFile,
+  readdir,
+  writeFile,
+  appendFile,
+  rename,
+  rm,
+  open,
+} from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
@@ -34,6 +46,155 @@ async function fixture(fetcher: typeof fetch) {
   };
 }
 describe('durable website collector', () => {
+  it('does not recover a stored inode from an unrelated sibling filename after restart', async () => {
+    const sent: any[] = [];
+    const fetcher = (async (_url, init) => {
+      const body = JSON.parse(String(init.body));
+      sent.push(...body.events);
+      return Response.json({
+        requestBatchId: body.batchId,
+        epoch: 1,
+        received: body.events.length,
+        valid: body.events.length,
+        rejected: 0,
+      });
+    }) as typeof fetch;
+    const f = await fixture(fetcher);
+    let restarted: Collector | undefined;
+    try {
+      await appendFile(f.config.logPath, line);
+      await f.agent.read();
+      await f.agent.flush();
+      await rename(f.config.logPath, `${f.config.logPath}.other-site`);
+      await writeFile(f.config.logPath, '');
+      await f.agent.close();
+      await appendFile(`${f.config.logPath}.other-site`, line.replace('GET /', 'GET /foreign'));
+      restarted = new Collector(f.config, fetcher);
+      await restarted.initialize();
+      await restarted.read();
+      await restarted.flush();
+      expect(sent).toHaveLength(1);
+      expect(sent.some(row => row.line.includes('/foreign'))).toBe(false);
+    } finally {
+      await restarted?.close();
+      await f.cleanup();
+    }
+  });
+  it.each([401, 403, 404])(
+    'stops reading immediately after an upload denial (%i), retaining the buffer',
+    async status => {
+      const f = await fixture((async url =>
+        String(url).endsWith('/heartbeat')
+          ? Response.json({ version: 1, epoch: 1, state: 'active' })
+          : Response.json({}, { status })) as typeof fetch);
+      try {
+        expect(await f.agent.synchronize()).toBe(true);
+        await appendFile(f.config.logPath, line);
+        await f.agent.read();
+        expect(await f.agent.flush()).toBe(false);
+        expect(f.agent.state.authorized).toBe(false);
+        await appendFile(f.config.logPath, line);
+        await f.agent.read();
+        expect((await f.agent.health()).pending).toBe(1);
+        expect(
+          JSON.parse(await readFile(join(f.config.stateDir, 'cursor.json'), 'utf8')).authorized,
+        ).toBe(false);
+      } finally {
+        await f.cleanup();
+      }
+    },
+  );
+  it('synchronizes a reset rejection promptly and replays buffered rows in the new epoch', async () => {
+    let epoch = 1;
+    const sent: any[] = [];
+    const f = await fixture((async (url, init) => {
+      if (String(url).endsWith('/heartbeat'))
+        return Response.json({ version: 1, epoch, state: 'active' });
+      const body = JSON.parse(String(init.body));
+      sent.push(body);
+      if (body.epoch !== epoch) return Response.json({}, { status: 409 });
+      return Response.json({
+        requestBatchId: body.batchId,
+        epoch,
+        received: body.events.length,
+        valid: body.events.length,
+        rejected: 0,
+      });
+    }) as typeof fetch);
+    try {
+      await f.agent.synchronize();
+      await appendFile(f.config.logPath, line);
+      await f.agent.read();
+      epoch = 2;
+      expect(await f.agent.flush()).toBe(false);
+      expect(f.agent.state.epoch).toBe(2);
+      expect((await f.agent.health()).pending).toBe(1);
+      expect(await f.agent.flush()).toBe(true);
+      expect(sent[0].batchId).toBe(sent[1].batchId);
+      expect(sent[1].epoch).toBe(2);
+      expect((await f.agent.health()).pending).toBe(0);
+    } finally {
+      await f.cleanup();
+    }
+  });
+  it('discovers numeric and date rotations without importing unrelated sibling logs', async () => {
+    const sent: any[] = [];
+    const f = await fixture((async (_url, init) => {
+      const body = JSON.parse(String(init.body));
+      sent.push(...body.events);
+      return Response.json({
+        requestBatchId: body.batchId,
+        epoch: body.epoch,
+        received: body.events.length,
+        valid: body.events.length,
+        rejected: 0,
+      });
+    }) as typeof fetch);
+    try {
+      await writeFile(`${f.config.logPath}.other-site`, line.replace('GET /', 'GET /foreign-site'));
+      await rename(f.config.logPath, `${f.config.logPath}.1`);
+      await writeFile(f.config.logPath, line.replace('GET /', 'GET /numeric'));
+      await rename(f.config.logPath, `${f.config.logPath}.2`);
+      await writeFile(f.config.logPath, line.replace('GET /', 'GET /dated'));
+      await rename(f.config.logPath, `${f.config.logPath}-20261004`);
+      await writeFile(f.config.logPath, line.replace('GET /', 'GET /current'));
+      await f.agent.read();
+      await f.agent.flush();
+      expect(sent).toHaveLength(3);
+      expect(sent.map(event => event.line)).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('/numeric'),
+          expect.stringContaining('/dated'),
+          expect.stringContaining('/current'),
+        ]),
+      );
+      expect(sent.every(event => !event.line.includes('/foreign-site'))).toBe(true);
+    } finally {
+      await f.cleanup();
+    }
+  });
+  it('rejects FIFO rotation candidates without blocking the current regular log', async () => {
+    const f = await fixture((async () => {
+      throw new Error('offline');
+    }) as typeof fetch);
+    const fifo = `${f.config.logPath}.1`;
+    try {
+      execFileSync('mkfifo', [fifo]);
+      await appendFile(f.config.logPath, line);
+      const reading = f.agent.read();
+      const completed = await Promise.race([
+        reading.then(() => true),
+        delay(750).then(() => false),
+      ]);
+      const writer = await open(fifo, constants.O_RDWR | constants.O_NONBLOCK);
+      await reading;
+      await writer.close();
+      expect(completed).toBe(true);
+      expect((await f.agent.health()).pending).toBe(1);
+    } finally {
+      await f.cleanup();
+    }
+  });
   it('detects a rewritten shorter known rotated inode after restart', async () => {
     const events: any[] = [];
     const fetcher = (async (_url, init) => {

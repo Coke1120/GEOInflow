@@ -13,7 +13,8 @@ import {
 import { reconcilePermissions } from '../lib/liekan/log-ingestion/maintenance';
 import { recoverBatches } from '../lib/liekan/log-ingestion/recovery';
 import { processBatch } from '../lib/liekan/log-ingestion/service';
-import { maintainCloudflare } from '../lib/liekan/log-ingestion/cloudflare';
+import { cleanupExpiredAuthorizations } from '../lib/liekan/log-ingestion/cloudflare';
+import { maintainProvider } from '../lib/liekan/log-ingestion/provider';
 import { sealPlatformSecret, openPlatformSecret } from '../lib/liekan/log-ingestion/secrets';
 import { refreshRanges } from '../lib/liekan/log-ingestion/ranges';
 
@@ -29,60 +30,6 @@ const boss = new PgBoss({
 boss.on('error', () => console.error('Liekan worker queue unavailable'));
 let stopped = false,
   maintaining = false;
-async function provider(sourceId: string, action: 'configure' | 'disconnect' | 'health') {
-  // A database lease also fences periodic reconciliation against queued retries and other workers.
-  const claim = await transaction<any[]>(tx =>
-    tx.$queryRawUnsafe(
-      "UPDATE liekan_log_source SET provider_lease=$2::uuid,provider_lease_until=now()+interval '5 minutes',last_maintenance_at=now() WHERE id=$1::uuid AND (provider_lease_until IS NULL OR provider_lease_until<now()) RETURNING id",
-      sourceId,
-      workerId,
-    ),
-  );
-  if (!claim.length) return;
-  try {
-    await maintainCloudflare(sourceId, action);
-  } catch (error) {
-    const code =
-      error instanceof LiekanError && [401, 403, 404, 409].includes(error.status)
-        ? 'reauthorization-required'
-        : 'provider-unavailable';
-    await transaction(async tx => {
-      await tx.$queryRawUnsafe(
-        'SELECT website_id FROM website WHERE website_id=(SELECT website_id FROM liekan_log_source WHERE id=$1::uuid) FOR UPDATE',
-        sourceId,
-      );
-      // Preserve a durable retry state; credentials are never included in diagnostics.
-      await tx.$executeRawUnsafe(
-        'UPDATE liekan_log_source SET error_code=$2 WHERE id=$1::uuid',
-        sourceId,
-        code,
-      );
-      if (code === 'reauthorization-required') {
-        await tx.$executeRawUnsafe(
-          "UPDATE liekan_log_source SET state='error',credential_hash=NULL WHERE id=$1::uuid AND state!='disconnected'",
-          sourceId,
-        );
-        await tx.$executeRawUnsafe(
-          'UPDATE liekan_log_interval SET ends_at=clock_timestamp() WHERE source_id=$1::uuid AND ends_at IS NULL',
-          sourceId,
-        );
-        await tx.$executeRawUnsafe(
-          'UPDATE liekan_log_state SET policy_revision=policy_revision+1 WHERE website_id=(SELECT website_id FROM liekan_log_source WHERE id=$1::uuid)',
-          sourceId,
-        );
-      }
-    });
-    if (code === 'provider-unavailable') throw new Error('Provider temporarily unavailable');
-  } finally {
-    await transaction(tx =>
-      tx.$executeRawUnsafe(
-        'UPDATE liekan_log_source SET provider_lease=NULL,provider_lease_until=NULL WHERE id=$1::uuid AND provider_lease=$2::uuid',
-        sourceId,
-        workerId,
-      ),
-    );
-  }
-}
 async function recordHealth() {
   await transaction(tx =>
     tx.$executeRawUnsafe(
@@ -116,13 +63,14 @@ async function reconcile() {
     );
     for (const source of sources) {
       if (stopped) break;
-      await provider(
+      await maintainProvider(
         source.id,
         source.state === 'disconnected' || !source.credential_hash
           ? 'disconnect'
           : source.state === 'configuring'
             ? 'configure'
             : 'health',
+        workerId,
       ).catch(() => {});
     }
   } finally {
@@ -145,6 +93,14 @@ async function main() {
       ))
         await tx.$executeRawUnsafe(
           'UPDATE liekan_log_grant SET payload=$2 WHERE id=$1::uuid',
+          row.id,
+          sealPlatformSecret(openPlatformSecret(row.payload, row.id), row.id),
+        );
+      for (const row of await tx.$queryRawUnsafe(
+        'SELECT id,payload FROM liekan_oauth_cleanup FOR UPDATE',
+      ))
+        await tx.$executeRawUnsafe(
+          'UPDATE liekan_oauth_cleanup SET payload=$2 WHERE id=$1::uuid',
           row.id,
           sealPlatformSecret(openPlatformSecret(row.payload, row.id), row.id),
         );
@@ -178,7 +134,7 @@ async function main() {
     PROVIDER_QUEUE,
     { batchSize: 1, pollingIntervalSeconds: 2 },
     async jobs => {
-      for (const job of jobs) await provider(job.data.sourceId, job.data.action);
+      for (const job of jobs) await maintainProvider(job.data.sourceId, job.data.action, workerId);
     },
   );
   await boss.work(RANGE_QUEUE, { batchSize: 1 }, async () => {
@@ -215,6 +171,20 @@ async function main() {
   const permissionTimer = setInterval(() => {
     void permissions().catch(() => {});
   }, 15000);
+  let cleaning = false;
+  const cleanup = async () => {
+    if (cleaning || stopped) return;
+    cleaning = true;
+    try {
+      await cleanupExpiredAuthorizations(workerId);
+    } finally {
+      cleaning = false;
+    }
+  };
+  void cleanup().catch(() => {});
+  const cleanupTimer = setInterval(() => {
+    void cleanup().catch(() => {});
+  }, 30000);
   const health = setInterval(() => {
     void reconcile().catch(() => console.error('Liekan worker maintenance unavailable'));
   }, 30000);
@@ -231,6 +201,7 @@ async function main() {
     stopped = true;
     clearInterval(permissionTimer);
     clearInterval(recoveryTimer);
+    clearInterval(cleanupTimer);
     clearInterval(health);
     clearInterval(heartbeat);
     clearInterval(ranges);

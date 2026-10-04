@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
+import { constants } from 'node:fs';
 import { mkdir, open, readFile, readdir, rename, stat, unlink } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
 import { openSecret, sealSecret } from '../lib/liekan/log-ingestion/secrets';
@@ -41,6 +42,18 @@ interface Batch {
   events: { generation: string; offset: number; line: string }[];
   createdAt: number;
 }
+
+export async function openRegularLog(path: string) {
+  const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK | constants.O_NOFOLLOW);
+  try {
+    if (!(await file.stat()).isFile()) throw new Error('日志需要常规文件');
+    return file;
+  } catch (error) {
+    await file.close();
+    throw error;
+  }
+}
+const rotationSuffix = /^(?:\.\d+|[-.]\d{8}(?:-\d+)?|[-.]\d{4}-\d{2}-\d{2}(?:[-_]\d{6})?)$/;
 
 export async function atomicWrite(path: string, value: string) {
   const temp = `${path}.${randomUUID()}.tmp`;
@@ -122,7 +135,7 @@ export class Collector {
     if (this.state.version !== 1 || this.state.sourceId !== this.config.sourceId)
       throw new Error('位点与来源不匹配');
     if (!this.state.active) {
-      const file = await open(this.config.logPath, 'r');
+      const file = await openRegularLog(this.config.logPath);
       try {
         const info = await file.stat();
         if (!info.isFile()) throw new Error('日志需要常规文件');
@@ -189,7 +202,7 @@ export class Collector {
   }
   async synchronize() {
     try {
-      const log = await open(this.config.logPath, 'r');
+      const log = await openRegularLog(this.config.logPath);
       try {
         if (!(await log.stat()).isFile()) throw new Error();
       } finally {
@@ -249,6 +262,7 @@ export class Collector {
     }
   }
   async read() {
+    if (this.state.authorized === false) return;
     const health = await this.health();
     if (health.bytes >= this.maxBufferBytes) {
       this.errorCode = 'buffer-full';
@@ -262,7 +276,7 @@ export class Collector {
       }
     let current: Awaited<ReturnType<typeof open>>;
     try {
-      current = await open(this.config.logPath, 'r');
+      current = await openRegularLog(this.config.logPath);
     } catch {
       this.errorCode = 'unreadable';
       return;
@@ -294,7 +308,10 @@ export class Collector {
     // discover recent intermediate generations that appeared between polling cycles.
     const base = basename(this.config.logPath);
     const names = (await readdir(dirname(this.config.logPath)))
-      .filter(name => name === base || name.startsWith(`${base}.`) || name.startsWith(`${base}-`))
+      .filter(
+        name =>
+          name === base || (name.startsWith(base) && rotationSuffix.test(name.slice(base.length))),
+      )
       .sort();
     if (names.length > 256) this.state.gap = true;
     const recovered = new Set<string>();
@@ -305,7 +322,7 @@ export class Collector {
       }
       if (name.endsWith('.gz')) continue;
       const path = join(dirname(this.config.logPath), name);
-      const rotated = await open(path, 'r').catch(() => null);
+      const rotated = await openRegularLog(path).catch(() => null);
       if (!rotated) continue;
       const s = await rotated.stat(),
         fileKey = `${s.dev}:${s.ino}`;
@@ -503,6 +520,11 @@ export class Collector {
       }
       if (!response.ok) {
         this.errorCode = 'offline';
+        if ([401, 403, 404, 409].includes(response.status)) {
+          this.state.authorized = false;
+          await this.save();
+          if (response.status === 409) await this.synchronize();
+        }
         return false;
       }
       const ack = await response.json();

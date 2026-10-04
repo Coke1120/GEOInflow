@@ -33,6 +33,8 @@ interface Provider extends Access {
   zoneId: string;
   receiverToken: string;
   remoteDisabled?: boolean;
+  receiverOrigin?: string;
+  receiverOrigins?: string[];
 }
 interface Flow {
   phase: 'pending' | 'exchanging' | 'authorized';
@@ -245,26 +247,104 @@ export async function acceptCloudflareCallback(request: Request) {
     redirect_uri: callbackUrl(),
     code_verifier: claimed.flow.verifier,
   });
-  const zones = await matchingZones(access, claimed.row.domain);
-  await transaction(async tx => {
-    const row = (
-      await tx.$queryRawUnsafe(
-        'SELECT * FROM liekan_log_grant WHERE id=$1::uuid FOR UPDATE',
+  let staged = false;
+  try {
+    const valid = await transaction(async tx => {
+      const row = (
+        await tx.$queryRawUnsafe(
+          'SELECT * FROM liekan_log_grant WHERE id=$1::uuid FOR UPDATE',
+          claimed.row.id,
+        )
+      )[0];
+      const valid = row && !row.consumed_at && +new Date(row.expires_at) > Date.now();
+      await tx.$executeRawUnsafe(
+        'INSERT INTO liekan_oauth_cleanup(id,website_id,payload,expires_at) VALUES($1::uuid,$2::uuid,$3,$4) ON CONFLICT(id) DO UPDATE SET payload=EXCLUDED.payload,expires_at=EXCLUDED.expires_at,lease=NULL,lease_until=NULL,last_attempt_at=NULL',
         claimed.row.id,
-      )
-    )[0];
-    if (!row || row.consumed_at || +new Date(row.expires_at) <= Date.now())
-      throw new LiekanError('授权流程已过期', 409);
-    await tx.$executeRawUnsafe(
-      'UPDATE liekan_log_grant SET payload=$2 WHERE id=$1::uuid',
-      row.id,
-      sealPlatformSecret(
-        JSON.stringify({ phase: 'authorized', verifier: '', access, zones }),
+        claimed.row.website_id,
+        sealPlatformSecret(JSON.stringify({ access }), claimed.row.id),
+        valid ? new Date(row.expires_at) : new Date(),
+      );
+      if (valid)
+        await tx.$executeRawUnsafe(
+          'UPDATE liekan_log_grant SET payload=$2 WHERE id=$1::uuid',
+          row.id,
+          sealPlatformSecret(JSON.stringify({ ...claimed.flow, access }), row.id),
+        );
+      return Boolean(valid);
+    });
+    staged = true;
+    if (!valid) throw new LiekanError('授权流程已过期', 409);
+    const zones = await matchingZones(access, claimed.row.domain);
+    await transaction(async tx => {
+      const row = (
+        await tx.$queryRawUnsafe(
+          'SELECT * FROM liekan_log_grant WHERE id=$1::uuid FOR UPDATE',
+          claimed.row.id,
+        )
+      )[0];
+      if (!row || row.consumed_at || +new Date(row.expires_at) <= Date.now())
+        throw new LiekanError('授权流程已过期', 409);
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_log_grant SET payload=$2 WHERE id=$1::uuid',
         row.id,
+        sealPlatformSecret(
+          JSON.stringify({ phase: 'authorized', verifier: '', access, zones }),
+          row.id,
+        ),
+      );
+    });
+  } catch (error) {
+    if (staged)
+      await transaction(async tx => {
+        await tx.$executeRawUnsafe(
+          'UPDATE liekan_log_grant SET expires_at=clock_timestamp() WHERE id=$1::uuid',
+          claimed.row.id,
+        );
+        await tx.$executeRawUnsafe(
+          'UPDATE liekan_oauth_cleanup SET expires_at=clock_timestamp() WHERE id=$1::uuid',
+          claimed.row.id,
+        );
+      });
+    else await revokeAccess(access).catch(() => {});
+    throw error;
+  }
+  return `${publicUrl()}/websites/${claimed.row.website_id}/settings?section=install&step=logs&method=cloudflare&flow=${claimed.row.id}`;
+}
+export async function cleanupExpiredAuthorizations(workerId: string) {
+  const rows = await query(
+    "SELECT id FROM liekan_oauth_cleanup WHERE expires_at<=now() AND (lease_until IS NULL OR lease_until<now()) AND (last_attempt_at IS NULL OR last_attempt_at<now()-interval '30 seconds') ORDER BY last_attempt_at NULLS FIRST,expires_at LIMIT 10",
+  );
+  for (const row of rows) {
+    const claimed = await transaction<any[]>(tx =>
+      tx.$queryRawUnsafe(
+        "UPDATE liekan_oauth_cleanup SET lease=$2::uuid,lease_until=now()+interval '5 minutes',last_attempt_at=now() WHERE id=$1::uuid AND expires_at<=now() AND (lease_until IS NULL OR lease_until<now()) RETURNING payload",
+        row.id,
+        workerId,
       ),
     );
-  });
-  return `${publicUrl()}/websites/${claimed.row.website_id}/settings?section=install&step=logs&method=cloudflare&flow=${claimed.row.id}`;
+    if (!claimed.length) continue;
+    try {
+      const stored = JSON.parse(openPlatformSecret(claimed[0].payload, row.id));
+      if (stored.access) await revokeAccess(stored.access);
+      await transaction(tx =>
+        tx.$executeRawUnsafe(
+          'DELETE FROM liekan_oauth_cleanup WHERE id=$1::uuid AND lease=$2::uuid',
+          row.id,
+          workerId,
+        ),
+      );
+    } catch {
+      // Keep encrypted credentials for the next bounded retry.
+    } finally {
+      await transaction(tx =>
+        tx.$executeRawUnsafe(
+          'UPDATE liekan_oauth_cleanup SET lease=NULL,lease_until=NULL WHERE id=$1::uuid AND lease=$2::uuid',
+          row.id,
+          workerId,
+        ),
+      );
+    }
+  }
 }
 export async function finalizeCloudflare(
   websiteId: string,
@@ -311,12 +391,26 @@ export async function finalizeCloudflare(
     if (!acceptCosts || !flow.zones.some(zone => zone.id === zoneId))
       throw new LiekanError('请确认匹配域名及供应商费用提示');
     const { source, token } = await createSource(tx, websiteId, 'cloudflare', identity);
-    const config: Provider = { ...flow.access, zoneId, receiverToken: token };
+    const cleanup = (
+      await tx.$queryRawUnsafe(
+        'SELECT id FROM liekan_oauth_cleanup WHERE id=$1::uuid AND lease IS NULL FOR UPDATE',
+        flowId,
+      )
+    )[0];
+    if (!cleanup || +new Date(row.expires_at) <= Date.now())
+      throw new LiekanError('授权流程已过期', 409);
+    const config: Provider = {
+      ...flow.access,
+      zoneId,
+      receiverToken: token,
+      receiverOrigin: publicUrl(),
+    };
     await tx.$executeRawUnsafe(
       'UPDATE liekan_log_source SET provider_config=$2 WHERE id=$1::uuid',
       source.id,
       sealPlatformSecret(JSON.stringify(config), source.id),
     );
+    await tx.$executeRawUnsafe('DELETE FROM liekan_oauth_cleanup WHERE id=$1::uuid', flowId);
     await tx.$executeRawUnsafe(
       'UPDATE liekan_log_grant SET consumed_at=now(),source_id=$2::uuid,payload=NULL WHERE id=$1::uuid',
       flowId,
@@ -366,7 +460,11 @@ function ownsDestination(destination: string, source: LogSource, config: Provide
   try {
     const url = new URL(destination);
     return (
-      url.origin === publicUrl() &&
+      url.protocol === 'https:' &&
+      (!config.receiverOrigin ||
+        url.origin === config.receiverOrigin ||
+        config.receiverOrigins?.includes(url.origin) ||
+        url.origin === publicUrl()) &&
       url.pathname === `/api/liekan/log-sources/${source.id}/batches` &&
       url.searchParams.get('header_Authorization') === `Bearer ${config.receiverToken}`
     );
@@ -458,6 +556,26 @@ export async function maintainCloudflare(
   );
   if (owned.length > 1) throw new LiekanError('发现重复推送任务，需要重新连接', 409);
   let job = owned[0];
+  const origin = publicUrl();
+  if (config.receiverOrigin !== origin) {
+    // Preserve observed legacy destinations and persist ownership before updating the provider.
+    config.receiverOrigins = [
+      ...new Set([
+        ...(config.receiverOrigins || []),
+        ...(config.receiverOrigin ? [config.receiverOrigin] : []),
+        ...(job ? [new URL(job.destination_conf).origin] : []),
+        origin,
+      ]),
+    ];
+    config.receiverOrigin = origin;
+    await transaction(tx =>
+      tx.$executeRawUnsafe(
+        'UPDATE liekan_log_source SET provider_config=$2 WHERE id=$1::uuid',
+        row.id,
+        sealPlatformSecret(JSON.stringify(config), row.id),
+      ),
+    );
+  }
   if (!job && row.provider_job_id) {
     // A reset changes the epoch header; identify the recorded job before replacing its config.
     job = jobs.find(
@@ -519,6 +637,21 @@ export async function maintainCloudflare(
       'POST',
       definition,
     );
+  else
+    await cloudflareApi(
+      config.accessToken,
+      `/zones/${config.zoneId}/logpush/jobs/${job.id}`,
+      'PUT',
+      definition,
+    );
+  await transaction(async tx => {
+    // Record the disabled owned job before checking a concurrent policy change.
+    await tx.$executeRawUnsafe(
+      'UPDATE liekan_log_source SET provider_job_id=$2 WHERE id=$1::uuid',
+      row.id,
+      String(job.id),
+    );
+  });
   await transaction(async tx => {
     const current = await validateSource(tx, row.id, undefined, true);
     const state = await ensureState(tx, row.website_id);
@@ -527,11 +660,6 @@ export async function maintainCloudflare(
       String(state.policy_revision) !== String(current.source.requested_policy_revision)
     )
       throw new LiekanError('主要来源已变更，请重新确认此连接', 409);
-    await tx.$executeRawUnsafe(
-      'UPDATE liekan_log_source SET provider_job_id=$2 WHERE id=$1::uuid',
-      row.id,
-      String(job.id),
-    );
   });
   await cloudflareApi(config.accessToken, `/zones/${config.zoneId}/logpush/jobs/${job.id}`, 'PUT', {
     enabled: true,

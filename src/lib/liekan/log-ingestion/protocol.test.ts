@@ -21,6 +21,29 @@ const cf = (time: string) => ({
   ClientRequestSource: 'eyeball',
 });
 describe('automatic log wire protocol', () => {
+  it('cancels unfinished input when gzip expansion is rejected', async () => {
+    let cancelled = false;
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(gzipSync('x'.repeat(11 * 1024 * 1024)));
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+    const request = new Request('https://logs.example/upload', {
+      method: 'POST',
+      body,
+      duplex: 'half',
+      headers: { 'content-encoding': 'gzip' },
+    } as RequestInit);
+    try {
+      await expect(decodeUpload(request, 'cloudflare')).rejects.toMatchObject({ status: 413 });
+      expect(cancelled).toBe(true);
+    } finally {
+      await body.cancel().catch(() => {});
+    }
+  });
   it('preserves identities across re-batching and strips raw IP and query before persistence', () => {
     const a = normalizeAutomatic(
       'server',
