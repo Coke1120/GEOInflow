@@ -1,6 +1,6 @@
 {
   "baselineVersion": "liekan-navigation-v0.2.2",
-  "approval": "Liekan 导航层级与文案统一最终确认方案，导航与文案区域增量验收",
+  "approval": "Liekan 导航层级与文案统一最终确认方案，导航与文案区域增量验收；2026-10-04 用户确认全局看板、分享链接、链接、像素提升为一级入口",
   "originalReferencePolicy": "Original HTML, SHA-256 fingerprints, chart pixels, table columns and body VI remain authoritative. Approved navigation/header/toolbars have bounded independent checks.",
   "groups": {
     "global": [
@@ -18,18 +18,15 @@
       },
       {
         "id": "boards",
-        "label": "看板与分享",
+        "label": "看板",
         "page": "boards",
-        "children": [
-          {
-            "page": "boards",
-            "label": "看板"
-          },
-          {
-            "page": "sharing",
-            "label": "分享链接"
-          }
-        ]
+        "children": []
+      },
+      {
+        "id": "sharing",
+        "label": "分享链接",
+        "page": "sharing",
+        "children": []
       },
       {
         "id": "teams",
@@ -38,19 +35,16 @@
         "children": []
       },
       {
-        "id": "tracking-resources",
-        "label": "链接与像素",
+        "id": "links",
+        "label": "链接",
         "page": "links",
-        "children": [
-          {
-            "page": "links",
-            "label": "链接"
-          },
-          {
-            "page": "pixels",
-            "label": "像素"
-          }
-        ]
+        "children": []
+      },
+      {
+        "id": "pixels",
+        "label": "像素",
+        "page": "pixels",
+        "children": []
       }
     ],
     "website": [
@@ -571,7 +565,7 @@
     },
     "sharing": {
       "scope": "global",
-      "section": "boards",
+      "section": "sharing",
       "active": "sharing",
       "title": "分享链接"
     },
@@ -601,37 +595,37 @@
     },
     "links": {
       "scope": "global",
-      "section": "tracking-resources",
+      "section": "links",
       "active": "links",
       "title": "链接"
     },
     "pixels": {
       "scope": "global",
-      "section": "tracking-resources",
+      "section": "pixels",
       "active": "pixels",
       "title": "像素"
     },
     "link-editor": {
       "scope": "global",
-      "section": "tracking-resources",
+      "section": "links",
       "active": "links",
       "title": "创建链接"
     },
     "link-detail": {
       "scope": "global",
-      "section": "tracking-resources",
+      "section": "links",
       "active": "links",
       "title": "链接详情"
     },
     "pixel-editor": {
       "scope": "global",
-      "section": "tracking-resources",
+      "section": "pixels",
       "active": "pixels",
       "title": "创建像素"
     },
     "pixel-detail": {
       "scope": "global",
-      "section": "tracking-resources",
+      "section": "pixels",
       "active": "pixels",
       "title": "像素详情"
     },

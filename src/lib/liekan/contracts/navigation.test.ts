@@ -245,10 +245,13 @@ describe('navigation task boundaries', () => {
     expect(globalNavigation.map(group => group.label)).toEqual([
       '工作台',
       '网站管理',
-      '看板与分享',
+      '看板',
+      '分享链接',
       '团队协作',
-      '链接与像素',
+      '链接',
+      '像素',
     ]);
+    expect(globalNavigation.every(group => !group.children)).toBe(true);
     expect(websiteNavigation.map(group => group.label)).toEqual([
       '流量总览',
       'AI 抓取分析',

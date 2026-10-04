@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Navigation } from './Navigation';
 
@@ -44,6 +44,55 @@ describe('website navigation dialog transitions', () => {
     vi.clearAllMocks();
     mocks.pathname = '/websites/site-a/goals/create';
     document.body.style.overflow = '';
+  });
+  it.each([
+    ['boards', '看板'],
+    ['board-editor', '看板'],
+    ['board-view', '看板'],
+    ['board-design', '看板'],
+    ['sharing', '分享链接'],
+    ['links', '链接'],
+    ['link-editor', '链接'],
+    ['link-detail', '链接'],
+    ['pixels', '像素'],
+    ['pixel-editor', '像素'],
+    ['pixel-detail', '像素'],
+  ])('shows flat global entries with the correct selection for %s', (page, selected) => {
+    render(
+      <Navigation
+        user={{ id: 'user', username: 'admin', isAdmin: true } as any}
+        route={{ page }}
+        width={228}
+        onWidth={vi.fn()}
+      />,
+    );
+    const primary = screen.getByRole('navigation', { name: '业务导航' });
+    const entries = within(primary).getAllByRole('link');
+    expect(entries.map(entry => entry.textContent)).toEqual([
+      '工作台',
+      '网站管理',
+      '看板',
+      '分享链接',
+      '团队协作',
+      '链接',
+      '像素',
+    ]);
+    expect(within(primary).queryAllByRole('button')).toHaveLength(0);
+    expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
+    expect(within(primary).getByRole('link', { name: selected })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    for (const [label, href] of [
+      ['看板', '/boards'],
+      ['分享链接', '/liekan/sharing'],
+      ['链接', '/links'],
+      ['像素', '/pixels'],
+    ])
+      expect(within(primary).getByRole('link', { name: label, exact: true })).toHaveAttribute(
+        'href',
+        href,
+      );
   });
   it('runs logout once while a delayed request is pending', async () => {
     let complete: () => void;

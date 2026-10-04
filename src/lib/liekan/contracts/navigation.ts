@@ -20,27 +20,11 @@ export interface PageNavigation {
 export const globalNavigation: NavigationGroup[] = [
   { id: 'dashboard', page: 'dashboard', label: '工作台', icon: 'grid' },
   { id: 'websites', page: 'websites', label: '网站管理', icon: 'globe' },
-  {
-    id: 'boards',
-    page: 'boards',
-    label: '看板与分享',
-    icon: 'bars',
-    children: [
-      { page: 'boards', label: '看板' },
-      { page: 'sharing', label: '分享链接' },
-    ],
-  },
+  { id: 'boards', page: 'boards', label: '看板', icon: 'bars' },
+  { id: 'sharing', page: 'sharing', label: '分享链接', icon: 'copy' },
   { id: 'teams', page: 'teams', label: '团队协作', icon: 'users' },
-  {
-    id: 'tracking-resources',
-    page: 'links',
-    label: '链接与像素',
-    icon: 'box',
-    children: [
-      { page: 'links', label: '链接' },
-      { page: 'pixels', label: '像素' },
-    ],
-  },
+  { id: 'links', page: 'links', label: '链接', icon: 'box' },
+  { id: 'pixels', page: 'pixels', label: '像素', icon: 'eye' },
 ];
 export const websiteNavigation: NavigationGroup[] = [
   { id: 'overview', page: 'overview', label: '流量总览', icon: 'grid' },
@@ -187,13 +171,15 @@ const pageDefinitions: Array<[PageScope, string, string | undefined, string[]]> 
   ['admin', 'admin-websites', undefined, ['admin-websites']],
   ['admin', 'admin-teams', undefined, ['admin-teams']],
   ['admin', 'admin-security', undefined, ['admin-security']],
-  ['global', 'boards', undefined, ['boards', 'sharing']],
+  ['global', 'boards', undefined, ['boards']],
+  ['global', 'sharing', undefined, ['sharing']],
   ['global', 'boards', 'boards', ['board-editor', 'board-view']],
   ['global', 'boards', 'board-view', ['board-design']],
   ['public', 'boards', undefined, ['share-preview']],
-  ['global', 'tracking-resources', undefined, ['links', 'pixels']],
-  ['global', 'tracking-resources', 'links', ['link-editor', 'link-detail']],
-  ['global', 'tracking-resources', 'pixels', ['pixel-editor', 'pixel-detail']],
+  ['global', 'links', undefined, ['links']],
+  ['global', 'pixels', undefined, ['pixels']],
+  ['global', 'links', 'links', ['link-editor', 'link-detail']],
+  ['global', 'pixels', 'pixels', ['pixel-editor', 'pixel-detail']],
   ['state', 'dashboard', undefined, ['access-denied', 'session-expired', 'not-found']],
 ];
 export const pageNavigation: Record<string, PageNavigation> = Object.fromEntries(
