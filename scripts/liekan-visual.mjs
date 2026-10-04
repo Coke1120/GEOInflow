@@ -54,6 +54,7 @@ const reference = await context.newPage(),
   actual = await context.newPage();
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const out = 'test-results/liekan-visual';
+const reportReadPattern = /\/api\/liekan\/websites\/[^/]+\/(?:report|page-report)(?:\?|$)/;
 fs.mkdirSync(out, { recursive: true });
 const names = [
   'index',
@@ -433,9 +434,11 @@ try {
       },
       { columns },
     );
-    await actual.route('**/api/liekan/**/report?*', route =>
-      route.fulfill({ contentType: 'application/json', body: JSON.stringify(payload) }),
-    );
+    let fixtureReads = 0;
+    await actual.route(reportReadPattern, route => {
+      fixtureReads++;
+      return route.fulfill({ contentType: 'application/json', body: JSON.stringify(payload) });
+    });
     const loading = await beginLoadingEntry(actual, `geo:${name}`);
     await actual.goto(`${base}/websites/${payload.website.id}/geo${path}`);
     await loading.capture();
@@ -446,6 +449,7 @@ try {
     });
     await actual.waitForTimeout(800);
     await loading.loaded();
+    assert(fixtureReads > 0, `${name} must consume the isolated prototype fixture`);
     const measure = page =>
       page.evaluate(() => {
         const body = [...document.querySelectorAll('main')].find(el =>
@@ -674,7 +678,7 @@ try {
       refGeometry,
       geometry,
     });
-    await actual.unroute('**/api/liekan/**/report?*');
+    await actual.unroute(reportReadPattern);
   }
   fs.writeFileSync(
     `${out}/geometry.json`,
