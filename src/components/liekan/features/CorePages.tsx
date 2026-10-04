@@ -27,6 +27,7 @@ import {
   verifyFeatureTwoFactor,
 } from '@/lib/liekan/upstream/features-client';
 import { ManagementDrawer } from '../ManagementDrawer';
+import { DataLoadingContext } from '../LoadingState';
 import { Chart } from './Chart';
 import { useAction, useData, useFeature } from './context';
 import {
@@ -2229,7 +2230,9 @@ function Goals() {
           </Chart>
         </QueryState>
       ) : (
-        <Chart title="目标转化趋势" subtitle="当前所选期间" />
+        <DataLoadingContext.Provider value={!!query.isPending}>
+          <Chart title="目标转化趋势" subtitle="当前所选期间" />
+        </DataLoadingContext.Provider>
       )}
       <Notice>
         目标转化次数和独立转化访客分别展示。转化率按独立转化访客计算，没有访客时显示“—”。

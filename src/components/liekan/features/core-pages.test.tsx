@@ -38,13 +38,19 @@ vi.mock('next/link', () => ({
     </a>
   ),
 }));
-vi.mock('./Chart', () => ({
-  Chart: ({ title, labels, series }: any) => (
-    <div role="img" aria-label={title}>
-      {JSON.stringify({ labels, series })}
-    </div>
-  ),
-}));
+vi.mock('./Chart', async () => {
+  const { useDataLoading } = await import('../LoadingState');
+  return {
+    Chart: ({ title, labels, series }: any) => {
+      const loading = useDataLoading();
+      return (
+        <div role="img" aria-label={title} aria-busy={loading || undefined}>
+          {JSON.stringify({ labels, series })}
+        </div>
+      );
+    },
+  };
+});
 vi.mock('./WorkspacePages', () => ({
   WebsiteSharing: () => <div>当前网站分享组件</div>,
 }));
@@ -500,6 +506,15 @@ describe('core form flows', () => {
     const select = screen.getByLabelText('目标空间');
     expect(within(select).getByRole('option', { name: '管理团队' })).toBeInTheDocument();
     expect(within(select).queryByRole('option', { name: '成员团队' })).not.toBeInTheDocument();
+  });
+  it('keeps an unknown goal list in loading state until an authoritative empty result arrives', () => {
+    mocks.queryStates.goals = { isPending: true };
+    const view = render(<CorePages page="goals" />);
+    expect(screen.getByRole('img', { name: '目标转化趋势' })).toHaveAttribute('aria-busy', 'true');
+    mocks.queryStates.goals = { isPending: false };
+    mocks.query.goals = { data: [], count: 0 };
+    view.rerender(<CorePages page="goals" />);
+    expect(screen.getByRole('img', { name: '目标转化趋势' })).not.toHaveAttribute('aria-busy');
   });
   it('shows conversion occurrences and a real series while calculating rate from distinct visitors', () => {
     mocks.query.goals = {

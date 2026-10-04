@@ -16,7 +16,7 @@ const frame = page =>
       heading: box(document.querySelector('h1')),
       headingText: document.querySelector('h1')?.textContent,
       charts: [...document.querySelectorAll('.chart,[id][role="img"]')].map((el, index) => ({
-        id: el.id || `${el.getAttribute('aria-label')}:${index}`,
+        id: el.id || `feature-chart:${index}`,
         ...box(el),
       })),
       busy:
@@ -56,7 +56,7 @@ export async function beginLoadingEntry(page, id) {
           [...document.querySelectorAll('.chart,[id][role="img"]')].forEach((el, index) => {
             if (!el.closest('[aria-busy="true"]') || el.querySelector('canvas,svg')) return;
             const { x, y, width, height } = el.getBoundingClientRect();
-            const id = el.id || `${el.getAttribute('aria-label')}:${index}`;
+            const id = el.id || `feature-chart:${index}`;
             const previous = observation.charts[id];
             observation.charts[id] = {
               id,
