@@ -817,7 +817,8 @@ describe('public share restrictions and password lifecycle', () => {
     expect(mocks.request.mock.calls.every(call => call[1] === '/share/password-share')).toBe(true);
     await userEvent.type(screen.getByLabelText(/分享密码/), 'visitor-password');
     await userEvent.click(screen.getByRole('button', { name: '验证并查看' }));
-    expect(await screen.findByRole('tab', { name: '事件' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '事件趋势' })).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '总览' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('页面路径')).not.toBeInTheDocument();
     await waitFor(() =>
@@ -920,13 +921,39 @@ describe('public share restrictions and password lifecycle', () => {
         .every(call => call[4] === 'overview-token' && call[5] === ''),
     ).toBe(true);
   });
-  it('website shares render every requested module and update all dates together with the share token', async () => {
+  it('preserves the shared report structure during loading and removes it on access denial', async () => {
+    let rejectReport: (reason: unknown) => void = () => {};
+    const pending = new Promise((_, reject) => {
+      rejectReport = reject;
+    });
     mocks.request.mockImplementation(async (_method: string, path: string) => {
+      if (path === '/share/pending-report')
+        return {
+          token: 'pending-report-token',
+          websiteId: 'site-1',
+          parameters: { overview: true },
+        };
+      if (path === '/liekan/websites/site-1/shared-report') return pending;
+      throw new Error(`Unexpected public request ${path}`);
+    });
+    mount(<ShareFeatureView slug="pending-report" />, false);
+    for (const name of ['访客概览', 'AI 与来源', '地域分布'])
+      expect(await screen.findByRole('heading', { name })).toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: /分享图表/ })).toHaveLength(8);
+    expect(screen.queryAllByText('当前范围暂无数据')).toHaveLength(0);
+    await act(async () => rejectReport({ status: 403 }));
+    await screen.findByRole('heading', { name: '没有访问权限' });
+    expect(screen.queryByRole('heading', { name: '访客概览' })).not.toBeInTheDocument();
+  });
+  it('website shares render every requested module and update all dates together with the share token', async () => {
+    mocks.request.mockImplementation(async (_method: string, path: string, params: any) => {
       if (path === '/share/website-report') return {
         token: 'report-token', websiteId: 'site-1',
         parameters: { overview: true, goals: false, events: false, utm: false, allowFilter: true },
       };
-      if (path === '/liekan/websites/site-1/shared-report') return {
+      if (path === '/liekan/websites/site-1/shared-report') {
+        if (params.endAt < params.startAt) throw Object.assign(new Error('结束日期须晚于开始日期'), { status: 400 });
+        return {
         website: { id: 'site-1', name: '测试网站', domain: 'example.com' },
         states: { human: 'available', logs: 'not_connected' },
         cards: [{ label: '访客数 UV', value: 91, state: 'available', detail: '所选统计范围' }],
@@ -935,6 +962,7 @@ describe('public share restrictions and password lifecycle', () => {
         insights: ['接入服务器日志后可计算 AI 抓取统计。'],
         meta: { demo: true }, capabilities: { goals: false },
       };
+      }
       throw new Error(`Unexpected public request ${path}`);
     });
     mount(<ShareFeatureView slug="website-report" />, false);
@@ -956,6 +984,13 @@ describe('public share restrictions and password lifecycle', () => {
     });
     fireEvent.change(screen.getByLabelText('开始日期'), { target: { value: '2026-09-06' } });
     await waitFor(() => expect(mocks.request.mock.calls.at(-1)?.[2].startAt).toBe(Date.parse('2026-09-05T16:00:00Z')));
+    fireEvent.change(screen.getByLabelText('结束日期'), { target: { value: '2026-09-05' } });
+    await screen.findByRole('heading', { name: '读取失败' });
+    expect(screen.getByLabelText('结束日期')).toBeEnabled();
+    expect(screen.getByRole('heading', { name: '测试网站' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('结束日期'), { target: { value: '2026-10-05' } });
+    await screen.findByRole('heading', { name: '访客趋势（UV / PV / 跳出率）' });
+    expect(screen.getAllByRole('img', { name: /分享图表/ })).toHaveLength(8);
   });
   it('public goals and funnels fetch every page with the share token and chart conversion count', async () => {
     const configurations = (kind: string) =>

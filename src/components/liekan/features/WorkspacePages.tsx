@@ -7,7 +7,7 @@ import {
   shareWithFreshness,
 } from '@/lib/liekan/upstream/client-freshness';
 import { useQuery } from '@tanstack/react-query';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
@@ -2788,12 +2788,14 @@ function PublicStats({
   active,
   range,
   filters,
+  dateControls,
   onExpired,
 }: {
   share: any;
   active: string;
   range: any;
   filters: any;
+  dateControls?: ReactNode;
   onExpired: () => void;
 }) {
   const id =
@@ -2911,7 +2913,15 @@ function PublicStats({
   });
   if (!id && !share.boardId) return <Notice>分享资源尚未提供统计数据。</Notice>;
   if (active === 'overview' && share.websiteId && !share.boardId && !share.linkId && !share.pixelId)
-    return <SharedWebsiteOverview id={id} token={share.token} range={range} request={request} />;
+    return (
+      <SharedWebsiteOverview
+        id={id}
+        token={share.token}
+        range={range}
+        request={request}
+        dateControls={dateControls}
+      />
+    );
   if (active === 'overview' && !share.boardId)
     return (
       <ResourceAnalytics
@@ -3035,6 +3045,64 @@ export function ShareFeatureView({
   const share = verified || q.data,
     allowed = allowedShareSections(share?.parameters),
     selected = allowed.some(([id]) => id === active) ? active : allowed[0]?.[0];
+  const websiteOverview =
+    selected === 'overview' &&
+    !!share?.websiteId &&
+    !share.boardId &&
+    !share.linkId &&
+    !share.pixelId;
+  const dateControls = share?.token && share.parameters?.allowFilter !== false && (
+    <div className={sharedStyles.filters}>
+      <div className="actions" aria-label="快捷日期范围">
+        {(
+          [
+            ['30 天', 30],
+            ['7 天', 7],
+            ['24h', 1],
+          ] as const
+        ).map(([label, days]) => (
+          <Button
+            key={label}
+            primary={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
+            aria-pressed={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
+            onClick={() => setRange(sharedDateRange(days))}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      <Field
+        label="开始日期"
+        type="date"
+        value={formatInTimeZone(range.startAt, range.timezone, 'yyyy-MM-dd')}
+        onChange={e => {
+          const time = +fromZonedTime(`${e.target.value}T00:00:00`, range.timezone);
+          if (Number.isFinite(time))
+            setRange(current => ({ ...current, startAt: time }));
+        }}
+      />
+      <Field
+        label="结束日期"
+        type="date"
+        value={formatInTimeZone(range.endAt, range.timezone, 'yyyy-MM-dd')}
+        onChange={e => {
+          const time = +fromZonedTime(`${e.target.value}T23:59:59.999`, range.timezone);
+          if (Number.isFinite(time))
+            setRange(current => ({ ...current, endAt: time }));
+        }}
+      />
+      {!websiteOverview && (
+        <Field
+          label="页面路径"
+          placeholder="输入路径筛选"
+          value={filters.path?.slice(3) || ''}
+          onChange={e =>
+            setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})
+          }
+        />
+      )}
+    </div>
+  );
   const closed = q.error && (q.error as any).status === 404;
   return (
     <main className="public-shell" id="main-content" data-share-theme="light">
@@ -3121,70 +3189,10 @@ export function ShareFeatureView({
               </Panel>
             ) : share?.token ? (
               <>
-                <Tabs items={allowed} active={selected || ''} onChange={setActive} />
-                {share.parameters?.allowFilter !== false && (
-                  <div className={sharedStyles.filters}>
-                    <div className="actions" aria-label="快捷日期范围">
-                      {(
-                        [
-                          ['30 天', 30],
-                          ['7 天', 7],
-                          ['24h', 1],
-                        ] as const
-                      ).map(([label, days]) => (
-                        <Button
-                          key={label}
-                          primary={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
-                          aria-pressed={
-                            Math.abs(range.endAt - range.startAt - days * 86400000) < 1000
-                          }
-                          onClick={() => setRange(sharedDateRange(days))}
-                        >
-                          {label}
-                        </Button>
-                      ))}
-                    </div>
-                    <Field
-                      label="开始日期"
-                      type="date"
-                      value={formatInTimeZone(range.startAt, range.timezone, 'yyyy-MM-dd')}
-                      onChange={e => {
-                        const time = +fromZonedTime(`${e.target.value}T00:00:00`, range.timezone);
-                        if (Number.isFinite(time))
-                          setRange(current => ({ ...current, startAt: time }));
-                      }}
-                    />
-                    <Field
-                      label="结束日期"
-                      type="date"
-                      value={formatInTimeZone(range.endAt, range.timezone, 'yyyy-MM-dd')}
-                      onChange={e => {
-                        const time = +fromZonedTime(
-                          `${e.target.value}T23:59:59.999`,
-                          range.timezone,
-                        );
-                        if (Number.isFinite(time))
-                          setRange(current => ({ ...current, endAt: time }));
-                      }}
-                    />
-                    {!(
-                      selected === 'overview' &&
-                      share.websiteId &&
-                      !share.boardId &&
-                      !share.linkId &&
-                      !share.pixelId
-                    ) && (
-                      <Field
-                        label="页面路径"
-                        placeholder="输入路径筛选"
-                        value={filters.path?.slice(3) || ''}
-                        onChange={e =>
-                          setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})
-                        }
-                      />
-                    )}
-                  </div>
+                {allowed.length > 1 && (
+                  <Tabs items={allowed} active={selected || ''} onChange={setActive} />
                 )}
+                {!websiteOverview && dateControls}
                 {selected ? (
                   <PublicStats
                     key={share.token}
@@ -3192,6 +3200,7 @@ export function ShareFeatureView({
                     active={selected}
                     range={range}
                     filters={share.parameters?.allowFilter === false ? {} : filters}
+                    dateControls={dateControls}
                     onExpired={() => {
                       setVerified(null);
                       void q.refetch();
