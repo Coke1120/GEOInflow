@@ -1,13 +1,13 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { formatInTimeZone } from 'date-fns-tz';
 import type { SharedReport } from '@/lib/liekan/contracts/shared-report';
 import styles from '@/styles/liekan/SharedReport.module.css';
 import { LoadingLines } from '../DataLoading';
 import { InsightRows, ReferenceChart } from '../ReportComponents';
 import { formatCellValue, formatMetricValue, formatPercentage, stateLabels } from '../data';
-import { Metrics, Notice, QueryState, Table } from './ui';
+import { Badge, Metrics, QueryState, Table } from './ui';
 
 function ReportChart({
   id,
@@ -38,11 +38,13 @@ export function SharedWebsiteOverview({
   token,
   range,
   request,
+  dateControls,
 }: {
   id: string;
   token: string;
   range: { startAt: number; endAt: number; timezone: string };
   request: (path: string, params?: any, signal?: AbortSignal) => Promise<any>;
+  dateControls?: ReactNode;
 }) {
   const chartPeriod =
     range.endAt - range.startAt <= 86400000
@@ -67,6 +69,20 @@ export function SharedWebsiteOverview({
     refetchInterval: 30000,
   });
   const report = query.data;
+  const [previousIdentity, setPreviousIdentity] = useState<{
+    website: SharedReport['website'];
+    demo: boolean;
+  }>();
+  useEffect(() => {
+    if (report) setPreviousIdentity({ website: report.website, demo: report.meta.demo });
+  }, [report]);
+  const identity = [401, 403, 404].includes((query.error as any)?.status)
+    ? undefined
+    : report
+      ? { website: report.website, demo: report.meta.demo }
+      : previousIdentity?.website.id === id
+        ? previousIdentity
+        : undefined;
   const date = (time: number) => formatInTimeZone(time, range.timezone, 'MM/dd');
   const period = `${date(range.startAt)} – ${date(range.endAt)}`;
   const trendPeriod =
@@ -85,22 +101,35 @@ export function SharedWebsiteOverview({
     (report?.tables.envGrid || []).filter(row => row.category === category).slice(0, 5);
   const goals = report?.capabilities.goals;
   return (
-    <QueryState readOnly query={query}>
-      <article className={styles.report}>
-        <header className={styles.reportHead}>
-          <div>
-            <h1>{report?.website.name || '网站流量报告'}</h1>
-            <p>
-              {report?.website.domain} · {period} · {range.timezone}
-            </p>
+    <article className={styles.report}>
+      <header className={styles.reportHead}>
+        <div className={styles.reportToolbar}>
+          <div className={styles.identity}>
+            <div className={styles.titleRow}>
+              <h1>
+                {identity?.demo
+                  ? identity.website.name.replace(/\s*[（(]示例数据[）)]$/, '')
+                  : identity?.website.name || '网站流量报告'}
+              </h1>
+              {identity?.demo && <Badge>示例数据</Badge>}
+            </div>
+            <p>{identity?.website.domain}</p>
+            {identity?.demo && (
+              <p className={styles.demoNote}>当前网站为演示站，以下为隔离的示例数据。</p>
+            )}
           </div>
-          <nav aria-label="报告章节" className={styles.chapters}>
-            <a href="#shared-visitors">访客概览</a>
-            <a href="#shared-ai">AI 与来源</a>
-            <a href="#shared-geography">地域分布</a>
-          </nav>
-        </header>
-        {report?.meta.demo && <Notice>当前网站为演示站，以下为隔离的示例数据。</Notice>}
+          <div className={styles.dateTools}>
+            {dateControls || <p>{period}</p>}
+            <p className={styles.timezone}>时区：{range.timezone}</p>
+          </div>
+        </div>
+        <nav aria-label="报告章节" className={styles.chapters}>
+          <a href="#shared-visitors">访客概览</a>
+          <a href="#shared-ai">AI 与来源</a>
+          <a href="#shared-geography">地域分布</a>
+        </nav>
+      </header>
+      <QueryState readOnly query={query}>
         <section
           id="shared-visitors"
           className={styles.section}
@@ -235,7 +264,7 @@ export function SharedWebsiteOverview({
             />
           </section>
         </section>
-      </article>
-    </QueryState>
+      </QueryState>
+    </article>
   );
 }
