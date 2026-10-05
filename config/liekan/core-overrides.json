@@ -2089,6 +2089,14 @@
       "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
     },
     {
+      "path": "tests/e2e/liekan-read-region-spacing.spec.ts",
+      "purpose": "Prevent read-only loading containers from collapsing the original section gaps",
+      "tests": ["pnpm test:e2e tests/e2e/liekan-read-region-spacing.spec.ts"],
+      "owner": "Liekan UI maintenance",
+      "constraint": "Read-only browser checks preserve data and verify the original 16px gap through loading, ready and cached navigation states",
+      "removalCondition": "Remove when an equivalent upstream layout regression check covers these loading states"
+    },
+    {
       "path": "tsconfig.json",
       "purpose": "Exclude isolated rehearsal copies from the production type boundary",
       "tests": [

@@ -21,6 +21,7 @@ import { createPortal } from 'react-dom';
 import { useFeature } from './context';
 import { featureIcons } from './icons';
 import { DataLoading, LoadingLines, Skeleton, useDataLoading } from '../DataLoading';
+import loadingStyles from '@/styles/liekan/Loading.module.css';
 
 export function Icon({ name = 'down' }: { name?: string }) {
   const paths = {
@@ -696,6 +697,7 @@ export function QueryState({
   if (readOnly && !restricted && (!query.error || query.data != null)) {
     return (
       <div
+        className={loadingStyles.readRegion}
         data-liekan-read-region
         aria-busy={inherited || query.isPending || query.isFetching || undefined}
       >
