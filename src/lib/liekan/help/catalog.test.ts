@@ -18,6 +18,12 @@ import {
 } from './catalog';
 
 describe('help scope and evidence', () => {
+  it('keeps upstream attribution in the license and uses Liekan for product help', () => {
+    const productHelp = helpArticles.filter(item => item.id !== 'project-license');
+    expect(JSON.stringify([...productHelp, ...helpCrawlers])).not.toMatch(/umami/i);
+    const license = helpArticles.find(item => item.id === 'project-license');
+    expect(JSON.stringify(license)).toContain('Copyright (c) 2022 Umami Software, Inc.');
+  });
   it('clears private site, resource and date context when entering global help', () => {
     const query = {
       websiteId: 'site-a',

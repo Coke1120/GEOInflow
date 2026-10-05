@@ -29,6 +29,14 @@ const article = (
   related,
   sources,
   reviewedAt: HELP_REVIEWED_AT,
+  setupGuide: [
+    'ai-crawler-start',
+    'ai-collection-service',
+    'ai-crawler-display',
+    'server-logs',
+    'cloudflare-logs',
+    'manual-logs',
+  ].includes(id),
 });
 
 export const helpGuides: HelpArticle[] = [
@@ -100,12 +108,11 @@ export const helpGuides: HelpArticle[] = [
       {
         title: '本版维护依据',
         paragraphs: [
-          '本帮助词典随 Liekan 版本发布，依据仓库 docs/data-definitions.md、docs/installation.md、docs/automatic-logs.md 与实现契约维护。上游 Umami 文档提供通用概念，页面上的 Liekan 指标使用本词典给出的产品口径。',
+          '本帮助词典随猎看统计版本发布，依据产品的数据定义、数据接入说明与实际计算规则维护。各指标的计算方法、数据来源、统计窗口和边界均可在指标词典中查阅。',
         ],
       },
     ],
     ['no-browser-data', 'coverage-missing'],
-    [{ label: 'Umami：Metric definitions', url: 'https://docs.umami.is/docs/metric-definitions' }],
   ),
   article(
     'browser-js',
@@ -139,12 +146,198 @@ export const helpGuides: HelpArticle[] = [
       },
     ],
     ['connect-website', 'no-browser-data', 'goal-config'],
+  ),
+  article(
+    'ai-crawler-start',
+    'start',
+    '配置并验证 AI 蜘蛛采集',
+    '选择网站与日志来源，按接入引导完成配置，再核对真实请求。',
+    ['AI 蜘蛛', '采集', '接入', '配置', '引导', '入门', '验证'],
     [
       {
-        label: 'Umami：Track custom events',
-        url: 'https://docs.umami.is/docs/track-custom-events',
+        title: '1. 选择网站并打开数据接入',
+        paragraphs: [
+          '在网站管理中找到目标网站，点击“网站设置”，打开“数据接入”，进入“接入 AI 蜘蛛日志”。添加新网站时也可沿接入向导进入日志步骤。配置和连接需要该网站的管理权限。',
+        ],
+      },
+      {
+        title: '2. 按观察范围选择日志来源',
+        paragraphs: [
+          '网站经过 Cloudflare 代理且账户支持所需 Logpush 能力时，选择“Cloudflare 授权连接”，观察 CDN 边缘请求。能管理源站 Linux 服务器时，选择“服务器一次安装”，读取本站 Nginx 或 Apache 日志。已有历史日志或暂不配置自动采集时，选择“手动导入日志”。',
+          'CDN 缓存命中和边缘拦截通常不会到达源站。服务器日志与 CDN 日志覆盖的请求范围会不同；每个网站只保留一个主要自动来源，避免重复叠加相同时段的日志。',
+        ],
+      },
+      {
+        title: '3. 根据页面状态完成配置',
+        paragraphs: [
+          '显示“待配置”时，点击“开始配置”或“查看配置说明”，让部署管理员按页面逐项准备公网 HTTPS 地址、日志队列、处理服务及对应接入资产；完成后点击“重新检查”。显示“可用”后，服务器方式生成本站专属配对命令，Cloudflare 方式按页面授权并确认匹配域名与费用。',
+          '手动方式使用本站真实日志，先核对字段、时区与导入时间范围，再查看有效行数和失败原因。跳过检查或完成向导仅保存设置进度。',
+        ],
+      },
+      {
+        title: '4. 分别验证接收、处理和识别',
+        paragraphs: [
+          '先用浏览器真实访问本站一页，确认对应源站或 CDN 日志中出现请求。回到接入检查，依次核对连接状态、最近上传、最近处理、有效日志条数与积压。普通浏览请求可以验证日志链路；AI 蜘蛛匹配需要实际出现符合识别规则的请求。',
+          '在该网站日志中查看请求时间、路径、UA 分类、身份核验和状态码，再进入 AI 抓取分析核对所选日期。自行填写蜘蛛 UA 的测试请求只能测试分类，IP 身份核验仍需真实厂商来源。已有日志且暂未匹配 AI 请求时，保持实际结果。',
+        ],
+      },
+      {
+        title: '5. 检查展示开关与内容目录',
+        paragraphs: [
+          '若 AI 抓取菜单显示关闭，进入“网站设置 → 基本设置 → 数据展示”，开启“AI 蜘蛛数据展示”。该开关控制页面展示，日志采集依原配置运行。抓取覆盖率还需要导入本站内容目录；仅接入日志可先查看 AI 请求数量、路径与状态。',
+        ],
       },
     ],
+    [
+      'ai-crawler-principles',
+      'ai-collection-service',
+      'server-logs',
+      'cloudflare-logs',
+      'manual-logs',
+      'ai-crawler-display',
+      'content-catalog',
+      'logs-not-arriving',
+    ],
+  ),
+  article(
+    'ai-crawler-principles',
+    'config',
+    'AI 蜘蛛采集与识别原理',
+    '了解请求日志如何转成蜘蛛统计，以及分类、身份核验和覆盖率的边界。',
+    ['AI 蜘蛛', '采集原理', '日志', 'UA', 'IP', '训练', 'AI 搜索', '用户触发'],
+    [
+      {
+        title: '请求如何成为统计数据',
+        paragraphs: [
+          'AI 蜘蛛访问网站 → 源站或 CDN 记录请求 → 采集器上传、CDN 推送或手动导入 → 校验网站归属、格式、时间与重复 → 按 UA 分类并核验来源 → 处理完成后进入网站日志和统计报表。',
+          '浏览 JS 记录执行脚本的页面访问。蜘蛛请求通过服务器或 CDN 日志观察，包含时间、路径、客户端 IP、User-Agent、方法、状态码及响应大小等字段。采集过程中移除路径查询参数，原始 IP 用于核验后按产品规则脱敏保存。',
+        ],
+      },
+      {
+        title: '按用途理解 AI 请求',
+        paragraphs: [
+          '训练抓取、AI 搜索与用户触发访问分别分类。例如 GPTBot 面向模型改进，OAI-SearchBot 面向搜索，ChatGPT-User 对应用户发起的访问。用途与厂商官方说明、本站规则和记录时间一起核对。AI 搜索带来的真人访问通过浏览来源观察。',
+        ],
+      },
+      {
+        title: 'UA 分类与 IP 身份核验',
+        paragraphs: [
+          'UA 用于匹配蜘蛛名称与用途，请求者可以自行填写这一字符串。身份核验还需要名称、UA 和对应厂商官方 IP 范围相符，且快照与请求时间处于有效范围。没有支持的官方范围、范围未匹配或证据过期时，保留未核验状态。',
+          '帮助目录收录的名称多于当前默认识别规则。各条目注明本版分类与 IP 核验能力；新增参考资料不会自动新增服务器端识别。Google-Extended 等用途控制标记没有独立 HTTP 蜘蛛 UA 或 IP。',
+        ],
+      },
+      {
+        title: '接收确认与统计完成',
+        paragraphs: [
+          '自动来源收到持久确认后，批次已保存并进入后台处理。处理服务继续完成分类、去重和入库，来源页面单独显示最近处理、积压与失败。确认接收后，仍需核对处理完成和有效记录。',
+          '每个网站使用一个主要自动来源及其生效时段。批次标识、请求特征与导入台账帮助去重；手动导入会检查与自动来源的时间重叠。',
+        ],
+      },
+      {
+        title: '统计能说明什么',
+        paragraphs: [
+          '日志证明观察范围内发生了请求及对应响应状态。200、403、429 和失败重试均需按实际记录分析。AI 请求数量与目录命中可以说明抓取活动；普通日志缺少正文完整接收、模型训练采用或 AI 回答引用的证据。',
+          '覆盖率以已导入本站内容目录为分母。源站日志遗漏 CDN 缓存命中、日志字段缺失、采样和观察窗口都会影响结果。robots 策略与源站/WAF 限制决定访问处理，统计采集依赖实际送达的日志。',
+        ],
+      },
+    ],
+    [
+      'ai-crawler-start',
+      'identity-check',
+      'metric-ai-requests',
+      'metric-ai-coverage',
+      'robots-policy',
+    ],
+    [
+      {
+        label: 'OpenAI：官方蜘蛛用途与 IP 范围',
+        url: 'https://developers.openai.com/api/docs/bots',
+      },
+      {
+        label: 'Google：验证爬虫与获取器请求',
+        url: 'https://developers.google.com/crawling/docs/crawlers-fetchers/verify-google-requests',
+      },
+      {
+        label: 'Cloudflare：HTTP 请求日志字段',
+        url: 'https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/http_requests/',
+      },
+    ],
+  ),
+  article(
+    'ai-collection-service',
+    'config',
+    '配置 AI 蜘蛛日志接收服务',
+    '供部署管理员准备自动接入依赖，并指导网站管理员完成连接。',
+    ['AI 蜘蛛', '采集配置', 'HTTPS', 'LIEKAN_PUBLIC_URL', 'queue', 'worker', 'OAuth', '签名安装包'],
+    [
+      {
+        title: '先使用接入页面的逐项检查',
+        paragraphs: [
+          '在目标网站的“数据接入”中选择服务器或 Cloudflare，打开配置说明。页面按接入方式显示公网 HTTPS 地址、日志队列、日志处理服务、签名安装包、Cloudflare 授权应用与凭据加密密钥的检查结果。将待配置项交给部署管理员，完成后重新检查。',
+        ],
+      },
+      {
+        title: '两种自动方式共用的配置',
+        paragraphs: [
+          'LIEKAN_PUBLIC_URL 填写统计服务对外的 HTTPS 根地址，例如 https://stats.example.com；网站设置页使用同一域名。准备日志队列并持续运行日志处理服务，确认近期心跳。LIEKAN_LOG_CREDENTIALS_KEY 使用 32 字节随机密钥的 Base64，应用与处理服务采用同一私有配置。',
+          '本地 127.0.0.1 地址可以阅读和测试统计页面。对外服务器和 CDN 接入需要页面检查通过的公网 HTTPS 地址。配置说明中的示例值需替换后应用到部署环境，保存说明不会修改实例的运行配置。',
+        ],
+      },
+      {
+        title: '服务器方式的额外准备',
+        paragraphs: [
+          '平台需要提供已签名的 Linux x64/arm64 安装资产；部署管理员使用受控签名密钥生成并发布安装包。网站服务器需符合服务器采集文档中的系统与日志要求。检查通过后，在接入页生成十分钟有效、仅可配对一次的命令，并在本站服务器执行。',
+        ],
+      },
+      {
+        title: 'Cloudflare 方式的额外准备',
+        paragraphs: [
+          '部署管理员配置 CLOUDFLARE_OAUTH_CLIENT_ID 和 CLOUDFLARE_OAUTH_CLIENT_SECRET，在 Cloudflare 登记本实例的 OAuth 应用。回调为公网根地址加 /api/liekan/oauth/cloudflare/callback。密钥保留在私有部署配置中。',
+          '网站管理员按官方授权流程连接账户，核对与本站域名匹配的 Zone、Logpush 权限、账户能力及费用后确认。平台负责建立对应推送任务，返回后检查连接与真实日志到达。',
+        ],
+      },
+      {
+        title: '重新检查与验收',
+        paragraphs: [
+          '应用配置并确认处理服务运行后，回到原接入页点击“重新检查”。能力检查通过后继续授权或安装，再查看最近接收、最近处理、有效条数与错误信息。公网连通性和日志实际到达需要在连接后验证。',
+        ],
+      },
+    ],
+    ['ai-crawler-start', 'deployment', 'server-logs', 'cloudflare-logs', 'logs-not-arriving'],
+    [
+      {
+        label: 'Cloudflare：创建 OAuth 客户端',
+        url: 'https://developers.cloudflare.com/fundamentals/oauth/create-an-oauth-client/',
+      },
+    ],
+  ),
+  article(
+    'ai-crawler-display',
+    'config',
+    'AI 蜘蛛数据展示与采集状态',
+    '了解展示开关、日志接入进度和历史统计各自控制的内容。',
+    ['AI 蜘蛛', '数据展示', '关闭', '开启', '采集开关', '只看访客', '菜单'],
+    [
+      {
+        title: '开启或关闭数据展示',
+        paragraphs: [
+          '进入“网站设置 → 基本设置 → 数据展示”，调整“AI 蜘蛛数据展示”。默认开启，需要网站管理权限。关闭后隐藏 AI 抓取分析入口和相关蜘蛛指标，总览显示访客统计；当前报表导出与公开分享遵循同一展示选择。',
+        ],
+      },
+      {
+        title: '日志来源继续按原配置运行',
+        paragraphs: [
+          '关闭展示会保留历史数据、日志采集、识别规则和安装配置，重新开启即可查看既有记录。需要暂停采集或断开来源时，在“数据接入 → 日志接入设置”中对相应来源操作；服务器采集器的本机卸载按服务器文档执行。',
+        ],
+      },
+      {
+        title: '进度与真实数据分别判断',
+        paragraphs: [
+          '跳过检查、完成设置和收到新日志均保持用户保存的展示选择。示例日志不能证明真实接入；真实日志收到后继续检查处理结果和 AI 匹配。AI 搜索带来的真人访问仍计入访客来源。',
+        ],
+      },
+    ],
+    ['ai-crawler-start', 'server-logs', 'cloudflare-logs', 'logs-not-arriving'],
   ),
   article(
     'server-logs',
@@ -158,6 +351,18 @@ export const helpGuides: HelpArticle[] = [
         paragraphs: [
           '支持 Ubuntu 22/24、Debian 12、systemd、x64/arm64，采集 Nginx/Apache combined 格式的访问日志。日志必须包含 UA。先确认日志路径与当前网站对应，避免混入其他站点。',
         ],
+      },
+      {
+        title: '准备本站访问日志',
+        paragraphs: [
+          '使用本站独立的 combined 访问日志，保留客户端地址、请求时间、方法、路径、状态、响应大小和 User-Agent。Nginx 可使用内置 combined 格式，Apache 可使用 CustomLog 的 combined 格式。已有日志配置由服务器管理员核对后合并。',
+          '示例片段放入对应 Nginx server 配置，替换路径并先检查配置，再重新加载服务。站点经过反向代理或 CDN 时，还需由管理员按可信代理来源配置真实客户端地址；直接记录代理节点地址会影响蜘蛛身份核验。',
+        ],
+        code: {
+          label: '配置草稿 · 合并到本站 Nginx server，替换日志路径',
+          filename: 'liekan-nginx-access-log-draft.conf',
+          text: '# Review and merge into the existing site server block\naccess_log /var/log/nginx/YOUR-SITE.access.log combined;\n',
+        },
       },
       {
         title: '安装与配对',
@@ -185,6 +390,13 @@ export const helpGuides: HelpArticle[] = [
       },
     ],
     ['manual-logs', 'logs-not-arriving', 'deployment'],
+    [
+      {
+        label: 'Nginx：访问日志与 combined 格式',
+        url: 'https://nginx.org/en/docs/http/ngx_http_log_module.html',
+      },
+      { label: 'Apache：访问日志配置', url: 'https://httpd.apache.org/docs/2.4/logs.html' },
+    ],
   ),
   article(
     'cloudflare-logs',
@@ -206,6 +418,13 @@ export const helpGuides: HelpArticle[] = [
         ],
       },
       {
+        title: '核对推送范围与日志字段',
+        paragraphs: [
+          '本版自动接入使用 HTTP 请求日志，筛选本站域名的 eyeball 请求，覆盖缓存命中、静态资源及有效拦截请求。字段包括时间、主机、路径、客户端 IP、User-Agent、方法、响应状态与 Ray ID 等，按接入配置核对有效和拒绝条数。',
+          '平台使用完整采样率与 rfc3339ns 时间输出，保留高精度时间用于去重。原生 CDN 日志需要通过自动接入或转换成受支持的手动格式，直接上传任意供应商日志可能产生字段错误。',
+        ],
+      },
+      {
         title: '配置依赖',
         paragraphs: [
           '实例需要 HTTPS 公网地址、队列、处理进程、凭据加密密钥与 Cloudflare OAuth 配置。缺失配置时入口显示原因；授权凭据不进入配置导出。',
@@ -213,7 +432,17 @@ export const helpGuides: HelpArticle[] = [
       },
     ],
     ['logs-not-arriving', 'deployment'],
-    [{ label: 'Cloudflare：Logpush', url: 'https://developers.cloudflare.com/logs/logpush/' }],
+    [
+      { label: 'Cloudflare：Logpush', url: 'https://developers.cloudflare.com/logs/logpush/' },
+      {
+        label: 'Cloudflare：HTTP 请求日志字段',
+        url: 'https://developers.cloudflare.com/logs/logpush/logpush-job/datasets/zone/http_requests/',
+      },
+      {
+        label: 'Cloudflare：日志输出选项',
+        url: 'https://developers.cloudflare.com/logs/logpush/logpush-job/log-output-options/',
+      },
+    ],
   ),
   article(
     'manual-logs',

@@ -32,6 +32,7 @@ import {
 import { AnalysisTabs } from '../AnalysisTabs';
 import { DataLoading } from '../DataLoading';
 import { Navigation, useSidebarWidth } from '../Navigation';
+import { ProductFooter } from '../ProductFooter';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
 import { HelpCenter } from './HelpCenter';
@@ -407,6 +408,7 @@ export function FeatureApp({
             />
             {content}
           </main>
+          <ProductFooter />
           {toast && (
             <div className="toast" role="status">
               {toast}
@@ -552,6 +554,7 @@ export function FeatureApp({
             {!showAnalysisTools && analysisTabs}
             {content}
           </main>
+          <ProductFooter />
         </div>
         {toast && (
           <div className="toast" role="status">

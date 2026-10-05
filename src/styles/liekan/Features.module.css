@@ -260,6 +260,8 @@
 :global([data-liekan-features] .shell-content) {
   margin-left: var(--side);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 :global([data-liekan-features] .header) {
   background: var(--canvas);
@@ -307,7 +309,8 @@
 }
 :global([data-liekan-features] .content) {
   max-width: 1200px;
-  margin: auto;
+  width: 100%;
+  margin: 0 auto;
   padding: 24px 32px 40px;
   display: grid;
   gap: 16px;
@@ -2042,10 +2045,12 @@
 }
 :global([data-liekan-features].identity-flow) {
   min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 :global([data-liekan-features].identity-flow .content) {
   max-width: 900px;
-  margin: auto;
+  margin: 0 auto;
 }
 @media (max-width: 900px) {
   :global([data-liekan-features] .context-select select) {

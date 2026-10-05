@@ -1,5 +1,5 @@
 'use client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -111,8 +111,14 @@ export function Navigation({
     staleTime: 300000,
     gcTime: 600000,
   });
+  const reportedDisplay = useQuery<boolean>({
+    queryKey: ['liekan-feature', user.id, 'reported-crawler-display', route.websiteId],
+    queryFn: skipToken,
+    gcTime: 600000,
+  });
+  const crawlerEnabled = displaySettings.data?.aiCrawlerEnabled ?? reportedDisplay.data;
   const groups = allGroups.filter(
-    group => !(website && group.id === 'ai' && displaySettings.data?.aiCrawlerEnabled === false),
+    group => !(website && group.id === 'ai' && crawlerEnabled === false),
   );
   useEffect(() => {
     setAccount(meta.scope === 'account');

@@ -103,6 +103,13 @@
 .content {
   margin-left: var(--lk-side-w, 228px);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.content > .pageBody {
+  flex: 1;
+  min-height: 0;
 }
 .resizer {
   position: absolute;

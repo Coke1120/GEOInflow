@@ -142,12 +142,12 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         }
       : {}),
   };
+  const currentReport = pageReportQuery(
+    userId, websiteId, reportInput, teamId,
+    () => { const value = forceRefresh.current; forceRefresh.current = false; return value; },
+  );
   const query = api.useQuery<LiekanReport>({
-    ...pageReportQuery(userId, websiteId, reportInput, teamId, () => {
-      const value = forceRefresh.current;
-      forceRefresh.current = false;
-      return value;
-    }),
+    ...currentReport,
     enabled: !!websiteId,
     placeholderData: (previous, previousQuery) =>
       previous?.website.id === websiteId &&
@@ -158,6 +158,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         : undefined,
     refetchInterval: resource === 'logs' && !liveLogs ? 10000 : false,
   });
+  const reportKey = JSON.stringify(currentReport.queryKey);
+  const activeReportKey = useRef(reportKey);
+  activeReportKey.current = reportKey;
+  const manualRefresh = useRef<{
+    key: string;
+    promise: Promise<boolean | undefined>;
+  }>(null);
   const previous = api.useQuery<LiekanReport>({
     ...pageReportQuery(userId, websiteId, { resource, ...shiftedRange, timezone }, teamId),
     enabled: compare && !!websiteId,
@@ -205,9 +212,25 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const crawlerHidden =
     displayQuery.data?.aiCrawlerEnabled === false || query.data?.meta.aiCrawlerEnabled === false;
   const refresh = () => {
-    forceRefresh.current = true;
     if (displayMismatch || displayQuery.error) void displayQuery.refetch();
-    return query.refetch();
+    if (manualRefresh.current?.key === reportKey) return manualRefresh.current.promise;
+    const promise = (async () => {
+      await queryClient.cancelQueries({ queryKey: currentReport.queryKey, exact: true });
+      const updatesBefore = queryClient.getQueryState(currentReport.queryKey)?.dataUpdateCount || 0;
+      forceRefresh.current = true;
+      const result = await query.refetch({ cancelRefetch: false });
+      if (result.isError) return false;
+      // Cancelled reads can resolve with retained data; completion advances the update count.
+      const updatesAfter = queryClient.getQueryState(currentReport.queryKey)?.dataUpdateCount || 0;
+      return updatesAfter > updatesBefore ? true : undefined;
+    })();
+    const running = { key: reportKey, promise };
+    manualRefresh.current = running;
+    const release = () => {
+      if (manualRefresh.current === running) manualRefresh.current = null;
+    };
+    void promise.then(release, release);
+    return promise;
   };
   const afterSaved = async () => {
     const isCurrentPage = () =>
@@ -287,6 +310,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       );
   }, [report, website, shell?.setWebsite, shell?.setBotCount]);
   useEffect(() => {
+    if (report?.website.id === websiteId && userId)
+      queryClient.setQueryData(
+        ['liekan-feature', userId, 'reported-crawler-display', websiteId],
+        report.meta.aiCrawlerEnabled !== false,
+      );
+  }, [report, userId, websiteId, queryClient]);
+  useEffect(() => {
     setMessage('');
     setAction('');
   }, [resource]);
@@ -351,8 +381,9 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       return;
     }
     if (label === '生成内容建议') {
-      refresh().then(result => {
-        setMessage(result.isError ? '读取数据失败，请重试' : '已根据当前数据重新生成内容建议');
+      refresh().then(succeeded => {
+        if (succeeded === undefined || activeReportKey.current !== reportKey) return;
+        setMessage(succeeded ? '已根据当前数据重新生成内容建议' : '读取数据失败，请重试');
       });
       return;
     }

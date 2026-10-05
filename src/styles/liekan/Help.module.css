@@ -119,6 +119,22 @@
   font-size: 14px;
   line-height: 1.8;
 }
+.setupGuide {
+  display: grid;
+  gap: 8px;
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid #dce7ff;
+  border-radius: 14px;
+  background: #f5f8ff;
+}
+.setupGuide a {
+  justify-self: start;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: var(--help-blue);
+  color: white;
+}
 .cards {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));

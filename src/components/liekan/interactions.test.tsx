@@ -1,5 +1,5 @@
 import userEvent from '@testing-library/user-event';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ManagementDrawer } from './ManagementDrawer';
 import { FilterChip, MetricCard, ReportList, ReportRows, SortHeading } from './ReportComponents';
@@ -134,7 +134,7 @@ describe('real data states and interactions', () => {
     expect(screen.queryByText('今日转化')).not.toBeInTheDocument();
     expect(screen.queryByText('识别 AI 蜘蛛')).not.toBeInTheDocument();
     expect(screen.getByText(/整体前移 7 天/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '保存' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '保存 robots.txt' })).not.toBeInTheDocument();
   });
   it('retries a failed comparison and clears the loading state after recovery', () => {
     const data = report();
@@ -391,4 +391,67 @@ describe('real data states and interactions', () => {
       content: '[{"path":"/actual"}]',
     });
   });
+});
+
+it('keeps saved configuration locked until its report refresh completes', async () => {
+  const settings = { robots: 'User-agent: *', allowlist: [], rules: [] };
+  api.get.mockResolvedValue(settings);
+  api.put.mockResolvedValue(settings);
+  let finish!: () => void;
+  const updating = new Promise<void>(resolve => {
+    finish = resolve;
+  });
+  const onSaved = vi.fn(() => updating);
+  render(
+    <ManagementDrawer
+      action="robots.txt 编辑"
+      websiteId="site"
+      canManage
+      onClose={vi.fn()}
+      onSaved={onSaved}
+      onSearch={vi.fn()}
+      onRange={vi.fn()}
+    />,
+  );
+  const input = await screen.findByRole('textbox');
+  await waitFor(() => expect(input).toBeEnabled());
+  const save = screen.getByRole('button', { name: '保存 robots.txt' });
+  fireEvent.click(save);
+  await screen.findByText('robots.txt 已保存到当前网站设置。下载后部署到网站根目录。');
+  expect(onSaved).toHaveBeenCalledOnce();
+  expect(input).toBeDisabled();
+  expect(save).toBeDisabled();
+  await act(async () => finish());
+  await waitFor(() => expect(input).toBeEnabled());
+  expect(save).toBeEnabled();
+});
+
+it('preserves write confirmation when the follow-up refresh fails', async () => {
+  const settings = { robots: 'User-agent: *', allowlist: [], rules: [] };
+  api.get.mockResolvedValue(settings);
+  api.put.mockResolvedValue(settings);
+  const onSaved = vi.fn(async () => {
+    throw new Error('identity refresh unavailable');
+  });
+  render(
+    <ManagementDrawer
+      action="robots.txt 编辑"
+      websiteId="site"
+      canManage
+      onClose={vi.fn()}
+      onSaved={onSaved}
+      onSearch={vi.fn()}
+      onRange={vi.fn()}
+    />,
+  );
+  const input = await screen.findByRole('textbox');
+  await waitFor(() => expect(input).toBeEnabled());
+  const save = screen.getByRole('button', { name: '保存 robots.txt' });
+  fireEvent.click(save);
+  await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+  await waitFor(() =>
+    expect(screen.getByRole('status')).toHaveTextContent('robots.txt 已保存到当前网站设置。下载后部署到网站根目录。'),
+  );
+  expect(screen.getByRole('status')).toHaveTextContent('页面状态刷新失败');
+  expect(input).toBeEnabled();
 });

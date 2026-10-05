@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   clear: vi.fn(),
   clearLogin: vi.fn(),
   display: {} as Record<string, boolean>,
+  displayError: false,
+  reportedDisplay: {} as Record<string, boolean>,
   pathname: '/websites/site-a/goals/create',
 }));
 vi.mock('next/link', () => ({
@@ -24,6 +26,7 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
   }),
 }));
 vi.mock('@tanstack/react-query', () => ({
+  skipToken: Symbol('skipToken'),
   useQueryClient: () => ({
     clear: mocks.clear,
     prefetchQuery: vi.fn().mockResolvedValue(undefined),
@@ -31,13 +34,17 @@ vi.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: any) => ({
     isPending: false,
     data: queryKey.includes('website-display-settings')
-      ? { aiCrawlerEnabled: mocks.display[queryKey[3]] }
-      : queryKey.includes('sites')
-        ? [
-            { id: 'site-a', name: '网站 A', domain: 'a.test' },
-            { id: 'site-b', name: '网站 B', domain: 'b.test' },
-          ]
-        : [],
+      ? mocks.displayError
+        ? undefined
+        : { aiCrawlerEnabled: mocks.display[queryKey[3]] }
+      : queryKey.includes('reported-crawler-display')
+        ? mocks.reportedDisplay[queryKey[3]]
+        : queryKey.includes('sites')
+          ? [
+              { id: 'site-a', name: '网站 A', domain: 'a.test' },
+              { id: 'site-b', name: '网站 B', domain: 'b.test' },
+            ]
+          : [],
   }),
 }));
 vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
@@ -49,6 +56,20 @@ vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
 }));
 
 describe('website navigation transitions', () => {
+  it('uses the current report display mode when settings cannot be read and recovers with fresh settings', () => {
+    mocks.displayError = true;
+    mocks.reportedDisplay = { 'site-a': false };
+    const props = { user: { id: 'user', username: 'admin' } as any, width: 228, onWidth: vi.fn() };
+    const view = render(
+      <Navigation {...props} route={{ page: 'overview', websiteId: 'site-a' }} />,
+    );
+    expect(screen.queryByRole('link', { name: '抓取总览' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '访客总览' })).toBeInTheDocument();
+    mocks.displayError = false;
+    mocks.display = { 'site-a': true };
+    view.rerender(<Navigation {...props} route={{ page: 'overview', websiteId: 'site-a' }} />);
+    expect(screen.getByRole('link', { name: '抓取总览' })).toBeInTheDocument();
+  });
   it('hides only the current website crawler group and restores the default for another website', () => {
     mocks.display = { 'site-a': false };
     const props = { user: { id: 'user', username: 'admin' } as any, width: 228, onWidth: vi.fn() };
@@ -66,6 +87,8 @@ describe('website navigation transitions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.display = {};
+    mocks.displayError = false;
+    mocks.reportedDisplay = {};
     mocks.pathname = '/websites/site-a/goals/create';
     document.body.style.overflow = '';
   });
