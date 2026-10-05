@@ -38,11 +38,9 @@ export const aiAnswerSchema = z.strictObject({
   possibleCauses: z
     .array(
       z.strictObject({
-        text: plain(600).refine(
-          value =>
-            /可能|或许|也许|待核|待验证|尚需|无法确定|\b(?:may|might|could|possible|uncertain)\b/i.test(
-              value,
-            ),
+        // JSON Schema carries this pattern to the model as well as the server validator.
+        text: plain(600).regex(
+          /可能|或许|也许|待核|待验证|尚需|无法确定|\b(?:[mM][aA][yY]|[mM][iI][gG][hH][tT]|[cC][oO][uU][lL][dD]|[pP][oO][sS][sS][iI][bB][lL][eE]|[uU][nN][cC][eE][rR][tT][aA][iI][nN])\b/,
           '可能原因需要明确保留不确定性。',
         ),
         refs,

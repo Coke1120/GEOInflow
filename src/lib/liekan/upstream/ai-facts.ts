@@ -15,7 +15,7 @@ import { getAiFactsClient } from './ai-facts-db';
 import { waitForLogStatisticsReads } from './ai-log-read-priority';
 import { channelFilterColumn } from './filter-extension';
 import { withinQuerySnapshot } from './query-snapshot';
-import { humanTotals, query } from './server';
+import { query } from './server';
 
 type Row = Record<string, any>;
 const ai = "bot_type IN ('训练','搜索','用户触发')";
@@ -148,8 +148,35 @@ export async function buildAiFactsContext(input: {
         const args = [live.id, start, end, previousStart];
         const q = (sql: string) => query<Row>(sql, ...args.slice(0, sql.includes('$4') ? 4 : 3));
         // Sequential execution keeps each remaining statement_timeout tied to the statement that uses it.
-        const current = await humanTotals(live.id, start, end);
-        const previous = await humanTotals(live.id, previousStart, previousEnd);
+        // Scan both browser periods once. Preserve the dashboard's pageview and distinct
+        // session/visit counts, including its millisecond end boundary and custom-only exclusion.
+        const browserTotals = await query<Row>(
+          `WITH visits AS (
+          SELECT CASE WHEN created_at >= $2::timestamptz THEN 0 ELSE 1 END AS period,
+            session_id,visit_id,count(*) FILTER(WHERE event_type NOT IN(2,5)) AS pv
+          FROM website_event WHERE website_id=$1::uuid
+            AND created_at BETWEEN $4::timestamptz AND $3::timestamptz AND event_type != 5
+            AND (created_at >= $2::timestamptz OR created_at <= $5::timestamptz)
+          GROUP BY 1,2,3 HAVING count(*) FILTER(WHERE event_type NOT IN(2,5)) > 0
+        ) SELECT period,coalesce(sum(pv),0)::bigint AS "pageviews",
+          count(distinct session_id)::bigint AS "visitors",
+          count(distinct visit_id)::bigint AS "visits" FROM visits GROUP BY period`,
+          live.id,
+          start,
+          end,
+          previousStart,
+          previousEnd,
+        );
+        const browserRow = (period: number) => {
+          const row = browserTotals.find(row => row.period === period);
+          return {
+            pageviews: safeAiCount(row?.pageviews ?? 0),
+            visitors: safeAiCount(row?.visitors ?? 0),
+            visits: safeAiCount(row?.visits ?? 0),
+          };
+        };
+        const current = browserRow(0),
+          previous = browserRow(1);
         const [sources] = await query<Row>(
           `SELECT ${logInputConnectedSql} AS connected,
         EXISTS(SELECT 1 FROM website_event WHERE website_id=$1::uuid AND event_type NOT IN(2,5)) AS browser,

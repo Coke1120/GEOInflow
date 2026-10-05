@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveAiActions, validateAiAnswer } from './answer';
+import { aiAnswerSchema, resolveAiActions, validateAiAnswer } from './answer';
+import { z } from 'zod';
 import type { AiFactsContext } from './facts-contracts';
 
 const id = '00000000-0000-4000-8000-000000000001',
@@ -20,6 +21,18 @@ const answer = {
   limitations: ['日志覆盖未经验证。'],
 };
 describe('AI answer validation', () => {
+  it('advertises the same uncertainty wording enforced by the answer validator', () => {
+    const schema = z.toJSONSchema(aiAnswerSchema, { unrepresentable: 'any' }) as any;
+    const pattern = schema.properties.possibleCauses.items.properties.text.pattern;
+    expect(pattern).toBeTypeOf('string');
+    const advertised = new RegExp(pattern);
+    for (const text of ['可能：抓取策略有变化。', 'MAY reflect a change.', '原因已经确定。']) {
+      const cause = { text, uncertainty: 'possible', refs: [ref] };
+      expect(advertised.test(text)).toBe(
+        aiAnswerSchema.safeParse({ ...answer, possibleCauses: [cause] }).success,
+      );
+    }
+  });
   it('permits only sent facts and registered server actions', () => {
     expect(validateAiAnswer(JSON.stringify(answer), [context])).toEqual(answer);
     expect(resolveAiActions(answer as any, context)[0].href).toContain('/geo/logs?date=range%3A');

@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import 'dotenv/config';
 import prisma, { getRawQueryClient } from '@/lib/prisma';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -11,6 +11,8 @@ import { buildAiFactsContext } from './ai-facts';
 import { disconnectAiFactsClient, getAiFactsClient } from './ai-facts-db';
 import { getLogFacts } from './logs';
 import { withLogStatisticsRead } from './ai-log-read-priority';
+import { humanTotals } from './server';
+import { withinQuerySnapshot } from './query-snapshot';
 
 // This public integration seam intentionally requires the named isolated acceptance database.
 const enabled = process.env.LIEKAN_AI_FACTS_TEST === '1';
@@ -88,6 +90,52 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
     endAt: '2026-10-03T23:59:59.999Z',
     timezone: 'UTC',
   };
+  it('prepares both browser periods within one shared five-second scan budget', async () => {
+    const primary = getAiFactsClient();
+    const original = primary.$transaction.bind(primary);
+    const now = Date.now();
+    let elapsed = 0;
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now + elapsed);
+    const transaction = vi.spyOn(primary, '$transaction').mockImplementation(
+      (work: any, options: any) =>
+        original(
+          async (raw: any) =>
+            work(
+              new Proxy(raw, {
+                get(target, key) {
+                  const value = target[key];
+                  if (key !== '$queryRawUnsafe')
+                    return typeof value === 'function' ? value.bind(target) : value;
+                  return async (sql: string, ...params: any[]) => {
+                    // Model an observed slow browser scan while retaining real snapshot SQL and counts.
+                    if (sql.includes('website_event') && sql.includes('"visitors"'))
+                      elapsed += 3000;
+                    return value.call(target, sql, ...params);
+                  };
+                },
+              }),
+            ),
+          options,
+        ) as any,
+    );
+    try {
+      const context = await buildAiFactsContext({
+        actor: { id: ids.user, role: 'user' },
+        conversationId: ids.conversation,
+        input,
+        signal: new AbortController().signal,
+      });
+      expect(context.facts).toHaveLength(6);
+      expect(context.facts.find(f => f.id === 'summary')?.data).toMatchObject({
+        logs: { requests: 1 },
+        previousLogs: { requests: 1 },
+      });
+      expect(elapsed).toBeLessThan(5000);
+    } finally {
+      transaction.mockRestore();
+      clock.mockRestore();
+    }
+  });
   it('returns real current/previous log counts and sanitized explicit fact DTOs', async () => {
     const context = await buildAiFactsContext({
       actor: { id: ids.user, role: 'user' },
@@ -119,6 +167,71 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
       'example.com?',
     ])
       expect(JSON.stringify(context)).not.toContain(canary);
+  });
+  it('matches dashboard browser totals across boundaries, shared visit IDs and custom-only visits', async () => {
+    const uid = (n: number) => `d4000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    const events = [
+      [3101, 3201, 3301, '2026-09-28T00:00:00.000Z', 1],
+      [3102, 3202, 3301, '2026-09-30T23:59:59.999Z', 1],
+      [3103, 3201, 3301, '2026-09-30T23:59:59.9995Z', 1],
+      [3104, 3201, 3301, '2026-10-01T00:00:00.000Z', 1],
+      [3105, 3202, 3301, '2026-10-03T23:59:59.999Z', 1],
+      [3106, 3203, 3302, '2026-10-02T00:00:00.000Z', 2],
+      [3107, 3203, 3302, '2026-10-02T00:00:01.000Z', 5],
+    ] as const;
+    try {
+      for (const n of [3201, 3202, 3203])
+        await db.query('INSERT INTO session(session_id,website_id) VALUES($1,$2)', [
+          uid(n),
+          ids.website,
+        ]);
+      for (const [id, session, visit, at, type] of events)
+        await db.query(
+          'INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type) VALUES($1,$2,$3,$4,$5,$6,$7)',
+          [uid(id), ids.website, uid(session), uid(visit), at, '/test-demo-boundary', type],
+        );
+      const reference = await aiTransaction(tx =>
+        withinQuerySnapshot(
+          {
+            aiPrivate: true,
+            $queryRawUnsafe: (sql, ...params) => tx.query(sql, ...params),
+            $executeRawUnsafe: (sql, ...params) => tx.execute(sql, ...params),
+          },
+          async () => ({
+            current: await humanTotals(ids.website, new Date(input.startAt), new Date(input.endAt)),
+            previous: await humanTotals(
+              ids.website,
+              new Date('2026-09-28T00:00:00.000Z'),
+              new Date('2026-09-30T23:59:59.999Z'),
+            ),
+          }),
+        ),
+      );
+      const context = await buildAiFactsContext({
+        actor: { id: ids.user, role: 'user' },
+        conversationId: ids.conversation,
+        input,
+        signal: new AbortController().signal,
+      });
+      const totals = context.facts.find(f => f.id === 'summary');
+      if (totals?.id !== 'summary') throw Error('Summary required');
+      for (const period of ['current', 'previous'] as const) {
+        const { pageviews, visitors, visits } = reference[period];
+        expect(totals.data[period]).toEqual({ pageviews, visitors, visits });
+        expect(totals.data[period]).toEqual({ pageviews: 2, visitors: 2, visits: 1 });
+      }
+    } finally {
+      for (const [id] of events)
+        await db.query('DELETE FROM website_event WHERE event_id=$1 AND website_id=$2', [
+          uid(id),
+          ids.website,
+        ]);
+      for (const n of [3201, 3202, 3203])
+        await db.query('DELETE FROM session WHERE session_id=$1 AND website_id=$2', [
+          uid(n),
+          ids.website,
+        ]);
+    }
   });
   it('rejects invalid ranges and another actor through the public preparation seam', async () => {
     await expect(
