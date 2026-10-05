@@ -15,6 +15,7 @@ import { AnalysisTabs } from './AnalysisTabs';
 import { DataLoading } from './DataLoading';
 import { featureNavigationHref, matchFeatureRoute } from './features/routes';
 import { Navigation, useSidebarWidth } from './Navigation';
+import { ProductFooter } from './ProductFooter';
 import type { LiekanReport } from './types';
 
 const ShellContext = createContext<{
@@ -64,7 +65,7 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
           {navigationFor(route).scope === 'website' && (
             <div className={styles.websiteContextBar} ref={setWebsiteContextTarget} />
           )}
-          <div className={isGeo ? reference.root : styles.coreFrame}>
+          <div className={`${styles.pageBody} ${isGeo ? reference.root : styles.coreFrame}`}>
             {isGeo && !currentMetadata && metadata.isError ? (
               <>
                 <div className={styles.header}>
@@ -88,6 +89,7 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
               <DataLoading loading={isGeo && !currentMetadata}>{children}</DataLoading>
             )}
           </div>
+          <ProductFooter />
         </div>
       </div>
     </ShellContext.Provider>

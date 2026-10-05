@@ -144,6 +144,25 @@ try {
             box.width > 0 && box.x + box.width <= width + 1,
             `Help outside viewport ${width} ${state}`,
           );
+          const footer = view.locator('[data-liekan-product-footer]');
+          assert.equal(await footer.count(), 1, `Missing footer ${width} ${state}`);
+          const geometry = await footer.evaluate(node => {
+            const rect = node.getBoundingClientRect();
+            const before = node.previousElementSibling?.getBoundingClientRect();
+            return {
+              x: rect.x,
+              right: rect.right,
+              width: rect.width,
+              top: rect.top,
+              previousBottom: before?.bottom,
+              position: getComputedStyle(node).position,
+            };
+          });
+          assert(geometry.x >= -1 && geometry.right <= width + 1 && geometry.width > 0);
+          assert.equal(geometry.position, 'static');
+          assert(
+            geometry.previousBottom === undefined || geometry.top >= geometry.previousBottom - 1,
+          );
           const search = view.getByRole('searchbox');
           await search.focus();
           await view.keyboard.type('不存在的资料-query');
@@ -158,6 +177,91 @@ try {
       }
     });
   }
+  await run('ai-crawler-collection-guides', async () => {
+    await page.goto(base + '/liekan/help');
+    const guides = page.getByRole('region', { name: 'AI 蜘蛛采集文档' });
+    assert.equal(await guides.locator('li').getByRole('link').count(), 4);
+    await guides.getByRole('link', { name: '查看接入引导' }).click();
+    await page.getByRole('heading', { name: '配置并验证 AI 蜘蛛采集', exact: true }).waitFor();
+    const setup = page.getByRole('region', { name: 'AI 蜘蛛接入引导' });
+    assert.equal(await setup.getByRole('link').getAttribute('href'), '/websites');
+    await setup.getByRole('link').click();
+    await page.waitForURL(url => url.pathname === '/websites');
+    assert.equal(new URL(page.url()).search, '');
+    for (const [id, title] of [
+      ['ai-crawler-principles', 'AI 蜘蛛采集与识别原理'],
+      ['ai-collection-service', '配置 AI 蜘蛛日志接收服务'],
+      ['ai-crawler-display', 'AI 蜘蛛数据展示与采集状态'],
+    ]) {
+      await page.goto(base + '/liekan/help?article=' + id);
+      await page.getByRole('heading', { name: title, exact: true }).waitFor();
+      assert((await page.locator('[data-help-center] article p').count()) > 2);
+    }
+  });
+  await run('product-footer-and-license', async () => {
+    await page.goto(base + '/liekan/help');
+    const footer = page.locator('[data-liekan-product-footer]');
+    await footer.waitFor();
+    assert.equal(await footer.count(), 1);
+    const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
+    assert.equal(
+      await footer.getByRole('link', { name: 'Liekan v' + version }).getAttribute('href'),
+      '/liekan/help?article=project-changelog',
+    );
+    assert.equal(
+      await footer.getByRole('link', { name: 'MIT', exact: true }).getAttribute('href'),
+      '/liekan/help?article=project-license',
+    );
+    assert.equal(
+      await footer.getByRole('link', { name: '作者 X' }).getAttribute('rel'),
+      'noopener noreferrer',
+    );
+    assert(!(await footer.getByRole('link', { name: 'Umami', exact: true }).count()));
+    await footer.getByRole('link', { name: 'MIT', exact: true }).click();
+    await page.getByRole('heading', { name: '开源许可与版权说明', exact: true }).waitFor();
+    assert(
+      await page
+        .locator('[data-help-center] article')
+        .textContent()
+        .then(
+          text =>
+            text.includes('Copyright (c) 2022 Umami Software, Inc.') &&
+            text.includes('THE SOFTWARE IS PROVIDED'),
+        ),
+    );
+    await footer.getByRole('link', { name: '项目说明' }).click();
+    await page.getByRole('heading', { name: '关于猎看统计', exact: true }).waitFor();
+    await footer.getByRole('link', { name: '更新日志', exact: true }).click();
+    await page.getByRole('heading', { name: '猎看统计更新日志', exact: true }).waitFor();
+  });
+  await run('footer-across-authenticated-scopes', async () => {
+    const response = await fetch(base + '/api/me/websites', {
+      headers: { authorization: 'Bearer ' + token },
+    });
+    assert.equal(response.status, 200);
+    const payload = await response.json();
+    const websites = Array.isArray(payload) ? payload : payload.data;
+    assert(websites.length > 0, 'Footer checks require a real authorized website');
+    for (const path of [
+      '/dashboard',
+      '/websites',
+      '/liekan/ai-chat',
+      '/liekan/ai-config',
+      '/websites/' + websites[0].id + '/geo',
+    ]) {
+      await page.goto(base + path);
+      const footer = page.locator('[data-liekan-product-footer]');
+      await footer.waitFor();
+      assert.equal(await footer.count(), 1, path);
+      assert.equal(await footer.getByRole('link').count(), 6, path);
+      const placement = await footer.evaluate(node => ({
+        position: getComputedStyle(node).position,
+        width: node.getBoundingClientRect().width,
+      }));
+      assert.equal(placement.position, 'static', path);
+      assert(placement.width > 0, path);
+    }
+  });
   await run('login-required', async () => {
     const anonymous = await browser.newContext();
     try {

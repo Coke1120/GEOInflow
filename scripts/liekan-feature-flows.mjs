@@ -209,7 +209,7 @@ try {
   });
   await context.close();
   const switchSite = await api('POST', '/websites', {
-    name: '隔离交互切换网站',
+    name: '隔离交互切换网站 ' + Date.now(),
     domain: 'switch-flow.test',
   });
   created.push(['/websites/' + switchSite.id]);

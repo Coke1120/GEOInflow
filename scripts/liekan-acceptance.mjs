@@ -458,7 +458,7 @@ try {
   if (
     !report.helpVisual.passed ||
     report.helpVisual.head !== head ||
-    report.helpVisual.checks.length !== 9 ||
+    report.helpVisual.checks.length !== 12 ||
     report.helpVisual.checks.some(check => !check.passed) ||
     report.helpVisual.errors.length
   )

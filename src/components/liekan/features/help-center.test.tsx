@@ -38,6 +38,25 @@ describe('help center reading and drafts', () => {
     fireEvent.click(screen.getByRole('button', { name: '清空搜索和筛选' }));
     expect(search).toHaveValue('');
   });
+  it('exposes the AI collection guides and sends setup through explicit website selection', () => {
+    const view = render(<HelpCenter />);
+    const guides = screen.getByRole('region', { name: 'AI 蜘蛛采集文档' });
+    expect(within(guides).getByRole('link', { name: '查看接入引导' })).toHaveAttribute(
+      'href',
+      '/liekan/help?article=ai-crawler-start',
+    );
+    mocks.query = { article: 'ai-crawler-start' };
+    view.rerender(<HelpCenter />);
+    const setup = screen.getByRole('region', { name: 'AI 蜘蛛接入引导' });
+    expect(within(setup).getByRole('link', { name: '选择网站并开始接入' })).toHaveAttribute(
+      'href',
+      '/websites',
+    );
+    expect(screen.getByRole('link', { name: 'AI 蜘蛛采集与识别原理' })).toHaveAttribute(
+      'href',
+      '/liekan/help?article=ai-crawler-principles',
+    );
+  });
   it('filters control markers and resets filters', () => {
     mocks.query = { section: 'crawlers' };
     render(<HelpCenter />);

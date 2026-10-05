@@ -1,4 +1,5 @@
 import snapshots from '../../../../config/liekan/bot-ranges.json';
+import { projectArticles } from '../contracts/product';
 import { BOT_RULES, classifyBot } from '../rules/bots';
 import { helpGuides } from './articles';
 import { helpCrawlers } from './crawlers';
@@ -7,7 +8,7 @@ import { helpMetrics } from './metrics';
 import { type Crawler, type HelpArticle, helpSections } from './types';
 
 export { helpCrawlers, helpSections };
-export const helpArticles: HelpArticle[] = [...helpGuides, ...helpMetrics];
+export const helpArticles: HelpArticle[] = [...helpGuides, ...helpMetrics, ...projectArticles];
 export const helpIdentityCount = Object.keys(snapshots).length;
 export const helpRuleCount = BOT_RULES.length;
 export type PublicRangeSnapshot = {

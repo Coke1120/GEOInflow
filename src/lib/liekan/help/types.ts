@@ -36,6 +36,7 @@ export interface HelpArticle {
   sources: HelpSource[];
   related: string[];
   reviewedAt: string;
+  setupGuide?: boolean;
 }
 export type CrawlerPurpose =
   | '训练'

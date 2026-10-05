@@ -311,6 +311,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       );
   }, [report, website, shell?.setWebsite, shell?.setBotCount]);
   useEffect(() => {
+    if (report?.website.id === websiteId && userId)
+      queryClient.setQueryData(
+        ['liekan-feature', userId, 'reported-crawler-display', websiteId],
+        report.meta.aiCrawlerEnabled !== false,
+      );
+  }, [report, userId, websiteId, queryClient]);
+  useEffect(() => {
     setMessage('');
     setAction('');
   }, [resource]);

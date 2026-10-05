@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({
     getQueryData: () => undefined,
+    setQueryData: vi.fn(),
     cancelQueries: mocks.cancelQueries,
     invalidateQueries: mocks.invalidateQueries,
     fetchQuery: mocks.fetchQuery,

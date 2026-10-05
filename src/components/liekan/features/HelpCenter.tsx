@@ -127,6 +127,15 @@ function ArticleDetail({ article }: { article: HelpArticle }) {
           <p>{article.summary}</p>
           <small>资料复核：{article.reviewedAt} · 随本版产品维护</small>
         </header>
+        {article.setupGuide && (
+          <section className={styles.setupGuide} aria-label="AI 蜘蛛接入引导">
+            <h3>开始配置本站采集</h3>
+            <p>先选择目标网站，再打开“网站设置 → 数据接入”，按页面引导连接日志来源。</p>
+            <Link prefetch={false} href={featureHref('websites')}>
+              选择网站并开始接入
+            </Link>
+          </section>
+        )}
         {article.blocks.map((block, index) => (
           <section id={`help-block-${index}`} key={block.title}>
             <h3>{block.title}</h3>
@@ -491,6 +500,22 @@ export function HelpCenter() {
               </Link>
             ))}
           </div>
+          <section className={styles.results} aria-label="AI 蜘蛛采集文档">
+            <div className={styles.listHeader}>
+              <h2>AI 蜘蛛采集</h2>
+              <Link href={href({ article: 'ai-crawler-start' })}>查看接入引导</Link>
+            </div>
+            <ArticleList
+              articles={helpArticles.filter(item =>
+                [
+                  'ai-crawler-start',
+                  'ai-crawler-principles',
+                  'ai-collection-service',
+                  'ai-crawler-display',
+                ].includes(item.id),
+              )}
+            />
+          </section>
           <section className={styles.results}>
             <div className={styles.listHeader}>
               <h2>开始使用</h2>

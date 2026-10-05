@@ -7,6 +7,8 @@ import { WebsiteLayout } from '@/app/(main)/websites/[websiteId]/WebsiteLayout';
 
 const mocks = vi.hoisted(() => ({
   display: {} as { aiCrawlerEnabled?: boolean },
+  websiteId: 'site-a',
+  setQueryData: vi.fn(),
   metadata: { data: undefined, isPending: true, isError: false, refetch: vi.fn() } as any,
   report: { data: undefined, isPending: true, isError: false, refetch: vi.fn() } as any,
   pathname: '/websites/site-a/geo/content',
@@ -17,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({
     getQueryData: vi.fn(),
+    setQueryData: mocks.setQueryData,
     invalidateQueries: vi.fn().mockResolvedValue(undefined),
   }),
 }));
@@ -56,7 +59,7 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
   }),
   useNavigation: () => ({
     pathname: mocks.pathname,
-    websiteId: 'site-a',
+    websiteId: mocks.websiteId,
     query: mocks.params,
     router: { push: vi.fn(), replace: vi.fn() },
     updateParams: vi.fn(),
@@ -78,11 +81,38 @@ function report(): LiekanReport {
 describe('analysis loading states', () => {
   beforeEach(() => {
     mocks.display = {};
+    mocks.websiteId = 'site-a';
+    mocks.setQueryData.mockClear();
     mocks.pathname = '/websites/site-a/geo/content';
     mocks.params = { date: '30day' };
     mocks.previous = { data: undefined, isPending: false, isError: false, refetch: vi.fn() };
     mocks.metadata = { data: undefined, isPending: true, isError: false, refetch: vi.fn() };
     mocks.report = { data: undefined, isPending: true, isError: false, refetch: vi.fn() };
+  });
+  it('shares report-confirmed crawler display by current website and user without copying partial settings', () => {
+    const data = report();
+    data.meta.aiCrawlerEnabled = false;
+    mocks.metadata = { ...mocks.metadata, data: mocks.website, isPending: false };
+    mocks.report = { ...mocks.report, data, isPending: false };
+    const page = (userId: string) => (
+      <LiekanShell user={{ id: userId } as any}>
+        <LiekanPage resource="content" />
+      </LiekanShell>
+    );
+    const view = render(page('user'));
+    expect(mocks.setQueryData).toHaveBeenCalledWith(
+      ['liekan-feature', 'user', 'reported-crawler-display', 'site-a'],
+      false,
+    );
+    expect(
+      mocks.setQueryData.mock.calls.every(([key]) => !key.includes('website-display-settings')),
+    ).toBe(true);
+    mocks.setQueryData.mockClear();
+    mocks.websiteId = 'site-b';
+    mocks.metadata = { ...mocks.metadata, data: { id: 'site-b', name: '网站 B' } };
+    mocks.report = { ...mocks.report, data: undefined, isPending: true };
+    view.rerender(page('user'));
+    expect(mocks.setQueryData).not.toHaveBeenCalled();
   });
   it('keeps the entire fixed layout visible and withholds values until metadata arrives', () => {
     mocks.report = { ...mocks.report, data: report(), isPending: false };
