@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { validateAiAnswer } from './answer';
 import type { AiFactsContext } from './facts-contracts';
 import { prepareAiPrompt } from './prompt';
+import { callAiModel } from './model';
+import { AI_TEMPLATES } from './templates';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const context: AiFactsContext = {
@@ -47,6 +49,276 @@ const answer = {
   limitations: [],
 };
 describe('AI actual serialized prompt budget', () => {
+  it.each(['anthropic', 'openai'])(
+    'includes protocol overhead for %s in each output/stream mode',
+    async provider => {
+      const config = AI_TEMPLATES.find(template => template.provider === provider)!;
+      for (const stream of [false, true])
+        for (const structuredOutput of [false, true]) {
+          const prepared = prepareAiPrompt({
+            context,
+            question: '分析当前访问',
+            history: [],
+            connectionConfig: config,
+            structuredOutput,
+          });
+          let captured = '';
+          let requests = 0;
+          await expect(
+            callAiModel({
+              connection: {
+                provider: config.provider,
+                protocol: config.protocol,
+                base_url: config.baseUrl,
+                model: config.model,
+                capabilities: { keyVerified: { stream, structuredOutput } },
+              } as any,
+              apiKey: 'isolated-budget-fixture',
+              system: prepared.system,
+              prompt: prepared.prompt,
+              maxOutputTokens: 2048,
+              signal: new AbortController().signal,
+              stream,
+              jsonOutput: true,
+              schema: structuredOutput ? prepared.schema : undefined,
+              onText: () => {},
+              fetch: (async (_url: unknown, init: any) => {
+                requests++;
+                captured = init.body;
+                throw new Error('isolated-request-captured');
+              }) as typeof fetch,
+            }),
+          ).rejects.toMatchObject({ code: 'protocol' });
+          expect(requests).toBe(1);
+          expect(Buffer.byteLength(captured, 'utf8')).toBeGreaterThan(0);
+          expect(Buffer.byteLength(captured, 'utf8')).toBeLessThanOrEqual(prepared.inputBytes);
+        }
+    },
+  );
+  it.each([
+    [false, false],
+    [true, false],
+    [false, true],
+    [true, true],
+  ])(
+    'bounds actual SDK request bytes with stream=%s and structured=%s',
+    async (stream, structuredOutput) => {
+      const config = {
+        provider: 'deepseek',
+        protocol: 'openai-chat' as const,
+        baseUrl: 'https://api.deepseek.com',
+        model: 'deepseek-flash',
+      };
+      const prepared = prepareAiPrompt({
+        context,
+        question: '分析当前访问',
+        history: [],
+        connectionConfig: config,
+        structuredOutput,
+      });
+      let requests = 0;
+      const text = JSON.stringify(answer);
+      const result = await callAiModel({
+        connection: {
+          provider: config.provider,
+          protocol: config.protocol,
+          base_url: config.baseUrl,
+          model: config.model,
+          capabilities: { documented: { usage: true }, keyVerified: { stream, structuredOutput } },
+        } as any,
+        apiKey: 'isolated-budget-fixture',
+        system: prepared.system,
+        prompt: prepared.prompt,
+        maxOutputTokens: 2048,
+        signal: new AbortController().signal,
+        stream,
+        jsonOutput: true,
+        schema: structuredOutput ? prepared.schema : undefined,
+        onText: () => {},
+        fetch: (async (_url: unknown, init: any) => {
+          requests++;
+          expect(Buffer.byteLength(init.body, 'utf8')).toBeLessThanOrEqual(prepared.inputBytes);
+          expect(JSON.parse(init.body).response_format.type).toBe(
+            structuredOutput ? 'json_schema' : 'json_object',
+          );
+          if (!stream)
+            return Response.json({
+              choices: [
+                { index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' },
+              ],
+            });
+          return new Response(
+            [
+              `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: text }, finish_reason: null }] })}`,
+              `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}`,
+              'data: [DONE]',
+            ].join('\n\n') + '\n\n',
+            { headers: { 'content-type': 'text/event-stream' } },
+          );
+        }) as typeof fetch,
+      });
+      expect(requests).toBe(1);
+      expect(result.text).toBe(text);
+    },
+  );
+  it('fits all six mandatory facts without a schema mode the connection has not verified', () => {
+    const current: AiFactsContext = {
+      ...context,
+      website: { id, name: '测试演示网站', domain: 'demo.example.com' },
+      metrics: [
+        { key: 'pageviews', label: '浏览量', value: 125, state: 'available', changePercent: 12.5 },
+        { key: 'visitors', label: '访客数', value: 82, state: 'available', changePercent: 5.2 },
+        { key: 'visits', label: '访问次数', value: 96, state: 'available', changePercent: 7.1 },
+        { key: 'aiRequests', label: 'AI 抓取', value: 64, state: 'available', changePercent: 10.3 },
+        { key: 'aiReferrals', label: 'AI 引荐', value: 3, state: 'available', changePercent: null },
+      ],
+      facts: [
+        {
+          id: 'summary',
+          label: '统计汇总',
+          state: 'available',
+          data: {
+            current: { pageviews: 125, visitors: 82, visits: 96 },
+            previous: { pageviews: 111, visitors: 78, visits: 90 },
+            changePercent: { pageviews: 12.5, visitors: 5.2, visits: 7.1 },
+            logs: { requests: 100, aiRequests: 64, errors403: 4, errors404: 3, errors5xx: 1 },
+            previousLogs: {
+              requests: 90,
+              aiRequests: 58,
+              errors403: 3,
+              errors404: 2,
+              errors5xx: 0,
+            },
+            scope: 'human browser events and imported server logs',
+          },
+        },
+        {
+          id: 'bots',
+          label: 'AI 爬虫',
+          state: 'available',
+          data: {
+            total: 1,
+            omitted: 0,
+            truncated: false,
+            requests: 64,
+            previousRequests: 58,
+            changePercent: 10.3,
+            rows: [
+              {
+                name: '测试爬虫',
+                vendor: '测试供应商',
+                class: '搜索',
+                verification: 'unverified',
+                requests: 64,
+                previousRequests: 58,
+                changePercent: 10.3,
+              },
+            ],
+            scope: 'AI classes: 训练, 搜索, 用户触发; UA classification with verification states',
+          },
+        },
+        {
+          id: 'log-errors',
+          label: '异常请求',
+          state: 'available',
+          data: {
+            total: 1,
+            omitted: 0,
+            truncated: false,
+            requests: 8,
+            previousRequests: 5,
+            current: { requests: 100, errors403: 4, errors404: 3, errors5xx: 1 },
+            previous: { requests: 90, errors403: 3, errors404: 2, errors5xx: 0 },
+            changePercent: 60,
+            paths: [{ path: '/sample', statusGroup: '404', requests: 3 }],
+            samples: [],
+            sampleTotal: 0,
+            samplesOmitted: 0,
+            samplesTruncated: false,
+            sampleMethod: 'latest_by_created_at_desc_id_desc',
+            scope:
+              'imported logs: HTTP 403, 404 and 500–599; current and previous aggregate counts; paths and latest samples from current period; coverage unverified',
+          },
+        },
+        {
+          id: 'ai-referrals',
+          label: 'AI 引荐',
+          state: 'available',
+          data: {
+            visits: 3,
+            pageviews: 4,
+            previousVisits: 0,
+            previousPageviews: 0,
+            changePercent: null,
+            scope: 'first browser pageview attribution using the approved AI channel catalog',
+          },
+        },
+        {
+          id: 'pages',
+          label: '抓取页面',
+          state: 'available',
+          data: {
+            total: 1,
+            omitted: 0,
+            truncated: false,
+            rows: [
+              {
+                path: '/sample',
+                humanPageviews: 125,
+                previousHumanPageviews: 111,
+                aiRequests: 64,
+                previousAiRequests: 58,
+              },
+            ],
+            scope:
+              'browser paths and encoded imported AI request paths; union of current and previous periods ranked by current then previous counts; stored forms may differ; query and fragment excluded',
+          },
+        },
+        {
+          id: 'goals',
+          label: '转化目标',
+          state: 'not_connected',
+          data: {
+            total: 0,
+            omitted: 0,
+            truncated: false,
+            configured: 0,
+            invalidDefinitions: 0,
+            rows: [],
+            scope:
+              'configured goal matching events; rates use converted browser visits divided by browser visits',
+          },
+        },
+      ],
+    };
+    const result = prepareAiPrompt({
+      context: current,
+      question: '分析最近 7 天的 AI 抓取趋势',
+      history: [],
+      connectionConfig: {
+        provider: 'deepseek',
+        protocol: 'openai-chat',
+        baseUrl: 'https://api.deepseek.com',
+        model: 'deepseek-flash',
+      },
+    });
+    expect(result.contextSent.facts).toEqual(current.facts);
+    expect(result.contextSent.metrics).toEqual(current.metrics);
+    expect(result.trimmed).toEqual({ historyTurns: 0, logSamples: 0, topRows: 0 });
+    expect(result.inputBytes).toBeLessThanOrEqual(12697);
+    expect(JSON.parse(result.prompt).responseSchema).toHaveProperty('properties.summary');
+    const structured = prepareAiPrompt({
+      context: current,
+      question: '分析最近 7 天的 AI 抓取趋势',
+      history: [],
+      connectionConfig,
+      structuredOutput: true,
+    });
+    expect(structured.contextSent.facts).toEqual(current.facts);
+    expect(structured.inputBytes).toBeLessThanOrEqual(12697);
+    expect(JSON.parse(structured.prompt).responseSchema).toBeUndefined();
+    expect(structured.schema).toBeDefined();
+  });
   it('keeps vague questions in the complete JSON contract with current fact references', () => {
     const current: AiFactsContext = {
       ...context,
@@ -138,7 +410,7 @@ describe('AI actual serialized prompt budget', () => {
     expect(result.trimmed.historyTurns).toBeGreaterThan(0);
     expect(() =>
       prepareAiPrompt({ context, question: '中'.repeat(6000), history: [], connectionConfig }),
-    ).toThrow();
+    ).toThrow(expect.objectContaining({ code: 'input_budget' }));
   });
 });
 it('trims whole samples before whole TopN rows and preserves full aggregates and original question', () => {

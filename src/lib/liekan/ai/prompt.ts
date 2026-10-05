@@ -25,6 +25,7 @@ export function prepareAiPrompt(input: {
   question: string;
   history: AiHistoryTurn[];
   connectionConfig: AiConnectionConfig;
+  structuredOutput?: boolean;
 }) {
   const contextSent = sanitizeAiFactsContext(input.context);
   if (typeof input.question !== 'string' || !input.question.trim())
@@ -93,23 +94,28 @@ export function prepareAiPrompt(input: {
       question: input.question,
       currentContext: contextSent,
       history,
-      responseSchema,
+      ...(input.structuredOutput ? {} : { responseSchema }),
       responseExample,
     });
-    // This accounts for actual strings, JSON escaping, schema, tools and request envelope keys.
-    inputBytes = Buffer.byteLength(
-      JSON.stringify({
-        model: input.connectionConfig.model,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: prompt },
-        ],
-        responseFormat: { type: 'json_schema', schema: responseSchema },
-        tools: [],
-        maxOutputTokens: 2048,
-      }),
-      'utf8',
-    );
+    // Charge the schema envelope only when the verified capability sends it to the SDK.
+    // Keep a reserve for provider-specific names, stream options and request policy fields.
+    inputBytes =
+      512 +
+      Buffer.byteLength(
+        JSON.stringify({
+          model: input.connectionConfig.model,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: prompt },
+          ],
+          ...(input.structuredOutput
+            ? { responseFormat: { type: 'json_schema', schema: responseSchema } }
+            : {}),
+          tools: [],
+          maxOutputTokens: 2048,
+        }),
+        'utf8',
+      );
     return inputBytes <= 32768 && inputBytes <= maximumTokens;
   };
   while (!measure() && history.length) {
@@ -135,7 +141,7 @@ export function prepareAiPrompt(input: {
           : 'rows' in fact.data && fact.data.rows.length,
       );
     if (!fact)
-      throw new AiError('oversize', '当前问题与必要事实超过模型输入预算，请缩小统计范围', 413);
+      throw new AiError('input_budget', '当前问题与必要事实超过模型输入预算，请缩小统计范围', 413);
     if (fact.id === 'log-errors') fact.data.paths.pop();
     else if ('rows' in fact.data) fact.data.rows.pop();
     if ('total' in fact.data) {

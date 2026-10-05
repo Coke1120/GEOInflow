@@ -37,6 +37,21 @@ test('unknown failures persist only the static upstream error', async () => {
   expect(mocks.execute.mock.calls[0][5]).not.toContain('secret');
 });
 
+test('keeps input budgeting failures distinct from provider transport size failures', async () => {
+  const handle = {
+    row: { id: 'run', operation: 'analysis' },
+    token: 'lease',
+    connection: null,
+  } as unknown as AiRunHandle;
+  await failAiRun(handle, 'input_budget');
+  expect(mocks.execute.mock.calls[0][4]).toBe('input_budget');
+  expect(mocks.execute.mock.calls[0][5]).toContain('模型输入预算');
+  mocks.execute.mockClear();
+  await failAiRun(handle, 'oversize');
+  expect(mocks.execute.mock.calls[0][4]).toBe('oversize');
+  expect(mocks.execute.mock.calls[0][5]).toContain('允许大小');
+});
+
 test('persists only validated response metadata in the existing result column', async () => {
   const handle = {
     row: { id: 'run', operation: 'analysis' },

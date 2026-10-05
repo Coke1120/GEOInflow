@@ -1175,7 +1175,9 @@ function Answer({
           })}
         </div>
       )}
-      <p className={home.answerCaution}>回答基于生成时统计快照，请结合数据覆盖范围判断。</p>
+      {typeof value.contextId === 'string' && uuid.test(value.contextId) && (
+        <p className={home.answerCaution}>回答基于生成时统计快照，请结合数据覆盖范围判断。</p>
+      )}
     </div>
   );
 }

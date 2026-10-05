@@ -199,6 +199,7 @@ export const AI_SAFE_ERROR_MESSAGES = {
   refused_output: '模型拒绝了本次请求，本次结果未保存。请调整问题后重试。',
   test_incomplete: '收到响应，文本测试未完成。请检查模型输出后重新测试。',
   oversize: 'AI 请求或响应超过允许大小。',
+  input_budget: '问题与统计依据超过模型输入预算，请缩短问题或缩小日期范围后重试。',
   unsafe_endpoint: 'AI 接口地址不符合公共 HTTPS 安全要求。',
   invalid_request: 'AI 请求参数无效。',
   conflict: 'AI 配置已更新，请刷新后重试。',

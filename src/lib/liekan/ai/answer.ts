@@ -144,6 +144,22 @@ export function resolveAiActions(answer: AiAnswer, context: AiFactsContext): AiR
     return [{ action, label: labels[action], href: featureHref(action, params) }];
   });
 }
+export function localAiGreeting(question: string): AiAnswer | null {
+  // Only a complete greeting bypasses statistics; a greeting with a question uses analysis.
+  if (!/^(?:你好|您好|嗨|哈喽|早上好|下午好|晚上好|hi|hello)[\s!！。.?？]*$/i.test(question.trim()))
+    return null;
+  return {
+    summary: '你好，我是猎看分析助手。你可以直接提问，我会结合所选网站的数据帮你分析。',
+    observations: [],
+    possibleCauses: [],
+    suggestions: [
+      { text: '分析最近 7 天的 AI 抓取趋势', refs: [] },
+      { text: '哪些页面值得优先优化？', refs: [] },
+      { text: '查看异常请求，给出排查建议', refs: [] },
+    ],
+    limitations: [],
+  };
+}
 export function localAiGuidance(
   context: AiFactsContext,
   reason: 'no_connection' | 'empty' | 'unsupported' | 'local_only',

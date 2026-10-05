@@ -5,7 +5,7 @@ import { acceptAiRun, completeAiRun, saveAiContext, setAiRunStage } from './runs
 import { aiRunResponse } from './http';
 import { decryptAiKey } from './crypto';
 import { callAiModel } from './model';
-import { localAiGuidance, resolveAiActions, validateAiAnswer } from './answer';
+import { localAiGreeting, localAiGuidance, resolveAiActions, validateAiAnswer } from './answer';
 import { prepareAiPrompt, type AiHistoryTurn } from './prompt';
 import { isAiContextEmpty } from './analysis-data';
 import { normalizeAiRange } from './facts-contracts';
@@ -37,6 +37,18 @@ export async function analyzeAiConversation(
   normalizeAiRange(p, new Date());
   const handle = await acceptAiRun(actor, { operation: 'analysis', targetId: id, ...p });
   return aiRunResponse(request, actor, handle, async ({ emit, signal }) => {
+    const greeting = localAiGreeting(p.question);
+    if (greeting) {
+      const saved = await completeAiRun(
+        actor,
+        handle,
+        { ...greeting, actions: [], metrics: [], contextId: null },
+        { ttftMs: null, usage: null, local: true, signal },
+      );
+      emit('answer', saved.result);
+      emit('done', saved);
+      return;
+    }
     await setAiRunStage(actor, handle, 'preparing');
     emit('stage', { stage: 'preparing', message: '正在读取授权网站的统计依据' });
     const context = await buildAiFactsContext({ actor, conversationId: id, input: p, signal });
@@ -82,6 +94,7 @@ export async function analyzeAiConversation(
         baseUrl: connection.base_url,
         model: connection.model,
       },
+      structuredOutput: connection.capabilities.keyVerified.structuredOutput === true,
     });
     const configuration = resolveAiTemplateConfig({
       provider: connection.provider,

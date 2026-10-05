@@ -137,6 +137,35 @@ beforeEach(() => {
   }));
 });
 describe('Liekan AI production interactions', () => {
+  it.each([null, answer.contextId])(
+    'shows statistics attribution only for a saved snapshot with context=%s',
+    async contextId => {
+      const user = userEvent.setup();
+      mocks.context.query = { aiSite: siteId };
+      mocks.connections.mockResolvedValue({ items: [connection()] });
+      mocks.stream.mockResolvedValue(
+        completed({
+          result: { ...answer, contextId, metrics: [], summary: '你好，我是猎看分析助手。' },
+        }),
+      );
+      mount('ai-chat');
+      await user.type(await screen.findByLabelText('分析问题'), '你好');
+      await user.click(screen.getByRole('button', { name: '发起分析' }));
+      expect(await screen.findByText('你好，我是猎看分析助手。')).toBeInTheDocument();
+      expect(screen.getByText('本地规则指引 · 未调用模型')).toBeInTheDocument();
+      if (contextId) {
+        expect(
+          screen.getByText('回答基于生成时统计快照，请结合数据覆盖范围判断。'),
+        ).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: '查看生成时依据' })).toBeInTheDocument();
+      } else {
+        expect(
+          screen.queryByText('回答基于生成时统计快照，请结合数据覆盖范围判断。'),
+        ).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: '查看生成时依据' })).not.toBeInTheDocument();
+      }
+    },
+  );
   it('fills the provider preset and clears its write-only key after saving and reopening', async () => {
     const user = userEvent.setup();
     mocks.createConnection.mockResolvedValue(connection());
@@ -1906,31 +1935,41 @@ describe('AI chat home and inline setup', () => {
   });
 });
 
-it('reconciles a server failure immediately and frees the continuation composer without another model call', async () => {
-  const user = userEvent.setup();
-  mocks.context.query = { aiSite: siteId };
-  mocks.connections.mockResolvedValue({ items: [connection()] });
-  mocks.stream.mockImplementation(async (_path, _body, _signal, event) => {
-    event({ type: 'started', runId });
-    event({ type: 'stage', runId, data: { stage: 'calling' } });
-    event({ type: 'error', runId, data: { state: 'failed', code: 'oversize' } });
-    throw new AiClientError('response too large', 'oversize', 0, runId);
-  });
-  mocks.run.mockResolvedValue(completed({ state: 'failed', error: { code: 'oversize' } }));
-  mount('ai-chat');
-  await user.type(await screen.findByLabelText('分析问题'), '分析趋势');
-  await user.click(screen.getByRole('button', { name: '发起分析' }));
-  expect(await screen.findByText('本次分析未完成')).toBeInTheDocument();
-  await waitFor(() =>
-    expect(screen.queryByRole('button', { name: '回查原任务' })).not.toBeInTheDocument(),
-  );
-  expect(mocks.run).toHaveBeenCalledWith(runId, expect.any(AbortSignal));
-  expect(mocks.stream).toHaveBeenCalledTimes(1);
-  expect(document.querySelector('[data-ai-run-state="failed"]')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: '停止分析' })).not.toBeInTheDocument();
-  await user.click(screen.getByRole('button', { name: '重新填写问题' }));
-  expect(screen.getByLabelText('分析问题')).toHaveValue('分析趋势');
-});
+it.each(['oversize', 'input_budget'])(
+  'reconciles %s immediately and frees the continuation composer without another model call',
+  async code => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId };
+    mocks.connections.mockResolvedValue({ items: [connection()] });
+    mocks.stream.mockImplementation(async (_path, _body, _signal, event) => {
+      event({ type: 'started', runId });
+      event({ type: 'stage', runId, data: { stage: 'calling' } });
+      event({ type: 'error', runId, data: { state: 'failed', code } });
+      throw new AiClientError('fixture failure', code, 0, runId);
+    });
+    mocks.run.mockResolvedValue(completed({ state: 'failed', error: { code } }));
+    mount('ai-chat');
+    await user.type(await screen.findByLabelText('分析问题'), '分析趋势');
+    await user.click(screen.getByRole('button', { name: '发起分析' }));
+    expect(await screen.findByText('本次分析未完成')).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        code === 'input_budget'
+          ? '问题与统计依据超过模型输入预算，请缩短问题或缩小日期范围后重试。'
+          : 'AI 请求或响应超过允许大小。',
+      ).length,
+    ).toBeGreaterThan(0);
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: '回查原任务' })).not.toBeInTheDocument(),
+    );
+    expect(mocks.run).toHaveBeenCalledWith(runId, expect.any(AbortSignal));
+    expect(mocks.stream).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('[data-ai-run-state="failed"]')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '停止分析' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '重新填写问题' }));
+    expect(screen.getByLabelText('分析问题')).toHaveValue('分析趋势');
+  },
+);
 
 it('shows a concise loading stage, keeps the draft editable, and withholds raw answer JSON and metrics', async () => {
   const user = userEvent.setup();

@@ -107,6 +107,7 @@ export function aiError(error: unknown) {
     network: '无法连接 AI 服务，请稍后重试。',
     protocol: 'AI 服务响应格式不受支持。',
     oversize: 'AI 请求或响应超过允许大小。',
+    input_budget: '问题与统计依据超过模型输入预算，请缩短问题或缩小日期范围后重试。',
     empty_output: '收到响应，模型未返回可用文本。请检查生成预算和模型配置。',
     truncated_output: '模型文本被截断，本次结果未保存。请缩短问题或调整模型。',
     refused_output: '模型拒绝了本次请求，本次结果未保存。请调整问题后重试。',
