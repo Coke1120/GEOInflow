@@ -12811,12 +12811,14 @@ export interface operations {
             contractVersion: 1;
             insights: string[];
             meta: {
+              aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
               /** @description Date and time the credential expires. */
               expiresAt: number;
               generatedAt: number;
               latestImportAt: string | null;
+              logsConfigured?: boolean;
               nextCursor?: string;
               /** @description Page number, starting at 1. */
               page?: number;
@@ -13280,9 +13282,11 @@ export interface operations {
             contractVersion: 1;
             insights: string[];
             meta: {
+              aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
               latestImportAt: string | null;
+              logsConfigured?: boolean;
               nextCursor?: string;
               /** @description Page number, starting at 1. */
               page?: number;
@@ -13477,6 +13481,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          aiCrawlerEnabled?: boolean;
           allowlist?: string[];
           robots?: string;
           rules?: {
@@ -13708,9 +13713,11 @@ export interface operations {
             contractVersion: 1;
             insights: string[];
             meta: {
+              aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
               latestImportAt: string | null;
+              logsConfigured?: boolean;
               nextCursor?: string;
               /** @description Page number, starting at 1. */
               page?: number;

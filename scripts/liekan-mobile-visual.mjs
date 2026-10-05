@@ -300,13 +300,13 @@ export async function checkMobileExperience({ base, seed, board, share, partial,
         );
         await action.click();
         const dialog = page.getByRole('dialog');
-        await dialog.getByRole('button', { name: '关闭弹层', exact: true }).focus();
+        await dialog.getByRole('button', { name: '关闭弹窗', exact: true }).focus();
         await page.keyboard.press('Tab');
         assert(
           await dialog.evaluate(el => el.contains(document.activeElement)),
           'A desktop dialog must retain its own focus after a mobile breakpoint change',
         );
-        await dialog.getByRole('button', { name: '关闭弹层', exact: true }).click();
+        await dialog.getByRole('button', { name: '关闭弹窗', exact: true }).click();
         report.variants.push({
           browser: name,
           width: 901,
