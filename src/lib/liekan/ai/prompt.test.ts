@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateAiAnswer } from './answer';
-import type { AiFactsContext } from './facts-contracts';
+import type { AiFact, AiFactsContext } from './facts-contracts';
 import { prepareAiPrompt } from './prompt';
 import { callAiModel } from './model';
 import { AI_TEMPLATES } from './templates';
@@ -413,66 +413,68 @@ describe('AI actual serialized prompt budget', () => {
     ).toThrow(expect.objectContaining({ code: 'input_budget' }));
   });
 });
+const largeRowContext: AiFactsContext = {
+  ...context,
+  metrics: [
+    { key: 'visitors', label: '人类访客', value: 4, state: 'available', changePercent: null },
+  ],
+  facts: [
+    {
+      id: 'log-errors',
+      label: 'test-demo',
+      state: 'available',
+      data: {
+        total: 100,
+        omitted: 80,
+        truncated: true,
+        requests: 100,
+        previousRequests: 0,
+        current: { requests: 100, errors403: 100, errors404: 0, errors5xx: 0 },
+        previous: { requests: 0, errors403: 0, errors404: 0, errors5xx: 0 },
+        changePercent: null,
+        paths: Array.from({ length: 20 }, (_, n) => ({
+          path: `/test-demo/${n}/${'a'.repeat(420)}`,
+          statusGroup: '403' as const,
+          requests: 1,
+        })),
+        samples: Array.from({ length: 20 }, (_, n) => ({
+          time: '2026-10-02T00:00:00.000Z',
+          path: `/test-demo/${n}/${'a'.repeat(420)}`,
+          status: 403,
+          bot: 'test-demo',
+        })),
+        sampleTotal: 100,
+        samplesOmitted: 80,
+        samplesTruncated: true,
+        sampleMethod: 'latest_by_created_at_desc_id_desc',
+        scope:
+          'imported logs: HTTP 403, 404 and 500–599; current and previous aggregate counts; paths and latest samples from current period; coverage unverified',
+      },
+    },
+    {
+      id: 'pages',
+      label: 'test-demo',
+      state: 'available',
+      data: {
+        total: 200,
+        omitted: 180,
+        truncated: true,
+        rows: Array.from({ length: 20 }, (_, n) => ({
+          path: `/test-demo/${n}/${'b'.repeat(420)}`,
+          humanPageviews: 10,
+          previousHumanPageviews: 0,
+          aiRequests: 1,
+          previousAiRequests: 0,
+        })),
+        scope:
+          'browser paths and encoded imported AI request paths; union of current and previous periods ranked by current then previous counts; stored forms may differ; query and fragment excluded',
+      },
+    },
+  ],
+};
+
 it('trims whole samples before whole TopN rows and preserves full aggregates and original question', () => {
-  const large: AiFactsContext = {
-    ...context,
-    metrics: [
-      { key: 'visitors', label: '人类访客', value: 4, state: 'available', changePercent: null },
-    ],
-    facts: [
-      {
-        id: 'log-errors',
-        label: 'test-demo',
-        state: 'available',
-        data: {
-          total: 100,
-          omitted: 80,
-          truncated: true,
-          requests: 100,
-          previousRequests: 0,
-          current: { requests: 100, errors403: 100, errors404: 0, errors5xx: 0 },
-          previous: { requests: 0, errors403: 0, errors404: 0, errors5xx: 0 },
-          changePercent: null,
-          paths: Array.from({ length: 20 }, (_, n) => ({
-            path: `/test-demo/${n}/${'a'.repeat(420)}`,
-            statusGroup: '403' as const,
-            requests: 1,
-          })),
-          samples: Array.from({ length: 20 }, (_, n) => ({
-            time: '2026-10-02T00:00:00.000Z',
-            path: `/test-demo/${n}/${'a'.repeat(420)}`,
-            status: 403,
-            bot: 'test-demo',
-          })),
-          sampleTotal: 100,
-          samplesOmitted: 80,
-          samplesTruncated: true,
-          sampleMethod: 'latest_by_created_at_desc_id_desc',
-          scope:
-            'imported logs: HTTP 403, 404 and 500–599; current and previous aggregate counts; paths and latest samples from current period; coverage unverified',
-        },
-      },
-      {
-        id: 'pages',
-        label: 'test-demo',
-        state: 'available',
-        data: {
-          total: 200,
-          omitted: 180,
-          truncated: true,
-          rows: Array.from({ length: 20 }, (_, n) => ({
-            path: `/test-demo/${n}/${'b'.repeat(420)}`,
-            humanPageviews: 10,
-            previousHumanPageviews: 0,
-            aiRequests: 1,
-            previousAiRequests: 0,
-          })),
-          scope:
-            'browser paths and encoded imported AI request paths; union of current and previous periods ranked by current then previous counts; stored forms may differ; query and fragment excluded',
-        },
-      },
-    ],
-  };
+  const large = largeRowContext;
   const history = Array.from({ length: 6 }, (_, n) => ({
     state: 'completed',
     question: 'test-demo-history',
@@ -500,6 +502,114 @@ it('trims whole samples before whole TopN rows and preserves full aggregates and
   expect(result.contextSent.metrics[0].value).toBe(4);
   expect(result.allowedContexts.map(c => c.id)).toEqual([context.id]);
   expect(large.facts[0].id === 'log-errors' && large.facts[0].data.samples.length).toBe(20);
+});
+
+it.each([
+  ['pages', '哪些页面值得优先优化？'],
+  ['pages', 'Which pages should I optimize?'],
+  ['pages', '哪些 AI 抓取页面需要先优化？'],
+  ['log-errors', '排查异常日志中的 404 错误'],
+  ['log-errors', 'Check the 404 error logs'],
+] as const)(
+  'keeps relevant %s detail when clipping a large facts snapshot for %s',
+  (factId, question) => {
+    const prepared = prepareAiPrompt({
+      context: largeRowContext,
+      question,
+      history: [],
+      connectionConfig,
+    });
+    const fact = prepared.contextSent.facts.find(fact => fact.id === factId);
+    if (!fact || (fact.id !== 'pages' && fact.id !== 'log-errors'))
+      throw Error('Expected topic facts');
+    const rows = fact.id === 'pages' ? fact.data.rows : fact.data.paths;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0].path).toContain('/test-demo/0/');
+    expect(fact.data.total).toBe(fact.id === 'pages' ? 200 : 100);
+    expect(fact.data.omitted).toBe(fact.data.total - rows.length);
+    expect(prepared.trimmed.topRows).toBeGreaterThan(0);
+    expect(prepared.inputBytes).toBeLessThanOrEqual(12697);
+    expect(JSON.parse(prepared.prompt).question).toBe(question);
+    expect(prepared.contextSent.metrics).toEqual(largeRowContext.metrics);
+    expect(largeRowContext.facts.find(fact => fact.id === 'pages')?.data.rows).toHaveLength(20);
+  },
+);
+
+it.each([
+  ['bots', '分析 AI 爬虫抓取趋势'],
+  ['bots', 'Analyze crawler trends'],
+  ['goals', '分析转化目标表现'],
+  ['goals', 'Analyze conversion goals'],
+] as const)('preserves %s detail before unrelated log rows for %s', (factId, question) => {
+  const name = (index: number) => `test-demo ${'scope '.repeat(25)}${index}`;
+  const selected: AiFact =
+    factId === 'bots'
+      ? {
+          id: 'bots',
+          label: 'test-demo',
+          state: 'available',
+          data: {
+            total: 20,
+            omitted: 0,
+            truncated: false,
+            requests: 120,
+            previousRequests: 100,
+            changePercent: 20,
+            rows: Array.from({ length: 20 }, (_, index) => ({
+              name: name(index),
+              vendor: 'test-demo',
+              class: '搜索',
+              verification: 'unverified',
+              requests: 6,
+              previousRequests: 5,
+              changePercent: 20,
+            })),
+            scope: 'AI classes: 训练, 搜索, 用户触发; UA classification with verification states',
+          },
+        }
+      : {
+          id: 'goals',
+          label: 'test-demo',
+          state: 'available',
+          data: {
+            total: 20,
+            omitted: 0,
+            truncated: false,
+            configured: 20,
+            invalidDefinitions: 0,
+            rows: Array.from({ length: 20 }, (_, index) => ({
+              name: name(index),
+              type: 'path',
+              count: 6,
+              previousCount: 5,
+              convertedVisits: 2,
+              previousConvertedVisits: 2,
+              ratePercent: 50,
+              previousRatePercent: 50,
+              changePercent: 20,
+            })),
+            scope:
+              'configured goal matching events; rates use converted browser visits divided by browser visits',
+          },
+        };
+  const prepared = prepareAiPrompt({
+    context: { ...largeRowContext, facts: [largeRowContext.facts[0], selected] },
+    question,
+    history: [],
+    connectionConfig,
+  });
+  const fact = prepared.contextSent.facts.find(fact => fact.id === factId);
+  if (!fact || (fact.id !== 'goals' && fact.id !== 'bots')) throw Error('Expected topic facts');
+  expect(fact.data.rows.length).toBeGreaterThan(0);
+  expect(fact.data.rows.length).toBeLessThan(20);
+  expect(fact.data.rows[0].name).toBe(name(0));
+  expect(fact.data.total).toBe(20);
+  expect(fact.data.omitted).toBe(20 - fact.data.rows.length);
+  expect(fact.data.truncated).toBe(true);
+  expect(prepared.contextSent.facts.find(fact => fact.id === 'log-errors')?.data.paths).toEqual([]);
+  expect(prepared.trimmed.topRows).toBeGreaterThan(0);
+  expect(prepared.inputBytes).toBeLessThanOrEqual(12697);
+  expect(selected.data.rows).toHaveLength(20);
 });
 
 it('excludes credential query values embedded in outbound website labels', () => {

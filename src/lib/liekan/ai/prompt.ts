@@ -129,9 +129,18 @@ export function prepareAiPrompt(input: {
     errors.data.samplesTruncated = true;
     trimmed.logSamples++;
   }
-  const topFacts = contextSent.facts.filter(fact =>
-    ['bots', 'log-errors', 'pages', 'goals'].includes(fact.id),
-  );
+  // Keep question-related detail until other TopN rows have been clipped. Aggregates stay intact.
+  const priorities = new Map<string, number>();
+  for (const [topic, pattern] of [
+    ['pages', /页面|内容|文章|\b(?:pages?|paths?|content|urls?)\b/i],
+    ['goals', /转化|目标|\b(?:goals?|conversions?)\b/i],
+    ['log-errors', /日志|异常|错误|\b(?:logs?|errors?|403|404|5xx|5\d\d)\b/i],
+    ['bots', /爬虫|抓取|机器人|\b(?:bots?|crawl(?:ing|ers?)?)\b/i],
+  ] as const)
+    if (pattern.test(input.question)) priorities.set(topic, priorities.size);
+  const topFacts = contextSent.facts
+    .filter(fact => ['bots', 'log-errors', 'pages', 'goals'].includes(fact.id))
+    .sort((a, b) => (priorities.get(a.id) ?? 4) - (priorities.get(b.id) ?? 4));
   while (!measure()) {
     const fact = [...topFacts]
       .reverse()
