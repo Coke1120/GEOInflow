@@ -1,0 +1,140 @@
+.report,
+.section {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.report {
+  gap: 28px;
+}
+.filters {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.filters > :global(.actions) {
+  padding-bottom: 1px;
+}
+.filters > :global(.field) {
+  width: 180px;
+}
+.reportHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.reportHead p {
+  margin-top: 4px;
+  color: var(--sub);
+  font-size: 11.5px;
+}
+.chapters {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.chapters a {
+  padding: 8px 0;
+  font-size: 12px;
+}
+.section {
+  scroll-margin-top: 24px;
+}
+.sectionTitle {
+  font-size: 15px;
+}
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  min-width: 0;
+  overflow: hidden;
+}
+.panelHead {
+  padding: 20px 24px 8px;
+}
+.panelHead p {
+  font-size: 11.5px;
+  color: var(--faint);
+  margin-top: 4px;
+}
+.threeColumns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.geography {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 16px;
+}
+.environment {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 12px 24px 24px;
+}
+.environment h3 {
+  font-size: 11.5px;
+  color: var(--faint);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+.environment p {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding: 9px 0;
+  font-size: 12px;
+}
+.environment p span:first-child {
+  overflow-wrap: anywhere;
+}
+.environment p span:last-child {
+  color: var(--sub);
+  white-space: nowrap;
+}
+.insights {
+  display: grid;
+  gap: 14px;
+  padding: 12px 24px 24px;
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--sub);
+}
+@media (max-width: 1000px) {
+  .threeColumns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .threeColumns > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 700px) {
+  .filters > :global(.actions) {
+    flex-basis: 100%;
+  }
+  .filters > :global(.field) {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .threeColumns,
+  .geography {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .panelHead {
+    padding: 16px 16px 8px;
+  }
+  .environment,
+  .insights {
+    padding: 8px 16px 20px;
+  }
+  .report {
+    gap: 24px;
+  }
+}

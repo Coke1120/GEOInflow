@@ -1,4 +1,5 @@
 import { pageReportParts } from './contracts/page-report';
+import { sharedReportParts } from './contracts/shared-report';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { reportQuery } from './contracts/query';
 import {
@@ -41,13 +42,16 @@ export async function buildReport(
   website: { id: string; name: string; domain: string },
   canManage: boolean,
   input: unknown,
-  pageOnly = false,
+  pageOnly: boolean | 'share' = false,
 ): Promise<LiekanReport> {
   const parsed = reportQuery.safeParse(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
   const p = parsed.data;
-  const parts = pageOnly ? pageReportParts[p.resource] : undefined;
-  const needed = (...resources: string[]) => !pageOnly || resources.includes(p.resource);
+  const parts = pageOnly === 'share' ? sharedReportParts : pageOnly ? pageReportParts[p.resource] : undefined;
+  const needed = (...resources: string[]) =>
+    pageOnly === 'share'
+      ? resources.includes('human/overview')
+      : !pageOnly || resources.includes(p.resource);
   if (
     p.endAt < p.startAt ||
     p.endAt - p.startAt > 1096 * 86400000 ||
@@ -66,7 +70,7 @@ export async function buildReport(
     p.timezone,
   );
   const plotStart = new Date(
-    Math.max(0, p.endAt - { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000),
+    Math.max(pageOnly === 'share' ? p.startAt : 0, p.endAt - { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000),
   );
   const [
     rawHuman,
@@ -803,8 +807,11 @@ export async function buildReport(
     '已接入日志中状态码 ≥400 的请求',
   );
   if (!parts || parts.insights) {
+    const insightDate = (time: number) => pageOnly === 'share'
+      ? formatInTimeZone(time, p.timezone, 'yyyy-MM-dd')
+      : new Date(time).toISOString().slice(0, 10);
     r.insights = [
-      `${new Date(p.startAt).toISOString().slice(0, 10)} 至 ${new Date(p.endAt).toISOString().slice(0, 10)}：${t.pageviews} 次人类浏览、${t.visits} 次访问。`,
+      `${insightDate(p.startAt)} 至 ${insightDate(p.endAt)}：${t.pageviews} 次人类浏览、${t.visits} 次访问。`,
       l.latest
         ? `已导入日志识别 ${l.summary.ai} 次 AI 请求；按 UA 分类，官方 IP 范围匹配结果见访问流。`
         : '接入服务器日志后可计算 AI 抓取统计。',
@@ -813,7 +820,7 @@ export async function buildReport(
         : '接入日志与 sitemap、CSV 或 JSON 目录后可计算完整覆盖率。',
       '结构化评分来自导入元数据；抓取完成率仍需正文传输证据。',
     ];
-    if (h.funnelError) r.insights.push(h.funnelError);
+    if (pageOnly !== 'share' && h.funnelError) r.insights.push(h.funnelError);
     r.tables.recoList = r.insights.map((detail, i) => ({
       name: `观察 ${i + 1}`,
       detail,

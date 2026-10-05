@@ -29,9 +29,25 @@ vi.mock('@/queries/sql', () => ({ getFunnel: vi.fn() }));
 import { liekanReportSchema } from './contracts/report';
 import { pageReportParts, type ReportResource } from './contracts/page-report';
 import { buildReport } from './report';
+import { sharedReportParts } from './contracts/shared-report';
 
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
+
+it('builds the share profile without log rows or unrelated statistics and bounds trends to the selected dates', async () => {
+  const startAt = 3 * 86400000;
+  const report = await buildReport(website, false, { ...params, startAt, endAt: startAt + 86400000 }, 'share');
+  expect(Object.keys(report.charts)).toEqual(expect.arrayContaining([...sharedReportParts.charts]));
+  expect(Object.keys(report.charts)).toHaveLength(8);
+  expect(Object.keys(report.tables).sort()).toEqual(['cityBody', 'envGrid']);
+  expect(mocks.logs.mock.calls[0][9]).toEqual(sharedReportParts.logs);
+  expect(mocks.human.mock.calls[0][4]).toEqual(sharedReportParts.human);
+  expect(mocks.humanDays.mock.calls[0][1]).toEqual(new Date(startAt));
+  expect(mocks.months).not.toHaveBeenCalled();
+  expect(mocks.conversions).not.toHaveBeenCalled();
+  const localRange = await buildReport(website, false, { ...params, startAt: Date.parse('2026-09-05T16:00:00Z'), endAt: Date.parse('2026-10-05T15:59:59Z'), timezone: 'Asia/Shanghai' }, 'share');
+  expect(localRange.insights[0]).toMatch(/^2026-09-06 至 2026-10-05/);
+});
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.human.mockResolvedValue({
@@ -72,6 +88,15 @@ beforeEach(() => {
   mocks.months.mockResolvedValue([]);
 });
 describe('report evidence states', () => {
+  it('excludes private funnel configuration diagnostics from the public share profile', async () => {
+    const human = await mocks.human();
+    const funnelError = '已保存的漏斗配置无效，请检查目标配置';
+    mocks.human.mockResolvedValue({ ...human, funnelError, funnelState: 'unsupported' });
+    const shared = await buildReport(website, false, params, 'share');
+    expect(shared.insights).not.toContain(funnelError);
+    const privateReport = await buildReport(website, false, params);
+    expect(privateReport.insights).toContain(funnelError);
+  });
   it('keeps the report usable and shows a safe unsupported state for an invalid saved funnel', async () => {
     const human = await mocks.human();
     mocks.human.mockResolvedValue({
