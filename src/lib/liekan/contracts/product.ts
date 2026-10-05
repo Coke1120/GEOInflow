@@ -7,11 +7,10 @@ export const liekanProduct = {
   version,
   copyright: `© 2026 ${author}`,
   license,
-  upstream: { name: 'Umami', href: 'https://github.com/umami-software/umami' },
   links: {
     about: '/liekan/help?article=project-about',
     changelog: '/liekan/help?article=project-changelog',
-    license: '/liekan/help?article=project-license',
+    license: 'https://opensource.org/license/mit',
     help: '/liekan/help',
     author: 'https://x.com/yaojingang',
   },
@@ -48,12 +47,12 @@ export const projectArticles: HelpArticle[] = [
         title: '开源许可',
         paragraphs: [
           'Liekan 使用 MIT 许可。第三方图表、字体、组件与地理数据适用各自的许可。',
-          '本版提供站内帮助、更新日志和许可说明；项目公开仓库链接将在发布后补充。',
+          '本版提供站内帮助和更新日志；项目公开仓库链接将在发布后补充。',
         ],
       },
     ],
     sources: [{ label: '作者 X 主页', url: liekanProduct.links.author }],
-    related: ['project-changelog', 'project-license', 'connect-website', 'reading-data'],
+    related: ['project-changelog', 'connect-website', 'reading-data'],
     reviewedAt: HELP_REVIEWED_AT,
   },
   {
@@ -93,41 +92,7 @@ export const projectArticles: HelpArticle[] = [
       },
     ],
     sources: [],
-    related: ['project-about', 'project-license'],
-    reviewedAt: HELP_REVIEWED_AT,
-  },
-  {
-    id: 'project-license',
-    section: 'start',
-    title: '开源许可与版权说明',
-    summary: 'Liekan 主项目采用 MIT 许可，保留上游版权与第三方许可。',
-    keywords: ['MIT', '版权', 'license', '开源', 'Umami'],
-    blocks: [
-      {
-        title: '版权归属',
-        paragraphs: [
-          'Copyright (c) 2022 Umami Software, Inc. <hello@umami.is>',
-          'Copyright (c) 2026 Liekan contributors',
-        ],
-      },
-      {
-        title: 'MIT License',
-        paragraphs: [
-          'Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:',
-          'The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.',
-          'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.',
-        ],
-      },
-      {
-        title: '第三方组件与数据',
-        paragraphs: [
-          'Umami 保留 MIT 版权；Apache ECharts 使用 Apache-2.0，Inter 字体使用 SIL Open Font License 1.1。可选 GeoLite2 地理数据适用 MaxMind 数据条款。',
-          '各依赖的 LICENSE/COPYING 随安装包保留，完整第三方声明见项目分发文件 THIRD_PARTY_NOTICES.md。',
-        ],
-      },
-    ],
-    sources: [{ label: 'Umami 上游项目', url: liekanProduct.upstream.href }],
-    related: ['project-about', 'project-changelog'],
+    related: ['project-about'],
     reviewedAt: HELP_REVIEWED_AT,
   },
 ];

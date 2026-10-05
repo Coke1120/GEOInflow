@@ -2,7 +2,7 @@
 
 面向 GEO 增长的 AI 与搜索流量分析系统。Liekan 基于 Umami v3.4.0，保留浏览器采集、账号权限、网站与团队、目标和漏斗，通过独立日志接入分析 AI 抓取行为与搜索引荐。
 
-主项目采用 MIT 许可，保留 Umami 版权。第三方组件和地理数据许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+主项目采用 MIT 许可，完整版权与许可声明见 [LICENSE](LICENSE)。第三方组件和地理数据许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 当前版本为 0.2.4，本地体验默认地址为 **http://localhost:3002**。新增数据库和容器与原 Umami 独立。
 

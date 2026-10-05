@@ -198,7 +198,7 @@ try {
       assert((await page.locator('[data-help-center] article p').count()) > 2);
     }
   });
-  await run('product-footer-and-license', async () => {
+  await run('product-footer-and-project-pages', async () => {
     await page.goto(base + '/liekan/help');
     const footer = page.locator('[data-liekan-product-footer]');
     await footer.waitFor();
@@ -210,25 +210,23 @@ try {
     );
     assert.equal(
       await footer.getByRole('link', { name: 'MIT', exact: true }).getAttribute('href'),
-      '/liekan/help?article=project-license',
+      'https://opensource.org/license/mit',
     );
     assert.equal(
       await footer.getByRole('link', { name: '作者 X' }).getAttribute('rel'),
       'noopener noreferrer',
     );
     assert(!(await footer.getByRole('link', { name: 'Umami', exact: true }).count()));
-    await footer.getByRole('link', { name: 'MIT', exact: true }).click();
-    await page.getByRole('heading', { name: '开源许可与版权说明', exact: true }).waitFor();
-    assert(
-      await page
-        .locator('[data-help-center] article')
-        .textContent()
-        .then(
-          text =>
-            text.includes('Copyright (c) 2022 Umami Software, Inc.') &&
-            text.includes('THE SOFTWARE IS PROVIDED'),
-        ),
+    assert.equal(
+      await footer.getByRole('link', { name: 'MIT', exact: true }).getAttribute('target'),
+      '_blank',
     );
+    assert.equal(
+      await footer.getByRole('link', { name: 'MIT', exact: true }).getAttribute('rel'),
+      'noopener noreferrer',
+    );
+    await page.goto(base + '/liekan/help?article=project-license');
+    await page.getByRole('heading', { name: '未找到这份资料' }).waitFor();
     await footer.getByRole('link', { name: '项目说明' }).click();
     await page.getByRole('heading', { name: '关于猎看统计', exact: true }).waitFor();
     await footer.getByRole('link', { name: '更新日志', exact: true }).click();

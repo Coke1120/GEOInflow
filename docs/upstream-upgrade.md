@@ -12,7 +12,7 @@ Liekan 保留 Umami Git 历史。upstream 指向官方仓库；main 保存已验
 
 升级报告和候选创建均可独立运行。失败时停留在候选中检查，默认工具不切换容器、不替换数据库、不推送远端。部署新迁移后，应用镜像回退需要检查 schema 兼容性；涉及不可逆的数据改变时应使用完整备份恢复到独立卷验证后切换。
 
-认证、会话、SDK 命名、tracker 的 /api/send、脚本全局名及上游数据库字段保持兼容。公开版本同时保留 Umami 版权和依赖许可。正式开源前还需要配置 Liekan 仓库 origin、外部 CI、发布地址与审查可分发数据；当前阶段只在本机构建。
+认证、会话、SDK 命名、tracker 的 /api/send、脚本全局名及上游数据库字段保持兼容。公开版本随分发包保留 LICENSE 中的版权与许可声明，以及第三方依赖各自的许可。正式开源前还需要配置 Liekan 仓库 origin、外部 CI、发布地址与审查可分发数据；当前阶段只在本机构建。
 
 源码检查可单独运行 `pnpm liekan:verify --source-only`，开发中的未提交修改使用 `--working-tree`。这两种模式只提供源码检查结果，完整定版依据为 `outputs/acceptance.json` 的 `passed`、`finalized`、候选 HEAD 和镜像 ID。远端 CI 当前只配置源码检查，首次正式发布前应补充同版本的完整验收任务。视觉凭据文件使用 `LIEKAN_TEST_USERNAME` 与 `LIEKAN_TEST_PASSWORD`，对应副本中有网站访问权限且无需交互式 2FA 的专用测试账号。
 
