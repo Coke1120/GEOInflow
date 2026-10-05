@@ -228,6 +228,7 @@ describe('durable website collector', () => {
       await f.cleanup();
     }
   });
+  // Forty durable rotations exceed the 32-file recovery limit and require repeated filesystem syncs.
   it('does not let fully confirmed historical rotations consume the unread-file recovery limit', async () => {
     const sent: any[] = [];
     const fetcher = (async (_url, init) => {
@@ -267,7 +268,7 @@ describe('durable website collector', () => {
     } finally {
       await f.cleanup();
     }
-  });
+  }, 15000);
   it('keeps authorized offline buffering across restart and recovers intermediate rotations', async () => {
     let offline = false;
     const events: any[] = [];
