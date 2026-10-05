@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
@@ -83,7 +84,9 @@ cp.spawnSync=(command,args,options={})=>{
  if(args.includes('playwright.api.config.ts')){fs.mkdirSync('tests/api/.runtime/127.0.0.1-3302/coverage',{recursive:true});fs.writeFileSync('tests/api/.runtime/127.0.0.1-3302/coverage/summary.json','{}');}
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:16},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
+ if(args.includes('scripts/liekan-dialog-visual.mjs')){if(fault==='dialog-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-dialogs',{recursive:true});fs.writeFileSync('test-results/liekan-dialogs/report.json',JSON.stringify({passed:fault!=='dialog-visual-passed',head:fault==='dialog-visual-head'?'other':head,checks:Array.from({length:fault==='dialog-visual-count'?1:50},()=>({})),duplicates:fault==='dialog-visual-duplicates-missing'?undefined:(fault==='dialog-visual-duplicates-count'?[1]:[1,1,2,3,4,5,16]).map(id=>({id})),responsive:Array.from({length:fault==='dialog-visual-responsive'?1:15},()=>({})),supplementalResponsive:fault==='dialog-visual-supplemental-missing'?undefined:Array.from({length:fault==='dialog-visual-supplemental-count'?1:8},()=>({})),errors:fault==='dialog-visual-errors'?['fixture error']:[],cleanup:{passed:fault!=='dialog-visual-cleanup'}}));}
  if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:68*4},()=>({passed:true}))}));}
+ if(args.includes('scripts/liekan-help-visual.mjs')){if(fault==='help-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-help',{recursive:true});fs.writeFileSync('test-results/liekan-help/report.json',JSON.stringify({passed:fault!=='help-visual-passed',head:fault==='help-visual-head'?'other':head,checks:Array.from({length:fault==='help-visual-count'?0:9},()=>({passed:fault!=='help-visual-check'})),errors:fault==='help-visual-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-visual.mjs')){fs.mkdirSync('test-results/liekan-visual',{recursive:true});fs.writeFileSync('test-results/liekan-visual/geometry.json',JSON.stringify({passed:true,head}));}
  return {status:0};
 };
@@ -172,9 +175,26 @@ describe('isolated acceptance CLI failure paths', () => {
     'feature-flows-count',
     'feature-flows-check',
     'feature-flows-errors',
+    'dialog-visual-failed',
+    'dialog-visual-passed',
+    'dialog-visual-head',
+    'dialog-visual-count',
+    'dialog-visual-duplicates-missing',
+    'dialog-visual-duplicates-count',
+    'dialog-visual-responsive',
+    'dialog-visual-supplemental-missing',
+    'dialog-visual-supplemental-count',
+    'dialog-visual-errors',
+    'dialog-visual-cleanup',
     'feature-visual-failed',
     'feature-visual-head',
     'feature-visual-count',
+    'help-visual-failed',
+    'help-visual-passed',
+    'help-visual-head',
+    'help-visual-count',
+    'help-visual-check',
+    'help-visual-errors',
   ])('rejects %s instead of publishing a full acceptance', fault => {
     const setup = fixture(fault);
     try {
@@ -278,4 +298,45 @@ describe('isolated acceptance CLI failure paths', () => {
     },
     20000,
   );
+});
+
+describe('dialog visual replay fixture snapshot', () => {
+  async function capture(api: (method: string, url: string, body?: any) => Promise<any>) {
+    const source = fs.readFileSync(path.join(root, 'scripts/liekan-dialog-visual.mjs'), 'utf8');
+    const start = source.search(/  const (?:savedReplays|replayStatus) = await api\(/);
+    const end = source.indexOf("  await buttons('replay-player', [[45", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    return runInNewContext(
+      `(async () => { let replayOriginal; ${source.slice(start, end)}; return replayOriginal; })()`,
+      { api, seed: { website: { id: 'site' }, data: { replayVisitId: 'visit' } } },
+    );
+  }
+
+  it('captures the original saved replay beyond the first page before changing it', async () => {
+    const calls: string[] = [];
+    const record = { visitId: 'visit', name: 'original replay' };
+    const original = await capture(async (method, url) => {
+      calls.push(`${method} ${url}`);
+      if (method === 'POST') return { ok: true };
+      if (url.endsWith('/saved/visit')) return { isSaved: true };
+      const page = new URL(url, 'http://fixture').searchParams.get('page') || '1';
+      return {
+        count: 201,
+        data: page === '2' ? [record] : Array.from({ length: 200 }, (_, i) => ({ visitId: `other-${i}` })),
+      };
+    });
+    expect(original.record).toEqual(record);
+    expect(calls[0]).toBe('GET /websites/site/replays/saved/visit');
+    expect(calls.at(-1)).toBe('POST /websites/site/replays/saved/visit');
+  });
+
+  it('stops before changing the replay when its saved record cannot be captured', async () => {
+    const changes: any[] = [];
+    await expect(capture(async (method, url, body) => {
+      if (method === 'POST') changes.push(body);
+      return url.endsWith('/saved/visit') ? { isSaved: true } : { count: 1, data: [] };
+    })).rejects.toThrow(/saved replay/i);
+    expect(changes).toEqual([]);
+  });
 });

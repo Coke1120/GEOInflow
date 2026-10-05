@@ -287,8 +287,11 @@
   align-items: center;
   border-bottom: 1px solid var(--line);
 }
-:global([data-website-layout] .header-inner) {
-  min-height: 64px;
+:global([data-website-layout] .header) {
+  border-bottom: 0;
+}
+:global([data-website-layout] [data-analysis-tabs-frame] > [data-analysis-family]) {
+  border-bottom: 0;
 }
 :global([data-liekan-features] .subtitle) {
   font-size: 11.5px;
@@ -1032,88 +1035,140 @@
 :global([data-liekan-features] .skeleton.wide) {
   height: 220px;
 }
-:global([data-liekan-features] .dialog-overlay),
-:global([data-liekan-features].dialog-overlay) {
-  position: fixed;
-  inset: 0;
+:global([data-liekan-features].liekan-dialog-root) {
+  background: transparent;
+}
+:global([data-liekan-features] .zen-layer-backdrop) {
+  z-index: 110;
   background: #16181d47;
-  z-index: 100;
-  display: flex;
-  justify-content: flex-end;
 }
-:global([data-liekan-features] .drawer) {
-  width: min(560px, 100%);
-  height: 100%;
-  background: #fff;
-  border-left: 1px solid var(--line);
-  box-shadow: -12px 0 40px #16181d14;
-  padding: 24px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  animation: drawer-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+:global([data-liekan-features] .zen-layer-modal) {
+  z-index: 111;
+  padding: 32px;
 }
-:global([data-liekan-features] .drawer-head) {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-:global([data-liekan-features] .drawer-head h2) {
-  font-size: 16px;
-}
-:global([data-liekan-features] .modal-overlay),
-:global([data-liekan-features].modal-overlay) {
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-:global([data-liekan-features] .modal) {
-  background: #fff;
-  border-radius: 14px;
-  max-width: 500px;
-  width: 100%;
-  padding: 24px;
-  max-height: 90vh;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-:global([data-liekan-features] .share-dialog) {
+:global([data-liekan-features] .liekan-dialog-portal) {
   width: min(920px, 100%);
-  max-width: 920px;
-  max-height: calc(100dvh - 48px);
-  padding: 0;
+  max-height: calc(100dvh - 64px);
+  animation: none;
+  transition: none;
+}
+:global([data-liekan-features] .liekan-dialog) {
+  width: 100%;
+  max-height: calc(100dvh - 64px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  background: #fff;
   border: 1px solid var(--line);
+  border-radius: 14px;
   box-shadow: 0 20px 64px #16181d24;
+  outline: none;
 }
-:global([data-liekan-features] .share-dialog .drawer-head) {
-  padding: 22px 28px;
-  margin: 0;
-  gap: 20px;
+:global([data-liekan-features] .liekan-dialog-portal:has(.dialog-wide)) {
+  width: min(1120px, 100%);
+}
+:global([data-liekan-features] .dialog-head) {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 24px 28px;
+  gap: 24px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
-:global([data-liekan-features] .share-dialog .drawer-head p) {
-  margin-top: 5px;
+:global([data-liekan-features] .dialog-head > div) {
+  min-width: 0;
+}
+:global([data-liekan-features] .dialog-title) {
+  font-size: 18px;
+  line-height: 1.5;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+:global([data-liekan-features] .dialog-subtitle) {
+  color: var(--sub);
   font-size: 12px;
+  line-height: 1.65;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
 }
-:global([data-liekan-features] .share-dialog .drawer-body) {
-  display: flex;
-  flex-direction: column;
+:global([data-liekan-features] .btn.dialog-close) {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 8px;
+  flex-shrink: 0;
+  color: var(--sub);
+}
+:global([data-liekan-features] .dialog-body) {
   min-height: 0;
-  overflow: auto;
-}
-:global([data-liekan-features] .share-dialog .form) {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-height: 0;
-}
-:global([data-liekan-features] .share-dialog .form > fieldset) {
+  padding: 24px 28px;
   overflow: auto;
   overscroll-behavior: contain;
+  line-height: 1.65;
+}
+:global([data-liekan-features] .dialog-body[hidden]),
+:global([data-liekan-features] .dialog-footer[hidden]) {
+  display: none;
+}
+:global([data-liekan-features] .dialog-body .form-grid) {
+  gap: 16px 24px;
+}
+:global([data-liekan-features] .dialog-body .field-help) {
+  color: var(--sub);
+  font-size: 12px;
+}
+:global([data-liekan-features] .dialog-body .btn),
+:global([data-liekan-features] .dialog-footer .btn) {
+  min-height: 40px;
+}
+:global([data-liekan-features] .dialog-footer) {
+  padding: 16px 28px;
+  background: #fafbfc;
+  border-top: 1px solid var(--line);
+  flex-shrink: 0;
+}
+:global([data-liekan-features] .dialog-default-close),
+:global([data-liekan-features] .dialog-footer .dialog-actions) {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+:global([data-liekan-features] .dialog-footer:has(> .dialog-actions) .dialog-default-close) {
+  display: none;
+}
+:global([data-liekan-features] .dialog-discard) {
+  overflow: auto;
+}
+:global([data-liekan-features] .dialog-discard h3) {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+:global([data-liekan-features] .share-dialog .dialog-body) {
+  padding: 0;
+}
+:global([data-liekan-features] .share-dialog .form) {
+  gap: 0;
+}
+@media (max-width: 767px) {
+  :global([data-liekan-features] .zen-layer-modal) {
+    padding: 16px;
+  }
+  :global([data-liekan-features] .liekan-dialog-portal),
+  :global([data-liekan-features] .liekan-dialog) {
+    max-height: calc(100dvh - 32px);
+  }
+  :global([data-liekan-features] .dialog-head),
+  :global([data-liekan-features] .dialog-body),
+  :global([data-liekan-features] .dialog-footer) {
+    padding: 16px;
+  }
+  :global([data-liekan-features] .dialog-body .form-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 :global([data-liekan-features] .share-settings-grid) {
   display: grid;
@@ -1160,17 +1215,6 @@
 :global([data-liekan-features] .share-dialog .form > .notice) {
   margin: 0 28px 16px;
 }
-:global([data-liekan-features] .share-dialog .form-actions) {
-  border-top: 1px solid var(--line);
-  background: #fafbfc;
-  padding: 16px 28px;
-  margin: 0;
-  flex-shrink: 0;
-  justify-content: flex-end;
-}
-:global([data-liekan-features] .share-dialog .form-actions > .btn:last-child) {
-  order: -1;
-}
 :global([data-liekan-features] .share-visit) {
   white-space: nowrap;
   color: var(--brand);
@@ -1182,14 +1226,6 @@
   }
 }
 @media (max-width: 540px) {
-  :global([data-liekan-features] .modal.share-dialog) {
-    padding: 0;
-    max-height: calc(100dvh - 32px);
-  }
-  :global([data-liekan-features] .share-dialog .drawer-head),
-  :global([data-liekan-features] .share-dialog .form-actions) {
-    padding: 16px;
-  }
   :global([data-liekan-features] .share-settings-grid) {
     padding: 20px 16px;
   }
@@ -1578,16 +1614,6 @@
 :global([data-liekan-features] .focus-static button:active) {
   transform: none;
 }
-@keyframes drawer-in {
-  from {
-    opacity: 0;
-    transform: translateX(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
 @media (hover: hover) {
   :global([data-liekan-features] .nav-item:hover) {
     background: #f5f7fa;
@@ -1807,10 +1833,7 @@
     width: 20px;
     height: 20px;
   }
-  :global([data-liekan-features] .drawer),
-  :global([data-liekan-features] .modal) {
-    padding: 20px 16px;
-  }
+
   :global([data-liekan-features] .condition) {
     grid-template-columns: 1fr 1fr;
   }
@@ -1992,6 +2015,31 @@
   font-size: 12px;
   margin-bottom: 16px;
 }
+:global([data-liekan-features] .analysis-context) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+:global([data-liekan-features] .analysis-context .range-context) {
+  margin-bottom: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:global([data-liekan-features] .analysis-context .analysis-tools) {
+  margin-bottom: 0;
+}
+@media (max-width: 900px) {
+  :global([data-liekan-features] .analysis-context .analysis-tools) {
+    justify-content: flex-start;
+  }
+  :global([data-liekan-features] .analysis-context .analysis-tools a) {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+  }
+}
 :global([data-liekan-features].identity-flow) {
   min-height: 100dvh;
 }
@@ -2036,4 +2084,127 @@
     padding: 0 20px;
     min-height: 56px;
   }
+}
+
+:global([data-liekan-features] .dialog-default-close[hidden]) {
+  display: none;
+}
+:global([data-liekan-features] .dialog-body .form > .notice),
+:global([data-liekan-features] .dialog-body .form > .field),
+:global([data-liekan-features] .dialog-body .form > .form-grid) {
+  min-width: 0;
+}
+:global([data-liekan-features] .dialog-secondary-action) {
+  margin-right: auto;
+}
+:global([data-liekan-features] .management-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px;
+}
+:global([data-liekan-features] .management-input-layout) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 24px;
+  align-items: start;
+}
+:global([data-liekan-features] .management-input-main) {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+:global([data-liekan-features] .management-guide) {
+  padding: 20px;
+  border: 1px solid var(--line);
+  background: #fafbfc;
+  border-radius: 9px;
+  font-size: 12px;
+  color: var(--sub);
+  line-height: 1.7;
+}
+:global([data-liekan-features] .management-guide h3) {
+  color: var(--ink);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+:global([data-liekan-features] .management-guide p + p) {
+  margin-top: 10px;
+}
+:global([data-liekan-features] .management-input-layout.rules-layout) {
+  grid-template-columns: minmax(0, 1fr);
+}
+:global([data-liekan-features] .rules-layout .management-guide) {
+  padding: 16px 20px;
+}
+:global([data-liekan-features] .management-comparison) {
+  min-width: 480px;
+}
+:global([data-liekan-features] .bot-rules-editor) {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+:global([data-liekan-features] .bot-rules-editor > .row) {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+:global([data-liekan-features] .bot-rules-editor h3) {
+  font-size: 14px;
+}
+:global([data-liekan-features] .bot-rules-table) {
+  min-width: 930px;
+  table-layout: fixed;
+}
+:global([data-liekan-features] .bot-rules-table th),
+:global([data-liekan-features] .bot-rules-table td) {
+  padding: 10px;
+}
+:global([data-liekan-features] .bot-rules-table th:last-child) {
+  width: 204px;
+}
+:global([data-liekan-features] .bot-rules-table td .row) {
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+:global([data-liekan-features] .bot-rules-table .btn) {
+  padding: 6px 10px;
+}
+:global([data-liekan-features] .qr-dialog-layout) {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+}
+:global([data-liekan-features] .qr-dialog-layout .code-block) {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+:global([data-liekan-features] .dialog-body details > summary) {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 12px 0;
+}
+:global([data-liekan-features] .dialog-body details .code-block) {
+  max-height: 360px;
+  overflow: auto;
+}
+@media (max-width: 767px) {
+  :global([data-liekan-features] .management-grid),
+  :global([data-liekan-features] .management-input-layout),
+  :global([data-liekan-features] .qr-dialog-layout) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :global([data-liekan-features] .qr-dialog-layout > svg) {
+    justify-self: center;
+  }
+}
+
+:global([data-liekan-features] .dialog-body fieldset.form-grid > *) {
+  margin-top: 0;
+}
+:global([data-liekan-features] .dialog-body fieldset.form-grid > .notice),
+:global([data-liekan-features] .dialog-body fieldset.form-grid > .definition),
+:global([data-liekan-features] .dialog-body fieldset.form-grid > .check),
+:global([data-liekan-features] .dialog-body fieldset.form-grid > .row) {
+  grid-column: 1 / -1;
 }

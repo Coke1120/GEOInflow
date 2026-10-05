@@ -7,7 +7,8 @@ import {
   shareWithFreshness,
 } from '@/lib/liekan/upstream/client-freshness';
 import { useQuery } from '@tanstack/react-query';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import {
@@ -45,6 +46,9 @@ import {
   getFeaturePreferences,
 } from '@/lib/liekan/upstream/features-client';
 import { Chart } from './Chart';
+import { SharedWebsiteOverview } from './SharedWebsiteOverview';
+import { sharedDateRange } from '@/lib/liekan/contracts/shared-report';
+import sharedStyles from '@/styles/liekan/SharedReport.module.css';
 import { FeatureProvider, useAction, useData, useFeature, useResourceContext } from './context';
 import {
   Badge,
@@ -52,7 +56,7 @@ import {
   Button,
   Check,
   Definition,
-  Drawer,
+  LiekanDialog,
   Field,
   Form,
   Icon,
@@ -140,9 +144,11 @@ function Search({ value, onChange }: { value: string; onChange: (value: string) 
 function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) {
   const action = useAction();
   return (
-    <Drawer title={title} onClose={() => !action.busy && onClose()}>
+    <LiekanDialog protectUnsaved={false} title={title} onClose={() => !action.busy && onClose()}>
       <Form
         busy={action.busy}
+        danger
+        trackUnsaved={false}
         submitLabel={title}
         onSubmit={async (values: any) => {
           if (values.confirmation !== word) throw new Error(`请输入 ${word} 确认`);
@@ -153,7 +159,7 @@ function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) 
         <Notice tone="red">{children}</Notice>
         <Field label={`输入 ${word} 确认`} name="confirmation" required autoComplete="off" />
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 
@@ -198,8 +204,9 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
     !!c.user.isAdmin,
   );
   return (
-    <Drawer title="创建团队" onClose={() => !action.busy && onClose()}>
+    <LiekanDialog title="创建团队" onClose={() => !action.busy && onClose()}>
       <Form
+        columns
         busy={action.busy}
         submitLabel="创建团队"
         onSubmit={async (values: any) => {
@@ -211,7 +218,11 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
               }),
             '团队已创建',
           );
-          await c.refresh();
+          try {
+            await c.refresh();
+          } catch {
+            c.notify('团队已创建，页面状态刷新失败，请重新读取。');
+          }
           onClose();
         }}
       >
@@ -229,7 +240,7 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
           <Definition items={[['团队所有者', c.user.username]]} />
         )}
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function TwoFactorBadge({ userId }: { userId: string }) {
@@ -369,6 +380,7 @@ function MemberDrawer({
   const c = useFeature(),
     action = useAction(),
     [remove, setRemove] = useState(false);
+  const pending = useRef(false);
   const users = useData(
     ['member-user-options', team.id],
     signal => getAllFeatureRows<any>('/admin/users', {}, signal),
@@ -378,72 +390,95 @@ function MemberDrawer({
     choices = teamRoleOptions.filter(
       ([value]) => c.user.isAdmin || selfRole === 'team-owner' || value !== 'team-manager',
     );
-  if (remove)
-    return (
-      <Confirm
-        title="移除成员"
-        word="REMOVE"
-        onClose={onClose}
-        onConfirm={() => c.api.del(`/teams/${team.id}/users/${member.userId}`)}
-      >
-        成员将失去本团队资源的访问权限，个人账户继续保留。
-      </Confirm>
-    );
   return (
-    <Drawer
-      title={member ? '编辑成员角色' : '添加已有用户'}
-      onClose={() => !action.busy && onClose()}
+    <LiekanDialog
+      subtitle={team.name + (member ? ' · ' + (member.user?.username || member.userId) : '')}
+      title={remove ? '移除成员' : member ? '编辑成员角色' : '添加团队成员'}
+      protectUnsaved={!remove && !action.busy && !pending.current}
+      onClose={() => !action.busy && !pending.current && onClose()}
     >
       <Form
+        columns
         busy={action.busy}
-        submitLabel={member ? '保存角色' : '添加成员'}
+        danger={remove}
+        submitLabel={remove ? '移除成员' : member ? '保存成员角色' : '添加团队成员'}
         onSubmit={async (values: any) => {
-          await action.run(() =>
-            c.api.post(`/teams/${team.id}/users${member ? `/${member.userId}` : ''}`, {
-              role: values.role,
-              ...(!member && { userId: values.userId }),
-            }),
-          );
-          await c.refresh();
-          onClose();
+          pending.current = true;
+          try {
+            if (remove) {
+              if (values.confirmation !== 'REMOVE') throw new Error('请输入 REMOVE 确认');
+              await action.run(() => c.api.del(`/teams/${team.id}/users/${member.userId}`), '成员已移除');
+            } else {
+              await action.run(() =>
+                c.api.post(`/teams/${team.id}/users${member ? `/${member.userId}` : ''}`, {
+                  role: values.role,
+                  ...(!member && { userId: values.userId }),
+                }),
+              );
+            }
+            try {
+              await c.refresh();
+            } catch {
+              c.notify(`${remove ? '成员已移除' : member ? '成员角色已保存' : '成员已添加'}，页面状态刷新失败，请重新读取。`);
+            }
+            onClose();
+          } finally {
+            pending.current = false;
+          }
         }}
       >
-        {member ? (
-          <Field label="用户名" defaultValue={member.user?.username || member.userId} readOnly />
-        ) : c.user.isAdmin ? (
-          <QueryState query={users}>
-            <Select
-              label="用户名"
-              name="userId"
-              required
-              options={(users.data || [])
-                .filter((user: any) => !team.members?.some((m: any) => m.userId === user.id))
-                .map((user: any) => [user.id, user.username])}
-            />
-          </QueryState>
+        {remove ? (
+          <>
+            <Notice tone="red">
+              成员“{member.user?.username || member.userId}”将失去团队“{team.name}
+              ”的资源访问权限，个人账户继续保留。
+            </Notice>
+            <Field label="输入 REMOVE 确认" name="confirmation" required autoComplete="off" />
+          </>
         ) : (
-          <Field
-            label="已有用户 ID"
-            name="userId"
-            required
-            pattern="[a-fA-F0-9-]{36}"
-            help="请向该用户取得账户 ID。现有接口仅向系统管理员开放全局用户名列表。"
-          />
-        )}
-        <Select
-          label="团队角色"
-          name="role"
-          defaultValue={member?.role || 'team-member'}
-          options={choices}
-        />
-        <Notice>添加使用本系统已有账户。</Notice>
-        {member && (
-          <Button danger disabled={action.busy} onClick={() => setRemove(true)}>
-            移除成员
-          </Button>
+          <>
+            {member ? (
+              <Field
+                label="用户名"
+                defaultValue={member.user?.username || member.userId}
+                readOnly
+              />
+            ) : c.user.isAdmin ? (
+              <QueryState query={users}>
+                <Select
+                  label="用户名"
+                  name="userId"
+                  required
+                  options={(users.data || [])
+                    .filter((user: any) => !team.members?.some((m: any) => m.userId === user.id))
+                    .map((user: any) => [user.id, user.username])}
+                />
+              </QueryState>
+            ) : (
+              <Field
+                label="已有用户 ID"
+                name="userId"
+                required
+                pattern="[a-fA-F0-9-]{36}"
+                help="请向该用户取得账户 ID。现有接口仅向系统管理员开放全局用户名列表。"
+              />
+            )}
+            <Select
+              label="团队角色"
+              name="role"
+              defaultValue={member?.role || 'team-member'}
+              options={choices}
+            />
+            <Notice>添加使用本系统已有账户。</Notice>
+            {member && (
+              <Button danger disabled={action.busy} onClick={() => setRemove(true)}>
+                移除成员
+              </Button>
+            )}
+          </>
         )}
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function TeamDetail() {
@@ -794,8 +829,9 @@ function CreateUser({ onClose }: { onClose: () => void }) {
   const c = useFeature(),
     action = useAction();
   return (
-    <Drawer title="创建系统用户" onClose={() => !action.busy && onClose()}>
+    <LiekanDialog title="创建系统用户" onClose={() => !action.busy && onClose()}>
       <Form
+        columns
         busy={action.busy}
         submitLabel="创建用户"
         onSubmit={async (values: any) => {
@@ -816,7 +852,7 @@ function CreateUser({ onClose }: { onClose: () => void }) {
         />
         <Select label="系统角色" name="role" options={userRoleOptions} defaultValue="user" />
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function AdminUsers() {
@@ -1118,7 +1154,7 @@ function AdminWebsites() {
         </QueryState>
       </Panel>
       {filter && (
-        <Drawer title="筛选全局资源" onClose={() => setFilter(false)}>
+        <LiekanDialog title="按所属空间筛选" onClose={() => setFilter(false)}>
           <QueryState query={teams}>
             <Form
               submitLabel="应用筛选"
@@ -1139,7 +1175,7 @@ function AdminWebsites() {
               />
             </Form>
           </QueryState>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -1571,9 +1607,10 @@ function WidgetDrawer({
     actualType = fixed ? boardResource.entityType : entityType,
     eventOnly = type === 'EventsChart';
   return (
-    <Drawer title={column ? '编辑看板组件' : '添加看板组件'} onClose={onClose}>
+    <LiekanDialog size="wide" title={column ? '编辑看板组件' : '添加看板组件'} onClose={onClose}>
       <QueryState query={entities}>
         <Form
+          columns
           submitLabel={column ? '保存组件' : '添加组件'}
           onSubmit={(values: any) => {
             const entityId = fixed ? boardResource.entityId : values.entityId;
@@ -1675,6 +1712,7 @@ function WidgetDrawer({
               defaultValue={column?.component?.props?.type || 'channel'}
             />
           )}
+          <Notice>组件保存后，请继续保存看板以保留本次配置。</Notice>
           <Check
             name="full"
             defaultChecked={
@@ -1688,7 +1726,7 @@ function WidgetDrawer({
           </Check>
         </Form>
       </QueryState>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function NativeWidget({
@@ -2411,10 +2449,9 @@ export function ShareDrawer({
   const parameters = share?.parameters || {},
     permitted = entity ? canManageResource(c.user, entity, c.teams) : true;
   return (
-    <Drawer
+    <LiekanDialog
       title={share ? '编辑分享链接' : '创建分享链接'}
       subtitle="设置分享资源、统计页面范围与访问保护。"
-      variant="modal"
       className="share-dialog"
       onClose={() => !action.busy && onClose()}
     >
@@ -2567,7 +2604,7 @@ export function ShareDrawer({
           </div>
         </Form>
       </QueryState>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 export function WebsiteSharing() {
@@ -2764,12 +2801,14 @@ function PublicStats({
   active,
   range,
   filters,
+  dateControls,
   onExpired,
 }: {
   share: any;
   active: string;
   range: any;
   filters: any;
+  dateControls?: ReactNode;
   onExpired: () => void;
 }) {
   const id =
@@ -2886,6 +2925,16 @@ function PublicStats({
     retry: false,
   });
   if (!id && !share.boardId) return <Notice>分享资源尚未提供统计数据。</Notice>;
+  if (active === 'overview' && share.websiteId && !share.boardId && !share.linkId && !share.pixelId)
+    return (
+      <SharedWebsiteOverview
+        id={id}
+        token={share.token}
+        range={range}
+        request={request}
+        dateControls={dateControls}
+      />
+    );
   if (active === 'overview' && !share.boardId)
     return (
       <ResourceAnalytics
@@ -2984,12 +3033,7 @@ export function ShareFeatureView({
     [busy, setBusy] = useState(false),
     [active, setActive] = useState(initialPage),
     [filters, setFilters] = useState<any>({});
-  const [range, setRange] = useState(() => ({
-    startAt: Date.now() - 7 * 86400000,
-    endAt: Date.now(),
-    timezone: 'UTC',
-    unit: 'day',
-  }));
+  const [range, setRange] = useState(() => sharedDateRange());
   const q = useQuery({
     queryKey: ['liekan-public-share', slug],
     queryFn: ({ signal }) =>
@@ -3014,6 +3058,64 @@ export function ShareFeatureView({
   const share = verified || q.data,
     allowed = allowedShareSections(share?.parameters),
     selected = allowed.some(([id]) => id === active) ? active : allowed[0]?.[0];
+  const websiteOverview =
+    selected === 'overview' &&
+    !!share?.websiteId &&
+    !share.boardId &&
+    !share.linkId &&
+    !share.pixelId;
+  const dateControls = share?.token && share.parameters?.allowFilter !== false && (
+    <div className={sharedStyles.filters}>
+      <div className="actions" aria-label="快捷日期范围">
+        {(
+          [
+            ['30 天', 30],
+            ['7 天', 7],
+            ['24h', 1],
+          ] as const
+        ).map(([label, days]) => (
+          <Button
+            key={label}
+            primary={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
+            aria-pressed={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
+            onClick={() => setRange(sharedDateRange(days))}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      <Field
+        label="开始日期"
+        type="date"
+        value={formatInTimeZone(range.startAt, range.timezone, 'yyyy-MM-dd')}
+        onChange={e => {
+          const time = +fromZonedTime(`${e.target.value}T00:00:00`, range.timezone);
+          if (Number.isFinite(time))
+            setRange(current => ({ ...current, startAt: time }));
+        }}
+      />
+      <Field
+        label="结束日期"
+        type="date"
+        value={formatInTimeZone(range.endAt, range.timezone, 'yyyy-MM-dd')}
+        onChange={e => {
+          const time = +fromZonedTime(`${e.target.value}T23:59:59.999`, range.timezone);
+          if (Number.isFinite(time))
+            setRange(current => ({ ...current, endAt: time }));
+        }}
+      />
+      {!websiteOverview && (
+        <Field
+          label="页面路径"
+          placeholder="输入路径筛选"
+          value={filters.path?.slice(3) || ''}
+          onChange={e =>
+            setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})
+          }
+        />
+      )}
+    </div>
+  );
   const closed = q.error && (q.error as any).status === 404;
   return (
     <main className="public-shell" id="main-content" data-share-theme="light">
@@ -3100,39 +3202,10 @@ export function ShareFeatureView({
               </Panel>
             ) : share?.token ? (
               <>
-                <Tabs items={allowed} active={selected || ''} onChange={setActive} />
-                {share.parameters?.allowFilter !== false && (
-                  <div className="filter-line">
-                    <Field
-                      label="开始日期"
-                      type="date"
-                      value={new Date(range.startAt).toISOString().slice(0, 10)}
-                      onChange={e => {
-                        const time = Date.parse(`${e.target.value}T00:00:00Z`);
-                        if (Number.isFinite(time))
-                          setRange(current => ({ ...current, startAt: time }));
-                      }}
-                    />
-                    <Field
-                      label="结束日期"
-                      type="date"
-                      value={new Date(range.endAt).toISOString().slice(0, 10)}
-                      onChange={e => {
-                        const time = Date.parse(`${e.target.value}T23:59:59.999Z`);
-                        if (Number.isFinite(time))
-                          setRange(current => ({ ...current, endAt: time }));
-                      }}
-                    />
-                    <Field
-                      label="页面路径"
-                      placeholder="输入路径筛选"
-                      value={filters.path?.slice(3) || ''}
-                      onChange={e =>
-                        setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})
-                      }
-                    />
-                  </div>
+                {allowed.length > 1 && (
+                  <Tabs items={allowed} active={selected || ''} onChange={setActive} />
                 )}
+                {!websiteOverview && dateControls}
                 {selected ? (
                   <PublicStats
                     key={share.token}
@@ -3140,6 +3213,7 @@ export function ShareFeatureView({
                     active={selected}
                     range={range}
                     filters={share.parameters?.allowFilter === false ? {} : filters}
+                    dateControls={dateControls}
                     onExpired={() => {
                       setVerified(null);
                       void q.refetch();

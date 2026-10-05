@@ -21,6 +21,7 @@ import {
   invalidateFeatureUserQueries,
 } from '@/lib/liekan/upstream/features-client';
 import '@/styles/liekan/Features.module.css';
+import shellStyles from '@/styles/liekan/Shell.module.css';
 import {
   hasDateControl,
   navigationFor,
@@ -33,15 +34,17 @@ import { DataLoading } from '../DataLoading';
 import { Navigation, useSidebarWidth } from '../Navigation';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
+import { HelpCenter } from './HelpCenter';
 import { FeatureProvider } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
 import { featureHref, featureNavigationHref, featurePages, normalizeFeatureScope } from './routes';
 import { SavedSegments } from './SavedSegments';
-import { Button, Drawer, Field, Form, Icon, Notice, QueryState } from './ui';
+import { Button, LiekanDialog, Field, Form, Icon, Notice, QueryState } from './ui';
 import { WorkspacePages, workspacePages } from './WorkspacePages';
 
 export const coreFeaturePages = new Set([
+  'help',
   'websites',
   'onboarding',
   'tracking',
@@ -194,7 +197,7 @@ export function FeatureApp({
   const teamsQuery = useQuery({
     queryKey: ['liekan-feature', user.id, 'teams'],
     queryFn: ({ signal }) => getAllFeatureRows<FeatureEntity>('/me/teams', {}, signal),
-    enabled: !setup,
+    enabled: !setup && route.page !== 'help',
     retry: false,
     staleTime: 300000,
     gcTime: 600000,
@@ -321,6 +324,25 @@ export function FeatureApp({
       : current.id && /-editor$/.test(current.page)
         ? (page?.title || '').replace(/^创建/, '编辑')
         : page?.title || '猎看统计';
+  const showAnalysisTools =
+    websiteRequired &&
+    !['tracking', 'install-check', 'website-settings', 'recorder-settings', 'sharing'].includes(
+      current.page,
+    ) &&
+    !!siteId;
+  const rangeContext = datePage && (
+    <div className="range-context">
+      统计期间：{formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
+      {formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')} · 统计时区：{timezone}
+    </div>
+  );
+  const analysisTabs = (
+    <AnalysisTabs
+      route={current}
+      href={href}
+      onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
+    />
+  );
   const content =
     !setup && (teamState?.isPending || teamState?.error) ? (
       teamState.isPending && ['websites', 'dashboard'].includes(current.page) ? (
@@ -489,6 +511,21 @@ export function FeatureApp({
               </div>
             </div>
           </header>
+          {showAnalysisTools && (
+            <>
+              <div className={shellStyles.tabsFrame} data-analysis-tabs-frame>
+                {analysisTabs}
+              </div>
+              <div className={`analysis-context ${shellStyles.analysisTools}`}>
+                {rangeContext}
+                <div className="analysis-tools">
+                  <Link href={href('filters')}>高级筛选</Link>
+                  <Link href={href('annotations')}>图表注释</Link>
+                  <Link href={href('exports')}>导出数据</Link>
+                </div>
+              </div>
+            </>
+          )}
           <main className="content" id="main-content">
             {datePage && invalidDate && (
               <Notice tone="amber">
@@ -508,35 +545,11 @@ export function FeatureApp({
                 </Button>
               </Notice>
             )}
-            {datePage && (
-              <div className="range-context">
-                统计期间：{formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
-                {formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')} · 统计时区：{timezone}
-              </div>
-            )}
+            {!showAnalysisTools && rangeContext}
             {websiteRequired && nav.query.clearedFilters === '1' && (
               <Notice>已清除当前页面不支持的筛选，统计采用页面显示的条件。</Notice>
             )}
-            {websiteRequired &&
-              ![
-                'tracking',
-                'install-check',
-                'website-settings',
-                'recorder-settings',
-                'sharing',
-              ].includes(current.page) &&
-              siteId && (
-                <div className="analysis-tools">
-                  <Link href={href('filters')}>高级筛选</Link>
-                  <Link href={href('annotations')}>图表注释</Link>
-                  <Link href={href('exports')}>导出数据</Link>
-                </div>
-              )}
-            <AnalysisTabs
-              route={current}
-              href={href}
-              onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
-            />
+            {!showAnalysisTools && analysisTabs}
             {content}
           </main>
         </div>
@@ -547,7 +560,12 @@ export function FeatureApp({
         )}
         {segmentsOpen && <SavedSegments onClose={() => setSegmentsOpen(false)} />}
         {dateOpen && (
-          <Drawer title="日期范围" onClose={() => setDateOpen(false)}>
+          <LiekanDialog
+            title="选择日期范围"
+            subtitle={timezone}
+            protectUnsaved={false}
+            onClose={() => setDateOpen(false)}
+          >
             <Form
               trackUnsaved={false}
               submitLabel="应用日期范围"
@@ -586,7 +604,7 @@ export function FeatureApp({
                 />
               </div>
             </Form>
-          </Drawer>
+          </LiekanDialog>
         )}
       </div>
     </FeatureProvider>
@@ -609,6 +627,7 @@ function FeaturePage({ page }: { page: string }) {
         </div>
       </Notice>
     );
+  if (page === 'help') return <HelpCenter />;
   if (coreFeaturePages.has(page)) return <CorePages page={page} />;
   if (analysisPages.has(page)) return <AnalyticsPages page={page} />;
   if (extendedPages.has(page)) return <ExtendedPages page={page} />;

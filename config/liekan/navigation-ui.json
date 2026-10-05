@@ -1,6 +1,6 @@
 {
   "baselineVersion": "liekan-navigation-v0.2.2",
-  "approval": "2026-10-04 用户确认紧凑站点选择、14 个常展开菜单、五组分析 Tab 与单行账户栏；全局保留数据总览，以数据管理和协作管理两个静态分类组织其余五个入口，链接与图片追踪合并到追踪管理",
+  "approval": "2026-10-04 用户确认紧凑站点选择、14 个常展开菜单、五组分析 Tab 与单行账户栏；全局保留数据总览，以数据管理和协作管理两个静态分类组织其余五个入口，链接与图片追踪合并到追踪管理；2026-10-05 用户确认帮助中心，增加全局与网站侧栏入口",
   "originalReferencePolicy": "Original HTML, SHA-256 fingerprints, chart pixels, table columns and body VI remain authoritative. Approved navigation/header/toolbars have bounded independent checks.",
   "groups": {
     "global": [
@@ -43,6 +43,12 @@
             "label": "团队管理"
           }
         ]
+      },
+      {
+        "id": "help",
+        "label": "帮助中心",
+        "page": "help",
+        "children": []
       }
     ],
     "website": [
@@ -131,6 +137,12 @@
             "label": "日志访问流"
           }
         ]
+      },
+      {
+        "id": "help",
+        "label": "帮助中心",
+        "page": "help",
+        "children": []
       }
     ],
     "admin": [
@@ -1192,6 +1204,14 @@
       "title": "页面不存在",
       "tabs": [],
       "activeTab": null
+    },
+    "help": {
+      "scope": "global",
+      "section": "help",
+      "active": "help",
+      "title": "帮助中心",
+      "tabs": [],
+      "activeTab": null
     }
   },
   "geo": {
@@ -1341,7 +1361,13 @@
   "geoChartApproval": {
     "d2": {
       "approval": "2026-10-04 用户要求 AI 蜘蛛构成图例保持单行，仅显示按请求量排序的 Top 5；圆环保留全部类别与提示",
-      "legend": { "type": "scroll", "left": 16, "right": 16, "bottom": 4, "pageIconSize": 10 },
+      "legend": {
+        "type": "scroll",
+        "left": 16,
+        "right": 16,
+        "bottom": 4,
+        "pageIconSize": 10
+      },
       "legendLimit": 5
     }
   },
@@ -1391,7 +1417,17 @@
     "rowPitch": 36,
     "fontSize": 13.5,
     "contextHeight": 56,
-    "mobileRowHeight": 40
+    "mobileRowHeight": 40,
+    "analysisContext": {
+      "approval": "2026-10-05 用户要求继续消除访问记录、人群分析、实时访客页头的高度差异，按同类页的标题、Tab、工具栏、正文顺序统一排版",
+      "columnGap": 16,
+      "rowGap": 8,
+      "headerHeight": 60,
+      "tabsHeight": 44,
+      "desktopMaxHeight": 39,
+      "bodyPaddingTop": 24,
+      "mobileActionMinHeight": 40
+    }
   },
   "analysisTabs": {
     "geo-sources": [

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -52,6 +52,10 @@ vi.mock('./Chart', () => ({
       chart
     );
   },
+}));
+vi.mock('../ReportComponents', async importOriginal => ({
+  ...(await importOriginal<typeof import('../ReportComponents')>()),
+  ReferenceChart: ({ id }: any) => <div role="img" aria-label={`分享图表 ${id}`} />,
 }));
 vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
   ...(await importOriginal<typeof import('@/lib/liekan/upstream/features-client')>()),
@@ -750,12 +754,15 @@ describe('share settings and public access from the list', () => {
     const trigger = await screen.findByRole('button', { name: '编辑' });
     await userEvent.click(trigger);
     const dialog = screen.getByRole('dialog', { name: '编辑分享链接' });
-    const close = within(dialog).getByRole('button', { name: '关闭弹层' });
-    expect(close).toHaveFocus();
+    const close = within(dialog).getByRole('button', { name: '关闭弹窗' });
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+    close.focus();
     await userEvent.tab({ shift: true });
-    expect(within(dialog).getByRole('button', { name: '取消' })).toHaveFocus();
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: '保存分享链接' })).toHaveFocus(),
+    );
     await userEvent.tab();
-    expect(close).toHaveFocus();
+    await waitFor(() => expect(close).toHaveFocus());
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
@@ -813,7 +820,8 @@ describe('public share restrictions and password lifecycle', () => {
     expect(mocks.request.mock.calls.every(call => call[1] === '/share/password-share')).toBe(true);
     await userEvent.type(screen.getByLabelText(/分享密码/), 'visitor-password');
     await userEvent.click(screen.getByRole('button', { name: '验证并查看' }));
-    expect(await screen.findByRole('tab', { name: '事件' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: '事件趋势' })).toBeInTheDocument();
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '总览' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('页面路径')).not.toBeInTheDocument();
     await waitFor(() =>
@@ -876,7 +884,7 @@ describe('public share restrictions and password lifecycle', () => {
     );
     expect(screen.getByRole('button', { name: '验证并查看' })).toBeEnabled();
   });
-  it('public overview has exactly four approved fields and truthful appointment conversions', async () => {
+  it('the legacy public analytics component preserves truthful appointment conversions', async () => {
     mocks.request.mockImplementation(async (_method: string, path: string, params: any) => {
       if (path === '/share/overview-share')
         return {
@@ -900,7 +908,17 @@ describe('public share restrictions and password lifecycle', () => {
         return { pageviews: [{ x: '2026-10-01', y: 123 }], sessions: [{ x: '2026-10-01', y: 91 }] };
       throw new Error(`Unexpected public request ${path}`);
     });
-    const { container } = mount(<ShareFeatureView slug="overview-share" />, false);
+    const { container } = mount(
+      <ResourceAnalytics
+        id="site-1"
+        kind="website"
+        variant="public"
+        title="访问趋势"
+        request={(path, params, signal) =>
+          mocks.request('GET', path, params, signal, 'overview-token', '')
+        }
+      />,
+    );
     await screen.findByText('11');
     expect(
       Array.from(container.querySelectorAll('.metric-label'), node => node.textContent),
@@ -914,6 +932,89 @@ describe('public share restrictions and password lifecycle', () => {
         .filter(call => call[1].startsWith('/websites/'))
         .every(call => call[4] === 'overview-token' && call[5] === ''),
     ).toBe(true);
+  });
+  it('website shares render every requested module and update all dates together with the share token', async () => {
+    mocks.request.mockImplementation(async (_method: string, path: string, params: any) => {
+      if (path === '/share/website-report')
+        return {
+          token: 'report-token',
+          websiteId: 'site-1',
+          parameters: {
+            overview: true,
+            goals: false,
+            events: false,
+            utm: false,
+            allowFilter: true,
+          },
+        };
+      if (path === '/liekan/websites/site-1/shared-report') {
+        if (params.endAt < params.startAt)
+          throw Object.assign(new Error('结束日期须晚于开始日期'), { status: 400 });
+        return {
+          website: { id: 'site-1', name: '测试网站', domain: 'example.com' },
+          states: { human: 'available', logs: 'not_connected' },
+          cards: [{ label: '访客数 UV', value: 91, state: 'available', detail: '所选统计范围' }],
+          charts: {},
+          tables: {
+            envGrid: [{ category: 'browser', name: 'chrome', share: 100 }],
+            cityBody: [
+              {
+                city: '上海',
+                sessions: 20,
+                share: 30,
+                duration: 120,
+                bounceRate: 10,
+                conversionRate: null,
+              },
+            ],
+          },
+          insights: ['接入服务器日志后可计算 AI 抓取统计。'],
+          meta: { demo: true },
+          capabilities: { goals: false },
+        };
+      }
+      throw new Error(`Unexpected public request ${path}`);
+    });
+    mount(<ShareFeatureView slug="website-report" />, false);
+    await screen.findByRole('heading', { name: '测试网站' });
+    for (const title of [
+      '访客趋势（UV / PV / 跳出率）',
+      '访问时段热力',
+      '设备构成',
+      '浏览器 / OS TOP5',
+      'AI 蜘蛛 vs 人类访问趋势',
+      'AI 蜘蛛构成',
+      '人类来源渠道',
+      'GEO 关键发现',
+      '国内省份分布 TOP10',
+      '海外国家/地区 TOP8',
+      '城市明细 TOP12',
+    ])
+      expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: /分享图表/ })).toHaveLength(8);
+    expect(screen.getByText(/以下为隔离的示例数据/)).toBeInTheDocument();
+    expect(screen.getByText('上海')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: '转化率' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('页面路径')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '7 天' }));
+    await waitFor(() => {
+      const calls = mocks.request.mock.calls.filter(call => call[1].includes('/shared-report'));
+      expect(calls).toHaveLength(2);
+      expect(calls[1][2]).toMatchObject({ timezone: 'Asia/Shanghai', chartPeriod: '7d' });
+      expect(calls[1][2].endAt - calls[1][2].startAt).toBe(7 * 86400000 - 1);
+      expect(calls.every(call => call[4] === 'report-token' && call[5] === '')).toBe(true);
+    });
+    fireEvent.change(screen.getByLabelText('开始日期'), { target: { value: '2026-09-06' } });
+    await waitFor(() =>
+      expect(mocks.request.mock.calls.at(-1)?.[2].startAt).toBe(Date.parse('2026-09-05T16:00:00Z')),
+    );
+    fireEvent.change(screen.getByLabelText('结束日期'), { target: { value: '2026-09-05' } });
+    await screen.findByRole('heading', { name: '读取失败' });
+    expect(screen.getByLabelText('结束日期')).toBeEnabled();
+    expect(screen.getByRole('heading', { name: '测试网站' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('结束日期'), { target: { value: '2026-10-05' } });
+    await screen.findByRole('heading', { name: '访客趋势（UV / PV / 跳出率）' });
+    expect(screen.getAllByRole('img', { name: /分享图表/ })).toHaveLength(8);
   });
   it('public goals and funnels fetch every page with the share token and chart conversion count', async () => {
     const configurations = (kind: string) =>
@@ -1096,15 +1197,22 @@ describe('public share restrictions and password lifecycle', () => {
               allowFilter: false,
             },
           }
-        : path.endsWith('/stats')
-          ? { pageviews: 0, visitors: 0, visits: 0 }
-          : { pageviews: [], sessions: [] },
+        : {
+            website: { name: '同一网站', domain: 'example.com' },
+            cards: [],
+            charts: {},
+            tables: { envGrid: [], cityBody: [] },
+            insights: [],
+            meta: { demo: false },
+            states: { human: 'empty' },
+            capabilities: { goals: false },
+          },
     );
     const { rerender, client } = mount(<ShareFeatureView slug="one" />, false);
     await waitFor(() =>
       expect(
         mocks.request.mock.calls.some(
-          call => call[1] === '/websites/site-1/stats' && call[4] === 'token-one',
+          call => call[1] === '/liekan/websites/site-1/shared-report' && call[4] === 'token-one',
         ),
       ).toBe(true),
     );
@@ -1116,9 +1224,89 @@ describe('public share restrictions and password lifecycle', () => {
     await waitFor(() =>
       expect(
         mocks.request.mock.calls.some(
-          call => call[1] === '/websites/site-1/stats' && call[4] === 'token-two',
+          call => call[1] === '/liekan/websites/site-1/shared-report' && call[4] === 'token-two',
         ),
       ).toBe(true),
     );
   });
+});
+
+describe('member dialog completion', () => {
+  async function removingMember() {
+    context.route = { page: 'team-detail', id: team.id, teamId: team.id };
+    mount(<WorkspacePages page="team-detail" />);
+    const row = (await screen.findAllByText('manager'))[0].closest('tr')!;
+    await userEvent.click(within(row).getByRole('button', { name: '编辑角色' }));
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '移除成员' }),
+    );
+    await userEvent.type(screen.getByLabelText(/输入 REMOVE 确认/), 'REMOVE');
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '移除成员' }),
+    );
+  }
+  it('completes member removal even if the subsequent identity refresh fails', async () => {
+    mocks.refresh.mockRejectedValue(new Error('刷新暂时不可用'));
+    await removingMember();
+    await waitFor(() => expect(mocks.del).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(mocks.notify).toHaveBeenCalledWith('成员已移除，页面状态刷新失败，请重新读取。');
+  });
+  it('keeps the dialog open while the post-removal identity refresh is pending', async () => {
+    let finish!: () => void;
+    mocks.refresh.mockImplementation(() => new Promise<void>(resolve => (finish = resolve)));
+    await removingMember();
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
+    await userEvent.click(screen.getByRole('button', { name: '关闭弹窗' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    finish();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+});
+
+it('keeps team creation pending until identity refresh finishes', async () => {
+  context.route = { page: 'teams' };
+  context.siteId = '';
+  let finish!: () => void;
+  mocks.refresh.mockImplementation(() => new Promise<void>(resolve => (finish = resolve)));
+  const user = userEvent.setup();
+  mount(<WorkspacePages page="teams" />);
+  const opener = await screen.findByRole('button', { name: '创建团队' });
+  await user.click(opener);
+  await user.type(screen.getByLabelText(/团队名称/), '已保存的团队');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建团队' }));
+  await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
+  try {
+    expect(mocks.post).toHaveBeenCalledWith('/teams', { name: '已保存的团队' });
+    expect(screen.getByRole('button', { name: '正在创建团队…' })).toBeDisabled();
+    await user.keyboard('{Escape}');
+    const discard = screen.queryByRole('button', { name: '放弃修改并关闭' });
+    if (discard) await user.click(discard);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '关闭弹窗' }));
+    const closeDiscard = screen.queryByRole('button', { name: '放弃修改并关闭' });
+    if (closeDiscard) await user.click(closeDiscard);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  } finally {
+    finish();
+  }
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await user.click(opener);
+  await user.type(screen.getByLabelText(/团队名称/), '新的团队草稿');
+  expect(screen.getByLabelText(/团队名称/)).toHaveValue('新的团队草稿');
+  expect(mocks.post).toHaveBeenCalledTimes(1);
+});
+
+it('reports team creation as saved when the subsequent identity refresh fails', async () => {
+  context.route = { page: 'teams' };
+  context.siteId = '';
+  mocks.refresh.mockRejectedValue(new Error('刷新暂时不可用'));
+  const user = userEvent.setup();
+  mount(<WorkspacePages page="teams" />);
+  await user.click(await screen.findByRole('button', { name: '创建团队' }));
+  await user.type(screen.getByLabelText(/团队名称/), '已经创建');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建团队' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(mocks.post).toHaveBeenCalledTimes(1);
+  expect(mocks.notify).toHaveBeenCalledWith('团队已创建，页面状态刷新失败，请重新读取。');
 });

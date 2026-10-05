@@ -1,4 +1,5 @@
 import { checkNavigation } from './liekan-navigation-visual.mjs';
+import { assertDialogContract } from './liekan-dialog-contract.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -8,6 +9,7 @@ import { chromium } from '@playwright/test';
 import { generateSync } from 'otplib';
 
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
+assertDialogContract();
 assert(
   ['127.0.0.1', 'localhost'].includes(new URL(base).hostname),
   'Use the isolated local candidate',
@@ -30,7 +32,9 @@ for (const [file, hash] of Object.entries(featureReference.files))
 const seed = JSON.parse(fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/seed.json', 'utf8'));
 const manifest = JSON.parse(fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'));
 assert.deepEqual(
-  Object.keys(navigationBaseline.pages).sort(),
+  Object.keys(navigationBaseline.pages)
+    .filter(id => id !== 'help')
+    .sort(),
   manifest.pages.map(p => p.id).sort(),
   'All 68 feature scenarios require independent navigation expectations',
 );

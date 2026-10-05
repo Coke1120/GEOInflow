@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
   clear: vi.fn(),
   clearLogin: vi.fn(),
+  display: {} as Record<string, boolean>,
   pathname: '/websites/site-a/goals/create',
 }));
 vi.mock('next/link', () => ({
@@ -29,12 +30,14 @@ vi.mock('@tanstack/react-query', () => ({
   }),
   useQuery: ({ queryKey }: any) => ({
     isPending: false,
-    data: queryKey.includes('sites')
-      ? [
-          { id: 'site-a', name: '网站 A', domain: 'a.test' },
-          { id: 'site-b', name: '网站 B', domain: 'b.test' },
-        ]
-      : [],
+    data: queryKey.includes('website-display-settings')
+      ? { aiCrawlerEnabled: mocks.display[queryKey[3]] }
+      : queryKey.includes('sites')
+        ? [
+            { id: 'site-a', name: '网站 A', domain: 'a.test' },
+            { id: 'site-b', name: '网站 B', domain: 'b.test' },
+          ]
+        : [],
   }),
 }));
 vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
@@ -46,8 +49,23 @@ vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
 }));
 
 describe('website navigation transitions', () => {
+  it('hides only the current website crawler group and restores the default for another website', () => {
+    mocks.display = { 'site-a': false };
+    const props = { user: { id: 'user', username: 'admin' } as any, width: 228, onWidth: vi.fn() };
+    const view = render(
+      <Navigation {...props} route={{ page: 'overview', websiteId: 'site-a' }} />,
+    );
+    expect(screen.queryByText('AI 抓取分析')).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '抓取总览' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '访客总览' })).toBeInTheDocument();
+    view.rerender(<Navigation {...props} route={{ page: 'overview', websiteId: 'site-b' }} />);
+    expect(screen.getByRole('link', { name: '抓取总览' })).toBeInTheDocument();
+    view.rerender(<Navigation {...props} route={{ page: 'overview', websiteId: 'site-a' }} />);
+    expect(screen.queryByRole('link', { name: '抓取总览' })).not.toBeInTheDocument();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.display = {};
     mocks.pathname = '/websites/site-a/goals/create';
     document.body.style.overflow = '';
   });
@@ -66,12 +84,13 @@ describe('website navigation transitions', () => {
         />,
       );
       const primary = screen.getByRole('navigation', { name: '业务导航' });
-      expect(within(primary).getAllByRole('link')).toHaveLength(14);
+      expect(within(primary).getAllByRole('link')).toHaveLength(15);
       expect(within(primary).queryAllByRole('button')).toHaveLength(0);
       expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
       for (const link of within(primary).getAllByRole('link')) {
         expect(link.querySelector('svg')).not.toBeNull();
-        expect(link.getAttribute('href')).toContain('site-a');
+        if (link.textContent === '帮助中心') expect(link).toHaveAttribute('href', '/liekan/help');
+        else expect(link.getAttribute('href')).toContain('site-a');
       }
       expect(within(primary).queryByRole('link', { name: '深度分析' })).toBeNull();
       expect(view.container.querySelector('aside .site-switch')).toBeNull();
@@ -214,11 +233,12 @@ describe('website navigation transitions', () => {
       '追踪管理',
       '分享管理',
       '团队管理',
+      '帮助中心',
     ]);
     expect(within(primary).queryAllByRole('button')).toHaveLength(0);
     expect(within(primary).getByText('数据管理')).toBeInTheDocument();
     expect(within(primary).getByText('协作管理')).toBeInTheDocument();
-    expect(primary.querySelectorAll('[data-navigation-group]')).toHaveLength(3);
+    expect(primary.querySelectorAll('[data-navigation-group]')).toHaveLength(4);
     expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
     expect(within(primary).getByRole('link', { name: selected })).toHaveAttribute(
       'aria-current',
@@ -275,8 +295,8 @@ describe('website navigation transitions', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /切换网站，当前/ }));
     fireEvent.click(screen.getByRole('button', { name: '选择网站 网站 B' }));
-    await screen.findByRole('dialog', { name: '当前修改尚未保存' });
-    expect(document.body.style.overflow).toBe('hidden');
+    await screen.findByRole('dialog', { name: '放弃未保存的修改？' });
+    await waitFor(() => expect(document.body.style.overflowY).toBe('hidden'));
     mocks.pathname = '/websites/site-a/goals';
     view.rerender(
       <>
@@ -285,7 +305,7 @@ describe('website navigation transitions', () => {
       </>,
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
-    expect(document.body.style.overflow).toBe('');
+    expect(document.body.style.overflowY).toBe('');
     expect(mocks.push).not.toHaveBeenCalled();
   });
   it('does not show a previous website domain or owner while the new site loads', () => {
@@ -319,7 +339,7 @@ describe('website navigation transitions', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: /切换网站，当前/ }));
     fireEvent.click(screen.getByRole('button', { name: '选择网站 网站 B' }));
-    await screen.findByRole('dialog', { name: '当前修改尚未保存' });
+    await screen.findByRole('dialog', { name: '放弃未保存的修改？' });
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(mocks.push).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: '放弃修改并切换' }));

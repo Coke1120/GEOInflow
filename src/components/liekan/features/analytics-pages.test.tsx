@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
   navigate: vi.fn(),
   updateQuery: vi.fn(),
+  actionBusy: false,
 }));
 vi.mock('next/link', () => ({
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
@@ -25,7 +26,7 @@ vi.mock('./context', () => ({
   }),
   useAction: () => ({
     run: async (action: () => Promise<any>) => action(),
-    busy: false,
+    busy: mocks.actionBusy,
     error: '',
   }),
 }));
@@ -42,6 +43,7 @@ beforeEach(() => {
   mocks.query = {};
   mocks.errors = {};
   mocks.pending = {};
+  mocks.actionBusy = false;
   mocks.href.mockReset().mockReturnValue('/sessions');
   mocks.post.mockReset().mockResolvedValue({});
   mocks.navigate.mockReset();
@@ -195,4 +197,43 @@ it('keeps the selected event property while its value query is pending', () => {
   view.rerender(<AnalyticsPages page="event-detail" />);
   expect(screen.getByText('plan 的各属性值对应触发次数。')).toBeInTheDocument();
   expect(JSON.parse(screen.getByRole('img').textContent!).series[0].values).toEqual([3]);
+});
+
+it('shows the current dimension selection and enforces the three dimension limit', async () => {
+  render(<AnalyticsPages page="breakdown" />);
+  fireEvent.click(screen.getByRole('button', { name: '选择维度' }));
+  expect(screen.getByText('已选择 2 / 3 个维度')).toBeVisible();
+  fireEvent.click(screen.getByRole('checkbox', { name: '浏览器' }));
+  expect(screen.getByText('已选择 3 / 3 个维度')).toBeVisible();
+  expect(screen.getByRole('checkbox', { name: '设备' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('checkbox', { name: '页面路径' }));
+  expect(screen.getByRole('checkbox', { name: '设备' })).toBeEnabled();
+});
+it('keeps the current period and timezone visible while editing comparison dates', () => {
+  mocks.context.range = {
+    startAt: Date.UTC(2026, 8, 1),
+    endAt: Date.UTC(2026, 8, 30),
+    timezone: 'Asia/Shanghai',
+  };
+  render(<AnalyticsPages page="compare" />);
+  fireEvent.click(screen.getByRole('button', { name: '调整对照期间' }));
+  expect(screen.getByRole('dialog')).toHaveTextContent('Asia/Shanghai');
+  expect(screen.getByRole('dialog')).toHaveTextContent('当前期间');
+});
+it('keeps a submitting annotation open until its request completes', async () => {
+  let complete!: (value: any) => void;
+  mocks.post.mockImplementation(() => new Promise(resolve => (complete = resolve)));
+  const view = render(<AnalyticsPages page="annotations" />);
+  fireEvent.click(screen.getByRole('button', { name: '添加注释' }));
+  fireEvent.change(screen.getByLabelText('注释'), { target: { value: '待保存注释' } });
+  fireEvent.submit(screen.getByLabelText('注释').closest('form')!);
+  await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1));
+  mocks.actionBusy = true;
+  view.rerender(<AnalyticsPages page="annotations" />);
+  fireEvent.click(screen.getByRole('button', { name: '关闭弹窗' }));
+  const discard = screen.queryByRole('button', { name: '放弃修改并关闭' });
+  if (discard) fireEvent.click(discard);
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  complete({});
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });

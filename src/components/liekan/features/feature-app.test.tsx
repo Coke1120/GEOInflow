@@ -101,6 +101,15 @@ beforeEach(() => {
   mocks.post.mockResolvedValue({});
 });
 describe('feature navigation scope', () => {
+  it('reads global help without website or team queries and strips foreign identifiers', async () => {
+    mount({ page: 'help', websiteId: personal.id, teamId, id: 'old-record' });
+    expect(await screen.findByRole('heading', { name: '使用指南与参考资料' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '帮助中心', level: 1 })).toBeInTheDocument();
+    expect(mocks.sites).not.toHaveBeenCalled();
+    expect(mocks.get).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /所属空间/ })).not.toBeInTheDocument();
+  });
+
   it.each(['links', 'pixels'])(
     'renders %s under tracking management with both resource tabs',
     async page => {
@@ -142,10 +151,7 @@ describe('feature navigation scope', () => {
         expect(await screen.findByText(`资源页面：${page}`)).toBeInTheDocument();
       else if (page === 'board-editor')
         expect(await screen.findByLabelText('所属空间')).toHaveValue(teamId);
-      else
-        await waitFor(() =>
-          expect(screen.queryByRole('status')).not.toBeInTheDocument(),
-        );
+      else await waitFor(() => expect(screen.queryByRole('status')).not.toBeInTheDocument());
     },
   );
   it('shows a failed team lookup with retry instead of a creation form', async () => {
@@ -254,7 +260,7 @@ describe('feature navigation scope', () => {
     async route => {
       const view = mount(route);
       expect(await screen.findByText('当前账户没有访问此资源的权限。')).toBeInTheDocument();
-      expect(view.container.querySelectorAll('[data-navigation-group]')).toHaveLength(3);
+      expect(view.container.querySelectorAll('[data-navigation-group]')).toHaveLength(4);
       expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
       expect(mocks.get).not.toHaveBeenCalled();
     },
@@ -280,10 +286,10 @@ describe('feature navigation scope', () => {
     expect(mocks.sites).toHaveBeenCalledWith(expect.any(AbortSignal), undefined, 'all');
     expect(view.container.querySelector('.site-switch')).toBeNull();
   });
-  it('shows six flat global entries and no implicit website on an account page', async () => {
+  it('shows seven flat global entries and no implicit website on an account page', async () => {
     const view = mount({ page: 'account', websiteId: personal.id, teamId });
     const sidebar = view.container.querySelector('#liekan-navigation');
-    expect(sidebar.querySelectorAll('[data-navigation-group]')).toHaveLength(3);
+    expect(sidebar.querySelectorAll('[data-navigation-group]')).toHaveLength(4);
     expect(sidebar.querySelector('.site-switch')).toBeNull();
     expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
     expect(mocks.sites).not.toHaveBeenCalled();

@@ -3,6 +3,7 @@ import { defineOperation } from '@/openapi/operation';
 import { badRequestResponse, notFoundResponse, unauthorizedResponse } from '@/openapi/schemas';
 export const settingsUpdateSchema = z
   .strictObject({
+    aiCrawlerEnabled: z.boolean().optional(),
     robots: z.string().max(50000).optional(),
     allowlist: z.array(z.string().max(80)).max(100).optional(),
     rules: z

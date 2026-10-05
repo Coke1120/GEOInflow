@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ManagementDrawer } from './ManagementDrawer';
 import { FilterChip, MetricCard, ReportList, ReportRows, SortHeading } from './ReportComponents';
@@ -102,7 +103,7 @@ describe('real data states and interactions', () => {
       screen.getByText('Complete real User-Agent with additional identity evidence').closest('td'),
     ).toHaveAttribute('title', 'Complete real User-Agent with additional identity evidence');
   });
-  it('shows only selected page metrics in the seven-day comparison drawer', () => {
+  it('shows only selected page metrics in the seven-day comparison dialog', () => {
     const data = report();
     data.cards = [
       { key: 'uv', label: '访客数 UV', value: 4, state: 'available' },
@@ -160,21 +161,22 @@ describe('real data states and interactions', () => {
       refetch,
     };
     const { rerender } = render(<ManagementDrawer {...props} comparison={comparison} />);
-    expect(screen.getByRole('alert')).toHaveTextContent('读取上周范围数据失败');
-    expect(screen.queryByText('正在读取上周范围数据。')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '重试' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('上周数据读取失败');
+    expect(screen.queryByText('正在读取上周数据…')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '重新读取' }));
     expect(refetch).toHaveBeenCalledOnce();
     rerender(<ManagementDrawer {...props} comparison={{ ...comparison, fetching: true }} />);
-    expect(screen.getByText('正在读取上周范围数据。')).toHaveAttribute('role', 'status');
-    expect(screen.queryByRole('button', { name: '重试' })).not.toBeInTheDocument();
+    expect(screen.getByText('正在读取上周数据…')).toHaveAttribute('role', 'status');
+    expect(screen.queryByRole('button', { name: '重新读取' })).not.toBeInTheDocument();
     rerender(
       <ManagementDrawer {...props} comparison={{ ...comparison, error: null, previous: data }} />,
     );
-    expect(screen.getByText('上周 4')).toBeInTheDocument();
-    expect(screen.queryByText('正在读取上周范围数据。')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('cell', { name: '4' })[1]).toBeInTheDocument();
+    expect(screen.queryByText('正在读取上周数据…')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
-  it('keeps keyboard focus inside the drawer from its initial panel and both ends', () => {
+  it('keeps keyboard focus inside the dialog from both ends', async () => {
+    const user = userEvent.setup();
     render(
       <ManagementDrawer
         action="sitemap 管理"
@@ -187,18 +189,14 @@ describe('real data states and interactions', () => {
       />,
     );
     const dialog = screen.getByRole('dialog');
-    const first = screen.getAllByRole('button', { name: '关闭' })[0];
-    const last = screen.getByRole('button', { name: '保存' });
-    expect(dialog).toHaveFocus();
-    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
-    expect(last).toHaveFocus();
-    fireEvent.keyDown(document, { key: 'Tab' });
-    expect(first).toHaveFocus();
-    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
-    expect(last).toHaveFocus();
-    dialog.focus();
-    fireEvent.keyDown(document, { key: 'Tab' });
-    expect(first).toHaveFocus();
+    const first = screen.getByRole('button', { name: '关闭弹窗' });
+    const last = screen.getByRole('button', { name: '导入页面目录' });
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+    last.focus();
+    await user.tab();
+    await waitFor(() => expect(first).toHaveFocus());
+    await user.tab({ shift: true });
+    await waitFor(() => expect(last).toHaveFocus());
   });
   it('saves only local robots settings and offers a download action', async () => {
     api.get.mockResolvedValue({ robots: 'User-agent: *\nAllow: /', allowlist: [], rules: [] });
@@ -223,7 +221,7 @@ describe('real data states and interactions', () => {
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: 'User-agent: *\nDisallow: /private' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    fireEvent.click(screen.getByRole('button', { name: '保存 robots.txt' }));
     await waitFor(() =>
       expect(api.put).toHaveBeenCalledWith('/liekan/websites/site/settings', {
         robots: 'User-agent: *\nDisallow: /private',
@@ -263,19 +261,31 @@ describe('real data states and interactions', () => {
           onRange={vi.fn()}
         />,
       );
-      await waitFor(() => expect(screen.getByRole('button', { name: '保存' })).not.toBeDisabled());
+      await waitFor(() =>
+        expect(
+          screen.getByRole('button', {
+            name: action === '蜘蛛白名单' ? '保存白名单' : '保存识别规则',
+          }),
+        ).not.toBeDisabled(),
+      );
+      if (action !== '蜘蛛白名单')
+        fireEvent.click(screen.getByRole('button', { name: '高级 JSON 编辑' }));
       fireEvent.change(screen.getByRole('textbox'), { target: { value: content } });
-      fireEvent.click(screen.getByRole('button', { name: '保存' }));
+      fireEvent.click(
+        screen.getByRole('button', {
+          name: action === '蜘蛛白名单' ? '保存白名单' : '保存识别规则',
+        }),
+      );
       await waitFor(() =>
         expect(api.put).toHaveBeenCalledWith('/liekan/websites/site/settings', patch),
       );
       expect(screen.getByRole('textbox')).toHaveValue(
         action === '蜘蛛白名单' ? returned.allowlist.join('\n') : '[]',
       );
-      expect(screen.getByRole('status')).toHaveTextContent('已保存');
+      expect(await screen.findByRole('status')).toHaveTextContent('已保存');
     },
   );
-  it('imports JSON logs through the query drawer with explicit format and records', async () => {
+  it('imports JSON logs through the query dialog with explicit format and records', async () => {
     api.post.mockResolvedValue({
       accepted: 1,
       inserted: 1,
@@ -294,12 +304,12 @@ describe('real data states and interactions', () => {
         onRange={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: '导入日志' }));
+    fireEvent.click(screen.getByRole('tab', { name: '导入日志' }));
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'json' } });
     fireEvent.change(screen.getByRole('textbox'), {
       target: { value: '[{"path":"/product","status":200}]' },
     });
-    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    fireEvent.click(screen.getByRole('button', { name: '导入日志' }));
     await waitFor(() =>
       expect(api.post).toHaveBeenCalledWith('/liekan/websites/site/logs/import', {
         format: 'json',
@@ -327,25 +337,34 @@ describe('real data states and interactions', () => {
         onRange={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: '导入日志' }));
+    fireEvent.click(screen.getByRole('tab', { name: '导入日志' }));
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'json' } });
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '[{},{},{}]' } });
-    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    fireEvent.click(screen.getByRole('button', { name: '导入日志' }));
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
         '新增 1 条 · 重复 1 条 · 拒绝 1 条，部分记录未导入。',
       ),
     );
-    expect(screen.getByRole('status')).toHaveTextContent('第 2 行：格式、时间、IP 或站点 URL 无效');
+    expect(within(screen.getByRole('status')).getByRole('cell', { name: '2' })).toBeVisible();
+    expect(
+      within(screen.getByRole('status')).getByRole('cell', {
+        name: '格式、时间、IP 或站点 URL 无效',
+      }),
+    ).toBeVisible();
     expect(screen.getByRole('status')).not.toHaveTextContent('已保存');
     expect(onSaved).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    fireEvent.click(screen.getByRole('button', { name: '导入日志' }));
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent(
         '新增 0 条 · 重复 2 条 · 拒绝 1 条，部分记录未导入。',
       ),
     );
-    expect(screen.getAllByText('第 2 行：格式、时间、IP 或站点 URL 无效')).toHaveLength(1);
+    expect(
+      within(screen.getByRole('status')).getAllByRole('cell', {
+        name: '格式、时间、IP 或站点 URL 无效',
+      }),
+    ).toHaveLength(1);
     expect(onSaved).toHaveBeenCalledTimes(2);
   });
   it('reports the actual accepted page count after a catalog upsert', async () => {
@@ -363,7 +382,7 @@ describe('real data states and interactions', () => {
     );
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'json' } });
     fireEvent.change(screen.getByRole('textbox'), { target: { value: '[{"path":"/actual"}]' } });
-    fireEvent.click(screen.getByRole('button', { name: '保存' }));
+    fireEvent.click(screen.getByRole('button', { name: '导入页面目录' }));
     await waitFor(() =>
       expect(screen.getByRole('status')).toHaveTextContent('已新增或更新 3 个页面'),
     );

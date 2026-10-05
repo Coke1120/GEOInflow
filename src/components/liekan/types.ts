@@ -7,6 +7,7 @@ export type ReportViewProps = {
   rangeLabel: string;
   trendLabel?: string;
   live?: boolean;
+  aiCrawlerEnabled?: boolean;
 };
 export type Resource =
   | 'overview'

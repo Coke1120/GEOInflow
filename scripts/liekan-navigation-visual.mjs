@@ -191,6 +191,89 @@ export async function checkNavigation(page, expected, width, baseline) {
       'Selected deep-link tab',
     );
   }
+  const analysisTools = page.locator('[data-liekan-features][data-website-layout] .analysis-tools');
+  if (await analysisTools.count()) {
+    const layout = await analysisTools.evaluate(tools => {
+      const context = tools.parentElement;
+      const range = context.querySelector('.range-context');
+      const header = document.querySelector('.header-inner');
+      const frame = context.previousElementSibling;
+      const main = context.nextElementSibling;
+      const rect = el => {
+        if (!el) return null;
+        const { x, y, width, height } = el.getBoundingClientRect();
+        return { x, y, width, height };
+      };
+      const style = getComputedStyle(context);
+      return {
+        grouped: context.classList.contains('analysis-context'),
+        outsideMain: !context.closest('main'),
+        header: rect(header),
+        frame: rect(frame),
+        main: rect(main),
+        bodyPaddingTop: parseFloat(getComputedStyle(main).paddingTop),
+        context: rect(context),
+        tools: rect(tools),
+        range: range && rect(range),
+        margins: [
+          getComputedStyle(tools).marginBottom,
+          range && getComputedStyle(range).marginBottom,
+        ],
+        columnGap: parseFloat(style.columnGap),
+        rowGap: parseFloat(style.rowGap),
+        actionHeights: [...tools.querySelectorAll('a')].map(a => rect(a).height),
+      };
+    });
+    const contextBaseline = baseline.websiteLayout.analysisContext;
+    assert(layout.grouped, 'Statistics context and actions must share one toolbar');
+    assert(layout.outsideMain, 'Analysis toolbar must be outside the padded body');
+    assert(
+      Math.abs(layout.frame.y - (layout.header.y + layout.header.height)) < 1,
+      'Analysis tabs immediately follow the title',
+    );
+    assert(
+      Math.abs(layout.context.y - (layout.frame.y + layout.frame.height)) < 1,
+      'Analysis toolbar immediately follows the tabs',
+    );
+    assert(
+      Math.abs(layout.main.y - (layout.context.y + layout.context.height)) < 1,
+      'Body immediately follows the analysis toolbar',
+    );
+    assert(
+      layout.margins.every(value => value === null || value === '0px'),
+      'No stacked margins',
+    );
+    assert.equal(layout.columnGap, contextBaseline.columnGap);
+    assert.equal(layout.rowGap, contextBaseline.rowGap);
+    if (!mobile && expected.tabs?.length) {
+      assert.equal(layout.frame.height, contextBaseline.tabsHeight, 'Shared statistics tabs height');
+    }
+    if (
+      !mobile &&
+      layout.range &&
+      layout.range.width + layout.tools.width + layout.columnGap <= layout.context.width &&
+      layout.range.height <= contextBaseline.desktopMaxHeight
+    ) {
+      assert.equal(
+        layout.header.height,
+        contextBaseline.headerHeight,
+        'Shared statistics header height',
+      );
+      assert.equal(
+        layout.bodyPaddingTop,
+        contextBaseline.bodyPaddingTop,
+        'Shared statistics body inset',
+      );
+      assert(layout.context.height <= contextBaseline.desktopMaxHeight, 'Compact desktop toolbar');
+      assert(Math.abs(layout.range.y - layout.tools.y) < 2, 'Statistics and actions align');
+    }
+    if (mobile) {
+      assert(
+        layout.actionHeights.every(height => height >= contextBaseline.mobileActionMinHeight),
+        'Toolbar actions retain touch targets',
+      );
+    }
+  }
   if (expected.scope === 'website') {
     const picker = page.getByRole('button', { name: /切换网站，当前/ });
     assert.equal(await picker.count(), 1);

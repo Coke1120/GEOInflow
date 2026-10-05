@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { AutomaticLogSetup } from './AutomaticLogSetup';
 const mocks = vi.hoisted(() => ({
@@ -67,6 +68,34 @@ function mount(method: 'server' | 'cloudflare', data = status) {
     </StrictMode>,
   );
 }
+it('confirms disconnection in the product dialog and preserves the connection on cancel or failure', async () => {
+  const source = {
+    id: 'source-a',
+    kind: 'server',
+    domain: 'example.com',
+    state: 'connected',
+    primary: true,
+    health: {},
+  };
+  mocks.api.del.mockRejectedValueOnce(new Error('连接断开失败')).mockResolvedValueOnce({});
+  const user = userEvent.setup();
+  mount('server', { ...status, sources: [source] });
+  const trigger = screen.getByRole('button', { name: '断开连接' });
+  await user.click(trigger);
+  expect(screen.getByRole('dialog', { name: '断开日志连接' })).toHaveTextContent(
+    '历史数据继续保留',
+  );
+  await user.click(screen.getByRole('button', { name: '保留连接' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(mocks.api.del).not.toHaveBeenCalled();
+  await user.click(trigger);
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '断开连接' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('连接断开失败');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '断开连接' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(mocks.api.del).toHaveBeenCalledWith(`/liekan/websites/${site}/log-sources/source-a`);
+  expect(refresh).toHaveBeenCalled();
+});
 it('generates the installation command in Strict Mode and guides an unavailable receiver', async () => {
   mocks.api.post.mockResolvedValue({
     command: 'signed-install-command',

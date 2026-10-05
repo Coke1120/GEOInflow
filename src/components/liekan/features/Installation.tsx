@@ -15,6 +15,7 @@ import {
 import styles from '@/styles/liekan/Installation.module.css';
 import { ManagementDrawer } from '../ManagementDrawer';
 import { useAction, useData, useFeature } from './context';
+import { CrawlerDisplaySettings } from './CrawlerDisplaySettings';
 import { AutomaticLogSetup } from './AutomaticLogSetup';
 import { TrackingCode } from './TrackingCode';
 import {
@@ -244,9 +245,13 @@ export function Installation({
       <div className={styles.checkRow}>
         <div>
           <strong>自动日志接入</strong>
-          <p className="muted">{status.sources?.some(source=>source.primary) ? '主要来源已连接；真实接收与处理状态见日志接入设置。' : '可从日志接入设置连接来源，检查可以延后。'}</p>
+          <p className="muted">
+            {status.sources?.some(source => source.primary)
+              ? '主要来源已连接；真实接收与处理状态见日志接入设置。'
+              : '可从日志接入设置连接来源，检查可以延后。'}
+          </p>
         </div>
-        <Badge>{status.sources?.some(source=>source.primary) ? '已配置' : '待配置'}</Badge>
+        <Badge>{status.sources?.some(source => source.primary) ? '已配置' : '待配置'}</Badge>
       </div>
       <div className={styles.checkRow}>
         <div>
@@ -437,7 +442,9 @@ export function Installation({
                                 : '上传已有访问日志'}
                           </small>
                         </span>
-                        <Badge tone={value === 'manual' || status.capabilities[value] ? 'blue' : 'gray'}>
+                        <Badge
+                          tone={value === 'manual' || status.capabilities[value] ? 'blue' : 'gray'}
+                        >
                           {value === 'manual' || status.capabilities[value] ? '可用' : '待配置'}
                         </Badge>
                       </label>
@@ -455,8 +462,22 @@ export function Installation({
                           ? '授权后选择与当前网站匹配的域名，由 CDN 持续推送访问日志。'
                           : '在网站服务器执行一次安装，采集服务持续发送该网站的访问日志。'}
                       </p>
-                      <AutomaticLogSetup key={`${site.id}:${method}`} websiteId={site.id} method={method} status={status} manage={canSave} refresh={()=>query.refetch()} />
-                      <div className="form-actions"><Button disabled={action.busy || !canSave} onClick={()=>selectMethod('manual')}>使用手动导入</Button></div>
+                      <AutomaticLogSetup
+                        key={`${site.id}:${method}`}
+                        websiteId={site.id}
+                        method={method}
+                        status={status}
+                        manage={canSave}
+                        refresh={() => query.refetch()}
+                      />
+                      <div className="form-actions">
+                        <Button
+                          disabled={action.busy || !canSave}
+                          onClick={() => selectMethod('manual')}
+                        >
+                          使用手动导入
+                        </Button>
+                      </div>
                       <p className="field-help">
                         覆盖范围：
                         {method === 'cloudflare'
@@ -475,7 +496,7 @@ export function Installation({
                       </p>
                       <div className="form-actions">
                         <Button primary disabled={!canSave} onClick={() => setImportOpen(true)}>
-                          导入该网站日志
+                          导入网站日志
                         </Button>
                         <LinkButton page="geo-logs" params={{ websiteId: site.id }}>
                           查看该网站日志
@@ -490,6 +511,14 @@ export function Installation({
                     </Button>
                   </div>
                   {demoNotice}
+                  <CrawlerDisplaySettings
+                    manage={canSave}
+                    guide
+                    logsConnected={
+                      status.sources?.some(source => source.state === 'active') ||
+                      (!status.logs.demo && status.logs.total > 0)
+                    }
+                  />
                   <div className={styles.footer}>
                     <LinkButton page="website-settings" params={installationParams(site.id, 'js')}>
                       上一步
@@ -534,10 +563,23 @@ export function Installation({
                     items={[
                       ['网站', `${site.name} · ${site.domain}`],
                       ['日志接入方式', logMethodLabels[method]],
-                      ['自动接入', status.sources?.some(source=>source.primary) ? '主要来源已配置' : '等待连接'],
+                      [
+                        '自动接入',
+                        status.sources?.some(source => source.primary)
+                          ? '主要来源已配置'
+                          : '等待连接',
+                      ],
                     ]}
                   />
                   {summary}
+                  <CrawlerDisplaySettings
+                    manage={canSave}
+                    guide
+                    logsConnected={
+                      status.sources?.some(source => source.state === 'active') ||
+                      (!status.logs.demo && status.logs.total > 0)
+                    }
+                  />
                   <Notice tone="blue">
                     完成后会保存接入设置。尚未收到的数据仍显示等待，可从网站设置继续安装或检查。
                   </Notice>
@@ -689,11 +731,17 @@ export function Installation({
                 key={site.id}
                 action="导入日志"
                 websiteId={site.id}
+                websiteName={site.name}
+                websiteDomain={site.domain}
                 canManage={canSave}
                 onClose={() => setImportOpen(false)}
-                onSaved={() => {
-                  void query.refetch();
-                  void c.refresh();
+                onSaved={async () => {
+                  const results = await Promise.allSettled([
+                    query.refetch({ throwOnError: true }),
+                    c.refresh(),
+                  ]);
+                  const failure = results.find(result => result.status === 'rejected');
+                  if (failure) throw failure.reason;
                 }}
                 onSearch={search => c.navigate('geo-logs', { websiteId: site.id, search })}
                 onRange={(start, end) =>

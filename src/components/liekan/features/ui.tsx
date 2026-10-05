@@ -16,7 +16,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { createPortal } from 'react-dom';
+import { DialogActions, useDialog } from './LiekanDialog';
+export { DialogActions, LiekanDialog } from './LiekanDialog';
 import { useFeature } from './context';
 import { featureIcons } from './icons';
 import { DataLoading, LoadingLines, Skeleton, useDataLoading } from '../DataLoading';
@@ -291,10 +292,25 @@ export function Form({
   error,
   cancel,
   trackUnsaved = true,
+  danger = false,
+  columns = false,
 }: any) {
   const [localError, setLocalError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const form = useRef<HTMLFormElement>(null);
+  const formId = useId();
+  const dialog = useDialog();
+  const cancelAction = dialog ? (
+    isValidElement(cancel) ? (
+      cloneElement(cancel as any, { onClick: dialog.requestClose })
+    ) : (
+      <Button disabled={busy || submitting} onClick={dialog.requestClose}>
+        取消
+      </Button>
+    )
+  ) : (
+    cancel
+  );
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (trackUnsaved && form.current?.dataset.unsaved === 'true') {
@@ -308,6 +324,8 @@ export function Form({
   return (
     <form
       ref={form}
+      id={formId}
+      aria-busy={busy || submitting || undefined}
       className="form form-stack"
       onClickCapture={event => {
         if (
@@ -319,7 +337,11 @@ export function Form({
           event.currentTarget.dataset.unsaved = 'true';
       }}
       onChange={event => {
-        if (trackUnsaved) event.currentTarget.dataset.unsaved = 'true';
+        if (
+          trackUnsaved &&
+          (!(event.target instanceof HTMLInputElement) || event.target.name !== 'confirmation')
+        )
+          event.currentTarget.dataset.unsaved = 'true';
       }}
       onSubmit={async e => {
         e.preventDefault();
@@ -338,18 +360,25 @@ export function Form({
       }}
     >
       <fieldset
+        className={columns ? 'form-grid' : undefined}
         disabled={busy || submitting || disabled}
         style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
       >
         {children}
       </fieldset>
       {(error || localError) && <Notice tone="red">{error || localError}</Notice>}
-      <div className="form-actions">
-        <button className="btn primary" type="submit" disabled={busy || submitting || disabled}>
+      <DialogActions>
+        {dialog && cancelAction}
+        <button
+          className={`btn ${danger ? 'danger' : 'primary'}`}
+          type="submit"
+          form={formId}
+          disabled={busy || submitting || disabled}
+        >
           {busy || submitting ? `正在${submitLabel}…` : submitLabel}
         </button>
-        {cancel}
-      </div>
+        {!dialog && cancelAction}
+      </DialogActions>
     </form>
   );
 }
@@ -652,90 +681,5 @@ export function QueryState({ query, children }: { query: any; children: ReactNod
       )}
       {children}
     </>
-  );
-}
-export function Drawer({
-  title,
-  subtitle,
-  children,
-  onClose,
-  variant = 'drawer',
-  className = '',
-}: {
-  title: string;
-  subtitle?: string;
-  children: ReactNode;
-  onClose: () => void;
-  variant?: 'drawer' | 'modal';
-  className?: string;
-}) {
-  const ref = useRef<HTMLElement>(null);
-  const descriptionId = useId();
-  const close = useRef(onClose);
-  close.current = onClose;
-  useEffect(() => {
-    const trigger = document.activeElement as HTMLElement;
-    const old = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    ref.current?.querySelector<HTMLElement>('input,select,button')?.focus();
-    const handle = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close.current();
-      if (e.key === 'Tab') {
-        const focusable = Array.from(
-          ref.current?.querySelectorAll<HTMLElement>(
-            'button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),a[href]',
-          ) || [],
-        );
-        const first = focusable[0],
-          last = focusable.at(-1);
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener('keydown', handle);
-    return () => {
-      document.body.style.overflow = old;
-      document.removeEventListener('keydown', handle);
-      trigger?.focus();
-    };
-  }, []);
-  return createPortal(
-    <div
-      data-liekan-features
-      className={`dialog-overlay${variant === 'modal' ? ' modal-overlay' : ''}`}
-      onMouseDown={e => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <section
-        className={`${variant} ${className}`}
-        ref={ref}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        aria-describedby={subtitle ? descriptionId : undefined}
-      >
-        <div className="drawer-head">
-          <div>
-            <h2>{title}</h2>
-            {subtitle && (
-              <p id={descriptionId} className="muted">
-                {subtitle}
-              </p>
-            )}
-          </div>
-          <Button aria-label="关闭弹层" onClick={onClose}>
-            <Icon name="close" />
-          </Button>
-        </div>
-        <div className="drawer-body">{children}</div>
-      </section>
-    </div>,
-    document.body,
   );
 }

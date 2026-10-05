@@ -5,14 +5,18 @@ import { featureHref, featurePages, featureWebsiteSwitchHref, matchFeatureRoute 
 const uuid = '11111111-1111-4111-8111-111111111111';
 describe('approved scene routing', () => {
   it('registers every approved supplemental scene without duplicate IDs', () => {
-    expect(featurePages).toHaveLength(68);
-    expect(new Set(featurePages.map(p => p.id)).size).toBe(68);
+    expect(featurePages).toHaveLength(69);
+    expect(new Set(featurePages.map(p => p.id)).size).toBe(69);
     for (const p of featurePages)
-      expect(matchFeatureRoute(`/liekan/${p.id}`, { websiteId: uuid, id: uuid })).toMatchObject({
-        page: p.id,
-        websiteId: needsWebsite({ page: p.id }) ? uuid : undefined,
-        id: uuid,
-      });
+      expect(matchFeatureRoute(`/liekan/${p.id}`, { websiteId: uuid, id: uuid })).toMatchObject(
+        p.id === 'help'
+          ? { page: 'help' }
+          : {
+              page: p.id,
+              websiteId: needsWebsite({ page: p.id }) ? uuid : undefined,
+              id: uuid,
+            },
+      );
   });
   it('preserves route opt-out, team context and safe query values', () => {
     expect(matchFeatureRoute('/websites', { legacy: '1' })).toBeNull();

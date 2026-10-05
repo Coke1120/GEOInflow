@@ -6,6 +6,7 @@ import type { LiekanReport } from './types';
 import { WebsiteLayout } from '@/app/(main)/websites/[websiteId]/WebsiteLayout';
 
 const mocks = vi.hoisted(() => ({
+  display: {} as { aiCrawlerEnabled?: boolean },
   metadata: { data: undefined, isPending: true, isError: false, refetch: vi.fn() } as any,
   report: { data: undefined, isPending: true, isError: false, refetch: vi.fn() } as any,
   pathname: '/websites/site-a/geo/content',
@@ -14,7 +15,10 @@ const mocks = vi.hoisted(() => ({
   website: { id: 'site-a', name: '当前网站', domain: 'a.test' },
 }));
 vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn().mockResolvedValue(undefined) }),
+  useQueryClient: () => ({
+    getQueryData: vi.fn(),
+    invalidateQueries: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 vi.mock('next/link', () => ({
   default: ({ children, prefetch: _prefetch, ...props }: any) => <a {...props}>{children}</a>,
@@ -44,7 +48,11 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
   }),
   useApi: () => ({
     useQuery: (options: any) =>
-      options.queryKey[4] < Date.parse('2026-08-31') ? mocks.previous : mocks.report,
+      options.queryKey.includes('website-display-settings')
+        ? { data: mocks.display, refetch: vi.fn().mockResolvedValue({}), isFetching: false }
+        : options.queryKey[4] < Date.parse('2026-08-31')
+          ? mocks.previous
+          : mocks.report,
   }),
   useNavigation: () => ({
     pathname: mocks.pathname,
@@ -69,6 +77,7 @@ function report(): LiekanReport {
 }
 describe('analysis loading states', () => {
   beforeEach(() => {
+    mocks.display = {};
     mocks.pathname = '/websites/site-a/geo/content';
     mocks.params = { date: '30day' };
     mocks.previous = { data: undefined, isPending: false, isError: false, refetch: vi.fn() };
@@ -192,12 +201,50 @@ describe('analysis loading states', () => {
     mocks.report = { ...mocks.report, data: current, isPending: false };
     mocks.previous = { ...mocks.previous, data: previous };
     const view = render(<LiekanPage resource="human/overview" />);
-    expect(screen.getByText('上周 999')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '999' })).toBeInTheDocument();
     mocks.previous = { ...mocks.previous, isError: true, error: { status } };
     view.rerender(<LiekanPage resource="human/overview" />);
-    expect(screen.queryByText('上周 999')).not.toBeInTheDocument();
-    expect(screen.getByText('当前 123')).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('读取上周范围数据失败');
+    expect(screen.queryByRole('cell', { name: '999' })).not.toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '123' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('上周数据读取失败');
   });
+});
 
+it('shows a reversible closed state when a hidden crawler report is opened directly', () => {
+  const data = report();
+  data.meta.aiCrawlerEnabled = false;
+  mocks.report = { data, isPending: false, error: null, isFetching: false };
+  mocks.metadata = { data: { id: 'site-a', name: '当前网站' }, isPending: false, error: null };
+  const view = render(<LiekanPage resource="ai/overview" />);
+  expect(screen.getByText('AI 蜘蛛数据展示已关闭')).toBeInTheDocument();
+  expect(screen.queryByText('识别 AI 蜘蛛')).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '网站设置' })).toBeInTheDocument();
+  data.meta.aiCrawlerEnabled = true;
+  view.rerender(<LiekanPage resource="ai/overview" />);
+  expect(screen.queryByText('AI 蜘蛛数据展示已关闭')).not.toBeInTheDocument();
+});
+
+it('withholds the previous crawler projection when display is off and report refresh fails', () => {
+  mocks.display = { aiCrawlerEnabled: false };
+  const data = report();
+  data.meta.aiCrawlerEnabled = true;
+  data.insights = ['旧 AI 蜘蛛发现'];
+  data.charts.d1 = {
+    labels: ['2026-10-01'],
+    series: [
+      { name: '人类 PV', values: [1] },
+      { name: 'AI 蜘蛛请求', values: [8] },
+    ],
+  };
+  mocks.report = {
+    data,
+    isPending: false,
+    error: new Error('Temporary report failure'),
+    isFetching: false,
+    refetch: vi.fn().mockResolvedValue({}),
+  };
+  mocks.metadata = { data: { id: 'site-a', name: '当前网站' }, isPending: false, error: null };
+  render(<LiekanPage resource="overview" />);
+  expect(screen.queryByText('旧 AI 蜘蛛发现')).not.toBeInTheDocument();
+  expect(screen.getByText('访客浏览趋势')).toBeInTheDocument();
 });

@@ -9,11 +9,22 @@ import {
   trackingSourcePage,
 } from '@/lib/liekan/contracts/navigation';
 
-export const featurePages = mapping.pages.map(page => ({
-  ...page,
-  title: pageNavigation[page.id]?.title || page.title,
-}));
+export const featurePages = [
+  ...mapping.pages.map(page => ({
+    ...page,
+    title: pageNavigation[page.id]?.title || page.title,
+  })),
+  {
+    id: 'help',
+    title: '帮助中心',
+    group: 'help',
+    summary: '指标、配置与全球蜘蛛资料',
+    route: '',
+    kind: 'reference',
+  },
+];
 const unscopedPages = new Set([
+  'help',
   'dashboard',
   'dashboard-edit',
   'account',
@@ -35,6 +46,7 @@ const unscopedPages = new Set([
   'share-preview',
 ]);
 export function normalizeFeatureScope(route: FeatureRoute): FeatureRoute {
+  if (route.page === 'help') return { page: 'help' };
   return {
     ...route,
     ...(!needsWebsite(route) ? { websiteId: undefined } : {}),
@@ -100,6 +112,14 @@ export function matchFeatureRoute(
   return null;
 }
 export function featureHref(page: string, params: Record<string, any> = {}): string {
+  if (page === 'help') {
+    const search = new URLSearchParams();
+    for (const key of ['section', 'article', 'crawler']) {
+      const value = params[key];
+      if (typeof value === 'string' && /^[a-z0-9-]{1,80}$/.test(value)) search.set(key, value);
+    }
+    return `/liekan/help${search.size ? '?' + search.toString() : ''}`;
+  }
   const record = featurePages.find(p => p.id === page);
   const geo =
     page in geoPaths && params.websiteId
@@ -178,6 +198,7 @@ export function featureNavigationHref(
   page: string,
   params: Record<string, any> = {},
 ) {
+  if (page === 'help') return featureHref(page, params);
   if (route.context === 'admin' && page === 'teams') page = 'admin-teams';
   if (route.context === 'admin' && page === 'websites') page = 'admin-websites';
   const target = {

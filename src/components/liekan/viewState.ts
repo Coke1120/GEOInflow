@@ -41,7 +41,12 @@ export function readViewState(params: Record<string, string>, resource: Resource
       ? params.chartPeriod
       : '30d') as '30d' | '7d' | '24h',
     sort: {
-      label: columns[table]?.some(([, label]) => label === params.sort) ? params.sort : '',
+      label: [
+        ...(columns[table] || []),
+        ...(resource === 'overview' ? columns.visitorTopBody : []),
+      ].some(([, label]) => label === params.sort)
+        ? params.sort
+        : '',
       direction: params.direction === 'asc' ? 1 : -1,
     },
     compare: resource === 'human/overview' && params.compareWeek === '1',

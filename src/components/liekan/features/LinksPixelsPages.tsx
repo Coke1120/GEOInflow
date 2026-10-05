@@ -17,7 +17,8 @@ import {
   Body,
   Button,
   Code,
-  Drawer,
+  LiekanDialog,
+  DialogActions,
   Field,
   Form,
   Icon,
@@ -90,7 +91,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
             <label className="search">
               <input
                 type="search"
-                aria-label={`搜索${kind === 'link' ? '链接' : '图片'}`}
+                aria-label={`搜索${kind === 'link' ? '链接' : '追踪图片'}`}
                 placeholder="搜索名称或标识"
                 value={search}
                 onChange={e => {
@@ -307,7 +308,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
                 <>
                   <hr className="divider" />
                   <Button danger disabled={action.busy || !canEdit} onClick={() => setRemove(true)}>
-                    删除{kind === 'link' ? '链接' : '图片'}
+                    删除{kind === 'link' ? '链接' : '追踪图片'}
                   </Button>
                 </>
               )}
@@ -316,16 +317,17 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
         </Body>
       </Panel>
       {remove && (
-        <Drawer
-          title={`删除${kind === 'link' ? '链接' : '图片'}`}
+        <LiekanDialog
+          title={`删除${kind === 'link' ? '链接' : '追踪图片'}`}
           onClose={() => !action.busy && setRemove(false)}
         >
           <Form
             busy={action.busy}
-            submitLabel={kind === 'link' ? '删除链接' : '删除图片'}
+            danger
+            submitLabel={kind === 'link' ? '删除链接' : '删除追踪图片'}
             onSubmit={async (values: any) => {
               if (values.confirmation !== record.name)
-                throw new Error(`请输入${kind === 'link' ? '链接' : '图片'}名称确认删除`);
+                throw new Error(`请输入${kind === 'link' ? '链接' : '追踪图片'}名称确认删除`);
               await action.run(
                 () => c.api.del(`/${path}/${record.id}`),
                 kind === 'link' ? '链接已删除' : '图片已删除',
@@ -334,7 +336,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
             }}
           >
             <Notice tone="red">
-              将删除{kind === 'link' ? '链接' : '图片'}“{record.name}”及其统计数据。
+              将删除{kind === 'link' ? '链接' : '追踪图片'}“{record.name}”及其统计数据。
               {kind === 'link' ? '短链地址' : '图片地址'}和分享链接将失效。
             </Notice>
             <Field
@@ -344,7 +346,7 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
               autoComplete="off"
             />
           </Form>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -392,17 +394,17 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
         </div>
         <div className="actions">
           <LinkButton page={`${kind}-editor`} params={{ id }}>
-            编辑{kind === 'link' ? '链接' : '图片'}
+            编辑{kind === 'link' ? '链接' : '追踪图片'}
           </LinkButton>
           <Button disabled={!allowed} onClick={() => setShare(true)}>
-            分享当前{kind === 'link' ? '链接' : '图片'}
+            分享当前{kind === 'link' ? '链接' : '追踪图片'}
           </Button>
           {kind === 'link' && (
             <Button disabled={!url} onClick={() => setQr(true)}>
               查看链接二维码
             </Button>
           )}
-          <LinkButton page={path}>返回{kind === 'link' ? '链接' : '图片'}列表</LinkButton>
+          <LinkButton page={path}>返回{kind === 'link' ? '链接' : '追踪图片'}列表</LinkButton>
         </div>
       </div>
       <QueryState query={stats}>
@@ -500,18 +502,27 @@ function ResourceDetail({ kind, record }: { kind: 'link' | 'pixel'; record: Feat
       )}
       {share && <ShareDrawer entity={{ ...record, kind }} onClose={() => setShare(false)} />}
       {qr && (
-        <Drawer title="链接二维码" onClose={() => setQr(false)}>
-          <QRCode url={url} />
-          <Code>{url}</Code>
-          <Button
-            onClick={async () => {
-              await navigator.clipboard.writeText(url);
-              c.notify('链接已复制');
-            }}
-          >
-            复制链接
-          </Button>
-        </Drawer>
+        <LiekanDialog title="链接二维码" onClose={() => setQr(false)}>
+          <div className="qr-dialog-layout">
+            <QRCode url={url} />
+            <div className="stack">
+              <h3>{record.name}</h3>
+              <p className="muted">扫描二维码打开链接。可复制下方地址分享。</p>
+              <Code>{url}</Code>
+            </div>
+          </div>
+          <DialogActions>
+            <Button
+              primary
+              onClick={async () => {
+                await navigator.clipboard.writeText(url);
+                c.notify('链接已复制');
+              }}
+            >
+              复制链接
+            </Button>
+          </DialogActions>
+        </LiekanDialog>
       )}
     </>
   );
@@ -531,7 +542,8 @@ function ResourcePage({ page, kind }: { page: string; kind: 'link' | 'pixel' }) 
       <ResourceEditor kind={kind} />
     ) : (
       <Notice>
-        请选择一个{kind === 'link' ? '链接' : '图片'}。<LinkButton page={path}>返回列表</LinkButton>
+        请选择一个{kind === 'link' ? '链接' : '追踪图片'}。
+        <LinkButton page={path}>返回列表</LinkButton>
       </Notice>
     );
   return (

@@ -3,6 +3,9 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assertProductImports } from './liekan-boundaries.mjs';
+import { assertDialogContract } from './liekan-dialog-contract.mjs';
+
+assertDialogContract();
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const manifest = JSON.parse(readFileSync('design/reference/geo-stats-v3/manifest.json', 'utf8'));

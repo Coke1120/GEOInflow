@@ -370,6 +370,23 @@ try {
     report.featureFlows.errors.length
   )
     throw new Error('Supplemental interaction acceptance incomplete');
+  await run(process.execPath, ['scripts/liekan-dialog-visual.mjs'], 'dialog-visual', {
+    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+  });
+  report.dialogVisual = JSON.parse(
+    fs.readFileSync('test-results/liekan-dialogs/report.json', 'utf8'),
+  );
+  if (
+    !report.dialogVisual.passed ||
+    report.dialogVisual.head !== head ||
+    report.dialogVisual.checks.length !== 50 ||
+    report.dialogVisual.duplicates?.length !== 7 ||
+    report.dialogVisual.responsive.length !== 15 ||
+    report.dialogVisual.supplementalResponsive?.length !== 8 ||
+    report.dialogVisual.errors.length ||
+    !report.dialogVisual.cleanup?.passed
+  )
+    throw new Error('Centered dialog acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-feature-visual.mjs'], 'feature-visual', {
     env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
   });
@@ -382,6 +399,18 @@ try {
     report.featureVisual.checks.length !== 68 * 4
   )
     throw new Error('Supplemental visual acceptance incomplete');
+  await run(process.execPath, ['scripts/liekan-help-visual.mjs'], 'help-visual', {
+    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+  });
+  report.helpVisual = JSON.parse(fs.readFileSync('test-results/liekan-help/report.json', 'utf8'));
+  if (
+    !report.helpVisual.passed ||
+    report.helpVisual.head !== head ||
+    report.helpVisual.checks.length !== 9 ||
+    report.helpVisual.checks.some(check => !check.passed) ||
+    report.helpVisual.errors.length
+  )
+    throw new Error('Help center acceptance incomplete');
   docker('rm', '-f', app);
   appCreated = false;
   psql('CREATE DATABASE liekan_restore');

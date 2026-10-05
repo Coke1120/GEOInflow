@@ -249,7 +249,7 @@ describe('navigation task boundaries', () => {
     }
   });
   it('assigns every supplemental and GEO page to a scope and an accessible parent', () => {
-    expect(featurePages).toHaveLength(68);
+    expect(featurePages).toHaveLength(69);
     expect(Object.keys(geoPaths)).toHaveLength(11);
     for (const page of [...featurePages.map(page => page.id), ...Object.keys(geoPaths)]) {
       expect(pageNavigation[page], page).toBeDefined();
@@ -261,6 +261,7 @@ describe('navigation task boundaries', () => {
       '数据总览',
       '数据管理',
       '协作管理',
+      '帮助中心',
     ]);
     const globalItems = globalNavigation.flatMap(group => group.children || [group]);
     expect(globalItems.map(item => item.label)).toEqual([
@@ -270,6 +271,7 @@ describe('navigation task boundaries', () => {
       '追踪管理',
       '分享管理',
       '团队管理',
+      '帮助中心',
     ]);
     expect(globalItems.map(item => item.icon)).toEqual([
       'grid',
@@ -278,6 +280,7 @@ describe('navigation task boundaries', () => {
       'target',
       'copy',
       'users',
+      'book',
     ]);
     expect(websiteNavigation.map(group => group.label)).toEqual([
       '流量总览',
@@ -285,6 +288,7 @@ describe('navigation task boundaries', () => {
       '访客与来源',
       '内容与转化',
       '实时监测',
+      '帮助中心',
     ]);
   });
   it('keeps account and global resource URLs free of accidental website association', () => {
