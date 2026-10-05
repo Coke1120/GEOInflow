@@ -173,8 +173,18 @@ export async function checkNavigation(page, expected, width, baseline) {
       const geometry = await frame.evaluate(el => {
         const rect = el.getBoundingClientRect();
         const parent = el.parentElement.getBoundingClientRect();
-        return { x: rect.x, right: rect.right, width: rect.width, parentWidth: parent.width };
+        const style = getComputedStyle(el);
+        return {
+          x: rect.x,
+          right: rect.right,
+          width: rect.width,
+          parentWidth: parent.width,
+          marginTop: style.marginTop,
+          marginBottom: style.marginBottom,
+        };
       });
+      assert.equal(geometry.marginTop, '0px', 'Analysis tabs must preserve title spacing');
+      assert.equal(geometry.marginBottom, '0px', 'Analysis tabs must preserve toolbar spacing');
       assert(
         Math.abs(geometry.width - Math.min(1200, geometry.parentWidth)) < 1,
         'Analysis tabs frame must fill available width',
