@@ -27,7 +27,7 @@
   box-sizing: border-box;
 }
 .chatWorkspace {
-  max-width: 860px;
+  max-width: 1120px;
   min-height: calc(100dvh - 170px);
 }
 .workspace h2,

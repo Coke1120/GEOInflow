@@ -17,12 +17,7 @@ for (const [file, digest] of Object.entries(manifest.sha256))
     digest,
     `Approved AI reference changed: ${file}`,
   );
-const seed = JSON.parse(
-  fs.readFileSync(
-    acceptanceSeedFile(target),
-    'utf8',
-  ),
-);
+const seed = JSON.parse(fs.readFileSync(acceptanceSeedFile(target), 'utf8'));
 const login = await fetch(base + '/api/auth/login', {
   method: 'POST',
   headers: { 'content-type': 'application/json' },
@@ -140,6 +135,33 @@ try {
             navigation.indexOf('快速发起') < navigation.indexOf('数据总览'),
         );
         assert(navigation.includes('AI能力') && navigation.includes('AI配置器'));
+      }
+      if (id === 'ai-chat' && manifest.chatHome) {
+        const home = await actual.evaluate(() => {
+          const question = document.querySelector('textarea[aria-label="分析问题"]');
+          const form = question?.closest('form');
+          const site = form?.querySelector('select[aria-label="分析网站"]');
+          const send = form?.querySelector('button[aria-label="发起分析"]');
+          const siteBox = site?.getBoundingClientRect(),
+            sendBox = send?.getBoundingClientRect();
+          const section = document.querySelector('[aria-labelledby="ai-functions-title"]');
+          return {
+            composerSite: !!site,
+            leftOfSend: !!siteBox && !!sendBox && siteBox.right <= sendBox.left,
+            belowQuestion:
+              !!siteBox && !!question && siteBox.top >= question.getBoundingClientRect().bottom,
+            functions: section?.querySelectorAll('a,button').length,
+            questions: document
+              .querySelector('[aria-labelledby="ai-questions-title"]')
+              ?.querySelectorAll('button').length,
+          };
+        });
+        assert(
+          home.composerSite && home.leftOfSend && home.belowQuestion,
+          `chat composer scope at ${width}px`,
+        );
+        assert.equal(home.functions, manifest.chatHome.shortcuts.length);
+        assert.equal(home.questions, manifest.chatHome.questions);
       }
       await actual.screenshot({
         path: `${out}/${id}-${width}-actual.png`,

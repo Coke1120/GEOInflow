@@ -5,6 +5,7 @@ import {
   type AiCatalog,
   type AiConnection,
   type AiConnectionListItem,
+  type AiRun,
   aiClient,
 } from '@/lib/liekan/upstream/ai-client';
 import {
@@ -450,10 +451,11 @@ type FormValues = {
   workspaceId: string;
   apiKey: string;
 };
-function ConnectionForm({
+export function ConnectionForm({
   catalog,
   space,
   existing,
+  embedded = false,
   onClose,
   onSave,
   onConflict,
@@ -461,8 +463,9 @@ function ConnectionForm({
   catalog: AiCatalog;
   space: AiSpaceOption;
   existing?: AiConnection;
+  embedded?: boolean;
   onClose: () => void;
-  onSave: () => Promise<void>;
+  onSave: (connection: AiConnection) => Promise<void>;
   onConflict: () => Promise<unknown>;
 }) {
   const first = catalog.templates.find(t => t.id === 'deepseek') || catalog.templates[0];
@@ -585,19 +588,21 @@ function ConnectionForm({
       isDefault: false,
     };
     try {
-      if (existing)
-        await aiClient.updateConnection({
-          id: existing.id,
-          rowVersion: existing.rowVersion,
-          ...payload,
-        });
-      else
-        await aiClient.createConnection({
-          ...payload,
-          apiKey: values.apiKey,
-          space: { kind: space.kind, id: space.id },
-        });
-      if (active.current) await onSave();
+      const saved = existing
+        ? await aiClient.updateConnection({
+            id: existing.id,
+            rowVersion: existing.rowVersion,
+            ...payload,
+          })
+        : await aiClient.createConnection({
+            ...payload,
+            apiKey: values.apiKey,
+            space: { kind: space.kind, id: space.id },
+          });
+      if (active.current) {
+        setValues(v => ({ ...v, apiKey: '' }));
+        await onSave(saved);
+      }
     } catch (e) {
       if (active.current) setError(aiError(e));
       if (record(e).status === 409) await onConflict();
@@ -636,7 +641,7 @@ function ConnectionForm({
     <form onSubmit={submit} className={styles.configForm}>
       <div className={styles.pageHeading}>
         <div>
-          <h2>{existing ? '编辑 API' : '新建 API'}</h2>
+          <h2>{existing ? '编辑 API' : embedded ? '连接你的模型' : '新建 API'}</h2>
           <p>所属空间：{space.name}。选择平台后，只需填写 API Key。</p>
         </div>
         <AiButton
@@ -645,7 +650,7 @@ function ConnectionForm({
             onClose();
           }}
         >
-          返回 API 列表
+          {embedded ? '稍后配置' : '返回 API 列表'}
         </AiButton>
       </div>
       <h3>选择模型平台</h3>
@@ -764,16 +769,18 @@ function origin(url: string) {
     return '';
   }
 }
-function ConnectionTest({
+export function ConnectionTest({
   connection,
   catalog,
   onClose,
   onFinished,
+  onTestStart,
 }: {
   connection: AiConnection;
   catalog: AiCatalog;
   onClose: () => void;
-  onFinished: () => void;
+  onFinished: (run: AiRun) => void;
+  onTestStart?: () => void;
 }) {
   const c = useFeature(),
     task = useAiRun(`liekan-ai:${c.user.id}:test:${connection.id}`, onFinished),
@@ -781,10 +788,12 @@ function ConnectionTest({
   useEffect(() => {
     if (!started.current) {
       started.current = true;
-      if (!task.metadata)
+      if (!task.metadata) {
+        onTestStart?.();
         void task.start(`/liekan/ai/connections/${connection.id}/test`, {
           expectedConfigVersion: connection.configVersion,
         });
+      }
     }
   }, []);
   const close = async () => {
@@ -911,7 +920,8 @@ function ConnectionTest({
           <AiButton
             primary
             onClick={() => {
-              task.reset();
+              if (!task.reset()) return;
+              onTestStart?.();
               void task.start(`/liekan/ai/connections/${connection.id}/test`, {
                 expectedConfigVersion: connection.configVersion,
               });

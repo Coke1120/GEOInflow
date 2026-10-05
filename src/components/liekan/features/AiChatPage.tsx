@@ -1,12 +1,15 @@
 'use client';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { CalendarDays, ChevronDown } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { DataState } from '@/lib/liekan/contracts/report';
 import {
   type AiCatalog,
   type AiConversation,
+  type AiConnection,
   type AiMessage,
+  type AiRun,
   aiClient,
 } from '@/lib/liekan/upstream/ai-client';
 import {
@@ -25,6 +28,9 @@ import {
   useAiRun,
   uuid,
 } from './AiShared';
+import home from '@/styles/liekan/AiChatHome.module.css';
+import { ChatComposer, ChatHome, ChatWebsite, ChatWelcome } from './AiChatHome';
+import { ConnectionForm, ConnectionTest } from './AiConfigPage';
 import { useFeature } from './context';
 
 const dataStateLabels: Record<DataState | 'actual' | 'zero' | 'unknown', string> = {
@@ -56,15 +62,16 @@ function sourceLabel(value: string) {
 }
 const conversationKey = (userId: string, siteId: string, conversationId: string) =>
   ['liekan-ai', userId, 'conversation', siteId, conversationId] as const;
-const questions = [
-  '分析最近 7 天的 AI 抓取趋势',
-  '哪些页面值得优先优化？',
-  '检查 AI 来源与转化表现',
-];
 export function AiChatPage() {
   const c = useFeature(),
     catalog = useAiCatalog();
-  const [siteId, setSiteId] = useState(c.query.aiSite || '');
+  const [siteId, setSiteId] = useState(c.query.aiSite || ''),
+    [draft, setDraft] = useState(''),
+    [selectionHint, setSelectionHint] = useState(false);
+  const chooseSite = () => {
+    setSelectionHint(true);
+    document.querySelector<HTMLSelectElement>('select[aria-label="分析网站"]')?.focus();
+  };
   useEffect(() => {
     setSiteId(c.query.aiSite || '');
   }, [c.query.aiSite, c.query.aiConversation]);
@@ -86,6 +93,8 @@ export function AiChatPage() {
   const site = data.websites.find(s => s.id === siteId),
     space = data.spaces.find(s => s.kind === site?.space.kind && s.id === site?.space.id);
   const changeSite = (id: string, conversationId?: string) => {
+    if (site) setDraft('');
+    setSelectionHint(false);
     setSiteId(id);
     c.navigate(
       'ai-chat',
@@ -100,39 +109,32 @@ export function AiChatPage() {
         <SiteConversation
           key={site.id}
           catalog={data}
+          initialQuestion={draft}
           site={site}
           space={space}
           changeSite={changeSite}
         />
       ) : (
         <>
-          <div className={styles.scope}>
-            <label>
-              网站
-              <select aria-label="分析网站" value="" onChange={e => changeSite(e.target.value)}>
-                <option value="">请明确选择网站</option>
-                {data.websites.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
           {siteId && <AiNotice error>所选网站不可访问或归属已变更，请重新选择。</AiNotice>}
-          <div className={styles.welcome}>
-            <h2>从一个问题开始，读懂网站表现</h2>
-            <p>选择网站、确认日期，再结合统计依据开展分析。</p>
-          </div>
-          <div className={styles.composer}>
-            <textarea aria-label="分析问题" disabled placeholder="先选择需要分析的网站" />
-            <div className={styles.composerActions}>
-              <span>每次分析绑定一个明确的网站</span>
-              <AiButton primary disabled>
-                发起分析
-              </AiButton>
-            </div>
-          </div>
+          <ChatWelcome />
+          <ChatComposer
+            question={draft}
+            onQuestion={setDraft}
+            onSubmit={event => {
+              event.preventDefault();
+              chooseSite();
+            }}
+            maxLength={data.limits.maxQuestionCharacters}
+            disabled={!data.module.enabled}
+            scope={<ChatWebsite websites={data.websites} value="" onChange={changeSite} />}
+          />
+          <p className={home.hint} role="status">
+            {selectionHint
+              ? '请先选择要分析的网站，问题会为你保留。'
+              : '选择一个网站，结合你的统计数据开始分析。'}
+          </p>
+          <ChatHome onPrompt={setDraft} onChooseSite={chooseSite} disabled={!data.module.enabled} />
           {!data.websites.length && (
             <AiNotice>当前账户没有可访问的网站。请先在网站管理添加网站或获取团队权限。</AiNotice>
           )}
@@ -143,11 +145,13 @@ export function AiChatPage() {
 }
 function SiteConversation({
   catalog,
+  initialQuestion,
   site,
   space,
   changeSite,
 }: {
   catalog: AiCatalog;
+  initialQuestion: string;
   site: AiCatalog['websites'][number];
   space: AiCatalog['spaces'][number];
   changeSite: (id: string, conversationId?: string) => void;
@@ -159,7 +163,10 @@ function SiteConversation({
   const routeConversation =
     routeScope && uuid.test(c.query.aiConversation || '') ? c.query.aiConversation : '';
   const [connectionId, setConnectionId] = useState(''),
-    [question, setQuestion] = useState(''),
+    [question, setQuestion] = useState(initialQuestion),
+    [setup, setSetup] = useState(false),
+    [setupConnection, setSetupConnection] = useState<AiConnection | null>(null),
+    [testing, setTesting] = useState(false),
     [sentQuestion, setSentQuestion] = useState(''),
     [conversationId, setConversationId] = useState(routeConversation),
     [switching, setSwitching] = useState(false),
@@ -179,7 +186,8 @@ function SiteConversation({
     void client.invalidateQueries({ queryKey: ['liekan-ai', c.user.id, 'messages'] });
     void client.invalidateQueries({ queryKey: ['liekan-ai', c.user.id, 'history', site.id] });
   });
-  const alive = useRef(true),
+  const setupEpoch = useRef(0),
+    alive = useRef(true),
     selectionEpoch = useRef(0),
     conversationRef = useRef(conversationId),
     routeRef = useRef(routeConversation),
@@ -187,6 +195,20 @@ function SiteConversation({
     pendingSelection = useRef<{ id: string; busy: boolean } | null>(null),
     taskRef = useRef(task),
     contextRef = useRef(c);
+  const openSetup = () => {
+    setupEpoch.current++;
+    setSetup(true);
+  };
+  const closeSetup = () => {
+    setupEpoch.current++;
+    setSetup(false);
+    setTesting(false);
+  };
+  const startSetupTest = (connection?: AiConnection) => {
+    setupEpoch.current++;
+    if (connection) setSetupConnection(connection);
+    setTesting(true);
+  };
   taskRef.current = task;
   contextRef.current = c;
   routeRef.current = routeConversation;
@@ -218,6 +240,7 @@ function SiteConversation({
         !routeRef.current &&
         !conversationRef.current &&
         !pendingSelection.current;
+      closeSetup();
       const epoch = ++selectionEpoch.current;
       pendingSelection.current = { id, busy: true };
       setPendingConversation(id);
@@ -296,7 +319,7 @@ function SiteConversation({
   );
   const selected =
     usable.find(r => r.id === connectionId) ||
-    (!connectionId ? usable.find(r => r.isDefault) : undefined);
+    (!connectionId ? usable.find(r => r.isDefault) || usable[0] : undefined);
   const history = useInfiniteQuery({
     queryKey: ['liekan-ai', c.user.id, 'history', site.id],
     queryFn: ({ pageParam, signal }) => aiClient.conversations(site.id, pageParam, signal),
@@ -331,9 +354,48 @@ function SiteConversation({
     !!connections.error ||
     !conversationVerified ||
     busy;
+  const needsSetup = !selected && connectionId !== 'local';
+  const isLanding = !allMessages.length && !task.run && !task.preview && !task.busy;
+  const refreshConnections = () =>
+    client.invalidateQueries({
+      queryKey: ['liekan-ai', c.user.id, 'connections', space.kind, space.id],
+    });
+  const finishSetup = async (run: AiRun) => {
+    if (
+      run.state !== 'completed' ||
+      run.operation !== 'test' ||
+      run.connectionId !== setupConnection?.id ||
+      run.configVersion !== setupConnection.configVersion
+    )
+      return;
+    const epoch = setupEpoch.current;
+    await refreshConnections();
+    const result = await connections.refetch();
+    if (!alive.current || epoch !== setupEpoch.current) return;
+    const ready = result.data?.items.find(
+      row =>
+        row.id === setupConnection?.id &&
+        row.enabled &&
+        row.hasKey &&
+        row.testState === 'connected' &&
+        row.configVersion === run.configVersion &&
+        row.capabilities.keyVerified.text === true,
+    );
+    if (ready) {
+      setConnectionId(ready.id);
+      setTesting(false);
+      setSetup(false);
+      setSetupConnection(null);
+      c.notify('AI 已配置并生效，可以发送刚才的问题。');
+    }
+  };
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (blocked) return;
+    if (needsSetup) {
+      openSetup();
+      return;
+    }
     setError('');
     const text = question.trim(),
       start = fromZonedTime(`${dates.start}T00:00:00.000`, timezone).getTime(),
@@ -411,56 +473,6 @@ function SiteConversation({
   };
   return (
     <>
-      <div className={styles.scope}>
-        <label>
-          网站
-          <select
-            aria-label="分析网站"
-            value={site.id}
-            disabled={creating || switching || routePending}
-            onChange={async e => {
-              const id = e.target.value;
-              if (await task.stop()) changeSite(id);
-            }}
-          >
-            <option value="">请明确选择网站</option>
-            {catalog.websites.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span>
-          {space.name} · {site.domain}
-        </span>
-        <span className={styles.badge}>{space.canUse ? '可分析' : '只读权限'}</span>
-      </div>
-      <div className={styles.dateScope}>
-        <label>
-          开始日期
-          <input
-            aria-label="分析开始日期"
-            type="date"
-            value={dates.start}
-            disabled={busy}
-            onChange={e => setDates(d => ({ ...d, start: e.target.value }))}
-          />
-        </label>
-        <label>
-          结束日期
-          <input
-            aria-label="分析结束日期"
-            type="date"
-            value={dates.end}
-            disabled={busy}
-            onChange={e => setDates(d => ({ ...d, end: e.target.value }))}
-          />
-        </label>
-        <span>
-          统计时区：{timezone} · 最长 {catalog.limits.maxDays} 天
-        </span>
-      </div>
       {!space.canUse && (
         <AiNotice>
           当前网站所属空间为只读权限，无法执行 AI 分析或付费测试。可以查看你自己的可访问历史。
@@ -505,17 +517,6 @@ function SiteConversation({
           <AiButton onClick={() => void connections.refetch()}>重新读取连接</AiButton>
         </>
       )}
-      {!selected && !connections.isPending && !connections.error && (
-        <div className={styles.connectHint}>
-          <div>
-            <strong>当前空间尚无已验证的默认连接</strong>
-            <p>可以先查看本地接入指引。配置并测试模型后，可获得 AI 分析。</p>
-          </div>
-          <a className={styles.button} href={c.href('ai-config', { aiSite: site.id })}>
-            配置 API
-          </a>
-        </div>
-      )}
       {routePending && (
         <AiNotice error={!switching}>
           {switching
@@ -532,7 +533,7 @@ function SiteConversation({
           )}
         </AiNotice>
       )}
-      <div className={styles.conversationTools}>
+      <div className={`${styles.conversationTools} ${home.conversationTools}`}>
         <AiButton disabled={busy} onClick={() => void selectConversation('')}>
           新建对话
         </AiButton>
@@ -576,12 +577,7 @@ function SiteConversation({
           </div>
         </details>
       </div>
-      {!allMessages.length && !task.run && !task.preview && !task.busy && (
-        <div className={styles.welcome}>
-          <h2>从一个问题开始，读懂网站表现</h2>
-          <p>结合 AI 抓取、访客来源、页面与转化记录，找到下一步。</p>
-        </div>
-      )}
+      {isLanding && <ChatWelcome />}
       {conversationVerified && messages.error && (
         <>
           <AiNotice error>{aiError(messages.error)}</AiNotice>
@@ -656,83 +652,219 @@ function SiteConversation({
           <span className={styles.muted}>刷新恢复仅查询原任务，不会重复调用模型。</span>
         </div>
       )}
-      <form onSubmit={submit} className={styles.composer}>
-        <textarea
-          aria-label="分析问题"
-          value={question}
-          maxLength={catalog.limits.maxQuestionCharacters}
-          placeholder="问问网站最近发生了什么，或者描述你想核查的变化"
-          disabled={blocked}
-          onChange={e => setQuestion(e.target.value)}
-        />
-        <div className={styles.composerActions}>
-          <label>
-            <select
-              aria-label="分析模型"
-              value={connectionId || selected?.id || 'local'}
-              disabled={busy || !space.canUse || !catalog.module.enabled}
-              onChange={e => setConnectionId(e.target.value)}
-            >
-              <option value="local">本地接入指引 · 无模型调用</option>
-              {usable.map(row => (
-                <option key={row.id} value={row.id}>
-                  {row.name} · {row.model}
-                  {row.isDefault ? ' · 默认' : ''}
-                </option>
-              ))}
-            </select>
-          </label>
-          {busy ? (
-            <AiButton onClick={() => void task.stop()}>停止分析</AiButton>
-          ) : (
-            <AiButton
-              primary
-              type="submit"
-              disabled={blocked || !question.trim() || task.recoverable}
-            >
-              {selected ? '发起分析' : '查看接入指引'}
-            </AiButton>
-          )}
-        </div>
-        <section className={styles.callDisclosure} aria-label="分析调用说明">
-          {selected ? (
-            <>
-              <p>
-                供应商：
-                {catalog.templates.find(t => t.provider === selected.provider)?.name ||
-                  '自定义兼容接口'}{' '}
-                · 模型：{selected.model}
-              </p>
-              <p>
-                应用上下文窗口：
-                <ModelWindow catalog={catalog} configuration={selected} />
-              </p>
-              <p>将外发脱敏汇总、有限样本、本次问题与最多 6 轮历史；调用可能产生供应商费用。</p>
-            </>
-          ) : (
-            <p>本地统计指引 · 0 次供应商调用。统计依据与问题由当前实例处理。</p>
-          )}
-          <p>请勿输入凭据、密钥或个人资料。</p>
-        </section>
-      </form>
-      {!allMessages.length && (
-        <div className={styles.shortcuts}>
-          <div className={styles.sectionHeading}>
-            <h3>从这些问题开始</h3>
-            <span className={styles.muted}>选择后填入输入框</span>
-          </div>
-          <div className={styles.functionGrid}>
-            {questions.map(text => (
-              <AiButton key={text} disabled={blocked} onClick={() => setQuestion(text)}>
-                {text}
-              </AiButton>
-            ))}
-          </div>
-        </div>
-      )}
-      <p className={styles.footnote}>
-        回答基于本次统计快照。日志覆盖未经验证；当前页面可能随新数据变化。供应商调用可能产生费用。
+      <ChatComposer
+        question={question}
+        onQuestion={setQuestion}
+        onSubmit={submit}
+        maxLength={catalog.limits.maxQuestionCharacters}
+        disabled={blocked}
+        submitDisabled={(!needsSetup && !question.trim()) || task.recoverable}
+        busy={busy}
+        onStop={() => void task.stop()}
+        scope={
+          <>
+            <ChatWebsite
+              websites={catalog.websites}
+              value={site.id}
+              disabled={creating || switching || routePending}
+              onChange={async id => {
+                if (await task.stop()) changeSite(id);
+              }}
+            />
+            <details className={home.datePicker}>
+              <summary>
+                <CalendarDays size={15} aria-hidden="true" />
+                {dates.start.slice(5)} 至 {dates.end.slice(5)}
+                <ChevronDown size={13} aria-hidden="true" />
+              </summary>
+              <div className={home.datePanel}>
+                <label>
+                  开始日期
+                  <input
+                    aria-label="分析开始日期"
+                    type="date"
+                    value={dates.start}
+                    disabled={busy}
+                    onChange={e => setDates(d => ({ ...d, start: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  结束日期
+                  <input
+                    aria-label="分析结束日期"
+                    type="date"
+                    value={dates.end}
+                    disabled={busy}
+                    onChange={e => setDates(d => ({ ...d, end: e.target.value }))}
+                  />
+                </label>
+                <p>
+                  统计时区：{timezone} · 最长 {catalog.limits.maxDays} 天
+                </p>
+              </div>
+            </details>
+            <label className={home.scopeControl}>
+              <select
+                aria-label="分析模型"
+                value={connectionId || selected?.id || ''}
+                disabled={busy || !space.canUse || !catalog.module.enabled}
+                onChange={e => setConnectionId(e.target.value)}
+              >
+                <option value="">选择模型</option>
+                <option value="local">本地接入指引 · 无模型调用</option>
+                {usable.map(row => (
+                  <option key={row.id} value={row.id}>
+                    {row.name} · {row.model}
+                    {row.isDefault ? ' · 默认' : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        }
+        disclosure={
+          needsSetup ? undefined : (
+            <section className={styles.callDisclosure} aria-label="分析调用说明">
+              {selected ? (
+                <>
+                  <p>
+                    供应商：
+                    {catalog.templates.find(t => t.provider === selected.provider)?.name ||
+                      '自定义兼容接口'}{' '}
+                    · 模型：{selected.model}
+                  </p>
+                  <p>
+                    应用上下文窗口：
+                    <ModelWindow catalog={catalog} configuration={selected} />
+                  </p>
+                  <p>将外发脱敏汇总、有限样本、本次问题与最多 6 轮历史；调用可能产生供应商费用。</p>
+                </>
+              ) : (
+                <p>本地统计指引 · 0 次供应商调用。统计依据与问题由当前实例处理。</p>
+              )}
+              <p>请勿输入凭据、密钥或个人资料。</p>
+            </section>
+          )
+        }
+      />
+      {!connections.isPending &&
+        !connections.error &&
+        catalog.module.enabled &&
+        space.canUse &&
+        needsSetup && (
+          <p className={home.hint}>
+            配置 AI 后，就能结合网站数据获得分析。
+            <button type="button" onClick={openSetup}>
+              去配置
+            </button>
+          </p>
+        )}
+      <p className={home.siteMeta}>
+        {space.name} · {site.domain} · {space.canUse ? '可分析' : '只读权限'}
       </p>
+      {isLanding && (
+        <ChatHome
+          siteId={site.id}
+          onPrompt={setQuestion}
+          onChooseSite={() =>
+            document.querySelector<HTMLSelectElement>('select[aria-label="分析网站"]')?.focus()
+          }
+          disabled={blocked}
+          range={{
+            startAt: fromZonedTime(`${dates.start}T00:00:00.000`, timezone).getTime(),
+            endAt: fromZonedTime(`${dates.end}T23:59:59.999`, timezone).getTime(),
+            timezone,
+          }}
+        />
+      )}
+      {setup && !testing && (
+        <AiModal
+          title="配置 AI，开始分析"
+          subtitle={`为「${site.name}」连接模型，配置保存在${space.name}`}
+          onClose={closeSetup}
+          wide={space.canManage}
+        >
+          <div className={styles.modalBody}>
+            {setupConnection ? (
+              <>
+                <h3>{setupConnection.name} 已保存</h3>
+                <p>完成一次连接测试后，模型会自动生效。刚才的问题已保留。</p>
+                <p className={styles.muted}>测试会向供应商发送短文本，可能产生费用。</p>
+                <div className={styles.actions}>
+                  <AiButton primary onClick={() => startSetupTest()}>
+                    测试连接并启用
+                  </AiButton>
+                  <AiButton onClick={() => setSetupConnection(null)}>返回配置</AiButton>
+                </div>
+              </>
+            ) : space.canManage ? (
+              <>
+                {(connections.data?.items || [])
+                  .filter(row => row.enabled && row.hasKey)
+                  .map(row => (
+                    <AiButton
+                      key={row.id}
+                      onClick={() => {
+                        startSetupTest(row);
+                      }}
+                    >
+                      测试并使用 {row.name}
+                    </AiButton>
+                  ))}
+                {(connections.data?.items.length || 0) < catalog.limits.connectionsPerSpace ? (
+                  <ConnectionForm
+                    catalog={catalog}
+                    space={space}
+                    embedded
+                    onClose={closeSetup}
+                    onConflict={refreshConnections}
+                    onSave={async row => {
+                      setSetupConnection(row);
+                      await refreshConnections();
+                    }}
+                  />
+                ) : (
+                  <p>当前空间的 API 数量已达上限，请在 AI配置器管理现有连接。</p>
+                )}
+              </>
+            ) : (
+              <p>请联系{space.name}的管理员配置并测试模型，完成后这里会自动读取可用连接。</p>
+            )}
+          </div>
+          <div className={styles.modalFooter}>
+            <a className={styles.button} href={c.href('ai-config', { aiSite: site.id })}>
+              打开 AI配置器
+            </a>
+            <AiButton
+              onClick={() => {
+                closeSetup();
+                setConnectionId('local');
+              }}
+            >
+              先查看本地接入指引
+            </AiButton>
+          </div>
+        </AiModal>
+      )}
+      {setup && testing && setupConnection && (
+        <ConnectionTest
+          connection={setupConnection}
+          catalog={catalog}
+          onClose={() => {
+            setupEpoch.current++;
+            setTesting(false);
+          }}
+          onFinished={run => void finishSetup(run)}
+          onTestStart={() => {
+            setupEpoch.current++;
+          }}
+        />
+      )}
+      {!isLanding && (
+        <p className={styles.footnote}>
+          回答基于本次统计快照。日志覆盖未经验证；当前页面可能随新数据变化。供应商调用可能产生费用。
+        </p>
+      )}
       {reference && conversationId && conversationVerified && (
         <ContextSnapshot
           conversationId={conversationId}

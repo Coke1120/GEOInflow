@@ -3,6 +3,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiPages } from './AiPages';
+import { featureHref } from './routes';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const siteId = '22222222-2222-4222-8222-222222222222';
@@ -161,7 +162,8 @@ describe('AI scope, cancellation and recovery', () => {
     await user.click(await screen.findByRole('button', { name: '分析最近 7 天的 AI 抓取趋势' }));
     expect(screen.getByLabelText('分析问题')).toHaveValue('分析最近 7 天的 AI 抓取趋势');
     expect(mocks.stream).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: '查看接入指引' }));
+    await user.selectOptions(screen.getByLabelText('分析模型'), 'local');
+    await user.click(screen.getByRole('button', { name: '发起分析' }));
     await waitFor(() =>
       expect(mocks.stream).toHaveBeenCalledWith(
         `/liekan/ai/conversations/${conversationId}/messages`,
@@ -398,7 +400,7 @@ it('explicitly requests local statistics even when the space has a default model
   mount('ai-chat');
   await user.selectOptions(await screen.findByLabelText('分析模型'), 'local');
   await user.type(screen.getByLabelText('分析问题'), '检查数据接入');
-  await user.click(screen.getByRole('button', { name: '查看接入指引' }));
+  await user.click(screen.getByRole('button', { name: '发起分析' }));
   await waitFor(() => expect(mocks.stream).toHaveBeenCalled());
   expect(mocks.stream.mock.calls[0][1]).toMatchObject({
     localOnly: true,
@@ -1673,4 +1675,171 @@ it('waits for server acknowledgement and records an early rejection without acce
   expect(modal.querySelector('[data-ai-run-state="failed"]')).toBeInTheDocument();
   expect(logs).toHaveTextContent('任务未完成');
   expect(logs).not.toHaveTextContent('请求已接受');
+});
+
+describe('AI chat home and inline setup', () => {
+  it('preserves a question drafted before choosing an explicit website and scopes function links', async () => {
+    const user = userEvent.setup();
+    mocks.context.href = featureHref;
+    mount('ai-chat');
+    await user.click(await screen.findByRole('button', { name: '哪些页面值得优先优化？' }));
+    await user.click(screen.getByRole('button', { name: '发起分析' }));
+    expect(screen.getByText('请先选择要分析的网站，问题会为你保留。')).toBeInTheDocument();
+    expect(screen.getByLabelText('分析网站')).toHaveFocus();
+    expect(mocks.createConversation).not.toHaveBeenCalled();
+    await user.selectOptions(screen.getByLabelText('分析网站'), siteId);
+    expect(await screen.findByLabelText('分析问题')).toHaveValue('哪些页面值得优先优化？');
+    for (const name of ['地域地图', 'AI 抓取分析', '日志访问流']) {
+      const href = new URL(
+        screen.getByRole('link', { name }).getAttribute('href')!,
+        'https://liekan.local',
+      );
+      expect(href.pathname).toContain(`/websites/${siteId}/geo`);
+      expect(href.searchParams.get('date')).toMatch(/^range:\d+:\d+$/);
+      expect(href.searchParams.get('live')).toBe('0');
+    }
+  });
+
+  it('opens centered setup on first send and preserves the question when dismissed', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId };
+    mount('ai-chat');
+    await user.type(await screen.findByLabelText('分析问题'), '检查本周的抓取变化');
+    await user.click(screen.getByRole('button', { name: '发起分析' }));
+    expect(await screen.findByRole('dialog', { name: '配置 AI，开始分析' })).toBeInTheDocument();
+    expect(mocks.stream).not.toHaveBeenCalled();
+    expect(mocks.createConversation).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: '关闭配置 AI，开始分析' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('分析问题')).toHaveValue('检查本周的抓取变化');
+    expect(screen.getByRole('button', { name: '发起分析' })).toHaveFocus();
+  });
+
+  it('activates a saved connection after a successful test without resending the question', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId };
+    const saved = {
+      ...connection(),
+      isDefault: false,
+      testState: 'untested',
+      capabilities: { keyVerified: {} },
+    };
+    mocks.createConnection.mockResolvedValue(saved);
+    mocks.stream.mockImplementation(async (path: string) => {
+      if (path.includes('/test')) {
+        mocks.connections.mockResolvedValue({ items: [{ ...connection(), isDefault: false }] });
+        return completed({ operation: 'test', connectionId, result: { text: '连接成功' } });
+      }
+      return completed({ result: answer });
+    });
+    mount('ai-chat');
+    await user.type(await screen.findByLabelText('分析问题'), '核查 AI 来源');
+    await user.click(screen.getByRole('button', { name: '发起分析' }));
+    await user.type(await screen.findByLabelText('API Key'), 'inline-test-key');
+    await user.click(screen.getByRole('button', { name: '保存 API' }));
+    await user.click(await screen.findByRole('button', { name: '测试连接并启用' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(screen.getByLabelText('分析模型')).toHaveValue(connectionId);
+    expect(screen.getByLabelText('分析问题')).toHaveValue('核查 AI 来源');
+    expect(mocks.stream).toHaveBeenCalledTimes(1);
+    expect(mocks.createConversation).not.toHaveBeenCalled();
+    expect(mocks.context.notify).toHaveBeenCalledWith('AI 已配置并生效，可以发送刚才的问题。');
+    await user.click(screen.getByRole('button', { name: '发起分析' }));
+    await waitFor(() => expect(mocks.stream).toHaveBeenCalledTimes(2));
+    expect(mocks.stream.mock.calls[1][1]).toMatchObject({ connectionId, question: '核查 AI 来源' });
+  });
+
+  it('ignores a late setup response after explicitly choosing local guidance', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId };
+    mocks.createConnection.mockResolvedValue({
+      ...connection(),
+      isDefault: false,
+      testState: 'untested',
+    });
+    let release: (value: unknown) => void;
+    const pending = new Promise(resolve => {
+      release = resolve;
+    });
+    mocks.stream.mockImplementation(async () => {
+      mocks.connections.mockReturnValue(pending);
+      return completed({ operation: 'test', connectionId, result: { text: '连接成功' } });
+    });
+    mount('ai-chat');
+    await user.click(await screen.findByRole('button', { name: '去配置' }));
+    await user.type(screen.getByLabelText('API Key'), 'race-test-key');
+    await user.click(screen.getByRole('button', { name: '保存 API' }));
+    await user.click(await screen.findByRole('button', { name: '测试连接并启用' }));
+    const dialog = await screen.findByRole('dialog', { name: '实时测试' });
+    await user.click(within(dialog).getByRole('button', { name: /^关闭$/ }));
+    await user.click(await screen.findByRole('button', { name: '先查看本地接入指引' }));
+    await act(async () => {
+      release({ items: [{ ...connection(), isDefault: false }] });
+    });
+    expect(screen.getByLabelText('分析模型')).toHaveValue('local');
+    expect(mocks.context.notify).not.toHaveBeenCalledWith('AI 已配置并生效，可以发送刚才的问题。');
+  });
+
+  it('keeps a new test open when an earlier successful activation response arrives late', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId };
+    mocks.createConnection.mockResolvedValue({
+      ...connection(),
+      isDefault: false,
+      testState: 'untested',
+    });
+    let releaseConnections: (value: unknown) => void;
+    let finishRetry: (value: unknown) => void;
+    const pendingConnections = new Promise(resolve => {
+      releaseConnections = resolve;
+    });
+    const retry = new Promise(resolve => {
+      finishRetry = resolve;
+    });
+    mocks.stream
+      .mockImplementationOnce(async () => {
+        mocks.connections.mockReturnValue(pendingConnections);
+        return completed({ operation: 'test', connectionId, result: { text: '连接成功' } });
+      })
+      .mockReturnValueOnce(retry);
+    mount('ai-chat');
+    await user.click(await screen.findByRole('button', { name: '去配置' }));
+    await user.type(screen.getByLabelText('API Key'), 'retry-test-key');
+    await user.click(screen.getByRole('button', { name: '保存 API' }));
+    await user.click(await screen.findByRole('button', { name: '测试连接并启用' }));
+    await user.click(await screen.findByRole('button', { name: '重新测试，发起新调用' }));
+    await act(async () => {
+      releaseConnections({ items: [{ ...connection(), isDefault: false }] });
+    });
+    expect(screen.getByRole('dialog', { name: '实时测试' })).toBeInTheDocument();
+    expect(mocks.context.notify).not.toHaveBeenCalledWith('AI 已配置并生效，可以发送刚才的问题。');
+    await act(async () => {
+      finishRetry(completed({ operation: 'test', connectionId, state: 'cancelled' }));
+    });
+  });
+
+  it('keeps failed setup available without enabling an unverified connection', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId };
+    mocks.createConnection.mockResolvedValue({ ...connection(), testState: 'untested' });
+    mocks.stream.mockImplementation(async () => {
+      mocks.connections.mockResolvedValue({ items: [connection()] });
+      return completed({
+        operation: 'test',
+        connectionId,
+        state: 'failed',
+        error: { code: 'upstream' },
+      });
+    });
+    mount('ai-chat');
+    await user.click(await screen.findByRole('button', { name: '去配置' }));
+    await user.type(screen.getByLabelText('API Key'), 'invalid-test-key');
+    await user.click(screen.getByRole('button', { name: '保存 API' }));
+    await user.click(await screen.findByRole('button', { name: '测试连接并启用' }));
+    expect(await screen.findByRole('dialog', { name: '实时测试' })).toBeInTheDocument();
+    await waitFor(() => expect(mocks.stream).toHaveBeenCalledTimes(1));
+    expect(screen.getByLabelText('分析模型')).toHaveValue('');
+    expect(mocks.context.notify).not.toHaveBeenCalledWith('AI 已配置并生效，可以发送刚才的问题。');
+    expect(mocks.createConversation).not.toHaveBeenCalled();
+  });
 });
