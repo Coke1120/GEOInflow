@@ -427,6 +427,15 @@
   box-sizing: border-box;
 }
 .modal {
+  --ink: #16181d;
+  --sub: #697386;
+  --faint: #9aa3b2;
+  --line: #e9ecf1;
+  --wash: #f5f7fa;
+  --brand: #0f62fe;
+  --selected: #edf2ff;
+  --green: #0e9f6e;
+  --red: #d52f42;
   width: min(560px, 100%);
   max-height: calc(100dvh - 48px);
   border: 1px solid #e9ecf1;

@@ -173,6 +173,37 @@ try {
         fullPage: true,
         animations: 'disabled',
       });
+      if (id === 'ai-chat' && manifest.chatHome && catalog.module.enabled) {
+        await actual.getByLabel('分析网站').selectOption(seed.website.id);
+        await actual.getByLabel('分析模型').waitFor({ state: 'visible' });
+        await actual.getByLabel('分析问题').fill('哪些页面值得优先优化？');
+        await actual.getByRole('button', { name: '发起分析', exact: true }).click();
+        const dialog = actual.getByRole('dialog', { name: '配置 AI，开始分析' });
+        await dialog.waitFor({ state: 'visible' });
+        const setup = await dialog.evaluate(el => {
+          const field = el.querySelector('input[aria-label="API Key"]');
+          const style = field && getComputedStyle(field);
+          const box = el.getBoundingClientRect();
+          return {
+            line: getComputedStyle(el).getPropertyValue('--line').trim().toLowerCase(),
+            border: style?.borderTopWidth,
+            borderStyle: style?.borderTopStyle,
+            x: box.x + box.width / 2,
+            y: box.y + box.height / 2,
+          };
+        });
+        assert.equal(setup.line, '#e9ecf1', `setup palette at ${width}px`);
+        assert.equal(setup.border, '1px', `setup input border at ${width}px`);
+        assert.equal(setup.borderStyle, 'solid', `setup input boundary at ${width}px`);
+        assert(Math.abs(setup.x - width / 2) <= 2, `setup horizontal center at ${width}px`);
+        assert(Math.abs(setup.y - 500) <= 2, `setup vertical center at ${width}px`);
+        await actual.screenshot({
+          path: `${out}/ai-setup-${width}-actual.png`,
+          fullPage: true,
+          animations: 'disabled',
+        });
+        await actual.keyboard.press('Escape');
+      }
       report.checks.push({ id, width, passed: true, palette: true, overflow: geometry.overflow });
     }
   }
