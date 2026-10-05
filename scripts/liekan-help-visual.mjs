@@ -180,6 +180,7 @@ try {
   await run('ai-crawler-collection-guides', async () => {
     await page.goto(base + '/liekan/help');
     const guides = page.getByRole('region', { name: 'AI 蜘蛛采集文档' });
+    await guides.waitFor();
     assert.equal(await guides.locator('li').getByRole('link').count(), 4);
     await guides.getByRole('link', { name: '查看接入引导' }).click();
     await page.getByRole('heading', { name: '配置并验证 AI 蜘蛛采集', exact: true }).waitFor();
