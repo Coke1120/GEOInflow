@@ -161,10 +161,22 @@
     ]
   },
   "account": [
-    ["account", "账户资料"],
-    ["security", "账户安全"],
-    ["api-keys", "API 密钥"],
-    ["preferences", "偏好设置"]
+    [
+      "account",
+      "账户资料"
+    ],
+    [
+      "security",
+      "账户安全"
+    ],
+    [
+      "api-keys",
+      "API 密钥"
+    ],
+    [
+      "preferences",
+      "偏好设置"
+    ]
   ],
   "pages": {
     "dashboard": {
@@ -1341,7 +1353,13 @@
   "geoChartApproval": {
     "d2": {
       "approval": "2026-10-04 用户要求 AI 蜘蛛构成图例保持单行，仅显示按请求量排序的 Top 5；圆环保留全部类别与提示",
-      "legend": { "type": "scroll", "left": 16, "right": 16, "bottom": 4, "pageIconSize": 10 },
+      "legend": {
+        "type": "scroll",
+        "left": 16,
+        "right": 16,
+        "bottom": 4,
+        "pageIconSize": 10
+      },
       "legendLimit": 5
     }
   },
@@ -1391,7 +1409,17 @@
     "rowPitch": 36,
     "fontSize": 13.5,
     "contextHeight": 56,
-    "mobileRowHeight": 44
+    "mobileRowHeight": 44,
+    "analysisContext": {
+      "approval": "2026-10-05 用户要求继续消除访问记录、人群分析、实时访客页头的高度差异，按同类页的标题、Tab、工具栏、正文顺序统一排版",
+      "columnGap": 16,
+      "rowGap": 8,
+      "headerHeight": 60,
+      "tabsHeight": 44,
+      "desktopMaxHeight": 39,
+      "bodyPaddingTop": 24,
+      "mobileActionMinHeight": 40
+    }
   },
   "analysisTabs": {
     "geo-sources": [
