@@ -159,34 +159,66 @@ export async function buildAiFactsContext(input: {
           (parameters->>'type' IN ('path','event') AND jsonb_typeof(parameters->'value')='string' AND length(parameters->>'value')>0 AND NOT(parameters ? 'steps')),false)) AS invalid`,
           live.id,
         );
-        const classifiedLogs = await q(`WITH bins AS MATERIALIZED (
-          SELECT ${period} AS period,bot AS name,vendor,bot_type,
-            CASE WHEN verification IN ('verified_range','range_mismatch') THEN verification ELSE 'unverified' END AS verification,
-            status,count(*) AS n ${logRange} GROUP BY 1,2,3,4,5,6
-        ), summary AS (
-          SELECT 'summary' AS kind,period,NULL::text AS name,NULL::text AS vendor,NULL::text AS class,NULL::text AS verification,
-            sum(n)::bigint AS requests,NULL::bigint AS previous,
-            coalesce(sum(n) FILTER(WHERE ${ai}),0)::bigint AS ai,
-            coalesce(sum(n) FILTER(WHERE status=403),0)::bigint AS e403,
-            coalesce(sum(n) FILTER(WHERE status=404),0)::bigint AS e404,
-            coalesce(sum(n) FILTER(WHERE status BETWEEN 500 AND 599),0)::bigint AS e5xx,NULL::bigint AS total
-          FROM bins GROUP BY period
-        ), bot_groups AS (
-          SELECT name,vendor,bot_type AS class,verification,
-            coalesce(sum(n) FILTER(WHERE period=0),0)::bigint AS requests,
-            coalesce(sum(n) FILTER(WHERE period=1),0)::bigint AS previous
-          FROM bins WHERE ${ai} GROUP BY 1,2,3,4
-        ), top_bots AS (
-          SELECT 'bot' AS kind,NULL::integer AS period,name,vendor,class,verification,requests,previous,
-            NULL::bigint AS ai,NULL::bigint AS e403,NULL::bigint AS e404,NULL::bigint AS e5xx,count(*) OVER() AS total
-          FROM bot_groups ORDER BY requests DESC,previous DESC,name,vendor,class,verification LIMIT 20
-        ) SELECT * FROM summary UNION ALL SELECT * FROM top_bots`);
+        // Aggregate eligible logs once in the snapshot, then derive bounded fact lists.
+        const classifiedLogs = await q(`WITH input AS (
+  SELECT ${period} AS period,
+    bot AS name,vendor,bot_type,
+    CASE WHEN verification IN ('verified_range','range_mismatch') THEN verification ELSE 'unverified' END AS verification,
+    status,CASE WHEN bot_type IN ('训练','搜索','用户触发') OR status IN (403,404) OR status BETWEEN 500 AND 599 THEN split_part(split_part(path,'?',1),'#',1) END AS path
+  ${logRange}
+), bins AS MATERIALIZED (
+  SELECT period,name,vendor,bot_type,verification,status,path,count(*) AS n
+  FROM input GROUP BY 1,2,3,4,5,6,7
+), summary AS (
+  SELECT 'summary' AS kind,period,NULL::text AS name,NULL::text AS vendor,NULL::text AS class,NULL::text AS verification,
+    sum(n)::bigint AS requests,NULL::bigint AS previous,
+    coalesce(sum(n) FILTER(WHERE bot_type IN ('训练','搜索','用户触发')),0)::bigint AS ai,
+    coalesce(sum(n) FILTER(WHERE status=403),0)::bigint AS e403,
+    coalesce(sum(n) FILTER(WHERE status=404),0)::bigint AS e404,
+    coalesce(sum(n) FILTER(WHERE status BETWEEN 500 AND 599),0)::bigint AS e5xx,NULL::bigint AS total,
+    NULL::text AS path,NULL::bigint AS pv,NULL::bigint AS "previousPv",NULL::text AS "statusGroup"
+  FROM bins GROUP BY period
+), bot_groups AS (
+  SELECT name,vendor,bot_type AS class,verification,
+    coalesce(sum(n) FILTER(WHERE period=0),0)::bigint AS requests,
+    coalesce(sum(n) FILTER(WHERE period=1),0)::bigint AS previous
+  FROM bins WHERE bot_type IN ('训练','搜索','用户触发') GROUP BY 1,2,3,4
+), top_bots AS (
+  SELECT 'bot' AS kind,NULL::integer AS period,name,vendor,class,verification,requests,previous,
+    NULL::bigint AS ai,NULL::bigint AS e403,NULL::bigint AS e404,NULL::bigint AS e5xx,count(*) OVER() AS total,
+    NULL::text AS path,NULL::bigint AS pv,NULL::bigint AS "previousPv",NULL::text AS "statusGroup"
+  FROM bot_groups ORDER BY requests DESC,previous DESC,name,vendor,class,verification LIMIT 20
+), humans AS (
+  SELECT split_part(split_part(url_path,'?',1),'#',1) AS path,
+    count(*) FILTER(WHERE created_at >= $2::timestamptz) AS pv,
+    count(*) FILTER(WHERE created_at < $2::timestamptz) AS "previousPv"
+  FROM website_event WHERE website_id=$1::uuid AND created_at BETWEEN $4::timestamptz AND $3::timestamptz
+    AND event_type NOT IN(2,5) GROUP BY 1
+), bot_pages AS (
+  SELECT path,coalesce(sum(n) FILTER(WHERE period=0),0)::bigint AS ai,
+    coalesce(sum(n) FILTER(WHERE period=1),0)::bigint AS "previousAi"
+  FROM bins WHERE bot_type IN ('训练','搜索','用户触发') GROUP BY path
+), top_pages AS (
+  SELECT 'page' AS kind,NULL::integer AS period,NULL::text AS name,NULL::text AS vendor,
+    NULL::text AS class,NULL::text AS verification,NULL::bigint AS requests,coalesce(b."previousAi",0)::bigint AS previous,
+    coalesce(b.ai,0)::bigint AS ai,NULL::bigint AS e403,NULL::bigint AS e404,NULL::bigint AS e5xx,count(*) OVER() AS total,
+    coalesce(h.path,b.path) AS path,coalesce(h.pv,0)::bigint AS pv,coalesce(h."previousPv",0)::bigint AS "previousPv",NULL::text AS "statusGroup"
+  FROM humans h FULL JOIN bot_pages b USING(path)
+  ORDER BY coalesce(h.pv,0)+coalesce(b.ai,0) DESC,coalesce(h."previousPv",0)+coalesce(b."previousAi",0) DESC,path LIMIT 20
+), error_groups AS (
+  SELECT path,CASE WHEN status=403 THEN '403' WHEN status=404 THEN '404' ELSE '5xx' END AS "statusGroup",sum(n)::bigint AS requests
+  FROM bins WHERE period=0 AND (status IN (403,404) OR status BETWEEN 500 AND 599) GROUP BY 1,2
+), top_errors AS (
+  SELECT 'error' AS kind,NULL::integer AS period,NULL::text AS name,NULL::text AS vendor,NULL::text AS class,
+    NULL::text AS verification,requests,NULL::bigint AS previous,NULL::bigint AS ai,NULL::bigint AS e403,
+    NULL::bigint AS e404,NULL::bigint AS e5xx,count(*) OVER() AS total,path,NULL::bigint AS pv,
+    NULL::bigint AS "previousPv","statusGroup"
+  FROM error_groups ORDER BY requests DESC,path,"statusGroup" LIMIT 20
+) SELECT * FROM summary UNION ALL SELECT * FROM top_bots UNION ALL SELECT * FROM top_pages UNION ALL SELECT * FROM top_errors`);
         const logs = classifiedLogs.filter(row => row.kind === 'summary');
         const bots = classifiedLogs.filter(row => row.kind === 'bot');
-        const errorPaths = await q(`SELECT split_part(split_part(path,'?',1),'#',1) AS path,
-        CASE WHEN status=403 THEN '403' WHEN status=404 THEN '404' ELSE '5xx' END AS "statusGroup",count(*) AS requests,count(*) OVER() AS total
-        FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND ${error}
-        GROUP BY 1,2 ORDER BY requests DESC,path,"statusGroup" LIMIT 20`);
+        const errorPaths = classifiedLogs.filter(row => row.kind === 'error');
+        const pages = classifiedLogs.filter(row => row.kind === 'page');
         const samples = await q(
           `SELECT created_at AS time,path,status,bot FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND ${error} ORDER BY created_at DESC,id DESC LIMIT 20`,
         );
@@ -199,20 +231,6 @@ export async function buildAiFactsContext(input: {
           ORDER BY e.created_at,e.event_id LIMIT 1) e ON true
         ) SELECT period,count(*) AS visits,coalesce(sum(pv),0)::bigint AS pv FROM entry_visits e WHERE ${channelFilterColumn('e.')}='AI 搜索引荐' GROUP BY 1`,
         );
-        const pages = await q(`WITH humans AS (
-          SELECT split_part(split_part(url_path,'?',1),'#',1) AS path,
-            count(*) FILTER(WHERE created_at >= $2::timestamptz) AS pv,
-            count(*) FILTER(WHERE created_at < $2::timestamptz) AS "previousPv"
-          FROM website_event WHERE website_id=$1::uuid AND created_at BETWEEN $4::timestamptz AND $3::timestamptz AND event_type NOT IN(2,5) GROUP BY 1
-        ), bots AS (
-          SELECT split_part(split_part(path,'?',1),'#',1) AS path,
-            count(*) FILTER(WHERE created_at >= $2::timestamptz) AS ai,
-            count(*) FILTER(WHERE created_at < $2::timestamptz) AS "previousAi"
-          FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $4::timestamptz AND $3::timestamptz AND ${ai} GROUP BY 1
-        ) SELECT coalesce(h.path,b.path) AS path,coalesce(h.pv,0) AS pv,coalesce(h."previousPv",0) AS "previousPv",
-          coalesce(b.ai,0) AS ai,coalesce(b."previousAi",0) AS "previousAi",count(*) OVER() AS total
-        FROM humans h FULL JOIN bots b USING(path)
-        ORDER BY coalesce(h.pv,0)+coalesce(b.ai,0) DESC,coalesce(h."previousPv",0)+coalesce(b."previousAi",0) DESC,path LIMIT 20`);
         const goals = await q(
           browserCte +
             `, definitions AS (
@@ -408,7 +426,7 @@ export async function buildAiFactsContext(input: {
                 humanPageviews: sources.browser ? safeAiCount(row.pv) : null,
                 previousHumanPageviews: sources.browser ? safeAiCount(row.previousPv) : null,
                 aiRequests: sources.connected ? safeAiCount(row.ai) : null,
-                previousAiRequests: sources.connected ? safeAiCount(row.previousAi) : null,
+                previousAiRequests: sources.connected ? safeAiCount(row.previous) : null,
               })),
               scope:
                 'browser paths and encoded imported AI request paths; union of current and previous periods ranked by current then previous counts; stored forms may differ; query and fragment excluded',

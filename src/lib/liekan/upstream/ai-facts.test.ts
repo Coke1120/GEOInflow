@@ -502,6 +502,59 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
     ]);
   });
 
+  it('reuses log bins without counting non-AI pages or duplicating normalized bot classes', async () => {
+    try {
+      await db.query(
+        `INSERT INTO liekan_log(id,website_id,import_id,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification) VALUES
+        ('test-demo-group-current',$1,$2,'2026-10-02T10:00:00Z','/shared?ignored=1','GET',200,0,'','','','','GPTBot','OpenAI','训练','legacy_unknown'),
+        ('test-demo-group-previous',$1,$2,'2026-09-29T10:00:00Z','/shared#ignored','GET',200,0,'','','','','GPTBot','OpenAI','训练','unverified'),
+        ('test-demo-group-prior-only',$1,$2,'2026-09-29T10:00:00Z','/prior-only','GET',200,0,'','','','','GPTBot','OpenAI','训练','legacy_unknown'),
+        ('test-demo-group-non-ai',$1,$2,'2026-10-02T10:00:00Z','/non-ai-only','GET',404,0,'','','','','Other','Other','传统搜索','unverified')`,
+        [ids.website, ids.import],
+      );
+      const context = await buildAiFactsContext({
+        actor: { id: ids.user, role: 'user' },
+        conversationId: ids.conversation,
+        input,
+        signal: new AbortController().signal,
+      });
+      expect(context.facts.find(f => f.id === 'summary')?.data).toMatchObject({
+        logs: { requests: 3, aiRequests: 2, errors403: 1, errors404: 1 },
+        previousLogs: { requests: 3, aiRequests: 3 },
+      });
+      const bots = context.facts.find(f => f.id === 'bots');
+      if (bots?.id !== 'bots') throw Error('Bot facts required');
+      expect(bots.data.rows).toHaveLength(1);
+      expect(bots.data.rows[0]).toMatchObject({
+        name: 'GPTBot',
+        verification: 'unverified',
+        requests: 2,
+        previousRequests: 3,
+      });
+      const pages = context.facts.find(f => f.id === 'pages');
+      if (pages?.id !== 'pages') throw Error('Page facts required');
+      expect(pages.data.rows.find(row => row.path === '/shared')).toMatchObject({
+        aiRequests: 1,
+        previousAiRequests: 1,
+      });
+      expect(pages.data.rows.find(row => row.path === '/prior-only')).toMatchObject({
+        aiRequests: 0,
+        previousAiRequests: 1,
+      });
+      expect(pages.data.rows.some(row => row.path === '/non-ai-only')).toBe(false);
+      const errors = context.facts.find(f => f.id === 'log-errors');
+      if (errors?.id !== 'log-errors') throw Error('Error facts required');
+      expect(errors.data.paths.find(row => row.path === '/non-ai-only')).toMatchObject({
+        statusGroup: '404',
+        requests: 1,
+      });
+    } finally {
+      await db.query("DELETE FROM liekan_log WHERE website_id=$1 AND id LIKE 'test-demo-group-%'", [
+        ids.website,
+      ]);
+    }
+  });
+
   it('matches dashboard effective logs when manual and automatic source intervals overlap', async () => {
     const source = 'd4000000-0000-4000-8000-000000000081';
     const interval = 'd4000000-0000-4000-8000-000000000082';
