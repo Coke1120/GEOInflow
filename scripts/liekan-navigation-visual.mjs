@@ -246,7 +246,11 @@ export async function checkNavigation(page, expected, width, baseline) {
     assert.equal(layout.columnGap, contextBaseline.columnGap);
     assert.equal(layout.rowGap, contextBaseline.rowGap);
     if (!mobile && expected.tabs?.length) {
-      assert.equal(layout.frame.height, contextBaseline.tabsHeight, 'Shared statistics tabs height');
+      assert.equal(
+        layout.frame.height,
+        contextBaseline.tabsHeight,
+        'Shared statistics tabs height',
+      );
     }
     if (
       !mobile &&
@@ -277,6 +281,24 @@ export async function checkNavigation(page, expected, width, baseline) {
   if (expected.scope === 'website') {
     const picker = page.getByRole('button', { name: /切换网站，当前/ });
     assert.equal(await picker.count(), 1);
+    if (await page.locator('[data-liekan-ui]').count()) {
+      const frame = page.locator('[data-website-context-frame]');
+      assert.equal(await frame.count(), 1, 'Website context frame missing');
+      const layout = await frame.evaluate(el => {
+        const rect = el.getBoundingClientRect();
+        const parent = el.parentElement.getBoundingClientRect();
+        return { x: rect.x, width: rect.width, parentX: parent.x, parentWidth: parent.width };
+      });
+      const expectedWidth = Math.min(1200, layout.parentWidth);
+      assert(
+        Math.abs(layout.width - expectedWidth) < 1,
+        'Website context must fill the content frame',
+      );
+      assert(
+        Math.abs(layout.x - (layout.parentX + (layout.parentWidth - expectedWidth) / 2)) < 1,
+        'Website context must align with the content frame',
+      );
+    }
     const height = await picker.evaluate(el => el.getBoundingClientRect().height);
     assert.equal(height, mobile ? 44 : 36, 'Compact website picker height');
     assert.equal(await page.getByRole('link', { name: '返回网站列表', exact: true }).count(), 1);

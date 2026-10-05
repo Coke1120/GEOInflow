@@ -63,7 +63,11 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
         />
         <div className={styles.content} id="main-content">
           {navigationFor(route).scope === 'website' && (
-            <div className={styles.websiteContextBar} ref={setWebsiteContextTarget} />
+            <div
+              className={styles.websiteContextBar}
+              data-website-context-frame
+              ref={setWebsiteContextTarget}
+            />
           )}
           <div className={`${styles.pageBody} ${isGeo ? reference.root : styles.coreFrame}`}>
             {isGeo && !currentMetadata && metadata.isError ? (
