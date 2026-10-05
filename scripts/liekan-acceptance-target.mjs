@@ -1,3 +1,4 @@
+/** @param {Record<string, string | undefined>} [env] */
 export function acceptancePort(env = process.env) {
   const input = env.LIEKAN_ACCEPTANCE_PORT ?? '3302';
   if (!/^[1-9]\d{0,4}$/.test(input) || Number(input) > 65535)
@@ -5,6 +6,10 @@ export function acceptancePort(env = process.env) {
   return Number(input);
 }
 
+/**
+ * @param {string} base
+ * @param {{env?: Record<string, string | undefined>, aiPreview?: boolean, localhost?: boolean}} [options]
+ */
 export function isolatedAcceptanceTarget(
   base,
   { env = process.env, aiPreview = false, localhost = true } = {},
