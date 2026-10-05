@@ -125,6 +125,7 @@ export async function analyzeAiConversation(
       maxOutputTokens: 2048,
       signal,
       stream: connection.capabilities.keyVerified.stream === true,
+      jsonOutput: true,
       schema:
         connection.capabilities.keyVerified.structuredOutput === true ? prepared.schema : undefined,
       onText: text => emit('delta', { text, validated: false }),

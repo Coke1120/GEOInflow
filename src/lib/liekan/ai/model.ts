@@ -17,6 +17,7 @@ export interface AiModelInput {
   stream: boolean;
   onText: (text: string) => void;
   schema?: z.ZodType;
+  jsonOutput?: boolean;
   fetch?: typeof fetch;
 }
 export function providerAiError(error: unknown, signal?: AbortSignal): AiSafeError {
@@ -58,7 +59,7 @@ function usageDto(usage: LanguageModelUsage | undefined): AiUsage | null {
   return Object.values(result).some(v => v !== null) ? result : null;
 }
 export function createAiSdkModel(
-  input: Pick<AiModelInput, 'connection' | 'apiKey' | 'fetch'> & {
+  input: Pick<AiModelInput, 'connection' | 'apiKey' | 'fetch' | 'jsonOutput'> & {
     onResponse?: (metadata: AiProviderResponse) => void;
   },
 ): LanguageModel {
@@ -105,6 +106,8 @@ export function createAiSdkModel(
     transformRequestBody: body => {
       if (policy?.reasoningEffort) body.reasoning_effort = policy.reasoningEffort;
       if (policy?.thinking) body.thinking = policy.thinking;
+      if (input.jsonOutput && policy?.jsonOutput && !body.response_format)
+        body.response_format = { type: 'json_object' };
       if (policy?.outputTokenField === 'max_completion_tokens') {
         body.max_completion_tokens = body.max_tokens;
         delete body.max_tokens;

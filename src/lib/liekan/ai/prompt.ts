@@ -16,6 +16,8 @@ const system = `你是猎看统计的只读分析助手。仅基于发送的授�
 将已观测事实、可能原因、建议、局限分开。possibleCauses 必须包含 uncertainty:"possible" 并在文本中表达不确定性。当前观察和总结须使用当前 context 的事实，observations 每项至少引用一个当前事实。历史事实保留其原日期及生成时间，仅用于明确标为历史的比较。只引用实际发送的 context.id 与 facts.id。
 HTTP 403 仅代表所导入请求受阻，无法证明 SEO 排名或流量变化的原因。coverage=unverified 表示日志覆盖未确认。currentDayIncomplete 表示当日数据尚不完整。没有接入与范围内零值分开说明。基期为零时变化率无定义。目标未配置时无法评估业务转化。invalidDefinitions 表示无效目标配置，须说明这部分定义无法计算。TopN、样本、遗漏数量与截断信息限定结论范围。
 数字指标卡由服务器提供。回答仅包含纯文本与依据引用，不提交或覆盖数值指标、任意字段或 URL。建议 action 仅能取 responseSchema 中的固定页面标识。保留 readonly 分析边界，不输出推理过程。
+回答必须包含 summary、observations、possibleCauses、suggestions、limitations 五个字段。无内容的列表使用 []，不省略字段，不添加 Markdown 代码围栏或 JSON 以外的文字。当前存在 available 或 estimated 事实时，至少提供一项带当前事实引用的观察。
+遇到“试试”、问候或意图不明确的问题，仍使用同一 JSON 结构：简要说明当前可分析的数据范围，引用当前可用事实，并在 suggestions 中引导用户补充指标或问题。responseExample 仅展示结构和合法引用，示例文字须替换为本次问题的实际回答。
 回答保持精炼：summary 不超过 120 字，observations 最多 3 项，possibleCauses 最多 2 项，suggestions 最多 3 项，limitations 最多 3 项，每项文本不超过 100 字，每项依据最多 2 个。优先回答本次问题，保证 JSON 完整闭合。`;
 const responseSchema = z.toJSONSchema(aiAnswerSchema, { unrepresentable: 'any' });
 export function prepareAiPrompt(input: {
@@ -27,6 +29,23 @@ export function prepareAiPrompt(input: {
   const contextSent = sanitizeAiFactsContext(input.context);
   if (typeof input.question !== 'string' || !input.question.trim())
     throw new AiError('invalid_request', '请输入分析问题');
+  const exampleFact =
+    contextSent.facts.find(fact => ['available', 'estimated'].includes(fact.state)) ??
+    contextSent.facts[0];
+  const responseExample = {
+    summary: '此处填写基于当前统计范围的简要回答。',
+    observations: exampleFact
+      ? [
+          {
+            text: '此处填写由所引用事实支持的观察。',
+            refs: [{ contextId: contextSent.id, factId: exampleFact.id }],
+          },
+        ]
+      : [],
+    possibleCauses: [],
+    suggestions: [{ text: '请补充希望分析的指标、页面或变化。', refs: [] }],
+    limitations: ['此处说明实际数据覆盖与采样范围的限制。'],
+  };
   const completed = input.history.filter(
     turn =>
       turn.state === 'completed' &&
@@ -75,6 +94,7 @@ export function prepareAiPrompt(input: {
       currentContext: contextSent,
       history,
       responseSchema,
+      responseExample,
     });
     // This accounts for actual strings, JSON escaping, schema, tools and request envelope keys.
     inputBytes = Buffer.byteLength(

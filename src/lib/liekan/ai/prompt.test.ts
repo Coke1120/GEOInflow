@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { validateAiAnswer } from './answer';
 import type { AiFactsContext } from './facts-contracts';
 import { prepareAiPrompt } from './prompt';
 
@@ -46,6 +47,51 @@ const answer = {
   limitations: [],
 };
 describe('AI actual serialized prompt budget', () => {
+  it('keeps vague questions in the complete JSON contract with current fact references', () => {
+    const current: AiFactsContext = {
+      ...context,
+      facts: [
+        {
+          id: 'pages',
+          label: '当前页面',
+          state: 'available',
+          data: {
+            total: 1,
+            omitted: 0,
+            truncated: false,
+            rows: [],
+            scope:
+              'browser paths and encoded imported AI request paths; union of current and previous periods ranked by current then previous counts; stored forms may differ; query and fragment excluded',
+          },
+        },
+      ],
+    };
+    const prepared = prepareAiPrompt({
+      context: current,
+      question: '试试',
+      history: [],
+      connectionConfig,
+    });
+    const payload = JSON.parse(prepared.prompt);
+    expect(payload.question).toBe('试试');
+    expect(prepared.system).toContain('意图不明确');
+    expect(prepared.system).toContain('JSON');
+    expect(
+      validateAiAnswer(payload.responseExample, prepared.allowedContexts).observations[0].refs,
+    ).toEqual([{ contextId: current.id, factId: 'pages' }]);
+  });
+  it('provides a valid complete example when no facts are available', () => {
+    const prepared = prepareAiPrompt({ context, question: '你好', history: [], connectionConfig });
+    const example = JSON.parse(prepared.prompt).responseExample;
+    expect(validateAiAnswer(example, prepared.allowedContexts).observations).toEqual([]);
+    expect(Object.keys(example)).toEqual([
+      'summary',
+      'observations',
+      'possibleCauses',
+      'suggestions',
+      'limitations',
+    ]);
+  });
   it('sends only six complete authorized turns and bases references on their actual contexts', () => {
     const history = Array.from({ length: 8 }, (_, n) => ({
       state: 'completed' as const,

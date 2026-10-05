@@ -52,7 +52,7 @@
   box-shadow: 0 16px 44px -24px rgb(15 98 254 / 22%);
 }
 .page .composer:focus-within {
-  border-color: #697386;
+  border-color: #e9ecf1;
 }
 .page .composer textarea {
   display: block;

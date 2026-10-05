@@ -107,7 +107,11 @@ try {
     );
     assert.equal(focus.borderWidth, '0px');
     assert.equal(focus.formBorder, '1px');
-    assert.equal(focus.formColor, 'rgb(105, 115, 134)', 'Composer uses one neutral focus boundary');
+    assert.equal(
+      focus.formColor,
+      'rgb(233, 236, 241)',
+      'Composer keeps its light boundary while typing',
+    );
     const title = await style(actual, '[data-ai-welcome] h2');
     const referenceTitle = await style(original, '#welcome h1');
     const shortcut = await style(actual, '[aria-labelledby="ai-functions-title"] a');

@@ -217,6 +217,16 @@ try {
     await expect(page.getByText('生成中，内容待核验')).toBeVisible();
     assert.equal(await input.getAttribute('rows'), '1');
     await input.fill('继续分析页面，保留的草稿');
+    const focusedBorder = await input.evaluate(element => {
+      const style = getComputedStyle(element.closest('form'));
+      return { width: style.borderTopWidth, color: style.borderTopColor };
+    });
+    assert.equal(focusedBorder.width, '1px');
+    assert.equal(
+      focusedBorder.color,
+      'rgb(233, 236, 241)',
+      'Continuation input keeps its light boundary while typing',
+    );
     await page.screenshot({ path: `${out}/loading-${width}.png`, fullPage: true });
     await expect(page.getByText('AI 分析 · 已校验', { exact: true })).toBeVisible();
     await expect(input).toHaveValue('继续分析页面，保留的草稿');

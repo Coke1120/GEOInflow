@@ -2,6 +2,52 @@
 import { expect, it, vi } from 'vitest';
 import { callAiModel } from './model';
 
+it.each([false, true])(
+  'requests DeepSeek JSON output for analysis with stream=%s',
+  async stream => {
+    const text = JSON.stringify({ summary: '请明确希望分析的指标。' });
+    const boundary = vi.fn(async (_url: any, init: any) => {
+      const body = JSON.parse(init.body);
+      expect(body.response_format).toEqual({ type: 'json_object' });
+      expect(body.thinking).toEqual({ type: 'disabled' });
+      if (!stream)
+        return Response.json({
+          choices: [
+            { index: 0, message: { role: 'assistant', content: text }, finish_reason: 'stop' },
+          ],
+        });
+      return new Response(
+        [
+          `data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: text }, finish_reason: null }] })}`,
+          `data: ${JSON.stringify({ choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}`,
+          'data: [DONE]',
+        ].join('\n\n') + '\n\n',
+        { headers: { 'content-type': 'text/event-stream' } },
+      );
+    });
+    const result = await callAiModel({
+      connection: {
+        provider: 'deepseek',
+        protocol: 'openai-chat',
+        base_url: 'https://api.deepseek.com',
+        model: 'deepseek-flash',
+        capabilities: { keyVerified: { structuredOutput: null } },
+      } as any,
+      apiKey: 'isolated-json-fixture',
+      system: '输出 JSON。',
+      prompt: '试试',
+      maxOutputTokens: 2048,
+      signal: new AbortController().signal,
+      stream,
+      jsonOutput: true,
+      onText: () => {},
+      fetch: boundary as typeof fetch,
+    });
+    expect(result.text).toBe(text);
+    expect(boundary).toHaveBeenCalledTimes(1);
+  },
+);
+
 const connection = {
   provider: 'minimax',
   protocol: 'openai-chat',
@@ -57,6 +103,7 @@ it.each([
       expect(body.model).toBe(model);
       expect(body.max_tokens ?? body.max_completion_tokens).toBe(2048);
       expect(body.tools).toBeUndefined();
+      expect(body.response_format).toBeUndefined();
       if (provider === 'kimi') expect(body.reasoning_effort).toBe('low');
       if (provider === 'deepseek') expect(body.thinking).toEqual({ type: 'disabled' });
       return Response.json({
@@ -85,6 +132,37 @@ it.each([
     });
     expect(result.text).toBe('safe fixture text');
     expect(result.usage).toBeNull();
+    expect(boundary).toHaveBeenCalledTimes(1);
+  },
+);
+it.each([
+  ['custom', 'https://api.deepseek.com', 'deepseek-flash'],
+  ['deepseek', 'https://models.example.com/v1', 'deepseek-flash'],
+  ['deepseek', 'https://api.deepseek.com', 'unmatched-model'],
+])(
+  'keeps JSON mode opt-in scoped to the matching official preset: %s %s %s',
+  async (provider, base_url, model) => {
+    const boundary = vi.fn(async (_url: any, init: any) => {
+      expect(JSON.parse(init.body).response_format).toBeUndefined();
+      return Response.json({
+        choices: [
+          { index: 0, message: { role: 'assistant', content: 'fixture' }, finish_reason: 'stop' },
+        ],
+      });
+    });
+    const result = await callAiModel({
+      connection: { ...connection, provider, base_url, model } as any,
+      apiKey: 'isolated-preset-fixture',
+      system: 'JSON fixture.',
+      prompt: 'Fixture.',
+      maxOutputTokens: 2048,
+      signal: new AbortController().signal,
+      stream: false,
+      jsonOutput: true,
+      onText: () => {},
+      fetch: boundary as typeof fetch,
+    });
+    expect(result.text).toBe('fixture');
     expect(boundary).toHaveBeenCalledTimes(1);
   },
 );

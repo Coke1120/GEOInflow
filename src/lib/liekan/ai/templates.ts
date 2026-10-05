@@ -34,6 +34,7 @@ export type AiTemplate = {
     apiVersion?: '2023-06-01';
     reasoningEffort?: 'low';
     thinking?: { type: 'disabled' };
+    jsonOutput?: true;
     outputTokenField?: 'max_completion_tokens';
   };
 };
@@ -98,7 +99,7 @@ export const AI_TEMPLATES: readonly AiTemplate[] = [
     contextWindow: 16384,
     documented: standard(),
     documentationUrls: ['https://api-docs.deepseek.com/'],
-    requestPolicy: { thinking: { type: 'disabled' } },
+    requestPolicy: { thinking: { type: 'disabled' }, jsonOutput: true },
     notes: ['统计分析使用非思考模式，将输出预算用于有依据的回答。'],
   },
   {
