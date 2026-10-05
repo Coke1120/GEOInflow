@@ -11,9 +11,9 @@ export function ProductFooter() {
             {liekanProduct.name} v{liekanProduct.version}
           </Link>
           <span>{liekanProduct.copyright}</span>
-          <Link prefetch={false} href={liekanProduct.links.license}>
+          <a href={liekanProduct.links.license} target="_blank" rel="noopener noreferrer">
             {liekanProduct.license}
-          </Link>
+          </a>
         </div>
         <nav className={styles.links} aria-label="项目相关链接">
           {liekanFooterLinks.map(({ label, href }) =>

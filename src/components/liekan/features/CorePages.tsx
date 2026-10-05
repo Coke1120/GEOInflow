@@ -1985,7 +1985,7 @@ function Preferences() {
               items={[
                 ['当前运行系统', `Liekan ${process.env.currentVersion || '0.1.2'}`],
                 ['界面版本', '猎看统计 UI v1'],
-                ['许可', 'MIT，保留 Umami 版权'],
+                ['许可', 'MIT'],
               ]}
             />
           </Form>

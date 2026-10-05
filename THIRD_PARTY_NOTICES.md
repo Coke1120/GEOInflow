@@ -1,10 +1,9 @@
 # Third-party notices
 
-Liekan application source is distributed under the MIT license. The original Umami copyright and license are retained in LICENSE. Dependency and data licenses remain in force independently.
+Liekan application source is distributed under the MIT license. The complete application copyright and license are retained in LICENSE. Dependency and data licenses remain in force independently.
 
 | Component | License / attribution | Use |
 | --- | --- | --- |
-| Umami v3.4.0 | MIT, Umami Software, Inc. | Authentication, tracker, human statistics, administration and compatible APIs |
 | Apache ECharts 5.5.0 | Apache-2.0; public/liekan/licenses/echarts-5.5.0-APACHE-2.0.txt | Prototype chart rendering |
 | Inter | SIL Open Font License 1.1; public/liekan/licenses/Inter-OFL-1.1.txt | Locally served font |
 | detect-browser | MIT; bundled dependency license | Browser recognition |
