@@ -945,6 +945,50 @@ describe('public share restrictions and password lifecycle', () => {
     await screen.findByRole('heading', { name: '没有访问权限' });
     expect(screen.queryByRole('heading', { name: '访客概览' })).not.toBeInTheDocument();
   });
+  it.each([401, 403, 404])('keeps a revoked shared report identity hidden across date changes after %s', async status => {
+    let metadataCalls = 0;
+    let reportCalls = 0;
+    mocks.request.mockImplementation(async (_method: string, path: string) => {
+      if (path === '/share/revoked-report') {
+        if (++metadataCalls > 1) return new Promise(() => {});
+        return {
+          token: 'revoked-report-token',
+          websiteId: 'site-1',
+          parameters: { overview: true, allowFilter: true },
+        };
+      }
+      if (path === '/liekan/websites/site-1/shared-report') {
+        if (++reportCalls === 2)
+          throw Object.assign(new Error('Share access revoked'), { status });
+        if (reportCalls > 2) return new Promise(() => {});
+        return {
+          website: { id: 'site-1', name: '已撤销网站', domain: 'revoked.example' },
+          states: { human: 'available', logs: 'not_connected' },
+          cards: [],
+          charts: {},
+          tables: { envGrid: [], cityBody: [] },
+          insights: [],
+          meta: { demo: true },
+          capabilities: { goals: false },
+        };
+      }
+      throw new Error(`Unexpected public request ${path}`);
+    });
+    const { client } = mount(<ShareFeatureView slug="revoked-report" />, false);
+    await screen.findByRole('heading', { name: '已撤销网站' });
+    expect(screen.getByText('revoked.example')).toBeInTheDocument();
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['liekan-shared-report'] });
+    });
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: '已撤销网站' })).not.toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: '7 天' }));
+    await waitFor(() => expect(reportCalls).toBe(3));
+    expect(screen.queryByRole('heading', { name: '已撤销网站' })).not.toBeInTheDocument();
+    expect(screen.queryByText('revoked.example')).not.toBeInTheDocument();
+    expect(screen.queryByText(/以下为隔离的示例数据/)).not.toBeInTheDocument();
+  });
   it('website shares render every requested module and update all dates together with the share token', async () => {
     mocks.request.mockImplementation(async (_method: string, path: string, params: any) => {
       if (path === '/share/website-report') return {

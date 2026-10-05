@@ -73,10 +73,12 @@ export function SharedWebsiteOverview({
     website: SharedReport['website'];
     demo: boolean;
   }>();
+  const accessDenied = [401, 403, 404].includes((query.error as any)?.status);
   useEffect(() => {
-    if (report) setPreviousIdentity({ website: report.website, demo: report.meta.demo });
-  }, [report]);
-  const identity = [401, 403, 404].includes((query.error as any)?.status)
+    if (accessDenied) setPreviousIdentity(undefined);
+    else if (report) setPreviousIdentity({ website: report.website, demo: report.meta.demo });
+  }, [report, accessDenied]);
+  const identity = accessDenied
     ? undefined
     : report
       ? { website: report.website, demo: report.meta.demo }
