@@ -920,6 +920,29 @@ describe('public share restrictions and password lifecycle', () => {
         .every(call => call[4] === 'overview-token' && call[5] === ''),
     ).toBe(true);
   });
+  it('preserves the shared report structure during loading and removes it on access denial', async () => {
+    let rejectReport: (reason: unknown) => void = () => {};
+    const pending = new Promise((_, reject) => {
+      rejectReport = reject;
+    });
+    mocks.request.mockImplementation(async (_method: string, path: string) => {
+      if (path === '/share/pending-report')
+        return {
+          token: 'pending-report-token',
+          websiteId: 'site-1',
+          parameters: { overview: true },
+        };
+      if (path === '/liekan/websites/site-1/shared-report') return pending;
+      throw new Error(`Unexpected public request ${path}`);
+    });
+    mount(<ShareFeatureView slug="pending-report" />, false);
+    for (const name of ['访客概览', 'AI 与来源', '地域分布'])
+      expect(await screen.findByRole('heading', { name, exact: true })).toBeInTheDocument();
+    expect(screen.getAllByRole('img', { name: /分享图表/ })).toHaveLength(8);
+    await act(async () => rejectReport({ status: 403 }));
+    await screen.findByRole('heading', { name: '没有访问权限' });
+    expect(screen.queryByRole('heading', { name: '访客概览', exact: true })).not.toBeInTheDocument();
+  });
   it('website shares render every requested module and update all dates together with the share token', async () => {
     mocks.request.mockImplementation(async (_method: string, path: string) => {
       if (path === '/share/website-report') return {

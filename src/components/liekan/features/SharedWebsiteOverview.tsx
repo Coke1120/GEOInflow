@@ -84,7 +84,7 @@ export function SharedWebsiteOverview({
     (report?.tables.envGrid || []).filter(row => row.category === category).slice(0, 5);
   const goals = report?.capabilities.goals;
   return (
-    <QueryState query={query}>
+    <QueryState readOnly query={query}>
       <article className={styles.report}>
         <header className={styles.reportHead}>
           <div>
