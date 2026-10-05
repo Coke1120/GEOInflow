@@ -30,6 +30,7 @@ test('keeps the deployed shared overview scoped and aggregate-only', async ({
       'h3',
     ]);
     expect(result.body.meta).toEqual({
+      aiCrawlerEnabled: true,
       demo: false,
       canManage: false,
       latestImportAt: null,
@@ -37,6 +38,23 @@ test('keeps the deployed shared overview scoped and aggregate-only', async ({
     });
     expect((await client.get(path, { params: { ...params, resource: 'logs' } })).status).toBe(400);
   }
+  const publicClient = await share();
+  const settings = `/api/liekan/websites/${seed.website.id}/settings`;
+  try {
+    expect((await admin.put(settings, { aiCrawlerEnabled: false })).status).toBe(200);
+    for (let i = 0; i < 2; i++) {
+      const hidden = await publicClient.get(path, { params });
+      expect(hidden.status).toBe(200);
+      expect(hidden.body.meta.aiCrawlerEnabled).toBe(false);
+      expect(hidden.body.states.logs).toBe('unsupported');
+      expect(hidden.body.states.catalog).toBe('unsupported');
+      expect(hidden.body.cards.some(card => card.label === 'AI 蜘蛛请求')).toBe(false);
+      expect(hidden.body.meta.logsConfigured).toBeUndefined();
+    }
+  } finally {
+    expect((await admin.put(settings, { aiCrawlerEnabled: true })).status).toBe(200);
+  }
+  expect((await publicClient.get(path, { params })).body.meta.aiCrawlerEnabled).toBe(true);
   expect(
     (
       await (
