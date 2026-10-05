@@ -893,6 +893,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/websites/{websiteId}/shared-report': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read aggregate website statistics authorized by a live overview share or complete login */
+    get: operations['getLiekanSharedReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/websites/summary': {
     parameters: {
       query?: never;
@@ -10323,6 +10340,281 @@ export interface operations {
            */
           'application/json': components['schemas']['ApiError'];
         };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanSharedReport: {
+    parameters: {
+      query: {
+        chartPeriod?: '30d' | '7d' | '24h';
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt: number;
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Read-only aggregate dashboard */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            capabilities: {
+              goals: boolean;
+            };
+            cards: {
+              detail?: string;
+              key: string;
+              label: string;
+              /** @enum {string} */
+              state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @description Time interval used to group results: minute, hour, day, month, or year. */
+              unit?: string;
+              value: number | string | null;
+            }[];
+            charts: {
+              d1: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              d2: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              d3: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              g1: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              g2: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              h1: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              h2: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              h3: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+            };
+            /** @constant */
+            contractVersion: 1;
+            insights: string[];
+            meta: {
+              canManage: boolean;
+              demo: boolean;
+              latestImportAt: string | null;
+              nextCursor?: string;
+              /** @description Page number, starting at 1. */
+              page?: number;
+              /** @description Number of results per page. */
+              pageSize?: number;
+              previousCursor?: string;
+              ruleCount: number;
+              totalLogs?: number;
+            };
+            range: {
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            };
+            states: {
+              /** @enum {string} */
+              catalog: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @enum {string} */
+              goals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @enum {string} */
+              human: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @enum {string} */
+              logs: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+            };
+            tables: {
+              cityBody: {
+                bounceRate: number | null;
+                /** @description City of the visitor. */
+                city: string;
+                conversionRate: number | null;
+                /** @description Replay duration in milliseconds. */
+                duration: number | null;
+                sessions: number;
+                share: number | null;
+              }[];
+              envGrid: {
+                category: string;
+                /** @description Display name of the resource. */
+                name: string;
+                share: number | null;
+              }[];
+            };
+            website: {
+              /** @description Domain name associated with the resource. */
+              domain: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @description Display name of the resource. */
+              name: string;
+            };
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Share scope does not permit this website overview */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Not found. */
       404: {

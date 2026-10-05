@@ -8,6 +8,7 @@ import {
 } from '@/lib/liekan/upstream/client-freshness';
 import { useQuery } from '@tanstack/react-query';
 import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import {
@@ -45,6 +46,9 @@ import {
   getFeaturePreferences,
 } from '@/lib/liekan/upstream/features-client';
 import { Chart } from './Chart';
+import { SharedWebsiteOverview } from './SharedWebsiteOverview';
+import { sharedDateRange } from '@/lib/liekan/contracts/shared-report';
+import sharedStyles from '@/styles/liekan/SharedReport.module.css';
 import { FeatureProvider, useAction, useData, useFeature, useResourceContext } from './context';
 import {
   Badge,
@@ -2906,6 +2910,8 @@ function PublicStats({
     retry: false,
   });
   if (!id && !share.boardId) return <Notice>分享资源尚未提供统计数据。</Notice>;
+  if (active === 'overview' && share.websiteId && !share.boardId && !share.linkId && !share.pixelId)
+    return <SharedWebsiteOverview id={id} token={share.token} range={range} request={request} />;
   if (active === 'overview' && !share.boardId)
     return (
       <ResourceAnalytics
@@ -3004,12 +3010,7 @@ export function ShareFeatureView({
     [busy, setBusy] = useState(false),
     [active, setActive] = useState(initialPage),
     [filters, setFilters] = useState<any>({});
-  const [range, setRange] = useState(() => ({
-    startAt: Date.now() - 7 * 86400000,
-    endAt: Date.now(),
-    timezone: 'UTC',
-    unit: 'day',
-  }));
+  const [range, setRange] = useState(() => sharedDateRange());
   const q = useQuery({
     queryKey: ['liekan-public-share', slug],
     queryFn: ({ signal }) =>
@@ -3122,13 +3123,33 @@ export function ShareFeatureView({
               <>
                 <Tabs items={allowed} active={selected || ''} onChange={setActive} />
                 {share.parameters?.allowFilter !== false && (
-                  <div className="filter-line">
+                  <div className={sharedStyles.filters}>
+                    <div className="actions" aria-label="快捷日期范围">
+                      {(
+                        [
+                          ['30 天', 30],
+                          ['7 天', 7],
+                          ['24h', 1],
+                        ] as const
+                      ).map(([label, days]) => (
+                        <Button
+                          key={label}
+                          primary={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
+                          aria-pressed={
+                            Math.abs(range.endAt - range.startAt - days * 86400000) < 1000
+                          }
+                          onClick={() => setRange(sharedDateRange(days))}
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
                     <Field
                       label="开始日期"
                       type="date"
-                      value={new Date(range.startAt).toISOString().slice(0, 10)}
+                      value={formatInTimeZone(range.startAt, range.timezone, 'yyyy-MM-dd')}
                       onChange={e => {
-                        const time = Date.parse(`${e.target.value}T00:00:00Z`);
+                        const time = +fromZonedTime(`${e.target.value}T00:00:00`, range.timezone);
                         if (Number.isFinite(time))
                           setRange(current => ({ ...current, startAt: time }));
                       }}
@@ -3136,21 +3157,32 @@ export function ShareFeatureView({
                     <Field
                       label="结束日期"
                       type="date"
-                      value={new Date(range.endAt).toISOString().slice(0, 10)}
+                      value={formatInTimeZone(range.endAt, range.timezone, 'yyyy-MM-dd')}
                       onChange={e => {
-                        const time = Date.parse(`${e.target.value}T23:59:59.999Z`);
+                        const time = +fromZonedTime(
+                          `${e.target.value}T23:59:59.999`,
+                          range.timezone,
+                        );
                         if (Number.isFinite(time))
                           setRange(current => ({ ...current, endAt: time }));
                       }}
                     />
-                    <Field
-                      label="页面路径"
-                      placeholder="输入路径筛选"
-                      value={filters.path?.slice(3) || ''}
-                      onChange={e =>
-                        setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})
-                      }
-                    />
+                    {!(
+                      selected === 'overview' &&
+                      share.websiteId &&
+                      !share.boardId &&
+                      !share.linkId &&
+                      !share.pixelId
+                    ) && (
+                      <Field
+                        label="页面路径"
+                        placeholder="输入路径筛选"
+                        value={filters.path?.slice(3) || ''}
+                        onChange={e =>
+                          setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})
+                        }
+                      />
+                    )}
                   </div>
                 )}
                 {selected ? (

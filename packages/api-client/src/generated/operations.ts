@@ -1010,6 +1010,14 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
+  getLiekanSharedReport: {
+    operationId: 'getLiekanSharedReport',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/shared-report',
+    pathParams: ['websiteId'],
+    queryParams: ['startAt', 'endAt', 'timezone', 'chartPeriod'],
+    hasBody: false,
+  },
   getLiekanWebsiteSummary: {
     operationId: 'getLiekanWebsiteSummary',
     method: 'get',
@@ -4082,6 +4090,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getLiekanSettings'>> {
     return this.execute('getLiekanSettings', input, options);
+  }
+
+  /**
+   * Read aggregate website statistics authorized by a live overview share or complete login
+   * `GET /api/liekan/websites/{websiteId}/shared-report`
+   */
+  getLiekanSharedReport(
+    input: OperationInput<'getLiekanSharedReport'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanSharedReport'>> {
+    return this.execute('getLiekanSharedReport', input, options);
   }
 
   /**
