@@ -98,7 +98,8 @@ export const AI_TEMPLATES: readonly AiTemplate[] = [
     contextWindow: 16384,
     documented: standard(),
     documentationUrls: ['https://api-docs.deepseek.com/'],
-    notes: [],
+    requestPolicy: { thinking: { type: 'disabled' } },
+    notes: ['统计分析使用非思考模式，将输出预算用于有依据的回答。'],
   },
   {
     id: 'qwen',

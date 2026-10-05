@@ -20,8 +20,6 @@ import {
   aiError,
   ModelWindow,
   ModuleNotice,
-  RunMetrics,
-  RunStatus,
   record,
   styles,
   useAiCatalog,
@@ -30,6 +28,7 @@ import {
 } from './AiShared';
 import home from '@/styles/liekan/AiChatHome.module.css';
 import { ChatComposer, ChatHome, ChatWebsite, ChatWelcome } from './AiChatHome';
+import { ChatActivity, ChatAssistantHeading, ChatCopy, ChatRunDetails } from './AiChatActivity';
 import { ConnectionForm, ConnectionTest } from './AiConfigPage';
 import { useFeature } from './context';
 
@@ -174,6 +173,7 @@ function SiteConversation({
     [testing, setTesting] = useState(false),
     [sentQuestion, setSentQuestion] = useState(''),
     [conversationId, setConversationId] = useState(routeConversation),
+    [observedRoute, setObservedRoute] = useState(routeConversation),
     [switching, setSwitching] = useState(false),
     [pendingConversation, setPendingConversation] = useState<string | null>(null),
     [error, setError] = useState(''),
@@ -196,7 +196,6 @@ function SiteConversation({
     selectionEpoch = useRef(0),
     conversationRef = useRef(conversationId),
     routeRef = useRef(routeConversation),
-    observedRoute = useRef(routeConversation),
     pendingSelection = useRef<{ id: string; busy: boolean } | null>(null),
     taskRef = useRef(task),
     contextRef = useRef(c);
@@ -281,10 +280,10 @@ function SiteConversation({
     [site.id],
   );
   useEffect(() => {
-    if (!routeScope || observedRoute.current === routeConversation) return;
-    observedRoute.current = routeConversation;
+    if (!routeScope || observedRoute === routeConversation) return;
+    setObservedRoute(routeConversation);
     void selectConversation(routeConversation, 'route');
-  }, [routeScope, routeConversation, selectConversation]);
+  }, [routeScope, routeConversation, observedRoute, selectConversation]);
   const restoredConversation = task.metadata?.conversationId;
   useEffect(() => {
     if (!routeScope || !restoredConversation || !uuid.test(restoredConversation)) return;
@@ -347,7 +346,7 @@ function SiteConversation({
         .slice()
         .reverse() || []
     : [];
-  const routePending = pendingConversation !== null || routeConversation !== observedRoute.current;
+  const routePending = pendingConversation !== null || routeConversation !== observedRoute;
   const busy = task.busy || creating || switching || routePending;
   const showCurrentTask =
     conversationVerified &&
@@ -367,6 +366,27 @@ function SiteConversation({
     !task.preview &&
     !task.busy &&
     !task.recoverable;
+  const currentTaskVisible =
+    showCurrentTask &&
+    !allMessages.some(message => message.runId === task.run?.id) &&
+    !!(sentQuestion || task.run || task.preview || task.busy);
+  const threadEnd = useRef<HTMLDivElement>(null),
+    followAnswer = useRef(true);
+  useEffect(() => {
+    const check = () => {
+      const dock = document.querySelector('[data-ai-composer-dock]')?.getBoundingClientRect();
+      const end = threadEnd.current?.getBoundingClientRect();
+      followAnswer.current = !!end && end.top <= (dock?.top ?? window.innerHeight) + 120;
+    };
+    window.addEventListener('scroll', check, { passive: true });
+    return () => window.removeEventListener('scroll', check);
+  }, []);
+  useEffect(() => {
+    if (sentQuestion) followAnswer.current = true;
+  }, [sentQuestion]);
+  useEffect(() => {
+    if (!isLanding && followAnswer.current) threadEnd.current?.scrollIntoView?.({ block: 'end' });
+  }, [task.preview, task.stage, sentQuestion, isLanding]);
   const refreshConnections = () =>
     client.invalidateQueries({
       queryKey: ['liekan-ai', c.user.id, 'connections', space.kind, space.id],
@@ -463,6 +483,7 @@ function SiteConversation({
       )
         return;
       setSentQuestion(text);
+      followAnswer.current = true;
       setQuestion('');
       void task.start(
         `/liekan/ai/conversations/${id}/messages`,
@@ -613,26 +634,25 @@ function SiteConversation({
           加载更早消息
         </AiButton>
       )}
-      <div className={styles.conversation} hidden={isLanding}>
+      <div className={`${styles.conversation} ${home.thread}`} hidden={isLanding}>
         {allMessages.map(message => (
           <HistoryMessage
             key={message.id}
             message={message}
             siteId={site.id}
             onReference={setReference}
+            error={message.runId === task.run?.id && task.run?.error ? aiError(task.run.error) : ''}
           />
         ))}
         {showCurrentTask &&
           !allMessages.some(m => m.runId === task.run?.id) &&
           (sentQuestion || task.run || task.preview || task.busy) && (
             <>
-              <div className={styles.userMessage}>
+              <div className={styles.userMessage} data-ai-user-message>
                 {sentQuestion || '正在恢复原任务，问题内容从历史读取。'}
               </div>
-              <div className={styles.assistantMessage}>
-                <div className={styles.messageHeading}>
-                  猎看分析 <RunStatus state={task.stage} />
-                </div>
+              <div className={styles.assistantMessage} data-ai-assistant-message>
+                <ChatAssistantHeading state={task.stage} />
                 {task.run?.state === 'completed' ? (
                   <Answer
                     result={task.run.result}
@@ -641,27 +661,37 @@ function SiteConversation({
                     onReference={setReference}
                   />
                 ) : (
-                  <>
-                    <p className={styles.muted}>实时预览 · 尚未校验</p>
-                    <div className={styles.preview}>
-                      {task.preview ||
-                        (task.error
-                          ? '本次生成未完成。请按提示回查或重新填写问题。'
-                          : '正在读取统计依据…')}
-                    </div>
-                  </>
+                  <ChatActivity
+                    stage={task.stage}
+                    busy={task.busy}
+                    preview={task.preview}
+                    error={task.run?.error ? aiError(task.run.error) : task.error}
+                  />
                 )}
-                <RunMetrics run={task.run} />
-                {task.run?.error && <AiNotice error>{aiError(task.run.error)}</AiNotice>}
+                {!task.busy && <ChatRunDetails run={task.run} />}
               </div>
             </>
           )}
       </div>
-      {task.error && <AiNotice error>{task.error}</AiNotice>}
+      <div ref={threadEnd} className={home.threadEnd} aria-hidden="true" />
+      {task.error &&
+        (!currentTaskVisible || task.busy) &&
+        !allMessages.some(message => message.runId === task.run?.id && task.run?.error) && (
+          <AiNotice error>{task.error}</AiNotice>
+        )}
       {error && <AiNotice error>{error}</AiNotice>}
-      {task.error && !task.recoverable && !task.busy && sentQuestion && (
+      {(task.error || task.run?.error) && !task.recoverable && !task.busy && sentQuestion && (
         <div className={styles.actions}>
-          <AiButton onClick={() => setQuestion(sentQuestion)}>重新填写问题</AiButton>
+          <AiButton
+            onClick={() => {
+              setQuestion(sentQuestion);
+              document
+                .querySelector<HTMLTextAreaElement>('textarea[aria-label="分析问题"]')
+                ?.focus();
+            }}
+          >
+            重新填写问题
+          </AiButton>
           <span className={styles.muted}>重新发起会创建新调用，可能产生费用。</span>
         </div>
       )}
@@ -673,120 +703,138 @@ function SiteConversation({
           <span className={styles.muted}>刷新恢复仅查询原任务，不会重复调用模型。</span>
         </div>
       )}
-      <ChatComposer
-        question={question}
-        onQuestion={setQuestion}
-        onSubmit={submit}
-        maxLength={catalog.limits.maxQuestionCharacters}
-        disabled={blocked}
-        submitDisabled={(!needsSetup && !question.trim()) || task.recoverable}
-        busy={busy}
-        onStop={() => void task.stop()}
-        scope={
-          <>
-            <ChatWebsite
-              websites={catalog.websites}
-              value={site.id}
-              disabled={creating || switching || routePending}
-              onChange={async id => {
-                if (await task.stop()) changeSite(id);
-              }}
-            />
-            <details className={home.datePicker}>
-              <summary>
-                <CalendarDays size={15} aria-hidden="true" />
-                {dates.start.slice(5)} 至 {dates.end.slice(5)}
+      <div
+        className={isLanding ? undefined : home.composerDock}
+        data-ai-composer-dock={!isLanding || undefined}
+      >
+        <ChatComposer
+          question={question}
+          onQuestion={setQuestion}
+          onSubmit={submit}
+          maxLength={catalog.limits.maxQuestionCharacters}
+          disabled={
+            !catalog.module.enabled ||
+            !space.canUse ||
+            connections.isPending ||
+            !!connections.error ||
+            !conversationVerified ||
+            creating ||
+            switching ||
+            routePending
+          }
+          submitDisabled={busy || (!needsSetup && !question.trim()) || task.recoverable}
+          compact={!isLanding}
+          busy={busy}
+          onStop={() => void task.stop()}
+          scope={
+            <>
+              <ChatWebsite
+                websites={catalog.websites}
+                value={site.id}
+                disabled={creating || switching || routePending}
+                onChange={async id => {
+                  if (await task.stop()) changeSite(id);
+                }}
+              />
+              <details className={home.datePicker}>
+                <summary>
+                  <CalendarDays size={15} aria-hidden="true" />
+                  {dates.start.slice(5)} 至 {dates.end.slice(5)}
+                  <ChevronDown size={13} aria-hidden="true" />
+                </summary>
+                <div className={home.datePanel}>
+                  <label>
+                    开始日期
+                    <input
+                      aria-label="分析开始日期"
+                      type="date"
+                      value={dates.start}
+                      disabled={busy}
+                      onChange={e => setDates(d => ({ ...d, start: e.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    结束日期
+                    <input
+                      aria-label="分析结束日期"
+                      type="date"
+                      value={dates.end}
+                      disabled={busy}
+                      onChange={e => setDates(d => ({ ...d, end: e.target.value }))}
+                    />
+                  </label>
+                  <p>
+                    统计时区：{timezone} · 最长 {catalog.limits.maxDays} 天
+                  </p>
+                </div>
+              </details>
+              <label className={home.scopeControl}>
+                <Sparkles size={14} aria-hidden="true" />
+                <select
+                  aria-label="分析模型"
+                  value={connectionId || selected?.id || ''}
+                  disabled={busy || !space.canUse || !catalog.module.enabled}
+                  onChange={e => setConnectionId(e.target.value)}
+                >
+                  <option value="">选择模型</option>
+                  <option value="local">本地接入指引 · 无模型调用</option>
+                  {usable.map(row => (
+                    <option key={row.id} value={row.id}>
+                      {row.name} · {row.model}
+                      {row.isDefault ? ' · 默认' : ''}
+                    </option>
+                  ))}
+                </select>
                 <ChevronDown size={13} aria-hidden="true" />
-              </summary>
-              <div className={home.datePanel}>
-                <label>
-                  开始日期
-                  <input
-                    aria-label="分析开始日期"
-                    type="date"
-                    value={dates.start}
-                    disabled={busy}
-                    onChange={e => setDates(d => ({ ...d, start: e.target.value }))}
-                  />
-                </label>
-                <label>
-                  结束日期
-                  <input
-                    aria-label="分析结束日期"
-                    type="date"
-                    value={dates.end}
-                    disabled={busy}
-                    onChange={e => setDates(d => ({ ...d, end: e.target.value }))}
-                  />
-                </label>
-                <p>
-                  统计时区：{timezone} · 最长 {catalog.limits.maxDays} 天
-                </p>
-              </div>
-            </details>
-            <label className={home.scopeControl}>
-              <Sparkles size={14} aria-hidden="true" />
-              <select
-                aria-label="分析模型"
-                value={connectionId || selected?.id || ''}
-                disabled={busy || !space.canUse || !catalog.module.enabled}
-                onChange={e => setConnectionId(e.target.value)}
-              >
-                <option value="">选择模型</option>
-                <option value="local">本地接入指引 · 无模型调用</option>
-                {usable.map(row => (
-                  <option key={row.id} value={row.id}>
-                    {row.name} · {row.model}
-                    {row.isDefault ? ' · 默认' : ''}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={13} aria-hidden="true" />
-            </label>
-          </>
-        }
-        disclosure={
-          needsSetup ? undefined : (
-            <section className={styles.callDisclosure} aria-label="分析调用说明">
-              {selected ? (
-                <>
-                  <p>
-                    供应商：
-                    {catalog.templates.find(t => t.provider === selected.provider)?.name ||
-                      '自定义兼容接口'}{' '}
-                    · 模型：{selected.model}
-                  </p>
-                  <p>
-                    应用上下文窗口：
-                    <ModelWindow catalog={catalog} configuration={selected} />
-                  </p>
-                  <p>将外发脱敏汇总、有限样本、本次问题与最多 6 轮历史；调用可能产生供应商费用。</p>
-                </>
-              ) : (
-                <p>本地统计指引 · 0 次供应商调用。统计依据与问题由当前实例处理。</p>
-              )}
-              <p>请勿输入凭据、密钥或个人资料。</p>
-            </section>
-          )
-        }
-      />
-      {!connections.isPending &&
-        !connections.error &&
-        catalog.module.enabled &&
-        space.canUse &&
-        needsSetup && (
-          <p className={home.hint}>
-            配置 AI 后，就能结合网站数据获得分析。
-            <button type="button" onClick={openSetup}>
-              去配置
-            </button>
-          </p>
-        )}
-      {!isLanding && (
-        <p className={home.siteMeta}>
-          {space.name} · {site.domain} · {space.canUse ? '可分析' : '只读权限'}
-        </p>
-      )}
+              </label>
+            </>
+          }
+          disclosure={
+            needsSetup ? undefined : (
+              <details className={home.callInfo}>
+                <summary>
+                  {selected ? '使用脱敏统计，模型调用可能产生费用' : '本地指引，0 次供应商调用'}
+                  <span>调用说明</span>
+                </summary>
+                <section className={styles.callDisclosure} aria-label="分析调用说明">
+                  {selected ? (
+                    <>
+                      <p>
+                        供应商：
+                        {catalog.templates.find(t => t.provider === selected.provider)?.name ||
+                          '自定义兼容接口'}{' '}
+                        · 模型：{selected.model}
+                      </p>
+                      <p>
+                        应用上下文窗口：
+                        <ModelWindow catalog={catalog} configuration={selected} />
+                      </p>
+                      <p>
+                        将外发脱敏汇总、有限样本、本次问题与最多 6 轮历史；调用可能产生供应商费用。
+                      </p>
+                    </>
+                  ) : (
+                    <p>本地统计指引 · 0 次供应商调用。统计依据与问题由当前实例处理。</p>
+                  )}
+                  <p>请勿输入凭据、密钥或个人资料。</p>
+                </section>
+              </details>
+            )
+          }
+        />
+        {!connections.isPending &&
+          !connections.error &&
+          catalog.module.enabled &&
+          space.canUse &&
+          needsSetup && (
+            <p className={home.hint}>
+              配置 AI 后，就能结合网站数据获得分析。
+              <button type="button" onClick={openSetup}>
+                去配置
+              </button>
+            </p>
+          )}
+      </div>
       {isLanding && (
         <ChatHome
           siteId={site.id}
@@ -892,11 +940,6 @@ function SiteConversation({
           }}
         />
       )}
-      {!isLanding && (
-        <p className={styles.footnote}>
-          回答基于本次统计快照。日志覆盖未经验证；当前页面可能随新数据变化。供应商调用可能产生费用。
-        </p>
-      )}
       {reference && conversationId && conversationVerified && (
         <ContextSnapshot
           conversationId={conversationId}
@@ -939,18 +982,20 @@ function HistoryMessage({
   message,
   siteId,
   onReference,
+  error,
 }: {
   message: AiMessage;
   siteId: string;
   onReference: (id: string) => void;
+  error: string;
 }) {
   return (
     <>
-      <div className={styles.userMessage}>{message.question}</div>
-      <div className={styles.assistantMessage}>
-        <div className={styles.messageHeading}>
-          猎看分析 <span className={styles.badge}>历史回答</span>
-        </div>
+      <div className={styles.userMessage} data-ai-user-message>
+        {message.question}
+      </div>
+      <div className={styles.assistantMessage} data-ai-assistant-message>
+        <ChatAssistantHeading state={message.state === 'completed' ? undefined : message.state} />
         {message.state === 'completed' && message.result ? (
           <Answer
             result={message.result}
@@ -959,7 +1004,14 @@ function HistoryMessage({
             onReference={onReference}
           />
         ) : (
-          <AiNotice>此历史任务未完成，状态：{message.state || '未知'}。</AiNotice>
+          <ChatActivity
+            stage={message.state || 'interrupted'}
+            busy={false}
+            preview=""
+            error={
+              error || (message.state === 'failed' ? '这次分析未完成，可重新填写问题后再试。' : '')
+            }
+          />
         )}
       </div>
     </>
@@ -1026,7 +1078,17 @@ function Answer({
               key={`${ref.contextId}:${String(ref.factId)}:${i}`}
               onClick={() => onReference(String(ref.contextId))}
             >
-              {ref.historical ? '历史依据' : '生成时依据'} · {String(ref.factId)}
+              {ref.historical ? '历史依据' : '生成时依据'} ·{' '}
+              {(
+                {
+                  summary: '概况',
+                  bots: 'AI 爬虫',
+                  'log-errors': '抓取日志',
+                  'ai-referrals': 'AI 引荐',
+                  pages: '页面',
+                  goals: '转化',
+                } as Record<string, string>
+              )[String(ref.factId)] || '统计'}
             </AiButton>
           ) : null;
         })
@@ -1077,17 +1139,30 @@ function Answer({
       {items('observations', '观察结果')}
       {items('possibleCauses', '可能原因，尚待验证')}
       {items('suggestions', '建议行动')}
-      <section className={styles.answerSection}>
-        <h3>限制与范围</h3>
+      <details className={home.answerNotes}>
+        <summary>限制与范围</summary>
         <ul>
           {(value.limitations as unknown[]).map((text, i) =>
             typeof text === 'string' ? <li key={i}>{text}</li> : null,
           )}
         </ul>
-      </section>
-      {typeof value.contextId === 'string' && uuid.test(value.contextId) && (
-        <AiButton onClick={() => onReference(String(value.contextId))}>查看生成时依据</AiButton>
-      )}
+      </details>
+      <div className={home.answerTools}>
+        <ChatCopy
+          text={[
+            value.summary,
+            ...['observations', 'possibleCauses', 'suggestions'].flatMap(key =>
+              (value[key] as unknown[])
+                .map(item => record(item).text)
+                .filter(text => typeof text === 'string'),
+            ),
+            ...(value.limitations as unknown[]).filter(text => typeof text === 'string'),
+          ].join('\n\n')}
+        />
+        {typeof value.contextId === 'string' && uuid.test(value.contextId) && (
+          <AiButton onClick={() => onReference(String(value.contextId))}>查看生成时依据</AiButton>
+        )}
+      </div>
       {Array.isArray(value.actions) && (
         <div className={styles.actions}>
           {value.actions.map((input, i) => {
@@ -1100,6 +1175,7 @@ function Answer({
           })}
         </div>
       )}
+      <p className={home.answerCaution}>回答基于生成时统计快照，请结合数据覆盖范围判断。</p>
     </div>
   );
 }

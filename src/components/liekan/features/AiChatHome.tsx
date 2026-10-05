@@ -11,8 +11,9 @@ import {
   Map,
   MessageSquare,
   Target,
+  Square,
 } from 'lucide-react';
-import type { FormEvent, ReactNode } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useRef } from 'react';
 import type { AiCatalog } from '@/lib/liekan/upstream/ai-client';
 import home from '@/styles/liekan/AiChatHome.module.css';
 import { useFeature } from './context';
@@ -69,6 +70,7 @@ export function ChatComposer({
   onStop,
   disclosure,
   maxLength,
+  compact = false,
 }: {
   question: string;
   onQuestion: (text: string) => void;
@@ -80,49 +82,76 @@ export function ChatComposer({
   onStop?: () => void;
   disclosure?: ReactNode;
   maxLength: number;
+  compact?: boolean;
 }) {
+  const input = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (!input.current) return;
+    input.current.style.height = 'auto';
+    if (!compact) {
+      input.current.style.removeProperty('height');
+      return;
+    }
+    input.current.style.height = `${Math.min(180, input.current.scrollHeight)}px`;
+  }, [question, compact]);
   return (
-    <form onSubmit={onSubmit} className={home.composer}>
-      <textarea
-        rows={3}
-        aria-label="分析问题"
-        value={question}
-        maxLength={maxLength}
-        placeholder="例如：本周 AI 抓取为什么下降？哪些页面值得优先优化？"
-        disabled={disabled}
-        onChange={event => onQuestion(event.target.value)}
-        onKeyDown={event => {
-          if (
-            event.key === 'Enter' &&
-            !event.shiftKey &&
-            !event.nativeEvent.isComposing &&
-            event.nativeEvent.keyCode !== 229
-          ) {
-            event.preventDefault();
-            event.currentTarget.form?.requestSubmit();
+    <>
+      <form
+        onSubmit={onSubmit}
+        className={`${home.composer} ${compact ? home.compactComposer : ''}`}
+      >
+        <textarea
+          ref={input}
+          rows={compact ? 1 : 3}
+          aria-label="分析问题"
+          value={question}
+          maxLength={maxLength}
+          placeholder={
+            compact
+              ? '继续提问，或补充你想分析的细节…'
+              : '例如：本周 AI 抓取为什么下降？哪些页面值得优先优化？'
           }
-        }}
-      />
-      <div className={home.composerActions}>
-        <div className={home.composerScope}>{scope}</div>
-        {busy ? (
-          <button type="button" className={home.stop} onClick={onStop}>
-            停止分析
-          </button>
-        ) : (
-          <button
-            type="submit"
-            className={home.send}
-            aria-label="发起分析"
-            title="Enter 发送，Shift + Enter 换行"
-            disabled={disabled || submitDisabled}
-          >
-            <ArrowUp size={21} aria-hidden="true" />
-          </button>
-        )}
-      </div>
+          disabled={disabled}
+          onChange={event => onQuestion(event.target.value)}
+          onKeyDown={event => {
+            if (
+              event.key === 'Enter' &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing &&
+              event.nativeEvent.keyCode !== 229
+            ) {
+              event.preventDefault();
+              event.currentTarget.form?.requestSubmit();
+            }
+          }}
+        />
+        <div className={home.composerActions}>
+          <div className={home.composerScope}>{scope}</div>
+          {busy ? (
+            <button
+              type="button"
+              className={`${home.send} ${home.stop}`}
+              onClick={onStop}
+              aria-label="停止分析"
+              title="停止分析"
+            >
+              <Square size={13} fill="currentColor" aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className={home.send}
+              aria-label="发起分析"
+              title="Enter 发送，Shift + Enter 换行"
+              disabled={disabled || submitDisabled}
+            >
+              <ArrowUp size={21} aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </form>
       {disclosure}
-    </form>
+    </>
   );
 }
 

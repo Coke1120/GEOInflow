@@ -58,6 +58,7 @@ it.each([
       expect(body.max_tokens ?? body.max_completion_tokens).toBe(2048);
       expect(body.tools).toBeUndefined();
       if (provider === 'kimi') expect(body.reasoning_effort).toBe('low');
+      if (provider === 'deepseek') expect(body.thinking).toEqual({ type: 'disabled' });
       return Response.json({
         id: 'fixture',
         model,

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiPages } from './AiPages';
 import { featureHref } from './routes';
+import { AiClientError } from '@/lib/liekan/upstream/ai-client';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const siteId = '22222222-2222-4222-8222-222222222222';
@@ -31,7 +32,16 @@ vi.mock('./context', () => ({ useFeature: () => mocks.context }));
 vi.mock('@/lib/liekan/upstream/ai-client', () => ({
   aiClient: { ...mocks, context: mocks.contextCall },
   streamAiRun: mocks.stream,
-  AiClientError: class extends Error {},
+  AiClientError: class extends Error {
+    constructor(
+      message: string,
+      public code: string,
+      public status = 0,
+      public runId?: string,
+    ) {
+      super(message);
+    }
+  },
 }));
 const template = {
   id: 'deepseek',
@@ -802,6 +812,40 @@ function historyByConversation() {
 }
 
 describe('same-site conversation routing', () => {
+  it('unlocks the homepage composer when the URL acknowledges a new conversation', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId, aiConversation: conversationId };
+    mocks.connections.mockResolvedValue({ items: [connection()] });
+    historyByConversation();
+    const ui = routeChat();
+    expect(await screen.findByText('conversation A question')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '新建对话' }));
+    ui.route('');
+    await waitFor(() => expect(screen.getByLabelText('分析问题')).toBeEnabled());
+    expect(screen.getByLabelText('分析问题')).toHaveAttribute('rows', '3');
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
+
+  it('keeps the first generation active when the URL acknowledges its created conversation', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId };
+    mocks.connections.mockResolvedValue({ items: [connection()] });
+    mocks.stream.mockImplementation((_path, _body, _signal, event) => {
+      event({ type: 'started', runId });
+      event({ type: 'stage', runId, data: { stage: 'calling' } });
+      return new Promise(() => {});
+    });
+    const ui = routeChat();
+    await user.type(await screen.findByLabelText('分析问题'), '分析趋势');
+    await user.click(screen.getByRole('button', { name: '发起分析' }));
+    expect(await screen.findByText('正在分析网站数据')).toBeInTheDocument();
+    ui.route(conversationId);
+    await waitFor(() => expect(screen.getByLabelText('分析问题')).toBeEnabled());
+    expect(screen.getByRole('button', { name: '停止分析' })).toBeInTheDocument();
+    expect(mocks.cancel).not.toHaveBeenCalled();
+    expect(mocks.stream).toHaveBeenCalledTimes(1);
+  });
+
   it('follows browser history before the next submission and closes the old reference', async () => {
     const user = userEvent.setup();
     mocks.context.query = { aiSite: siteId, aiConversation: conversationId };
@@ -1860,4 +1904,132 @@ describe('AI chat home and inline setup', () => {
     expect(mocks.context.notify).not.toHaveBeenCalledWith('AI 已配置并生效，可以发送刚才的问题。');
     expect(mocks.createConversation).not.toHaveBeenCalled();
   });
+});
+
+it('reconciles a server failure immediately and frees the continuation composer without another model call', async () => {
+  const user = userEvent.setup();
+  mocks.context.query = { aiSite: siteId };
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  mocks.stream.mockImplementation(async (_path, _body, _signal, event) => {
+    event({ type: 'started', runId });
+    event({ type: 'stage', runId, data: { stage: 'calling' } });
+    event({ type: 'error', runId, data: { state: 'failed', code: 'oversize' } });
+    throw new AiClientError('response too large', 'oversize', 0, runId);
+  });
+  mocks.run.mockResolvedValue(completed({ state: 'failed', error: { code: 'oversize' } }));
+  mount('ai-chat');
+  await user.type(await screen.findByLabelText('分析问题'), '分析趋势');
+  await user.click(screen.getByRole('button', { name: '发起分析' }));
+  expect(await screen.findByText('本次分析未完成')).toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: '回查原任务' })).not.toBeInTheDocument(),
+  );
+  expect(mocks.run).toHaveBeenCalledWith(runId, expect.any(AbortSignal));
+  expect(mocks.stream).toHaveBeenCalledTimes(1);
+  expect(document.querySelector('[data-ai-run-state="failed"]')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '停止分析' })).not.toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '重新填写问题' }));
+  expect(screen.getByLabelText('分析问题')).toHaveValue('分析趋势');
+});
+
+it('shows a concise loading stage, keeps the draft editable, and withholds raw answer JSON and metrics', async () => {
+  const user = userEvent.setup();
+  mocks.context.query = { aiSite: siteId };
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  let finish!: (run: any) => void;
+  mocks.stream.mockImplementation((_path, _body, _signal, event) => {
+    event({ type: 'started', runId });
+    event({ type: 'stage', runId, data: { stage: 'calling' } });
+    event({ type: 'delta', runId, data: { text: '{"summary":"抓取量保持稳定","observations":[' } });
+    return new Promise(resolve => {
+      finish = resolve;
+    });
+  });
+  mount('ai-chat');
+  await user.type(await screen.findByLabelText('分析问题'), '分析趋势');
+  await user.click(screen.getByRole('button', { name: '发起分析' }));
+  expect(await screen.findByText('正在分析网站数据')).toBeInTheDocument();
+  expect(screen.getByText('抓取量保持稳定')).toBeInTheDocument();
+  expect(screen.queryByText(/"observations"/)).not.toBeInTheDocument();
+  expect(screen.queryByText('Token 用量')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('分析问题')).toHaveAttribute('rows', '1');
+  await user.type(screen.getByLabelText('分析问题'), '进一步分析页面');
+  await act(async () => finish(completed({ result: { ...answer, origin: 'provider' } })));
+  expect(screen.getByLabelText('分析问题')).toHaveValue('进一步分析页面');
+  expect(mocks.stream).toHaveBeenCalledTimes(1);
+});
+
+it('ignores a late rejected failure lookup after starting a new conversation', async () => {
+  const user = userEvent.setup();
+  mocks.context.query = { aiSite: siteId };
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  let rejectLookup!: (error: unknown) => void;
+  mocks.run.mockReturnValue(
+    new Promise((_resolve, reject) => {
+      rejectLookup = reject;
+    }),
+  );
+  mocks.stream.mockImplementation(async (_path, _body, _signal, event) => {
+    event({ type: 'started', runId });
+    event({ type: 'error', runId, data: { state: 'failed', code: 'upstream' } });
+    throw new AiClientError('upstream', 'upstream', 0, runId);
+  });
+  mount('ai-chat');
+  await user.type(await screen.findByLabelText('分析问题'), '分析趋势');
+  await user.click(screen.getByRole('button', { name: '发起分析' }));
+  await waitFor(() => expect(mocks.run).toHaveBeenCalled());
+  await user.click(screen.getByRole('button', { name: '新建对话' }));
+  expect(await screen.findByText('今天想问什么，猎看团队？')).toBeInTheDocument();
+  await act(async () => rejectLookup({ name: 'AbortError' }));
+  expect(screen.queryByRole('button', { name: '回查原任务' })).not.toBeInTheDocument();
+  expect(screen.getByLabelText('分析问题')).toBeEnabled();
+  expect(sessionStorage.length).toBe(0);
+});
+
+it('retains the persisted failure reason when history replaces a stream interrupted without an error frame', async () => {
+  const user = userEvent.setup();
+  mocks.context.query = { aiSite: siteId };
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  mocks.messages.mockResolvedValue({
+    items: [
+      {
+        id: 'message-fixture',
+        runId,
+        state: 'failed',
+        question: '分析趋势',
+        origin: 'local',
+        result: null,
+      },
+    ],
+    nextCursor: null,
+  });
+  mocks.run.mockResolvedValue(completed({ state: 'failed', error: { code: 'oversize' } }));
+  mocks.stream.mockImplementation(async (_path, _body, _signal, event) => {
+    event({ type: 'started', runId });
+    throw new AiClientError('stream incomplete', 'stream_incomplete', 0, runId);
+  });
+  mount('ai-chat');
+  await user.type(await screen.findByLabelText('分析问题'), '分析趋势');
+  await user.click(screen.getByRole('button', { name: '发起分析' }));
+  expect(await screen.findByText('AI 请求或响应超过允许大小。')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '重新填写问题' })).toBeInTheDocument();
+  expect(mocks.stream).toHaveBeenCalledTimes(1);
+});
+
+it('shows cancellation as pending until the server confirms its terminal state', async () => {
+  const user = userEvent.setup();
+  mocks.context.query = { aiSite: siteId };
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  mocks.cancel.mockResolvedValue(completed({ state: 'cancel_requested' }));
+  mocks.stream.mockImplementation((_path, _body, _signal, event) => {
+    event({ type: 'started', runId });
+    return new Promise(() => {});
+  });
+  mount('ai-chat');
+  await user.type(await screen.findByLabelText('分析问题'), '分析趋势');
+  await user.click(screen.getByRole('button', { name: '发起分析' }));
+  await user.click(screen.getByRole('button', { name: '停止分析' }));
+  expect(await screen.findByText('正在停止分析', { exact: true })).toBeInTheDocument();
+  expect(screen.queryByText('分析已停止', { exact: true })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '回查原任务' })).toBeInTheDocument();
 });

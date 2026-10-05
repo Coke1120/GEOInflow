@@ -106,6 +106,7 @@ export function aiError(error: unknown) {
     timeout: 'AI 请求超时，请稍后重试。',
     network: '无法连接 AI 服务，请稍后重试。',
     protocol: 'AI 服务响应格式不受支持。',
+    oversize: 'AI 请求或响应超过允许大小。',
     empty_output: '收到响应，模型未返回可用文本。请检查生成预算和模型配置。',
     truncated_output: '模型文本被截断，本次结果未保存。请缩短问题或调整模型。',
     refused_output: '模型拒绝了本次请求，本次结果未保存。请调整问题后重试。',
@@ -487,12 +488,38 @@ export function useAiRun(key: string, onFinished?: (run: AiRun) => void) {
           if (event.type === 'delta' && typeof data.text === 'string')
             setPreview(p => p + data.text);
           if (event.type === 'done') accept(event.data as AiRun, g);
+          if (
+            event.type === 'error' &&
+            typeof data.state === 'string' &&
+            ['failed', 'cancelled', 'interrupted', 'invalidated'].includes(data.state)
+          ) {
+            setStage(data.state);
+            logStage(data.state);
+            setError(aiError(data));
+            setBusy(false);
+            setRecoverable(true);
+          }
         },
       );
       await poll(value, g, ctrl.signal);
     } catch (e) {
       if (mounted.current && generation.current === g && !ctrl.signal.aborted) {
-        if (e instanceof AiClientError && e.runId) save({ ...m, runId: e.runId });
+        if (e instanceof AiClientError && e.runId) {
+          save({ ...m, runId: e.runId });
+          // Reconcile a persisted failure immediately; this GET never creates a supplier call.
+          try {
+            const persisted = await aiClient.run(e.runId, ctrl.signal);
+            if (!mounted.current || generation.current !== g || ctrl.signal.aborted) return;
+            if (!activeRun(persisted)) {
+              accept(persisted, g);
+              setError(persisted.error ? aiError(persisted.error) : '');
+              return;
+            }
+          } catch {
+            /* An unavailable status remains recoverable. */
+          }
+        }
+        if (!mounted.current || generation.current !== g || ctrl.signal.aborted) return;
         setError(aiError(e));
         setBusy(false);
         const rejected =

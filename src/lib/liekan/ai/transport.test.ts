@@ -116,6 +116,48 @@ const requestOptions = {
 };
 
 describe('pinned real HTTPS transport through trusted system boundaries', () => {
+  it('allows bounded token-by-token SSE framing overhead without treating it as answer size', async () => {
+    const frame = `data: ${JSON.stringify({
+      id: 'chatcmpl-isolated-fixture',
+      object: 'chat.completion.chunk',
+      created: 1791184200,
+      model: 'deepseek-flash',
+      system_fingerprint: 'fp_isolated_fixture',
+      choices: [
+        { index: 0, delta: { reasoning_content: '待' }, logprobs: null, finish_reason: null },
+      ],
+    })}\n\n`;
+    const wire = frame.repeat(2048) + 'data: [DONE]\n\n';
+    expect(Buffer.byteLength(wire)).toBeGreaterThan(512 * 1024);
+    await tlsFixture(
+      (_request, response) => {
+        response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        response.end(wire);
+      },
+      async dial => {
+        const response = await createAiFetch({ ...fetchOptions, resolve: publicRecords, dial })(
+          requestUrl,
+          requestOptions,
+        );
+        expect(await response.text()).toBe(wire);
+      },
+    );
+  });
+  it('still bounds SSE framing to 2 MiB', async () => {
+    await tlsFixture(
+      (_request, response) => {
+        response.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        response.end(`: ${'x'.repeat(2 * 1024 * 1024)}\n\n`);
+      },
+      async dial => {
+        const response = await createAiFetch({ ...fetchOptions, resolve: publicRecords, dial })(
+          requestUrl,
+          requestOptions,
+        );
+        await expect(response.text()).rejects.toMatchObject({ code: 'oversize' });
+      },
+    );
+  });
   it('pins validated DNS records and original TLS identity while excluding custom headers and proxy inheritance', async () => {
     let received: IncomingMessage;
     let resolutions = 0;

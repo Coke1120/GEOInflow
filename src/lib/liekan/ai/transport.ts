@@ -13,6 +13,8 @@ import {
 
 const REQUEST_LIMIT = 64 * 1024;
 const RESPONSE_LIMIT = 512 * 1024;
+// Token streams repeat the provider envelope for each delta; answer text has its own 32 KiB cap.
+const SSE_RESPONSE_LIMIT = 2 * 1024 * 1024;
 const ERROR_LIMIT = 16 * 1024;
 export type AiResolvedAddress = { address: string; family: 4 | 6 };
 /** Injection is limited to trusted operating-system boundaries, never a generic fetch bypass. */
@@ -354,6 +356,8 @@ export function createAiFetch(options: AiFetchOptions): typeof fetch {
       if (contentType !== 'application/json' && contentType !== 'text/event-stream')
         failure('protocol');
       if (!response.body) failure('protocol');
+      const responseLimit =
+        contentType === 'text/event-stream' ? SSE_RESPONSE_LIMIT : RESPONSE_LIMIT;
       reader = response.body.getReader() as unknown as ReadableStreamDefaultReader<Uint8Array>;
       let bytes = 0;
       const stream = new ReadableStream<Uint8Array>({
@@ -367,7 +371,7 @@ export function createAiFetch(options: AiFetchOptions): typeof fetch {
               return;
             }
             bytes += value.byteLength;
-            if (bytes > RESPONSE_LIMIT) failure('oversize');
+            if (bytes > responseLimit) failure('oversize');
             destination.enqueue(value);
           } catch (error) {
             const safe = safeFailure(error);
