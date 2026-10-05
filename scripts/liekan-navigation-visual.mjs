@@ -167,6 +167,23 @@ export async function checkNavigation(page, expected, width, baseline) {
         'Selected and inactive tab colors',
       );
     }
+    const frame = page.locator('[data-analysis-tabs-frame]');
+    if (await frame.count()) {
+      assert.equal(await frame.count(), 1, 'Analysis tabs frame must be unique');
+      const geometry = await frame.evaluate(el => {
+        const rect = el.getBoundingClientRect();
+        const parent = el.parentElement.getBoundingClientRect();
+        return { x: rect.x, right: rect.right, width: rect.width, parentWidth: parent.width };
+      });
+      assert(
+        Math.abs(geometry.width - Math.min(1200, geometry.parentWidth)) < 1,
+        'Analysis tabs frame must fill available width',
+      );
+      assert(
+        geometry.x >= -1 && geometry.right <= width + 1,
+        'Analysis tabs frame exceeds viewport',
+      );
+    }
     const bar = page.locator('[data-analysis-family]');
     const available = await bar.evaluate(el => {
       const parent = el.parentElement;
