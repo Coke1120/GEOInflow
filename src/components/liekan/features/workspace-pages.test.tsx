@@ -989,6 +989,46 @@ describe('public share restrictions and password lifecycle', () => {
     expect(screen.queryByText('revoked.example')).not.toBeInTheDocument();
     expect(screen.queryByText(/以下为隔离的示例数据/)).not.toBeInTheDocument();
   });
+  it.each([401, 403, 404])('discards other cached shared report ranges when access returns %s', async status => {
+    let metadataCalls = 0;
+    let reportCalls = 0;
+    mocks.request.mockImplementation(async (_method: string, path: string) => {
+      if (path === '/share/cached-revoked-report') {
+        if (++metadataCalls > 1) return new Promise(() => {});
+        return {
+          token: 'cached-revoked-report-token',
+          websiteId: 'site-1',
+          parameters: { overview: true, allowFilter: true },
+        };
+      }
+      if (path === '/liekan/websites/site-1/shared-report') {
+        if (++reportCalls === 3)
+          throw Object.assign(new Error('Share access revoked'), { status });
+        if (reportCalls > 3) return new Promise(() => {});
+        return {
+          website: { id: 'site-1', name: '缓存网站', domain: 'cached.example' },
+          states: { human: 'available', logs: 'not_connected' },
+          cards: [{ label: '访客数 UV', value: reportCalls === 2 ? 17 : 91, state: 'available' }],
+          charts: {}, tables: { envGrid: [], cityBody: [] }, insights: [],
+          meta: { demo: true }, capabilities: { goals: false },
+        };
+      }
+      throw new Error(`Unexpected public request ${path}`);
+    });
+    mount(<ShareFeatureView slug="cached-revoked-report" />, false);
+    await screen.findByRole('heading', { name: '缓存网站' });
+    await userEvent.click(screen.getByRole('button', { name: '7 天' }));
+    await screen.findByText('17');
+    await userEvent.click(screen.getByRole('button', { name: '30 天' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('heading', { name: '缓存网站' })).not.toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: '7 天' }));
+    await waitFor(() => expect(reportCalls).toBe(4));
+    expect(screen.queryByRole('heading', { name: '缓存网站' })).not.toBeInTheDocument();
+    expect(screen.queryByText('cached.example')).not.toBeInTheDocument();
+    expect(screen.queryByText('17')).not.toBeInTheDocument();
+  });
   it('website shares render every requested module and update all dates together with the share token', async () => {
     mocks.request.mockImplementation(async (_method: string, path: string, params: any) => {
       if (path === '/share/website-report') return {

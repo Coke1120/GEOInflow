@@ -1,5 +1,5 @@
 'use client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { formatInTimeZone } from 'date-fns-tz';
 import type { SharedReport } from '@/lib/liekan/contracts/shared-report';
@@ -68,6 +68,7 @@ export function SharedWebsiteOverview({
     retry: false,
     refetchInterval: 30000,
   });
+  const queryClient = useQueryClient();
   const report = query.data;
   const [previousIdentity, setPreviousIdentity] = useState<{
     website: SharedReport['website'];
@@ -75,9 +76,14 @@ export function SharedWebsiteOverview({
   }>();
   const accessDenied = [401, 403, 404].includes((query.error as any)?.status);
   useEffect(() => {
-    if (accessDenied) setPreviousIdentity(undefined);
-    else if (report) setPreviousIdentity({ website: report.website, demo: report.meta.demo });
-  }, [report, accessDenied]);
+    if (accessDenied) {
+      setPreviousIdentity(undefined);
+      queryClient.removeQueries({
+        queryKey: ['liekan-shared-report', token, id],
+        type: 'inactive',
+      });
+    } else if (report) setPreviousIdentity({ website: report.website, demo: report.meta.demo });
+  }, [report, accessDenied, queryClient, token, id]);
   const identity = accessDenied
     ? undefined
     : report
