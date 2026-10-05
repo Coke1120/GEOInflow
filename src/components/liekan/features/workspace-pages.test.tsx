@@ -937,11 +937,12 @@ describe('public share restrictions and password lifecycle', () => {
     });
     mount(<ShareFeatureView slug="pending-report" />, false);
     for (const name of ['访客概览', 'AI 与来源', '地域分布'])
-      expect(await screen.findByRole('heading', { name, exact: true })).toBeInTheDocument();
+      expect(await screen.findByRole('heading', { name })).toBeInTheDocument();
     expect(screen.getAllByRole('img', { name: /分享图表/ })).toHaveLength(8);
+    expect(screen.queryAllByText('当前范围暂无数据')).toHaveLength(0);
     await act(async () => rejectReport({ status: 403 }));
     await screen.findByRole('heading', { name: '没有访问权限' });
-    expect(screen.queryByRole('heading', { name: '访客概览', exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '访客概览' })).not.toBeInTheDocument();
   });
   it('website shares render every requested module and update all dates together with the share token', async () => {
     mocks.request.mockImplementation(async (_method: string, path: string) => {

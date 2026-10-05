@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { formatInTimeZone } from 'date-fns-tz';
 import type { SharedReport } from '@/lib/liekan/contracts/shared-report';
 import styles from '@/styles/liekan/SharedReport.module.css';
+import { LoadingLines } from '../DataLoading';
 import { InsightRows, ReferenceChart } from '../ReportComponents';
 import { formatCellValue, formatMetricValue, formatPercentage, stateLabels } from '../data';
 import { Metrics, Notice, QueryState, Table } from './ui';
@@ -136,13 +137,17 @@ export function SharedWebsiteOverview({
                 {(['browser', 'os'] as const).map(category => (
                   <div key={category}>
                     <h3>{category === 'browser' ? '浏览器' : '操作系统'}</h3>
-                    {environment(category).map(row => (
-                      <p key={String(row.name)}>
-                        <span>{row.name}</span>
-                        <span className="num">{formatPercentage(row.share)}</span>
-                      </p>
-                    ))}
-                    {!environment(category).length && (
+                    {query.isPending ? (
+                      <LoadingLines />
+                    ) : (
+                      environment(category).map(row => (
+                        <p key={String(row.name)}>
+                          <span>{row.name}</span>
+                          <span className="num">{formatPercentage(row.share)}</span>
+                        </p>
+                      ))
+                    )}
+                    {!query.isPending && !environment(category).length && (
                       <p className="muted">{stateLabels[report?.states.human || 'empty']}</p>
                     )}
                   </div>
