@@ -239,7 +239,7 @@ describe('links and pixels use native resource and tracking contracts', () => {
     const drawer = within(screen.getByRole('dialog'));
     expect(drawer.getByText(/将删除链接“公告链接”及其统计数据/)).toBeInTheDocument();
     expect(drawer.getByText(/短链地址和分享链接将失效/)).toBeInTheDocument();
-    fireEvent.submit(drawer.getByRole('button', { name: '删除链接' }).closest('form'));
+    fireEvent.submit((drawer.getByRole('button', { name: '删除链接' }) as HTMLButtonElement).form);
     expect(await drawer.findByText('请输入链接名称确认删除')).toBeInTheDocument();
     expect(mocks.del).not.toHaveBeenCalled();
     await userEvent.type(drawer.getByLabelText(/输入 公告链接 确认/), '公告链接');

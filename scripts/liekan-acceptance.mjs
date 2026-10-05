@@ -6,7 +6,10 @@ import net from 'node:net';
 import ipaddr from 'ipaddr.js';
 import { assertProcessSuccess, createCancellation, runProcess } from './liekan-process.mjs';
 import { assertUpstreamMigrations } from './liekan-schema-check.mjs';
-import { acceptancePort as configuredAcceptancePort, acceptanceRuntimeDirectory } from './liekan-acceptance-target.mjs';
+import {
+  acceptancePort as configuredAcceptancePort,
+  acceptanceRuntimeDirectory,
+} from './liekan-acceptance-target.mjs';
 
 const acceptancePort = configuredAcceptancePort();
 const baseUrl = `http://127.0.0.1:${acceptancePort}`;
@@ -385,7 +388,10 @@ try {
     { env },
   );
   report.apiCoverage = JSON.parse(
-    fs.readFileSync(`${acceptanceRuntimeDirectory(new URL(baseUrl))}/coverage/summary.json`, 'utf8'),
+    fs.readFileSync(
+      `${acceptanceRuntimeDirectory(new URL(baseUrl))}/coverage/summary.json`,
+      'utf8',
+    ),
   );
   await run(process.execPath, ['scripts/liekan-feature-flows.mjs'], 'feature-flows', {
     env: { ...process.env, LIEKAN_URL: baseUrl },
@@ -401,6 +407,23 @@ try {
     report.featureFlows.errors.length
   )
     throw new Error('Supplemental interaction acceptance incomplete');
+  await run(process.execPath, ['scripts/liekan-dialog-visual.mjs'], 'dialog-visual', {
+    env: { ...process.env, LIEKAN_URL: baseUrl },
+  });
+  report.dialogVisual = JSON.parse(
+    fs.readFileSync('test-results/liekan-dialogs/report.json', 'utf8'),
+  );
+  if (
+    !report.dialogVisual.passed ||
+    report.dialogVisual.head !== head ||
+    report.dialogVisual.checks.length !== 50 ||
+    report.dialogVisual.duplicates?.length !== 7 ||
+    report.dialogVisual.responsive.length !== 15 ||
+    report.dialogVisual.supplementalResponsive?.length !== 8 ||
+    report.dialogVisual.errors.length ||
+    !report.dialogVisual.cleanup?.passed
+  )
+    throw new Error('Centered dialog acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-feature-visual.mjs'], 'feature-visual', {
     env: { ...process.env, LIEKAN_URL: baseUrl },
   });
@@ -428,6 +451,18 @@ try {
     report.aiVisual.errors?.length
   )
     throw new Error('AI visual acceptance incomplete');
+  await run(process.execPath, ['scripts/liekan-help-visual.mjs'], 'help-visual', {
+    env: { ...process.env, LIEKAN_URL: baseUrl },
+  });
+  report.helpVisual = JSON.parse(fs.readFileSync('test-results/liekan-help/report.json', 'utf8'));
+  if (
+    !report.helpVisual.passed ||
+    report.helpVisual.head !== head ||
+    report.helpVisual.checks.length !== 9 ||
+    report.helpVisual.checks.some(check => !check.passed) ||
+    report.helpVisual.errors.length
+  )
+    throw new Error('Help center acceptance incomplete');
   docker('rm', '-f', app);
   appCreated = false;
   psql('CREATE DATABASE liekan_restore');

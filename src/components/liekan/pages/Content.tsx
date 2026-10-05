@@ -8,7 +8,8 @@ import {
 } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
-export function Content({ report }: ReportViewProps) {
+export function Content({ report, aiCrawlerEnabled }: ReportViewProps) {
+  const crawlerEnabled = aiCrawlerEnabled !== false && report?.meta.aiCrawlerEnabled !== false;
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -55,10 +56,12 @@ export function Content({ report }: ReportViewProps) {
               <SortHeading className="font-medium px-4 py-3 text-right" label="入口数" />
               <SortHeading className="font-medium px-4 py-3 text-right" label="平均停留" />
               <SortHeading className="font-medium px-4 py-3 text-right" label="跳出率" />
-              <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="AI 抓取" />
+              {crawlerEnabled && (
+                <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="AI 抓取" />
+              )}
             </tr>
           </thead>
-          <ReportRows table="pgBody" report={report} />
+          <ReportRows table={crawlerEnabled ? 'pgBody' : 'visitorPgBody'} report={report} />
         </table>
       </section>
       <section className="grid grid-cols-2 gap-4">

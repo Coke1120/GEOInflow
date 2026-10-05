@@ -31,11 +31,12 @@ export function AnalysisLoading({
   resource = 'overview',
   rangeLabel = '',
   trendLabel,
+  aiCrawlerEnabled,
 }: Partial<ReportViewProps> & { resource?: Resource }) {
   const View = reportViews[resource];
   return (
     <DataLoading loading>
-      <View rangeLabel={rangeLabel} trendLabel={trendLabel} />
+      <View rangeLabel={rangeLabel} trendLabel={trendLabel} aiCrawlerEnabled={aiCrawlerEnabled} />
     </DataLoading>
   );
 }

@@ -19,6 +19,7 @@ export interface PageNavigation {
   title?: string;
 }
 
+const helpNavigation = { id: 'help', page: 'help', label: '帮助中心', icon: 'book' };
 export const globalNavigation: NavigationGroup[] = [
   { id: 'ai-chat', page: 'ai-chat', label: '快速发起', icon: 'plus' },
   { id: 'dashboard', page: 'dashboard', label: '数据总览', icon: 'grid' },
@@ -43,6 +44,7 @@ export const globalNavigation: NavigationGroup[] = [
       { page: 'teams', label: '团队管理', icon: 'users' },
     ],
   },
+  helpNavigation,
   { id: 'ai-config', page: 'ai-config', label: 'AI配置器', icon: 'box', sectionLabel: 'AI能力' },
 ];
 export const trackingNavigationTabs: NavigationItem[] = [
@@ -96,6 +98,7 @@ export const websiteNavigation: NavigationGroup[] = [
       { page: 'geo-logs', label: '日志访问流' },
     ],
   },
+  helpNavigation,
 ];
 export const websiteAnalysisTabs: Record<string, NavigationItem[]> = {
   'geo-sources': [
@@ -194,6 +197,7 @@ const pageDefinitions: Array<[PageScope, string, string | undefined, string[]]> 
   ['global', 'dashboard', undefined, ['dashboard']],
   ['global', 'ai-chat', undefined, ['ai-chat']],
   ['global', 'ai-config', undefined, ['ai-config']],
+  ['global', 'help', undefined, ['help']],
   ['global', 'dashboard', 'dashboard', ['dashboard-edit']],
   ['global', 'websites', undefined, ['websites']],
   ['global', 'websites', 'websites', ['onboarding']],
@@ -264,6 +268,7 @@ const titles: Record<string, string> = {
   'link-editor': '创建链接',
   'pixel-editor': '创建图片追踪',
   'pixel-detail': '图片追踪详情',
+  help: '帮助中心',
   dashboard: '数据总览',
   'dashboard-edit': '编辑总览',
   revenue: '收入',

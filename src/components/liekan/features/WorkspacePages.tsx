@@ -56,7 +56,7 @@ import {
   Button,
   Check,
   Definition,
-  Drawer,
+  LiekanDialog,
   Field,
   Form,
   Icon,
@@ -144,9 +144,11 @@ function Search({ value, onChange }: { value: string; onChange: (value: string) 
 function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) {
   const action = useAction();
   return (
-    <Drawer title={title} onClose={() => !action.busy && onClose()}>
+    <LiekanDialog protectUnsaved={false} title={title} onClose={() => !action.busy && onClose()}>
       <Form
         busy={action.busy}
+        danger
+        trackUnsaved={false}
         submitLabel={title}
         onSubmit={async (values: any) => {
           if (values.confirmation !== word) throw new Error(`请输入 ${word} 确认`);
@@ -157,7 +159,7 @@ function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) 
         <Notice tone="red">{children}</Notice>
         <Field label={`输入 ${word} 确认`} name="confirmation" required autoComplete="off" />
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 
@@ -202,8 +204,9 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
     !!c.user.isAdmin,
   );
   return (
-    <Drawer title="创建团队" onClose={() => !action.busy && onClose()}>
+    <LiekanDialog title="创建团队" onClose={() => !action.busy && onClose()}>
       <Form
+        columns
         busy={action.busy}
         submitLabel="创建团队"
         onSubmit={async (values: any) => {
@@ -215,7 +218,11 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
               }),
             '团队已创建',
           );
-          await c.refresh();
+          try {
+            await c.refresh();
+          } catch {
+            c.notify('团队已创建，页面状态刷新失败，请重新读取。');
+          }
           onClose();
         }}
       >
@@ -233,7 +240,7 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
           <Definition items={[['团队所有者', c.user.username]]} />
         )}
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function TwoFactorBadge({ userId }: { userId: string }) {
@@ -375,6 +382,7 @@ function MemberDrawer({
   const c = useFeature(),
     action = useAction(),
     [remove, setRemove] = useState(false);
+  const pending = useRef(false);
   const users = useData(
     ['member-user-options', team.id],
     signal => getAllFeatureRows<any>('/admin/users', {}, signal),
@@ -384,72 +392,100 @@ function MemberDrawer({
     choices = teamRoleOptions.filter(
       ([value]) => c.user.isAdmin || selfRole === 'team-owner' || value !== 'team-manager',
     );
-  if (remove)
-    return (
-      <Confirm
-        title="移除成员"
-        word="REMOVE"
-        onClose={onClose}
-        onConfirm={() => c.api.del(`/teams/${team.id}/users/${member.userId}`)}
-      >
-        成员将失去本团队资源的访问权限，个人账户继续保留。
-      </Confirm>
-    );
   return (
-    <Drawer
-      title={member ? '编辑成员角色' : '添加已有用户'}
-      onClose={() => !action.busy && onClose()}
+    <LiekanDialog
+      subtitle={team.name + (member ? ' · ' + (member.user?.username || member.userId) : '')}
+      title={remove ? '移除成员' : member ? '编辑成员角色' : '添加团队成员'}
+      protectUnsaved={!remove && !action.busy && !pending.current}
+      onClose={() => !action.busy && !pending.current && onClose()}
     >
       <Form
+        columns
         busy={action.busy}
-        submitLabel={member ? '保存角色' : '添加成员'}
+        danger={remove}
+        submitLabel={remove ? '移除成员' : member ? '保存成员角色' : '添加团队成员'}
         onSubmit={async (values: any) => {
-          await action.run(() =>
-            c.api.post(`/teams/${team.id}/users${member ? `/${member.userId}` : ''}`, {
-              role: values.role,
-              ...(!member && { userId: values.userId }),
-            }),
-          );
-          await c.refresh();
-          onClose();
+          pending.current = true;
+          try {
+            if (remove) {
+              if (values.confirmation !== 'REMOVE') throw new Error('请输入 REMOVE 确认');
+              await action.run(
+                () => c.api.del(`/teams/${team.id}/users/${member.userId}`),
+                '成员已移除',
+              );
+            } else {
+              await action.run(() =>
+                c.api.post(`/teams/${team.id}/users${member ? `/${member.userId}` : ''}`, {
+                  role: values.role,
+                  ...(!member && { userId: values.userId }),
+                }),
+              );
+            }
+            try {
+              await c.refresh();
+            } catch {
+              c.notify(
+                `${remove ? '成员已移除' : member ? '成员角色已保存' : '成员已添加'}，页面状态刷新失败，请重新读取。`,
+              );
+            }
+            onClose();
+          } finally {
+            pending.current = false;
+          }
         }}
       >
-        {member ? (
-          <Field label="用户名" defaultValue={member.user?.username || member.userId} readOnly />
-        ) : c.user.isAdmin ? (
-          <QueryState query={users}>
-            <Select
-              label="用户名"
-              name="userId"
-              required
-              options={(users.data || [])
-                .filter((user: any) => !team.members?.some((m: any) => m.userId === user.id))
-                .map((user: any) => [user.id, user.username])}
-            />
-          </QueryState>
+        {remove ? (
+          <>
+            <Notice tone="red">
+              成员“{member.user?.username || member.userId}”将失去团队“{team.name}
+              ”的资源访问权限，个人账户继续保留。
+            </Notice>
+            <Field label="输入 REMOVE 确认" name="confirmation" required autoComplete="off" />
+          </>
         ) : (
-          <Field
-            label="已有用户 ID"
-            name="userId"
-            required
-            pattern="[a-fA-F0-9-]{36}"
-            help="请向该用户取得账户 ID。现有接口仅向系统管理员开放全局用户名列表。"
-          />
-        )}
-        <Select
-          label="团队角色"
-          name="role"
-          defaultValue={member?.role || 'team-member'}
-          options={choices}
-        />
-        <Notice>添加使用本系统已有账户。</Notice>
-        {member && (
-          <Button danger disabled={action.busy} onClick={() => setRemove(true)}>
-            移除成员
-          </Button>
+          <>
+            {member ? (
+              <Field
+                label="用户名"
+                defaultValue={member.user?.username || member.userId}
+                readOnly
+              />
+            ) : c.user.isAdmin ? (
+              <QueryState query={users}>
+                <Select
+                  label="用户名"
+                  name="userId"
+                  required
+                  options={(users.data || [])
+                    .filter((user: any) => !team.members?.some((m: any) => m.userId === user.id))
+                    .map((user: any) => [user.id, user.username])}
+                />
+              </QueryState>
+            ) : (
+              <Field
+                label="已有用户 ID"
+                name="userId"
+                required
+                pattern="[a-fA-F0-9-]{36}"
+                help="请向该用户取得账户 ID。现有接口仅向系统管理员开放全局用户名列表。"
+              />
+            )}
+            <Select
+              label="团队角色"
+              name="role"
+              defaultValue={member?.role || 'team-member'}
+              options={choices}
+            />
+            <Notice>添加使用本系统已有账户。</Notice>
+            {member && (
+              <Button danger disabled={action.busy} onClick={() => setRemove(true)}>
+                移除成员
+              </Button>
+            )}
+          </>
         )}
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function TeamDetail() {
@@ -804,8 +840,9 @@ function CreateUser({ onClose }: { onClose: () => void }) {
   const c = useFeature(),
     action = useAction();
   return (
-    <Drawer title="创建系统用户" onClose={() => !action.busy && onClose()}>
+    <LiekanDialog title="创建系统用户" onClose={() => !action.busy && onClose()}>
       <Form
+        columns
         busy={action.busy}
         submitLabel="创建用户"
         onSubmit={async (values: any) => {
@@ -826,7 +863,7 @@ function CreateUser({ onClose }: { onClose: () => void }) {
         />
         <Select label="系统角色" name="role" options={userRoleOptions} defaultValue="user" />
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function AdminUsers() {
@@ -1138,7 +1175,7 @@ function AdminWebsites() {
         </QueryState>
       </Panel>
       {filter && (
-        <Drawer title="筛选全局资源" onClose={() => setFilter(false)}>
+        <LiekanDialog title="按所属空间筛选" onClose={() => setFilter(false)}>
           <QueryState query={teams}>
             <Form
               submitLabel="应用筛选"
@@ -1159,7 +1196,7 @@ function AdminWebsites() {
               />
             </Form>
           </QueryState>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -1593,9 +1630,10 @@ function WidgetDrawer({
     actualType = fixed ? boardResource.entityType : entityType,
     eventOnly = type === 'EventsChart';
   return (
-    <Drawer title={column ? '编辑看板组件' : '添加看板组件'} onClose={onClose}>
+    <LiekanDialog size="wide" title={column ? '编辑看板组件' : '添加看板组件'} onClose={onClose}>
       <QueryState query={entities}>
         <Form
+          columns
           submitLabel={column ? '保存组件' : '添加组件'}
           onSubmit={(values: any) => {
             const entityId = fixed ? boardResource.entityId : values.entityId;
@@ -1697,6 +1735,7 @@ function WidgetDrawer({
               defaultValue={column?.component?.props?.type || 'channel'}
             />
           )}
+          <Notice>组件保存后，请继续保存看板以保留本次配置。</Notice>
           <Check
             name="full"
             defaultChecked={
@@ -1710,7 +1749,7 @@ function WidgetDrawer({
           </Check>
         </Form>
       </QueryState>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function NativeWidget({
@@ -2433,10 +2472,9 @@ export function ShareDrawer({
   const parameters = share?.parameters || {},
     permitted = entity ? canManageResource(c.user, entity, c.teams) : true;
   return (
-    <Drawer
+    <LiekanDialog
       title={share ? '编辑分享链接' : '创建分享链接'}
       subtitle="设置分享资源、统计页面范围与访问保护。"
-      variant="modal"
       className="share-dialog"
       onClose={() => !action.busy && onClose()}
     >
@@ -2589,7 +2627,7 @@ export function ShareDrawer({
           </div>
         </Form>
       </QueryState>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 export function WebsiteSharing() {
@@ -3077,8 +3115,7 @@ export function ShareFeatureView({
         value={formatInTimeZone(range.startAt, range.timezone, 'yyyy-MM-dd')}
         onChange={e => {
           const time = +fromZonedTime(`${e.target.value}T00:00:00`, range.timezone);
-          if (Number.isFinite(time))
-            setRange(current => ({ ...current, startAt: time }));
+          if (Number.isFinite(time)) setRange(current => ({ ...current, startAt: time }));
         }}
       />
       <Field
@@ -3087,8 +3124,7 @@ export function ShareFeatureView({
         value={formatInTimeZone(range.endAt, range.timezone, 'yyyy-MM-dd')}
         onChange={e => {
           const time = +fromZonedTime(`${e.target.value}T23:59:59.999`, range.timezone);
-          if (Number.isFinite(time))
-            setRange(current => ({ ...current, endAt: time }));
+          if (Number.isFinite(time)) setRange(current => ({ ...current, endAt: time }));
         }}
       />
       {!websiteOverview && (
@@ -3096,9 +3132,7 @@ export function ShareFeatureView({
           label="页面路径"
           placeholder="输入路径筛选"
           value={filters.path?.slice(3) || ''}
-          onChange={e =>
-            setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})
-          }
+          onChange={e => setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})}
         />
       )}
     </div>

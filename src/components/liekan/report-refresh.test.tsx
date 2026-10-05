@@ -54,7 +54,12 @@ vi.mock('./ManagementDrawer', () => ({
 }));
 vi.mock('@/lib/liekan/upstream/features-client', () => ({
   getFeaturePreferences: () => ({ timezone: 'Asia/Shanghai' }),
-  featureApi: { get: (...args: any[]) => state.get(...args) },
+  featureApi: {
+    get: (...args: any[]) =>
+      args[0].endsWith('/settings')
+        ? Promise.resolve({ aiCrawlerEnabled: true })
+        : state.get(...args),
+  },
 }));
 vi.mock('@/lib/liekan/upstream/client', async () => {
   const { useQuery } = await import('@tanstack/react-query');

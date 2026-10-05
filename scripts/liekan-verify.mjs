@@ -15,7 +15,9 @@ if (!workingTree && status().trim())
     'Release verification requires a clean committed candidate. Use --working-tree for development checks.',
   );
 const fingerprint = () => {
-  const hash = createHash('sha256').update(execFileSync('git', ['diff', '--binary', 'HEAD']));
+  const hash = createHash('sha256').update(
+    execFileSync('git', ['diff', '--binary', 'HEAD'], { maxBuffer: 32 * 1024 * 1024 }),
+  );
   const untracked = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], {
     encoding: 'utf8',
   })

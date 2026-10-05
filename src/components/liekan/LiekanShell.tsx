@@ -38,8 +38,7 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
   const metadataRestricted = [401, 403, 404].includes((metadata.error as any)?.status);
   const currentMetadata =
     !metadataRestricted && metadata.data?.id === websiteId ? metadata.data : undefined;
-  const currentWebsite =
-    !metadataRestricted && website?.id === websiteId ? website : undefined;
+  const currentWebsite = !metadataRestricted && website?.id === websiteId ? website : undefined;
   const site = currentMetadata ? { ...currentWebsite, ...currentMetadata } : currentWebsite;
   const [websiteContextTarget, setWebsiteContextTarget] = useState<HTMLDivElement>(null);
   const href = (page: string, params: Record<string, any> = {}) =>

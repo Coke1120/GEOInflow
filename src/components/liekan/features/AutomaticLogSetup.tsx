@@ -7,7 +7,7 @@ import {
   type LogSetupCheckId,
 } from '@/lib/liekan/contracts/installation';
 import { useFeature } from './context';
-import { Badge, Button, Code, Field, Notice } from './ui';
+import { Badge, Button, Code, Field, Form, LiekanDialog, Notice } from './ui';
 import styles from '@/styles/liekan/Installation.module.css';
 
 const setupLabels: Record<LogSetupCheckId, string> = {
@@ -280,6 +280,8 @@ export function AutomaticLogSetup({
   const available = !!status.capabilities[method];
   const reason = status.availability?.[method]?.reason || '当前实例尚未配置此接入服务。';
   const sources = (status.sources || []).filter(source => source.kind === method);
+  const [disconnect, setDisconnect] = useState<{ id: string; domain: string } | null>(null);
+  useEffect(() => setDisconnect(null), [websiteId, method]);
   const run = async (work: () => Promise<unknown>) => {
     setBusy(true);
     setError('');
@@ -515,18 +517,7 @@ export function AutomaticLogSetup({
               </Button>
               <Button
                 disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    if (
-                      !window.confirm(
-                        `断开 ${source.domain} 的此日志来源？历史数据将保留，服务器采集服务仍可在本机卸载。`,
-                      )
-                    )
-                      return;
-                    await c.api.del(`/liekan/websites/${websiteId}/log-sources/${source.id}`);
-                    await refresh();
-                  })
-                }
+                onClick={() => setDisconnect({ id: source.id, domain: source.domain })}
               >
                 断开连接
               </Button>
@@ -534,6 +525,49 @@ export function AutomaticLogSetup({
           )}
         </div>
       ))}
+      {disconnect && (
+        <LiekanDialog
+          title="断开日志连接"
+          subtitle={disconnect.domain}
+          protectUnsaved={false}
+          onClose={() => !busy && setDisconnect(null)}
+        >
+          <Form
+            busy={busy}
+            danger
+            trackUnsaved={false}
+            submitLabel="断开连接"
+            cancel={
+              <Button disabled={busy} onClick={() => setDisconnect(null)}>
+                保留连接
+              </Button>
+            }
+            onSubmit={async () => {
+              if (!manage || !sources.some(source => source.id === disconnect.id))
+                throw new Error('连接或权限已变更，请重新读取后再操作。');
+              setBusy(true);
+              try {
+                await c.api.del(`/liekan/websites/${websiteId}/log-sources/${disconnect.id}`);
+                await refresh();
+                if (alive.current) {
+                  setDisconnect(null);
+                  c.notify('日志连接已断开');
+                }
+              } finally {
+                if (alive.current) setBusy(false);
+              }
+            }}
+          >
+            <Notice tone="amber">
+              断开「{disconnect.domain}」的{method === 'server' ? '服务器采集' : 'Cloudflare'}
+              日志连接后，该来源将停止接收新日志。历史数据继续保留。
+            </Notice>
+            {method === 'server' && (
+              <p className="muted">服务器采集服务可由管理员在对应服务器卸载。</p>
+            )}
+          </Form>
+        </LiekanDialog>
+      )}
       {error && <Notice tone="red">{error}</Notice>}
       {sources.length > 0 && (
         <p className="field-help">

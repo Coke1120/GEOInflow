@@ -156,7 +156,7 @@ it('offers cancellation for an already saved replay without a duplicate creation
   fireEvent.click(screen.getByRole('button', { name: '已保存' }));
   const drawer = screen.getByRole('dialog');
   expect(drawer.querySelector('input[name="name"]')).toBeNull();
-  fireEvent.click(within(drawer).getByRole('button', { name: '取消保存' }));
+  fireEvent.click(within(drawer).getByRole('button', { name: '取消保存此回放' }));
   await waitFor(() =>
     expect(mocks.post).toHaveBeenCalledWith('/websites/site/replays/saved/visit', {
       isSaved: false,
@@ -168,11 +168,11 @@ it('retains the creation form for a replay that has not been saved', () => {
   mocks.query.replay = { events: [] };
   mocks.query['replay-saved'] = { isSaved: false };
   render(<ExtendedPages page="replay-player" />);
-  fireEvent.click(screen.getByRole('button', { name: '保存录制' }));
+  fireEvent.click(screen.getByRole('button', { name: '保存会话回放' }));
   const drawer = screen.getByRole('dialog');
   expect(drawer.querySelector('input[name="name"]')).not.toBeNull();
-  expect(within(drawer).getByRole('button', { name: '保存录制' })).toBeInTheDocument();
-  expect(within(drawer).queryByRole('button', { name: '取消保存' })).not.toBeInTheDocument();
+  expect(within(drawer).getByRole('button', { name: '保存回放' })).toBeInTheDocument();
+  expect(within(drawer).queryByRole('button', { name: '取消保存此回放' })).not.toBeInTheDocument();
 });
 
 it('routes missing heatmap inputs to the current website recorder settings', () => {

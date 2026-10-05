@@ -157,3 +157,17 @@ it('rejects deleted websites and failed complete-login authorization', async () 
   await expect(readSharedReport(request(), id)).rejects.toThrow('incomplete login');
   expect(mocks.build).not.toHaveBeenCalled();
 });
+
+it('conceals crawler integration states from public reports when display is disabled, including cached reads', async () => {
+  await readSharedReport(request(), id);
+  const source = await mocks.build();
+  mocks.build.mockResolvedValue({ ...source, meta: { ...source.meta, aiCrawlerEnabled: false } });
+  mocks.query.mockResolvedValue([{ data: '2', policy: '1' }]);
+  for (let i = 0; i < 2; i++) {
+    const report = await readSharedReport(request(), id);
+    expect(report.states.logs).toBe('unsupported');
+    expect(report.states.catalog).toBe('unsupported');
+    expect(report.states.human).toBe('available');
+  }
+  expect(mocks.snapshot).toHaveBeenCalledTimes(2);
+});

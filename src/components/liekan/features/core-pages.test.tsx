@@ -58,6 +58,12 @@ vi.mock('../ManagementDrawer', () => ({
     );
   },
 }));
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    cancelQueries: vi.fn().mockResolvedValue(undefined),
+    setQueryData: vi.fn(),
+  }),
+}));
 vi.mock('./context', () => ({
   useFeature: () => mocks.context,
   useData: (key: string | any[]) => {
@@ -362,7 +368,9 @@ describe('core form flows', () => {
       await user.click(screen.getByRole('button', { name: '下一页' }));
       await user.click(screen.getByRole('button', { name: '删除' }));
       await user.type(screen.getByLabelText(/输入 最后一页定义 确认/), '最后一页定义');
-      await user.click(screen.getByRole('button', { name: '确认删除' }));
+      await user.click(
+        screen.getByRole('button', { name: kind === 'goals' ? '删除目标' : '删除漏斗' }),
+      );
       await waitFor(() => expect(mocks.queries.filter(key => key[0] === kind).at(-1)?.[1]).toBe(1));
       expect(screen.queryByText('最后一页定义')).not.toBeInTheDocument();
       expect(screen.getAllByText('首页定义').length).toBeGreaterThan(0);
@@ -399,7 +407,9 @@ describe('core form flows', () => {
       render(<CorePages page={kind} />);
       await user.click(screen.getByRole('button', { name: '删除' }));
       await user.type(screen.getByLabelText(/输入 唯一的定义 确认/), '唯一的定义');
-      await user.click(screen.getByRole('button', { name: '确认删除' }));
+      await user.click(
+        screen.getByRole('button', { name: kind === 'goals' ? '删除目标' : '删除漏斗' }),
+      );
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
       expect(mocks.queries.filter(key => key[0] === kind).at(-1)?.[1]).toBe(1);
       expect(screen.queryByText('唯一的定义')).not.toBeInTheDocument();
@@ -560,7 +570,9 @@ describe('core form flows', () => {
     render(<CorePages page="api-keys" />);
     await user.click(screen.getByRole('button', { name: '创建密钥' }));
     await user.type(screen.getByLabelText(/密钥名称/), '新集成');
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建密钥' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '创建 API 密钥' }),
+    );
     expect(await screen.findByText('lk_private_one_time_value')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '已保存，关闭' }));
     expect(screen.queryByText('lk_private_one_time_value')).not.toBeInTheDocument();
@@ -568,7 +580,7 @@ describe('core form flows', () => {
     expect(screen.queryByText('lk_private_one_time_value')).not.toBeInTheDocument();
     expect(persist).not.toHaveBeenCalled();
   });
-  it('discards a delayed API key response after its creation drawer is closed', async () => {
+  it('keeps a delayed API key response available until its creation dialog is explicitly closed', async () => {
     let resolve: (value: any) => void;
     mocks.query['api-keys'] = [];
     mocks.post.mockImplementationOnce(
@@ -581,9 +593,15 @@ describe('core form flows', () => {
     render(<CorePages page="api-keys" />);
     await user.click(screen.getByRole('button', { name: '创建密钥' }));
     await user.type(screen.getByLabelText(/密钥名称/), '慢响应集成');
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建密钥' }));
-    await user.click(screen.getByRole('button', { name: '关闭弹层' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '创建 API 密钥' }),
+    );
+    await user.click(screen.getByRole('button', { name: '关闭弹窗' }));
+    expect(screen.getByLabelText(/密钥名称/)).toBeVisible();
+    expect(screen.queryByRole('group', { name: '放弃未保存的修改？' })).not.toBeInTheDocument();
     resolve({ key: 'lk_delayed_private_value' });
+    expect(await screen.findByText('lk_delayed_private_value')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '已保存，关闭' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: '创建密钥' }));
     expect(screen.getByLabelText(/密钥名称/)).toBeInTheDocument();
@@ -753,7 +771,7 @@ describe('core form flows', () => {
       'href',
       '/liekan/recorder-settings?websiteId=site-1',
     );
-    await user.click(screen.getByRole('button', { name: '导入该网站日志' }));
+    await user.click(screen.getByRole('button', { name: '导入网站日志' }));
     expect(mocks.managementDrawer).toHaveBeenLastCalledWith(
       expect.objectContaining({ action: '导入日志', websiteId: 'site-1', canManage: true }),
     );
@@ -1164,17 +1182,17 @@ describe('core form flows', () => {
     expect(dialog.getByRole('alert')).toHaveTextContent('回放、热力图、收入记录');
     expect(dialog.queryByRole('button', { name: '确认操作' })).not.toBeInTheDocument();
     await user.type(dialog.getByLabelText(/输入 RESET 确认/), 'RESET');
-    await user.click(dialog.getByRole('button', { name: '确认清空访问数据' }));
+    await user.click(dialog.getByRole('button', { name: '清空访问数据' }));
     await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/websites/site-1/reset'));
     expect(mocks.context.notify).toHaveBeenCalledWith('「研究站」的访问数据已清空');
     expect(mocks.context.api.del).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: '删除网站' }));
     await user.type(screen.getByLabelText(/输入 研究站 确认/), '错误名称');
-    await user.click(screen.getByRole('button', { name: '确认删除网站' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除网站' }));
     expect(mocks.context.api.del).not.toHaveBeenCalled();
     await user.clear(screen.getByLabelText(/输入 研究站 确认/));
     await user.type(screen.getByLabelText(/输入 研究站 确认/), '研究站');
-    await user.click(screen.getByRole('button', { name: '确认删除网站' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除网站' }));
     await waitFor(() => expect(mocks.context.api.del).toHaveBeenCalledWith('/websites/site-1'));
     expect(mocks.context.navigate).toHaveBeenCalledWith('websites');
   });
@@ -1196,4 +1214,106 @@ describe('core form flows', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('回调地址无效');
     expect(mocks.sso).not.toHaveBeenCalled();
   });
+  it.each(['collection', 'install'])(
+    'waits for both post-import refreshes at the %s entry',
+    async section => {
+      mocks.context.query = { section, step: 'logs', method: 'manual' };
+      mocks.query['site-record'] = mocks.context.site;
+      mocks.query.install = { pageviews: 1 };
+      mocks.query['website-setup-report'] = { states: {}, meta: {} };
+      let finishIdentity: () => void;
+      let finishReport: () => void;
+      mocks.context.refresh.mockReturnValue(
+        new Promise<void>(resolve => {
+          finishIdentity = resolve;
+        }),
+      );
+      const refetch = vi.fn(
+        () =>
+          new Promise<void>(resolve => {
+            finishReport = resolve;
+          }),
+      );
+      mocks.queryStates[
+        section === 'collection' ? 'website-setup-report' : 'website-installation'
+      ] = { refetch };
+      const user = userEvent.setup();
+      render(<CorePages page="website-settings" />);
+      await user.click(screen.getByRole('button', { name: '导入网站日志' }));
+      const onSaved = mocks.managementDrawer.mock.lastCall[0].onSaved;
+      let settled = false;
+      const result = Promise.resolve(onSaved()).finally(() => {
+        settled = true;
+      });
+      try {
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        finishIdentity();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        expect(refetch).toHaveBeenCalledWith({ throwOnError: true });
+      } finally {
+        finishIdentity();
+        finishReport();
+        await result;
+      }
+      expect(settled).toBe(true);
+    },
+  );
+  it.each(['collection', 'install'])(
+    'reports a post-import refresh error after all refreshes settle at the %s entry',
+    async section => {
+      mocks.context.query = { section, step: 'logs', method: 'manual' };
+      mocks.query['site-record'] = mocks.context.site;
+      mocks.query.install = { pageviews: 1 };
+      mocks.query['website-setup-report'] = { states: {}, meta: {} };
+      const failure = new Error('页面统计刷新失败');
+      let finishIdentity: () => void;
+      mocks.context.refresh.mockReturnValue(
+        new Promise<void>(resolve => {
+          finishIdentity = resolve;
+        }),
+      );
+      const refetch = vi.fn((options?: { throwOnError?: boolean }) =>
+        options?.throwOnError ? Promise.reject(failure) : Promise.resolve({ error: failure }),
+      );
+      mocks.queryStates[
+        section === 'collection' ? 'website-setup-report' : 'website-installation'
+      ] = { refetch };
+      const user = userEvent.setup();
+      render(<CorePages page="website-settings" />);
+      await user.click(screen.getByRole('button', { name: '导入网站日志' }));
+      let outcome: unknown = 'pending';
+      const result = Promise.resolve(mocks.managementDrawer.mock.lastCall[0].onSaved()).then(
+        () => {
+          outcome = 'resolved';
+        },
+        error => {
+          outcome = error;
+        },
+      );
+      try {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(outcome).toBe('pending');
+      } finally {
+        finishIdentity();
+        await result;
+      }
+      expect(outcome).toBe(failure);
+    },
+  );
+});
+
+it('reports the username as saved when the subsequent identity refresh fails', async () => {
+  mocks.context.refresh.mockRejectedValue(new Error('刷新暂时不可用'));
+  const user = userEvent.setup();
+  render(<CorePages page="account" />);
+  await user.click(screen.getByRole('button', { name: '修改用户名' }));
+  await user.clear(screen.getByRole('textbox', { name: /^用户名/ }));
+  await user.type(screen.getByRole('textbox', { name: /^用户名/ }), 'saved-owner');
+  await user.click(screen.getByRole('button', { name: '保存用户名' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(mocks.post).toHaveBeenCalledWith('/users/user-1', { username: 'saved-owner' });
+  expect(mocks.context.notify).toHaveBeenCalledWith('用户名已保存，页面状态刷新失败，请重新读取。');
 });

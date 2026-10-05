@@ -108,6 +108,7 @@ export function SharedWebsiteOverview({
   const environment = (category: string) =>
     (report?.tables.envGrid || []).filter(row => row.category === category).slice(0, 5);
   const goals = report?.capabilities.goals;
+  const crawlerEnabled = report?.meta.aiCrawlerEnabled !== false;
   return (
     <article className={styles.report}>
       <header className={styles.reportHead}>
@@ -133,7 +134,7 @@ export function SharedWebsiteOverview({
         </div>
         <nav aria-label="报告章节" className={styles.chapters}>
           <a href="#shared-visitors">访客概览</a>
-          <a href="#shared-ai">AI 与来源</a>
+          <a href="#shared-ai">{crawlerEnabled ? 'AI 与来源' : '访问与来源'}</a>
           <a href="#shared-geography">地域分布</a>
         </nav>
       </header>
@@ -195,22 +196,24 @@ export function SharedWebsiteOverview({
         </section>
         <section id="shared-ai" className={styles.section} aria-labelledby="shared-ai-title">
           <h2 id="shared-ai-title" className={styles.sectionTitle}>
-            AI 与来源
+            {crawlerEnabled ? 'AI 与来源' : '访问与来源'}
           </h2>
           <ReportChart
             id="d1"
-            title="AI 蜘蛛 vs 人类访问趋势"
-            subtitle={`${trendPeriod} · 浏览器 PV / 日志 AI 请求`}
+            title={crawlerEnabled ? 'AI 蜘蛛 vs 人类访问趋势' : '访客浏览趋势'}
+            subtitle={`${trendPeriod} · ${crawlerEnabled ? '浏览器 PV / 日志 AI 请求' : '浏览器 PV'}`}
             report={report}
             height={300}
           />
-          <div className={styles.threeColumns}>
-            <ReportChart
-              id="d2"
-              title="AI 蜘蛛构成"
-              subtitle={`${period} · 按请求量`}
-              report={report}
-            />
+          <div className={crawlerEnabled ? styles.threeColumns : styles.twoColumns}>
+            {crawlerEnabled && (
+              <ReportChart
+                id="d2"
+                title="AI 蜘蛛构成"
+                subtitle={`${period} · 按请求量`}
+                report={report}
+              />
+            )}
             <ReportChart
               id="d3"
               title="人类来源渠道"
@@ -219,7 +222,7 @@ export function SharedWebsiteOverview({
             />
             <section className={styles.panel} data-liekan-report-panel>
               <div className={styles.panelHead}>
-                <h2>GEO 关键发现</h2>
+                <h2>{crawlerEnabled ? 'GEO 关键发现' : '访问概况'}</h2>
                 <p>{period} · 数据依据与覆盖情况</p>
               </div>
               <InsightRows className={styles.insights} report={report} />

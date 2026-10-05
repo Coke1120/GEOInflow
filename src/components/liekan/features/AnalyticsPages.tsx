@@ -24,7 +24,8 @@ import {
   Body,
   Button,
   Definition,
-  Drawer,
+  LiekanDialog,
+  DialogActions,
   Field,
   Form,
   Icon,
@@ -1310,7 +1311,7 @@ function Retention() {
         与待观察分别表达。
       </Notice>
       {info && (
-        <Drawer title="留存计算口径" onClose={() => setInfo(false)}>
+        <LiekanDialog title="留存计算说明" onClose={() => setInfo(false)}>
           <Definition
             items={[
               ['入组', '按所选期间首次访问日期分组'],
@@ -1322,10 +1323,10 @@ function Retention() {
           />
           <hr className="divider" />
           <Notice>汇总按入组人数加权，仅纳入观察日已完整结束的队列。</Notice>
-        </Drawer>
+        </LiekanDialog>
       )}
       {detail && (
-        <Drawer title="留存单元格" onClose={() => setDetail(null)}>
+        <LiekanDialog title="留存详情" onClose={() => setDetail(null)}>
           <Definition
             items={[
               ['入组日期', detail.date],
@@ -1336,21 +1337,23 @@ function Retention() {
             ]}
           />
           <hr className="divider" />
-          <LinkButton
-            page="sessions"
-            params={{
-              ...rest,
-              segment: undefined,
-              cohort: undefined,
-              ...(id ? { [type]: id } : {}),
-              retentionDate: detail.date,
-              retentionDay: detail.offset,
-              date: `range:${startAt}:${endAt}:day`,
-            }}
-          >
-            查看关联访问记录
-          </LinkButton>
-        </Drawer>
+          <DialogActions>
+            <LinkButton
+              page="sessions"
+              params={{
+                ...rest,
+                segment: undefined,
+                cohort: undefined,
+                ...(id ? { [type]: id } : {}),
+                retentionDate: detail.date,
+                retentionDay: detail.offset,
+                date: `range:${startAt}:${endAt}:day`,
+              }}
+            >
+              查看关联访问记录
+            </LinkButton>
+          </DialogActions>
+        </LiekanDialog>
       )}
     </>
   );
@@ -1833,6 +1836,7 @@ function Attribution() {
 }
 function Breakdown() {
   const [fields, setFields] = useState(['path', 'country']),
+    [draftFields, setDraftFields] = useState(fields),
     [open, setOpen] = useState(false);
   const scope = useScope({ fields: JSON.stringify(fields) });
   const query = useWebsiteData(['breakdown', fields], 'breakdown', scope);
@@ -1854,7 +1858,13 @@ function Breakdown() {
             <Badge key={l}>{l}</Badge>
           ))}
         </div>
-        <Button primary onClick={() => setOpen(true)}>
+        <Button
+          primary
+          onClick={() => {
+            setDraftFields(fields);
+            setOpen(true);
+          }}
+        >
           选择维度
         </Button>
       </div>
@@ -1897,7 +1907,7 @@ function Breakdown() {
         维度拆分使用多字段组合，保留缺失维度的“未提供”记录。事件名称沿用上游字段选择范围。
       </Notice>
       {open && (
-        <Drawer title="选择拆分维度" onClose={() => setOpen(false)}>
+        <LiekanDialog title="选择拆分维度" onClose={() => setOpen(false)}>
           <Form
             submitLabel="应用维度"
             onSubmit={async (v, form) => {
@@ -1907,19 +1917,33 @@ function Breakdown() {
               setOpen(false);
             }}
           >
-            {options.map(([key, label]) => (
-              <label className="check" key={key}>
-                <input
-                  type="checkbox"
-                  name="dimension"
-                  value={key}
-                  defaultChecked={fields.includes(key)}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
+            <p className="muted" aria-live="polite">
+              已选择 {draftFields.length} / 3 个维度
+            </p>
+            <p className="muted">请选择 1 至 3 个维度；取消后保留当前页面的拆分方式。</p>
+            <div className="form-grid">
+              {options.map(([key, label]) => (
+                <label className="check" key={key}>
+                  <input
+                    type="checkbox"
+                    name="dimension"
+                    value={key}
+                    checked={draftFields.includes(key)}
+                    disabled={draftFields.length >= 3 && !draftFields.includes(key)}
+                    onChange={event =>
+                      setDraftFields(current =>
+                        event.target.checked
+                          ? [...current, key]
+                          : current.filter(field => field !== key),
+                      )
+                    }
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
           </Form>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -2064,7 +2088,12 @@ function Compare() {
         </Panel>
       </QueryState>
       {open && (
-        <Drawer title="对照日期" onClose={() => setOpen(false)}>
+        <LiekanDialog
+          protectUnsaved={false}
+          title="调整对照日期"
+          subtitle={c.range.timezone}
+          onClose={() => setOpen(false)}
+        >
           <Form
             submitLabel="应用对照期间"
             onSubmit={async v => {
@@ -2077,6 +2106,15 @@ function Compare() {
               setOpen(false);
             }}
           >
+            <Definition
+              items={[
+                [
+                  '当前期间',
+                  `${date(c.range.startAt, c.range.timezone)} 至 ${date(c.range.endAt, c.range.timezone)}`,
+                ],
+                ['统计时区', c.range.timezone],
+              ]}
+            />
             <div className="form-grid">
               <Field
                 label="开始日期"
@@ -2094,7 +2132,7 @@ function Compare() {
               />
             </div>
           </Form>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -2183,11 +2221,15 @@ function Annotations() {
         </QueryState>
       </Panel>
       {edit && (
-        <Drawer title={edit.id ? '编辑注释' : '添加注释'} onClose={() => setEdit(null)}>
+        <LiekanDialog
+          title={edit.id ? '编辑注释' : '添加注释'}
+          protectUnsaved={!action.busy}
+          onClose={() => !action.busy && setEdit(null)}
+        >
           <Form
             busy={action.busy}
             error={action.error}
-            submitLabel="保存注释"
+            submitLabel={edit.id ? '保存注释' : '添加注释'}
             onSubmit={async v => {
               await action.run(
                 () =>
@@ -2235,7 +2277,7 @@ function Annotations() {
               删除注释
             </Button>
           )}
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );

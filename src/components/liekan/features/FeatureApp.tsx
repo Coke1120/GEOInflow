@@ -35,15 +35,17 @@ import { Navigation, useSidebarWidth } from '../Navigation';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
 import { AiPages, aiPages } from './AiPages';
+import { HelpCenter } from './HelpCenter';
 import { FeatureProvider } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
 import { featureHref, featureNavigationHref, featurePages, normalizeFeatureScope } from './routes';
 import { SavedSegments } from './SavedSegments';
-import { Button, Drawer, Field, Form, Icon, Notice, QueryState } from './ui';
+import { Button, LiekanDialog, Field, Form, Icon, Notice, QueryState } from './ui';
 import { WorkspacePages, workspacePages } from './WorkspacePages';
 
 export const coreFeaturePages = new Set([
+  'help',
   'websites',
   'onboarding',
   'tracking',
@@ -201,7 +203,7 @@ export function FeatureApp({
   const teamsQuery = useQuery({
     queryKey: ['liekan-feature', user.id, 'teams'],
     queryFn: ({ signal }) => getAllFeatureRows<FeatureEntity>('/me/teams', {}, signal),
-    enabled: !setup,
+    enabled: !setup && route.page !== 'help',
     retry: false,
     staleTime: 300000,
     gcTime: 600000,
@@ -555,7 +557,12 @@ export function FeatureApp({
         )}
         {segmentsOpen && <SavedSegments onClose={() => setSegmentsOpen(false)} />}
         {dateOpen && (
-          <Drawer title="日期范围" onClose={() => setDateOpen(false)}>
+          <LiekanDialog
+            title="选择日期范围"
+            subtitle={timezone}
+            protectUnsaved={false}
+            onClose={() => setDateOpen(false)}
+          >
             <Form
               trackUnsaved={false}
               submitLabel="应用日期范围"
@@ -594,7 +601,7 @@ export function FeatureApp({
                 />
               </div>
             </Form>
-          </Drawer>
+          </LiekanDialog>
         )}
       </div>
     </FeatureProvider>
@@ -618,6 +625,7 @@ function FeaturePage({ page }: { page: string }) {
       </Notice>
     );
   if (aiPages.has(page)) return <AiPages page={page} />;
+  if (page === 'help') return <HelpCenter />;
   if (coreFeaturePages.has(page)) return <CorePages page={page} />;
   if (analysisPages.has(page)) return <AnalyticsPages page={page} />;
   if (extendedPages.has(page)) return <ExtendedPages page={page} />;

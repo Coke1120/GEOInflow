@@ -74,6 +74,24 @@ test.describe('Liekan evidence and website boundary', () => {
     expect((await api.put(`${path}/catalog`, {})).status).toBe(401);
     expect((await api.put(`${path}/settings`, {})).status).toBe(401);
   });
+  test('serves an aggregate shared overview to authorized website readers', async ({
+    api,
+    user,
+    admin,
+  }) => {
+    const url = `/api/liekan/websites/${id}/shared-report`;
+    const params = {
+      startAt: Date.now() - 86400000,
+      endAt: Date.now() + 1000,
+      timezone: 'Asia/Shanghai',
+    };
+    expect((await api.get(url, { params })).status).toBe(401);
+    expect((await user.get(url, { params })).status).toBe(403);
+    const response = await admin.get(url, { params });
+    expect(response.status).toBe(200);
+    expect(response.body.website.id).toBe(id);
+    expect(response.body.tables.logBody).toBeUndefined();
+  });
   test('enforces rule classes and separates missing evidence from zero', async ({ admin }) => {
     const path = `/api/liekan/websites/${id}`;
     const empty = await admin.get(`${path}/report`, { params: report() });

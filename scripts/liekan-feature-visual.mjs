@@ -1,6 +1,7 @@
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 import { checkMobileExperience } from './liekan-mobile-visual.mjs';
 import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
+import { assertDialogContract } from './liekan-dialog-contract.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -11,6 +12,7 @@ import { generateSync } from 'otplib';
 
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
 const target = isolatedAcceptanceTarget(base);
+assertDialogContract();
 const navigationBaseline = JSON.parse(fs.readFileSync('config/liekan/navigation-ui.json', 'utf8'));
 assert.equal(
   navigationBaseline.baselineVersion,
@@ -29,7 +31,9 @@ for (const [file, hash] of Object.entries(featureReference.files))
 const seed = JSON.parse(fs.readFileSync(acceptanceSeedFile(target), 'utf8'));
 const manifest = JSON.parse(fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'));
 assert.deepEqual(
-  Object.keys(navigationBaseline.pages).sort(),
+  Object.keys(navigationBaseline.pages)
+    .filter(id => id !== 'help')
+    .sort(),
   manifest.pages.map(p => p.id).sort(),
   'All 68 feature scenarios require independent navigation expectations',
 );

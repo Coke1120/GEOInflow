@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { getAllFeatureRows } from '@/lib/liekan/upstream/features-client';
 import { canManage } from './AnalyticsPages';
 import { useData, useFeature } from './context';
-import { Button, Drawer, QueryState } from './ui';
+import { Button, DialogActions, LiekanDialog, QueryState } from './ui';
 
 function conditionSummary(parameters: any = {}) {
   const fields = {
@@ -46,7 +46,7 @@ export function SavedSegments({ onClose }: { onClose: () => void }) {
     !!c.siteId,
   );
   return (
-    <Drawer title="已保存分群" onClose={onClose}>
+    <LiekanDialog size="wide" title="已保存分群" onClose={onClose}>
       <QueryState query={query}>
         <div className="saved-segments">
           {(query.data || []).map(segment => (
@@ -68,7 +68,7 @@ export function SavedSegments({ onClose }: { onClose: () => void }) {
           {!query.data?.length && <p className="muted">当前网站没有已保存分群。</p>}
         </div>
       </QueryState>
-      <div className="form-actions">
+      <DialogActions>
         <Link className="btn" href={c.href('segments')}>
           管理分群
         </Link>
@@ -77,7 +77,7 @@ export function SavedSegments({ onClose }: { onClose: () => void }) {
             创建分群
           </Link>
         )}
-      </div>
-    </Drawer>
+      </DialogActions>
+    </LiekanDialog>
   );
 }

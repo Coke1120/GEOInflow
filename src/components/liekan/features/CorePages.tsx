@@ -28,8 +28,10 @@ import {
   verifyFeatureTwoFactor,
 } from '@/lib/liekan/upstream/features-client';
 import { ManagementDrawer } from '../ManagementDrawer';
+import { managementLabels } from '@/lib/liekan/contracts/management';
 import { Chart } from './Chart';
 import { useAction, useData, useFeature } from './context';
+import { CrawlerDisplaySettings } from './CrawlerDisplaySettings';
 import {
   Badge,
   Body,
@@ -37,7 +39,8 @@ import {
   Check,
   Code,
   Definition,
-  Drawer,
+  LiekanDialog,
+  DialogActions,
   Field,
   Form,
   Icon,
@@ -679,7 +682,6 @@ function WebsiteSettings() {
     'robots.txt 编辑',
     '蜘蛛白名单',
     '特征库管理',
-    '解析规则',
   ];
   if (!c.siteId) return <MissingWebsite />;
   return (
@@ -767,6 +769,7 @@ function WebsiteSettings() {
                   </Body>
                 </Panel>
               </div>
+              <CrawlerDisplaySettings key={`${site.id}:${c.user.id}`} manage={manage} />
               <InstallationEntry key={`${site.id}:${c.user.id}`} site={site} browser={install} />
             </>
           ) : section === 'install' ? (
@@ -803,7 +806,7 @@ function WebsiteSettings() {
                     {!manage && <ReadonlyNotice />}
                     <div className="form-actions">
                       <Button disabled={!manage} onClick={() => setDrawer('导入日志')}>
-                        导入该网站日志
+                        导入网站日志
                       </Button>
                       <Button disabled={!manage} onClick={() => setDrawer('sitemap 管理')}>
                         管理内容目录
@@ -812,15 +815,15 @@ function WebsiteSettings() {
                   </Body>
                 </Panel>
                 <Panel
-                  title="蜘蛛与解析规则"
-                  subtitle="保存当前网站的 robots.txt、白名单和日志解析规则。"
+                  title="蜘蛛识别与访问策略"
+                  subtitle="管理当前网站的 robots.txt、CIDR 白名单和蜘蛛识别规则。"
                 >
                   <Body>
                     <p className="muted">robots.txt 保存后可下载，由网站管理员部署到目标网站。</p>
                     <div className="form-actions">
                       {collectionActions.slice(2).map(item => (
                         <Button key={item} disabled={!manage} onClick={() => setDrawer(item)}>
-                          {item}
+                          {managementLabels[item]}
                         </Button>
                       ))}
                     </div>
@@ -871,9 +874,18 @@ function WebsiteSettings() {
               key={`${site.id}:${drawer}`}
               action={drawer}
               websiteId={site.id}
+              websiteName={site.name}
+              websiteDomain={site.domain}
               canManage={manage}
               onClose={() => setDrawer('')}
-              onSaved={() => c.refresh()}
+              onSaved={async () => {
+                const results = await Promise.allSettled([
+                  c.refresh(),
+                  report.refetch({ throwOnError: true }),
+                ]);
+                const failure = results.find(result => result.status === 'rejected');
+                if (failure) throw failure.reason;
+              }}
               onSearch={search => c.navigate('geo-logs', { websiteId: site.id, search })}
               onRange={(start, end) =>
                 c.navigate('geo-logs', { websiteId: site.id, date: `range:${start}:${end}` })
@@ -882,7 +894,8 @@ function WebsiteSettings() {
             />
           ) : (
             drawer && (
-              <Drawer
+              <LiekanDialog
+                subtitle={site.name + ' · ' + site.domain}
                 title={
                   drawer === 'transfer'
                     ? '转移网站所属空间'
@@ -896,12 +909,13 @@ function WebsiteSettings() {
                   busy={action.busy}
                   error={action.error}
                   disabled={drawer === 'transfer' ? !transfer : !manage}
+                  danger={drawer !== 'transfer'}
                   submitLabel={
                     drawer === 'transfer'
-                      ? '确认转移网站'
+                      ? '转移网站'
                       : drawer === 'reset'
-                        ? '确认清空访问数据'
-                        : '确认删除网站'
+                        ? '清空访问数据'
+                        : '删除网站'
                   }
                   onSubmit={async values => {
                     if (!manage) throw new Error('需要网站管理权限。');
@@ -980,7 +994,7 @@ function WebsiteSettings() {
                     </>
                   )}
                 </Form>
-              </Drawer>
+              </LiekanDialog>
             )
           )}
         </>
@@ -1371,7 +1385,8 @@ function Account() {
         </Panel>
       </div>
       {drawer && (
-        <Drawer
+        <LiekanDialog
+          subtitle={'当前账户：' + c.user.username}
           title={drawer === 'username' ? '修改用户名' : '修改密码'}
           onClose={() => setDrawer('')}
         >
@@ -1385,7 +1400,11 @@ function Account() {
                 await action.run(() =>
                   c.api.post(`/users/${c.user.id}`, { username: values.username }),
                 );
-                await c.refresh();
+                try {
+                  await c.refresh();
+                } catch {
+                  c.notify('用户名已保存，页面状态刷新失败，请重新读取。');
+                }
               } else {
                 if (values.newPassword !== values.confirmPassword)
                   throw new Error('两次输入的新密码不一致。');
@@ -1413,13 +1432,14 @@ function Account() {
               />
             ) : (
               <>
+                <Notice>密码更新后需要重新登录。</Notice>
                 <PasswordField label="当前密码" name="currentPassword" />
                 <PasswordField label="新密码" name="newPassword" minLength={8} />
                 <PasswordField label="确认新密码" name="confirmPassword" minLength={8} />
               </>
             )}
           </Form>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -1501,11 +1521,13 @@ function Security() {
             </Panel>
           </div>
           {disable && (
-            <Drawer title="关闭双重验证" onClose={() => setDisable(false)}>
+            <LiekanDialog title="关闭双重验证" onClose={() => setDisable(false)}>
               <Form
                 busy={action.busy}
                 error={action.error}
-                submitLabel="确认关闭"
+                danger
+                trackUnsaved={false}
+                submitLabel="关闭双重验证"
                 onSubmit={async values => {
                   if (data.isRequired) throw new Error('当前策略要求启用双重验证。');
                   await action.run(
@@ -1534,7 +1556,7 @@ function Security() {
                   required
                 />
               </Form>
-            </Drawer>
+            </LiekanDialog>
           )}
         </>
       )}
@@ -1810,10 +1832,11 @@ function ApiKeys() {
         </QueryState>
       </Panel>
       <Notice tone="blue">
-        创建密钥后可复制一次，关闭抽屉后列表仅显示掩码。请将完整密钥保存到安全位置。
+        创建密钥后可复制一次，关闭弹窗后列表仅显示掩码。请将完整密钥保存到安全位置。
       </Notice>
       {drawer && (
-        <Drawer
+        <LiekanDialog
+          protectUnsaved={false}
           title={drawer.type === 'create' ? '创建 API 密钥' : '撤销 API 密钥'}
           onClose={close}
         >
@@ -1829,17 +1852,19 @@ function ApiKeys() {
               >
                 复制密钥
               </Button>
-              <div className="form-actions">
+              <DialogActions>
                 <Button primary onClick={close}>
                   已保存，关闭
                 </Button>
-              </div>
+              </DialogActions>
             </>
           ) : (
             <Form
               busy={action.busy}
               error={action.error}
-              submitLabel={drawer.type === 'create' ? '创建密钥' : '确认撤销'}
+              danger={drawer.type !== 'create'}
+              trackUnsaved={false}
+              submitLabel={drawer.type === 'create' ? '创建 API 密钥' : '撤销 API 密钥'}
               onSubmit={async values => {
                 if (drawer.type === 'create') {
                   const key = await action.run(
@@ -1870,7 +1895,7 @@ function ApiKeys() {
               )}
             </Form>
           )}
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -2119,11 +2144,12 @@ function Goals() {
         目标转化次数和独立转化访客分别展示。转化率按独立转化访客计算，没有访客时显示“—”。
       </Notice>
       {remove && (
-        <Drawer title="删除目标" onClose={() => setRemove(null)}>
+        <LiekanDialog title="删除目标" onClose={() => setRemove(null)}>
           <Form
             busy={action.busy}
             error={action.error}
-            submitLabel="确认删除"
+            danger
+            submitLabel="删除目标"
             onSubmit={async values => {
               if (values.confirmation !== remove.name) throw new Error('确认内容不匹配。');
               await action.run(
@@ -2138,7 +2164,7 @@ function Goals() {
             </Notice>
             <Field label={`输入 ${remove.name} 确认`} name="confirmation" required />
           </Form>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -2427,11 +2453,12 @@ function Funnels() {
         步骤、名称、事件属性条件与窗口按保存配置计算。转化数量来自当前网站所选范围，没有访客时转化率显示“—”。
       </Notice>
       {remove && (
-        <Drawer title="删除漏斗" onClose={() => setRemove(null)}>
+        <LiekanDialog title="删除漏斗" onClose={() => setRemove(null)}>
           <Form
             busy={action.busy}
             error={action.error}
-            submitLabel="确认删除"
+            danger
+            submitLabel="删除漏斗"
             onSubmit={async values => {
               if (values.confirmation !== remove.name) throw new Error('确认内容不匹配。');
               await action.run(
@@ -2446,7 +2473,7 @@ function Funnels() {
             </Notice>
             <Field label={`输入 ${remove.name} 确认`} name="confirmation" required />
           </Form>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );

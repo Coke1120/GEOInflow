@@ -16,7 +16,7 @@ import {
   useFeatureAppState,
 } from '@/lib/liekan/upstream/client';
 import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
-import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
+import { featureApi, getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Shell.module.css';
 import { AnalysisLoading, reportViews } from './AnalysisLoading';
 import { AnalysisTabs } from './AnalysisTabs';
@@ -33,6 +33,7 @@ import {
 } from './data';
 import { featureNavigationHref } from './features/routes';
 import { useLiekanShell } from './LiekanShell';
+import { managementLabels } from '@/lib/liekan/contracts/management';
 import { ManagementDrawer } from './ManagementDrawer';
 import { ReportContext } from './ReportContext';
 import type { LiekanReport, Resource } from './types';
@@ -59,6 +60,22 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     params,
     resource,
   );
+  const pageIdentity = JSON.stringify([
+    userId,
+    websiteId,
+    teamId,
+    pathname,
+    resource,
+    Object.entries(params).sort(([a], [b]) => a.localeCompare(b)),
+  ]);
+  const currentPage = useRef({ mounted: false, identity: pageIdentity });
+  currentPage.current.identity = pageIdentity;
+  useEffect(() => {
+    currentPage.current.mounted = true;
+    return () => {
+      currentPage.current.mounted = false;
+    };
+  }, []);
   const [action, setAction] = useState('');
   const [message, setMessage] = useState('');
   const liveLogs = isLiveLogView(params, resource);
@@ -103,38 +120,33 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     const timer = window.setInterval(() => setLiveNow(Date.now()), 10000);
     return () => window.clearInterval(timer);
   }, [liveLogs]);
-  const currentReport = pageReportQuery(
-    userId,
-    websiteId,
-    {
-      resource,
-      startAt,
-      endAt,
-      timezone,
-      chartPeriod,
-      ...(resource === 'logs'
-        ? {
-            page: logPage,
-            filter:
-              filter === '仅 AI 蜘蛛'
-                ? 'ai'
-                : filter === '仅异常'
-                  ? 'abnormal'
-                  : filter === '仅人类'
-                    ? 'other'
-                    : '',
-            search: search.slice(0, 200),
-            ...(cursor ? { cursor, seek } : {}),
-          }
-        : {}),
-    },
-    teamId,
-    () => {
-      const value = forceRefresh.current;
-      forceRefresh.current = false;
-      return value;
-    },
-  );
+  const reportInput = {
+    resource,
+    startAt,
+    endAt,
+    timezone,
+    chartPeriod,
+    ...(resource === 'logs'
+      ? {
+          page: logPage,
+          filter:
+            filter === '仅 AI 蜘蛛'
+              ? 'ai'
+              : filter === '仅异常'
+                ? 'abnormal'
+                : filter === '仅人类'
+                  ? 'other'
+                  : '',
+          search: search.slice(0, 200),
+          ...(cursor ? { cursor, seek } : {}),
+        }
+      : {}),
+  };
+  const currentReport = pageReportQuery(userId, websiteId, reportInput, teamId, () => {
+    const value = forceRefresh.current;
+    forceRefresh.current = false;
+    return value;
+  });
   const query = api.useQuery<LiekanReport>({
     ...currentReport,
     enabled: !!websiteId,
@@ -160,8 +172,48 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   });
   const restricted = [401, 403, 404].includes((query.error as any)?.status);
   const previousRestricted = [401, 403, 404].includes((previous.error as any)?.status);
-  const report = restricted || metadataLoading ? undefined : query.data;
+  const displayKey = ['liekan-feature', userId, 'website-display-settings', websiteId];
+  const displayQuery = api.useQuery<{ aiCrawlerEnabled?: boolean }>({
+    queryKey: displayKey,
+    queryFn: ({ signal }) => featureApi.get(`/liekan/websites/${websiteId}/settings`, {}, signal),
+    enabled: !!websiteId && !!userId && !metadataLoading,
+    staleTime: 300000,
+    retry: false,
+  });
+  const displayMismatch =
+    !!query.data &&
+    displayQuery.data?.aiCrawlerEnabled !== undefined &&
+    (query.data.meta.aiCrawlerEnabled !== false) !== displayQuery.data.aiCrawlerEnabled;
+  const synchronizedDisplay = useRef('');
+  useEffect(() => {
+    const key = `${websiteId}:${query.dataUpdatedAt}:${displayQuery.data?.aiCrawlerEnabled}`;
+    if (
+      !displayMismatch ||
+      restricted ||
+      metadataLoading ||
+      displayQuery.isFetching ||
+      displayQuery.error ||
+      synchronizedDisplay.current === key
+    )
+      return;
+    synchronizedDisplay.current = key;
+    forceRefresh.current = true;
+    void Promise.allSettled([displayQuery.refetch(), query.refetch()]);
+  }, [
+    websiteId,
+    query.dataUpdatedAt,
+    displayQuery.data?.aiCrawlerEnabled,
+    displayMismatch,
+    restricted,
+    metadataLoading,
+    displayQuery.isFetching,
+    displayQuery.error,
+  ]);
+  const report = restricted || metadataLoading || displayMismatch ? undefined : query.data;
+  const crawlerHidden =
+    displayQuery.data?.aiCrawlerEnabled === false || query.data?.meta.aiCrawlerEnabled === false;
   const refresh = () => {
+    if (displayMismatch || displayQuery.error) void displayQuery.refetch();
     if (manualRefresh.current?.key === reportKey) return manualRefresh.current.promise;
     const promise = (async () => {
       await queryClient.cancelQueries({ queryKey: currentReport.queryKey, exact: true });
@@ -182,13 +234,52 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     return promise;
   };
   const afterSaved = async () => {
-    const reads = [{ queryKey: ['liekan', websiteId] }, { queryKey: ['liekan-feature', userId] }];
-    await Promise.all(reads.map(filters => queryClient.cancelQueries(filters)));
-    forceRefresh.current = true;
-    if (liveLogs) setLiveNow(Date.now());
-    await Promise.all(reads.map(filters => queryClient.invalidateQueries(filters)));
-    const error = queryClient.getQueryState(currentReport.queryKey)?.error;
-    if (error) throw error;
+    const isCurrentPage = () =>
+      currentPage.current.mounted && currentPage.current.identity === pageIdentity;
+    const invalidate = async (refetchType: 'none' | 'active') => {
+      const results = await Promise.allSettled([
+        queryClient.invalidateQueries(
+          { queryKey: ['liekan', websiteId], refetchType },
+          { throwOnError: true },
+        ),
+        queryClient.invalidateQueries(
+          { queryKey: ['liekan-feature', userId], refetchType },
+          { throwOnError: true },
+        ),
+      ]);
+      const failure = results.find(result => result.status === 'rejected');
+      if (failure) throw failure.reason;
+    };
+    await Promise.all([
+      queryClient.cancelQueries({ queryKey: ['liekan', websiteId] }),
+      queryClient.cancelQueries({ queryKey: ['liekan-feature', userId] }),
+    ]);
+    if (!isCurrentPage()) {
+      await invalidate('active');
+      return;
+    }
+    await invalidate('none');
+    if (!isCurrentPage()) {
+      await invalidate('active');
+      return;
+    }
+    if (liveLogs) {
+      const nextNow = Date.now();
+      setLiveNow(nextNow);
+      await queryClient.fetchQuery({
+        ...pageReportQuery(
+          userId,
+          websiteId,
+          { ...reportInput, startAt: nextNow - 30 * 86400000, endAt: nextNow },
+          teamId,
+          () => true,
+        ),
+        staleTime: 0,
+      });
+    } else {
+      forceRefresh.current = true;
+      await query.refetch({ throwOnError: true });
+    }
   };
   const rangeLabel = useMemo(() => {
     const date = (value: number) =>
@@ -258,7 +349,12 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         setMessage('数据仍在读取，请稍后重试');
         return;
       }
-      const table = primaryTables[resource];
+      const table =
+        resource === 'overview' && report.meta.aiCrawlerEnabled === false
+          ? 'visitorTopBody'
+          : resource === 'content' && report.meta.aiCrawlerEnabled === false
+            ? 'visitorPgBody'
+            : primaryTables[resource];
       const content = table
         ? tableCsv(table, report.tables[table] || [], filter, sort, search)
         : csvMatrix(
@@ -303,6 +399,50 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     }
     setAction(label);
   };
+  const [displaySaving, setDisplaySaving] = useState(false);
+  const [promptHidden, setPromptHidden] = useState(false);
+  useEffect(() => setPromptHidden(false), [websiteId]);
+  async function hideCrawlerDisplay() {
+    if (!report?.meta.canManage || displaySaving) return;
+    setDisplaySaving(true);
+    const site = websiteId;
+    try {
+      const result = await api.put(`/liekan/websites/${site}/settings`, {
+        aiCrawlerEnabled: false,
+      });
+      await queryClient.cancelQueries({
+        queryKey: ['liekan-feature', userId, 'website-display-settings', site],
+      });
+      queryClient.setQueryData(
+        ['liekan-feature', userId, 'website-display-settings', site],
+        result,
+      );
+      await queryClient.invalidateQueries({ queryKey: ['liekan', site] });
+      await queryClient.invalidateQueries({ queryKey: ['liekan-feature', userId] });
+      setMessage('已切换为访客统计，可从网站设置重新开启');
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '保存失败，请重试');
+    } finally {
+      setDisplaySaving(false);
+    }
+  }
+  if (crawlerHidden && resource.startsWith('ai/') && !restricted && !metadataLoading)
+    return (
+      <div className={styles.notice}>
+        <h2 className="font-bold text-ink">AI 蜘蛛数据展示已关闭</h2>
+        <p className="mt-2">已有数据和采集配置会保留，可从网站设置重新开启。</p>
+        {displayMismatch && (displayQuery.error || query.error) && (
+          <div role="alert">
+            <p className="mt-2">展示设置读取失败，请重新同步。</p>
+            <button onClick={refresh}>重新读取设置与报表</button>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-4 mt-3 text-brand">
+          <Link href={href('overview')}>查看访客统计</Link>
+          <Link href={href('website-settings', { section: 'basic' })}>网站设置</Link>
+        </div>
+      </div>
+    );
   const period = chartPeriod === '24h' ? '24h' : chartPeriod === '7d' ? '7 天' : '30 天';
   const View = reportViews[resource];
   return (
@@ -343,7 +483,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             </button>
             {page.actions.map(label => (
               <button key={label} type="button" className="chip" onClick={() => onAction(label)}>
-                {label === '站点设置' ? '网站设置' : label === 'UTM 管理' ? 'UTM 活动' : label}
+                {label === '站点设置'
+                  ? '网站设置'
+                  : label === 'UTM 管理'
+                    ? 'UTM 活动'
+                    : managementLabels[label] || label}
               </button>
             ))}
           </div>
@@ -421,18 +565,55 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           正在更新统计数据
         </div>
       )}
+      {displayMismatch && !restricted && (displayQuery.error || query.error) && (
+        <div className={styles.notice} role="alert">
+          数据展示设置与报表暂未同步，请重试读取。
+          <button onClick={refresh}>重新读取设置与报表</button>
+        </div>
+      )}
+      {resource === 'overview' &&
+        report &&
+        !crawlerHidden &&
+        !promptHidden &&
+        (report.meta.logsConfigured === false ||
+          (report.meta.logsConfigured === undefined && report.states.logs === 'not_connected')) && (
+          <div className={styles.notice}>
+            尚未接入 AI 蜘蛛日志。暂不接入时，可仅展示访客统计。
+            <Link
+              className="text-brand ml-3"
+              href={href('website-settings', { section: 'install', step: 'logs' })}
+            >
+              接入日志
+            </Link>
+            {report.meta.canManage ? (
+              <button disabled={displaySaving} onClick={hideCrawlerDisplay}>
+                {displaySaving ? '正在保存…' : '仅展示访客统计'}
+              </button>
+            ) : (
+              <Link
+                className="text-brand ml-3"
+                href={href('website-settings', { section: 'basic' })}
+              >
+                数据展示设置
+              </Link>
+            )}
+            <button onClick={() => setPromptHidden(true)}>保留展示</button>
+          </div>
+        )}
       {report ? (
         <View
           report={report}
+          aiCrawlerEnabled={!crawlerHidden}
           rangeLabel={rangeLabel}
           live={liveLogs}
           trendLabel={
             chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
           }
         />
-      ) : metadataLoading || query.isPending ? (
+      ) : metadataLoading || query.isPending || displayMismatch ? (
         <AnalysisLoading
           resource={resource}
+          aiCrawlerEnabled={!crawlerHidden}
           rangeLabel={rangeLabel}
           trendLabel={
             chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
@@ -443,6 +624,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         <ManagementDrawer
           action={compare ? '对比上周' : action}
           websiteId={websiteId}
+          websiteName={report?.website?.name || website?.name}
+          websiteDomain={report?.website?.domain || website?.domain}
           canManage={report?.meta.canManage || false}
           onClose={close}
           onSaved={afterSaved}
@@ -478,7 +661,10 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                   endAt,
                   previousStartAt: shiftedRange.startAt,
                   previousEndAt: shiftedRange.endAt,
-                  labels: cardLabels[resource] || [],
+                  labels:
+                    resource === 'overview' && report?.meta.aiCrawlerEnabled === false
+                      ? ['访客数 UV', '浏览量 PV', '跳出率', '平均访问时长']
+                      : cardLabels[resource] || [],
                   error: previous.error,
                   fetching: previous.isFetching,
                   refetch: () => previous.refetch(),

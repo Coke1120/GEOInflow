@@ -28,7 +28,7 @@ import {
 import styles from '@/styles/liekan/Navigation.module.css';
 import '@/styles/liekan/Features.module.css';
 import { featureHref, featureWebsiteSwitchHref, safeReturnHref } from './features/routes';
-import { Drawer, Icon, Notice, QueryState } from './features/ui';
+import { DialogActions, LiekanDialog, Icon, Notice, QueryState } from './features/ui';
 import { defaultDateRange } from './viewState';
 import { NavigationFeedback } from './NavigationFeedback';
 
@@ -69,7 +69,7 @@ export function Navigation({
   const client = useQueryClient();
   const meta = navigationFor(route);
   const website = meta.scope === 'website';
-  const groups =
+  const allGroups =
     meta.scope === 'admin' ? adminNavigation : website ? websiteNavigation : globalNavigation;
   const [mobile, setMobile] = useState(false);
   const [account, setAccount] = useState(meta.scope === 'account');
@@ -102,7 +102,7 @@ export function Navigation({
     staleTime: 300000,
     gcTime: 600000,
   });
-  const displaySettings = useQuery<{ isDemo?: boolean }>({
+  const displaySettings = useQuery<{ isDemo?: boolean; aiCrawlerEnabled?: boolean }>({
     queryKey: ['liekan-feature', user.id, 'website-display-settings', route.websiteId],
     queryFn: ({ signal }) =>
       featureApi.get(`/liekan/websites/${route.websiteId}/settings`, {}, signal),
@@ -111,6 +111,9 @@ export function Navigation({
     staleTime: 300000,
     gcTime: 600000,
   });
+  const groups = allGroups.filter(
+    group => !(website && group.id === 'ai' && displaySettings.data?.aiCrawlerEnabled === false),
+  );
   useEffect(() => {
     setAccount(meta.scope === 'account');
     setMobile(false);
@@ -439,7 +442,9 @@ export function Navigation({
           {meta.scope === 'admin' && <div className={styles.caption}>系统管理</div>}
           {groups.map(group => (
             <div key={group.id} data-navigation-group={group.id}>
-              {group.sectionLabel && <div className={styles.sectionLabel}>{group.sectionLabel}</div>}
+              {group.sectionLabel && (
+                <div className={styles.sectionLabel}>{group.sectionLabel}</div>
+              )}
               {group.children && <div className={styles.sectionLabel}>{group.label}</div>}
               <div className={styles.expandedItems}>
                 {(group.children || [group]).map(item => (
@@ -598,9 +603,13 @@ export function Navigation({
         />
       </aside>
       {leaving && (
-        <Drawer title="当前修改尚未保存" onClose={() => setLeaving('')}>
+        <LiekanDialog
+          protectUnsaved={false}
+          title="放弃未保存的修改？"
+          onClose={() => setLeaving('')}
+        >
           <Notice>切换网站会放弃当前表单中的修改。</Notice>
-          <div data-liekan-features className="form-actions">
+          <DialogActions>
             <button type="button" className="btn" onClick={() => setLeaving('')}>
               继续编辑
             </button>
@@ -615,8 +624,8 @@ export function Navigation({
             >
               放弃修改并切换
             </button>
-          </div>
-        </Drawer>
+          </DialogActions>
+        </LiekanDialog>
       )}
     </>
   );

@@ -36,7 +36,12 @@ const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', doma
 
 it('builds the share profile without log rows or unrelated statistics and bounds trends to the selected dates', async () => {
   const startAt = 3 * 86400000;
-  const report = await buildReport(website, false, { ...params, startAt, endAt: startAt + 86400000 }, 'share');
+  const report = await buildReport(
+    website,
+    false,
+    { ...params, startAt, endAt: startAt + 86400000 },
+    'share',
+  );
   expect(Object.keys(report.charts)).toEqual(expect.arrayContaining([...sharedReportParts.charts]));
   expect(Object.keys(report.charts)).toHaveLength(8);
   expect(Object.keys(report.tables).sort()).toEqual(['cityBody', 'envGrid']);
@@ -45,7 +50,17 @@ it('builds the share profile without log rows or unrelated statistics and bounds
   expect(mocks.humanDays.mock.calls[0][1]).toEqual(new Date(startAt));
   expect(mocks.months).not.toHaveBeenCalled();
   expect(mocks.conversions).not.toHaveBeenCalled();
-  const localRange = await buildReport(website, false, { ...params, startAt: Date.parse('2026-09-05T16:00:00Z'), endAt: Date.parse('2026-10-05T15:59:59Z'), timezone: 'Asia/Shanghai' }, 'share');
+  const localRange = await buildReport(
+    website,
+    false,
+    {
+      ...params,
+      startAt: Date.parse('2026-09-05T16:00:00Z'),
+      endAt: Date.parse('2026-10-05T15:59:59Z'),
+      timezone: 'Asia/Shanghai',
+    },
+    'share',
+  );
   expect(localRange.insights[0]).toMatch(/^2026-09-06 至 2026-10-05/);
 });
 beforeEach(() => {
@@ -121,9 +136,10 @@ describe('report evidence states', () => {
       ...logs,
       latest: '2026-01-01',
       summary: { requests: 1, ai: 1 },
-      pages: !args[9] || args[9].includes('pages')
-        ? [{ path: '/a', bot: 'GPTBot', requests: 1, lastCrawled: '2026-01-01' }]
-        : [],
+      pages:
+        !args[9] || args[9].includes('pages')
+          ? [{ path: '/a', bot: 'GPTBot', requests: 1, lastCrawled: '2026-01-01' }]
+          : [],
     }));
     const full = await buildReport(website, false, params);
     expect(full.insights).toContain('目录 1 个 URL，0 个在所选范围没有 AI 抓取。');
@@ -463,4 +479,36 @@ it('shows an active log source without an import as empty and keeps its import t
   const result = await buildReport(website, false, params);
   expect(result.states.logs).toBe('empty');
   expect(result.meta.latestImportAt).toBeNull();
+});
+
+it('projects visitor-only overview while preserving crawler analytics and re-enabling the original overview', async () => {
+  mocks.settings.mockResolvedValue({
+    isDemo: false,
+    rules: [],
+    robots: '',
+    aiCrawlerEnabled: false,
+  });
+  const report = await buildReport(website, true, params, true);
+  expect(report.meta.aiCrawlerEnabled).toBe(false);
+  expect(report.cards.map(card => card.label)).toEqual([
+    '访客数 UV',
+    '浏览量 PV',
+    '跳出率',
+    '平均访问时长',
+  ]);
+  expect(report.charts.d1.series.map(series => series.name)).toEqual(['浏览量 PV']);
+  expect(Object.keys(report.charts)).toEqual(['d1', 'd3']);
+  expect(Object.keys(report.tables)).toEqual(['visitorTopBody']);
+  expect(report.insights.join('')).not.toMatch(/AI|抓取|目录|蜘蛛/);
+  const history = await buildReport(website, true, { ...params, resource: 'ai/overview' }, true);
+  expect(history.cards.map(card => card.label)).toContain('AI 蜘蛛请求（30天）');
+  mocks.settings.mockResolvedValue({
+    isDemo: false,
+    rules: [],
+    robots: '',
+    aiCrawlerEnabled: true,
+  });
+  expect((await buildReport(website, true, params, true)).cards.map(card => card.label)).toContain(
+    'AI 蜘蛛请求',
+  );
 });

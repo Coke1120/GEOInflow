@@ -229,7 +229,7 @@ try {
         date,
       }),
   ));
-  await page.locator('.site-switch').click();
+  await page.getByRole('button', { name: /切换网站，当前/ }).click();
   const switchDialog = page.getByRole('dialog', { name: '切换网站' });
   await switchDialog
     .getByRole('button', { name: `选择网站 ${switchSite.name}`, exact: true })
@@ -271,10 +271,10 @@ try {
   await page.getByRole('button', { name: '下移步骤 1', exact: true }).click();
   const editorUrl = page.url();
   async function chooseNextSite() {
-    await page.locator('.site-switch').click();
+    await page.getByRole('button', { name: /切换网站，当前/ }).click();
     const picker = page.getByRole('dialog', { name: '切换网站', exact: true });
     await picker.getByRole('button', { name: `选择网站 ${switchSite.name}`, exact: true }).click();
-    await page.getByRole('dialog', { name: '当前修改尚未保存', exact: true }).waitFor();
+    await page.getByRole('dialog', { name: '放弃未保存的修改？', exact: true }).waitFor();
     assert.equal(await page.getByRole('dialog').count(), 1);
   }
   await chooseNextSite();

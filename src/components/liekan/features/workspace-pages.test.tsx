@@ -754,10 +754,13 @@ describe('share settings and public access from the list', () => {
     const trigger = await screen.findByRole('button', { name: '编辑' });
     await userEvent.click(trigger);
     const dialog = screen.getByRole('dialog', { name: '编辑分享链接' });
-    const close = within(dialog).getByRole('button', { name: '关闭弹层' });
-    expect(close).toHaveFocus();
+    const close = within(dialog).getByRole('button', { name: '关闭弹窗' });
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
+    close.focus();
     await userEvent.tab({ shift: true });
-    expect(within(dialog).getByRole('button', { name: '取消' })).toHaveFocus();
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: '保存分享链接' })).toHaveFocus(),
+    );
     await userEvent.tab();
     await waitFor(() => expect(close).toHaveFocus());
     await userEvent.keyboard('{Escape}');
@@ -905,8 +908,17 @@ describe('public share restrictions and password lifecycle', () => {
         return { pageviews: [{ x: '2026-10-01', y: 123 }], sessions: [{ x: '2026-10-01', y: 91 }] };
       throw new Error(`Unexpected public request ${path}`);
     });
-    const { container } = mount(<ResourceAnalytics id="site-1" kind="website" variant="public" title="访问趋势"
-      request={(path, params, signal) => mocks.request('GET', path, params, signal, 'overview-token', '')} />);
+    const { container } = mount(
+      <ResourceAnalytics
+        id="site-1"
+        kind="website"
+        variant="public"
+        title="访问趋势"
+        request={(path, params, signal) =>
+          mocks.request('GET', path, params, signal, 'overview-token', '')
+        }
+      />,
+    );
     await screen.findByText('11');
     expect(
       Array.from(container.querySelectorAll('.metric-label'), node => node.textContent),
@@ -945,113 +957,156 @@ describe('public share restrictions and password lifecycle', () => {
     await screen.findByRole('heading', { name: '没有访问权限' });
     expect(screen.queryByRole('heading', { name: '访客概览' })).not.toBeInTheDocument();
   });
-  it.each([401, 403, 404])('keeps a revoked shared report identity hidden across date changes after %s', async status => {
-    let metadataCalls = 0;
-    let reportCalls = 0;
-    mocks.request.mockImplementation(async (_method: string, path: string) => {
-      if (path === '/share/revoked-report') {
-        if (++metadataCalls > 1) return new Promise(() => {});
+  it.each([401, 403, 404])(
+    'keeps a revoked shared report identity hidden across date changes after %s',
+    async status => {
+      let metadataCalls = 0;
+      let reportCalls = 0;
+      mocks.request.mockImplementation(async (_method: string, path: string) => {
+        if (path === '/share/revoked-report') {
+          if (++metadataCalls > 1) return new Promise(() => {});
+          return {
+            token: 'revoked-report-token',
+            websiteId: 'site-1',
+            parameters: { overview: true, allowFilter: true },
+          };
+        }
+        if (path === '/liekan/websites/site-1/shared-report') {
+          if (++reportCalls === 2)
+            throw Object.assign(new Error('Share access revoked'), { status });
+          if (reportCalls > 2) return new Promise(() => {});
+          return {
+            website: { id: 'site-1', name: '已撤销网站', domain: 'revoked.example' },
+            states: { human: 'available', logs: 'not_connected' },
+            cards: [],
+            charts: {},
+            tables: { envGrid: [], cityBody: [] },
+            insights: [],
+            meta: { demo: true },
+            capabilities: { goals: false },
+          };
+        }
+        throw new Error(`Unexpected public request ${path}`);
+      });
+      const { client } = mount(<ShareFeatureView slug="revoked-report" />, false);
+      await screen.findByRole('heading', { name: '已撤销网站' });
+      expect(screen.getByText('revoked.example')).toBeInTheDocument();
+      await act(async () => {
+        await client.invalidateQueries({ queryKey: ['liekan-shared-report'] });
+      });
+      await waitFor(() =>
+        expect(screen.queryByRole('heading', { name: '已撤销网站' })).not.toBeInTheDocument(),
+      );
+      await userEvent.click(screen.getByRole('button', { name: '7 天' }));
+      await waitFor(() => expect(reportCalls).toBe(3));
+      expect(screen.queryByRole('heading', { name: '已撤销网站' })).not.toBeInTheDocument();
+      expect(screen.queryByText('revoked.example')).not.toBeInTheDocument();
+      expect(screen.queryByText(/以下为隔离的示例数据/)).not.toBeInTheDocument();
+    },
+  );
+  it.each([401, 403, 404])(
+    'discards other cached shared report ranges when access returns %s',
+    async status => {
+      let metadataCalls = 0;
+      let reportCalls = 0;
+      mocks.request.mockImplementation(async (_method: string, path: string) => {
+        if (path === '/share/cached-revoked-report') {
+          if (++metadataCalls > 1) return new Promise(() => {});
+          return {
+            token: 'cached-revoked-report-token',
+            websiteId: 'site-1',
+            parameters: { overview: true, allowFilter: true },
+          };
+        }
+        if (path === '/liekan/websites/site-1/shared-report') {
+          if (++reportCalls === 3)
+            throw Object.assign(new Error('Share access revoked'), { status });
+          if (reportCalls > 3) return new Promise(() => {});
+          return {
+            website: { id: 'site-1', name: '缓存网站', domain: 'cached.example' },
+            states: { human: 'available', logs: 'not_connected' },
+            cards: [{ label: '访客数 UV', value: reportCalls === 2 ? 17 : 91, state: 'available' }],
+            charts: {},
+            tables: { envGrid: [], cityBody: [] },
+            insights: [],
+            meta: { demo: true },
+            capabilities: { goals: false },
+          };
+        }
+        throw new Error(`Unexpected public request ${path}`);
+      });
+      mount(<ShareFeatureView slug="cached-revoked-report" />, false);
+      await screen.findByRole('heading', { name: '缓存网站' });
+      await userEvent.click(screen.getByRole('button', { name: '7 天' }));
+      await screen.findByText('17');
+      await userEvent.click(screen.getByRole('button', { name: '30 天' }));
+      await waitFor(() =>
+        expect(screen.queryByRole('heading', { name: '缓存网站' })).not.toBeInTheDocument(),
+      );
+      await userEvent.click(screen.getByRole('button', { name: '7 天' }));
+      await waitFor(() => expect(reportCalls).toBe(4));
+      expect(screen.queryByRole('heading', { name: '缓存网站' })).not.toBeInTheDocument();
+      expect(screen.queryByText('cached.example')).not.toBeInTheDocument();
+      expect(screen.queryByText('17')).not.toBeInTheDocument();
+    },
+  );
+  it('website shares render every requested module and update all dates together with the share token', async () => {
+    mocks.request.mockImplementation(async (_method: string, path: string, params: any) => {
+      if (path === '/share/website-report')
         return {
-          token: 'revoked-report-token',
+          token: 'report-token',
           websiteId: 'site-1',
-          parameters: { overview: true, allowFilter: true },
+          parameters: {
+            overview: true,
+            goals: false,
+            events: false,
+            utm: false,
+            allowFilter: true,
+          },
         };
-      }
       if (path === '/liekan/websites/site-1/shared-report') {
-        if (++reportCalls === 2)
-          throw Object.assign(new Error('Share access revoked'), { status });
-        if (reportCalls > 2) return new Promise(() => {});
+        if (params.endAt < params.startAt)
+          throw Object.assign(new Error('结束日期须晚于开始日期'), { status: 400 });
         return {
-          website: { id: 'site-1', name: '已撤销网站', domain: 'revoked.example' },
+          website: { id: 'site-1', name: '测试网站', domain: 'example.com' },
           states: { human: 'available', logs: 'not_connected' },
-          cards: [],
+          cards: [{ label: '访客数 UV', value: 91, state: 'available', detail: '所选统计范围' }],
           charts: {},
-          tables: { envGrid: [], cityBody: [] },
-          insights: [],
+          tables: {
+            envGrid: [{ category: 'browser', name: 'chrome', share: 100 }],
+            cityBody: [
+              {
+                city: '上海',
+                sessions: 20,
+                share: 30,
+                duration: 120,
+                bounceRate: 10,
+                conversionRate: null,
+              },
+            ],
+          },
+          insights: ['接入服务器日志后可计算 AI 抓取统计。'],
           meta: { demo: true },
           capabilities: { goals: false },
         };
       }
       throw new Error(`Unexpected public request ${path}`);
     });
-    const { client } = mount(<ShareFeatureView slug="revoked-report" />, false);
-    await screen.findByRole('heading', { name: '已撤销网站' });
-    expect(screen.getByText('revoked.example')).toBeInTheDocument();
-    await act(async () => {
-      await client.invalidateQueries({ queryKey: ['liekan-shared-report'] });
-    });
-    await waitFor(() =>
-      expect(screen.queryByRole('heading', { name: '已撤销网站' })).not.toBeInTheDocument(),
-    );
-    await userEvent.click(screen.getByRole('button', { name: '7 天' }));
-    await waitFor(() => expect(reportCalls).toBe(3));
-    expect(screen.queryByRole('heading', { name: '已撤销网站' })).not.toBeInTheDocument();
-    expect(screen.queryByText('revoked.example')).not.toBeInTheDocument();
-    expect(screen.queryByText(/以下为隔离的示例数据/)).not.toBeInTheDocument();
-  });
-  it.each([401, 403, 404])('discards other cached shared report ranges when access returns %s', async status => {
-    let metadataCalls = 0;
-    let reportCalls = 0;
-    mocks.request.mockImplementation(async (_method: string, path: string) => {
-      if (path === '/share/cached-revoked-report') {
-        if (++metadataCalls > 1) return new Promise(() => {});
-        return {
-          token: 'cached-revoked-report-token',
-          websiteId: 'site-1',
-          parameters: { overview: true, allowFilter: true },
-        };
-      }
-      if (path === '/liekan/websites/site-1/shared-report') {
-        if (++reportCalls === 3)
-          throw Object.assign(new Error('Share access revoked'), { status });
-        if (reportCalls > 3) return new Promise(() => {});
-        return {
-          website: { id: 'site-1', name: '缓存网站', domain: 'cached.example' },
-          states: { human: 'available', logs: 'not_connected' },
-          cards: [{ label: '访客数 UV', value: reportCalls === 2 ? 17 : 91, state: 'available' }],
-          charts: {}, tables: { envGrid: [], cityBody: [] }, insights: [],
-          meta: { demo: true }, capabilities: { goals: false },
-        };
-      }
-      throw new Error(`Unexpected public request ${path}`);
-    });
-    mount(<ShareFeatureView slug="cached-revoked-report" />, false);
-    await screen.findByRole('heading', { name: '缓存网站' });
-    await userEvent.click(screen.getByRole('button', { name: '7 天' }));
-    await screen.findByText('17');
-    await userEvent.click(screen.getByRole('button', { name: '30 天' }));
-    await waitFor(() =>
-      expect(screen.queryByRole('heading', { name: '缓存网站' })).not.toBeInTheDocument(),
-    );
-    await userEvent.click(screen.getByRole('button', { name: '7 天' }));
-    await waitFor(() => expect(reportCalls).toBe(4));
-    expect(screen.queryByRole('heading', { name: '缓存网站' })).not.toBeInTheDocument();
-    expect(screen.queryByText('cached.example')).not.toBeInTheDocument();
-    expect(screen.queryByText('17')).not.toBeInTheDocument();
-  });
-  it('website shares render every requested module and update all dates together with the share token', async () => {
-    mocks.request.mockImplementation(async (_method: string, path: string, params: any) => {
-      if (path === '/share/website-report') return {
-        token: 'report-token', websiteId: 'site-1',
-        parameters: { overview: true, goals: false, events: false, utm: false, allowFilter: true },
-      };
-      if (path === '/liekan/websites/site-1/shared-report') {
-        if (params.endAt < params.startAt) throw Object.assign(new Error('结束日期须晚于开始日期'), { status: 400 });
-        return {
-        website: { id: 'site-1', name: '测试网站', domain: 'example.com' },
-        states: { human: 'available', logs: 'not_connected' },
-        cards: [{ label: '访客数 UV', value: 91, state: 'available', detail: '所选统计范围' }],
-        charts: {},
-        tables: { envGrid: [{ category: 'browser', name: 'chrome', share: 100 }], cityBody: [{ city: '上海', sessions: 20, share: 30, duration: 120, bounceRate: 10, conversionRate: null }] },
-        insights: ['接入服务器日志后可计算 AI 抓取统计。'],
-        meta: { demo: true }, capabilities: { goals: false },
-      };
-      }
-      throw new Error(`Unexpected public request ${path}`);
-    });
     mount(<ShareFeatureView slug="website-report" />, false);
     await screen.findByRole('heading', { name: '测试网站' });
-    for (const title of ['访客趋势（UV / PV / 跳出率）', '访问时段热力', '设备构成', '浏览器 / OS TOP5', 'AI 蜘蛛 vs 人类访问趋势', 'AI 蜘蛛构成', '人类来源渠道', 'GEO 关键发现', '国内省份分布 TOP10', '海外国家/地区 TOP8', '城市明细 TOP12'])
+    for (const title of [
+      '访客趋势（UV / PV / 跳出率）',
+      '访问时段热力',
+      '设备构成',
+      '浏览器 / OS TOP5',
+      'AI 蜘蛛 vs 人类访问趋势',
+      'AI 蜘蛛构成',
+      '人类来源渠道',
+      'GEO 关键发现',
+      '国内省份分布 TOP10',
+      '海外国家/地区 TOP8',
+      '城市明细 TOP12',
+    ])
       expect(screen.getByRole('heading', { name: title })).toBeInTheDocument();
     expect(screen.getAllByRole('img', { name: /分享图表/ })).toHaveLength(8);
     expect(screen.getByText(/以下为隔离的示例数据/)).toBeInTheDocument();
@@ -1067,7 +1122,9 @@ describe('public share restrictions and password lifecycle', () => {
       expect(calls.every(call => call[4] === 'report-token' && call[5] === '')).toBe(true);
     });
     fireEvent.change(screen.getByLabelText('开始日期'), { target: { value: '2026-09-06' } });
-    await waitFor(() => expect(mocks.request.mock.calls.at(-1)?.[2].startAt).toBe(Date.parse('2026-09-05T16:00:00Z')));
+    await waitFor(() =>
+      expect(mocks.request.mock.calls.at(-1)?.[2].startAt).toBe(Date.parse('2026-09-05T16:00:00Z')),
+    );
     fireEvent.change(screen.getByLabelText('结束日期'), { target: { value: '2026-09-05' } });
     await screen.findByRole('heading', { name: '读取失败' });
     expect(screen.getByLabelText('结束日期')).toBeEnabled();
@@ -1257,7 +1314,16 @@ describe('public share restrictions and password lifecycle', () => {
               allowFilter: false,
             },
           }
-        : { website: { name: '同一网站', domain: 'example.com' }, cards: [], charts: {}, tables: { envGrid: [], cityBody: [] }, insights: [], meta: { demo: false }, states: { human: 'empty' }, capabilities: { goals: false } },
+        : {
+            website: { name: '同一网站', domain: 'example.com' },
+            cards: [],
+            charts: {},
+            tables: { envGrid: [], cityBody: [] },
+            insights: [],
+            meta: { demo: false },
+            states: { human: 'empty' },
+            capabilities: { goals: false },
+          },
     );
     const { rerender, client } = mount(<ShareFeatureView slug="one" />, false);
     await waitFor(() =>
@@ -1280,4 +1346,84 @@ describe('public share restrictions and password lifecycle', () => {
       ).toBe(true),
     );
   });
+});
+
+describe('member dialog completion', () => {
+  async function removingMember() {
+    context.route = { page: 'team-detail', id: team.id, teamId: team.id };
+    mount(<WorkspacePages page="team-detail" />);
+    const row = (await screen.findAllByText('manager'))[0].closest('tr')!;
+    await userEvent.click(within(row).getByRole('button', { name: '编辑角色' }));
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '移除成员' }),
+    );
+    await userEvent.type(screen.getByLabelText(/输入 REMOVE 确认/), 'REMOVE');
+    await userEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '移除成员' }),
+    );
+  }
+  it('completes member removal even if the subsequent identity refresh fails', async () => {
+    mocks.refresh.mockRejectedValue(new Error('刷新暂时不可用'));
+    await removingMember();
+    await waitFor(() => expect(mocks.del).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(mocks.notify).toHaveBeenCalledWith('成员已移除，页面状态刷新失败，请重新读取。');
+  });
+  it('keeps the dialog open while the post-removal identity refresh is pending', async () => {
+    let finish!: () => void;
+    mocks.refresh.mockImplementation(() => new Promise<void>(resolve => (finish = resolve)));
+    await removingMember();
+    await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
+    await userEvent.click(screen.getByRole('button', { name: '关闭弹窗' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    finish();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+});
+
+it('keeps team creation pending until identity refresh finishes', async () => {
+  context.route = { page: 'teams' };
+  context.siteId = '';
+  let finish!: () => void;
+  mocks.refresh.mockImplementation(() => new Promise<void>(resolve => (finish = resolve)));
+  const user = userEvent.setup();
+  mount(<WorkspacePages page="teams" />);
+  const opener = await screen.findByRole('button', { name: '创建团队' });
+  await user.click(opener);
+  await user.type(screen.getByLabelText(/团队名称/), '已保存的团队');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建团队' }));
+  await waitFor(() => expect(mocks.refresh).toHaveBeenCalledTimes(1));
+  try {
+    expect(mocks.post).toHaveBeenCalledWith('/teams', { name: '已保存的团队' });
+    expect(screen.getByRole('button', { name: '正在创建团队…' })).toBeDisabled();
+    await user.keyboard('{Escape}');
+    const discard = screen.queryByRole('button', { name: '放弃修改并关闭' });
+    if (discard) await user.click(discard);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '关闭弹窗' }));
+    const closeDiscard = screen.queryByRole('button', { name: '放弃修改并关闭' });
+    if (closeDiscard) await user.click(closeDiscard);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  } finally {
+    finish();
+  }
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await user.click(opener);
+  await user.type(screen.getByLabelText(/团队名称/), '新的团队草稿');
+  expect(screen.getByLabelText(/团队名称/)).toHaveValue('新的团队草稿');
+  expect(mocks.post).toHaveBeenCalledTimes(1);
+});
+
+it('reports team creation as saved when the subsequent identity refresh fails', async () => {
+  context.route = { page: 'teams' };
+  context.siteId = '';
+  mocks.refresh.mockRejectedValue(new Error('刷新暂时不可用'));
+  const user = userEvent.setup();
+  mount(<WorkspacePages page="teams" />);
+  await user.click(await screen.findByRole('button', { name: '创建团队' }));
+  await user.type(screen.getByLabelText(/团队名称/), '已经创建');
+  await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建团队' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(mocks.post).toHaveBeenCalledTimes(1);
+  expect(mocks.notify).toHaveBeenCalledWith('团队已创建，页面状态刷新失败，请重新读取。');
 });

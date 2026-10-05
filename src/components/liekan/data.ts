@@ -110,6 +110,11 @@ export const stateLabels: Record<DataState, string> = {
   estimated: '估算',
 };
 export const columns: Record<string, Array<[string, string, boolean?]>> = {
+  visitorTopBody: [
+    ['path', '页面'],
+    ['pv', '浏览量 PV', true],
+    ['uv', '访客数 UV', true],
+  ],
   topBody: [
     ['path', '页面'],
     ['humanPv', '人类 PV', true],
@@ -154,6 +159,14 @@ export const columns: Record<string, Array<[string, string, boolean?]>> = {
     ['conversionRate', '转化率', true],
     ['trend', '环比', true],
   ],
+  visitorPgBody: [
+    ['path', '页面'],
+    ['pv', 'PV', true],
+    ['uv', 'UV', true],
+    ['entries', '入口数', true],
+    ['duration', '平均停留', true],
+    ['bounceRate', '跳出率', true],
+  ],
   pgBody: [
     ['path', '页面'],
     ['pv', 'PV', true],
@@ -194,10 +207,12 @@ export const cardLabels: Partial<Record<Resource, string[]>> = {
 };
 export const tableLimits: Record<string, number> = {
   topBody: 7,
+  visitorTopBody: 7,
   apBody: 10,
   cityBody: 12,
   srcBody: 10,
   pgBody: 10,
+  visitorPgBody: 10,
   goalBody: 5,
   logBody: 12,
   prefList: 6,

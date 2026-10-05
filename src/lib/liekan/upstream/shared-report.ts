@@ -61,8 +61,10 @@ export async function readSharedReport(request: Request, websiteId: string): Pro
   const result = sharedReportSchema.parse({
     ...report,
     website,
-    cards: report.cards.filter(card =>
-      (sharedReportParts.cards as readonly string[]).includes(card.label),
+    cards: report.cards.filter(
+      card =>
+        (sharedReportParts.cards as readonly string[]).includes(card.label) &&
+        (report.meta.aiCrawlerEnabled !== false || card.label !== 'AI 蜘蛛请求'),
     ),
     charts: Object.fromEntries(
       sharedReportParts.charts.map(id => {
@@ -89,14 +91,29 @@ export async function readSharedReport(request: Request, websiteId: string): Pro
         conversionRate: goals ? row.conversionRate : null,
       })),
     },
-    states: { ...report.states, goals: goals ? report.states.goals : 'unsupported' },
+    states: {
+      ...report.states,
+      ...(report.meta.aiCrawlerEnabled === false && {
+        logs: 'unsupported',
+        catalog: 'unsupported',
+      }),
+      goals: goals ? report.states.goals : 'unsupported',
+    },
     insights: report.insights.map(text =>
       text.replace(
         '按 UA 分类，官方 IP 范围匹配结果见访问流。',
         '按 User-Agent 分类，抓取身份以官方 IP 范围核验为准。',
       ),
     ),
-    meta: { demo: report.meta.demo, canManage: false, latestImportAt: null, ruleCount: 0 },
+    meta: {
+      demo: report.meta.demo,
+      ...(report.meta.aiCrawlerEnabled !== undefined && {
+        aiCrawlerEnabled: report.meta.aiCrawlerEnabled,
+      }),
+      canManage: false,
+      latestImportAt: null,
+      ruleCount: 0,
+    },
     capabilities: { goals },
   });
   return result as SharedReport;

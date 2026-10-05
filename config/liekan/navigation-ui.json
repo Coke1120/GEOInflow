@@ -51,6 +51,12 @@
         ]
       },
       {
+        "id": "help",
+        "label": "帮助中心",
+        "page": "help",
+        "children": []
+      },
+      {
         "id": "ai-config",
         "label": "AI配置器",
         "page": "ai-config",
@@ -143,6 +149,12 @@
             "label": "日志访问流"
           }
         ]
+      },
+      {
+        "id": "help",
+        "label": "帮助中心",
+        "page": "help",
+        "children": []
       }
     ],
     "admin": [
@@ -1228,6 +1240,14 @@
       "section": "ai-config",
       "active": "ai-config",
       "title": "AI配置器"
+    },
+    "help": {
+      "scope": "global",
+      "section": "help",
+      "active": "help",
+      "title": "帮助中心",
+      "tabs": [],
+      "activeTab": null
     }
   },
   "geo": {
