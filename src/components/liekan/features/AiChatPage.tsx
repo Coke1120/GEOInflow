@@ -1,7 +1,7 @@
 'use client';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { CalendarDays, ChevronDown } from 'lucide-react';
+import { CalendarDays, ChevronDown, Sparkles } from 'lucide-react';
 import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import type { DataState } from '@/lib/liekan/contracts/report';
 import {
@@ -77,13 +77,13 @@ export function AiChatPage() {
   }, [c.query.aiSite, c.query.aiConversation]);
   if (catalog.isPending)
     return (
-      <div data-liekan-ai="ai-chat" className={styles.chatWorkspace}>
+      <div data-liekan-ai="ai-chat" className={`${styles.chatWorkspace} ${home.page}`}>
         <AiNotice>正在读取 AI 能力与可访问网站…</AiNotice>
       </div>
     );
   if (catalog.error && !catalog.data)
     return (
-      <div data-liekan-ai="ai-chat" className={styles.chatWorkspace}>
+      <div data-liekan-ai="ai-chat" className={`${styles.chatWorkspace} ${home.page}`}>
         <AiNotice error>{aiError(catalog.error)}</AiNotice>
         <AiButton onClick={() => void catalog.refetch()}>重新读取</AiButton>
       </div>
@@ -102,7 +102,7 @@ export function AiChatPage() {
     );
   };
   return (
-    <div data-liekan-ai="ai-chat" className={styles.chatWorkspace} lang="zh-CN">
+    <div data-liekan-ai="ai-chat" className={`${styles.chatWorkspace} ${home.page}`} lang="zh-CN">
       <ModuleNotice catalog={data} />
       <AiCatalogMore query={catalog} />
       {site && space ? (
@@ -134,7 +134,12 @@ export function AiChatPage() {
               ? '请先选择要分析的网站，问题会为你保留。'
               : '选择一个网站，结合你的统计数据开始分析。'}
           </p>
-          <ChatHome onPrompt={setDraft} onChooseSite={chooseSite} disabled={!data.module.enabled} />
+          <ChatHome
+            onPrompt={setDraft}
+            onChooseSite={chooseSite}
+            onHistory={chooseSite}
+            disabled={!data.module.enabled}
+          />
           {!data.websites.length && (
             <AiNotice>当前账户没有可访问的网站。请先在网站管理添加网站或获取团队权限。</AiNotice>
           )}
@@ -355,7 +360,13 @@ function SiteConversation({
     !conversationVerified ||
     busy;
   const needsSetup = !selected && connectionId !== 'local';
-  const isLanding = !allMessages.length && !task.run && !task.preview && !task.busy;
+  const isLanding =
+    !allMessages.length &&
+    !sentQuestion &&
+    !task.run &&
+    !task.preview &&
+    !task.busy &&
+    !task.recoverable;
   const refreshConnections = () =>
     client.invalidateQueries({
       queryKey: ['liekan-ai', c.user.id, 'connections', space.kind, space.id],
@@ -533,13 +544,23 @@ function SiteConversation({
           )}
         </AiNotice>
       )}
-      <div className={`${styles.conversationTools} ${home.conversationTools}`}>
+      <div
+        className={`${styles.conversationTools} ${home.conversationTools} ${isLanding ? home.landingTools : ''}`}
+      >
         <AiButton disabled={busy} onClick={() => void selectConversation('')}>
           新建对话
         </AiButton>
-        <details>
+        <details
+          data-ai-history="true"
+          onKeyDown={event => {
+            if (event.key === 'Escape') {
+              event.currentTarget.open = false;
+              event.currentTarget.querySelector('summary')?.focus();
+            }
+          }}
+        >
           <summary>我的历史对话</summary>
-          <div className={styles.history}>
+          <div className={`${styles.history} ${home.historyPanel}`}>
             {!conversationVerified ? (
               <p>请先确认对话所属网站后查看历史。</p>
             ) : history.error ? (
@@ -592,7 +613,7 @@ function SiteConversation({
           加载更早消息
         </AiButton>
       )}
-      <div className={styles.conversation}>
+      <div className={styles.conversation} hidden={isLanding}>
         {allMessages.map(message => (
           <HistoryMessage
             key={message.id}
@@ -704,6 +725,7 @@ function SiteConversation({
               </div>
             </details>
             <label className={home.scopeControl}>
+              <Sparkles size={14} aria-hidden="true" />
               <select
                 aria-label="分析模型"
                 value={connectionId || selected?.id || ''}
@@ -719,6 +741,7 @@ function SiteConversation({
                   </option>
                 ))}
               </select>
+              <ChevronDown size={13} aria-hidden="true" />
             </label>
           </>
         }
@@ -759,13 +782,22 @@ function SiteConversation({
             </button>
           </p>
         )}
-      <p className={home.siteMeta}>
-        {space.name} · {site.domain} · {space.canUse ? '可分析' : '只读权限'}
-      </p>
+      {!isLanding && (
+        <p className={home.siteMeta}>
+          {space.name} · {site.domain} · {space.canUse ? '可分析' : '只读权限'}
+        </p>
+      )}
       {isLanding && (
         <ChatHome
           siteId={site.id}
           onPrompt={setQuestion}
+          onHistory={() => {
+            const history = document.querySelector<HTMLDetailsElement>('[data-ai-history]');
+            if (history) {
+              history.open = true;
+              history.querySelector('summary')?.focus();
+            }
+          }}
           onChooseSite={() =>
             document.querySelector<HTMLSelectElement>('select[aria-label="分析网站"]')?.focus()
           }

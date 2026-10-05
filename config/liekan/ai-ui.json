@@ -15,11 +15,20 @@
   "scope": ["ai-chat", "ai-config"],
   "originalBodyPolicy": "保留原统计页面主体与图表验收，新增 AI 页面单独验收。",
   "chatHome": {
-    "approval": "2026-10-05 用户提供的快速发起首页截图与配置交互要求",
+    "approval": "2026-10-05 用户指定 agent.html 的首页样式与交互，并要求修复叠加聚焦边框",
     "composer": "网站、日期与模型选择位于输入框底部左侧，圆形发送按钮位于右侧。",
     "shortcuts": ["AI 抓取分析", "来源渠道", "地域地图", "页面与事件", "转化分析", "日志访问流"],
     "questions": 4,
     "setup": "未配置时发送打开居中配置弹窗，保存并成功测试后自动选用连接，保留原问题。",
-    "navigation": "网站快捷入口必须携带明确网站与有效 date 范围，日志入口关闭实时模式。"
+    "navigation": "网站快捷入口必须携带明确网站与有效 date 范围，日志入口关闭实时模式。",
+    "referenceRoot": "design/reference/ai-chat-home-v3",
+    "sha256": {
+      "agent.html": "b32254cad9a92cd9521f5a6e1382ee4750f84be9921b5dfc942fee68e8efe020",
+      "assets/tailwind-offline.css": "26916a568c15ab05e62bb05dfcae4c2d2586f581768e317eadbc26ad3573d86a",
+      "assets/page-boot.js": "de4f58e1ab4a9f49c9a890faed713600cf6e3166d94c9981e79e89c1f3e8ec89",
+      "assets/workbench-shell.css": "0296111974b6736478c95f6187398f350fe21c2a628f0189e6e99200cbcacb7d",
+      "assets/workbench-shell.js": "1f8b6a3ef15b9bfabd41a7f651960c4206f3fe8e706f96d9d991d2bdc9527d7f"
+    },
+    "focus": "输入区聚焦保留单层轻边界，文本框无独立描边；键盘操作保留清晰焦点。"
   }
 }

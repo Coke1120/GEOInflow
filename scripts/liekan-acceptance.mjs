@@ -442,6 +442,20 @@ try {
   await run(process.execPath, ['scripts/liekan-ai-visual.mjs'], 'ai-visual', {
     env: { ...process.env, LIEKAN_URL: baseUrl },
   });
+  await run(process.execPath, ['scripts/liekan-ai-home-visual.mjs'], 'ai-home-visual', {
+    env: { ...process.env, LIEKAN_URL: baseUrl },
+  });
+  report.aiHomeVisual = JSON.parse(
+    fs.readFileSync('test-results/liekan-ai-home-v3/report.json', 'utf8'),
+  );
+  if (
+    !report.aiHomeVisual.passed ||
+    report.aiHomeVisual.head !== head ||
+    JSON.stringify(report.aiHomeVisual.checks.map(check => check.width)) !==
+      JSON.stringify([1440, 1280, 375, 320]) ||
+    report.aiHomeVisual.errors?.length
+  )
+    throw new Error('AI homepage visual acceptance incomplete');
   report.aiVisual = JSON.parse(fs.readFileSync('test-results/liekan-ai/report.json', 'utf8'));
   if (
     !report.aiVisual.passed ||

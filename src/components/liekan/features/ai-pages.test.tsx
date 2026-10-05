@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiPages } from './AiPages';
@@ -418,6 +418,7 @@ it('allows a fresh explicit attempt after a request is rejected before acceptanc
   await user.type(await screen.findByLabelText('分析问题'), '核查模型');
   await user.click(screen.getByRole('button', { name: '发起分析' }));
   expect(await screen.findByText('配置或网站归属已更新，请刷新后重试。')).toBeInTheDocument();
+  expect(screen.getByText('核查模型')).toBeVisible();
   expect(screen.queryByRole('button', { name: '回查原任务' })).not.toBeInTheDocument();
   expect(sessionStorage.length).toBe(0);
   await user.click(screen.getByRole('button', { name: '重新填写问题' }));
@@ -454,6 +455,8 @@ it('keeps recovery identifiers limited to safe metadata', async () => {
   const saved = JSON.parse(sessionStorage.getItem(`liekan-ai:${id}:analysis:${siteId}`));
   expect(Object.keys(saved).sort()).toEqual(['clientRequestId', 'conversationId', 'siteId']);
   expect(JSON.stringify(saved)).not.toContain('private-business-question');
+  await screen.findByRole('button', { name: '回查原任务' });
+  expect(screen.getByText('private-business-question')).toBeVisible();
 });
 
 it('ignores delayed stream completion after persisted cancellation', async () => {
@@ -1678,6 +1681,21 @@ it('waits for server acknowledgement and records an early rejection without acce
 });
 
 describe('AI chat home and inline setup', () => {
+  it('sends with Enter, keeps Shift+Enter for a new line, and ignores IME confirmation', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId };
+    mount('ai-chat');
+    const input = await screen.findByLabelText('分析问题');
+    await user.type(input, '检查本周的抓取变化');
+    await user.keyboard('{Shift>}{Enter}{/Shift}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await user.keyboard('{Enter}');
+    expect(await screen.findByRole('dialog', { name: '配置 AI，开始分析' })).toBeInTheDocument();
+    expect(mocks.stream).not.toHaveBeenCalled();
+  });
+
   it('preserves a question drafted before choosing an explicit website and scopes function links', async () => {
     const user = userEvent.setup();
     mocks.context.href = featureHref;
