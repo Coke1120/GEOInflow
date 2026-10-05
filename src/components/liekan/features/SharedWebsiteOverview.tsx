@@ -22,7 +22,7 @@ function ReportChart({
   height?: number;
 }) {
   return (
-    <section className={styles.panel}>
+    <section className={styles.panel} data-liekan-report-panel>
       <div className={styles.panelHead}>
         <h2>{title}</h2>
         <p>{subtitle}</p>
@@ -127,7 +127,7 @@ export function SharedWebsiteOverview({
               report={report}
             />
             <ReportChart id="h3" title="设备构成" subtitle={`${period} · 按会话`} report={report} />
-            <section className={styles.panel}>
+            <section className={styles.panel} data-liekan-report-panel>
               <div className={styles.panelHead}>
                 <h2>浏览器 / OS TOP5</h2>
                 <p>{period} · 按会话</p>
@@ -175,7 +175,7 @@ export function SharedWebsiteOverview({
               subtitle={`${period} · 按会话`}
               report={report}
             />
-            <section className={styles.panel}>
+            <section className={styles.panel} data-liekan-report-panel>
               <div className={styles.panelHead}>
                 <h2>GEO 关键发现</h2>
                 <p>{period} · 数据依据与覆盖情况</p>
@@ -209,7 +209,7 @@ export function SharedWebsiteOverview({
               height={320}
             />
           </div>
-          <section className={styles.panel}>
+          <section className={styles.panel} data-liekan-report-panel>
             <div className={styles.panelHead}>
               <h2>城市明细 TOP12</h2>
               <p>本地 GeoIP · 地理信息取决于识别库覆盖 · 时长按浏览间隔估算</p>

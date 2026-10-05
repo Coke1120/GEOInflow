@@ -236,10 +236,12 @@ async function geometry(page) {
           : null,
       };
     });
-    const panels = [...scope.querySelectorAll('.panel')].slice(0, 4).map(el => {
-      const s = getComputedStyle(el);
-      return { radius: s.borderRadius, border: s.borderColor, bg: s.backgroundColor };
-    });
+    const panels = [...scope.querySelectorAll('.panel,[data-liekan-report-panel]')]
+      .slice(0, 4)
+      .map(el => {
+        const s = getComputedStyle(el);
+        return { radius: s.borderRadius, border: s.borderColor, bg: s.backgroundColor };
+      });
     const arrows = [...scope.querySelectorAll('.btn')].flatMap(el => {
       const icon = el.lastElementChild;
       if (icon?.tagName.toLowerCase() !== 'svg') return [];
@@ -258,7 +260,8 @@ async function geometry(page) {
       select,
       panels,
       contentCount:
-        main?.querySelectorAll('.panel,.state-box,.notice,form,table').length ||
+        main?.querySelectorAll('.panel,[data-liekan-report-panel],.state-box,.notice,form,table')
+          .length ||
         scope.querySelectorAll('.auth-form,form').length ||
         0,
       arrows,
