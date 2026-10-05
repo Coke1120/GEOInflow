@@ -82,6 +82,10 @@ try {
     await original.evaluate(() => document.fonts.ready);
     await actual.goto(base + '/liekan/ai-chat');
     await expect(actual.getByLabel('分析网站')).toBeVisible();
+    await actual.getByLabel('分析问题').fill('分析最近 7 天的 AI 抓取趋势');
+    await actual.getByRole('button', { name: '发起分析', exact: true }).click();
+    await expect(actual.getByLabel('分析网站')).toBeFocused();
+    await assertPickerFocus('分析网站');
     await actual.getByLabel('分析网站').selectOption(seed.website.id);
     await expect(actual.getByLabel('分析模型')).toBeEnabled();
     await actual.evaluate(() => document.fonts.ready);
@@ -142,10 +146,30 @@ try {
     await original.screenshot({ path: `${out}/reference-${width}.png`, fullPage: true });
     await actual.keyboard.press('Tab');
     await expect(actual.getByLabel('分析网站')).toBeFocused();
-    const keyboardFocus = await actual
-      .getByLabel('分析网站')
-      .evaluate(el => getComputedStyle(el).outlineWidth);
-    assert.equal(keyboardFocus, '2px', 'Website picker retains keyboard focus visibility');
+    async function assertPickerFocus(label) {
+      const focus = await actual.getByLabel(label).evaluate(el => ({
+        outline: getComputedStyle(el).outlineWidth,
+        shadow: getComputedStyle(el).boxShadow,
+        border: getComputedStyle(el.parentElement).borderTopColor,
+      }));
+      assert.equal(focus.outline, '0px', `${label} has no additional focus frame`);
+      assert.equal(focus.shadow, 'none');
+      assert.equal(
+        focus.border,
+        'rgb(105, 115, 134)',
+        `${label} shows focus on its existing boundary`,
+      );
+    }
+    await assertPickerFocus('分析网站');
+    await actual.keyboard.press('Tab');
+    await actual.keyboard.press('Tab');
+    await expect(actual.getByLabel('分析模型')).toBeFocused();
+    await assertPickerFocus('分析模型');
+    await actual.getByLabel('分析网站').click();
+    await actual.keyboard.press('Escape');
+    await expect(actual.getByLabel('分析网站')).toBeFocused();
+    await assertPickerFocus('分析网站');
+    await actual.screenshot({ path: `${out}/home-${width}-website-focused.png`, fullPage: true });
     await actual.getByRole('button', { name: '回答记录', exact: true }).click();
     const history = actual.locator('[data-ai-history] > div');
     await expect(history).toBeVisible();

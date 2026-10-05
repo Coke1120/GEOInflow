@@ -29,6 +29,6 @@
       "assets/workbench-shell.css": "0296111974b6736478c95f6187398f350fe21c2a628f0189e6e99200cbcacb7d",
       "assets/workbench-shell.js": "1f8b6a3ef15b9bfabd41a7f651960c4206f3fe8e706f96d9d991d2bdc9527d7f"
     },
-    "focus": "输入区聚焦保留单层轻边界，文本框无独立描边；键盘操作保留清晰焦点。"
+    "focus": "输入区聚焦保留单层轻边界；网站和模型选择以已有控件边界标记键盘焦点，无额外内描边。"
   }
 }

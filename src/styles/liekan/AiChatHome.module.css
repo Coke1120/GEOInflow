@@ -135,6 +135,15 @@
 .page .scopeControl select {
   max-width: 150px;
 }
+.page .website select:focus,
+.page .scopeControl select:focus {
+  outline: 0;
+  box-shadow: none;
+}
+.page .website:has(select:focus-visible),
+.page .scopeControl:has(select:focus-visible) {
+  border-color: #697386;
+}
 .page .send {
   display: grid;
   place-items: center;
