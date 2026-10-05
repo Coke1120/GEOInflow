@@ -275,7 +275,7 @@ async function geometry(page) {
     };
   });
 }
-async function ready(page) {
+async function ready(page, requireCanvas = false) {
   await page.waitForLoadState('domcontentloaded');
   await page.waitForSelector('[data-liekan-features]', { timeout: 30000 });
   await page.waitForFunction(
@@ -286,6 +286,9 @@ async function ready(page) {
   );
   await page.waitForLoadState('networkidle');
   await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'));
+  if (requireCanvas)
+    await page.locator('canvas').first().waitFor({ state: 'attached', timeout: 15000 });
   await page.waitForFunction(
     () => [...document.querySelectorAll('.chart')].every(el => el.querySelector('canvas,svg')),
     {},
@@ -365,17 +368,18 @@ try {
         await reference.evaluate(() =>
           document.querySelectorAll('.preview-tools,.route-summary').forEach(el => el.remove()),
         );
-        const current = await geometry(page),
-          expected = await geometry(reference);
+        const expected = await geometry(reference);
         const navigation = await navigationAcceptance(page, navigationBaseline.pages[p.id], width);
-        assert(current.contentCount > 0, `${p.id} has no rendered content`);
-        if (expected.panels.length && p.id !== 'backup-codes')
-          assert(current.panels.length > 0, `${p.id} missing approved panel structure`);
         const chartStates = {
           funnels: 'No saved funnel fixture',
           heatmaps: 'Collected page selection required',
           'backup-codes': 'One-time codes require setup flow',
         };
+        await ready(page, expected.charts > 0 && !chartStates[p.id]);
+        const current = await geometry(page);
+        assert(current.contentCount > 0, `${p.id} has no rendered content`);
+        if (expected.panels.length && p.id !== 'backup-codes')
+          assert(current.panels.length > 0, `${p.id} missing approved panel structure`);
         if (expected.charts > 0 && !chartStates[p.id])
           assert(current.charts > 0, `${p.id} missing rendered statistical chart`);
         assert.equal(
