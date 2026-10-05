@@ -2,6 +2,50 @@ import { expect, test } from './fixtures';
 import { createWebsite, deleteWebsite } from './helpers/entities';
 import { pageReportParts } from '../../src/lib/liekan/contracts/page-report';
 
+test('keeps the deployed shared overview scoped and aggregate-only', async ({
+  admin,
+  user,
+  api,
+  share,
+  seed,
+}) => {
+  const path = `/api/liekan/websites/${seed.website.id}/shared-report`;
+  const params = { ...seed.range, timezone: 'Asia/Shanghai', chartPeriod: '30d' };
+  expect((await api.get(path, { params })).status).toBe(401);
+  expect((await user.get(path, { params })).status).toBe(403);
+  for (const client of [admin, await share()]) {
+    const result = await client.get(path, { params });
+    expect(result.status).toBe(200);
+    expect(result.body.website.id).toBe(seed.website.id);
+    expect(Object.keys(result.body.website).sort()).toEqual(['domain', 'id', 'name']);
+    expect(Object.keys(result.body.tables).sort()).toEqual(['cityBody', 'envGrid']);
+    expect(Object.keys(result.body.charts).sort()).toEqual([
+      'd1',
+      'd2',
+      'd3',
+      'g1',
+      'g2',
+      'h1',
+      'h2',
+      'h3',
+    ]);
+    expect(result.body.meta).toEqual({
+      demo: false,
+      canManage: false,
+      latestImportAt: null,
+      ruleCount: 0,
+    });
+    expect((await client.get(path, { params: { ...params, resource: 'logs' } })).status).toBe(400);
+  }
+  expect(
+    (
+      await (
+        await share()
+      ).get(`/api/liekan/websites/${seed.website2.id}/shared-report`, { params })
+    ).status,
+  ).toBe(403);
+});
+
 test.describe('Liekan evidence and website boundary', () => {
   test.describe.configure({ mode: 'serial' });
   let id = '',
@@ -365,7 +409,8 @@ test.describe('Liekan statistics cache', () => {
       });
       expect(summary.status).toBe(200);
       expect(
-        (await admin.post(`/api/websites/${website.id}/transfer`, { userId: seed.admin.id })).status,
+        (await admin.post(`/api/websites/${website.id}/transfer`, { userId: seed.admin.id }))
+          .status,
       ).toBe(200);
       expect((await user.get(`${path}/page-report`, { params })).status).toBe(403);
       expect(

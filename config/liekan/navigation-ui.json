@@ -1433,7 +1433,17 @@
     "rowPitch": 36,
     "fontSize": 13.5,
     "contextHeight": 56,
-    "mobileRowHeight": 44
+    "mobileRowHeight": 44,
+    "analysisContext": {
+      "approval": "2026-10-05 用户要求继续消除访问记录、人群分析、实时访客页头的高度差异，按同类页的标题、Tab、工具栏、正文顺序统一排版",
+      "columnGap": 16,
+      "rowGap": 8,
+      "headerHeight": 60,
+      "tabsHeight": 44,
+      "desktopMaxHeight": 39,
+      "bodyPaddingTop": 24,
+      "mobileActionMinHeight": 40
+    }
   },
   "analysisTabs": {
     "geo-sources": [

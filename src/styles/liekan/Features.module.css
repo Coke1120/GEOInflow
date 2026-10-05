@@ -287,8 +287,11 @@
   align-items: center;
   border-bottom: 1px solid var(--line);
 }
-:global([data-website-layout] .header-inner) {
-  min-height: 64px;
+:global([data-website-layout] .header) {
+  border-bottom: 0;
+}
+:global([data-website-layout] [data-analysis-tabs-frame] > [data-analysis-family]) {
+  border-bottom: 0;
 }
 :global([data-liekan-features] .subtitle) {
   font-size: 11.5px;
@@ -1991,6 +1994,31 @@
   justify-content: flex-end;
   font-size: 12px;
   margin-bottom: 16px;
+}
+:global([data-liekan-features] .analysis-context) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+:global([data-liekan-features] .analysis-context .range-context) {
+  margin-bottom: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:global([data-liekan-features] .analysis-context .analysis-tools) {
+  margin-bottom: 0;
+}
+@media (max-width: 900px) {
+  :global([data-liekan-features] .analysis-context .analysis-tools) {
+    justify-content: flex-start;
+  }
+  :global([data-liekan-features] .analysis-context .analysis-tools a) {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+  }
 }
 :global([data-liekan-features].identity-flow) {
   min-height: 100dvh;

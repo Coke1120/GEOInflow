@@ -21,6 +21,7 @@ import {
   invalidateFeatureUserQueries,
 } from '@/lib/liekan/upstream/features-client';
 import '@/styles/liekan/Features.module.css';
+import shellStyles from '@/styles/liekan/Shell.module.css';
 import {
   hasDateControl,
   navigationFor,
@@ -331,6 +332,25 @@ export function FeatureApp({
   const invalidRange = datePage && range.endAt - range.startAt > 1096 * 86400000;
   const readOnlyGlobalPage = !setup && ['websites', 'dashboard'].includes(current.page);
   const metadata = teamState?.isPending || teamState?.error ? teamState : sitesQuery;
+  const showAnalysisTools =
+    websiteRequired &&
+    !['tracking', 'install-check', 'website-settings', 'recorder-settings', 'sharing'].includes(
+      current.page,
+    ) &&
+    !!siteId;
+  const rangeContext = datePage && (
+    <div className="range-context">
+      统计期间：{formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
+      {formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')} · 统计时区：{timezone}
+    </div>
+  );
+  const analysisTabs = (
+    <AnalysisTabs
+      route={current}
+      href={href}
+      onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
+    />
+  );
   const content =
     readOnlyGlobalPage && !invalidRange ? (
       <QueryState readOnly={!metadata.error} query={metadata}>
@@ -486,6 +506,21 @@ export function FeatureApp({
               </div>
             </div>
           </header>
+          {showAnalysisTools && (
+            <>
+              <div className={shellStyles.tabsFrame} data-analysis-tabs-frame>
+                {analysisTabs}
+              </div>
+              <div className={`analysis-context ${shellStyles.analysisTools}`}>
+                {rangeContext}
+                <div className="analysis-tools">
+                  <Link href={href('filters')}>高级筛选</Link>
+                  <Link href={href('annotations')}>图表注释</Link>
+                  <Link href={href('exports')}>导出数据</Link>
+                </div>
+              </div>
+            </>
+          )}
           <main className="content" id="main-content">
             {datePage && invalidDate && (
               <Notice tone="amber">
@@ -505,35 +540,11 @@ export function FeatureApp({
                 </Button>
               </Notice>
             )}
-            {datePage && (
-              <div className="range-context">
-                统计期间：{formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
-                {formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')} · 统计时区：{timezone}
-              </div>
-            )}
+            {!showAnalysisTools && rangeContext}
             {websiteRequired && nav.query.clearedFilters === '1' && (
               <Notice>已清除当前页面不支持的筛选，统计采用页面显示的条件。</Notice>
             )}
-            {websiteRequired &&
-              ![
-                'tracking',
-                'install-check',
-                'website-settings',
-                'recorder-settings',
-                'sharing',
-              ].includes(current.page) &&
-              siteId && (
-                <div className="analysis-tools">
-                  <Link href={href('filters')}>高级筛选</Link>
-                  <Link href={href('annotations')}>图表注释</Link>
-                  <Link href={href('exports')}>导出数据</Link>
-                </div>
-              )}
-            <AnalysisTabs
-              route={current}
-              href={href}
-              onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
-            />
+            {!showAnalysisTools && analysisTabs}
             {content}
           </main>
         </div>
