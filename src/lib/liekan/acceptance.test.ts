@@ -87,11 +87,12 @@ cp.spawnSync=(command,args,options={})=>{
   fs.writeSync(options.stdio[1],JSON.stringify({passed:true,sourceHash:'a'.repeat(64),checks:Array.from({length:8},(_,i)=>'fixture '+i),readOnly:true,fixture:'synthetic-relations'})+'\\n');
  }
  if(args.includes('playwright.api.config.ts')){if(options.env.PLAYWRIGHT_BASE_URL!==baseUrl)throw Error('API origin mismatch');const coverage='tests/api/.runtime/'+new URL(baseUrl).host.replace(/[^a-z0-9.-]+/gi,'-')+'/coverage';fs.mkdirSync(coverage,{recursive:true});fs.writeFileSync(coverage+'/summary.json','{}');}
- if(args.some(arg=>['scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
+ if(args.some(arg=>['scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-ai-home-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:16},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:68*4},()=>({passed:true})),mobile:{head:fault==='mobile-visual-head'?'other':head,passed:fault!=='mobile-visual-failed',checks:fault==='mobile-visual-count'?1:79*4*2}}));}
  if(args.includes('scripts/liekan-ai-visual.mjs')){if(fault==='ai-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai',{recursive:true});fs.writeFileSync('test-results/liekan-ai/report.json',JSON.stringify({passed:true,head:fault==='ai-visual-head'?'other':head,checks:Array.from({length:fault==='ai-visual-count'?1:8},()=>({passed:fault!=='ai-visual-check'})),errors:fault==='ai-visual-errors'?['fixture error']:[]}));}
+ if(args.includes('scripts/liekan-ai-home-visual.mjs')){if(fault==='ai-home-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai-home-v3',{recursive:true});const widths=fault==='ai-home-empty'?[]:fault==='ai-home-count'?[1440]:fault==='ai-home-extra'?[1440,1280,375,320,500]:[1440,1280,375,320];fs.writeFileSync('test-results/liekan-ai-home-v3/report.json',JSON.stringify({passed:fault!=='ai-home-passed',head:fault==='ai-home-head'?'other':head,checks:widths.map(width=>({width,focus:true,reference:true,keyboard:true,overflow:0})),errors:fault==='ai-home-errors'?['fixture error']:[]}));}
 
  if(args.includes('scripts/liekan-dialog-visual.mjs')){if(fault==='dialog-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-dialogs',{recursive:true});fs.writeFileSync('test-results/liekan-dialogs/report.json',JSON.stringify({passed:fault!=='dialog-visual-passed',head:fault==='dialog-visual-head'?'other':head,checks:Array.from({length:fault==='dialog-visual-count'?1:50},()=>({})),duplicates:fault==='dialog-visual-duplicates-missing'?undefined:(fault==='dialog-visual-duplicates-count'?[1]:[1,1,2,3,4,5,16]).map(id=>({id})),responsive:Array.from({length:fault==='dialog-visual-responsive'?1:15},()=>({})),supplementalResponsive:fault==='dialog-visual-supplemental-missing'?undefined:Array.from({length:fault==='dialog-visual-supplemental-count'?1:8},()=>({})),errors:fault==='dialog-visual-errors'?['fixture error']:[],cleanup:{passed:fault!=='dialog-visual-cleanup'}}));}
  if(args.includes('scripts/liekan-help-visual.mjs')){if(fault==='help-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-help',{recursive:true});fs.writeFileSync('test-results/liekan-help/report.json',JSON.stringify({passed:fault!=='help-visual-passed',head:fault==='help-visual-head'?'other':head,checks:Array.from({length:fault==='help-visual-count'?9:12},()=>({passed:fault!=='help-visual-check'})),errors:fault==='help-visual-errors'?['fixture error']:[]}));}
@@ -158,6 +159,9 @@ describe('isolated acceptance CLI failure paths', () => {
         );
         expect(report.dataRegression.readOnly).toBe(true);
         expect(report.dataRegression.checks).toHaveLength(8);
+        expect(report.aiHomeVisual.checks.map((check: { width: number }) => check.width)).toEqual([
+          1440, 1280, 375, 320,
+        ]);
       } finally {
         fs.rmSync(setup.cwd, { recursive: true, force: true });
       }
@@ -237,6 +241,13 @@ describe('isolated acceptance CLI failure paths', () => {
     'ai-visual-count',
     'ai-visual-check',
     'ai-visual-errors',
+    'ai-home-failed',
+    'ai-home-head',
+    'ai-home-empty',
+    'ai-home-count',
+    'ai-home-extra',
+    'ai-home-passed',
+    'ai-home-errors',
     'feature-flows-failed',
     'feature-flows-head',
     'feature-flows-count',
