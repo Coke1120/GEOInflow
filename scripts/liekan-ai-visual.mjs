@@ -4,13 +4,10 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from '@playwright/test';
+import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
 
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
-const target = new URL(base);
-assert(
-  ['127.0.0.1', 'localhost'].includes(target.hostname) && ['3302', '3305'].includes(target.port),
-  'Use an isolated AI candidate on port 3302 or 3305',
-);
+const target = isolatedAcceptanceTarget(base, { aiPreview: true });
 const manifest = JSON.parse(fs.readFileSync('config/liekan/ai-ui.json', 'utf8'));
 for (const [file, digest] of Object.entries(manifest.sha256))
   assert.equal(
@@ -22,7 +19,7 @@ for (const [file, digest] of Object.entries(manifest.sha256))
   );
 const seed = JSON.parse(
   fs.readFileSync(
-    `tests/api/.runtime/${target.host.replace(/[^a-z0-9.-]+/gi, '-')}/seed.json`,
+    acceptanceSeedFile(target),
     'utf8',
   ),
 );

@@ -1,5 +1,6 @@
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 import { checkMobileExperience } from './liekan-mobile-visual.mjs';
+import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -9,10 +10,7 @@ import { chromium } from '@playwright/test';
 import { generateSync } from 'otplib';
 
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
-assert(
-  ['127.0.0.1', 'localhost'].includes(new URL(base).hostname),
-  'Use the isolated local candidate',
-);
+const target = isolatedAcceptanceTarget(base);
 const navigationBaseline = JSON.parse(fs.readFileSync('config/liekan/navigation-ui.json', 'utf8'));
 assert.equal(
   navigationBaseline.baselineVersion,
@@ -28,7 +26,7 @@ for (const [file, hash] of Object.entries(featureReference.files))
     hash,
     `Original feature reference changed: ${file}`,
   );
-const seed = JSON.parse(fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/seed.json', 'utf8'));
+const seed = JSON.parse(fs.readFileSync(acceptanceSeedFile(target), 'utf8'));
 const manifest = JSON.parse(fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'));
 assert.deepEqual(
   Object.keys(navigationBaseline.pages).sort(),

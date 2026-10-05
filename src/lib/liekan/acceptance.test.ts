@@ -36,6 +36,7 @@ import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { syncBuiltinESMExports } from 'node:module';
 const head=${JSON.stringify(head)}, upstream=${JSON.stringify(upstream)}, lock=${JSON.stringify(lock)}, version=${JSON.stringify(version)}, fault=${JSON.stringify(fault)};
+const port=fault==='default-http-port'?80:fault==='custom-port'?3346:3302, baseUrl='http://127.0.0.1:'+port;
 let keepAlive, restoreStarted=false;
 const ledger=Object.entries(lock).map(([name,checksum])=>({name,checksum,appliedAt:'fixture'}));
 if(fault==='installation-checksum')ledger.find(row=>row.name==='006_website_installation.sql').checksum='changed';
@@ -46,6 +47,7 @@ if(fault==='official-unfinished')official[0].finished_at=null;
 cp.execFileSync=(command,args,options={})=>{
  if(command==='git')return args[0]==='rev-parse'?head:'';
  const verb=args[0];
+ if(verb==='create'&&args.includes('-p')&&args[args.indexOf('-p')+1]!=='127.0.0.1:'+port+':3000')throw Error('Docker port mismatch');
  if(verb==='create'&&options.env?.DATABASE_URL?.endsWith('/liekan_restore'))restoreStarted=true;
  if(verb==='image')return args.at(-1)==='{{.Id}}'?'sha256:fixture':JSON.stringify({'org.opencontainers.image.revision':head,'org.opencontainers.image.version':version,'io.liekan.ui.sha256':upstream.uiManifestSha256,'io.liekan.feature-ui.sha256':fault==='feature-ui-label'?'wrong':upstream.featureUiManifestSha256,'io.liekan.upstream.revision':upstream.commit,'io.liekan.migration':String(upstream.liekanMigration),'io.liekan.ai-ui.sha256':fault==='ai-ui-label'?'wrong':upstream.aiUiManifestSha256});
  if(verb==='compose')return 'fixture-source';
@@ -83,7 +85,8 @@ cp.spawnSync=(command,args,options={})=>{
   if(fault==='data-regression-failed')return {status:1};
   fs.writeSync(options.stdio[1],JSON.stringify({passed:true,sourceHash:'a'.repeat(64),checks:Array.from({length:8},(_,i)=>'fixture '+i),readOnly:true,fixture:'synthetic-relations'})+'\\n');
  }
- if(args.includes('playwright.api.config.ts')){fs.mkdirSync('tests/api/.runtime/127.0.0.1-3302/coverage',{recursive:true});fs.writeFileSync('tests/api/.runtime/127.0.0.1-3302/coverage/summary.json','{}');}
+ if(args.includes('playwright.api.config.ts')){if(options.env.PLAYWRIGHT_BASE_URL!==baseUrl)throw Error('API origin mismatch');const coverage='tests/api/.runtime/'+new URL(baseUrl).host.replace(/[^a-z0-9.-]+/gi,'-')+'/coverage';fs.mkdirSync(coverage,{recursive:true});fs.writeFileSync(coverage+'/summary.json','{}');}
+ if(args.some(arg=>['scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:16},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:68*4},()=>({passed:true})),mobile:{head:fault==='mobile-visual-head'?'other':head,passed:fault!=='mobile-visual-failed',checks:fault==='mobile-visual-count'?1:79*4*2}}));}
@@ -101,9 +104,10 @@ cp.spawn=(command,args,options={})=>{
  });
  return child;
 };
-net.createServer=()=>({once(){},listen(_port,_host,callback){callback();},close(callback){callback();}});
+net.createServer=()=>({once(){},listen(_port,_host,callback){if(_port!==port||_host!=='127.0.0.1')throw Error('Port reservation mismatch');callback();},close(callback){callback();}});
 syncBuiltinESMExports();
 globalThis.fetch=async(_url,options={})=>{
+ if(_url!==baseUrl+'/api/heartbeat')throw Error('Heartbeat origin mismatch');
  if(fault!=='cancel')return {ok:true};
  keepAlive=setInterval(()=>{},1000);
  console.log('fixture-ready');
@@ -116,6 +120,7 @@ globalThis.fetch=async(_url,options={})=>{
     args: ['--import', preload, path.join(root, 'scripts/liekan-acceptance.mjs')],
     env: {
       PATH: process.env.PATH,
+      ...(fault === 'custom-port' ? { LIEKAN_ACCEPTANCE_PORT: '3346' } : fault === 'default-http-port' ? { LIEKAN_ACCEPTANCE_PORT: '80' } : {}),
       NODE_ENV: 'test' as const,
       APP_SECRET: 'fixture-secret',
       TWO_FACTOR_ENCRYPTION_KEY: 'a'.repeat(64),
@@ -124,8 +129,8 @@ globalThis.fetch=async(_url,options={})=>{
 }
 
 describe('isolated acceptance CLI failure paths', () => {
-  it('accepts a complete isolated fixture', () => {
-    const setup = fixture('none');
+  it.each(['none', 'custom-port', 'default-http-port'])('accepts a complete isolated fixture with %s', fault => {
+    const setup = fixture(fault);
     try {
       const result = spawnSync(process.execPath, setup.args, {
         cwd: setup.cwd,
@@ -138,8 +143,22 @@ describe('isolated acceptance CLI failure paths', () => {
       const report = JSON.parse(
         fs.readFileSync(path.join(setup.cwd, 'outputs/acceptance.json'), 'utf8'),
       );
+      expect(report.url).toBe(`http://127.0.0.1:${fault === 'default-http-port' ? 80 : fault === 'custom-port' ? 3346 : 3302}`);
       expect(report.dataRegression.readOnly).toBe(true);
       expect(report.dataRegression.checks).toHaveLength(8);
+    } finally {
+      fs.rmSync(setup.cwd, { recursive: true, force: true });
+    }
+  });
+  it.each(['', '0', '-1', '65536', '3346x', '127.0.0.1:3346', ' 3346'])('rejects an invalid acceptance port %j before Docker work', port => {
+    const setup = fixture('none');
+    try {
+      const result = spawnSync(process.execPath, setup.args, {
+        cwd: setup.cwd, env: { ...setup.env, LIEKAN_ACCEPTANCE_PORT: port }, encoding: 'utf8', timeout: 20000,
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain('LIEKAN_ACCEPTANCE_PORT');
+      expect(fs.readdirSync(path.join(setup.cwd, 'outputs'))).toEqual(['verification.json']);
     } finally {
       fs.rmSync(setup.cwd, { recursive: true, force: true });
     }

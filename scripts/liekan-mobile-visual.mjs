@@ -3,14 +3,10 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { chromium, webkit } from '@playwright/test';
 import { checkNavigation } from './liekan-navigation-visual.mjs';
+import { isolatedAcceptanceTarget } from './liekan-acceptance-target.mjs';
 
 export async function checkMobileExperience({ base, seed, board, share, partial, journey, token }) {
-  assert.equal(new URL(base).hostname, '127.0.0.1');
-  assert.equal(
-    new URL(base).port,
-    '3302',
-    'Mobile fixtures must use the isolated acceptance stack',
-  );
+  isolatedAcceptanceTarget(base, { localhost: false });
   const baseline = JSON.parse(fs.readFileSync('config/liekan/mobile-ui.json'));
   const navigation = JSON.parse(fs.readFileSync('config/liekan/navigation-ui.json'));
   const manifest = JSON.parse(fs.readFileSync('src/lib/liekan/contracts/feature-pages.json'));

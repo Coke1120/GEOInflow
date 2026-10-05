@@ -2,14 +2,11 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { chromium } from '@playwright/test';
+import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
 
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
-const target = new URL(base);
-assert(
-  ['127.0.0.1', 'localhost'].includes(target.hostname) && target.port === '3302',
-  'Use the isolated candidate on port 3302',
-);
-const seed = JSON.parse(fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/seed.json', 'utf8'));
+const target = isolatedAcceptanceTarget(base);
+const seed = JSON.parse(fs.readFileSync(acceptanceSeedFile(target), 'utf8'));
 const out = 'test-results/liekan-feature-flows';
 fs.mkdirSync(out, { recursive: true });
 let token;

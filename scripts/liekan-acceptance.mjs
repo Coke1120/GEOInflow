@@ -6,6 +6,10 @@ import net from 'node:net';
 import ipaddr from 'ipaddr.js';
 import { assertProcessSuccess, createCancellation, runProcess } from './liekan-process.mjs';
 import { assertUpstreamMigrations } from './liekan-schema-check.mjs';
+import { acceptancePort as configuredAcceptancePort, acceptanceRuntimeDirectory } from './liekan-acceptance-target.mjs';
+
+const acceptancePort = configuredAcceptancePort();
+const baseUrl = `http://127.0.0.1:${acceptancePort}`;
 
 // All mutations below target resources created by this invocation. The source DB is read only.
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -36,6 +40,7 @@ fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
 const report = {
   head,
   image,
+  url: baseUrl,
   version,
   upstream,
   startedAt: new Date().toISOString(),
@@ -161,7 +166,7 @@ const healthy = async () => {
   for (let attempt = 0; attempt < 180; attempt++) {
     cancellation.checkpoint();
     try {
-      const response = await fetch('http://127.0.0.1:3302/api/heartbeat', {
+      const response = await fetch(`${baseUrl}/api/heartbeat`, {
         signal: AbortSignal.any([cancellation.signal, AbortSignal.timeout(5000)]),
       });
       cancellation.checkpoint();
@@ -182,7 +187,7 @@ const startApp = async database => {
     '--network',
     network,
     '-p',
-    '127.0.0.1:3302:3000',
+    `127.0.0.1:${acceptancePort}:3000`,
     '-e',
     'DATABASE_URL',
     '-e',
@@ -213,7 +218,7 @@ try {
   await new Promise((resolve, reject) => {
     const server = net.createServer();
     server.once('error', reject);
-    server.listen(3302, '127.0.0.1', () => server.close(resolve));
+    server.listen(acceptancePort, '127.0.0.1', () => server.close(resolve));
   });
   await run('docker', ['pull', 'node:22.23.3-alpine'], 'node-base');
   await run('docker', ['pull', 'postgres:15-alpine'], 'database-base');
@@ -369,7 +374,7 @@ try {
     throw new Error('Synthetic data regression evidence is incomplete');
   const env = {
     ...process.env,
-    PLAYWRIGHT_BASE_URL: 'http://127.0.0.1:3302',
+    PLAYWRIGHT_BASE_URL: baseUrl,
     API_COVERAGE: 'enforce',
   };
   delete env.API_SKIP_SEED;
@@ -380,10 +385,10 @@ try {
     { env },
   );
   report.apiCoverage = JSON.parse(
-    fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/coverage/summary.json', 'utf8'),
+    fs.readFileSync(`${acceptanceRuntimeDirectory(new URL(baseUrl))}/coverage/summary.json`, 'utf8'),
   );
   await run(process.execPath, ['scripts/liekan-feature-flows.mjs'], 'feature-flows', {
-    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+    env: { ...process.env, LIEKAN_URL: baseUrl },
   });
   report.featureFlows = JSON.parse(
     fs.readFileSync('test-results/liekan-feature-flows/report.json', 'utf8'),
@@ -397,7 +402,7 @@ try {
   )
     throw new Error('Supplemental interaction acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-feature-visual.mjs'], 'feature-visual', {
-    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+    env: { ...process.env, LIEKAN_URL: baseUrl },
   });
   report.featureVisual = JSON.parse(
     fs.readFileSync('test-results/liekan-features/report.json', 'utf8'),
@@ -412,7 +417,7 @@ try {
   )
     throw new Error('Supplemental visual acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-ai-visual.mjs'], 'ai-visual', {
-    env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+    env: { ...process.env, LIEKAN_URL: baseUrl },
   });
   report.aiVisual = JSON.parse(fs.readFileSync('test-results/liekan-ai/report.json', 'utf8'));
   if (
@@ -517,7 +522,7 @@ try {
     ['--experimental-strip-types', 'scripts/liekan-visual.mjs'],
     'visual',
     {
-      env: { ...process.env, LIEKAN_URL: 'http://127.0.0.1:3302' },
+      env: { ...process.env, LIEKAN_URL: baseUrl },
     },
   );
   report.visual = JSON.parse(fs.readFileSync('test-results/liekan-visual/geometry.json', 'utf8'));
