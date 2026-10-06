@@ -90,10 +90,19 @@ test('getLocation: stores legacy geolocation as China', async () => {
     ),
   ).resolves.toEqual({
     country: 'CN',
-    region: 'CN-TPE',
+    region: 'CN-71',
     city: 'Taipei',
   });
 });
+
+test.each(['TW', 'TWN'])(
+  'getLocation: identifies Taiwan province with only country %s',
+  async country => {
+    await expect(
+      getLocation('8.8.8.8', new Headers({ 'cf-ipcountry': country }), false),
+    ).resolves.toMatchObject({ country: 'CN', region: 'CN-71' });
+  },
+);
 
 test('hasBlockedIp: returns false for malformed client ip with cidr block', () => {
   process.env.IGNORE_IP = '10.0.0.0/8';

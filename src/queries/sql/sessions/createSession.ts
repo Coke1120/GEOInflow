@@ -17,7 +17,7 @@ export async function createSession(data: Prisma.SessionCreateInput) {
     screen: truncateString(data.screen, FIELD_LENGTH.screen),
     language: truncateString(data.language, FIELD_LENGTH.language),
     country: truncateString(country, FIELD_LENGTH.country),
-    region: truncateString(normalizeRegionCode(data.region, country), FIELD_LENGTH.region),
+    region: truncateString(normalizeRegionCode(data.region, data.country), FIELD_LENGTH.region),
     city: truncateString(data.city, FIELD_LENGTH.city),
     distinctId: truncateString(data.distinctId, FIELD_LENGTH.distinctId),
   };

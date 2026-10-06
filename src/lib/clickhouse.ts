@@ -3,7 +3,7 @@ import { formatInTimeZone } from 'date-fns-tz';
 import debug from 'debug';
 import { CLICKHOUSE } from '@/lib/db';
 import { DATA_TYPE, DEFAULT_PAGE_SIZE, FILTER_COLUMNS, OPERATORS } from './constants';
-import { getCountryFilterValues, getRegionFilterValues } from './country';
+import { getCountryFilterValues, getRegionFilterValues, getClickHouseRegionSQL, getClickHouseCountrySQL } from './country';
 import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
 import { channelFilterColumn } from './liekan/upstream/filter-extension';
@@ -120,9 +120,14 @@ function mapFilter(
   name: string,
   type: string = 'String',
   paramName?: string,
+  rawGeography?: string,
 ) {
   const param = paramName ?? name;
   const value = `{${param}:${type}}`;
+  const searchGeography = (comparison: (field: string) => string, join: 'or' | 'and') =>
+    rawGeography
+      ? `(${comparison(column)} ${join} ${comparison(`coalesce(${rawGeography}, ${column})`)})`
+      : comparison(column);
 
   switch (operator) {
     case OPERATORS.equals:
@@ -130,13 +135,13 @@ function mapFilter(
     case OPERATORS.notEquals:
       return `${column} NOT IN {${param}:Array(${type})}`;
     case OPERATORS.contains:
-      return `positionCaseInsensitive(${column}, ${value}) > 0`;
+      return searchGeography(field => `positionCaseInsensitive(${field}, ${value}) > 0`, 'or');
     case OPERATORS.doesNotContain:
-      return `positionCaseInsensitive(${column}, ${value}) = 0`;
+      return searchGeography(field => `positionCaseInsensitive(${field}, ${value}) = 0`, 'and');
     case OPERATORS.regex:
-      return `match(${column}, concat('(?i)', ${value}))`;
+      return searchGeography(field => `match(${field}, concat('(?i)', ${value}))`, 'or');
     case OPERATORS.notRegex:
-      return `not match(${column}, concat('(?i)', ${value}))`;
+      return searchGeography(field => `not match(${field}, concat('(?i)', ${value}))`, 'and');
     default:
       return '';
   }
@@ -154,6 +159,15 @@ function getFilterQuery(filters: Record<string, any>, options: QueryOptions = {}
     }
 
     if (column) {
+      let rawGeography: string | undefined;
+      if (column === 'country' || column.endsWith('.country')) {
+        rawGeography = column === 'country' ? 'website_event.country' : column;
+        column = getClickHouseCountrySQL(rawGeography);
+      }
+      if (column === 'region' || column.endsWith('.region')) {
+        rawGeography = column === 'region' ? 'website_event.region' : column;
+        column = getClickHouseRegionSQL(rawGeography.replace(/region$/, 'country'), rawGeography);
+      }
       if (column === 'liekan_channel' || column.endsWith('.liekan_channel'))
         column = channelFilterColumn(
           column === 'liekan_channel' ? '' : column.slice(0, -'liekan_channel'.length),
@@ -169,12 +183,12 @@ function getFilterQuery(filters: Record<string, any>, options: QueryOptions = {}
 
       if (isAlwaysAnd) {
         andClauses.push(
-          `and ${mapFilter(column, operator, name, name === 'eventType' ? 'UInt32' : 'String', paramName)}`,
+          `and ${mapFilter(column, operator, name, name === 'eventType' ? 'UInt32' : 'String', paramName, rawGeography)}`,
         );
       } else if (isOr) {
-        orClauses.push(mapFilter(column, operator, name, 'String', paramName));
+        orClauses.push(mapFilter(column, operator, name, 'String', paramName, rawGeography));
       } else {
-        andClauses.push(`and ${mapFilter(column, operator, name, 'String', paramName)}`);
+        andClauses.push(`and ${mapFilter(column, operator, name, 'String', paramName, rawGeography)}`);
       }
 
       if (name === 'referrer') {

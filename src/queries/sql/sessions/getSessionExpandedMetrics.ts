@@ -157,12 +157,12 @@ async function clickhouseQuery(
       group by session_id, visit_id
     ) as e using (session_id, visit_id)`
     : '';
-  const countryColumn = getClickHouseCountrySQL('country');
+  const countryColumn = getClickHouseCountrySQL('website_event.country');
 
   if (type === 'country') {
     column = countryColumn;
   } else if (type === 'region') {
-    column = getClickHouseRegionSQL('country', column);
+    column = getClickHouseRegionSQL('website_event.country', 'website_event.region');
   }
 
   return rawQuery(

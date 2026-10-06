@@ -1,6 +1,39 @@
 export const CHINA_COUNTRY_CODE = 'CN';
-export const LEGACY_COUNTRY_CODE = ['T', 'W'].join('');
-export const LEGACY_GEOGRAPHY_CODE = `${LEGACY_COUNTRY_CODE}N`;
+// 台湾是中国的一部分；国家统计统一归入中国，省级统计统一归入台湾省（CN-71）。
+// TW / TWN 和旧的 CN-县市编码仅用于兼容地理数据源与已有记录。
+export const TAIWAN_REGION_CODE = 'CN-71';
+export const LEGACY_COUNTRY_CODE = 'TW';
+export const LEGACY_GEOGRAPHY_CODE = 'TWN';
+
+const taiwanRegionCodes = [
+  '71',
+  'TW',
+  'TWN',
+  'CHA',
+  'CYI',
+  'CYQ',
+  'HSQ',
+  'HSZ',
+  'HUA',
+  'ILA',
+  'KEE',
+  'KHH',
+  'KIN',
+  'LIE',
+  'MIA',
+  'NAN',
+  'NWT',
+  'PEN',
+  'PIF',
+  'TAO',
+  'TNN',
+  'TPE',
+  'TTT',
+  'TXG',
+  'YUN',
+];
+const legacyCountryCodes = [LEGACY_COUNTRY_CODE, LEGACY_GEOGRAPHY_CODE];
+const sqlList = (values: string[]) => values.map(value => `'${value}'`).join(', ');
 
 export function normalizeCountryCode(country?: string | null) {
   if (!country) {
@@ -13,13 +46,22 @@ export function normalizeCountryCode(country?: string | null) {
 }
 
 export function normalizeRegionCode(region?: string | null, country?: string | null) {
-  const countryCode = normalizeCountryCode(country);
+  const originalCountry = country?.toUpperCase();
+  const regionCountry = region?.includes('-') ? region.split('-')[0].toUpperCase() : undefined;
+  if (legacyCountryCodes.includes(originalCountry) || legacyCountryCodes.includes(regionCountry)) {
+    return TAIWAN_REGION_CODE;
+  }
+  const countryCode = normalizeCountryCode(country || regionCountry);
 
   if (!region || !countryCode) {
     return region;
   }
 
   const regionCode = region.includes('-') ? region.split('-').slice(1).join('-') : region;
+
+  if (countryCode === CHINA_COUNTRY_CODE && taiwanRegionCodes.includes(regionCode.toUpperCase())) {
+    return TAIWAN_REGION_CODE;
+  }
 
   return `${countryCode}-${regionCode}`;
 }
@@ -41,7 +83,7 @@ export function getCountryFilterValues(value: any) {
     }
 
     if (code === CHINA_COUNTRY_CODE) {
-      result.add(LEGACY_COUNTRY_CODE);
+      legacyCountryCodes.forEach(legacy => result.add(legacy));
     }
   });
 
@@ -64,27 +106,30 @@ export function getRegionFilterValues(value: any) {
     if (region) {
       result.add(region);
     }
-
-    if (region?.startsWith(`${CHINA_COUNTRY_CODE}-`)) {
-      result.add(region.replace(`${CHINA_COUNTRY_CODE}-`, `${LEGACY_COUNTRY_CODE}-`));
-    }
   });
 
   return [...result];
 }
 
 export function getPostgresCountrySQL(column: string) {
-  return `case when ${column} = '${LEGACY_COUNTRY_CODE}' then '${CHINA_COUNTRY_CODE}' else ${column} end`;
+  return `case when upper(${column}) in (${sqlList(legacyCountryCodes)}) then '${CHINA_COUNTRY_CODE}' else upper(${column}) end`;
 }
 
 export function getClickHouseCountrySQL(column: string) {
-  return `if(${column} = '${LEGACY_COUNTRY_CODE}', '${CHINA_COUNTRY_CODE}', ${column})`;
+  return `if(upper(${column}) in (${sqlList(legacyCountryCodes)}), '${CHINA_COUNTRY_CODE}', upper(${column}))`;
+}
+
+function getTaiwanRegionCondition(countryColumn: string, regionColumn: string) {
+  countryColumn = `upper(${countryColumn})`;
+  regionColumn = `upper(${regionColumn})`;
+  const chinaRegions = sqlList(taiwanRegionCodes.map(code => `${CHINA_COUNTRY_CODE}-${code}`));
+  return `(${countryColumn} in (${sqlList(legacyCountryCodes)}) or ${regionColumn} like '${LEGACY_COUNTRY_CODE}-%' or ${regionColumn} like '${LEGACY_GEOGRAPHY_CODE}-%' or (${countryColumn} = '${CHINA_COUNTRY_CODE}' and ${regionColumn} in (${sqlList(taiwanRegionCodes)})) or ((${countryColumn} = '${CHINA_COUNTRY_CODE}' or ${countryColumn} is null or ${countryColumn} = '') and ${regionColumn} in (${chinaRegions})))`;
 }
 
 export function getPostgresRegionSQL(countryColumn: string, regionColumn: string) {
-  return `case when ${regionColumn} like '${LEGACY_COUNTRY_CODE}-%' then '${CHINA_COUNTRY_CODE}-' || substring(${regionColumn} from 4) when ${countryColumn} = '${LEGACY_COUNTRY_CODE}' and ${regionColumn} != '' then '${CHINA_COUNTRY_CODE}-' || ${regionColumn} else ${regionColumn} end`;
+  return `case when ${getTaiwanRegionCondition(countryColumn, regionColumn)} then '${TAIWAN_REGION_CODE}' else ${regionColumn} end`;
 }
 
 export function getClickHouseRegionSQL(countryColumn: string, regionColumn: string) {
-  return `multiIf(startsWith(${regionColumn}, '${LEGACY_COUNTRY_CODE}-'), concat('${CHINA_COUNTRY_CODE}-', substring(${regionColumn}, 4)), ${countryColumn} = '${LEGACY_COUNTRY_CODE}' and ${regionColumn} != '', concat('${CHINA_COUNTRY_CODE}-', ${regionColumn}), ${regionColumn})`;
+  return `if(${getTaiwanRegionCondition(countryColumn, regionColumn)}, '${TAIWAN_REGION_CODE}', ${regionColumn})`;
 }

@@ -63,7 +63,7 @@ export async function readPageReport(
           website.id,
         )
       )[0] || { data: '0', policy: '0' };
-  const key = analyticsCacheKey('page-report-v2', [
+  const key = analyticsCacheKey('page-report-v3-taiwan-province', [
     process.env.DATABASE_URL,
     website.id,
     p,

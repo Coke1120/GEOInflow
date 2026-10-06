@@ -1012,10 +1012,11 @@
     },
     {
       "path": "public/iso-3166-2.json",
-      "purpose": "Preserved geography and localized display compatibility",
+      "purpose": "Preserved geography and localized display compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
@@ -2924,21 +2925,23 @@
     },
     {
       "path": "src/lib/clickhouse.test.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
         "pnpm liekan:verify",
-        "Supplemental UI/API regression and isolated Docker acceptance"
+        "Supplemental UI/API regression and isolated Docker acceptance",
+        "scripts/liekan-geography-clickhouse.mjs"
       ]
     },
     {
       "path": "src/lib/clickhouse.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-geography-clickhouse.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -2961,10 +2964,11 @@
     },
     {
       "path": "src/lib/country.test.ts",
-      "purpose": "Liekan release, branding or compatibility integration",
+      "purpose": "Liekan release, branding or compatibility integration; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
+        "Liekan Docker and visual acceptance",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
@@ -2972,10 +2976,11 @@
     },
     {
       "path": "src/lib/country.ts",
-      "purpose": "Preserved geography and localized display compatibility",
+      "purpose": "Preserved geography and localized display compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
+        "Liekan Docker and visual acceptance",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
@@ -2983,10 +2988,11 @@
     },
     {
       "path": "src/lib/detect.test.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -2994,10 +3000,11 @@
     },
     {
       "path": "src/lib/detect.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3049,18 +3056,19 @@
     },
     {
       "path": "src/lib/prisma.test.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
         "pnpm liekan:verify",
-        "Supplemental UI/API regression and isolated Docker acceptance"
+        "Supplemental UI/API regression and isolated Docker acceptance",
+        "scripts/liekan-data-regression.mjs"
       ]
     },
     {
       "path": "src/lib/prisma.ts",
-      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation",
+      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "pnpm test:log-ingestion",
         "node scripts/liekan-log-integration.mjs",
@@ -3071,7 +3079,8 @@
         "src/lib/liekan/upstream/feature-exports.test.ts",
         "tests/api/liekan-features.spec.ts",
         "AI backend integration and lifecycle tests",
-        "pnpm exec vitest run src/lib/liekan/upstream/query-cache.test.ts src/lib/liekan/upstream/page-report-route.test.ts"
+        "pnpm exec vitest run src/lib/liekan/upstream/query-cache.test.ts src/lib/liekan/upstream/page-report-route.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation; Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation",
@@ -3319,10 +3328,11 @@
     },
     {
       "path": "src/queries/sql/breakdown/getBreakdown.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3341,10 +3351,11 @@
     },
     {
       "path": "src/queries/sql/events/saveEvent.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3551,10 +3562,11 @@
     },
     {
       "path": "src/queries/sql/revenue/getRevenueSessions.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3574,10 +3586,11 @@
     },
     {
       "path": "src/queries/sql/sessions/createSession.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3585,10 +3598,11 @@
     },
     {
       "path": "src/queries/sql/sessions/getSessionExpandedMetrics.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3596,10 +3610,11 @@
     },
     {
       "path": "src/queries/sql/sessions/getSessionMetrics.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3607,10 +3622,11 @@
     },
     {
       "path": "src/queries/sql/sessions/getWebsiteSession.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3618,10 +3634,11 @@
     },
     {
       "path": "src/queries/sql/sessions/getWebsiteSessions.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "scripts/liekan-data-regression.mjs"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",

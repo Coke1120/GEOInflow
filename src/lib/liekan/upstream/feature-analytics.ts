@@ -1,3 +1,4 @@
+import { getPostgresCountrySQL } from '@/lib/country';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './query-cache';
 import { bypassQueryCache, noteCacheResult } from './cache-context';
 import { statisticsCacheTtl } from './cache-policy';
@@ -307,7 +308,7 @@ async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) 
     const [count, rows] = await Promise.all([
       run('SELECT COUNT(DISTINCT session_id) AS count FROM selected'),
       run(
-        `SELECT s.session_id AS id,MIN(s.created_at) AS "firstAt",MAX(s.created_at) AS "lastAt",COUNT(DISTINCT visit_id) AS visits,COUNT(*) FILTER(WHERE event_type=1) AS views,COUNT(*) FILTER(WHERE event_type=2) AS events,EXTRACT(EPOCH FROM MAX(s.created_at)-MIN(s.created_at)) AS seconds,(ARRAY_AGG(s.referrer_domain ORDER BY s.created_at,s.event_id))[1] AS "referrerDomain",(ARRAY_AGG(s.url_path ORDER BY s.created_at DESC,s.event_id DESC))[1] AS "urlPath",MAX(e.country) AS country,MAX(e.city) AS city,MAX(e.browser) AS browser,MAX(e.os) AS os,MAX(e.device) AS device FROM selected s JOIN session e ON e.session_id=s.session_id AND e.website_id={{websiteId::uuid}} GROUP BY s.session_id ORDER BY "lastAt" DESC,s.session_id LIMIT 25 OFFSET {{offset}}`,
+        `SELECT s.session_id AS id,MIN(s.created_at) AS "firstAt",MAX(s.created_at) AS "lastAt",COUNT(DISTINCT visit_id) AS visits,COUNT(*) FILTER(WHERE event_type=1) AS views,COUNT(*) FILTER(WHERE event_type=2) AS events,EXTRACT(EPOCH FROM MAX(s.created_at)-MIN(s.created_at)) AS seconds,(ARRAY_AGG(s.referrer_domain ORDER BY s.created_at,s.event_id))[1] AS "referrerDomain",(ARRAY_AGG(s.url_path ORDER BY s.created_at DESC,s.event_id DESC))[1] AS "urlPath",${getPostgresCountrySQL('MAX(e.country)')} AS country,MAX(e.city) AS city,MAX(e.browser) AS browser,MAX(e.os) AS os,MAX(e.device) AS device FROM selected s JOIN session e ON e.session_id=s.session_id AND e.website_id={{websiteId::uuid}} GROUP BY s.session_id ORDER BY "lastAt" DESC,s.session_id LIMIT 25 OFFSET {{offset}}`,
         { offset: (p.page - 1) * 25 },
       ),
     ]);
@@ -421,7 +422,7 @@ async function computeFeatureJourney(websiteId: string, p: any, nodes?: string[]
         { nodes },
       ),
       run(
-        `SELECT e.session_id AS id,MIN(d.created_at) AS "firstAt",MAX(d.created_at) AS "lastAt",COUNT(*) FILTER(WHERE d.event_type=1) AS views,EXTRACT(EPOCH FROM MAX(d.created_at)-MIN(d.created_at)) AS seconds,(ARRAY_AGG(d.url_path ORDER BY d.created_at DESC,d.event_id DESC))[1] AS "urlPath",(ARRAY_AGG(d.referrer_domain ORDER BY d.created_at,d.event_id))[1] AS "referrerDomain",MAX(s.country) AS country,MAX(s.city) AS city,MAX(s.browser) AS browser,MAX(s.device) AS device FROM eligible e JOIN selected d ON d.visit_id=e.visit_id JOIN session s ON s.session_id=e.session_id AND s.website_id={{websiteId::uuid}} WHERE e.nodes={{nodes}}::text[] GROUP BY e.session_id ORDER BY "lastAt" DESC,e.session_id LIMIT 25 OFFSET {{offset}}`,
+        `SELECT e.session_id AS id,MIN(d.created_at) AS "firstAt",MAX(d.created_at) AS "lastAt",COUNT(*) FILTER(WHERE d.event_type=1) AS views,EXTRACT(EPOCH FROM MAX(d.created_at)-MIN(d.created_at)) AS seconds,(ARRAY_AGG(d.url_path ORDER BY d.created_at DESC,d.event_id DESC))[1] AS "urlPath",(ARRAY_AGG(d.referrer_domain ORDER BY d.created_at,d.event_id))[1] AS "referrerDomain",${getPostgresCountrySQL('MAX(s.country)')} AS country,MAX(s.city) AS city,MAX(s.browser) AS browser,MAX(s.device) AS device FROM eligible e JOIN selected d ON d.visit_id=e.visit_id JOIN session s ON s.session_id=e.session_id AND s.website_id={{websiteId::uuid}} WHERE e.nodes={{nodes}}::text[] GROUP BY e.session_id ORDER BY "lastAt" DESC,e.session_id LIMIT 25 OFFSET {{offset}}`,
         { nodes, offset: (p.page - 1) * 25 },
       ),
     ]);

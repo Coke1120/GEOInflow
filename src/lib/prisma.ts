@@ -9,7 +9,7 @@ import {
   OPERATORS,
   SESSION_COLUMNS,
 } from './constants';
-import { getCountryFilterValues, getRegionFilterValues } from './country';
+import { getCountryFilterValues, getRegionFilterValues, getPostgresRegionSQL, getPostgresCountrySQL } from './country';
 import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
 import { channelFilterColumn } from './liekan/upstream/filter-extension';
@@ -176,7 +176,15 @@ function mapFilter(
   name = name.replace(/^drill_/, '');
 
   const table = SESSION_COLUMNS.includes(name) ? 'session' : 'website_event';
-  const qualified = expression ? column : `${table}.${column}`;
+  const rawColumn = expression ? column : `${table}.${column}`;
+  const qualified =
+    name === 'region'
+      ? getPostgresRegionSQL(rawColumn.replace(/region$/, 'country'), rawColumn)
+      : name === 'country' ? getPostgresCountrySQL(rawColumn) : rawColumn;
+  const searchGeography = (comparison: string, join: 'or' | 'and') =>
+    name === 'region' || name === 'country'
+      ? `(${qualified} ${comparison} ${join} coalesce(${rawColumn}, ${qualified}) ${comparison})`
+      : `${qualified} ${comparison}`;
 
   switch (operator) {
     case OPERATORS.equals:
@@ -184,13 +192,13 @@ function mapFilter(
     case OPERATORS.notEquals:
       return `${qualified} != ALL(${value})`;
     case OPERATORS.contains:
-      return `${qualified} ilike ${value}`;
+      return searchGeography(`ilike ${value}`, 'or');
     case OPERATORS.doesNotContain:
-      return `${qualified} not ilike ${value}`;
+      return searchGeography(`not ilike ${value}`, 'and');
     case OPERATORS.regex:
-      return `${qualified} ~* ${value}`;
+      return searchGeography(`~* ${value}`, 'or');
     case OPERATORS.notRegex:
-      return `${qualified} !~* ${value}`;
+      return searchGeography(`!~* ${value}`, 'and');
     default:
       return '';
   }
@@ -217,7 +225,11 @@ function getFilterQuery(filters: Record<string, any>, options: QueryOptions = {}
           const table = SESSION_COLUMNS.includes(name.replace(/^drill_/, ''))
             ? 'session'
             : 'website_event';
-          const qualified = column === 'liekan_channel' ? resolved : `${table}.${resolved}`;
+          const rawColumn = column === 'liekan_channel' ? resolved : `${table}.${resolved}`;
+          const qualified =
+            column === 'region'
+              ? getPostgresRegionSQL(rawColumn.replace(/region$/, 'country'), rawColumn)
+              : rawColumn;
           andClauses.push(`and (${qualified} is null or ${qualified} = '')`);
           return;
         }

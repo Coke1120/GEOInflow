@@ -57,7 +57,7 @@ describe('joint link click sources', () => {
     });
     const [sql, bindings] = state.query.mock.calls[1];
     expect(sql).toContain('website_event.event_type=3');
-    expect(sql).toContain('GROUP BY source,country');
+    expect(sql).toContain('GROUP BY 1,2');
     expect(bindings.offset).toBe(25);
   });
   it('rejects malformed, partial, shared and unauthorized identities before analytics', async () => {

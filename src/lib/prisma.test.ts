@@ -274,9 +274,34 @@ describe('Liekan breakdown drill filters', () => {
   });
   test('retains normal literal filtering and normalized country drill values', () => {
     const literal = prisma.parseFilters({ country: 'empty.' });
-    expect(literal.filterQuery).toContain('session.country = ANY({{country}})');
+    expect(literal.filterQuery).toContain('else upper(session.country) end = ANY({{country}})');
     expect(literal.queryParams).toMatchObject({ country: ['EMPTY.'] });
     const drill = prisma.parseFilters({ drill_country: 'eq.CN' });
-    expect(drill.queryParams).toMatchObject({ drill_country: ['CN', ['T', 'W'].join('')] });
+    expect(drill.queryParams).toMatchObject({ drill_country: ['CN', 'TW', 'TWN'] });
+  });
+  test.each(['eq', 'neq'])('filters the normalized Taiwan province with %s', operator => {
+    const parsed = prisma.parseFilters({ region: `${operator}.CN-71` });
+    expect(parsed.queryParams).toMatchObject({ region: ['CN-71'] });
+    expect(parsed.filterQuery).toContain("upper(session.country) in ('TW', 'TWN')");
+    expect(parsed.filterQuery).toContain("then 'CN-71' else session.region end");
+    expect(parsed.filterQuery).toContain(
+      operator === 'eq' ? '= ANY({{region}})' : '!= ALL({{region}})',
+    );
+  });
+  test('normalizes legacy province drills and keeps mainland filters separate', () => {
+    const parsed = prisma.parseFilters({ drill_region: 'eq.TW-TPE', region: 'eq.CN-SH' });
+    expect(parsed.queryParams).toMatchObject({ drill_region: ['CN-71'], region: ['CN-SH'] });
+    expect(parsed.filterQuery).toContain('= ANY({{drill_region}})');
+  });
+  test.each([
+    ['c', 'CN-TPE', 'or', 'ilike'],
+    ['dnc', 'CN-TPE', 'and', 'not ilike'],
+    ['re', '^CN-TPE$', 'or', '~*'],
+    ['nre', '^CN-TPE$', 'and', '!~*'],
+  ])('keeps saved province %s filters compatible', (operator, value, join, comparison) => {
+    const parsed = prisma.parseFilters({ region: `${operator}.${value}` });
+    expect(parsed.filterQuery).toContain(` ${join} coalesce(session.region, `);
+    expect(parsed.filterQuery).toContain(` ${comparison} {{region}})`);
+    expect(parsed.filterQuery).toContain("then 'CN-71'");
   });
 });

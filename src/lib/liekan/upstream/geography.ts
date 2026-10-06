@@ -1,3 +1,4 @@
+import { normalizeCountryCode, normalizeRegionCode } from '@/lib/country';
 import countries from '../../../../public/intl/country/zh-CN.json';
 import regions from '../../../../public/iso-3166-2.json';
 
@@ -38,10 +39,12 @@ const china: Record<string, string> = {
   '92': '澳门',
 };
 export function countryName(code: string) {
-  return countries[code] ?? code ?? '未知';
+  const country = normalizeCountryCode(code);
+  return countries[country] ?? country ?? '未知';
 }
 export function regionName(code: string) {
-  return code?.startsWith('CN-')
-    ? (china[code.slice(3)] ?? regions[code] ?? code)
-    : (regions[code] ?? code ?? '未知');
+  const region = normalizeRegionCode(code);
+  return region?.startsWith('CN-')
+    ? (china[region.slice(3)] ?? regions[region] ?? region)
+    : (regions[region] ?? region ?? '未知');
 }

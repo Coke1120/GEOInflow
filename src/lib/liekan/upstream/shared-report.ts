@@ -79,7 +79,7 @@ export async function warmSharedReport(
         )
       )[0] || { data: '0', policy: '0' };
   const cached = await analyticsCache.read(
-    analyticsCacheKey('shared-report-v2', [
+    analyticsCacheKey('shared-report-v3-taiwan-province', [
       process.env.DATABASE_URL,
       website.id,
       parametersForReport,

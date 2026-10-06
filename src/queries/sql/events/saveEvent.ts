@@ -215,7 +215,7 @@ async function clickhouseQuery({
   const { sendMessage } = kafka;
   const eventId = uuid();
   const countryCode = normalizeCountryCode(country);
-  const regionCode = normalizeRegionCode(region, countryCode);
+  const regionCode = normalizeRegionCode(region, country);
 
   const message = {
     website_id: websiteId,

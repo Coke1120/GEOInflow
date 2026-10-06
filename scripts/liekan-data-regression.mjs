@@ -78,6 +78,7 @@ export function createDataAdapters(query, { sourceRef } = {}) {
   return {
     analytics,
     logs,
+    geography: load('src/lib/country.ts'),
     sourceHash: () => {
       const hash = createHash('sha256');
       for (const [name, source] of [...sources].sort(([a], [b]) => a.localeCompare(b)))
@@ -200,7 +201,7 @@ export function readonlyFixtureSQL(sql, params) {
 }
 
 export async function runDataRegression(query, options = {}) {
-  const { analytics, logs, sourceHash } = createDataAdapters(query, options);
+  const { analytics, logs, geography, sourceHash } = createDataAdapters(query, options);
   const start = new Date('2026-10-01T00:00:00+08:00'),
     end = new Date('2026-10-02T23:59:59+08:00');
   const checks = [];
@@ -232,6 +233,57 @@ export async function runDataRegression(query, options = {}) {
     [{ day: '2026-10-01', pv: 3, uv: 2, sessions: 2, bounces: 1 }],
   );
   const facts = await analytics.getHumanFacts(websiteId, start, end, 'Asia/Shanghai');
+  const countrySQL = geography.getPostgresCountrySQL('country');
+  const regionSQL = geography.getPostgresRegionSQL('country', 'region');
+  const geographyFixture = `FROM (VALUES ('CN','CN-BJ'),('TW','TW-TPE'),('TW',NULL),('TWN','KHH'),('CN','CN-HSZ'),('CN','CN-71'),('CN','CN-tpe'),('tw',NULL),('twn','unknown'),('JP','JP-13'),(NULL,NULL)) AS geography(country,region) WHERE $1::uuid = '${websiteId}'::uuid`;
+  check(
+    'Taiwan legacy countries merge into China without changing missing countries',
+    await query(
+      `SELECT ${countrySQL} AS country,count(*)::int AS visits ${geographyFixture} GROUP BY 1 ORDER BY 1`,
+      websiteId,
+    ),
+    [
+      { country: 'CN', visits: 9 },
+      { country: 'JP', visits: 1 },
+      { country: null, visits: 1 },
+    ],
+  );
+  check(
+    'Taiwan subdivisions and country-only records aggregate as one Chinese province',
+    await query(
+      `SELECT ${regionSQL} AS region,count(*)::int AS visits ${geographyFixture} GROUP BY 1 ORDER BY 1`,
+      websiteId,
+    ),
+    [
+      { region: 'CN-71', visits: 8 },
+      { region: 'CN-BJ', visits: 1 },
+      { region: 'JP-13', visits: 1 },
+      { region: null, visits: 1 },
+    ],
+  );
+  check(
+    'Taiwan province filters include historical rows and exclude mainland provinces',
+    await query(
+      `SELECT count(*)::int AS visits ${geographyFixture} AND ${regionSQL} = 'CN-71'`,
+      websiteId,
+    ),
+    [{ visits: 8 }],
+  );
+  check(
+    'China filters include lowercase legacy country records',
+    await query(`SELECT count(*)::int AS visits ${geographyFixture} AND ${countrySQL} = 'CN'`, websiteId),
+    [{ visits: 9 }],
+  );
+  check(
+    'negative province searches retain country-only Taiwan records',
+    await query(`SELECT count(*)::int AS visits ${geographyFixture} AND (${regionSQL} NOT ILIKE '%CN-SH%' AND coalesce(region,${regionSQL}) NOT ILIKE '%CN-SH%')`, websiteId),
+    [{ visits: 10 }],
+  );
+  check(
+    'source-country grouping merges legacy countries by normalized projection',
+    await query(`SELECT 'example.test' AS source,${countrySQL} AS country,count(*)::int AS visits ${geographyFixture} GROUP BY 1,2 ORDER BY 2`, websiteId),
+    [{ source: 'example.test', country: 'CN', visits: 9 }, { source: 'example.test', country: 'JP', visits: 1 }, { source: 'example.test', country: null, visits: 1 }],
+  );
   check('full human facts use the same daily event bins', metrics(facts.daily), [
     { day: '2026-10-01', pv: 1, uv: 1, sessions: 1, bounces: 0 },
     { day: '2026-10-02', pv: 2, uv: 2, sessions: 1, bounces: 1 },

@@ -48,15 +48,41 @@ describe('Liekan breakdown drill filters', () => {
       match: 'any',
       drill_country: 'empty.',
     });
-    expect(parsed.filterQuery).toContain("and (country is null or country = '')");
+    expect(parsed.filterQuery).toContain(' is null or ');
+    expect(parsed.filterQuery).toContain("upper(website_event.country)) = '')");
     expect(parsed.filterQuery).toContain(' or ');
     expect(parsed.filterQuery).not.toContain('IN {drill_country:Array(String)}');
   });
   test('retains normal literal filtering and normalized country drill values', () => {
     const literal = clickhouse.parseFilters({ country: 'empty.' });
-    expect(literal.filterQuery).toContain('country IN {country:Array(String)}');
+    expect(literal.filterQuery).toContain('upper(website_event.country)) IN {country:Array(String)}');
     expect(literal.queryParams).toMatchObject({ country: ['EMPTY.'] });
     const drill = clickhouse.parseFilters({ drill_country: 'eq.CN' });
-    expect(drill.queryParams).toMatchObject({ drill_country: ['CN', ['T', 'W'].join('')] });
+    expect(drill.queryParams).toMatchObject({ drill_country: ['CN', 'TW', 'TWN'] });
+  });
+  test.each(['eq', 'neq'])('filters the normalized Taiwan province with %s', operator => {
+    const parsed = clickhouse.parseFilters({ region: `${operator}.CN-71` });
+    expect(parsed.queryParams).toMatchObject({ region: ['CN-71'] });
+    expect(parsed.filterQuery).toContain("upper(website_event.country) in ('TW', 'TWN')");
+    expect(parsed.filterQuery).toContain("'CN-71', website_event.region)");
+    expect(parsed.filterQuery).toContain(
+      operator === 'eq' ? 'IN {region:Array(String)}' : 'NOT IN {region:Array(String)}',
+    );
+  });
+  test('normalizes legacy province drills and keeps mainland filters separate', () => {
+    const parsed = clickhouse.parseFilters({ drill_region: 'eq.TWN-KHH', region: 'eq.CN-SH' });
+    expect(parsed.queryParams).toMatchObject({ drill_region: ['CN-71'], region: ['CN-SH'] });
+    expect(parsed.filterQuery).toContain('IN {drill_region:Array(String)}');
+  });
+  test.each(['c', 'dnc', 're', 'nre'])('keeps saved province %s filters compatible', operator => {
+    const parsed = clickhouse.parseFilters({ region: `${operator}.CN-TPE` });
+    const join = ['c', 're'].includes(operator) ? 'or' : 'and';
+    expect(parsed.filterQuery).toContain(` ${join} `);
+    expect(parsed.filterQuery).toContain("'CN-71', website_event.region)");
+    expect(parsed.filterQuery).toContain(
+      operator.includes('re')
+        ? "match(coalesce(website_event.region, "
+        : 'positionCaseInsensitive(coalesce(website_event.region, ',
+    );
   });
 });

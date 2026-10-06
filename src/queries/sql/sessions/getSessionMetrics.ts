@@ -101,12 +101,12 @@ async function clickhouseQuery(
   if (type === 'language') {
     column = `lower(left(${type}, 2))`;
   }
-  const countryColumn = getClickHouseCountrySQL('country');
+  const countryColumn = getClickHouseCountrySQL('website_event.country');
 
   if (type === 'country') {
     column = countryColumn;
   } else if (type === 'region') {
-    column = getClickHouseRegionSQL('country', column);
+    column = getClickHouseRegionSQL('website_event.country', 'website_event.region');
   }
 
   let sql = '';

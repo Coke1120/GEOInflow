@@ -130,13 +130,14 @@ export async function getLocation(ip: string = '', headers: Headers, skipHeaders
     for (const provider of PROVIDER_HEADERS) {
       const countryHeader = headers.get(provider.countryHeader);
       if (countryHeader) {
-        const country = normalizeCountryCode(decodeHeader(countryHeader));
+        const sourceCountry = decodeHeader(countryHeader);
+        const country = normalizeCountryCode(sourceCountry);
         const region = decodeHeader(headers.get(provider.regionHeader));
         const city = decodeHeader(headers.get(provider.cityHeader));
 
         return {
           country,
-          region: getRegionCode(country, region),
+          region: getRegionCode(sourceCountry, region),
           city,
         };
       }
@@ -155,15 +156,14 @@ export async function getLocation(ip: string = '', headers: Headers, skipHeaders
   const result = globalThis[MAXMIND]?.get(cleanIp);
 
   if (result) {
-    const country = normalizeCountryCode(
-      result.country?.iso_code ?? result?.registered_country?.iso_code,
-    );
+    const sourceCountry = result.country?.iso_code ?? result?.registered_country?.iso_code;
+    const country = normalizeCountryCode(sourceCountry);
     const region = result.subdivisions?.[0]?.iso_code;
     const city = result.city?.names?.en;
 
     return {
       country,
-      region: getRegionCode(country, region),
+      region: getRegionCode(sourceCountry, region),
       city,
     };
   }

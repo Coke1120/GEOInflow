@@ -185,13 +185,13 @@ function getFieldColumn(name: string, database: 'postgres' | 'clickhouse') {
   if (name === 'country') {
     return database === 'postgres'
       ? getPostgresCountrySQL(column)
-      : getClickHouseCountrySQL(column);
+      : getClickHouseCountrySQL('website_event.country');
   }
 
   if (name === 'region') {
     return database === 'postgres'
       ? getPostgresRegionSQL('country', column)
-      : getClickHouseRegionSQL('country', column);
+      : getClickHouseRegionSQL('website_event.country', 'website_event.region');
   }
 
   return column;
