@@ -9,6 +9,8 @@ export type ReportActions = {
   onSort: (label: string) => void;
   onAction: (label: string) => void;
   onLogsPage?: (page: number) => void;
+  // 服务端分页明细表翻页：table 在 meta.tablePages 白名单内时由 ReportRows 调用。
+  onTablePage?: (table: string, page: number) => void;
 };
 export const ReportContext = createContext<ReportActions>({
   filter: '',

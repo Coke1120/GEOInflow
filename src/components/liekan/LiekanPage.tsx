@@ -40,7 +40,13 @@ import { useLiekanShell } from './LiekanShell';
 import { ManagementDrawer } from './ManagementDrawer';
 import { ReportContext } from './ReportContext';
 import type { LiekanReport, Resource } from './types';
-import { defaultDateRange, isLiveLogView, previousWeekRange, readViewState } from './viewState';
+import {
+  clearTablePages,
+  defaultDateRange,
+  isLiveLogView,
+  previousWeekRange,
+  readViewState,
+} from './viewState';
 
 export function LiekanPage({ resource }: { resource: Resource }) {
   const metadataLoading = useDataLoading();
@@ -361,7 +367,14 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       updateView({ chartPeriod: label === '24h' ? '24h' : label === '7 天' ? '7d' : '30d' });
       return;
     }
-    updateView({ filter: label, page: undefined, cursor: undefined, seek: undefined });
+    // 筛选/排序改变行内容与顺序：清空服务端分页参数，等价回第 1 页并恢复本地全量模式。
+    updateView({
+      ...clearTablePages(tablePages),
+      filter: label,
+      page: undefined,
+      cursor: undefined,
+      seek: undefined,
+    });
     setMessage(
       label === '仅人类'
         ? '此筛选显示未识别或其他请求；服务器日志无法确认访问者为人类。'
@@ -391,6 +404,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           : resource === 'content' && report.meta.aiCrawlerEnabled === false
             ? 'visitorPgBody'
             : primaryTables[resource];
+      // 服务端分页表中客户端只持有当前 20 行；全量导出走既有服务端导出（10 万行/50 MiB 上限）。
+      if (table && report.meta.tablePages?.[table]) {
+        router.push(href('exports'));
+        return;
+      }
       const content = table
         ? tableCsv(table, report.tables[table] || [], filter, sort, search)
         : csvMatrix(
@@ -512,6 +530,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         onFilter,
         onSort: label => {
           updateView({
+            ...clearTablePages(tablePages),
             filter: filter.startsWith('按') ? undefined : filter,
             sort: label,
             direction: sort.label === label && sort.direction === -1 ? 'asc' : 'desc',
@@ -519,6 +538,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         },
         onAction,
         onLogsPage: gotoLogsPage,
+        onTablePage: (table, page) =>
+          updateView({
+            ...clearTablePages(tablePages),
+            [`tp_${table}`]: page > 1 ? page : undefined,
+          }),
       }}
     >
       {shell?.websiteActionsTarget && createPortal(headerActions, shell.websiteActionsTarget)}

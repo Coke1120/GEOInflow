@@ -407,9 +407,13 @@ export function ReportRows({
   const a = useReportActions();
   const loading = useDataLoading();
   const fields = columns[table] || [];
+  const meta = report?.meta;
+  // 服务端分页模式：meta.tablePages 有键 = 该表已是服务端切片，页码/总数/页宽全部来自
+  // meta；本地筛选/排序/搜索仅作用于当前页（页脚提示），翻页经 onTablePage 重新请求。
+  const serverPage = meta?.tablePages?.[table];
   const selected = selectRows(report?.tables[table] || [], a.filter, a.sort, table, a.query);
   const perPage = typeof pageSize === 'number' && pageSize > 0 ? pageSize : 0;
-  const paged = perPage > 0;
+  const paged = perPage > 0 || !!serverPage;
   const [page, setPage] = useState(1);
   const [pendingBatch, setPendingBatch] = useState<{ target: number; batchPage: number } | null>(
     null,
@@ -426,7 +430,6 @@ export function ReportRows({
   // 日志监测页窗口式分页：后端 keyset 每批 meta.pageSize 条已全部在前端，
   // 按 pageSize 切窗呈现全局页码；批内翻页本地完成，跨批边界经 onLogsPage 换批，
   // pendingBatch 记录跨批目标页，等新批到达后落到批内对应位置。
-  const meta = report?.meta;
   const logsWindow =
     paged && table === 'logBody' && typeof meta?.totalLogs === 'number' ? meta : null;
   const batchPage = logsWindow ? logsWindow.page || 1 : 0;
@@ -450,11 +453,13 @@ export function ReportRows({
   const localPage = logsWindow
     ? Math.min(Math.max(desiredGlobal - batchFirstGlobal + 1, 1), pages)
     : safePage;
-  const rows = logsWindow
-    ? selected.slice((localPage - 1) * perPage, localPage * perPage)
-    : paged
-      ? selected.slice((safePage - 1) * perPage, safePage * perPage)
-      : selected.slice(0, limit ?? tableLimits[table]);
+  const rows = serverPage
+    ? selected
+    : logsWindow
+      ? selected.slice((localPage - 1) * perPage, localPage * perPage)
+      : paged
+        ? selected.slice((safePage - 1) * perPage, safePage * perPage)
+        : selected.slice(0, limit ?? tableLimits[table]);
   const state = reportState(report, table);
   return (
     <>
@@ -521,40 +526,60 @@ export function ReportRows({
           </tr>
         )}
       </tbody>
-      {paged && (logsWindow ? logsWindow.totalLogs > perPage : selected.length > perPage) && (
+      {paged &&
+        (serverPage
+          ? serverPage.total > serverPage.pageSize
+          : logsWindow
+            ? logsWindow.totalLogs > perPage
+            : selected.length > perPage) && (
         <tfoot>
           <tr>
             <td colSpan={fields.length} className="border-t border-line p-0">
               <Pager
-                total={logsWindow ? logsWindow.totalLogs : selected.length}
-                page={logsWindow ? desiredGlobal : safePage}
-                pages={logsWindow ? globalPages : pages}
+                total={
+                  serverPage ? serverPage.total : logsWindow ? logsWindow.totalLogs : selected.length
+                }
+                page={serverPage ? serverPage.page : logsWindow ? desiredGlobal : safePage}
+                pages={
+                  serverPage
+                    ? Math.max(1, Math.ceil(serverPage.total / serverPage.pageSize))
+                    : logsWindow
+                      ? globalPages
+                      : pages
+                }
+                label={
+                  serverPage && (a.filter || a.sort.label || a.query) ? '当前页内筛选' : undefined
+                }
                 onPrev={
-                  logsWindow
-                    ? () => {
-                        if (safePage > 1) {
-                          setPage(safePage - 1);
-                          return;
+                  serverPage
+                    ? () => a.onTablePage?.(table, serverPage.page - 1)
+                    : logsWindow
+                      ? () => {
+                          if (safePage > 1) {
+                            setPage(safePage - 1);
+                            return;
+                          }
+                          if (!a.onLogsPage || batchPage <= 1 || !logsWindow.previousCursor) return;
+                          setPendingBatch({ target: batchFirstGlobal - 1, batchPage: batchPage - 1 });
+                          a.onLogsPage(batchPage - 1);
                         }
-                        if (!a.onLogsPage || batchPage <= 1 || !logsWindow.previousCursor) return;
-                        setPendingBatch({ target: batchFirstGlobal - 1, batchPage: batchPage - 1 });
-                        a.onLogsPage(batchPage - 1);
-                      }
-                    : () => setPage(p => Math.max(1, p - 1))
+                      : () => setPage(p => Math.max(1, p - 1))
                 }
                 onNext={
-                  logsWindow
-                    ? () => {
-                        if (safePage < pages) {
-                          setPage(safePage + 1);
-                          return;
+                  serverPage
+                    ? () => a.onTablePage?.(table, serverPage.page + 1)
+                    : logsWindow
+                      ? () => {
+                          if (safePage < pages) {
+                            setPage(safePage + 1);
+                            return;
+                          }
+                          if (!a.onLogsPage || !logsWindow.nextCursor) return;
+                          if (batchLastGlobal + 1 > globalPages) return;
+                          setPendingBatch({ target: batchLastGlobal + 1, batchPage: batchPage + 1 });
+                          a.onLogsPage(batchPage + 1);
                         }
-                        if (!a.onLogsPage || !logsWindow.nextCursor) return;
-                        if (batchLastGlobal + 1 > globalPages) return;
-                        setPendingBatch({ target: batchLastGlobal + 1, batchPage: batchPage + 1 });
-                        a.onLogsPage(batchPage + 1);
-                      }
-                    : () => setPage(p => Math.min(pages, p + 1))
+                      : () => setPage(p => Math.min(pages, p + 1))
                 }
               />
             </td>
