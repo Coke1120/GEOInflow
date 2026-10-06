@@ -42,6 +42,8 @@
 
 页面归属定义在 `src/lib/liekan/contracts/navigation.ts`，侧栏由 `src/components/liekan/Navigation.tsx` 统一渲染。路由适配集中在 `features/routes.ts`，上游请求通过 `src/lib/liekan/upstream`。新增功能先确定页面范围、上级页面、资源归属和状态，再接入导航。
 
+网站地址统一携带短站点编号（`/websites/101/...`，按创建顺序从 101 分配），原 UUID 地址继续可用；站点切换、列表、页头与设置入口使用 `websiteHandle()` 生成编号链接，安装代码、分享地址和采集接口仍使用网站 UUID。
+
 2026-10-04 确认的原型已经统一接入后台。五组合并视图如下：
 
 | 入口 | Tab |

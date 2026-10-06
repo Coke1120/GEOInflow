@@ -51,6 +51,31 @@ if (
 for (const [file, digest] of Object.entries(migrationLock))
   if (hash(readFileSync(`db/liekan/migrations/${file}`)) !== digest)
     throw new Error(`Immutable migration drift: ${file}`);
+// scripts/liekan-migrate.mjs splits raw SQL on ';', so a semicolon inside a comment
+// or a string literal would corrupt the statement list. Statement terminators in code
+// (end of line, mid line, before a trailing comment) are all safe for the splitter.
+const stringSemicolon = code => {
+  let inside = false;
+  for (let i = 0; i < code.length; i += 1) {
+    if (code[i] === "'") {
+      if (inside && code[i + 1] === "'") i += 1;
+      else inside = !inside;
+    } else if (code[i] === ';' && inside) return true;
+  }
+  return false;
+};
+for (const file of Object.keys(migrationLock)) {
+  readFileSync(`db/liekan/migrations/${file}`, 'utf8')
+    .split('\n')
+    .forEach((line, index) => {
+      const where = `${file}:${index + 1}`;
+      const commentStart = line.indexOf('--');
+      const code = commentStart >= 0 ? line.slice(0, commentStart) : line;
+      const comment = commentStart >= 0 ? line.slice(commentStart) : '';
+      if (comment.includes(';')) throw new Error(`Semicolon inside a comment in ${where}`);
+      if (stringSemicolon(code)) throw new Error(`Semicolon inside a string literal in ${where}`);
+    });
+}
 const visit = path =>
   readdirSync(path, { withFileTypes: true }).flatMap(file =>
     file.isDirectory() ? visit(join(path, file.name)) : [join(path, file.name)],

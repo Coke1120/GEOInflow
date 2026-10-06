@@ -6,7 +6,10 @@ The report table and existing definition IDs are retained. No database migration
 
 ## Calculation endpoints
 
-Paths in the replacement column are relative to `/api/websites/{websiteId}`.
+Paths in the replacement column are relative to `/api/websites/{websiteId}`. `{websiteId}`
+accepts the website UUID; the short numeric site number is also accepted and resolved to
+the UUID by the middleware (and by the MCP in-process dispatch), while the UUID remains
+the canonical identifier in API payloads and the tracker contract.
 
 | Legacy POST endpoint | Replacement GET endpoint(s) |
 | --- | --- |
