@@ -1,11 +1,22 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { deleteWebsite, resetWebsite } from './website';
+import { deleteWebsite, getWebsite, resetWebsite } from './website';
 
-const { transactionMock, redisDelMock, redisSetMock, resetLiekanMock } = vi.hoisted(() => ({
+const {
+  transactionMock,
+  redisDelMock,
+  redisSetMock,
+  resetLiekanMock,
+  findUniqueMock,
+  findFirstMock,
+  shareFindFirstMock,
+} = vi.hoisted(() => ({
   transactionMock: vi.fn(),
   redisDelMock: vi.fn(),
   redisSetMock: vi.fn(),
   resetLiekanMock: vi.fn(),
+  findUniqueMock: vi.fn(),
+  findFirstMock: vi.fn(),
+  shareFindFirstMock: vi.fn(),
 }));
 
 vi.mock('@/lib/liekan/upstream/ai-lifecycle', () => ({ clearAiWebsiteInTransaction: vi.fn() }));
@@ -14,6 +25,10 @@ vi.mock('@/lib/liekan/upstream/lifecycle', () => ({ resetLiekanStatistics: reset
 vi.mock('@/lib/prisma', () => ({
   default: {
     transaction: transactionMock,
+    client: {
+      website: { findUnique: findUniqueMock, findFirst: findFirstMock },
+      share: { findFirst: shareFindFirstMock },
+    },
   },
   getSchema: () => new URL(process.env.DATABASE_URL || '').searchParams.get('schema'),
 }));
@@ -109,6 +124,42 @@ function createDeleteTx(calls: string[]) {
     },
   };
 }
+
+describe('getWebsite dual-track resolution', () => {
+  beforeEach(() => {
+    findUniqueMock.mockReset();
+    findFirstMock.mockReset();
+    shareFindFirstMock.mockReset();
+    process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/umami?schema=public';
+  });
+
+  const uuid = '5b4c0de0-6c47-5b51-8f53-11e5e8c79001';
+  const site = { id: uuid, name: '猎看', siteNumber: 101 };
+
+  test('resolves a UUID through the original lookup', async () => {
+    findUniqueMock.mockResolvedValue(site);
+    shareFindFirstMock.mockResolvedValue(null);
+    await expect(getWebsite(uuid)).resolves.toEqual({ ...site, shareId: null });
+    expect(findUniqueMock).toHaveBeenCalledWith({ where: { id: uuid } });
+    expect(findFirstMock).not.toHaveBeenCalled();
+  });
+
+  test('resolves the short site number through the site_number lookup', async () => {
+    findFirstMock.mockResolvedValue(site);
+    shareFindFirstMock.mockResolvedValue({ slug: 'share-slug' });
+    await expect(getWebsite('101')).resolves.toEqual({ ...site, shareId: 'share-slug' });
+    expect(findFirstMock).toHaveBeenCalledWith({ where: { siteNumber: 101 } });
+    expect(findUniqueMock).not.toHaveBeenCalled();
+  });
+
+  test('rejects malformed identifiers without touching the database', async () => {
+    await expect(getWebsite('101x')).resolves.toBeNull();
+    await expect(getWebsite('not-a-site')).resolves.toBeNull();
+    await expect(getWebsite('')).resolves.toBeNull();
+    expect(findUniqueMock).not.toHaveBeenCalled();
+    expect(findFirstMock).not.toHaveBeenCalled();
+  });
+});
 
 describe('website delete dependencies', () => {
   beforeEach(() => {

@@ -34,6 +34,21 @@ describe('navigation entity identity', () => {
       expect(renderHook(() => useNavigation()).result.current[key]).toBeUndefined();
     }
   });
+  it('accepts the short numeric site number in website URLs', () => {
+    for (const suffix of ['', '/geo/human/geo']) {
+      navigation.pathname = `/websites/101${suffix}`;
+      expect(renderHook(() => useNavigation()).result.current.websiteId).toBe('101');
+    }
+    navigation.pathname = `/teams/${id}/websites/101/geo`;
+    expect(renderHook(() => useNavigation()).result.current.websiteId).toBe('101');
+  });
+  it.each(entities.filter(([path]) => path !== 'websites'))(
+    'ignores numeric segments for %s',
+    (path, key) => {
+      navigation.pathname = `/${path}/101`;
+      expect(renderHook(() => useNavigation()).result.current[key]).toBeUndefined();
+    },
+  );
   it('preserves team and website context without adding a board from create', () => {
     navigation.pathname = `/teams/${id}/websites/${id}/events`;
     navigation.params = new URLSearchParams('date=30d&page=2');

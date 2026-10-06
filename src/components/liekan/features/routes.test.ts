@@ -33,6 +33,22 @@ describe('approved scene routing', () => {
     });
     expect(new URL(href, 'http://localhost').searchParams.get('drill_event')).toBe('eq.a&b');
   });
+  it('matches and emits the short numeric site number for website routes', () => {
+    expect(featureHref('overview', { websiteId: '101' })).toBe('/websites/101/geo');
+    expect(featureHref('geo-geography', { websiteId: '101' })).toBe('/websites/101/geo/human/geo');
+    expect(featureHref('session-detail', { websiteId: '101', id: uuid })).toBe(
+      `/websites/101/sessions/${uuid}`,
+    );
+    // GEO 页面是真实 Next 页面，不进 FeatureApp 别名表（UUID 同样返回 null）。
+    expect(matchFeatureRoute(`/websites/101/geo/human/geo`)).toBeNull();
+    expect(matchFeatureRoute(`/websites/${uuid}/geo/human/geo`)).toBeNull();
+    expect(matchFeatureRoute(`/websites/101/sessions/${uuid}`)).toMatchObject({
+      page: 'session-detail',
+      websiteId: '101',
+      id: uuid,
+    });
+    expect(matchFeatureRoute('/websites/101x')).toBeNull();
+  });
   it('routes every private scene through an implemented page and preserves the GEO overview', () => {
     for (const page of featurePages.filter(p => !['login', 'login-2fa', 'sso'].includes(p.id))) {
       const url = new URL(featureHref(page.id, { websiteId: uuid, id: uuid }), 'http://localhost');
