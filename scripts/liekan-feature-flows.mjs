@@ -62,6 +62,14 @@ async function pageAt(path, slow = false) {
   await page.locator('[data-liekan-features]').first().waitFor();
   return { page, context };
 }
+async function waitForLoggedOut(page) {
+  await page.waitForFunction(
+    () =>
+      location.pathname === '/login' &&
+      document.querySelector('input[name="username"]')?.getBoundingClientRect().width > 0 &&
+      localStorage.getItem('umami.auth') === null,
+  );
+}
 try {
   let loginContext = await browser.newContext({ locale: 'zh-CN' });
   let loginPage = await loginContext.newPage();
@@ -85,8 +93,7 @@ try {
     await loginPage.getByRole('button', { name: /个人账户/ }).click();
     await loginPage.getByRole('button', { name: '退出登录', exact: true }).click();
     await loginPage.waitForURL(u => u.pathname === '/login');
-    await loginPage.waitForLoadState('networkidle');
-    assert.equal(await loginPage.evaluate(() => localStorage.getItem('umami.auth')), null);
+    await waitForLoggedOut(loginPage);
     await loginPage.reload();
     await loginPage.getByRole('button', { name: '登录', exact: true }).waitFor();
     assert.equal(new URL(loginPage.url()).pathname, '/login');
@@ -95,7 +102,7 @@ try {
     );
     await loginPage.reload();
     await loginPage.getByRole('button', { name: '登录', exact: true }).waitFor();
-    assert.equal(await loginPage.evaluate(() => localStorage.getItem('umami.auth')), null);
+    await waitForLoggedOut(loginPage);
     result.checks.push({
       name: 'saved login restores in a new browser context while logout and expired credentials keep the login form available',
       passed: true,
