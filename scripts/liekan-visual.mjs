@@ -453,6 +453,7 @@ try {
       const now = Date.now();
       return route.fulfill({
         contentType: 'application/json',
+        headers: { 'X-Liekan-Server-Time': String(now) },
         body: JSON.stringify({
           ...payload,
           resource: pages[i].resource,
@@ -466,44 +467,52 @@ try {
       });
     });
     await actual.goto(`${base}/websites/${payload.website.id}/geo${path}`);
-    await actual.locator('main').waitFor();
+    await actual.waitForFunction(() =>
+      [...document.querySelectorAll('main')].some(el => el.querySelector(':scope > section .card')),
+    );
     await actual.evaluate(async () => {
       await document.fonts.ready;
     });
     await actual.waitForTimeout(800);
     assert(fixtureRequests > 0, `${name} current page report fixture was never requested`);
-    const measure = page =>
-      page.evaluate(() => {
-        const body = [...document.querySelectorAll('main')].find(el =>
-          el.querySelector(':scope > section .card'),
-        );
-        if (!body) throw new Error('Original GEO content body is missing');
-        return {
-          body: body.getBoundingClientRect().toJSON(),
-          cards: [...body.querySelectorAll('.card')].map(el => {
-            const r = el.getBoundingClientRect(),
-              s = getComputedStyle(el);
-            return {
-              x: r.x,
-              y: r.y,
-              width: r.width,
-              height: r.height,
-              radius: s.borderRadius,
-              border: s.borderColor,
-              background: s.backgroundColor,
-            };
-          }),
-          columns: [...body.querySelectorAll('table thead')].map(el =>
-            [...el.querySelectorAll('th')].map(th => th.textContent.trim()),
-          ),
-          charts: [...body.querySelectorAll('[id]')]
-            .filter(el =>
-              /^(d[123]|a[1234]|b1|ap1|pf[12]|h[123]|g[12]|s[12]|c1|f[123])$/.test(el.id),
-            )
-            .map(el => ({ id: el.id, ...el.getBoundingClientRect().toJSON() })),
-        };
-      });
-    const [refGeometry, geometry] = await Promise.all([measure(reference), measure(actual)]);
+    const measure = (page, surface) =>
+      page.evaluate(
+        ({ name, surface }) => {
+          const body = [...document.querySelectorAll('main')].find(el =>
+            el.querySelector(':scope > section .card'),
+          );
+          if (!body) throw new Error(`${name} ${surface}: Original GEO content body is missing`);
+          return {
+            body: body.getBoundingClientRect().toJSON(),
+            cards: [...body.querySelectorAll('.card')].map(el => {
+              const r = el.getBoundingClientRect(),
+                s = getComputedStyle(el);
+              return {
+                x: r.x,
+                y: r.y,
+                width: r.width,
+                height: r.height,
+                radius: s.borderRadius,
+                border: s.borderColor,
+                background: s.backgroundColor,
+              };
+            }),
+            columns: [...body.querySelectorAll('table thead')].map(el =>
+              [...el.querySelectorAll('th')].map(th => th.textContent.trim()),
+            ),
+            charts: [...body.querySelectorAll('[id]')]
+              .filter(el =>
+                /^(d[123]|a[1234]|b1|ap1|pf[12]|h[123]|g[12]|s[12]|c1|f[123])$/.test(el.id),
+              )
+              .map(el => ({ id: el.id, ...el.getBoundingClientRect().toJSON() })),
+          };
+        },
+        { name, surface },
+      );
+    const [refGeometry, geometry] = await Promise.all([
+      measure(reference, 'reference'),
+      measure(actual, 'actual'),
+    ]);
     const approval = navigationBaseline.geoPixelApproval;
     const verticalOffset = geometry.body.y - refGeometry.body.y;
     assert(
