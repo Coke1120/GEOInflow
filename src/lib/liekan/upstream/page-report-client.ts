@@ -1,13 +1,13 @@
 'use client';
 import type { LiekanPageReport, ReportResource } from '../contracts/page-report';
-import { featureApi } from './features-client';
 import {
   freshnessStaleTime,
+  hasClientFreshness,
+  remainingFreshness,
   shareWithFreshness,
   withClientFreshness,
-  remainingFreshness,
-  hasClientFreshness,
 } from './client-freshness';
+import { featureApi } from './features-client';
 
 export function pageReportQuery(
   userId: string,
@@ -23,12 +23,20 @@ export function pageReportQuery(
     page?: number;
     cursor?: string;
     seek?: string;
+    tablePages?: Record<string, number>;
   },
   teamId?: string,
   fresh?: () => boolean,
   priority: 'foreground' | 'prefetch' = 'foreground',
 ) {
   const p = { chartPeriod: '30d', filter: '', search: '', page: 1, cursor: '', seek: '', ...input };
+  // tablePages 以扁平 tp_<table> 参数上送（reportQuery 归口解析）；
+  // queryKey 记录排序后的页码集合，保证等价分页状态命中同一缓存。
+  const tpParams = Object.fromEntries(
+    Object.entries(p.tablePages ?? {})
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([table, tablePage]) => [`tp_${table}`, tablePage]),
+  );
   const queryKey = [
     'liekan',
     websiteId,
@@ -43,6 +51,7 @@ export function pageReportQuery(
     p.page,
     p.cursor,
     p.seek,
+    JSON.stringify(tpParams),
     userId,
   ];
   return {
@@ -53,7 +62,7 @@ export function pageReportQuery(
         () =>
           featureApi.get<LiekanPageReport>(
             `/liekan/websites/${websiteId}/page-report`,
-            { ...p, ...(fresh?.() ? { refresh: '1' } : {}) },
+            { ...p, tablePages: undefined, ...tpParams, ...(fresh?.() ? { refresh: '1' } : {}) },
             signal,
             { priority },
           ),

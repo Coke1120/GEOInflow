@@ -70,7 +70,7 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
 }));
 function report(): LiekanReport {
   return freshAggregateFixture({
-    contractVersion: 1,
+    contractVersion: 2,
     website: { id: 'site-a', name: '当前网站', domain: 'a.test' },
     range: { startAt: 1, endAt: 2, timezone: 'Asia/Shanghai' },
     states: { human: 'available', logs: 'available', catalog: 'available', goals: 'available' },

@@ -1,13 +1,13 @@
-import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
-import { sharedReportParts } from './contracts/shared-report';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { reportQuery } from './contracts/query';
+import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
+import { parseReportQuery } from './contracts/query';
 import {
   type DataState,
   type LiekanReport,
   liekanReportSchema,
   type Row,
 } from './contracts/report';
+import { sharedReportParts } from './contracts/shared-report';
 import { getSettings } from './store';
 import {
   classifyEntrySource,
@@ -44,7 +44,7 @@ export async function buildReport(
   input: unknown,
   pageOnly: boolean | 'share' = false,
 ): Promise<LiekanReport> {
-  const parsed = reportQuery.safeParse(input);
+  const parsed = parseReportQuery(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
   const p = parsed.data;
   const parts =
@@ -130,7 +130,7 @@ export async function buildReport(
     catalogState: DataState = l.catalog.length ? 'available' : 'not_connected',
     goalState: DataState = h.goals.length ? 'available' : 'not_connected';
   const r: LiekanReport = {
-    contractVersion: 1,
+    contractVersion: 2,
     website,
     range: { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
     states: { human: humanState, logs: logState, catalog: catalogState, goals: goalState },

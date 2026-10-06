@@ -1,5 +1,6 @@
 import { endOfDay, startOfDay, subDays } from 'date-fns';
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
+import { pagableTables } from '@/lib/liekan/contracts/query';
 import { columns, primaryTables } from './data';
 import type { Resource } from './types';
 
@@ -16,6 +17,21 @@ export const viewParamKeys = [
   'seek',
 ] as const;
 export const resetViewParams = Object.fromEntries(viewParamKeys.map(key => [key, undefined]));
+const pagableSet = new Set<string>(pagableTables);
+// URL 扁平参数 tp_<table>=<page> → tablePages；仅接受白名单表且页码 ≥ 2（第 1 页归一为不传参）。
+export function readTablePages(params: Record<string, string>) {
+  const tablePages: Record<string, number> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (!key.startsWith('tp_')) continue;
+    const table = key.slice(3);
+    const page = Number(value);
+    if (pagableSet.has(table) && Number.isSafeInteger(page) && page > 1 && page <= 100000)
+      tablePages[table] = page;
+  }
+  return tablePages;
+}
+export const clearTablePages = (tablePages: Record<string, number>) =>
+  Object.fromEntries(Object.keys(tablePages).map(table => [`tp_${table}`, undefined]));
 const filters: Partial<Record<Resource, string[]>> = {
   'ai/bots': ['全部', 'AI 训练', 'AI 搜索', '传统搜索'],
   'ai/pages': ['按抓取量', '按重复率', '按蜘蛛数'],
@@ -50,6 +66,7 @@ export function readViewState(params: Record<string, string>, resource: Resource
       direction: params.direction === 'asc' ? 1 : -1,
     },
     compare: resource === 'human/overview' && params.compareWeek === '1',
+    tablePages: resource === 'logs' ? {} : readTablePages(params),
   };
 }
 export function previousWeekRange(startAt: number, endAt: number) {

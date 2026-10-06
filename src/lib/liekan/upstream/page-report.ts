@@ -1,15 +1,15 @@
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { pageReportParts, pageReportSchema, type LiekanPageReport } from '../contracts/page-report';
-import { reportQuery } from '../contracts/query';
+import { type LiekanPageReport, pageReportParts, pageReportSchema } from '../contracts/page-report';
+import { parseReportQuery } from '../contracts/query';
 import { buildReport } from '../report';
+import { withoutQueryCache } from './cache-context';
+import { LiekanError } from './errors';
 import {
   analyticsCache,
   analyticsCacheKey,
-  websiteCacheTag,
   type CachedResult,
+  websiteCacheTag,
 } from './query-cache';
-import { LiekanError } from './errors';
-import { withoutQueryCache } from './cache-context';
 import { query, reportSnapshot } from './server';
 
 export async function readPageReport(
@@ -17,7 +17,7 @@ export async function readPageReport(
   input: unknown,
   refresh = false,
 ): Promise<CachedResult<LiekanPageReport>> {
-  const parsed = reportQuery.safeParse(input);
+  const parsed = parseReportQuery(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
   const { refresh: requestedRefresh, ...p } = parsed.data;
   let today: number;
@@ -63,7 +63,7 @@ export async function readPageReport(
           website.id,
         )
       )[0] || { data: '0', policy: '0' };
-  const key = analyticsCacheKey('page-report-v3-taiwan-province', [
+  const key = analyticsCacheKey('page-report-v4-table-pages', [
     process.env.DATABASE_URL,
     website.id,
     p,

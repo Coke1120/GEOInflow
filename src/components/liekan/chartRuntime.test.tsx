@@ -24,7 +24,7 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
 }));
 
 const report: LiekanReport = {
-  contractVersion: 1,
+  contractVersion: 2,
   website: { id: 'site', name: '站点', domain: 'example.test' },
   range: { startAt: 1, endAt: 2, timezone: 'Asia/Shanghai' },
   states: { human: 'available', logs: 'available', catalog: 'available', goals: 'available' },

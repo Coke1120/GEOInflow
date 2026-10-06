@@ -60,10 +60,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const dynamicDefault = !params.date || params.dateMode === 'default';
   const now = useDateRangeClock(timezone, dynamicDefault);
   const [liveNow, setLiveNow] = useState(now);
-  const { filter, search, logPage, cursor, seek, chartPeriod, sort, compare } = readViewState(
-    params,
-    resource,
-  );
+  const { filter, search, logPage, cursor, seek, chartPeriod, sort, compare, tablePages } =
+    readViewState(params, resource);
   const pageIdentity = JSON.stringify([
     userId,
     websiteId,
@@ -131,6 +129,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     endAt,
     timezone,
     chartPeriod,
+    ...(Object.keys(tablePages).length ? { tablePages } : {}),
     ...(resource === 'logs'
       ? {
           page: logPage,
@@ -159,7 +158,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       resource === 'logs' &&
       previous?.website.id === websiteId &&
       previousQuery?.queryKey[3] === resource &&
-      previousQuery?.queryKey[13] === userId &&
+      previousQuery?.queryKey[14] === userId &&
       (liveLogs || (previous.range.startAt === startAt && previous.range.endAt === endAt))
         ? previous
         : undefined,

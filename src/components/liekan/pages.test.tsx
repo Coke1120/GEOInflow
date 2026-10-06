@@ -21,7 +21,7 @@ const actions = {
 };
 function report(): LiekanReport {
   return {
-    contractVersion: 1,
+    contractVersion: 2,
     website: { id: 'site', name: '站点', domain: 'example.test' },
     range: { startAt: 1, endAt: 2, timezone: 'Asia/Shanghai' },
     states: {

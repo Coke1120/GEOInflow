@@ -180,7 +180,7 @@ beforeEach(() => {
       : [{ id, current: { pageviews: computations }, previous: {}, received: true, last_at: null }],
   );
   mocks.build.mockImplementation(async () => ({
-    contractVersion: 1,
+    contractVersion: 2,
     website,
     range,
     states: { human: 'available', logs: 'available', catalog: 'available', goals: 'available' },
