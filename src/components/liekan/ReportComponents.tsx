@@ -411,31 +411,42 @@ export function ReportRows({
   const perPage = typeof pageSize === 'number' && pageSize > 0 ? pageSize : 0;
   const paged = perPage > 0;
   const [page, setPage] = useState(1);
-  const [globalPage, setGlobalPage] = useState(1);
+  const [pendingBatch, setPendingBatch] = useState<{ target: number; batchPage: number } | null>(
+    null,
+  );
   const pages = paged ? Math.max(1, Math.ceil(selected.length / perPage)) : 1;
   useEffect(() => {
     setPage(1);
-    setGlobalPage(1);
+    setPendingBatch(null);
   }, [a.filter, a.sort.label, a.sort.direction, a.query, table]);
   useEffect(() => {
     if (page > pages) setPage(pages);
   }, [page, pages]);
   const safePage = Math.min(page, pages);
   // 日志监测页窗口式分页：后端 keyset 每批 meta.pageSize 条已全部在前端，
-  // 按 pageSize 切窗呈现全局页码；批内翻页本地完成，跨批边界经 onLogsPage 换批。
+  // 按 pageSize 切窗呈现全局页码；批内翻页本地完成，跨批边界经 onLogsPage 换批，
+  // pendingBatch 记录跨批目标页，等新批到达后落到批内对应位置。
   const meta = report?.meta;
   const logsWindow =
     paged && table === 'logBody' && typeof meta?.totalLogs === 'number' ? meta : null;
+  const batchPage = logsWindow ? logsWindow.page || 1 : 0;
   const batchPerPages = logsWindow
     ? Math.max(1, Math.ceil((logsWindow.pageSize || 100) / perPage))
     : 0;
-  const batchFirstGlobal = logsWindow ? ((logsWindow.page || 1) - 1) * batchPerPages + 1 : 0;
+  const batchFirstGlobal = logsWindow ? (batchPage - 1) * batchPerPages + 1 : 0;
   const batchLastGlobal = logsWindow ? batchFirstGlobal + batchPerPages - 1 : 0;
   const globalPages = logsWindow ? Math.max(1, Math.ceil(logsWindow.totalLogs / perPage)) : 0;
-  const desiredGlobal = logsWindow ? Math.min(Math.max(globalPage, 1), globalPages) : 0;
+  const desiredGlobal = logsWindow
+    ? pendingBatch
+      ? Math.min(pendingBatch.target, globalPages)
+      : Math.min(batchFirstGlobal + safePage - 1, globalPages)
+    : 0;
   useEffect(() => {
-    if (logsWindow && globalPage > globalPages) setGlobalPage(globalPages);
-  }, [logsWindow, globalPage, globalPages]);
+    if (pendingBatch && batchPage === pendingBatch.batchPage) {
+      setPage(Math.min(Math.max(pendingBatch.target - batchFirstGlobal + 1, 1), pages));
+      setPendingBatch(null);
+    }
+  }, [pendingBatch, batchPage, batchFirstGlobal, pages]);
   const localPage = logsWindow
     ? Math.min(Math.max(desiredGlobal - batchFirstGlobal + 1, 1), pages)
     : safePage;
@@ -521,22 +532,27 @@ export function ReportRows({
                 onPrev={
                   logsWindow
                     ? () => {
-                        const target = desiredGlobal - 1;
-                        if (target < 1) return;
-                        setGlobalPage(target);
-                        if (target < batchFirstGlobal && logsWindow.previousCursor)
-                          a.onLogsPage?.((logsWindow.page || 1) - 1);
+                        if (safePage > 1) {
+                          setPage(safePage - 1);
+                          return;
+                        }
+                        if (!a.onLogsPage || batchPage <= 1 || !logsWindow.previousCursor) return;
+                        setPendingBatch({ target: batchFirstGlobal - 1, batchPage: batchPage - 1 });
+                        a.onLogsPage(batchPage - 1);
                       }
                     : () => setPage(p => Math.max(1, p - 1))
                 }
                 onNext={
                   logsWindow
                     ? () => {
-                        const target = desiredGlobal + 1;
-                        if (target > globalPages) return;
-                        setGlobalPage(target);
-                        if (target > batchLastGlobal && logsWindow.nextCursor)
-                          a.onLogsPage?.((logsWindow.page || 1) + 1);
+                        if (safePage < pages) {
+                          setPage(safePage + 1);
+                          return;
+                        }
+                        if (!a.onLogsPage || !logsWindow.nextCursor) return;
+                        if (batchLastGlobal + 1 > globalPages) return;
+                        setPendingBatch({ target: batchLastGlobal + 1, batchPage: batchPage + 1 });
+                        a.onLogsPage(batchPage + 1);
                       }
                     : () => setPage(p => Math.min(pages, p + 1))
                 }
