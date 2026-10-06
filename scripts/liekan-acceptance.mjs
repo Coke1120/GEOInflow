@@ -29,6 +29,7 @@ const network = `liekan-verify-${stamp}`,
   db = `${network}-db`,
   app = `${network}-app`;
 const password = randomBytes(32).toString('hex');
+const aiPreviewKey = randomBytes(32).toString('hex');
 const sourceUser = process.env.POSTGRES_USER || 'liekan';
 const sourceDatabase = process.env.POSTGRES_DB || 'liekan';
 if (
@@ -182,8 +183,18 @@ const healthy = async () => {
   throw new Error('Isolated candidate did not become healthy');
 };
 const startApp = async database => {
+  const aiEnvironment =
+    database === 'liekan_empty'
+      ? { LIEKAN_AI_ENABLED: 'true', LIEKAN_AI_ENCRYPTION_KEY: aiPreviewKey }
+      : {
+          LIEKAN_AI_ENABLED: process.env.LIEKAN_AI_ENABLED || 'false',
+          LIEKAN_AI_ENCRYPTION_KEY: process.env.LIEKAN_AI_ENCRYPTION_KEY || '',
+        };
   dockerEnv(
-    { DATABASE_URL: `postgresql://liekan_verify:${password}@${db}:5432/${database}` },
+    {
+      DATABASE_URL: `postgresql://liekan_verify:${password}@${db}:5432/${database}`,
+      ...aiEnvironment,
+    },
     'create',
     '--name',
     app,
@@ -197,6 +208,10 @@ const startApp = async database => {
     'APP_SECRET',
     '-e',
     'TWO_FACTOR_ENCRYPTION_KEY',
+    '-e',
+    'LIEKAN_AI_ENABLED',
+    '-e',
+    'LIEKAN_AI_ENCRYPTION_KEY',
     '-e',
     'DISABLE_BOT_CHECK=1',
     '-e',
