@@ -67,7 +67,7 @@ export function AiOverview({ report, rangeLabel }: ReportViewProps) {
             id="robotsList"
             className="mt-3 space-y-2 text-[11.5px] leading-relaxed"
             report={report}
-            pageSize={20}
+            pageSize={5}
           />
         </div>
       </section>

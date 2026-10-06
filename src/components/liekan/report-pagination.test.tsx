@@ -148,21 +148,24 @@ describe('report detail table pagination', () => {
     expect(screen.queryByText('GPTBot-20')).not.toBeInTheDocument();
   });
 
-  it('pages the robots policy list when more than 20 rules are stored', async () => {
+  it('pages the robots policy list five entries at a time', async () => {
     const data = report();
-    data.tables.robotsList = Array.from({ length: 23 }, (_, i) => ({
+    data.tables.robotsList = Array.from({ length: 8 }, (_, i) => ({
       bot: `Spider-${i + 1}`,
       policy: '已保存本地策略',
     }));
     render(
       <ReportContext.Provider value={baseActions}>
-        <ReportList id="robotsList" className="" report={data} pageSize={20} />
+        <ReportList id="robotsList" className="" report={data} pageSize={5} />
       </ReportContext.Provider>,
     );
-    expect(screen.getByText('共 23 条')).toBeInTheDocument();
+    expect(screen.getByText('共 8 条')).toBeInTheDocument();
+    expect(screen.getByText('第 1 / 2 页')).toBeInTheDocument();
+    expect(screen.getByText('Spider-5')).toBeInTheDocument();
+    expect(screen.queryByText('Spider-6')).not.toBeInTheDocument();
     await click(screen.getByRole('button', { name: '下一页' }));
-    expect(screen.getByText('Spider-21')).toBeInTheDocument();
-    expect(screen.getByText('第 2 / 2 页')).toBeInTheDocument();
+    expect(screen.getByText('Spider-6')).toBeInTheDocument();
+    expect(screen.queryByText('Spider-5')).not.toBeInTheDocument();
   });
 
   it('exports every filtered row instead of the display limit', () => {

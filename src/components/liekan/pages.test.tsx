@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { AiOverview } from './pages/AiOverview';
 import { Overview } from './pages/Overview';
 import { Content } from './pages/Content';
 import { tableCsv } from './data';
@@ -131,5 +132,22 @@ describe('evidence-backed reference copy', () => {
     expect(insights.querySelector('b')).toHaveTextContent('GEO 洞察：');
     expect(insights).toHaveTextContent('实际目录覆盖已接入。 引用结果仍待验证。');
     expect(insights.querySelector('.rounded-full')).toBeNull();
+  });
+  it('shows the robots policy list five entries per page with a pager', () => {
+    const data = report();
+    data.states.logs = 'available';
+    data.tables.robotsList = Array.from({ length: 8 }, (_, i) => ({
+      bot: `Spider-${i + 1}`,
+      policy: '未设置',
+    }));
+    const html = renderToStaticMarkup(
+      <ReportContext.Provider value={actions}>
+        <AiOverview report={data} rangeLabel="范围" />
+      </ReportContext.Provider>,
+    );
+    expect(html).toContain('Spider-5');
+    expect(html).not.toContain('Spider-6');
+    expect(html).toContain('共 8 条');
+    expect(html).toContain('第 1 / 2 页');
   });
 });
