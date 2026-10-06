@@ -241,7 +241,9 @@ try {
   await switchDialog
     .getByRole('button', { name: `选择网站 ${switchSite.name}`, exact: true })
     .click();
-  await page.waitForURL(u => u.pathname === `/websites/${switchSite.id}/sessions`);
+  // The site switcher emits the short site number; both handles resolve to the site.
+  const switchHandle = switchSite.siteNumber ?? switchSite.id;
+  await page.waitForURL(u => u.pathname === `/websites/${switchHandle}/sessions`);
   await page.waitForLoadState('networkidle');
   const switched = new URL(page.url());
   const switchAlerts = await page
@@ -290,7 +292,7 @@ try {
   assert.equal(await page.locator('form[data-unsaved="true"]').count(), 1);
   await chooseNextSite();
   await page.getByRole('button', { name: '放弃修改并切换', exact: true }).click();
-  await page.waitForURL(u => u.pathname === `/websites/${switchSite.id}/funnels`);
+  await page.waitForURL(u => u.pathname === `/websites/${switchHandle}/funnels`);
   await page.waitForLoadState('networkidle');
   result.checks.push({
     name: 'date recovery and unsaved website switch preserve usable navigation and scrolling',
