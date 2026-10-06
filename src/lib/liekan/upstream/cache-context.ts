@@ -153,7 +153,14 @@ export async function withQueryCacheHeaders(work: () => Promise<Response>) {
       String(Math.min(...results.map(r => r.generatedAt))),
     );
     response.headers.set('X-Liekan-Expires-At', String(Math.min(...results.map(r => r.expiresAt))));
-    response.headers.set('X-Liekan-Cache', results.every(r => r.status === 'hit') ? 'hit' : 'miss');
+    response.headers.set(
+      'X-Liekan-Cache',
+      results.some(r => r.status === 'miss')
+        ? 'miss'
+        : results.some(r => r.status === 'coalesced')
+          ? 'coalesced'
+          : 'hit',
+    );
     response.headers.set(
       'X-Liekan-Cache-Tier',
       [...new Set(results.map(r => r.tier || 'computed'))].join(','),

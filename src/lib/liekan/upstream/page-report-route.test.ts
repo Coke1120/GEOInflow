@@ -62,6 +62,17 @@ it('records the shared cache source for page response freshness', async () => {
   expect(response.headers.get('X-Liekan-Cache-Source')).toBe('redis');
 });
 
+it.each(['hit', 'miss', 'coalesced'])('reports the page cache status %s', async status => {
+  mocks.read.mockResolvedValueOnce({
+    value: { meta: {} },
+    generatedAt: 1,
+    expiresAt: 30001,
+    status,
+  });
+  const response = await GET(request(), params);
+  expect(response.headers.get('X-Liekan-Cache')).toBe(status);
+});
+
 it('checks final page authorization after reading a cached result', async () => {
   const authorizeAgain = vi.fn(async () => false);
   mocks.authorize.mockImplementation(async request => {
