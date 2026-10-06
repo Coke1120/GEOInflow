@@ -233,6 +233,30 @@ export async function runDataRegression(query, options = {}) {
     [{ day: '2026-10-01', pv: 3, uv: 2, sessions: 2, bounces: 1 }],
   );
   const facts = await analytics.getHumanFacts(websiteId, start, end, 'Asia/Shanghai');
+  const orderedFacts = [
+    'geo',
+    'sources',
+    'environment',
+    'pages',
+    'journeys',
+    'exits',
+    'dailySources',
+  ];
+  const projected = await analytics.getHumanFacts(
+    websiteId,
+    start,
+    end,
+    'Asia/Shanghai',
+    orderedFacts,
+  );
+  check(
+    'tied rankings remain consistent between full and page-specific facts',
+    Object.fromEntries(orderedFacts.map(field => [field, projected[field]])),
+    Object.fromEntries(orderedFacts.map(field => [field, facts[field]])),
+  );
+  check('equal-count exit pages use a stable path tie-breaker', facts.exits, [
+    { path: '/b', count: 1 },
+  ]);
   const countrySQL = geography.getPostgresCountrySQL('country');
   const regionSQL = geography.getPostgresRegionSQL('country', 'region');
   const geographyFixture = `FROM (VALUES ('CN','CN-BJ'),('TW','TW-TPE'),('TW',NULL),('TWN','KHH'),('CN','CN-HSZ'),('CN','CN-71'),('CN','CN-tpe'),('tw',NULL),('twn','unknown'),('JP','JP-13'),(NULL,NULL)) AS geography(country,region) WHERE $1::uuid = '${websiteId}'::uuid`;
@@ -271,18 +295,31 @@ export async function runDataRegression(query, options = {}) {
   );
   check(
     'China filters include lowercase legacy country records',
-    await query(`SELECT count(*)::int AS visits ${geographyFixture} AND ${countrySQL} = 'CN'`, websiteId),
+    await query(
+      `SELECT count(*)::int AS visits ${geographyFixture} AND ${countrySQL} = 'CN'`,
+      websiteId,
+    ),
     [{ visits: 9 }],
   );
   check(
     'negative province searches retain country-only Taiwan records',
-    await query(`SELECT count(*)::int AS visits ${geographyFixture} AND (${regionSQL} NOT ILIKE '%CN-SH%' AND coalesce(region,${regionSQL}) NOT ILIKE '%CN-SH%')`, websiteId),
+    await query(
+      `SELECT count(*)::int AS visits ${geographyFixture} AND (${regionSQL} NOT ILIKE '%CN-SH%' AND coalesce(region,${regionSQL}) NOT ILIKE '%CN-SH%')`,
+      websiteId,
+    ),
     [{ visits: 10 }],
   );
   check(
     'source-country grouping merges legacy countries by normalized projection',
-    await query(`SELECT 'example.test' AS source,${countrySQL} AS country,count(*)::int AS visits ${geographyFixture} GROUP BY 1,2 ORDER BY 2`, websiteId),
-    [{ source: 'example.test', country: 'CN', visits: 9 }, { source: 'example.test', country: 'JP', visits: 1 }, { source: 'example.test', country: null, visits: 1 }],
+    await query(
+      `SELECT 'example.test' AS source,${countrySQL} AS country,count(*)::int AS visits ${geographyFixture} GROUP BY 1,2 ORDER BY 2`,
+      websiteId,
+    ),
+    [
+      { source: 'example.test', country: 'CN', visits: 9 },
+      { source: 'example.test', country: 'JP', visits: 1 },
+      { source: 'example.test', country: null, visits: 1 },
+    ],
   );
   check('full human facts use the same daily event bins', metrics(facts.daily), [
     { day: '2026-10-01', pv: 1, uv: 1, sessions: 1, bounces: 0 },

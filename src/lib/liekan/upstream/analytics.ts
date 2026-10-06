@@ -111,18 +111,18 @@ export async function getHumanFacts(
   const needs = (field: HumanFact) => !fields || selected.has(field);
   const statements: Record<string, string> = {
     daily: humanBinsSql(),
-    geo: ` SELECT ${getPostgresCountrySQL('v.country')} AS country,${getPostgresRegionSQL('v.country', 'v.region')} AS region,v.city,${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3 ORDER BY sessions DESC`,
-    sources: ` SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3,4 ORDER BY sessions DESC`,
-    environment: ` SELECT device,browser,os,count(*)::int AS sessions FROM visits GROUP BY 1,2,3 ORDER BY sessions DESC`,
+    geo: ` SELECT ${getPostgresCountrySQL('v.country')} AS country,${getPostgresRegionSQL('v.country', 'v.region')} AS region,v.city,${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3 ORDER BY sessions DESC,1,2,3`,
+    sources: ` SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3,4 ORDER BY sessions DESC,1,2,3,4`,
+    environment: ` SELECT device,browser,os,count(*)::int AS sessions FROM visits GROUP BY 1,2,3 ORDER BY sessions DESC,1,2,3`,
     pages: `, ordered AS (SELECT *,row_number() OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id) AS ordinal,extract(epoch FROM lead(created_at) OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id)-created_at)::float AS dwell FROM events WHERE event_type NOT IN(2,5))
       SELECT e.url_path AS path,count(*)::int AS pv,count(distinct e.session_id)::int AS uv,count(*) FILTER(WHERE e.ordinal=1)::int AS entries,avg(e.dwell)::float AS duration,count(e.dwell)::int AS samples,
-      count(*) FILTER(WHERE e.ordinal=1 AND v.pv=1 AND v.custom=0)::int AS bounces FROM ordered e JOIN visits v USING(visit_id,session_id) GROUP BY 1 ORDER BY pv DESC`,
+      count(*) FILTER(WHERE e.ordinal=1 AND v.pv=1 AND v.custom=0)::int AS bounces FROM ordered e JOIN visits v USING(visit_id,session_id) GROUP BY 1 ORDER BY pv DESC,path`,
     heatmap: ` SELECT extract(dow FROM started AT TIME ZONE $4)::int AS weekday,extract(hour FROM started AT TIME ZONE $4)::int AS hour,count(*)::int AS count FROM visits GROUP BY 1,2`,
     goals: ` SELECT d.report_id AS id,d.name,d.parameters->>'value' AS path,count(distinct m.event_id)::int AS count,count(distinct (m.visit_id,m.session_id)) FILTER(WHERE v.visit_id IS NOT NULL)::int AS "convertedSessions" FROM definitions d LEFT JOIN matches m USING(report_id) LEFT JOIN visits v ON v.visit_id=m.visit_id AND v.session_id=m.session_id GROUP BY 1,2,3`,
     converted: ` SELECT count(*)::int AS count,(SELECT count(distinct event_id)::int FROM matches) AS events FROM visits v JOIN converted cv USING(visit_id,session_id)`,
-    journeys: `, paths AS (SELECT visit_id,(array_agg(url_path ORDER BY created_at,event_id))[1:6] AS path FROM events WHERE event_type=1 GROUP BY visit_id) SELECT array_to_string(path,' → ') AS path,count(*)::int AS count FROM paths GROUP BY 1 ORDER BY count DESC LIMIT 6`,
-    exits: `, lasts AS (SELECT DISTINCT ON(visit_id,session_id) url_path AS path FROM events WHERE event_type=1 ORDER BY visit_id,session_id,created_at DESC,event_id DESC) SELECT path,count(*)::int AS count FROM lasts GROUP BY 1 ORDER BY count DESC LIMIT 1`,
-    dailySources: ` SELECT to_char(started AT TIME ZONE $4,'YYYY-MM-DD') AS day,referrer,"utmSource","utmMedium","utmCampaign",count(*)::int AS count FROM visits GROUP BY 1,2,3,4,5 ORDER BY 1`,
+    journeys: `, paths AS (SELECT visit_id,(array_agg(url_path ORDER BY created_at,event_id))[1:6] AS path FROM events WHERE event_type=1 GROUP BY visit_id) SELECT array_to_string(path,' → ') AS path,count(*)::int AS count FROM paths GROUP BY 1 ORDER BY count DESC,path LIMIT 6`,
+    exits: `, lasts AS (SELECT DISTINCT ON(visit_id,session_id) url_path AS path FROM events WHERE event_type=1 ORDER BY visit_id,session_id,created_at DESC,event_id DESC) SELECT path,count(*)::int AS count FROM lasts GROUP BY 1 ORDER BY count DESC,path LIMIT 1`,
+    dailySources: ` SELECT to_char(started AT TIME ZONE $4,'YYYY-MM-DD') AS day,referrer,"utmSource","utmMedium","utmCampaign",count(*)::int AS count FROM visits GROUP BY 1,2,3,4,5 ORDER BY 1,2,3,4,5`,
     newVisitors: ` SELECT count(distinct v.session_id)::int AS count FROM visits v JOIN session s ON s.session_id=v.session_id AND s.website_id=$1::uuid WHERE s.created_at BETWEEN $2 AND $3`,
     dailyConversions: ` SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,count(distinct event_id)::int AS count FROM matches GROUP BY 1 ORDER BY 1`,
   };
