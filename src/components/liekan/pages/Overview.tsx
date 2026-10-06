@@ -98,7 +98,7 @@ export function Overview({ report, rangeLabel, trendLabel, aiCrawlerEnabled }: R
               <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="GEO 评价" />
             </tr>
           </thead>
-          <ReportRows table="topBody" report={report} />
+          <ReportRows table="topBody" report={report} pageSize={20} />
         </table>
       </section>
     </main>
@@ -166,7 +166,7 @@ function VisitorOverview({ report, rangeLabel, trendLabel }: ReportViewProps) {
               <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="访客数 UV" />
             </tr>
           </thead>
-          <ReportRows table="visitorTopBody" report={report} />
+          <ReportRows table="visitorTopBody" report={report} pageSize={20} />
         </table>
       </section>
     </main>

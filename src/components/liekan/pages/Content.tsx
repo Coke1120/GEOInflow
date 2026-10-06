@@ -61,7 +61,11 @@ export function Content({ report, aiCrawlerEnabled }: ReportViewProps) {
               )}
             </tr>
           </thead>
-          <ReportRows table={crawlerEnabled ? 'pgBody' : 'visitorPgBody'} report={report} />
+          <ReportRows
+            table={crawlerEnabled ? 'pgBody' : 'visitorPgBody'}
+            report={report}
+            pageSize={20}
+          />
         </table>
       </section>
       <section className="grid grid-cols-2 gap-4">

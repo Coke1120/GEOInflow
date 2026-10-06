@@ -64,7 +64,7 @@ export function Conversions({ report, rangeLabel }: ReportViewProps) {
                 <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="主承接页" />
               </tr>
             </thead>
-            <ReportRows table="goalBody" report={report} />
+            <ReportRows table="goalBody" report={report} pageSize={20} />
           </table>
         </div>
       </section>

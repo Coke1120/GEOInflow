@@ -77,7 +77,7 @@ export function HumanSources({ report, rangeLabel }: ReportViewProps) {
               <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="环比" />
             </tr>
           </thead>
-          <ReportRows table="srcBody" report={report} />
+          <ReportRows table="srcBody" report={report} pageSize={20} />
         </table>
       </section>
       <section className="rounded-xl bg-wash p-4 fade-in d3">

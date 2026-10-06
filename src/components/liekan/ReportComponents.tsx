@@ -16,6 +16,7 @@ import {
   tableLimits,
 } from './data';
 import { useReportActions } from './ReportContext';
+import { Button } from './features/ui';
 import type { DataState, LiekanReport, Row } from './types';
 
 function reportState(report: LiekanReport, table?: string): DataState {
@@ -396,96 +397,178 @@ export function ReportRows({
   table,
   report,
   limit,
+  pageSize,
 }: {
   table: string;
   report?: LiekanReport;
   limit?: number;
+  pageSize?: number;
 }) {
   const a = useReportActions();
   const loading = useDataLoading();
   const fields = columns[table] || [];
   const selected = selectRows(report?.tables[table] || [], a.filter, a.sort, table, a.query);
-  const displayLimit = limit ?? tableLimits[table];
-  const rows = displayLimit ? selected.slice(0, displayLimit) : selected;
+  const paged = typeof pageSize === 'number' && pageSize > 0;
+  const [page, setPage] = useState(1);
+  const pages = paged ? Math.max(1, Math.ceil(selected.length / pageSize!)) : 1;
+  useEffect(() => {
+    setPage(1);
+  }, [a.filter, a.sort.label, a.sort.direction, a.query, table]);
+  useEffect(() => {
+    if (page > pages) setPage(pages);
+  }, [page, pages]);
+  const safePage = Math.min(page, pages);
+  const rows = paged
+    ? selected.slice((safePage - 1) * pageSize!, safePage * pageSize!)
+    : selected.slice(0, limit ?? tableLimits[table]);
   const state = reportState(report, table);
   return (
-    <tbody className="divide-y divide-line/60" id={table} aria-busy={loading || undefined}>
-      {loading ? (
-        Array.from({ length: 3 }, (_, i) => (
-          <tr key={i} aria-hidden="true">
-            {fields.map(([field], j) => (
-              <td key={field} className={cellClasses[table]?.[j] || 'px-4 py-3'}>
-                <Skeleton width={j === 0 ? '80%' : '65%'} />
-              </td>
-            ))}
+    <>
+      <tbody className="divide-y divide-line/60" id={table} aria-busy={loading || undefined}>
+        {loading ? (
+          Array.from({ length: 3 }, (_, i) => (
+            <tr key={i} aria-hidden="true">
+              {fields.map(([field], j) => (
+                <td key={field} className={cellClasses[table]?.[j] || 'px-4 py-3'}>
+                  <Skeleton width={j === 0 ? '80%' : '65%'} />
+                </td>
+              ))}
+            </tr>
+          ))
+        ) : rows.length ? (
+          rows.map((row, i) => (
+            <tr
+              key={String(row.id || row.path || row.name || row.source || row.time || i) + i}
+              className="hover:bg-[#FAFBFD] transition-colors"
+            >
+              {fields.map(([field], j) => (
+                <td
+                  key={field}
+                  title={formatCellValue(row, field, table)}
+                  className={
+                    (cellClasses[table]?.[j] || 'px-4 py-3') +
+                    (field === 'trend'
+                      ? String(row.trend || '').startsWith('-')
+                        ? ' text-down'
+                        : ' text-up'
+                      : field === 'status'
+                        ? Number(row.status) >= 400
+                          ? ' text-up'
+                          : Number(row.status) === 304
+                            ? ' text-faint'
+                            : ' text-down'
+                        : field === 'conversionRate' && /AI/.test(String(row.channel))
+                          ? ' text-down font-semibold'
+                          : '')
+                  }
+                  style={
+                    field === 'userAgent'
+                      ? {
+                          maxWidth: 300,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }
+                      : undefined
+                  }
+                >
+                  <Cell row={row} field={field} table={table} />
+                </td>
+              ))}
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan={fields.length} className={styles.emptyRow}>
+              {a.query
+                ? '没有匹配的记录'
+                : stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state]}
+            </td>
           </tr>
-        ))
-      ) : rows.length ? (
-        rows.map((row, i) => (
-          <tr
-            key={String(row.id || row.path || row.name || row.source || row.time || i) + i}
-            className="hover:bg-[#FAFBFD] transition-colors"
-          >
-            {fields.map(([field], j) => (
-              <td
-                key={field}
-                title={formatCellValue(row, field, table)}
-                className={
-                  (cellClasses[table]?.[j] || 'px-4 py-3') +
-                  (field === 'trend'
-                    ? String(row.trend || '').startsWith('-')
-                      ? ' text-down'
-                      : ' text-up'
-                    : field === 'status'
-                      ? Number(row.status) >= 400
-                        ? ' text-up'
-                        : Number(row.status) === 304
-                          ? ' text-faint'
-                          : ' text-down'
-                      : field === 'conversionRate' && /AI/.test(String(row.channel))
-                        ? ' text-down font-semibold'
-                        : '')
-                }
-                style={
-                  field === 'userAgent'
-                    ? {
-                        maxWidth: 300,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }
-                    : undefined
-                }
-              >
-                <Cell row={row} field={field} table={table} />
-              </td>
-            ))}
+        )}
+      </tbody>
+      {paged && selected.length > pageSize! && (
+        <tfoot>
+          <tr>
+            <td colSpan={fields.length} className="border-t border-line p-0">
+              <Pager
+                total={selected.length}
+                page={safePage}
+                pages={pages}
+                onPrev={() => setPage(p => Math.max(1, p - 1))}
+                onNext={() => setPage(p => Math.min(pages, p + 1))}
+              />
+            </td>
           </tr>
-        ))
-      ) : (
-        <tr>
-          <td colSpan={fields.length} className={styles.emptyRow}>
-            {a.query
-              ? '没有匹配的记录'
-              : stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state]}
-          </td>
-        </tr>
+        </tfoot>
       )}
-    </tbody>
+    </>
+  );
+}
+function Pager({
+  total,
+  page,
+  pages,
+  label,
+  disabled,
+  onPrev,
+  onNext,
+}: {
+  total: number;
+  page: number;
+  pages: number;
+  label?: string;
+  disabled?: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 px-6 py-3"
+      data-report-pager
+    >
+      <span className="text-[11px] text-faint">
+        {label ? `${label} · ` : ''}共 {formatValue(total)} 条
+      </span>
+      <div className="flex items-center gap-2">
+        <span className="num text-[11px] text-faint">
+          第 {formatValue(page)} / {formatValue(pages)} 页
+        </span>
+        <Button disabled={disabled || page <= 1} onClick={onPrev}>
+          上一页
+        </Button>
+        <Button disabled={disabled || page >= pages} onClick={onNext}>
+          下一页
+        </Button>
+      </div>
+    </div>
   );
 }
 export function ReportList({
   id,
   className,
   report,
+  pageSize,
 }: {
   id: string;
   className: string;
   report?: LiekanReport;
+  pageSize?: number;
 }) {
   const loading = useDataLoading();
   const sourceRows = report?.tables[id] || [];
-  const rows = tableLimits[id] ? sourceRows.slice(0, tableLimits[id]) : sourceRows;
+  const paged = id !== 'envGrid' && typeof pageSize === 'number' && pageSize > 0;
+  const [page, setPage] = useState(1);
+  const pages = paged ? Math.max(1, Math.ceil(sourceRows.length / pageSize!)) : 1;
+  useEffect(() => {
+    if (page > pages) setPage(pages);
+  }, [page, pages]);
+  const safePage = Math.min(page, pages);
+  const rows = paged
+    ? sourceRows.slice((safePage - 1) * pageSize!, safePage * pageSize!)
+    : tableLimits[id]
+      ? sourceRows.slice(0, tableLimits[id])
+      : sourceRows;
   const state =
     id === 'blindList'
       ? report?.states.catalog
@@ -560,9 +643,10 @@ export function ReportList({
     );
   }
   return (
-    <div id={id} className={className}>
-      {rows.length
-        ? rows.map((row, i) => {
+    <>
+      <div id={id} className={className}>
+        {rows.length
+          ? rows.map((row, i) => {
             if (id === 'pathList')
               return (
                 <div key={i} className="flex items-center gap-3">
@@ -648,7 +732,19 @@ export function ReportList({
             );
           })
         : empty}
-    </div>
+      </div>
+      {paged && sourceRows.length > pageSize! && (
+        <div className="border-t border-line">
+          <Pager
+            total={sourceRows.length}
+            page={safePage}
+            pages={pages}
+            onPrev={() => setPage(p => Math.max(1, p - 1))}
+            onNext={() => setPage(p => Math.min(pages, p + 1))}
+          />
+        </div>
+      )}
+    </>
   );
 }
 export function InsightRows({
