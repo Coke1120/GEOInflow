@@ -4079,6 +4079,27 @@
       "removalCondition": "Remove when upstream analytics routes accept the site number handle natively"
     },
     {
+      "path": "src/lib/mcp/dispatch.ts",
+      "purpose": "Resolve numeric site-number handles in the MCP in-process fetch, which bypasses the middleware rewrite",
+      "tests": [
+        "src/lib/mcp/dispatch.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Only the URL pathname is normalized through the shared rewriteHandlePathname helper before route matching; dispatch routing, authentication and permission checks are unchanged",
+      "removalCondition": "Remove when upstream analytics routes accept the site number handle natively"
+    },
+    {
+      "path": "src/lib/mcp/dispatch.test.ts",
+      "purpose": "Cover short site number resolution composed with dispatch route matching",
+      "tests": [
+        "pnpm exec vitest run src/lib/mcp/dispatch.test.ts"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "The composition case asserts the rewritten pathname matches the dispatch table with the UUID parameter; no handler modules are loaded",
+      "removalCondition": "Remove together with the site number handle support"
+    },
+    {
       "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteTrackingCode.tsx",
       "purpose": "Render the tracking snippet with the canonical website UUID even when the settings URL carries a short site number",
       "tests": [

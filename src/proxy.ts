@@ -9,5 +9,10 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/websites/:path*', '/api/realtime/:path*', '/compat/api/websites/:path*'],
+  matcher: [
+    '/api/websites/:path*',
+    '/api/realtime/:path*',
+    '/compat/api/websites/:path*',
+    '/compat/api/realtime/:path*',
+  ],
 };

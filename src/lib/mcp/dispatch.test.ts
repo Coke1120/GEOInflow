@@ -1,7 +1,20 @@
-import { describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { rewriteHandlePathname } from '@/lib/liekan/website-handle-proxy';
 import { matchDispatchRoute } from './dispatch';
 
+const queryMock = vi.hoisted(() => vi.fn());
+vi.mock('pg', () => ({
+  Pool: class {
+    query = queryMock;
+  },
+}));
+
 describe('MCP dispatch table', () => {
+  beforeEach(() => {
+    queryMock.mockReset();
+    process.env.DATABASE_URL = 'postgresql://user:pass@localhost:5432/umami?schema=public';
+  });
+
   test('matches concrete paths and extracts parameters', () => {
     const match = matchDispatchRoute('GET', '/api/websites/abc/sessions/def/activity');
 
@@ -33,5 +46,16 @@ describe('MCP dispatch table', () => {
 
     expect(matchDispatchRoute('GET', '/api/websites/abc/goals/def')).toBeNull();
     expect(matchDispatchRoute('DELETE', '/api/websites/abc/segments/def')).toBeNull();
+  });
+
+  test('resolves a short site number to the UUID before route matching, like the middleware does', async () => {
+    const uuid = '67a8e084-de35-5f1c-a2b0-8f2732f830bf';
+    queryMock.mockResolvedValue({ rows: [{ website_id: uuid }] });
+
+    const pathname = await rewriteHandlePathname('/api/websites/101/stats');
+    const match = matchDispatchRoute('GET', pathname);
+
+    expect(match?.route.path).toBe('/api/websites/{websiteId}/stats');
+    expect(match?.params).toEqual({ websiteId: uuid });
   });
 });

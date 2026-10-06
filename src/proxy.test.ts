@@ -46,6 +46,7 @@ describe('website handle rewrite', () => {
     for (const path of [
       `/api/websites/${uuid}/metrics`,
       '/api/websites/404x/metrics',
+      '/api/websites/1234567890/metrics',
       '/api/liekan/websites/404/report',
       '/api/send',
       '/websites/301/geo',
@@ -60,5 +61,46 @@ describe('website handle rewrite', () => {
     queryMock.mockResolvedValue({ rows: [] });
     const response = await rewriteWebsiteHandle(request('/api/websites/999999999/metrics'));
     expect(response).toBeUndefined();
+  });
+
+  it('caches a resolved handle until the TTL expires', async () => {
+    // Cache state persists across tests in this module, so assert on call deltas
+    // against a handle only this test uses.
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    try {
+      queryMock.mockResolvedValue({ rows: [{ website_id: uuid }] });
+      const before = queryMock.mock.calls.length;
+      await rewriteWebsiteHandle(request('/api/websites/601/metrics'));
+      await rewriteWebsiteHandle(request('/api/websites/601/metrics'));
+      expect(queryMock).toHaveBeenCalledTimes(before + 1);
+
+      vi.setSystemTime(60_001);
+      await rewriteWebsiteHandle(request('/api/websites/601/metrics'));
+      expect(queryMock).toHaveBeenCalledTimes(before + 2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('evicts the oldest cache entries when the cache exceeds its limit', async () => {
+    queryMock.mockResolvedValue({ rows: [{ website_id: uuid }] });
+    const before = queryMock.mock.calls.length;
+    // 1201 fresh inserts through the 1000-entry capped cache guarantee that the
+    // first handle was evicted, regardless of cache state left by other tests.
+    await rewriteWebsiteHandle(request('/api/websites/602/metrics'));
+    for (let handle = 100000; handle <= 101200; handle += 1) {
+      await rewriteWebsiteHandle(request(`/api/websites/${handle}/metrics`));
+    }
+
+    await rewriteWebsiteHandle(request('/api/websites/602/metrics'));
+    expect(queryMock).toHaveBeenCalledTimes(before + 1203);
+  });
+
+  it('passes through without querying when DATABASE_URL is unset', async () => {
+    delete process.env.DATABASE_URL;
+    const response = await rewriteWebsiteHandle(request('/api/websites/603/metrics'));
+    expect(response).toBeUndefined();
+    expect(queryMock).not.toHaveBeenCalled();
   });
 });

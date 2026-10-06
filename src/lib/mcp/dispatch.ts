@@ -1,3 +1,4 @@
+import { rewriteHandlePathname } from '@/lib/liekan/website-handle-proxy';
 import { badRequest, notFound, serverError } from '@/lib/response';
 
 // Route handlers declare their own concrete `params` shapes; `any` keeps the table assignable.
@@ -276,6 +277,9 @@ export type InProcessFetch = (input: string | URL, init?: RequestInit) => Promis
 export function createInProcessFetch(): InProcessFetch {
   return async (input, init = {}) => {
     const url = new URL(input.toString());
+    // In-process calls never pass through the middleware, so resolve a numeric
+    // site-number handle to the website UUID the same way the proxy would.
+    url.pathname = await rewriteHandlePathname(url.pathname);
     const method = (init.method ?? 'GET').toUpperCase();
     const matched = matchDispatchRoute(method, url.pathname);
 
