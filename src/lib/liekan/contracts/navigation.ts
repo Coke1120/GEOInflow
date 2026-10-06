@@ -82,7 +82,7 @@ export const websiteNavigation: NavigationGroup[] = [
     label: '内容与转化',
     icon: 'activity',
     children: [
-      { page: 'geo-content', label: '页面与事件' },
+      { page: 'geo-content', label: '页面事件' },
       { page: 'sessions', label: '访问记录' },
       { page: 'geo-conversions', label: '转化分析' },
       { page: 'cohorts', label: '人群分析' },
@@ -95,7 +95,7 @@ export const websiteNavigation: NavigationGroup[] = [
     icon: 'activity',
     children: [
       { page: 'realtime', label: '实时访客' },
-      { page: 'geo-logs', label: '日志访问流' },
+      { page: 'geo-logs', label: '日志监测' },
     ],
   },
 ];

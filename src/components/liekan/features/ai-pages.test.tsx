@@ -1780,7 +1780,7 @@ describe('AI chat home and inline setup', () => {
     expect(mocks.createConversation).not.toHaveBeenCalled();
     await user.selectOptions(screen.getByLabelText('分析网站'), siteId);
     expect(await screen.findByLabelText('分析问题')).toHaveValue('哪些页面值得优先优化？');
-    for (const name of ['地域地图', 'AI 抓取分析', '日志访问流']) {
+    for (const name of ['地域地图', 'AI 抓取分析', '日志监测']) {
       const href = new URL(
         screen.getByRole('link', { name }).getAttribute('href')!,
         'https://liekan.local',

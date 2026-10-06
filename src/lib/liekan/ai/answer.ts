@@ -118,7 +118,7 @@ export function resolveAiActions(answer: AiAnswer, context: AiFactsContext): AiR
     'geo-ai': '查看抓取总览',
     'geo-bots': '查看 AI 爬虫',
     'geo-ai-pages': '查看抓取页面',
-    'geo-logs': '查看日志访问流',
+    'geo-logs': '查看日志监测',
     'geo-sources': '查看来源渠道',
     'geo-content': '查看页面与内容',
     'geo-conversions': '查看转化分析',

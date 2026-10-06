@@ -159,9 +159,9 @@ const functions = [
   { title: 'AI 抓取分析', page: 'geo-ai', icon: ChartNoAxesCombined },
   { title: '来源渠道', page: 'geo-sources', icon: Link2 },
   { title: '地域地图', page: 'geo-geography', icon: Map },
-  { title: '页面与事件', page: 'geo-content', icon: Layers3 },
+  { title: '页面事件', page: 'geo-content', icon: Layers3 },
   { title: '转化分析', page: 'geo-conversions', icon: Target },
-  { title: '日志访问流', page: 'geo-logs', icon: ListFilter },
+  { title: '日志监测', page: 'geo-logs', icon: ListFilter },
 ];
 const prompts = [
   '分析最近 7 天的 AI 抓取趋势',

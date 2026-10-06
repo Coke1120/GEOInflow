@@ -48,8 +48,8 @@ describe('website analysis families', () => {
   });
   it('keeps all original analysis views reachable through 14 menu entries, tabs and saved segments', () => {
     const menus = websiteNavigation.flatMap(group => group.children || [group]);
-    expect(menus).toHaveLength(15);
-    expect(menus.filter(item => item.page === 'help')).toHaveLength(1);
+    expect(menus).toHaveLength(14);
+    expect(menus.filter(item => item.page === 'help')).toHaveLength(0);
     const analysisMenus = menus.filter(item => item.page !== 'help');
     expect(analysisMenus).toHaveLength(14);
     const views = new Set([

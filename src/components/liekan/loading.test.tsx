@@ -126,7 +126,7 @@ describe('analysis loading states', () => {
         </WebsiteLayout>
       </LiekanShell>,
     );
-    expect(screen.getByRole('heading', { name: '页面与事件' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '页面事件' })).toBeInTheDocument();
     expect(screen.getAllByRole('tab')).toHaveLength(4);
     expect(screen.getByText('有流量页面')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '页面排行（人类访问）' })).toBeInTheDocument();
