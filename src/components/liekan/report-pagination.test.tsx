@@ -128,6 +128,43 @@ describe('report detail table pagination', () => {
     expect(screen.queryByText('/blind-20')).not.toBeInTheDocument();
   });
 
+  it('pages the spider preference list beyond its former display cap', async () => {
+    const data = report();
+    data.tables.prefList = Array.from({ length: 28 }, (_, i) => ({
+      bot: `GPTBot-${i + 1}`,
+      preference: '技术文档',
+    }));
+    render(
+      <ReportContext.Provider value={baseActions}>
+        <ReportList id="prefList" className="" report={data} pageSize={20} />
+      </ReportContext.Provider>,
+    );
+    expect(screen.getByText('共 28 条')).toBeInTheDocument();
+    expect(screen.getByText('第 1 / 2 页')).toBeInTheDocument();
+    expect(screen.getByText('GPTBot-20')).toBeInTheDocument();
+    expect(screen.queryByText('GPTBot-21')).not.toBeInTheDocument();
+    await click(screen.getByRole('button', { name: '下一页' }));
+    expect(screen.getByText('GPTBot-21')).toBeInTheDocument();
+    expect(screen.queryByText('GPTBot-20')).not.toBeInTheDocument();
+  });
+
+  it('pages the robots policy list when more than 20 rules are stored', async () => {
+    const data = report();
+    data.tables.robotsList = Array.from({ length: 23 }, (_, i) => ({
+      bot: `Spider-${i + 1}`,
+      policy: '已保存本地策略',
+    }));
+    render(
+      <ReportContext.Provider value={baseActions}>
+        <ReportList id="robotsList" className="" report={data} pageSize={20} />
+      </ReportContext.Provider>,
+    );
+    expect(screen.getByText('共 23 条')).toBeInTheDocument();
+    await click(screen.getByRole('button', { name: '下一页' }));
+    expect(screen.getByText('Spider-21')).toBeInTheDocument();
+    expect(screen.getByText('第 2 / 2 页')).toBeInTheDocument();
+  });
+
   it('exports every filtered row instead of the display limit', () => {
     const data = rows(25, '/page').map(row => ({ ...row, source: String(row.path) }));
     const csv = tableCsv('srcBody', data, '', { label: '', direction: -1 });
