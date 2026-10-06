@@ -140,6 +140,22 @@ describe('Liekan authenticated website boundary', () => {
     await expect(authorize(request, id)).rejects.toMatchObject({ status: 404 });
     expect(mocks.view).not.toHaveBeenCalled();
   });
+  it('resolves a short site number to the UUID and keys downstream checks on it', async () => {
+    mocks.auth.mockResolvedValue({ user: { id: 'reader' } });
+    mocks.website.mockResolvedValue({ id, name: 'Website', domain: 'example.com', siteNumber: 101 });
+    const access = await authorize(request, '101');
+    expect(mocks.website).toHaveBeenCalledWith({
+      where: { siteNumber: 101, deletedAt: null },
+      select: { id: true, name: true, domain: true, siteNumber: true },
+    });
+    expect(mocks.view.mock.calls[0][1]).toBe(id);
+    expect(access.website).toMatchObject({ id, siteNumber: 101 });
+  });
+  it('rejects a deleted site reached through its site number', async () => {
+    mocks.auth.mockResolvedValue({ user: { id: 'admin', isAdmin: true } });
+    mocks.website.mockResolvedValue(null);
+    await expect(authorize(request, '101')).rejects.toMatchObject({ status: 404 });
+  });
   it('permits read access but denies mutation for a viewer', async () => {
     mocks.auth.mockResolvedValue({ user: { id: 'viewer' } });
     await expect(authorize(request, id)).resolves.toMatchObject({ canManage: false });

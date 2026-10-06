@@ -3314,7 +3314,7 @@
         "src/queries/prisma/website.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
-      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: UUID and site-number lookups must both honor deletedAt filtering and shareId attachment; mutating queries keep addressing the UUID",
+      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: UUID and site-number lookups must behave identically (neither path adds a deletedAt filter, matching the upstream getWebsite; both attach shareId) and mutating queries keep addressing the UUID",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {

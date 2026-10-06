@@ -20,7 +20,7 @@ import {
   refreshFeatureIdentity,
   invalidateFeatureUserQueries,
 } from '@/lib/liekan/upstream/features-client';
-import { websiteHandle } from '@/lib/liekan/website-handle';
+import { websiteHandle, websiteMatchesHandle } from '@/lib/liekan/website-handle';
 import '@/styles/liekan/Features.module.css';
 import shellStyles from '@/styles/liekan/Shell.module.css';
 import {
@@ -242,7 +242,7 @@ export function FeatureApp({
     enabled: !!siteId && !setup,
     retry: false,
   });
-  const site = siteQuery.data || sites.find(s => s.id === siteId);
+  const site = siteQuery.data || sites.find(s => websiteMatchesHandle(s, siteId));
   const current = forceSetup ? { ...route, page: 'two-factor' } : route;
   const websiteLayout = meta.scope === 'website';
   const [segmentsOpen, setSegmentsOpen] = useState(false);

@@ -49,6 +49,12 @@ describe('approved scene routing', () => {
     });
     expect(matchFeatureRoute('/websites/101x')).toBeNull();
   });
+  it('keeps non-website placeholders UUID-only and emits the numeric settings alias', () => {
+    expect(matchFeatureRoute(`/websites/101/sessions/101`)).toBeNull();
+    expect(featureHref('website-settings', { websiteId: '101', context: 'admin' })).toBe(
+      '/admin/websites/101',
+    );
+  });
   it('routes every private scene through an implemented page and preserves the GEO overview', () => {
     for (const page of featurePages.filter(p => !['login', 'login-2fa', 'sso'].includes(p.id))) {
       const url = new URL(featureHref(page.id, { websiteId: uuid, id: uuid }), 'http://localhost');

@@ -9,6 +9,7 @@ import {
   pageNavigation,
   websiteAnalysisFamily,
 } from '@/lib/liekan/contracts/navigation';
+import { websiteMatchesHandle } from '@/lib/liekan/website-handle';
 import {
   useApi,
   useFeatureDateRange,
@@ -157,7 +158,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     enabled: !!websiteId,
     placeholderData: (previous, previousQuery) =>
       resource === 'logs' &&
-      previous?.website.id === websiteId &&
+      websiteMatchesHandle(previous?.website, websiteId) &&
       previousQuery?.queryKey[3] === resource &&
       previousQuery?.queryKey[13] === userId &&
       (liveLogs || (previous.range.startAt === startAt && previous.range.endAt === endAt))
@@ -332,7 +333,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       );
   }, [report, website, shell?.setWebsite, shell?.setBotCount]);
   useEffect(() => {
-    if (report?.website.id === websiteId && userId)
+    if (websiteMatchesHandle(report?.website, websiteId) && userId)
       queryClient.setQueryData(
         ['liekan-feature', userId, 'reported-crawler-display', websiteId],
         report.meta.aiCrawlerEnabled !== false,

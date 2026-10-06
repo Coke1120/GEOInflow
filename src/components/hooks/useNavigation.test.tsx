@@ -42,6 +42,12 @@ describe('navigation entity identity', () => {
     navigation.pathname = `/teams/${id}/websites/101/geo`;
     expect(renderHook(() => useNavigation()).result.current.websiteId).toBe('101');
   });
+  it('accepts nine-digit site numbers but rejects ten digits', () => {
+    navigation.pathname = '/websites/999999999';
+    expect(renderHook(() => useNavigation()).result.current.websiteId).toBe('999999999');
+    navigation.pathname = '/websites/1234567890';
+    expect(renderHook(() => useNavigation()).result.current.websiteId).toBeUndefined();
+  });
   it.each(entities.filter(([path]) => path !== 'websites'))(
     'ignores numeric segments for %s',
     (path, key) => {

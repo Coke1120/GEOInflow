@@ -159,6 +159,24 @@ describe('getWebsite dual-track resolution', () => {
     expect(findUniqueMock).not.toHaveBeenCalled();
     expect(findFirstMock).not.toHaveBeenCalled();
   });
+
+  test('accepts numeric handles up to nine digits and rejects longer ones', async () => {
+    findFirstMock.mockResolvedValue(site);
+    shareFindFirstMock.mockResolvedValue(null);
+    await expect(getWebsite('999999999')).resolves.toEqual({ ...site, shareId: null });
+    expect(findFirstMock).toHaveBeenCalledWith({ where: { siteNumber: 999999999 } });
+
+    findFirstMock.mockClear();
+    await expect(getWebsite('1234567890')).resolves.toBeNull();
+    expect(findFirstMock).not.toHaveBeenCalled();
+  });
+
+  test('queries site number zero like any other numeric handle', async () => {
+    findFirstMock.mockResolvedValue(null);
+    shareFindFirstMock.mockResolvedValue(null);
+    await expect(getWebsite('0')).resolves.toBeNull();
+    expect(findFirstMock).toHaveBeenCalledWith({ where: { siteNumber: 0 } });
+  });
 });
 
 describe('website delete dependencies', () => {

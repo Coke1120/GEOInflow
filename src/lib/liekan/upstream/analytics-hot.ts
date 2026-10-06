@@ -115,7 +115,7 @@ async function resolveWebsiteUuid(handle: string): Promise<string | null> {
   try {
     const { primary } = await import('./server');
     const website = await primary().website.findFirst({
-      where: { siteNumber: Number(handle) },
+      where: { siteNumber: Number(handle), deletedAt: null },
       select: { id: true },
     });
     return website?.id ?? null;

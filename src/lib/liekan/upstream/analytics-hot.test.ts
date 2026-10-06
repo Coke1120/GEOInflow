@@ -17,8 +17,10 @@ import {
 } from './analytics-hot';
 
 const mocks = vi.hoisted(() => ({ context: undefined as any, command: vi.fn() }));
+const serverMocks = vi.hoisted(() => ({ findFirst: vi.fn() }));
 vi.mock('./cache-context', () => ({ currentCacheContext: () => mocks.context }));
 vi.mock('./analytics-redis', () => ({ analyticsRedis: { enabled: true, command: mocks.command } }));
+vi.mock('./server', () => ({ primary: () => ({ website: { findFirst: serverMocks.findFirst } }) }));
 const redisAvailable = spawnSync('redis-server', ['--version'], { stdio: 'ignore' }).status === 0;
 const site = '11111111-1111-4111-8111-111111111111',
   actor = '22222222-2222-4222-8222-222222222222';
@@ -270,5 +272,42 @@ describe.skipIf(!redisAvailable)('hot scheduler with isolated Redis', () => {
     expect(await reserveWorkerComputation(now)).toBe(false);
     now += 60000;
     expect(await reserveWorkerComputation(now)).toBe(true);
+  });
+
+  test('resolves a numeric site number to the UUID before recording hot demand', async () => {
+    serverMocks.findFirst.mockResolvedValue({ id: site });
+    mocks.context.parameters = range;
+    mocks.context.request = new Request('http://localhost/api/websites/101/stats');
+    for (const at of [base, base + 30000, base + 60000]) {
+      now = at;
+      await rememberAnalyticsHot(
+        { value: [], generatedAt: now, expiresAt: now + 30000, status: 'hit' },
+        { strong: 'v1', data: 'd1' },
+      );
+    }
+    expect(serverMocks.findFirst).toHaveBeenCalledWith({
+      where: { siteNumber: 101, deletedAt: null },
+      select: { id: true },
+    });
+    const taskKey = (await client.keys('*:tasks'))[0];
+    const job = JSON.parse(Object.values(await client.hGetAll(taskKey))[0]) as AnalyticsRefreshJob;
+    expect(job.websiteId).toBe(site);
+    const due = (await client.keys('*:due'))[0];
+    expect(await client.zScore(due, `${site}|${job.fingerprint}`)).not.toBeNull();
+  });
+
+  test('ignores a numeric site number that resolves to no website', async () => {
+    serverMocks.findFirst.mockResolvedValue(null);
+    mocks.context.parameters = range;
+    mocks.context.request = new Request('http://localhost/api/websites/404/stats');
+    for (const at of [base, base + 30000, base + 60000]) {
+      now = at;
+      await rememberAnalyticsHot(
+        { value: [], generatedAt: now, expiresAt: now + 30000, status: 'hit' },
+        { strong: 'v1', data: 'd1' },
+      );
+    }
+    expect(await client.keys('*:tasks')).toHaveLength(0);
+    expect(await client.keys('*:recent')).toHaveLength(0);
   });
 });
