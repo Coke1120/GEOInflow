@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  clearTablePages,
   defaultDateRange,
   isLiveLogView,
   previousWeekRange,
@@ -82,7 +83,19 @@ describe('shareable GEO view conditions', () => {
   });
 });
 
-it('restores visitor overview sorting and applies it to the exported rows', async () => {
+  it('restores pagable table pages only for whitelisted tables and pages above 1', () => {
+    const state = readViewState(
+      { tp_topBody: '3', tp_pgBody: '2', tp_apBody: '1', tp_goalBody: '2', tp_srcBody: 'x' },
+      'content',
+    );
+    expect(state.tablePages).toEqual({ topBody: 3, pgBody: 2 });
+    // 日志资源不消费表分页参数，避免与日志批分页混淆。
+    expect(readViewState({ tp_topBody: '3' }, 'logs').tablePages).toEqual({});
+    expect(
+      Object.values(clearTablePages({ topBody: 3, srcBody: 2 })).every(value => value === undefined),
+    ).toBe(true);
+  });
+  it('restores visitor overview sorting and applies it to the exported rows', async () => {
   const { tableCsv, selectRows } = await import('./data');
   const rows = [
     { path: '/large', pv: 20, uv: 4 },

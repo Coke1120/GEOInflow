@@ -59,10 +59,20 @@ describe('buildReport serialization slicing', () => {
     mocks.human.mockResolvedValue({
       totals: { visits: 0, visitors: 0, pageviews: 0, bounces: 0, totaltime: 0 },
       daily: [],
-      geo: [{ country: '中国', region: '广东', city: '深圳', sessions: 5 }],
+      geo: [],
       sources: [],
       environment: [],
-      pages: Array.from({ length: 25 }, (_, i) => ({ path: `/page-${i + 1}`, pv: 25 - i, uv: i })),
+      pages: Array.from(
+        { length: 25 },
+        (_, i) => ({
+          path: `/page-${i + 1}`,
+          pv: 25 - i,
+          uv: i,
+          entries: i,
+          bounces: 0,
+          duration: null,
+        }),
+      ),
       heatmap: [],
       goals: [],
       converted: 0,
@@ -107,9 +117,35 @@ describe('buildReport serialization slicing', () => {
     expect(Object.keys(report.tables)).toEqual(['topBody']);
   });
 
-  it('keeps every table full and omits tablePages when no page is requested', async () => {
+  it('caps pagable tables to the first page by default on the page-report path', async () => {
     const report = await buildReport(website, false, params, true);
-    expect(report.tables.topBody).toHaveLength(25);
-    expect(report.meta.tablePages).toBeUndefined();
+    expect(report.tables.topBody).toHaveLength(20);
+    expect(report.tables.topBody[0].path).toBe('/page-1');
+    expect(report.meta.tablePages).toEqual({ topBody: { page: 1, pageSize: 20, total: 25 } });
+  });
+
+  it('skips requested pages for tables the resource does not expose', async () => {
+    const report = await buildReport(
+      website,
+      false,
+      { ...params, tablePages: { apBody: 3 } },
+      true,
+    );
+    // overview 只暴露 topBody；apBody 不在展示切片中，不产生它的 meta 键也不会报错。
+    expect(report.meta.tablePages).toEqual({ topBody: { page: 1, pageSize: 20, total: 25 } });
+  });
+
+  it('keeps the legacy report path full unless a page is explicitly requested', async () => {
+    const legacy = await buildReport(website, false, params, false);
+    expect(legacy.tables.topBody).toHaveLength(25);
+    expect(legacy.meta.tablePages).toBeUndefined();
+    const capped = await buildReport(
+      website,
+      false,
+      { ...params, tablePages: { topBody: 2 } },
+      false,
+    );
+    expect(capped.tables.topBody).toHaveLength(5);
+    expect(capped.meta.tablePages).toEqual({ topBody: { page: 2, pageSize: 20, total: 25 } });
   });
 });

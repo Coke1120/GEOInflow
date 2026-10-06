@@ -160,14 +160,23 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const rawQuery = api.useQuery<LiekanReport>({
     ...currentReport,
     enabled: !!websiteId,
-    placeholderData: (previous, previousQuery) =>
-      resource === 'logs' &&
-      previous?.website.id === websiteId &&
-      previousQuery?.queryKey[3] === resource &&
-      previousQuery?.queryKey[14] === userId &&
-      (liveLogs || (previous.range.startAt === startAt && previous.range.endAt === endAt))
+    placeholderData: (previous, previousQuery) => {
+      // logs 换批与 tp_* 翻页都会换 queryKey：queryKey[13] 是 tp_ 页码集合槽位，
+      // 仅该槽位变化时保留上一份数据，翻页期间显示旧切片 + 更新提示而非整页骨架。
+      const pageTurnOnly =
+        !!previousQuery &&
+        currentReport.queryKey.length === previousQuery.queryKey.length &&
+        currentReport.queryKey.every(
+          (value, index) => index === 13 || value === previousQuery.queryKey[index],
+        );
+      return (resource === 'logs' || pageTurnOnly) &&
+        previous?.website.id === websiteId &&
+        previousQuery?.queryKey[3] === resource &&
+        previousQuery?.queryKey[14] === userId &&
+        (liveLogs || (previous.range.startAt === startAt && previous.range.endAt === endAt))
         ? previous
-        : undefined,
+        : undefined;
+    },
     refetchInterval: resource === 'logs' && !liveLogs ? 10000 : false,
   });
   const query = useFreshnessLifecycle(rawQuery, {
@@ -404,8 +413,10 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           : resource === 'content' && report.meta.aiCrawlerEnabled === false
             ? 'visitorPgBody'
             : primaryTables[resource];
-      // 服务端分页表中客户端只持有当前 20 行；全量导出走既有服务端导出（10 万行/50 MiB 上限）。
-      if (table && report.meta.tablePages?.[table]) {
+      // 服务端分页表中客户端只持有当前切片；切片未覆盖全量时导出走既有服务端导出
+      // （10 万行/50 MiB 上限），整表就在当前切片内则保留本地 CSV。
+      const serverPage = table ? report.meta.tablePages?.[table] : undefined;
+      if (serverPage && !(serverPage.page === 1 && serverPage.total <= serverPage.pageSize)) {
         router.push(href('exports'));
         return;
       }
@@ -538,11 +549,9 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         },
         onAction,
         onLogsPage: gotoLogsPage,
+        // 翻页只改本表页码；各表白名单独立，其他表已请求的页码保持不变。
         onTablePage: (table, page) =>
-          updateView({
-            ...clearTablePages(tablePages),
-            [`tp_${table}`]: page > 1 ? page : undefined,
-          }),
+          updateView({ [`tp_${table}`]: page > 1 ? page : undefined }),
       }}
     >
       {shell?.websiteActionsTarget && createPortal(headerActions, shell.websiteActionsTarget)}
