@@ -9,7 +9,7 @@ export async function GET(
     const { websiteId, goalId } = await params;
     const access = await authorize(request, websiteId);
     return featureGoal(
-      websiteId,
+      access.website.id,
       goalId,
       Object.fromEntries(new URL(request.url).searchParams),
       access.auth,

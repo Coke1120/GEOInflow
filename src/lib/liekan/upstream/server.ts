@@ -15,24 +15,30 @@ import {
 } from './cache-context';
 import { primaryMetadataClient } from './analytics-deadline';
 export { LiekanError } from './errors';
+const WEBSITE_ID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+const SITE_NUMBER_PATTERN = /^\d{1,9}$/;
 export async function authorize(request: Request, websiteId: string, write = false) {
-  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(websiteId))
-    throw new LiekanError('站点 ID 无效');
+  const byId = WEBSITE_ID_PATTERN.test(websiteId);
+  if (!byId && !SITE_NUMBER_PATTERN.test(websiteId)) throw new LiekanError('站点 ID 无效');
   const auth = await runCacheAuthorization(() => checkAuth(request));
   if (!auth?.user || ('shareToken' in auth && auth.shareToken) || auth.user.deletedAt)
     throw new LiekanError('需要完整登录', 401);
   bindCacheRequest(request, auth);
-  await prepareAnalyticsVersions([`website:${websiteId.toLowerCase()}`]);
   const website = await runCacheAuthorization<any>(() =>
     primary().website.findFirst({
-      where: { id: websiteId, deletedAt: null },
-      select: { id: true, name: true, domain: true },
+      where: byId
+        ? { id: websiteId, deletedAt: null }
+        : { siteNumber: Number(websiteId), deletedAt: null },
+      select: { id: true, name: true, domain: true, siteNumber: true },
     }),
   );
   if (!website) throw new LiekanError('站点不存在', 404);
+  // Analytics cache tags and permission checks key on the UUID; the handle only selects the site.
+  const id = website.id as string;
+  await prepareAnalyticsVersions([`website:${id.toLowerCase()}`]);
   const allowed = write
-    ? await canUpdateWebsite(auth as Auth, websiteId)
-    : await canViewWebsite(auth as Auth, websiteId);
+    ? await canUpdateWebsite(auth as Auth, id)
+    : await canViewWebsite(auth as Auth, id);
   if (!allowed) throw new LiekanError('无权访问该站点', 403);
   bindCacheRequest(
     request,
@@ -50,7 +56,7 @@ export async function authorize(request: Request, websiteId: string, write = fal
         return false;
       const client = primaryMetadataClient() || primary();
       const current = await client.website.findFirst({
-        where: { id: websiteId, deletedAt: null },
+        where: { id, deletedAt: null },
         select: { userId: true, teamId: true },
       });
       if (!current) return false;
@@ -68,7 +74,7 @@ export async function authorize(request: Request, websiteId: string, write = fal
     website,
     auth,
     writeIdentity: { userId: auth.user.id },
-    canManage: Boolean(await canUpdateWebsite(auth as Auth, websiteId)),
+    canManage: Boolean(await canUpdateWebsite(auth as Auth, id)),
   };
 }
 export type WriteIdentity = { userId: string };
@@ -97,6 +103,7 @@ export async function lockWritableWebsite(tx: any, id: string, identity?: WriteI
     throw new LiekanError('站点管理权限已变更', 403);
 }
 const primary = (): any => getRawQueryClient(prisma.client, { write: true });
+export { primary };
 export async function query<T = any>(sql: string, ...params: unknown[]): Promise<T[]> {
   const snapshot = getQuerySnapshot() || primaryMetadataClient();
   if (snapshot) return snapshot.$queryRawUnsafe(sql, ...params) as Promise<T[]>;

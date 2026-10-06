@@ -7,7 +7,7 @@ export async function GET(
 ) {
   return api(async () => {
     const { websiteId } = await params;
-    await authorize(request, websiteId);
-    return { sources: await listSources(websiteId) };
+    const { website } = await authorize(request, websiteId);
+    return { sources: await listSources(website.id) };
   });
 }

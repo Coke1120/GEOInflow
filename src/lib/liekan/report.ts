@@ -39,7 +39,7 @@ function stringifySafe(value: unknown): any {
   );
 }
 export async function buildReport(
-  website: { id: string; name: string; domain: string },
+  website: { id: string; name: string; domain: string; siteNumber?: number | null },
   canManage: boolean,
   input: unknown,
   pageOnly: boolean | 'share' = false,

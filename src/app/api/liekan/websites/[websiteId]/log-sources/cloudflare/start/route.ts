@@ -9,7 +9,7 @@ export async function POST(
   const response = await api(async () => {
     const { websiteId } = await params,
       access = await authorize(request, websiteId, true);
-    const result = await beginCloudflare(websiteId, access.writeIdentity);
+    const result = await beginCloudflare(access.website.id, access.writeIdentity);
     cookie = result.cookie;
     return { authorizationUrl: result.authorizationUrl, flowId: result.flowId };
   });

@@ -12885,6 +12885,7 @@ export interface operations {
               id: string;
               /** @description Display name of the resource. */
               name: string;
+              siteNumber?: number | null;
             };
           };
         };
@@ -13341,6 +13342,7 @@ export interface operations {
               id: string;
               /** @description Display name of the resource. */
               name: string;
+              siteNumber?: number | null;
             };
           };
         };
@@ -13786,6 +13788,7 @@ export interface operations {
               id: string;
               /** @description Display name of the resource. */
               name: string;
+              siteNumber?: number | null;
             };
           };
         };

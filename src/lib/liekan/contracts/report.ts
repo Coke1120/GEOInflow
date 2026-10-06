@@ -10,7 +10,7 @@ export type DataState = z.infer<typeof dataStateSchema>;
 export type Row = Record<string, string | number | null | boolean>;
 export interface LiekanReport {
   contractVersion: 1;
-  website: { id: string; name: string; domain: string };
+  website: { id: string; name: string; domain: string; siteNumber?: number | null };
   range: { startAt: number; endAt: number; timezone: string };
   states: { human: DataState; logs: DataState; catalog: DataState; goals: DataState };
   cards: Array<{
@@ -79,7 +79,12 @@ export const chartIds = [
 ] as const;
 export const liekanReportSchema = z.object({
   contractVersion: z.literal(1),
-  website: z.object({ id: z.uuid(), name: z.string(), domain: z.string() }),
+  website: z.object({
+    id: z.uuid(),
+    name: z.string(),
+    domain: z.string(),
+    siteNumber: z.number().int().nullable().optional(),
+  }),
   range: z.object({ startAt: z.number(), endAt: z.number(), timezone: z.string() }),
   states: z.object({
     human: dataStateSchema,

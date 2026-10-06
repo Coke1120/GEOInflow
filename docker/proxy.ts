@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getContentSecurityPolicy } from '@/lib/csp';
 import { matchesConfiguredPath } from '@/lib/match-configured-path';
+import { rewriteWebsiteHandle } from '@/lib/liekan/website-handle-proxy';
 
 export const config = {
   matcher: '/:path*',
@@ -82,13 +83,13 @@ function disableLogin(request: NextRequest) {
   }
 }
 
-export default function middleware(req: NextRequest) {
-  const fns = [customCollectEndpoint, customScriptName, customScriptUrl, disableLogin];
+export default async function middleware(req: NextRequest) {
+  const fns = [rewriteWebsiteHandle, customCollectEndpoint, customScriptName, customScriptUrl, disableLogin];
 
   let res: NextResponse | undefined;
 
   for (const fn of fns) {
-    res = fn(req);
+    res = await fn(req);
     if (res) {
       break;
     }

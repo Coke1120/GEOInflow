@@ -124,13 +124,13 @@
     },
     {
       "path": "Dockerfile.liekan",
-      "purpose": "Isolate local Liekan runtime, database and immutable image revision",
+      "purpose": "Isolate local Liekan runtime, database and immutable image revision; carry the website site number migration revision",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance"
       ],
       "owner": "Liekan release maintenance",
-      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Isolate local Liekan runtime, database and immutable image revision",
+      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Isolate local Liekan runtime, database and immutable image revision; carry the website site number migration revision",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
@@ -160,14 +160,15 @@
     },
     {
       "path": "next.config.ts",
-      "purpose": "Typed production build, local font/branding and explicit agent rule control Typed production build, local font/branding and explicit agent rule control; Typed production build, local font/branding and explicit agent rule control Keep AI responses private and uncacheable in the actual Next.js header pipeline, including API URL aliases.",
+      "purpose": "Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance",
-        "tests/liekan/ai/http.integration.ts"
+        "tests/liekan/ai/http.integration.ts",
+        "src/proxy.test.ts"
       ],
       "owner": "Liekan release maintenance",
-      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Typed production build, local font/branding and explicit agent rule control Preserve upstream behavior and protocols outside this recorded purpose: Typed production build, local font/branding and explicit agent rule control; Preserve upstream behavior and protocols outside this recorded purpose: Typed production build, local font/branding and explicit agent rule control",
+      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
@@ -2794,14 +2795,14 @@
     },
     {
       "path": "src/components/hooks/useNavigation.ts",
-      "purpose": "Recognize complete UUID path segments and keep creation routes out of entity queries",
+      "purpose": "Recognize complete UUID path segments and the short website site number; keep creation routes out of entity queries",
       "tests": [
         "src/components/hooks/useNavigation.test.tsx",
         "Local create-board browser smoke"
       ],
       "owner": "Liekan upstream compatibility",
-      "constraint": "Preserve team context and query rendering; reject partial or malformed route identifiers",
-      "removalCondition": "Remove when upstream entity navigation validates complete UUID segments"
+      "constraint": "Preserve team context and query rendering; website segments accept a UUID or the short site number while teams, links, pixels and boards remain UUID-only",
+      "removalCondition": "Remove when upstream entity navigation validates complete UUID segments or adopts the site number handle"
     },
     {
       "path": "src/components/hooks/usePagedQuery.ts",
@@ -3302,17 +3303,18 @@
     },
     {
       "path": "src/queries/prisma/website.ts",
-      "purpose": "Fence automatic log sources when websites reset, change ownership/domain or are deleted; preserve upstream deletion order Fence automatic log sources when websites reset, change ownership/domain or are deleted; preserve upstream deletion order; Coordinate statistics reset and deletion with Liekan AI lifecycle transactions and invalidate bounded statistics caches while preserving upstream behavior",
+      "purpose": "Fence automatic log sources when websites reset, change ownership/domain or are deleted; preserve upstream deletion order; coordinate statistics reset and deletion with Liekan AI lifecycle transactions and invalidate bounded statistics caches; resolve website lookups by UUID or short site number",
       "tests": [
         "pnpm test:log-ingestion",
         "node scripts/liekan-log-integration.mjs",
         "pnpm liekan:verify",
         "Liekan release acceptance",
         "AI backend integration and lifecycle tests",
-        "pnpm exec vitest run src/lib/liekan/upstream/query-cache.test.ts src/lib/liekan/upstream/page-report-route.test.ts"
+        "pnpm exec vitest run src/lib/liekan/upstream/query-cache.test.ts src/lib/liekan/upstream/page-report-route.test.ts",
+        "src/queries/prisma/website.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
-      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Coordinate statistics reset with Liekan transactions and preserve upstream deletion lifecycle Preserve upstream behavior and protocols outside this recorded purpose: Coordinate statistics reset with Liekan transactions and preserve upstream deletion lifecycle; Preserve upstream behavior and protocols outside this recorded purpose: Coordinate statistics reset with Liekan transactions and preserve upstream deletion lifecycle",
+      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: UUID and site-number lookups must both honor deletedAt filtering and shareId attachment; mutating queries keep addressing the UUID",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
@@ -3953,6 +3955,128 @@
       "owner": "Liekan API compatibility maintenance",
       "constraint": "Preserve existing Umami operation signatures and response behavior while declaring the added AI response forms accurately",
       "removalCondition": "Remove when upstream supports equivalent multi-content response contracts and their regression checks pass"
+    },
+    {
+      "path": "prisma/schema.prisma",
+      "purpose": "Expose the short website site number (site_number) on the Website model for handle resolution",
+      "tests": [
+        "pnpm liekan:verify",
+        "src/queries/prisma/website.test.ts"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Keep the Prisma field mapping aligned with db/liekan/migrations/014_website_site_number.sql; the real column default and unique index live in the migration, never in prisma db push",
+      "removalCondition": "Remove when upstream websites carry a short numeric identifier natively"
+    },
+    {
+      "path": "src/proxy.ts",
+      "purpose": "Local development proxy: rewrite short numeric website handles to owner UUIDs on upstream analytics API paths, delegating to the shared liekan website-handle-proxy module",
+      "tests": [
+        "src/proxy.test.ts",
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "The Docker build replaces this file with docker/proxy.ts; only the API paths in config.matcher are affected and page routes pass through untouched",
+      "removalCondition": "Remove when upstream analytics routes accept the site number handle natively"
+    },
+    {
+      "path": "src/proxy.test.ts",
+      "purpose": "Cover the website handle rewrite behavior shared by the local and Docker middleware pipelines",
+      "tests": [
+        "pnpm exec vitest run src/proxy.test.ts"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Cases cover numeric rewrite, realtime/compat paths, UUID passthrough and unknown site numbers against the shared module",
+      "removalCondition": "Remove together with src/proxy.ts"
+    },
+    {
+      "path": "src/app/(main)/admin/websites/AdminWebsitesTable.tsx",
+      "purpose": "Open admin website edit navigation through the short site number",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Only navigation uses the handle; deletion keeps operating on the row UUID",
+      "removalCondition": "Remove when upstream navigation adopts the site number handle"
+    },
+    {
+      "path": "src/app/(main)/teams/[teamId]/TeamWebsitesTable.tsx",
+      "purpose": "Open team workspace website rows through the short site number",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Only navigation uses the handle; row actions keep operating on the row UUID",
+      "removalCondition": "Remove when upstream navigation adopts the site number handle"
+    },
+    {
+      "path": "src/app/(main)/websites/WebsitesDataTable.tsx",
+      "purpose": "Open website rows in the data table through the short site number",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Rows without an assigned site number fall back to the UUID",
+      "removalCondition": "Remove when upstream navigation adopts the site number handle"
+    },
+    {
+      "path": "src/app/(main)/websites/WebsitesTable.tsx",
+      "purpose": "Open website rows in the sites table through the short site number",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Rows without an assigned site number fall back to the UUID",
+      "removalCondition": "Remove when upstream navigation adopts the site number handle"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/WebsiteHeader.tsx",
+      "purpose": "Emit website title, active-users and settings links with the short site number",
+      "tests": [
+        "src/lib/liekan/website-handle.test.ts",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Links use websiteHandle(); tracking and install code keep exposing the UUID",
+      "removalCondition": "Remove when upstream navigation adopts the site number handle"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/WebsiteTabs.tsx",
+      "purpose": "Emit website tab links with the short site number",
+      "tests": [
+        "src/lib/liekan/website-handle.test.ts",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Links use websiteHandle(); share and install surfaces keep exposing the UUID",
+      "removalCondition": "Remove when upstream navigation adopts the site number handle"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteSettingsHeader.tsx",
+      "purpose": "Emit website settings navigation links with the short site number",
+      "tests": [
+        "src/lib/liekan/website-handle.test.ts",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Links use websiteHandle(); mutating settings actions keep addressing the UUID",
+      "removalCondition": "Remove when upstream navigation adopts the site number handle"
+    },
+    {
+      "path": "docker/proxy.ts",
+      "purpose": "Chain the website handle rewrite into the Docker middleware pipeline alongside upstream CSP, collect-endpoint and tracker-script handling",
+      "tests": [
+        "src/proxy.test.ts",
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "The rewrite runs first and only rewrites numeric website handles on /api/websites, /api/realtime and compat paths; all other upstream middleware behavior is preserved",
+      "removalCondition": "Remove when upstream analytics routes accept the site number handle natively"
     }
   ]
 }

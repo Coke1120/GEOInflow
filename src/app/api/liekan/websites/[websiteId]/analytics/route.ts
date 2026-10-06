@@ -9,8 +9,8 @@ export async function GET(
   return withQueryCacheHeaders(() =>
     api(async () => {
       const { websiteId } = await params;
-      await authorize(request, websiteId);
-      return featureAnalytics(websiteId, Object.fromEntries(new URL(request.url).searchParams));
+      const { website } = await authorize(request, websiteId);
+      return featureAnalytics(website.id, Object.fromEntries(new URL(request.url).searchParams));
     }),
   );
 }

@@ -7,7 +7,7 @@ export async function POST(
 ) {
   return api(async () => {
     const { websiteId } = await params;
-    const { writeIdentity } = await authorize(request, websiteId, true);
-    return createPairing(websiteId, writeIdentity);
+    const { website, writeIdentity } = await authorize(request, websiteId, true);
+    return createPairing(website.id, writeIdentity);
   });
 }

@@ -9,7 +9,7 @@ export async function POST(
     const { websiteId } = await params,
       access = await authorize(request, websiteId, true);
     return finalizeCloudflare(
-      websiteId,
+      access.website.id,
       await readBody(request, 2048),
       access.writeIdentity,
       request,

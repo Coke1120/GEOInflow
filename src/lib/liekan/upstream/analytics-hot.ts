@@ -110,6 +110,20 @@ if v.count<3 then redis.call('HDEL',KEYS[3],ARGV[1]); redis.call('ZREM',KEYS[4],
 for i=1,3 do redis.call('PEXPIRE',KEYS[i],900000) end
 return v.count`;
 
+/** Refresh jobs key versions and permissions on the UUID; the URL may carry the short site number. */
+async function resolveWebsiteUuid(handle: string): Promise<string | null> {
+  try {
+    const { primary } = await import('./server');
+    const website = await primary().website.findFirst({
+      where: { siteNumber: Number(handle) },
+      select: { id: true },
+    });
+    return website?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** A foreground observation owns the 15-minute window. Worker renewals never extend it. */
 export async function rememberAnalyticsHot(
   result: CachedResult<unknown>,
@@ -127,7 +141,7 @@ export async function rememberAnalyticsHot(
     )
       return;
     const match = new URL(context.request.url).pathname.match(
-      /^\/api\/(liekan\/)?websites\/([a-f0-9-]{36})\/(.+)$/i,
+      /^\/api\/(liekan\/)?websites\/([a-f0-9-]{36}|\d{1,9})\/(.+)$/i,
     );
     if (!match || !(match[1] ? FEATURE : NATIVE).has(match[3])) return;
     const parameters = { ...context.parameters };
@@ -150,7 +164,12 @@ export async function rememberAnalyticsHot(
         ))
     )
       return;
-    const websiteId = match[2].toLowerCase();
+    // Refresh jobs key versions and permissions on the UUID; resolve a numeric URL handle first.
+    const rawId = match[2].toLowerCase();
+    const websiteId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(rawId)
+      ? rawId
+      : await resolveWebsiteUuid(rawId);
+    if (!websiteId) return;
     const target = `${match[1] ? 'feature' : 'native'}:${match[3]}`;
     const scopeHash = analyticsCacheKey('scope-v1', context.scope);
     const fingerprint = analyticsCacheKey('hot-query-v1', [

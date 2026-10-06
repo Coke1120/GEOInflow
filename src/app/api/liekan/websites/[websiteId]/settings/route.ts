@@ -7,8 +7,8 @@ export async function GET(
 ) {
   return api(async () => {
     const { websiteId } = await params;
-    await authorize(request, websiteId);
-    return getSettings(websiteId);
+    const { website } = await authorize(request, websiteId);
+    return getSettings(website.id);
   });
 }
 export async function PUT(

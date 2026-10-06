@@ -8,8 +8,8 @@ async function getResponse(
 ) {
   return api(async () => {
     const { websiteId } = await params;
-    await authorize(request, websiteId);
-    return featureJourney(websiteId, Object.fromEntries(new URL(request.url).searchParams));
+    const { website } = await authorize(request, websiteId);
+    return featureJourney(website.id, Object.fromEntries(new URL(request.url).searchParams));
   });
 }
 
