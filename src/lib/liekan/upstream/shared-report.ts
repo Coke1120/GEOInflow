@@ -31,7 +31,10 @@ export async function readSharedReport(request: Request, websiteId: string): Pro
     website = { id: entity.id, name: entity.name, domain: entity.domain };
     goals = await canViewWebsiteSection(auth, websiteId, 'goals');
   } else {
-    website = (await authorize(request, websiteId)).website;
+    // The shared payload keeps the minimal website block for every viewer; the
+    // authorize row may also carry the short site number, which share pages never use.
+    const authorized = (await authorize(request, websiteId)).website;
+    website = { id: authorized.id, name: authorized.name, domain: authorized.domain };
   }
   bindCacheRequest(
     request,
