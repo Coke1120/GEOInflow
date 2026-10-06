@@ -13,6 +13,7 @@ export const pagableTables = [
 ] as const;
 export type PagableTable = (typeof pagableTables)[number];
 const pagableTableSet = new Set<string>(pagableTables);
+export const tablePageSize = 20;
 
 export const reportQuery = z.object({
   refresh: z.literal('1').optional(),

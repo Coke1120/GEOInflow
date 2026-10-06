@@ -1,6 +1,6 @@
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
-import { parseReportQuery } from './contracts/query';
+import { parseReportQuery, pagableTables, tablePageSize } from './contracts/query';
 import {
   type DataState,
   type LiekanReport,
@@ -38,6 +38,22 @@ function stringifySafe(value: unknown): any {
     JSON.stringify(value, (_key, item) => (typeof item === 'bigint' ? Number(item) : item)),
   );
 }
+// 序列化层切片（修正后 B1）：事实仍全量参与派生——AI 富化、pf1 回查、卡片与图表都依赖全量
+// 页路径且含 SQL 不可表达的解码路径连接——因此只在响应组装时按 tp_* 页码切片白名单明细表，
+// 并回写 total 供客户端服务端分页模式渲染。
+function capTablePages(report: LiekanReport, tablePages: Record<string, number>) {
+  for (const [table, page] of Object.entries(tablePages)) {
+    const rows = report.tables[table];
+    if (!rows || !(pagableTables as readonly string[]).includes(table)) continue;
+    const start = (page - 1) * tablePageSize;
+    report.tables[table] = rows.slice(start, start + tablePageSize);
+    report.meta.tablePages = {
+      ...report.meta.tablePages,
+      [table]: { page, pageSize: tablePageSize, total: rows.length },
+    };
+  }
+}
+
 export async function buildReport(
   website: { id: string; name: string; domain: string },
   canManage: boolean,
@@ -895,5 +911,6 @@ export async function buildReport(
       delete r.meta.previousCursor;
     }
   } else liekanReportSchema.parse(r);
+  capTablePages(r, p.tablePages);
   return r;
 }
