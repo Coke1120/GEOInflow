@@ -8,6 +8,7 @@ export type ReportActions = {
   onFilter: (label: string) => void;
   onSort: (label: string) => void;
   onAction: (label: string) => void;
+  onLogsPage?: (page: number) => void;
 };
 export const ReportContext = createContext<ReportActions>({
   filter: '',

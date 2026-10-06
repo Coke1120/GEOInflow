@@ -1,9 +1,10 @@
 'use client';
-import Link from 'next/link';
-import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
+import { managementLabels } from '@/lib/liekan/contracts/management';
 import {
   geoPageFromPath,
   pageNavigation,
@@ -11,15 +12,15 @@ import {
 } from '@/lib/liekan/contracts/navigation';
 import {
   useApi,
+  useFeatureAppState,
   useFeatureDateRange,
   useNavigation,
   useWebsite,
-  useFeatureAppState,
 } from '@/lib/liekan/upstream/client';
-import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
-import { useDateRangeClock } from '@/lib/liekan/upstream/date-range-clock';
 import { useFreshnessLifecycle } from '@/lib/liekan/upstream/client-freshness';
+import { useDateRangeClock } from '@/lib/liekan/upstream/date-range-clock';
 import { featureApi, getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
+import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
 import styles from '@/styles/liekan/Shell.module.css';
 import { AnalysisLoading, reportViews } from './AnalysisLoading';
 import { AnalysisTabs } from './AnalysisTabs';
@@ -36,7 +37,6 @@ import {
 } from './data';
 import { featureNavigationHref } from './features/routes';
 import { useLiekanShell } from './LiekanShell';
-import { managementLabels } from '@/lib/liekan/contracts/management';
 import { ManagementDrawer } from './ManagementDrawer';
 import { ReportContext } from './ReportContext';
 import type { LiekanReport, Resource } from './types';
@@ -371,6 +371,15 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           : '',
     );
   };
+  const gotoLogsPage = (page: number) => {
+    const next = page > logPage;
+    const cursor = next ? report?.meta.nextCursor : report?.meta.previousCursor;
+    updateView({
+      page,
+      cursor: cursor || undefined,
+      seek: cursor ? (next ? 'after' : 'before') : undefined,
+    });
+  };
   const onAction = (label: string) => {
     if (label.startsWith('导出')) {
       if (!report || query.isFetching) {
@@ -510,6 +519,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           });
         },
         onAction,
+        onLogsPage: gotoLogsPage,
       }}
     >
       {shell?.websiteActionsTarget && createPortal(headerActions, shell.websiteActionsTarget)}
@@ -677,15 +687,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             })
           }
           initialSearch={search}
-          onPage={page => {
-            const next = page > logPage;
-            const cursor = next ? report?.meta.nextCursor : report?.meta.previousCursor;
-            updateView({
-              page,
-              cursor: cursor || undefined,
-              seek: cursor ? (next ? 'after' : 'before') : undefined,
-            });
-          }}
+          onPage={gotoLogsPage}
           onLogsFilter={onFilter}
           logsFilter={filter}
           report={report}
