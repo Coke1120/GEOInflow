@@ -353,10 +353,7 @@ export function tableCsv(
   search = '',
 ) {
   const fields = columns[table] || [];
-  const selected = selectRows(rows, filter, sort, table, search).slice(
-    0,
-    tableLimits[table] || Number.POSITIVE_INFINITY,
-  );
+  const selected = selectRows(rows, filter, sort, table, search);
   return csvMatrix(
     fields.map(([, label]) => label),
     selected.map(row => fields.map(([field]) => formatCellValue(row, field, table))),
