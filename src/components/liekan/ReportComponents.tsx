@@ -651,6 +651,8 @@ export function ReportList({
     : tableLimits[id]
       ? sourceRows.slice(0, tableLimits[id])
       : sourceRows;
+  const journeyShareTotal =
+    id === 'journeyList' ? rows.reduce((sum, row) => sum + (Number(row.count) || 0), 0) : 0;
   const state =
     id === 'blindList'
       ? report?.states.catalog
@@ -768,10 +770,15 @@ export function ReportList({
                     <p className="text-[11px] text-brand mt-0.5">{formatValue(row.suggestion)}</p>
                   </div>
                 );
-              if (id === 'journeyList')
+              if (id === 'journeyList') {
+                // 全宽行首行放深度与 TOP6 内占比条；会话计数必须保留在 <p> 里，
+                // 视觉夹具按 journeyList 行内 p 文本解析 count 与转化率。
+                const depth = String(row.path ?? '').split(' → ').length;
+                const share =
+                  journeyShareTotal > 0 ? (Number(row.count) || 0) / journeyShareTotal : 0;
                 return (
                   <div key={i} className="rounded-lg bg-wash px-3 py-2.5">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       {step(i)}
                       <span
                         className="num text-[11.5px] text-ink truncate flex-1"
@@ -779,8 +786,20 @@ export function ReportList({
                       >
                         {formatValue(row.path)}
                       </span>
+                      <span className="text-[10.5px] text-faint shrink-0">
+                        {depth > 1 ? `${depth} 页` : '单页'}
+                      </span>
+                      <span className="w-[120px] h-1.5 rounded-full bg-brand/10 overflow-hidden shrink-0">
+                        <span
+                          className="block h-full rounded-full bg-brand/60"
+                          style={{ width: `${Math.min(100, share * 100).toFixed(1)}%` }}
+                        />
+                      </span>
+                      <span className="num text-[11px] text-sub shrink-0 w-[44px] text-right">
+                        {percentage(share * 100)}
+                      </span>
                     </div>
-                    <p className="text-[10.5px] text-faint mt-1" style={{ marginLeft: 28 }}>
+                    <p className="text-[10.5px] text-faint mt-1" style={{ marginLeft: 32 }}>
                       {formatValue(row.count)} 会话
                       {row.conversionRate != null
                         ? ` · 转化 ${percentage(row.conversionRate)}`
@@ -788,6 +807,7 @@ export function ReportList({
                     </p>
                   </div>
                 );
+              }
               if (id === 'robotsList')
                 return (
                   <div key={i} className="flex items-center gap-2.5 rounded-lg bg-wash px-3 py-2">

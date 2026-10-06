@@ -169,4 +169,23 @@ describe('evidence-backed reference copy', () => {
     expect(html).toContain('共 9 条');
     expect(html).toContain('第 1 / 2 页');
   });
+  it('lays the journey paths full width with depth and top-six share', () => {
+    const data = report();
+    data.states.logs = 'available';
+    data.tables.journeyList = [
+      { path: '/', count: 900 },
+      { path: '/a → /b → /c', count: 100 },
+    ];
+    const html = renderToStaticMarkup(
+      <ReportContext.Provider value={actions}>
+        <Content report={data} rangeLabel="范围" />
+      </ReportContext.Provider>,
+    );
+    expect(html).toContain('占比按 TOP6 会话合计');
+    expect(html).toContain('TOP6 合计 1,000 会话');
+    expect(html).toContain('单页');
+    expect(html).toContain('3 页');
+    expect(html).toContain('90%');
+    expect(html).toContain('10%');
+  });
 });

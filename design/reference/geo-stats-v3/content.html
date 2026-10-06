@@ -159,17 +159,20 @@ tailwind.config = { theme: { extend: {
       </table>
     </section>
 
-    <section class="grid grid-cols-2 gap-4">
-      <div class="card fade-in d2">
-        <div class="px-6 pt-5 pb-2"><h2 class="text-[14px] font-bold tracking-tight">站内访问路径 TOP6</h2>
-        <p class="text-[11.5px] text-faint mt-0.5">会话中最常见的页面跳转序列</p></div>
-        <div class="px-6 pb-5 pt-2 space-y-2" id="journeyList"></div>
+    <section class="card fade-in d2">
+      <div class="px-6 pt-5 pb-2 flex items-start justify-between gap-3">
+        <div>
+          <h2 class="text-[14px] font-bold tracking-tight">站内访问路径 TOP6</h2>
+          <p class="text-[11.5px] text-faint mt-0.5">会话中最常见的页面跳转序列 · 占比按 TOP6 会话合计</p>
+        </div>
+        <span class="num text-[11px] text-faint shrink-0 mt-1" id="journeyTotal"></span>
       </div>
-      <div class="card fade-in d3">
-        <div class="px-6 pt-5 pb-2"><h2 class="text-[14px] font-bold tracking-tight">内容更新与流量响应</h2>
-        <p class="text-[11.5px] text-faint mt-0.5">发布/更新日期 × 随后 7 天流量</p></div>
-        <div id="c1" style="height:250px"></div>
-      </div>
+      <div class="px-6 pb-5 pt-2 space-y-2" id="journeyList"></div>
+    </section>
+    <section class="card fade-in d3">
+      <div class="px-6 pt-5 pb-2"><h2 class="text-[14px] font-bold tracking-tight">内容更新与流量响应</h2>
+      <p class="text-[11.5px] text-faint mt-0.5">发布/更新日期 × 随后 7 天流量</p></div>
+      <div id="c1" style="height:250px"></div>
     </section>
   </main>
 </div>
@@ -208,20 +211,27 @@ pgs.forEach(m=>{
   tb.appendChild(tr);
 });
 const journeys=[
-  ['/ → /product → /pricing → /contact', '486 会话 · 转化 12.4%'],
-  ['/ → /cases/housty → /product → /contact', '328 会话 · 转化 14.2%'],
-  ['/blog/geo-12-metrics → /cases/housty → /', '286 会话 · 转化 6.8%'],
-  ['/ → /product → /cases/xinglan → /pricing', '242 会话 · 转化 9.6%'],
-  ['/blog/what-is-geo → /whitepaper（下载）', '186 会话 · 转化 18.4%'],
-  ['AI 引荐直达 /cases/housty → /contact', '164 会话 · 转化 21.6%'],
+  ['/ → /product → /pricing → /contact', 486, 12.4],
+  ['/ → /cases/housty → /product → /contact', 328, 14.2],
+  ['/blog/geo-12-metrics → /cases/housty → /', 286, 6.8],
+  ['/ → /product → /cases/xinglan → /pricing', 242, 9.6],
+  ['/blog/what-is-geo → /whitepaper（下载）', 186, 18.4],
+  ['AI 引荐直达 /cases/housty → /contact', 164, 21.6],
 ];
 const jl=document.getElementById('journeyList');
+const jTotal=journeys.reduce((s,j)=>s+j[1],0);
+document.getElementById('journeyTotal').textContent=`TOP6 合计 ${jTotal.toLocaleString()} 会话`;
 journeys.forEach((j,i)=>{
+  const depth=j[0].split(' → ').length;
+  const share=jTotal?j[1]/jTotal*100:0;
   const d=document.createElement('div');
   d.className='rounded-lg bg-wash px-3 py-2.5';
-  d.innerHTML=`<div class="flex items-center gap-2"><span class="w-5 h-5 rounded-md bg-brand/10 text-brand text-[10px] font-bold flex items-center justify-center shrink-0 num">${i+1}</span>
-    <span class="num text-[11.5px] text-ink truncate flex-1">${j[0]}</span></div>
-    <p class="text-[10.5px] text-faint mt-1 ml-7">${j[1]}</p>`;
+  d.innerHTML=`<div class="flex items-center gap-3"><span class="w-5 h-5 rounded-md bg-brand/10 text-brand text-[10px] font-bold flex items-center justify-center shrink-0 num">${i+1}</span>
+    <span class="num text-[11.5px] text-ink truncate flex-1">${j[0]}</span>
+    <span class="text-[10.5px] text-faint shrink-0">${depth>1?depth+' 页':'单页'}</span>
+    <span class="w-[120px] h-1.5 rounded-full bg-brand/10 overflow-hidden shrink-0"><span class="block h-full rounded-full bg-brand/60" style="width:${Math.min(100,share).toFixed(1)}%"></span></span>
+    <span class="num text-[11px] text-sub shrink-0 w-[44px] text-right">${share.toFixed(1)}%</span></div>
+    <p class="text-[10.5px] text-faint mt-1" style="margin-left:32px">${j[1].toLocaleString()} 会话 · 转化 ${j[2]}%</p>`;
   jl.appendChild(d);
 });
 mk('c1', { tooltip:TT,
