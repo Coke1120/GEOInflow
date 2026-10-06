@@ -12774,6 +12774,9 @@ export interface operations {
         seek?: 'after' | 'before';
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt: number;
+        tablePages?: {
+          [key: string]: number;
+        };
         /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
         timezone?: string;
       };
@@ -12819,7 +12822,7 @@ export interface operations {
               };
             };
             /** @constant */
-            contractVersion: 1;
+            contractVersion: 2;
             insights: string[];
             meta: {
               aiCrawlerEnabled?: boolean;
@@ -12837,6 +12840,15 @@ export interface operations {
               pageSize?: number;
               previousCursor?: string;
               ruleCount: number;
+              tablePages?: {
+                [key: string]: {
+                  /** @description Page number, starting at 1. */
+                  page: number;
+                  /** @description Number of results per page. */
+                  pageSize: number;
+                  total: number;
+                };
+              };
               totalLogs?: number;
             };
             range: {
@@ -12885,6 +12897,7 @@ export interface operations {
               id: string;
               /** @description Display name of the resource. */
               name: string;
+              siteNumber?: number | null;
             };
           };
         };
@@ -12973,6 +12986,9 @@ export interface operations {
         seek?: 'after' | 'before';
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt: number;
+        tablePages?: {
+          [key: string]: number;
+        };
         /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
         timezone?: string;
       };
@@ -13291,7 +13307,7 @@ export interface operations {
               };
             };
             /** @constant */
-            contractVersion: 1;
+            contractVersion: 2;
             insights: string[];
             meta: {
               aiCrawlerEnabled?: boolean;
@@ -13306,6 +13322,15 @@ export interface operations {
               pageSize?: number;
               previousCursor?: string;
               ruleCount: number;
+              tablePages?: {
+                [key: string]: {
+                  /** @description Page number, starting at 1. */
+                  page: number;
+                  /** @description Number of results per page. */
+                  pageSize: number;
+                  total: number;
+                };
+              };
               totalLogs?: number;
             };
             range: {
@@ -13341,6 +13366,7 @@ export interface operations {
               id: string;
               /** @description Display name of the resource. */
               name: string;
+              siteNumber?: number | null;
             };
           };
         };
@@ -13723,7 +13749,7 @@ export interface operations {
               };
             };
             /** @constant */
-            contractVersion: 1;
+            contractVersion: 2;
             insights: string[];
             meta: {
               aiCrawlerEnabled?: boolean;
@@ -13738,6 +13764,15 @@ export interface operations {
               pageSize?: number;
               previousCursor?: string;
               ruleCount: number;
+              tablePages?: {
+                [key: string]: {
+                  /** @description Page number, starting at 1. */
+                  page: number;
+                  /** @description Number of results per page. */
+                  pageSize: number;
+                  total: number;
+                };
+              };
               totalLogs?: number;
             };
             range: {
@@ -13786,6 +13821,7 @@ export interface operations {
               id: string;
               /** @description Display name of the resource. */
               name: string;
+              siteNumber?: number | null;
             };
           };
         };
