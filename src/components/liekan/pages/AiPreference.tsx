@@ -40,11 +40,14 @@ export function AiPreference({ report, rangeLabel }: ReportViewProps) {
           </div>
           <ReferenceChart id="pf1" height={260} report={report} />
         </div>
-        <div className="card fade-in d3">
-          <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">各蜘蛛内容偏好 TOP1</h2>
-          </div>
-          <ReportList id="prefList" className="px-6 pb-5 space-y-2" report={report} pageSize={20} />
+        <div className="card fade-in d3 p-5">
+          <h2 className="text-[14px] font-bold tracking-tight">各蜘蛛内容偏好</h2>
+          <ReportList
+            id="prefList"
+            className="mt-3 space-y-2 text-[11.5px] leading-relaxed"
+            report={report}
+            pageSize={6}
+          />
         </div>
       </section>
       <section className="grid grid-cols-2 gap-4">

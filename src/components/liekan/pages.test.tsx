@@ -150,4 +150,23 @@ describe('evidence-backed reference copy', () => {
     expect(html).toContain('共 8 条');
     expect(html).toContain('第 1 / 2 页');
   });
+  it('shows the spider preference list six entries per page with a pager', () => {
+    const data = report();
+    data.states.logs = 'available';
+    data.tables.prefList = Array.from({ length: 9 }, (_, i) => ({
+      bot: `Spider-${i + 1}`,
+      preference: '文档（30.00% 抓取集中）',
+    }));
+    const html = renderToStaticMarkup(
+      <ReportContext.Provider value={actions}>
+        <AiPreference report={data} rangeLabel="范围" />
+      </ReportContext.Provider>,
+    );
+    expect(html).toContain('各蜘蛛内容偏好');
+    expect(html).not.toContain('各蜘蛛内容偏好 TOP1');
+    expect(html).toContain('Spider-6');
+    expect(html).not.toContain('Spider-7');
+    expect(html).toContain('共 9 条');
+    expect(html).toContain('第 1 / 2 页');
+  });
 });

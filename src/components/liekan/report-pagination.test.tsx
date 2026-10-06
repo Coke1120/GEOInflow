@@ -128,7 +128,7 @@ describe('report detail table pagination', () => {
     expect(screen.queryByText('/blind-20')).not.toBeInTheDocument();
   });
 
-  it('pages the spider preference list beyond its former display cap', async () => {
+  it('pages the spider preference list six entries at a time', async () => {
     const data = report();
     data.tables.prefList = Array.from({ length: 28 }, (_, i) => ({
       bot: `GPTBot-${i + 1}`,
@@ -136,16 +136,16 @@ describe('report detail table pagination', () => {
     }));
     render(
       <ReportContext.Provider value={baseActions}>
-        <ReportList id="prefList" className="" report={data} pageSize={20} />
+        <ReportList id="prefList" className="" report={data} pageSize={6} />
       </ReportContext.Provider>,
     );
     expect(screen.getByText('共 28 条')).toBeInTheDocument();
-    expect(screen.getByText('第 1 / 2 页')).toBeInTheDocument();
-    expect(screen.getByText('GPTBot-20')).toBeInTheDocument();
-    expect(screen.queryByText('GPTBot-21')).not.toBeInTheDocument();
+    expect(screen.getByText('第 1 / 5 页')).toBeInTheDocument();
+    expect(screen.getByText('GPTBot-6')).toBeInTheDocument();
+    expect(screen.queryByText('GPTBot-7')).not.toBeInTheDocument();
     await click(screen.getByRole('button', { name: '下一页' }));
-    expect(screen.getByText('GPTBot-21')).toBeInTheDocument();
-    expect(screen.queryByText('GPTBot-20')).not.toBeInTheDocument();
+    expect(screen.getByText('GPTBot-7')).toBeInTheDocument();
+    expect(screen.queryByText('GPTBot-6')).not.toBeInTheDocument();
   });
 
   it('pages the robots policy list five entries at a time', async () => {
