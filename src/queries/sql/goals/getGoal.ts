@@ -77,7 +77,7 @@ async function relationalQuery(
       ${dateQuery}
       ${filterQuery}
     `,
-    queryParams,
+    queryParams, 'getGoal',
   ).then(results => results?.[0]);
 }
 
@@ -131,6 +131,6 @@ async function clickhouseQuery(
       ${dateQuery}
       ${filterQuery}
     `,
-    queryParams,
+    queryParams, 'getGoal',
   ).then(results => results?.[0]);
 }

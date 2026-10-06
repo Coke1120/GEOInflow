@@ -1,0 +1,91 @@
+import { z } from 'zod';
+import * as schemas from '@/lib/analytics-schema';
+import { EVENT_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
+import { withDateRange } from '@/lib/schema';
+import { analysisQuery, journeyQuery } from '../contracts/analysis';
+import { reportQuery } from '../contracts/query';
+import { sharedReportQuery } from '../contracts/shared-report';
+
+export const analyticsRefreshJobSchema = z
+  .object({
+    websiteId: z.uuid(),
+    target: z.enum([
+      'native:stats',
+      'native:pageviews',
+      'native:metrics',
+      'native:events/stats',
+      'native:events/series',
+      'native:goals/stats',
+      'native:funnels/stats',
+      'native:retention',
+      'native:journeys',
+      'native:breakdown',
+      'native:attribution',
+      'native:heatmap',
+      'native:heatmaps',
+      'native:performance/stats',
+      'native:performance/chart',
+      'native:performance/metrics',
+      'native:revenue/stats',
+      'native:revenue/chart',
+      'native:revenue/metrics',
+      'native:utm/metrics',
+      'feature:page-report',
+      'feature:shared-report',
+      'feature:analytics',
+      'feature:journeys',
+    ]),
+    parameters: z.record(z.string(), z.unknown()),
+    actorId: z.uuid().optional(),
+    shareId: z.uuid().optional(),
+    scopeHash: z.string().regex(/^[a-f0-9]{64}$/),
+    expectedStrongVersion: z.string().max(16384),
+    scheduledAt: z.number().int().min(0),
+    fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+  })
+  .strict()
+  .refine(job => Boolean(job.actorId) !== Boolean(job.shareId));
+
+const nativeSchemas: Record<string, z.ZodType> = {
+  'goals/stats': schemas.goalQuerySchema,
+  'funnels/stats': schemas.funnelQuerySchema,
+  retention: schemas.retentionQuerySchema,
+  journeys: schemas.journeyQuerySchema,
+  breakdown: schemas.breakdownQuerySchema,
+  attribution: schemas.attributionQuerySchema,
+  heatmap: schemas.heatmapQuerySchema,
+  heatmaps: schemas.heatmapQuerySchema,
+  'performance/stats': schemas.performanceStatsQuerySchema,
+  'performance/chart': schemas.performanceChartQuerySchema,
+  'performance/metrics': schemas.performanceMetricsQuerySchema,
+  'utm/metrics': schemas.utmMetricsQuerySchema,
+  metrics: withDateRange({
+    type: z.enum(['channel', ...SESSION_COLUMNS, ...EVENT_COLUMNS]),
+    limit: z.coerce.number().int().min(1).max(500).optional(),
+  }),
+  'revenue/metrics': withDateRange({
+    type: z.enum(['country', 'region', 'referrer', 'channel']),
+    currency: z.string().max(10),
+  }),
+};
+
+/** Queue values have already passed GET parsing; round-trip only JSON wire fields before validation. */
+export function parseAnalyticsHotParameters(target: string, input: Record<string, any>) {
+  const parameters = { ...input };
+  if (target === 'native:breakdown' && Array.isArray(parameters.fields))
+    parameters.fields = JSON.stringify(parameters.fields);
+  if (target === 'native:funnels/stats' && Array.isArray(parameters.steps))
+    parameters.steps = JSON.stringify(parameters.steps);
+  if (target === 'feature:page-report') return reportQuery.parse(parameters);
+  if (target === 'feature:shared-report') return sharedReportQuery.parse(parameters);
+  if (target === 'feature:analytics') return analysisQuery.parse(parameters);
+  if (target === 'feature:journeys') return journeyQuery.parse(parameters);
+  const native = target.slice('native:'.length);
+  return (
+    nativeSchemas[native] ||
+    withDateRange({
+      limit: z.coerce.number().int().min(1).max(500).optional(),
+      currency: z.string().max(10).optional(),
+    })
+  ).parse(parameters);
+}

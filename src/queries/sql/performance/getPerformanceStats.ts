@@ -55,7 +55,7 @@ async function relationalQuery(
       and website_event.created_at between {{startDate}} and {{endDate}}
       ${filterQuery}
     `,
-    { ...queryParams, startDate, endDate },
+    { ...queryParams, startDate, endDate }, 'getPerformanceStats',
   ).then(result => result?.[0]);
 
   const summary = {
@@ -129,7 +129,7 @@ async function clickhouseQuery(
       and website_event.created_at between {startDate:DateTime64} and {endDate:DateTime64}
       ${filterQuery}
     `,
-    { ...queryParams, startDate, endDate },
+    { ...queryParams, startDate, endDate }, 'getPerformanceStats',
   ).then(result => result?.[0]);
 
   const summary = {

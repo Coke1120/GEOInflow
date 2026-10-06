@@ -9,7 +9,8 @@ export function useBoardQuery(boardId: string, options?: ReactQueryOptions) {
 
   return useQuery({
     queryKey: ['boards', { boardId, modified }],
-    queryFn: () => get(`/boards/${boardId}`),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(`/boards/${boardId}`, {}, {}, signal),
     enabled: !!boardId && boardId !== 'create',
     placeholderData: keepPreviousData,
     ...options,

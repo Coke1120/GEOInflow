@@ -9,8 +9,8 @@ export function useBoardSharesQuery({ boardId }: { boardId: string }, options?: 
 
   return usePagedQuery({
     queryKey: ['boardShares', { boardId, modified }],
-    queryFn: pageParams => {
-      return get(`/boards/${boardId}/shares`, pageParams);
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/boards/${boardId}/shares`, pageParams, {}, signal);
     },
     ...options,
   });

@@ -1,4 +1,5 @@
-import { pageReportParts } from './contracts/page-report';
+import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
+import { sharedReportParts } from './contracts/shared-report';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { reportQuery } from './contracts/query';
 import {
@@ -41,13 +42,17 @@ export async function buildReport(
   website: { id: string; name: string; domain: string },
   canManage: boolean,
   input: unknown,
-  pageOnly = false,
+  pageOnly: boolean | 'share' = false,
 ): Promise<LiekanReport> {
   const parsed = reportQuery.safeParse(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
   const p = parsed.data;
-  const parts = pageOnly ? pageReportParts[p.resource] : undefined;
-  const needed = (...resources: string[]) => !pageOnly || resources.includes(p.resource);
+  const parts =
+    pageOnly === 'share' ? sharedReportParts : pageOnly ? pageReportParts[p.resource] : undefined;
+  const needed = (...resources: string[]) =>
+    pageOnly === 'share'
+      ? resources.includes('human/overview')
+      : !pageOnly || resources.includes(p.resource);
   if (
     p.endAt < p.startAt ||
     p.endAt - p.startAt > 1096 * 86400000 ||
@@ -66,7 +71,10 @@ export async function buildReport(
     p.timezone,
   );
   const plotStart = new Date(
-    Math.max(0, p.endAt - { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000),
+    Math.max(
+      pageOnly === 'share' ? p.startAt : 0,
+      p.endAt - { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000,
+    ),
   );
   const [
     rawHuman,
@@ -113,7 +121,12 @@ export async function buildReport(
     days = Math.max(1, Math.ceil((p.endAt - p.startAt + 1) / 86400000));
   const t = h.totals;
   const humanState: DataState = t.visits ? 'available' : 'empty',
-    logState: DataState = l.latest ? (l.summary.requests ? 'available' : 'empty') : 'not_connected',
+    logState: DataState =
+      (l.connected ?? Boolean(l.latest))
+        ? l.summary.requests
+          ? 'available'
+          : 'empty'
+        : 'not_connected',
     catalogState: DataState = l.catalog.length ? 'available' : 'not_connected',
     goalState: DataState = h.goals.length ? 'available' : 'not_connected';
   const r: LiekanReport = {
@@ -127,6 +140,8 @@ export async function buildReport(
     insights: [],
     meta: {
       demo: settings.isDemo,
+      aiCrawlerEnabled: settings.aiCrawlerEnabled ?? true,
+      logsConfigured: settings.logsConfigured ?? (!settings.isDemo && !!l.latest),
       canManage,
       latestImportAt: l.latest,
       ruleCount: settings.rules.length,
@@ -369,7 +384,10 @@ export async function buildReport(
     new Set([...h.daily.map(d => d.day), ...l.daily.map(d => d.day)]),
   ).sort();
   const plotLabels = Array.from(
-    new Set([...plotHuman.map(d => d.day), ...plotLogs.map(d => d.day)]),
+    new Set([
+      ...plotHuman.map(d => d.day),
+      ...(settings.aiCrawlerEnabled === false ? [] : plotLogs.map(d => d.day)),
+    ]),
   ).sort();
   chart('d1', plotLabels, [
     {
@@ -803,8 +821,12 @@ export async function buildReport(
     '已接入日志中状态码 ≥400 的请求',
   );
   if (!parts || parts.insights) {
+    const insightDate = (time: number) =>
+      pageOnly === 'share'
+        ? formatInTimeZone(time, p.timezone, 'yyyy-MM-dd')
+        : new Date(time).toISOString().slice(0, 10);
     r.insights = [
-      `${new Date(p.startAt).toISOString().slice(0, 10)} 至 ${new Date(p.endAt).toISOString().slice(0, 10)}：${t.pageviews} 次人类浏览、${t.visits} 次访问。`,
+      `${insightDate(p.startAt)} 至 ${insightDate(p.endAt)}：${t.pageviews} 次人类浏览、${t.visits} 次访问。`,
       l.latest
         ? `已导入日志识别 ${l.summary.ai} 次 AI 请求；按 UA 分类，官方 IP 范围匹配结果见访问流。`
         : '接入服务器日志后可计算 AI 抓取统计。',
@@ -813,7 +835,7 @@ export async function buildReport(
         : '接入日志与 sitemap、CSV 或 JSON 目录后可计算完整覆盖率。',
       '结构化评分来自导入元数据；抓取完成率仍需正文传输证据。',
     ];
-    if (h.funnelError) r.insights.push(h.funnelError);
+    if (pageOnly !== 'share' && h.funnelError) r.insights.push(h.funnelError);
     r.tables.recoList = r.insights.map((detail, i) => ({
       name: `观察 ${i + 1}`,
       detail,
@@ -825,16 +847,45 @@ export async function buildReport(
       data.series = [];
       data.rows = [];
     }
-    if (id === 'd1' && !l.latest) data.series[1].values = [];
+    if (id === 'd1' && !l.latest && data.series[1]) data.series[1].values = [];
     if (id === 'c1' && !l.latest && data.series[1]) data.series[1].values = [];
   }
-  if (parts) {
+  const visitorOverview =
+    settings.aiCrawlerEnabled === false && (p.resource === 'overview' || pageOnly === 'share');
+  if (visitorOverview) {
+    r.charts.d1 = {
+      labels: plotHuman.map(day => day.day),
+      series: [{ name: '浏览量 PV', values: plotHuman.map(day => Number(day.pv ?? 0)) }],
+      state: humanState,
+    };
+    r.charts.d2 = { labels: [], series: [], state: 'unsupported' };
+    r.tables.visitorTopBody = h.pages.map(page => ({ path: page.path, pv: page.pv, uv: page.uv }));
+    r.insights = [
+      `所选统计范围：${t.pageviews} 次浏览、${t.visitors} 位访客、${t.visits} 次访问。`,
+    ];
+  }
+  const displayParts =
+    visitorOverview && parts && pageOnly !== 'share'
+      ? { ...parts, cards: visitorOverviewCards, charts: ['d1', 'd3'], tables: ['visitorTopBody'] }
+      : parts;
+  if (settings.aiCrawlerEnabled === false && p.resource === 'content') {
+    r.tables.visitorPgBody = r.tables.pgBody.map(({ aiRequests, ...page }) => page);
+    r.charts.c1.series = r.charts.c1.series.slice(0, 1);
+  }
+  if (displayParts) {
+    const parts = displayParts;
     r.cards = r.cards.filter(card => (parts.cards as readonly string[]).includes(card.label));
     r.charts = Object.fromEntries(
       Object.entries(r.charts).filter(([id]) => (parts.charts as readonly string[]).includes(id)),
     );
     r.tables = Object.fromEntries(
-      Object.entries(r.tables).filter(([id]) => (parts.tables as readonly string[]).includes(id)),
+      Object.entries(r.tables).filter(
+        ([id]) =>
+          (parts.tables as readonly string[]).includes(id) ||
+          (settings.aiCrawlerEnabled === false &&
+            p.resource === 'content' &&
+            id === 'visitorPgBody'),
+      ),
     );
     if (p.resource !== 'logs') {
       delete r.meta.totalLogs;

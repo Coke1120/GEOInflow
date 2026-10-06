@@ -1,0 +1,504 @@
+import { randomUUID, createHmac } from 'node:crypto';
+import { z } from 'zod';
+import { logPublicOrigin } from '../contracts/installation';
+import { getSettings } from '../store';
+import { invalidateWebsiteAnalytics } from '../upstream/query-cache';
+import {
+  LiekanError,
+  query,
+  sourceWebsite,
+  transaction,
+  type WriteIdentity,
+} from '../upstream/server';
+import {
+  decodeUpload,
+  hostname,
+  normalizeAutomatic,
+  stableUuid,
+  type AutomaticRecord,
+} from './protocol';
+import { enqueue, LOG_QUEUE, PROVIDER_QUEUE } from './queue';
+import { verificationSnapshots } from './ranges';
+import { newToken, tokenHash } from './secrets';
+
+export interface LogSource {
+  id: string;
+  website_id: string;
+  kind: 'server' | 'cloudflare';
+  domain: string;
+  created_by: string;
+  owner_id: string | null;
+  team_id: string | null;
+  state: 'configuring' | 'active' | 'paused' | 'disconnected' | 'error';
+  credential_hash: string | null;
+  credential_version: number;
+  requested_policy_revision: bigint | number;
+  provider_config: string | null;
+  provider_job_id: string | null;
+}
+export const uuid = (id: string) => {
+  if (!z.uuid().safeParse(id).success) throw new LiekanError('接入标识无效');
+  return id.toLowerCase();
+};
+export function publicUrl() {
+  const value = process.env.LIEKAN_PUBLIC_URL;
+  if (!value) throw new LiekanError('尚未配置公网 HTTPS 接收地址', 503);
+  const origin = logPublicOrigin(value);
+  if (!origin) throw new LiekanError('公网地址需要可信 HTTPS 域名', 503);
+  return origin;
+}
+export async function ensureState(tx: any, websiteId: string) {
+  await tx.$executeRawUnsafe(
+    'INSERT INTO liekan_log_state(website_id) VALUES ($1::uuid) ON CONFLICT DO NOTHING',
+    websiteId,
+  );
+  return (
+    await tx.$queryRawUnsafe(
+      'SELECT epoch,reset_at,policy_revision FROM liekan_log_state WHERE website_id=$1::uuid',
+      websiteId,
+    )
+  )[0];
+}
+export async function validateSource(tx: any, id: string, token?: string, allowInactive = false) {
+  const first: LogSource = (
+    await tx.$queryRawUnsafe('SELECT * FROM liekan_log_source WHERE id=$1::uuid', uuid(id))
+  )[0];
+  if (!first || (token !== undefined && tokenHash(token) !== first.credential_hash))
+    throw new LiekanError('接入凭据无效', 401);
+  const website = await sourceWebsite(tx, first.website_id, { userId: first.created_by });
+  const source: LogSource = (
+    await tx.$queryRawUnsafe(
+      'SELECT * FROM liekan_log_source WHERE id=$1::uuid FOR UPDATE',
+      first.id,
+    )
+  )[0];
+  if (token !== undefined && tokenHash(token) !== source.credential_hash)
+    throw new LiekanError('接入凭据已变更', 401);
+  if (
+    hostname(website.domain) !== source.domain ||
+    website.user_id !== source.owner_id ||
+    website.team_id !== source.team_id
+  )
+    throw new LiekanError('网站域名或归属已变更，请重新连接', 403);
+  if (source.state === 'disconnected' || (!allowInactive && source.state !== 'active'))
+    throw new LiekanError('日志来源已暂停', 409);
+  const state = await ensureState(tx, source.website_id);
+  return { source, epoch: state.epoch as number, resetAt: state.reset_at || website.reset_at };
+}
+export async function activateSource(tx: any, source: LogSource) {
+  if (!source.credential_hash || (source.kind === 'cloudflare' && !source.provider_config))
+    throw new LiekanError('接入凭据已失效，请重新连接', 409);
+  const state = await ensureState(tx, source.website_id);
+  if (String(state.policy_revision) !== String(source.requested_policy_revision))
+    throw new LiekanError('主要来源已变更，请重新确认此连接', 409);
+  const cutover = (await tx.$queryRawUnsafe('SELECT clock_timestamp() AS time'))[0].time;
+  await tx.$executeRawUnsafe(
+    'UPDATE liekan_log_interval SET ends_at=$2::timestamptz WHERE website_id=$1::uuid AND ends_at IS NULL',
+    source.website_id,
+    cutover,
+  );
+  await tx.$executeRawUnsafe(
+    "UPDATE liekan_log_source SET state='paused' WHERE website_id=$1::uuid AND id!=$2::uuid AND state='active'",
+    source.website_id,
+    source.id,
+  );
+  await tx.$executeRawUnsafe(
+    'INSERT INTO liekan_log_interval(id,website_id,source_id,starts_at) VALUES ($1::uuid,$2::uuid,$3::uuid,$4::timestamptz)',
+    randomUUID(),
+    source.website_id,
+    source.id,
+    cutover,
+  );
+  await tx.$executeRawUnsafe(
+    "UPDATE liekan_log_source SET state='active',error_code=NULL WHERE id=$1::uuid",
+    source.id,
+  );
+  await tx.$executeRawUnsafe(
+    'UPDATE liekan_log_state SET policy_revision=policy_revision+1,updated_at=now() WHERE website_id=$1::uuid',
+    source.website_id,
+  );
+}
+export async function createSource(
+  tx: any,
+  websiteId: string,
+  kind: LogSource['kind'],
+  identity: WriteIdentity,
+) {
+  const website = await sourceWebsite(tx, websiteId, identity);
+  const state = await ensureState(tx, websiteId);
+  const sourceId = randomUUID(),
+    token = newToken();
+  await tx.$executeRawUnsafe(
+    'INSERT INTO liekan_log_source(id,website_id,kind,domain,created_by,owner_id,team_id,credential_hash,requested_policy_revision) VALUES ($1::uuid,$2::uuid,$3,$4,$5::uuid,$6::uuid,$7::uuid,$8,$9)',
+    sourceId,
+    websiteId,
+    kind,
+    hostname(website.domain),
+    identity.userId,
+    website.user_id,
+    website.team_id,
+    tokenHash(token),
+    state.policy_revision,
+  );
+  const source: LogSource = (
+    await tx.$queryRawUnsafe('SELECT * FROM liekan_log_source WHERE id=$1::uuid', sourceId)
+  )[0];
+  return { source, token };
+}
+export async function listSources(websiteId: string) {
+  return query(
+    `SELECT id,kind,domain,state,credential_version AS "credentialVersion",last_heartbeat_at AS "lastHeartbeatAt",last_received_at AS "lastReceivedAt",last_processed_at AS "lastProcessedAt",last_test_at AS "lastTestAt",error_code AS "errorCode",health,
+    (SELECT count(*)::int FROM liekan_ingest_batch b WHERE b.source_id=s.id AND b.state='pending') AS backlog,
+    (SELECT count(*)::int FROM liekan_ingest_batch b WHERE b.source_id=s.id AND b.state='failed') AS failed,
+    EXISTS(SELECT 1 FROM liekan_log_interval i WHERE i.source_id=s.id AND i.ends_at IS NULL) AS primary,
+    (s.provider_config IS NOT NULL AND (s.state='disconnected' OR s.credential_hash IS NULL)) AS \"cleanupPending\"
+    FROM liekan_log_source s WHERE website_id=$1::uuid AND (state!='disconnected' OR provider_config IS NOT NULL) ORDER BY created_at DESC`,
+    websiteId,
+  );
+}
+export async function receiveBatch(request: Request, sourceId: string) {
+  sourceId = uuid(sourceId);
+  const token = request.headers.get('authorization')?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
+  if (!token) throw new LiekanError('需要来源凭据', 401);
+  const principal = await transaction(tx => validateSource(tx, sourceId, token, true));
+  const upload = await decodeUpload(request, principal.source.kind);
+  if (upload.test) {
+    if (principal.source.kind !== 'cloudflare') throw new LiekanError('连接测试无效');
+    await transaction(async tx => {
+      await validateSource(tx, sourceId, token, true);
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_log_source SET last_test_at=now() WHERE id=$1::uuid',
+        sourceId,
+      );
+    });
+    return { test: true };
+  }
+  const secret = process.env.APP_SECRET;
+  if (!secret) throw new LiekanError('日志隐私服务未配置', 503);
+  const settings = await getSettings(principal.source.website_id);
+  const parsed = normalizeAutomatic(
+    principal.source.kind,
+    sourceId,
+    upload.events,
+    principal.source.domain,
+    secret,
+    settings.rules,
+    await verificationSnapshots(),
+  );
+  const digest = createHmac('sha256', secret)
+    .update(`${sourceId}:${upload.epoch}:${upload.digest}`)
+    .digest('hex');
+  const batchId = stableUuid(`${sourceId}:${upload.epoch}:${upload.batchId}`);
+  return transaction(async tx => {
+    const live = await validateSource(tx, sourceId, token);
+    if (upload.epoch !== live.epoch) throw new LiekanError('采集代次已更新，请同步配置', 409);
+    const old = (
+      await tx.$queryRawUnsafe(
+        'SELECT id,digest,valid,rejected,state,inserted,duplicates FROM liekan_ingest_batch WHERE id=$1::uuid',
+        batchId,
+      )
+    )[0];
+    if (old) {
+      if (old.digest !== digest) throw new LiekanError('同一批次标识的内容已改变', 409);
+      return {
+        requestBatchId: upload.batchId,
+        epoch: live.epoch,
+        batchId: old.id,
+        received: upload.events.length,
+        valid: old.valid,
+        rejected: old.rejected,
+        duplicate: true,
+      };
+    }
+    const ledger = (
+      await tx.$queryRawUnsafe(
+        "SELECT id,digest FROM liekan_import WHERE id=$1::uuid AND source_id=$2::uuid AND kind='automatic'",
+        batchId,
+        sourceId,
+      )
+    )[0];
+    if (ledger) {
+      if (ledger.digest !== digest) throw new LiekanError('同一批次标识的内容已改变', 409);
+      return {
+        requestBatchId: upload.batchId,
+        epoch: live.epoch,
+        batchId,
+        received: parsed.received,
+        valid: parsed.records.length,
+        rejected: parsed.rejected,
+        duplicate: true,
+      };
+    }
+    const rate = (
+      await tx.$queryRawUnsafe(
+        "SELECT (SELECT count(*)::int FROM liekan_ingest_batch WHERE website_id=$1::uuid AND state='pending') AS pending,(SELECT count(*)::int FROM liekan_ingest_batch WHERE website_id=$1::uuid AND received_at>now()-interval '1 minute') AS recent",
+        live.source.website_id,
+      )
+    )[0];
+    if (rate.pending >= 10000 || rate.recent >= 1200)
+      throw new LiekanError('日志接收积压或速率超出上限，请稍后重试', 429);
+    const resetAt = live.resetAt ? +new Date(live.resetAt) : 0;
+    const valid = parsed.records.filter(row => +new Date(row.time) >= resetAt);
+    const rejected = parsed.rejected + parsed.records.length - valid.length;
+    await tx.$executeRawUnsafe(
+      'INSERT INTO liekan_ingest_batch(id,website_id,source_id,epoch,digest,payload,received,valid,rejected,errors) VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::jsonb,$7,$8,$9,$10::jsonb)',
+      batchId,
+      live.source.website_id,
+      sourceId,
+      live.epoch,
+      digest,
+      JSON.stringify(valid),
+      parsed.received,
+      valid.length,
+      rejected,
+      JSON.stringify(parsed.errors),
+    );
+    await enqueue(tx, LOG_QUEUE, { batchId }, batchId);
+    if (valid.length)
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_log_source SET last_received_at=now() WHERE id=$1::uuid',
+        sourceId,
+      );
+    return {
+      requestBatchId: upload.batchId,
+      epoch: live.epoch,
+      batchId,
+      received: parsed.received,
+      valid: valid.length,
+      rejected,
+      errors: parsed.errors,
+      duplicate: false,
+    };
+  });
+}
+export async function processBatch(batchId: string) {
+  const first = (
+    await query(
+      'SELECT website_id,source_id,state FROM liekan_ingest_batch WHERE id=$1::uuid',
+      uuid(batchId),
+    )
+  )[0];
+  if (!first || first.state !== 'pending') return;
+  return transaction(async tx => {
+    const live = await validateSource(tx, first.source_id, undefined, true);
+    const batch = (
+      await tx.$queryRawUnsafe(
+        'SELECT * FROM liekan_ingest_batch WHERE id=$1::uuid FOR UPDATE',
+        batchId,
+      )
+    )[0];
+    if (!batch || batch.state !== 'pending') return;
+    if (batch.epoch !== live.epoch) {
+      await tx.$executeRawUnsafe(
+        "UPDATE liekan_ingest_batch SET state='cancelled',payload=NULL WHERE id=$1::uuid",
+        batchId,
+      );
+      return;
+    }
+    const rows: AutomaticRecord[] = batch.payload || [];
+    const resetAt = live.resetAt ? +new Date(live.resetAt) : 0;
+    const valid = rows.filter(row => +new Date(row.time) >= resetAt);
+    const conflicting = await tx.$queryRawUnsafe(
+      'SELECT 1 FROM liekan_log l JOIN jsonb_to_recordset($2::jsonb) AS r(id text,"eventDigest" text) ON l.id=r.id WHERE l.website_id=$1::uuid AND l.event_digest IS DISTINCT FROM r."eventDigest" LIMIT 1',
+      first.website_id,
+      JSON.stringify(valid),
+    );
+    if (conflicting.length) throw new LiekanError('事件标识对应内容发生冲突', 409);
+    await tx.$executeRawUnsafe(
+      "INSERT INTO liekan_import(id,website_id,digest,accepted,rejected,kind,source_id,inserted) VALUES($1::uuid,$2::uuid,$3,0,$4,'automatic',$5::uuid,0)",
+      batchId,
+      first.website_id,
+      batch.digest,
+      batch.rejected,
+      first.source_id,
+    );
+    let inserted = 0;
+    if (valid.length)
+      inserted = await tx.$executeRawUnsafe(
+        `INSERT INTO liekan_log(id,website_id,import_id,source_id,event_digest,verification_version,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification)
+      SELECT r.id,$1::uuid,$2::uuid,$3::uuid,r."eventDigest",r."verificationVersion",r.time::timestamptz,r.path,r.method,r.status,r.bytes,r."ipMasked",r."ipHash",r."userAgent",r.location,r.bot,r.vendor,r.type,r.verification
+      FROM jsonb_to_recordset($4::jsonb) AS r(id text,"eventDigest" text,"verificationVersion" text,time text,path text,method text,status integer,bytes bigint,"ipMasked" text,"ipHash" text,"userAgent" text,location text,bot text,vendor text,type text,verification text) ON CONFLICT(website_id,id) DO NOTHING`,
+        first.website_id,
+        batchId,
+        first.source_id,
+        JSON.stringify(valid),
+      );
+    await tx.$executeRawUnsafe(
+      'UPDATE liekan_import SET accepted=(SELECT count(*)::int FROM liekan_effective_log WHERE import_id=$1::uuid),inserted=$2 WHERE id=$1::uuid',
+      batchId,
+      inserted,
+    );
+    await tx.$executeRawUnsafe(
+      "UPDATE liekan_ingest_batch SET state='processed',payload=NULL,inserted=$2,duplicates=$3,processed_at=now() WHERE id=$1::uuid",
+      batchId,
+      inserted,
+      valid.length - inserted,
+    );
+    if (inserted) {
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_log_state SET data_revision=data_revision+1,updated_at=now() WHERE website_id=$1::uuid',
+        first.website_id,
+      );
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_log_source SET last_processed_at=now() WHERE id=$1::uuid',
+        first.source_id,
+      );
+    }
+  });
+}
+export async function heartbeat(sourceId: string, token: string, input: unknown) {
+  const health = z
+    .strictObject({
+      version: z.string().max(40),
+      pending: z.number().int().nonnegative(),
+      bytes: z.number().int().nonnegative(),
+      gap: z.boolean(),
+      errorCode: z
+        .enum(['none', 'offline', 'buffer-full', 'rotation-gap', 'unreadable', 'format-error'])
+        .default('none'),
+    })
+    .safeParse(input);
+  if (!health.success) throw new LiekanError('健康状态无效');
+  return transaction(async tx => {
+    const live = await validateSource(tx, sourceId, token, true);
+    await tx.$executeRawUnsafe(
+      'UPDATE liekan_log_source SET last_heartbeat_at=now(),health=$2::jsonb WHERE id=$1::uuid',
+      sourceId,
+      JSON.stringify(health.data),
+    );
+    if (
+      live.source.kind === 'server' &&
+      live.source.state === 'configuring' &&
+      health.data.errorCode === 'none'
+    ) {
+      const state = await ensureState(tx, live.source.website_id);
+      if (String(state.policy_revision) === String(live.source.requested_policy_revision)) {
+        await activateSource(tx, live.source);
+        live.source.state = 'active';
+      } else {
+        await tx.$executeRawUnsafe(
+          "UPDATE liekan_log_source SET state='paused',error_code='confirmation-required' WHERE id=$1::uuid",
+          sourceId,
+        );
+        live.source.state = 'paused';
+      }
+    }
+    return {
+      version: 1,
+      epoch: live.epoch,
+      state: live.source.state,
+      resetAt: live.resetAt,
+      batchSize: 1000,
+      heartbeatSeconds: 60,
+    };
+  });
+}
+export async function manageSource(
+  websiteId: string,
+  sourceId: string,
+  body: unknown,
+  identity: WriteIdentity,
+) {
+  const parsed = z
+    .strictObject({ action: z.enum(['pause', 'resume', 'select', 'rotate']) })
+    .safeParse(body);
+  if (!parsed.success) throw new LiekanError('来源操作无效');
+  const action = parsed.data.action;
+  const result = await transaction(async tx => {
+    await sourceWebsite(tx, websiteId, identity);
+    const source: LogSource = (
+      await tx.$queryRawUnsafe(
+        'SELECT * FROM liekan_log_source WHERE id=$1::uuid AND website_id=$2::uuid FOR UPDATE',
+        uuid(sourceId),
+        websiteId,
+      )
+    )[0];
+    if (!source || source.state === 'disconnected') throw new LiekanError('日志来源不存在', 404);
+    if (action === 'pause') {
+      await tx.$executeRawUnsafe(
+        "UPDATE liekan_log_source SET state='paused' WHERE id=$1::uuid",
+        sourceId,
+      );
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_log_interval SET ends_at=clock_timestamp() WHERE source_id=$1::uuid AND ends_at IS NULL',
+        sourceId,
+      );
+    } else if (action === 'rotate') {
+      if (!source.credential_hash) throw new LiekanError('接入凭据已失效，请重新连接', 409);
+      const token = newToken();
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_log_source SET credential_hash=$2,credential_version=credential_version+1 WHERE id=$1::uuid',
+        sourceId,
+        tokenHash(token),
+      );
+      if (source.kind === 'cloudflare') throw new LiekanError('Cloudflare 凭据轮换请重新授权', 409);
+      return { token };
+    } else {
+      if (!source.credential_hash || (source.kind === 'cloudflare' && !source.provider_config))
+        throw new LiekanError('接入凭据已失效，请重新连接', 409);
+      await validateSource(tx, sourceId, undefined, true);
+      const state = await ensureState(tx, websiteId);
+      source.requested_policy_revision = state.policy_revision;
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_log_source SET requested_policy_revision=$2 WHERE id=$1::uuid',
+        sourceId,
+        state.policy_revision,
+      );
+      if (source.kind === 'cloudflare') {
+        await tx.$executeRawUnsafe(
+          "UPDATE liekan_log_source SET state='configuring' WHERE id=$1::uuid",
+          sourceId,
+        );
+        await enqueue(tx, PROVIDER_QUEUE, { sourceId, action: 'configure' });
+        return { saved: true };
+      }
+      await activateSource(tx, source);
+    }
+    if (action === 'pause')
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_log_state SET policy_revision=policy_revision+1 WHERE website_id=$1::uuid',
+        websiteId,
+      );
+    if (action === 'pause' && source.kind === 'cloudflare')
+      await enqueue(tx, PROVIDER_QUEUE, { sourceId, action: 'health' });
+    return { saved: true };
+  });
+  invalidateWebsiteAnalytics(websiteId);
+  return result;
+}
+export async function disconnectSource(
+  websiteId: string,
+  sourceId: string,
+  identity: WriteIdentity,
+) {
+  return transaction(async tx => {
+    await sourceWebsite(tx, websiteId, identity);
+    const source: LogSource = (
+      await tx.$queryRawUnsafe(
+        'SELECT * FROM liekan_log_source WHERE id=$1::uuid AND website_id=$2::uuid FOR UPDATE',
+        uuid(sourceId),
+        websiteId,
+      )
+    )[0];
+    if (!source) throw new LiekanError('日志来源不存在', 404);
+    await tx.$executeRawUnsafe(
+      "UPDATE liekan_log_source SET state='disconnected',credential_hash=NULL WHERE id=$1::uuid",
+      sourceId,
+    );
+    await tx.$executeRawUnsafe(
+      'UPDATE liekan_log_interval SET ends_at=clock_timestamp() WHERE source_id=$1::uuid AND ends_at IS NULL',
+      sourceId,
+    );
+    await tx.$executeRawUnsafe(
+      "UPDATE liekan_ingest_batch SET state='cancelled',payload=NULL WHERE source_id=$1::uuid AND state='pending'",
+      sourceId,
+    );
+    await tx.$executeRawUnsafe(
+      'UPDATE liekan_log_state SET policy_revision=policy_revision+1 WHERE website_id=$1::uuid',
+      websiteId,
+    );
+    if (source.kind === 'cloudflare' && source.provider_job_id)
+      await enqueue(tx, PROVIDER_QUEUE, { sourceId, action: 'disconnect' });
+    return { disconnected: true };
+  });
+}

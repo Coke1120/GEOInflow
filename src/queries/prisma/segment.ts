@@ -1,6 +1,7 @@
+import { bumpAnalyticsRevision } from '@/lib/liekan/upstream/analytics-revision';
 import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
 import type { Prisma, Segment } from '@/generated/prisma/client';
-import prisma from '@/lib/prisma';
+import prisma, { getRawQueryClient } from '@/lib/prisma';
 import type { PageResult, QueryFilters } from '@/lib/types';
 
 async function findSegment(criteria: Prisma.SegmentFindUniqueArgs) {
@@ -35,7 +36,7 @@ export async function getSegments(
 }
 
 export async function getWebsiteSegment(websiteId: string, segmentId: string) {
-  return prisma.client.segment.findFirst({
+  return (getRawQueryClient(prisma.client, { write: true }) as typeof prisma.client).segment.findFirst({
     where: { id: segmentId, websiteId },
   });
 }
@@ -53,19 +54,32 @@ export async function getWebsiteSegments(websiteId: string, type: string, filter
 }
 
 export async function createSegment(data: Prisma.SegmentUncheckedCreateInput) {
-  const result = await prisma.client.segment.create({ data });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.segment.create({ data });
+    await bumpAnalyticsRevision(tx, 'website', result.websiteId);
+    return result;
+  });
   invalidateWebsiteAnalytics(result.websiteId);
   return result;
 }
 
 export async function updateSegment(SegmentId: string, data: Prisma.SegmentUpdateInput) {
-  const result = await prisma.client.segment.update({ where: { id: SegmentId }, data });
+  const result = await prisma.transaction(async tx => {
+    const before = await tx.segment.findUnique({ where: { id: SegmentId } });
+    const result = await tx.segment.update({ where: { id: SegmentId }, data });
+    await bumpAnalyticsRevision(tx, 'website', result.websiteId, before?.websiteId);
+    return result;
+  });
   invalidateWebsiteAnalytics(result.websiteId);
   return result;
 }
 
 export async function deleteSegment(SegmentId: string) {
-  const result = await prisma.client.segment.delete({ where: { id: SegmentId } });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.segment.delete({ where: { id: SegmentId } });
+    await bumpAnalyticsRevision(tx, 'website', result.websiteId);
+    return result;
+  });
   invalidateWebsiteAnalytics(result.websiteId);
   return result;
 }

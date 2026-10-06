@@ -25,17 +25,23 @@ export function useEventStatsQuery(
   options?: UseQueryOptions<EventStatsApiResponse, Error, EventStatsData>,
 ) {
   const { get, useQuery } = useApi();
-  const { startAt, endAt } = useDateParameters();
+  const { startAt, endAt, timezone } = useDateParameters();
   const filters = useFilterParameters({ includePagination: false });
 
   return useQuery<EventStatsApiResponse, Error, EventStatsData>({
-    queryKey: ['websites:events:stats', { websiteId, startAt, endAt, ...filters }],
-    queryFn: () =>
-      get(`/websites/${websiteId}/events/stats`, {
-        startAt,
-        endAt,
-        ...filters,
-      }),
+    queryKey: ['websites:events:stats', { websiteId, startAt, endAt, timezone, ...filters }],
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/events/stats`,
+        {
+          startAt,
+          endAt,
+          timezone,
+          ...filters,
+        },
+        {},
+        signal,
+      ),
     select: response => response.data,
     enabled: !!websiteId,
     ...options,

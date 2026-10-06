@@ -20,7 +20,7 @@ export function usePropertyFieldsQuery(
       `websites:${source}-data:fields`,
       { websiteId, eventName, startAt, endAt, unit, timezone, ...params },
     ],
-    queryFn: () =>
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
       get(
         source === 'event'
           ? `/websites/${websiteId}/event-data/fields`
@@ -33,6 +33,8 @@ export function usePropertyFieldsQuery(
           unit,
           timezone,
         },
+        {},
+        signal,
       ),
     enabled: !!websiteId,
     ...options,

@@ -15,12 +15,27 @@ import {
   globalNavigation,
   navigationFor,
   pageNavigation,
+  trackingSourcePage,
   websiteNavigation,
 } from './navigation';
 
 const site = '11111111-1111-4111-8111-111111111111';
 const team = '22222222-2222-4222-8222-222222222222';
 describe('navigation task boundaries', () => {
+  it.each([
+    ['links', 'links'],
+    ['link-editor', 'links'],
+    ['link-detail', 'links'],
+    ['pixels', 'pixels'],
+    ['pixel-editor', 'pixels'],
+    ['pixel-detail', 'pixels'],
+  ])('keeps the native %s resource under the shared tracking entry', (page, source) => {
+    const route = { page };
+    expect(navigationFor(route)).toMatchObject({ scope: 'global', section: 'tracking' });
+    expect(activeNavigationPage(route)).toBe('links');
+    expect(trackingSourcePage(route)).toBe(source);
+    expect(featureHref(source)).toBe(`/${source}`);
+  });
   it.each([
     ['session-detail', 'sessions'],
     ['replay-player', 'replays'],
@@ -234,7 +249,7 @@ describe('navigation task boundaries', () => {
     }
   });
   it('assigns every supplemental and GEO page to a scope and an accessible parent', () => {
-    expect(featurePages).toHaveLength(68);
+    expect(featurePages).toHaveLength(71);
     expect(Object.keys(geoPaths)).toHaveLength(11);
     for (const page of [...featurePages.map(page => page.id), ...Object.keys(geoPaths)]) {
       expect(pageNavigation[page], page).toBeDefined();
@@ -243,23 +258,43 @@ describe('navigation task boundaries', () => {
       expect(activeNavigationPage({ page })).toBeTruthy();
     }
     expect(globalNavigation.map(group => group.label)).toEqual([
-      '工作台',
-      '网站管理',
-      '看板',
-      '分享链接',
-      '团队协作',
-      '链接',
-      '像素',
+      '快速发起',
+      '数据总览',
+      '数据管理',
+      '协作管理',
+      '帮助中心',
+      'AI配置器',
     ]);
-    expect(globalNavigation.every(group => !group.children)).toBe(true);
+    const globalItems = globalNavigation.flatMap(group => group.children || [group]);
+    expect(globalItems.map(item => item.label)).toEqual([
+      '快速发起',
+      '数据总览',
+      '网站管理',
+      '数据看板',
+      '追踪管理',
+      '分享管理',
+      '团队管理',
+      '帮助中心',
+      'AI配置器',
+    ]);
+    expect(globalItems.map(item => item.icon)).toEqual([
+      'plus',
+      'grid',
+      'globe',
+      'bars',
+      'target',
+      'copy',
+      'users',
+      'book',
+      'box',
+    ]);
     expect(websiteNavigation.map(group => group.label)).toEqual([
       '流量总览',
       'AI 抓取分析',
       '访客与来源',
-      '内容与行为',
-      '转化分析',
-      '深度分析',
+      '内容与转化',
       '实时监测',
+      '帮助中心',
     ]);
   });
   it('keeps account and global resource URLs free of accidental website association', () => {
@@ -348,4 +383,24 @@ describe('navigation task boundaries', () => {
       parent: 'geo-ai-pages',
     });
   });
+});
+
+it('keeps AI pages global and drops inherited website filters', () => {
+  for (const page of ['ai-chat', 'ai-config']) {
+    expect(navigationFor({ page, websiteId: site, teamId: team })).toMatchObject({
+      scope: 'global',
+    });
+    const href = featureNavigationHref(
+      { page: 'geo-ai', websiteId: site },
+      { date: '7day', drill_country: 'eq.CN', aiConversation: team },
+      page,
+    );
+    expect(href).toBe(`/liekan/${page}`);
+    expect(matchFeatureRoute(href, { websiteId: site, teamId: team, id: site })).toMatchObject({
+      page,
+      websiteId: undefined,
+      teamId: undefined,
+      id: undefined,
+    });
+  }
 });

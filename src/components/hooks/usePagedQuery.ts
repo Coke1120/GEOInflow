@@ -12,7 +12,10 @@ export function usePagedQuery<TData = any, TError = Error>({
   'queryFn' | 'queryKey'
 > & {
   queryKey: readonly unknown[];
-  queryFn: (params?: object) => Promise<PageResult<TData>> | PageResult<TData>;
+  queryFn: (
+    params?: object,
+    context?: { signal?: AbortSignal },
+  ) => Promise<PageResult<TData>> | PageResult<TData>;
 }): UseQueryResult<PageResult<TData>, TError> {
   const {
     query: { page, search, orderBy, sortDescending },
@@ -21,7 +24,7 @@ export function usePagedQuery<TData = any, TError = Error>({
 
   return useQuery<PageResult<TData>, TError>({
     queryKey: [...queryKey, page, search, orderBy, sortDescending] as const,
-    queryFn: () => queryFn({ page, search, orderBy, sortDescending }),
+    queryFn: ({ signal }) => queryFn({ page, search, orderBy, sortDescending }, { signal }),
     ...options,
   });
 }

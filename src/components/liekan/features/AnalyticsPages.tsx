@@ -24,7 +24,8 @@ import {
   Body,
   Button,
   Definition,
-  Drawer,
+  LiekanDialog,
+  DialogActions,
   Field,
   Form,
   Icon,
@@ -77,13 +78,21 @@ function useWebsiteData(
     key,
     signal => c.api.get(`${owned ? '/liekan' : ''}/websites/${c.siteId}/${suffix}`, params, signal),
     !!c.siteId && enabled,
+    ['sessions', 'session', 'session-properties', 'events', 'realtime'].includes(params.kind) ||
+      suffix.startsWith('journeys/details')
+      ? {
+          queryKey: ['liekan-feature', c.user.id, c.siteId, ...key, params],
+          staleTime: 0,
+          direct: true,
+        }
+      : undefined,
   );
 }
 const visitor = (id: string) => `访客 ${id?.replaceAll('-', '').slice(-6) || '—'}`;
 function date(value: any, timezone: string) {
   return value ? formatInTimeZone(value, timezone, 'yyyy-MM-dd HH:mm:ss') : '—';
 }
-function canManage(c: ReturnType<typeof useFeature>) {
+export function canManage(c: ReturnType<typeof useFeature>) {
   return (
     c.user.isAdmin ||
     c.site?.userId === c.user.id ||
@@ -1021,25 +1030,24 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
     signal => getAllFeatureRows(`/websites/${c.siteId}/segments`, { type }, signal),
     !!c.siteId,
   );
-  const [results, setResults] = useState<Record<string, any>>({});
-  useEffect(() => {
-    const ctrl = new AbortController();
-    setResults({});
-    for (const row of query.data || [])
-      c.api
-        .get(
-          `/websites/${c.siteId}/stats`,
-          { ...c.range, ...c.filters, [type]: row.id },
-          ctrl.signal,
-        )
-        .then(stats => {
-          if (!ctrl.signal.aborted) setResults(r => ({ ...r, [row.id]: stats }));
-        })
-        .catch(() => {
-          if (!ctrl.signal.aborted) setResults(r => ({ ...r, [row.id]: { error: true } }));
-        });
-    return () => ctrl.abort();
-  }, [query.data, c.siteId, c.range.startAt, c.range.endAt, JSON.stringify(c.filters)]);
+  const stats = useData<Record<string, any>>(
+    ['audience-stats', type, (query.data || []).map(row => row.id)],
+    async signal =>
+      Object.fromEntries(
+        await Promise.all(
+          (query.data || []).map(async row => [
+            row.id,
+            await c.api.get(
+              `/websites/${c.siteId}/stats`,
+              { ...c.range, ...c.filters, [type]: row.id },
+              signal,
+            ),
+          ]),
+        ),
+      ),
+    !!c.siteId && !!query.data?.length,
+  );
+  const results = stats.data || {};
   const total = useWebsiteData(['audience-total'], 'stats', useScope());
   return (
     <>
@@ -1057,8 +1065,10 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
           )
         }
       >
-        <QueryState query={query}>
+        <QueryState query={query.isPending || query.error || !query.data?.length ? query : stats}>
           <Table
+            mobile
+            rowKeys={(query.data || []).map((row: any) => row.id)}
             search
             columns={
               cohort
@@ -1135,14 +1145,12 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
 function Retention() {
   const c = useFeature();
   const initial = formatInTimeZone(c.range.endAt, c.range.timezone, 'yyyy-MM');
+  const audience = c.filters.cohort
+    ? `cohort:${c.filters.cohort}`
+    : c.filters.segment
+      ? `segment:${c.filters.segment}`
+      : '';
   const [month, setMonth] = useState(initial),
-    [audience, setAudience] = useState(
-      c.filters.cohort
-        ? `cohort:${c.filters.cohort}`
-        : c.filters.segment
-          ? `segment:${c.filters.segment}`
-          : '',
-    ),
     [detail, setDetail] = useState<any>(null),
     [info, setInfo] = useState(false);
   const months = Array.from({ length: 12 }, (_, i) => {
@@ -1199,9 +1207,24 @@ function Retention() {
             value={audience}
             options={[
               ['', '全部访客'],
+              ...(audience && !(people.data || []).some(r => `${r.type}:${r.id}` === audience)
+                ? [
+                    {
+                      value: audience,
+                      label: `${type === 'cohort' ? '所选人群' : '所选分群'}（${people.isPending ? '正在读取' : people.error ? '读取失败' : '不可用'}）`,
+                      disabled: true,
+                    },
+                  ]
+                : []),
               ...(people.data || []).map(r => [`${r.type}:${r.id}`, r.name] as [string, string]),
             ]}
-            onChange={e => setAudience(e.target.value)}
+            onChange={e => {
+              const [type, id] = e.target.value.split(':');
+              c.updateQuery({
+                cohort: type === 'cohort' ? id : undefined,
+                segment: type === 'segment' ? id : undefined,
+              });
+            }}
           />
         </div>
         <Button onClick={() => setInfo(true)}>口径说明</Button>
@@ -1295,7 +1318,7 @@ function Retention() {
         与待观察分别表达。
       </Notice>
       {info && (
-        <Drawer title="留存计算口径" onClose={() => setInfo(false)}>
+        <LiekanDialog title="留存计算说明" onClose={() => setInfo(false)}>
           <Definition
             items={[
               ['入组', '按所选期间首次访问日期分组'],
@@ -1307,10 +1330,10 @@ function Retention() {
           />
           <hr className="divider" />
           <Notice>汇总按入组人数加权，仅纳入观察日已完整结束的队列。</Notice>
-        </Drawer>
+        </LiekanDialog>
       )}
       {detail && (
-        <Drawer title="留存单元格" onClose={() => setDetail(null)}>
+        <LiekanDialog title="留存详情" onClose={() => setDetail(null)}>
           <Definition
             items={[
               ['入组日期', detail.date],
@@ -1321,21 +1344,23 @@ function Retention() {
             ]}
           />
           <hr className="divider" />
-          <LinkButton
-            page="sessions"
-            params={{
-              ...rest,
-              segment: undefined,
-              cohort: undefined,
-              ...(id ? { [type]: id } : {}),
-              retentionDate: detail.date,
-              retentionDay: detail.offset,
-              date: `range:${startAt}:${endAt}:day`,
-            }}
-          >
-            查看关联访问记录
-          </LinkButton>
-        </Drawer>
+          <DialogActions>
+            <LinkButton
+              page="sessions"
+              params={{
+                ...rest,
+                segment: undefined,
+                cohort: undefined,
+                ...(id ? { [type]: id } : {}),
+                retentionDate: detail.date,
+                retentionDay: detail.offset,
+                date: `range:${startAt}:${endAt}:day`,
+              }}
+            >
+              查看关联访问记录
+            </LinkButton>
+          </DialogActions>
+        </LiekanDialog>
       )}
     </>
   );
@@ -1818,6 +1843,7 @@ function Attribution() {
 }
 function Breakdown() {
   const [fields, setFields] = useState(['path', 'country']),
+    [draftFields, setDraftFields] = useState(fields),
     [open, setOpen] = useState(false);
   const scope = useScope({ fields: JSON.stringify(fields) });
   const query = useWebsiteData(['breakdown', fields], 'breakdown', scope);
@@ -1839,7 +1865,13 @@ function Breakdown() {
             <Badge key={l}>{l}</Badge>
           ))}
         </div>
-        <Button primary onClick={() => setOpen(true)}>
+        <Button
+          primary
+          onClick={() => {
+            setDraftFields(fields);
+            setOpen(true);
+          }}
+        >
           选择维度
         </Button>
       </div>
@@ -1882,7 +1914,7 @@ function Breakdown() {
         维度拆分使用多字段组合，保留缺失维度的“未提供”记录。事件名称沿用上游字段选择范围。
       </Notice>
       {open && (
-        <Drawer title="选择拆分维度" onClose={() => setOpen(false)}>
+        <LiekanDialog title="选择拆分维度" onClose={() => setOpen(false)}>
           <Form
             submitLabel="应用维度"
             onSubmit={async (v, form) => {
@@ -1892,19 +1924,33 @@ function Breakdown() {
               setOpen(false);
             }}
           >
-            {options.map(([key, label]) => (
-              <label className="check" key={key}>
-                <input
-                  type="checkbox"
-                  name="dimension"
-                  value={key}
-                  defaultChecked={fields.includes(key)}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
+            <p className="muted" aria-live="polite">
+              已选择 {draftFields.length} / 3 个维度
+            </p>
+            <p className="muted">请选择 1 至 3 个维度；取消后保留当前页面的拆分方式。</p>
+            <div className="form-grid">
+              {options.map(([key, label]) => (
+                <label className="check" key={key}>
+                  <input
+                    type="checkbox"
+                    name="dimension"
+                    value={key}
+                    checked={draftFields.includes(key)}
+                    disabled={draftFields.length >= 3 && !draftFields.includes(key)}
+                    onChange={event =>
+                      setDraftFields(current =>
+                        event.target.checked
+                          ? [...current, key]
+                          : current.filter(field => field !== key),
+                      )
+                    }
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
           </Form>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -2049,7 +2095,12 @@ function Compare() {
         </Panel>
       </QueryState>
       {open && (
-        <Drawer title="对照日期" onClose={() => setOpen(false)}>
+        <LiekanDialog
+          protectUnsaved={false}
+          title="调整对照日期"
+          subtitle={c.range.timezone}
+          onClose={() => setOpen(false)}
+        >
           <Form
             submitLabel="应用对照期间"
             onSubmit={async v => {
@@ -2062,6 +2113,15 @@ function Compare() {
               setOpen(false);
             }}
           >
+            <Definition
+              items={[
+                [
+                  '当前期间',
+                  `${date(c.range.startAt, c.range.timezone)} 至 ${date(c.range.endAt, c.range.timezone)}`,
+                ],
+                ['统计时区', c.range.timezone],
+              ]}
+            />
             <div className="form-grid">
               <Field
                 label="开始日期"
@@ -2079,7 +2139,7 @@ function Compare() {
               />
             </div>
           </Form>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -2125,6 +2185,8 @@ function Annotations() {
       >
         <QueryState query={query}>
           <Table
+            mobile
+            rowKeys={(query.data || []).map((row: any) => row.id)}
             search
             columns={['日期', '注释', '操作']}
             rows={(query.data || []).map((r: any) => [
@@ -2166,11 +2228,15 @@ function Annotations() {
         </QueryState>
       </Panel>
       {edit && (
-        <Drawer title={edit.id ? '编辑注释' : '添加注释'} onClose={() => setEdit(null)}>
+        <LiekanDialog
+          title={edit.id ? '编辑注释' : '添加注释'}
+          protectUnsaved={!action.busy}
+          onClose={() => !action.busy && setEdit(null)}
+        >
           <Form
             busy={action.busy}
             error={action.error}
-            submitLabel="保存注释"
+            submitLabel={edit.id ? '保存注释' : '添加注释'}
             onSubmit={async v => {
               await action.run(
                 () =>
@@ -2218,7 +2284,7 @@ function Annotations() {
               删除注释
             </Button>
           )}
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );

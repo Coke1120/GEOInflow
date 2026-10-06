@@ -1,8 +1,35 @@
 import ipaddr from 'ipaddr.js';
 import snapshots from '../../../../config/liekan/bot-ranges.json';
 import { BOT_RULES } from './bots';
-export function verifyBotIp(ip: string, bot: string, ua: string, time: string): string {
-  const snapshot = snapshots[bot];
+export type VerificationSnapshots = Record<
+  string,
+  { prefixes: string[]; retrievedAt: string; version?: string }
+>;
+type Prefix = ReturnType<typeof ipaddr.parseCIDR>;
+const compiledRanges = new WeakMap<
+  string[],
+  { signature: string; ipv4: Prefix[]; ipv6: Prefix[] }
+>();
+function ranges(prefixes: string[]) {
+  const signature = prefixes.join('\0');
+  const cached = compiledRanges.get(prefixes);
+  if (cached?.signature === signature) return cached;
+  const compiled = { signature, ipv4: [] as Prefix[], ipv6: [] as Prefix[] };
+  for (const prefix of prefixes) {
+    const network = ipaddr.parseCIDR(prefix);
+    compiled[network[0].kind()].push(network);
+  }
+  compiledRanges.set(prefixes, compiled);
+  return compiled;
+}
+export function verifyBotIp(
+  ip: string,
+  bot: string,
+  ua: string,
+  time: string,
+  evidence: VerificationSnapshots = snapshots,
+): string {
+  const snapshot = evidence[bot];
   const known = BOT_RULES.find(rule => rule.name === bot);
   if (!snapshot || !known || !ua.toLowerCase().includes(known.pattern.toLowerCase()))
     return 'unverified';
@@ -13,9 +40,8 @@ export function verifyBotIp(ip: string, bot: string, ua: string, time: string): 
   )
     return 'unverified';
   const address = ipaddr.process(ip);
-  const matches = snapshot.prefixes.some(prefix => {
-    const [network, bits] = ipaddr.parseCIDR(prefix);
-    return address.kind() === network.kind() && address.match(network, bits);
-  });
+  const matches = ranges(snapshot.prefixes)[address.kind()].some(([network, bits]) =>
+    address.match(network, bits),
+  );
   return matches ? 'verified_range' : 'range_mismatch';
 }

@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { attributionQuerySchema } from '@/lib/analytics-schema';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { json, unauthorized } from '@/lib/response';
@@ -7,7 +8,7 @@ import {
   getAttribution,
 } from '@/queries/sql/attribution/getAttribution';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -18,4 +19,8 @@ export async function GET(
   const filters = await getQueryFilters(query, websiteId);
   const parameters = { ...query, ...filters } as AttributionParameters;
   return json(await getAttribution(websiteId, parameters, filters));
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

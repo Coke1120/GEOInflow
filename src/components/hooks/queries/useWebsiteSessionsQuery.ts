@@ -19,17 +19,22 @@ export function useWebsiteSessionsQuery(
       'sessions',
       { websiteId, modified, startAt, endAt, unit, timezone, ...params, ...filters },
     ],
-    queryFn: pageParams => {
-      return get(`/websites/${websiteId}/sessions`, {
-        startAt,
-        endAt,
-        unit,
-        timezone,
-        ...filters,
-        ...pageParams,
-        ...params,
-        maxResults: MAX_PAGING_RESULTS,
-      });
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        `/websites/${websiteId}/sessions`,
+        {
+          startAt,
+          endAt,
+          unit,
+          timezone,
+          ...filters,
+          ...pageParams,
+          ...params,
+          maxResults: MAX_PAGING_RESULTS,
+        },
+        {},
+        signal,
+      );
     },
   });
 }

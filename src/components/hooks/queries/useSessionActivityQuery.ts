@@ -11,12 +11,17 @@ export function useSessionActivityQuery(
 
   return useQuery({
     queryKey: ['session:activity', { websiteId, sessionId, startDate, endDate, distinctId }],
-    queryFn: () => {
-      return get(`/websites/${websiteId}/sessions/${sessionId}/activity`, {
-        startAt: +new Date(startDate),
-        endAt: +new Date(endDate),
-        ...(distinctId && { distinctId }),
-      });
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        `/websites/${websiteId}/sessions/${sessionId}/activity`,
+        {
+          startAt: +new Date(startDate),
+          endAt: +new Date(endDate),
+          ...(distinctId && { distinctId }),
+        },
+        {},
+        signal,
+      );
     },
     enabled: Boolean(websiteId && sessionId && startDate && endDate),
   });

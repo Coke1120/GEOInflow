@@ -15,7 +15,9 @@ if (!workingTree && status().trim())
     'Release verification requires a clean committed candidate. Use --working-tree for development checks.',
   );
 const fingerprint = () => {
-  const hash = createHash('sha256').update(execFileSync('git', ['diff', '--binary', 'HEAD']));
+  const hash = createHash('sha256').update(
+    execFileSync('git', ['diff', '--binary', 'HEAD'], { maxBuffer: 32 * 1024 * 1024 }),
+  );
   const untracked = execFileSync('git', ['ls-files', '--others', '--exclude-standard', '-z'], {
     encoding: 'utf8',
   })
@@ -30,6 +32,8 @@ const commands = [
   ['install', '--frozen-lockfile'],
   ['exec', 'prisma', 'generate'],
   ['run', 'build:prisma:client'],
+  ['run', 'build:ai:maintenance'],
+  ['run', 'liekan:build-worker'],
   ['run', 'build:openapi'],
   ['run', 'openapi:check', '--explicit'],
   ['run', 'check:api:client'],
@@ -38,6 +42,7 @@ const commands = [
   // Bound CPU contention so real bcrypt checks keep their existing timeout.
   ['run', 'test', '--maxWorkers=2'],
   ['run', 'test:packages'],
+  ['run', 'test:log-ingestion'],
   ['exec', 'node', 'scripts/liekan-static-check.mjs'],
   ['run', 'build:tracker'],
   ['run', 'build:recorder'],

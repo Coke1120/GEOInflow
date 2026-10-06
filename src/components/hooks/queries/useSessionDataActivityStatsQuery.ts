@@ -19,16 +19,21 @@ export function useSessionDataActivityStatsQuery(
       'websites:session-data:activity-stats',
       { websiteId, propertyName, propertyFilters, startAt, endAt, unit, timezone, ...params },
     ],
-    queryFn: () =>
-      get(`/websites/${websiteId}/session-data/stats`, {
-        startAt,
-        endAt,
-        unit,
-        timezone,
-        propertyName,
-        ...serializePropertyFilters(propertyFilters),
-        ...params,
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/session-data/stats`,
+        {
+          startAt,
+          endAt,
+          unit,
+          timezone,
+          propertyName,
+          ...serializePropertyFilters(propertyFilters),
+          ...params,
+        },
+        {},
+        signal,
+      ),
     enabled: !!(websiteId && propertyName),
     ...options,
   });

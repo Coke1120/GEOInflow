@@ -34,11 +34,7 @@ it('reuses refreshed metadata and reports after remounting following an earlier 
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   mocks.get.mockClear();
   mocks.get.mockResolvedValue({ name: '原名称' });
-  const page = (
-    <QueryClientProvider client={client}>
-      <Site />
-    </QueryClientProvider>
-  );
+  const page = <QueryClientProvider client={client}><Site /></QueryClientProvider>;
   const view = render(page);
   await screen.findByText('原名称');
   mocks.get.mockResolvedValue({ name: '更新名称' });

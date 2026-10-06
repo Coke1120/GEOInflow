@@ -17,15 +17,20 @@ export function useWebsiteEventsSeriesQuery(
       'websites:events:series',
       { websiteId, startAt, endAt, unit, timezone, ...filters, ...params },
     ],
-    queryFn: () =>
-      get(`/websites/${websiteId}/events/series`, {
-        startAt,
-        endAt,
-        unit,
-        timezone,
-        ...filters,
-        ...params,
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/events/series`,
+        {
+          startAt,
+          endAt,
+          unit,
+          timezone,
+          ...filters,
+          ...params,
+        },
+        {},
+        signal,
+      ),
     enabled: !!websiteId,
     ...options,
   });

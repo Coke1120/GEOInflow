@@ -9,7 +9,7 @@ export function useTeamQuery(teamId: string, options?: ReactQueryOptions) {
 
   return useQuery({
     queryKey: ['teams', { teamId, modified }],
-    queryFn: () => get(`/teams/${teamId}`),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => get(`/teams/${teamId}`, {}, {}, signal),
     enabled: !!teamId,
     placeholderData: keepPreviousData,
     ...options,

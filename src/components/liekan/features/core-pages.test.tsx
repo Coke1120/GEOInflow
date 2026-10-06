@@ -12,6 +12,7 @@ import {
   trackerSnippet,
 } from '@/lib/liekan/contracts/core';
 import { CorePages, FeatureAuthPage } from './CorePages';
+import { remainingFreshness, hasClientFreshness } from '@/lib/liekan/upstream/client-freshness';
 
 const mocks = vi.hoisted(() => ({
   context: null as any,
@@ -25,6 +26,7 @@ const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
   params: new URLSearchParams(),
   queries: [] as any[],
+  loaders: {} as Record<string, (signal?: AbortSignal) => Promise<any>>,
   managementDrawer: vi.fn(),
 }));
 vi.mock('next/navigation', () => ({
@@ -58,11 +60,18 @@ vi.mock('../ManagementDrawer', () => ({
     );
   },
 }));
+vi.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    cancelQueries: vi.fn().mockResolvedValue(undefined),
+    setQueryData: vi.fn(),
+  }),
+}));
 vi.mock('./context', () => ({
   useFeature: () => mocks.context,
-  useData: (key: string | any[]) => {
+  useData: (key: string | any[], load: any) => {
     const name = Array.isArray(key) ? key[0] : key;
     mocks.queries.push(key);
+    mocks.loaders[name] = load;
     return {
       data: typeof mocks.query[name] === 'function' ? mocks.query[name](key) : mocks.query[name],
       isPending: false,
@@ -110,9 +119,23 @@ vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.resumeLogin.mockResolvedValue(null);
-  mocks.query = {};
+  mocks.query = {
+    'website-installation': {
+      progress: {
+        method: 'cloudflare',
+        lastStep: 'js',
+        browserCheckDeferred: false,
+        logCheckDeferred: false,
+        completedAt: null,
+      },
+      canManage: true,
+      logs: { total: 0, ai: 0, latestAt: null, latestImportAt: null, demo: false },
+      capabilities: { cloudflare: false, server: false },
+    },
+  };
   mocks.queryStates = {};
   mocks.queries = [];
+  mocks.loaders = {};
   mocks.params = new URLSearchParams();
   sessionStorage.clear();
   mocks.context = {
@@ -349,7 +372,9 @@ describe('core form flows', () => {
       await user.click(screen.getByRole('button', { name: '下一页' }));
       await user.click(screen.getByRole('button', { name: '删除' }));
       await user.type(screen.getByLabelText(/输入 最后一页定义 确认/), '最后一页定义');
-      await user.click(screen.getByRole('button', { name: '确认删除' }));
+      await user.click(
+        screen.getByRole('button', { name: kind === 'goals' ? '删除目标' : '删除漏斗' }),
+      );
       await waitFor(() => expect(mocks.queries.filter(key => key[0] === kind).at(-1)?.[1]).toBe(1));
       expect(screen.queryByText('最后一页定义')).not.toBeInTheDocument();
       expect(screen.getAllByText('首页定义').length).toBeGreaterThan(0);
@@ -386,7 +411,9 @@ describe('core form flows', () => {
       render(<CorePages page={kind} />);
       await user.click(screen.getByRole('button', { name: '删除' }));
       await user.type(screen.getByLabelText(/输入 唯一的定义 确认/), '唯一的定义');
-      await user.click(screen.getByRole('button', { name: '确认删除' }));
+      await user.click(
+        screen.getByRole('button', { name: kind === 'goals' ? '删除目标' : '删除漏斗' }),
+      );
       await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
       expect(mocks.queries.filter(key => key[0] === kind).at(-1)?.[1]).toBe(1);
       expect(screen.queryByText('唯一的定义')).not.toBeInTheDocument();
@@ -525,6 +552,16 @@ describe('core form flows', () => {
     expect(screen.getByRole('columnheader', { name: '转化次数' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: '报名的转化趋势' })).toHaveTextContent('120,266');
   });
+  it('marks all failed goal statistics for aggregate retry instead of configuration caching', async () => {
+    mocks.query.goals = { data: [{ id: 'goal-1', name: '报名' }], count: 1 };
+    const error = Object.assign(new Error('统计暂时不可用'), { status: 503, retryAfterMs: 90000 });
+    mocks.context.api.get.mockRejectedValue(error);
+    render(<CorePages page="goals" />);
+    const rows = await mocks.loaders['goal-results'](new AbortController().signal);
+    expect(rows).toEqual([{ id: 'goal-1', error }]);
+    expect(hasClientFreshness(rows)).toBe(true);
+    expect(remainingFreshness(rows, Date.now(), 300000)).toBe(0);
+  });
   it('honors enforced 2FA and does not offer simulator policy switches', () => {
     mocks.query['2fa-status'] = {
       isEnabled: true,
@@ -547,7 +584,9 @@ describe('core form flows', () => {
     render(<CorePages page="api-keys" />);
     await user.click(screen.getByRole('button', { name: '创建密钥' }));
     await user.type(screen.getByLabelText(/密钥名称/), '新集成');
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建密钥' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '创建 API 密钥' }),
+    );
     expect(await screen.findByText('lk_private_one_time_value')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '已保存，关闭' }));
     expect(screen.queryByText('lk_private_one_time_value')).not.toBeInTheDocument();
@@ -555,7 +594,7 @@ describe('core form flows', () => {
     expect(screen.queryByText('lk_private_one_time_value')).not.toBeInTheDocument();
     expect(persist).not.toHaveBeenCalled();
   });
-  it('discards a delayed API key response after its creation drawer is closed', async () => {
+  it('keeps a delayed API key response available until its creation dialog is explicitly closed', async () => {
     let resolve: (value: any) => void;
     mocks.query['api-keys'] = [];
     mocks.post.mockImplementationOnce(
@@ -568,9 +607,15 @@ describe('core form flows', () => {
     render(<CorePages page="api-keys" />);
     await user.click(screen.getByRole('button', { name: '创建密钥' }));
     await user.type(screen.getByLabelText(/密钥名称/), '慢响应集成');
-    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '创建密钥' }));
-    await user.click(screen.getByRole('button', { name: '关闭弹层' }));
+    await user.click(
+      within(screen.getByRole('dialog')).getByRole('button', { name: '创建 API 密钥' }),
+    );
+    await user.click(screen.getByRole('button', { name: '关闭弹窗' }));
+    expect(screen.getByLabelText(/密钥名称/)).toBeVisible();
+    expect(screen.queryByRole('group', { name: '放弃未保存的修改？' })).not.toBeInTheDocument();
     resolve({ key: 'lk_delayed_private_value' });
+    expect(await screen.findByText('lk_delayed_private_value')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '已保存，关闭' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: '创建密钥' }));
     expect(screen.getByLabelText(/密钥名称/)).toBeInTheDocument();
@@ -676,7 +721,7 @@ describe('core form flows', () => {
     expect(screen.getByText('团队研究站')).toBeInTheDocument();
     expect(screen.getByText('team.example.com')).toBeInTheDocument();
     expect(screen.getByText('研究团队')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '已安装，开始验证' }));
+    await user.click(screen.getByRole('button', { name: '检查安装（可选）' }));
     expect(screen.getByRole('link', { name: '查看该网站统计' })).toHaveAttribute(
       'href',
       '/liekan/overview?websiteId=created-team-site',
@@ -740,7 +785,7 @@ describe('core form flows', () => {
       'href',
       '/liekan/recorder-settings?websiteId=site-1',
     );
-    await user.click(screen.getByRole('button', { name: '导入该网站日志' }));
+    await user.click(screen.getByRole('button', { name: '导入网站日志' }));
     expect(mocks.managementDrawer).toHaveBeenLastCalledWith(
       expect.objectContaining({ action: '导入日志', websiteId: 'site-1', canManage: true }),
     );
@@ -821,7 +866,304 @@ describe('core form flows', () => {
     render(<CorePages page="website-settings" />);
     expect(screen.getByText('尚未收到浏览数据')).toBeInTheDocument();
     expect(screen.queryByText('已收到浏览数据')).not.toBeInTheDocument();
-    expect(screen.getByText(/日志统计期间/)).toHaveTextContent('Asia/Shanghai');
+    expect(screen.getByRole('button', { name: '跳过检查，下一步' })).toBeEnabled();
+  });
+  it('saves each skipped check and completes setup without recording a fake connection', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 0 };
+    mocks.context.query = { section: 'install', step: 'js' };
+    mocks.post.mockResolvedValue({});
+    const user = userEvent.setup();
+    const { rerender } = render(<CorePages page="website-settings" />);
+    await user.click(screen.getByRole('button', { name: '跳过检查，下一步' }));
+    expect(mocks.post).toHaveBeenLastCalledWith('/liekan/websites/site-1/installation', {
+      action: 'skip-browser',
+    });
+    expect(mocks.context.navigate).toHaveBeenLastCalledWith('website-settings', {
+      websiteId: 'site-1',
+      section: 'install',
+      step: 'logs',
+      method: 'cloudflare',
+    });
+    mocks.context.query = { section: 'install', step: 'logs', method: 'server' };
+    rerender(<CorePages page="website-settings" />);
+    const setup = screen.getByRole('button', { name: /开始配置|查看配置说明/ });
+    expect(setup).toBeEnabled();
+    await user.click(setup);
+    expect(screen.getByRole('region', { name: '接收服务配置引导' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '跳过检查，继续' }));
+    expect(mocks.post).toHaveBeenLastCalledWith('/liekan/websites/site-1/installation', {
+      action: 'skip-logs',
+      method: 'server',
+    });
+    mocks.context.query.step = 'finish';
+    rerender(<CorePages page="website-settings" />);
+    expect(screen.getAllByText('尚未收到浏览数据')[0]).toBeVisible();
+    expect(screen.getAllByText('尚未收到日志')[0]).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '完成设置' }));
+    expect(mocks.post).toHaveBeenLastCalledWith('/liekan/websites/site-1/installation', {
+      action: 'finish',
+      method: 'server',
+    });
+    expect(mocks.context.navigate).toHaveBeenLastCalledWith('website-settings', {
+      websiteId: 'site-1',
+      section: 'install',
+      step: 'complete',
+      method: 'server',
+    });
+    expect(mocks.post.mock.calls.every(([path]) => path.endsWith('/installation'))).toBe(true);
+  });
+  it('shows delayed progress after completion and reopens the exact website steps', () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 0 };
+    mocks.query['website-installation'].progress = {
+      method: 'server',
+      browserCheckDeferred: true,
+      logCheckDeferred: true,
+      completedAt: '2026-10-04T00:00:00Z',
+    };
+    mocks.context.query = { section: 'install' };
+    render(<CorePages page="website-settings" />);
+    expect(screen.getByText('设置已完成')).toBeInTheDocument();
+    expect(screen.getAllByText('检查已延后')).toHaveLength(2);
+    expect(screen.getByRole('link', { name: '服务器安装页面' })).toHaveAttribute(
+      'href',
+      '/liekan/website-settings?websiteId=site-1&section=install&step=logs&method=server',
+    );
+    expect(screen.getByRole('link', { name: '获取 JS 代码' })).toHaveAttribute(
+      'href',
+      '/liekan/website-settings?websiteId=site-1&section=install&step=js',
+    );
+  });
+  it('saves normal advancement and resumes the saved step without deferring checks', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 100 };
+    mocks.query['website-installation'].logs.total = 5;
+    mocks.context.query = { section: 'install' };
+    mocks.post.mockImplementation(async (_path, body) => {
+      mocks.query['website-installation'].progress.lastStep = body.step;
+      return {};
+    });
+    const user = userEvent.setup();
+    const { rerender } = render(<CorePages page="website-settings" />);
+    await user.click(screen.getByText('下一步：接入日志', { exact: true }));
+    expect(mocks.post).toHaveBeenLastCalledWith('/liekan/websites/site-1/installation', {
+      action: 'continue',
+      step: 'logs',
+      method: 'cloudflare',
+    });
+    expect(mocks.context.navigate).toHaveBeenLastCalledWith('website-settings', {
+      websiteId: 'site-1',
+      section: 'install',
+      step: 'logs',
+      method: 'cloudflare',
+    });
+    rerender(<CorePages page="website-settings" />);
+    expect(screen.getByText('接入 AI 蜘蛛日志')).toBeInTheDocument();
+    await user.click(screen.getByText('下一步：完成设置', { exact: true }));
+    expect(mocks.post).toHaveBeenLastCalledWith('/liekan/websites/site-1/installation', {
+      action: 'continue',
+      step: 'finish',
+      method: 'cloudflare',
+    });
+    rerender(<CorePages page="website-settings" />);
+    expect(screen.getByText('完成接入设置')).toBeInTheDocument();
+    expect(mocks.query['website-installation'].progress).toMatchObject({
+      browserCheckDeferred: false,
+      logCheckDeferred: false,
+      completedAt: null,
+    });
+  });
+  it.each(['js', 'finish', 'logs'])(
+    'preserves newer same-website navigation after a delayed save (%s)',
+    async target => {
+      mocks.query['site-record'] = mocks.context.site;
+      mocks.query.install = { pageviews: 0 };
+      mocks.context.query = { section: 'install', step: 'logs', method: 'cloudflare' };
+      let resolve: (value: any) => void;
+      mocks.post.mockImplementationOnce(
+        () =>
+          new Promise(done => {
+            resolve = done;
+          }),
+      );
+      const user = userEvent.setup();
+      const { rerender } = render(<CorePages page="website-settings" />);
+      await user.click(screen.getByRole('button', { name: '跳过检查，继续' }));
+      mocks.context.navigate.mockClear();
+      mocks.context.query.step = target === 'logs' ? 'js' : target;
+      rerender(<CorePages page="website-settings" />);
+      if (target === 'logs') {
+        mocks.context.query.step = 'logs';
+        rerender(<CorePages page="website-settings" />);
+      }
+      resolve({});
+      await waitFor(() => expect(mocks.context.notify).toHaveBeenCalledWith('接入进度已保存'));
+      expect(mocks.context.navigate).not.toHaveBeenCalled();
+    },
+  );
+  it.each(['js', undefined])(
+    'labels demo browser events at the installation and settings entries (%s)',
+    step => {
+      mocks.query['site-record'] = mocks.context.site;
+      mocks.query.install = { pageviews: 100 };
+      mocks.query['website-installation'].logs.demo = true;
+      mocks.context.query = step ? { section: 'install', step } : {};
+      render(<CorePages page="website-settings" />);
+      expect(screen.getByText(/已有示例浏览数据/)).toBeInTheDocument();
+      expect(screen.queryByText('已收到浏览数据')).not.toBeInTheDocument();
+      expect(screen.getByText(/示例浏览访问和日志/)).toBeInTheDocument();
+    },
+  );
+  it('keeps a pending method choice when moving to finish and saving completion', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 0 };
+    mocks.context.query = { section: 'install', step: 'logs', method: 'cloudflare' };
+    let resolve: (value: any) => void;
+    mocks.post.mockImplementationOnce(
+      () =>
+        new Promise(done => {
+          resolve = done;
+        }),
+    );
+    const user = userEvent.setup();
+    const { rerender } = render(<CorePages page="website-settings" />);
+    await user.click(screen.getByRole('radio', { name: /服务器一次安装/ }));
+    const finishLink = within(screen.getByRole('navigation', { name: '接入设置步骤' })).getByRole(
+      'link',
+      { name: /完成设置/ },
+    );
+    expect(finishLink).toHaveAttribute(
+      'href',
+      '/liekan/website-settings?websiteId=site-1&section=install&step=finish&method=server',
+    );
+    mocks.context.query = { section: 'install', step: 'finish', method: 'server' };
+    rerender(<CorePages page="website-settings" />);
+    expect(screen.getByRole('button', { name: '正在保存…' })).toBeDisabled();
+    mocks.query['website-installation'].progress.method = 'server';
+    resolve({ progress: mocks.query['website-installation'].progress });
+    await waitFor(() => expect(screen.getByRole('button', { name: '完成设置' })).toBeEnabled());
+    mocks.post.mockResolvedValue({});
+    await user.click(screen.getByRole('button', { name: '完成设置' }));
+    expect(mocks.post).toHaveBeenLastCalledWith('/liekan/websites/site-1/installation', {
+      action: 'finish',
+      method: 'server',
+    });
+  });
+  it.each(['complete', 'overview'])(
+    'uses the saved method on %s even when a historical URL disagrees',
+    step => {
+      mocks.query['site-record'] = mocks.context.site;
+      mocks.query.install = { pageviews: 0 };
+      mocks.query['website-installation'].progress.method = 'server';
+      mocks.query['website-installation'].progress.completedAt = '2026-10-04T00:00:00Z';
+      mocks.context.query = { section: 'install', step, method: 'cloudflare' };
+      render(<CorePages page="website-settings" />);
+      expect(screen.getByRole('link', { name: '服务器安装页面' })).toHaveAttribute(
+        'href',
+        '/liekan/website-settings?websiteId=site-1&section=install&step=logs&method=server',
+      );
+      expect(screen.queryByRole('link', { name: '授权连接页面' })).not.toBeInTheDocument();
+    },
+  );
+  it('uses the saved method when continuing from a historical check URL', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 0 };
+    mocks.query['website-installation'].progress.method = 'server';
+    mocks.context.query = { section: 'install', step: 'check', method: 'cloudflare' };
+    mocks.post.mockResolvedValue({});
+    const user = userEvent.setup();
+    render(<CorePages page="website-settings" />);
+    await user.click(screen.getByRole('button', { name: '跳过检查，继续设置' }));
+    expect(mocks.post).toHaveBeenLastCalledWith('/liekan/websites/site-1/installation', {
+      action: 'skip-checks',
+      method: 'server',
+    });
+  });
+  it('keeps normal next-step browsing available to read-only users', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 100 };
+    mocks.query['website-installation'].canManage = false;
+    mocks.context.query = { section: 'install', step: 'js' };
+    render(<CorePages page="website-settings" />);
+    expect(screen.getByRole('link', { name: '下一步：接入日志' })).toHaveAttribute(
+      'href',
+      '/liekan/website-settings?websiteId=site-1&section=install&step=logs&method=cloudflare',
+    );
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+  it('lets a historical URL take over after a method draft leaves its original navigation', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 0 };
+    mocks.context.query = { section: 'install', step: 'logs', method: 'cloudflare' };
+    mocks.post.mockResolvedValue({});
+    const user = userEvent.setup();
+    const { rerender } = render(<CorePages page="website-settings" />);
+    await user.click(screen.getByRole('radio', { name: /服务器一次安装/ }));
+    expect(screen.getByRole('radio', { name: /服务器一次安装/ })).toBeChecked();
+    mocks.context.query.method = 'server';
+    rerender(<CorePages page="website-settings" />);
+    mocks.context.query.method = 'cloudflare';
+    rerender(<CorePages page="website-settings" />);
+    expect(screen.getByRole('radio', { name: /Cloudflare 授权连接/ })).toBeChecked();
+    expect(
+      within(screen.getByRole('navigation', { name: '接入设置步骤' })).getByRole('link', {
+        name: /完成设置/,
+      }),
+    ).toHaveAttribute(
+      'href',
+      '/liekan/website-settings?websiteId=site-1&section=install&step=finish&method=cloudflare',
+    );
+  });
+  it('keeps browser errors and zero AI matches visible after skipping, and marks demo receipts', () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 100 };
+    mocks.queryStates.install = { error: { message: '服务暂时不可用' } };
+    mocks.query['website-installation'].progress.browserCheckDeferred = true;
+    mocks.query['website-installation'].progress.logCheckDeferred = true;
+    mocks.query['website-installation'].logs = {
+      total: 5,
+      ai: 0,
+      demo: true,
+      latestAt: null,
+      latestImportAt: null,
+    };
+    render(<CorePages page="install-check" />);
+    expect(screen.getByText('读取失败')).toBeInTheDocument();
+    expect(screen.queryByText('已收到浏览数据')).not.toBeInTheDocument();
+    expect(screen.getByText('日志已收到，暂未匹配到 AI 蜘蛛请求。')).toBeInTheDocument();
+    expect(screen.getByText('已有示例日志')).toBeInTheDocument();
+    expect(screen.getByText(/示例.*不能证明/)).toBeInTheDocument();
+  });
+  it('uses the unified guide at old tracking URLs and prevents read-only progress changes', () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 0 };
+    mocks.query['website-installation'].canManage = false;
+    render(<CorePages page="tracking" />);
+    expect(screen.getByText('安装网站统计 JS')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '复制安装代码' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '跳过检查，下一步' })).toBeDisabled();
+    expect(mocks.post).not.toHaveBeenCalled();
+  });
+  it('does not navigate back to the old website after a delayed save resolves', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    mocks.query.install = { pageviews: 0 };
+    let resolve: (value: any) => void;
+    mocks.post.mockImplementationOnce(
+      () =>
+        new Promise(done => {
+          resolve = done;
+        }),
+    );
+    const user = userEvent.setup();
+    const { rerender } = render(<CorePages page="tracking" />);
+    await user.click(screen.getByRole('button', { name: '跳过检查，下一步' }));
+    mocks.context.siteId = 'site-2';
+    mocks.query['site-record'] = { ...mocks.context.site, id: 'site-2', name: '第二个网站' };
+    rerender(<CorePages page="tracking" />);
+    resolve({});
+    await waitFor(() => expect(screen.getByText('第二个网站')).toBeInTheDocument());
+    expect(mocks.context.navigate).not.toHaveBeenCalled();
   });
   it('names the website in the save result and keeps website sharing links scoped', async () => {
     mocks.query['site-record'] = mocks.context.site;
@@ -854,17 +1196,17 @@ describe('core form flows', () => {
     expect(dialog.getByRole('alert')).toHaveTextContent('回放、热力图、收入记录');
     expect(dialog.queryByRole('button', { name: '确认操作' })).not.toBeInTheDocument();
     await user.type(dialog.getByLabelText(/输入 RESET 确认/), 'RESET');
-    await user.click(dialog.getByRole('button', { name: '确认清空访问数据' }));
+    await user.click(dialog.getByRole('button', { name: '清空访问数据' }));
     await waitFor(() => expect(mocks.post).toHaveBeenCalledWith('/websites/site-1/reset'));
     expect(mocks.context.notify).toHaveBeenCalledWith('「研究站」的访问数据已清空');
     expect(mocks.context.api.del).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: '删除网站' }));
     await user.type(screen.getByLabelText(/输入 研究站 确认/), '错误名称');
-    await user.click(screen.getByRole('button', { name: '确认删除网站' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除网站' }));
     expect(mocks.context.api.del).not.toHaveBeenCalled();
     await user.clear(screen.getByLabelText(/输入 研究站 确认/));
     await user.type(screen.getByLabelText(/输入 研究站 确认/), '研究站');
-    await user.click(screen.getByRole('button', { name: '确认删除网站' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除网站' }));
     await waitFor(() => expect(mocks.context.api.del).toHaveBeenCalledWith('/websites/site-1'));
     expect(mocks.context.navigate).toHaveBeenCalledWith('websites');
   });
@@ -886,4 +1228,106 @@ describe('core form flows', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('回调地址无效');
     expect(mocks.sso).not.toHaveBeenCalled();
   });
+  it.each(['collection', 'install'])(
+    'waits for both post-import refreshes at the %s entry',
+    async section => {
+      mocks.context.query = { section, step: 'logs', method: 'manual' };
+      mocks.query['site-record'] = mocks.context.site;
+      mocks.query.install = { pageviews: 1 };
+      mocks.query['website-setup-report'] = { states: {}, meta: {} };
+      let finishIdentity: () => void;
+      let finishReport: () => void;
+      mocks.context.refresh.mockReturnValue(
+        new Promise<void>(resolve => {
+          finishIdentity = resolve;
+        }),
+      );
+      const refetch = vi.fn(
+        () =>
+          new Promise<void>(resolve => {
+            finishReport = resolve;
+          }),
+      );
+      mocks.queryStates[
+        section === 'collection' ? 'website-setup-report' : 'website-installation'
+      ] = { refetch };
+      const user = userEvent.setup();
+      render(<CorePages page="website-settings" />);
+      await user.click(screen.getByRole('button', { name: '导入网站日志' }));
+      const onSaved = mocks.managementDrawer.mock.lastCall[0].onSaved;
+      let settled = false;
+      const result = Promise.resolve(onSaved()).finally(() => {
+        settled = true;
+      });
+      try {
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        finishIdentity();
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(settled).toBe(false);
+        expect(refetch).toHaveBeenCalledWith({ throwOnError: true });
+      } finally {
+        finishIdentity();
+        finishReport();
+        await result;
+      }
+      expect(settled).toBe(true);
+    },
+  );
+  it.each(['collection', 'install'])(
+    'reports a post-import refresh error after all refreshes settle at the %s entry',
+    async section => {
+      mocks.context.query = { section, step: 'logs', method: 'manual' };
+      mocks.query['site-record'] = mocks.context.site;
+      mocks.query.install = { pageviews: 1 };
+      mocks.query['website-setup-report'] = { states: {}, meta: {} };
+      const failure = new Error('页面统计刷新失败');
+      let finishIdentity: () => void;
+      mocks.context.refresh.mockReturnValue(
+        new Promise<void>(resolve => {
+          finishIdentity = resolve;
+        }),
+      );
+      const refetch = vi.fn((options?: { throwOnError?: boolean }) =>
+        options?.throwOnError ? Promise.reject(failure) : Promise.resolve({ error: failure }),
+      );
+      mocks.queryStates[
+        section === 'collection' ? 'website-setup-report' : 'website-installation'
+      ] = { refetch };
+      const user = userEvent.setup();
+      render(<CorePages page="website-settings" />);
+      await user.click(screen.getByRole('button', { name: '导入网站日志' }));
+      let outcome: unknown = 'pending';
+      const result = Promise.resolve(mocks.managementDrawer.mock.lastCall[0].onSaved()).then(
+        () => {
+          outcome = 'resolved';
+        },
+        error => {
+          outcome = error;
+        },
+      );
+      try {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        expect(outcome).toBe('pending');
+      } finally {
+        finishIdentity();
+        await result;
+      }
+      expect(outcome).toBe(failure);
+    },
+  );
+});
+
+it('reports the username as saved when the subsequent identity refresh fails', async () => {
+  mocks.context.refresh.mockRejectedValue(new Error('刷新暂时不可用'));
+  const user = userEvent.setup();
+  render(<CorePages page="account" />);
+  await user.click(screen.getByRole('button', { name: '修改用户名' }));
+  await user.clear(screen.getByRole('textbox', { name: /^用户名/ }));
+  await user.type(screen.getByRole('textbox', { name: /^用户名/ }), 'saved-owner');
+  await user.click(screen.getByRole('button', { name: '保存用户名' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  expect(mocks.post).toHaveBeenCalledWith('/users/user-1', { username: 'saved-owner' });
+  expect(mocks.context.notify).toHaveBeenCalledWith('用户名已保存，页面状态刷新失败，请重新读取。');
 });

@@ -22,7 +22,7 @@ export function usePropertyNumericStatsQuery(
       `websites:${source}-data:numeric-stats`,
       { websiteId, propertyName, eventName, propertyFilters, startAt, endAt, timezone, ...params },
     ],
-    queryFn: () =>
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
       get(
         source === 'event'
           ? `/websites/${websiteId}/event-data-pivot/numeric-stats`
@@ -36,6 +36,8 @@ export function usePropertyNumericStatsQuery(
           ...serializePropertyFilters(propertyFilters),
           ...params,
         },
+        {},
+        signal,
       ),
     enabled: !!(websiteId && propertyName && (source === 'session' || eventName)),
     ...options,

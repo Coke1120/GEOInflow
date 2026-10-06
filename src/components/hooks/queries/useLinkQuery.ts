@@ -7,8 +7,8 @@ export function useLinkQuery(linkId?: string) {
 
   return useQuery({
     queryKey: ['link', { linkId, modified }],
-    queryFn: () => {
-      return get(`/links/${linkId}`);
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/links/${linkId}`, {}, {}, signal);
     },
     enabled: !!linkId,
   });

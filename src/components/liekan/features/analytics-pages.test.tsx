@@ -6,9 +6,12 @@ const mocks = vi.hoisted(() => ({
   context: null as any,
   query: {} as Record<string, any>,
   errors: {} as Record<string, Error>,
+  pending: {} as Record<string, boolean>,
   href: vi.fn(),
   post: vi.fn(),
   navigate: vi.fn(),
+  updateQuery: vi.fn(),
+  actionBusy: false,
 }));
 vi.mock('next/link', () => ({
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
@@ -19,11 +22,11 @@ vi.mock('./context', () => ({
     data:
       typeof mocks.query[key[0]] === 'function' ? mocks.query[key[0]](key) : mocks.query[key[0]],
     error: mocks.errors[key[0]] || null,
-    isPending: false,
+    isPending: mocks.pending[key[0]] || false,
   }),
   useAction: () => ({
     run: async (action: () => Promise<any>) => action(),
-    busy: false,
+    busy: mocks.actionBusy,
     error: '',
   }),
 }));
@@ -39,9 +42,12 @@ vi.mock('@/lib/liekan/upstream/features-client', () => ({ getAllFeatureRows: vi.
 beforeEach(() => {
   mocks.query = {};
   mocks.errors = {};
+  mocks.pending = {};
+  mocks.actionBusy = false;
   mocks.href.mockReset().mockReturnValue('/sessions');
   mocks.post.mockReset().mockResolvedValue({});
   mocks.navigate.mockReset();
+  mocks.updateQuery.mockReset();
   mocks.context = {
     user: { id: 'owner', isAdmin: true },
     siteId: 'site',
@@ -54,7 +60,55 @@ beforeEach(() => {
     api: { get: vi.fn(), post: mocks.post },
     href: mocks.href,
     navigate: mocks.navigate,
+    updateQuery: mocks.updateQuery,
   };
+});
+
+it('applies saved audiences to mounted retention queries and restores them from URL filters', () => {
+  const audiences: string[] = [];
+  mocks.context.route.page = 'retention';
+  mocks.context.range = {
+    startAt: Date.UTC(2026, 8, 1),
+    endAt: Date.UTC(2026, 8, 30),
+    timezone: 'UTC',
+  };
+  mocks.query['retention-audiences'] = [
+    { id: 'segment-a', type: 'segment', name: '移动访客' },
+    { id: 'cohort-a', type: 'cohort', name: '注册人群' },
+  ];
+  mocks.query.retention = (key: any[]) => {
+    audiences.push(key[2]);
+    return [];
+  };
+  const view = render(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('');
+  mocks.context = { ...mocks.context, filters: { segment: 'segment-a' } };
+  view.rerender(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('segment:segment-a');
+  expect(audiences.at(-1)).toBe('segment:segment-a');
+  fireEvent.change(screen.getByLabelText('人群'), { target: { value: 'cohort:cohort-a' } });
+  expect(mocks.updateQuery).toHaveBeenCalledWith({ cohort: 'cohort-a', segment: undefined });
+  mocks.context = { ...mocks.context, filters: {} };
+  view.rerender(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('');
+  expect(audiences.at(-1)).toBe('');
+});
+it('preserves the selected audience while choices load or fail, then resolves its name', () => {
+  mocks.context.filters = { segment: 'segment-a' };
+  mocks.pending['retention-audiences'] = true;
+  const view = render(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('segment:segment-a');
+  expect(screen.getByRole('option', { name: '所选分群（正在读取）' })).toBeDisabled();
+  mocks.pending['retention-audiences'] = false;
+  mocks.errors['retention-audiences'] = new Error('读取失败');
+  view.rerender(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('segment:segment-a');
+  expect(screen.getByRole('option', { name: '所选分群（读取失败）' })).toBeDisabled();
+  mocks.errors = {};
+  mocks.query['retention-audiences'] = [{ id: 'segment-a', type: 'segment', name: '移动访客' }];
+  view.rerender(<AnalyticsPages page="retention" />);
+  expect(screen.getByLabelText('人群')).toHaveValue('segment:segment-a');
+  expect(screen.getByRole('option', { name: '移动访客' })).not.toBeDisabled();
 });
 
 it('explains continuous visits and exposes the access-record heading', () => {
@@ -143,4 +197,43 @@ it('keeps the selected event property while its value query is pending', () => {
   view.rerender(<AnalyticsPages page="event-detail" />);
   expect(screen.getByText('plan 的各属性值对应触发次数。')).toBeInTheDocument();
   expect(JSON.parse(screen.getByRole('img').textContent!).series[0].values).toEqual([3]);
+});
+
+it('shows the current dimension selection and enforces the three dimension limit', async () => {
+  render(<AnalyticsPages page="breakdown" />);
+  fireEvent.click(screen.getByRole('button', { name: '选择维度' }));
+  expect(screen.getByText('已选择 2 / 3 个维度')).toBeVisible();
+  fireEvent.click(screen.getByRole('checkbox', { name: '浏览器' }));
+  expect(screen.getByText('已选择 3 / 3 个维度')).toBeVisible();
+  expect(screen.getByRole('checkbox', { name: '设备' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('checkbox', { name: '页面路径' }));
+  expect(screen.getByRole('checkbox', { name: '设备' })).toBeEnabled();
+});
+it('keeps the current period and timezone visible while editing comparison dates', () => {
+  mocks.context.range = {
+    startAt: Date.UTC(2026, 8, 1),
+    endAt: Date.UTC(2026, 8, 30),
+    timezone: 'Asia/Shanghai',
+  };
+  render(<AnalyticsPages page="compare" />);
+  fireEvent.click(screen.getByRole('button', { name: '调整对照期间' }));
+  expect(screen.getByRole('dialog')).toHaveTextContent('Asia/Shanghai');
+  expect(screen.getByRole('dialog')).toHaveTextContent('当前期间');
+});
+it('keeps a submitting annotation open until its request completes', async () => {
+  let complete!: (value: any) => void;
+  mocks.post.mockImplementation(() => new Promise(resolve => (complete = resolve)));
+  const view = render(<AnalyticsPages page="annotations" />);
+  fireEvent.click(screen.getByRole('button', { name: '添加注释' }));
+  fireEvent.change(screen.getByLabelText('注释'), { target: { value: '待保存注释' } });
+  fireEvent.submit(screen.getByLabelText('注释').closest('form')!);
+  await waitFor(() => expect(mocks.post).toHaveBeenCalledTimes(1));
+  mocks.actionBusy = true;
+  view.rerender(<AnalyticsPages page="annotations" />);
+  fireEvent.click(screen.getByRole('button', { name: '关闭弹窗' }));
+  const discard = screen.queryByRole('button', { name: '放弃修改并关闭' });
+  if (discard) fireEvent.click(discard);
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  complete({});
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });

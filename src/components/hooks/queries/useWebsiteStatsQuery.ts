@@ -23,12 +23,18 @@ export function useWebsiteStatsQuery(
   options?: UseQueryOptions<WebsiteStatsData, Error, WebsiteStatsData>,
 ) {
   const { get, useQuery } = useApi();
-  const { startAt, endAt } = useDateParameters();
+  const { startAt, endAt, timezone } = useDateParameters();
   const filters = useFilterParameters();
 
   return useQuery<WebsiteStatsData>({
-    queryKey: ['websites:stats', { websiteId, compare, startAt, endAt, ...filters }],
-    queryFn: () => get(`/websites/${websiteId}/stats`, { compare, startAt, endAt, ...filters }),
+    queryKey: ['websites:stats', { websiteId, compare, startAt, endAt, timezone, ...filters }],
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/stats`,
+        { compare, startAt, endAt, timezone, ...filters },
+        {},
+        signal,
+      ),
     enabled: !!websiteId,
     ...options,
   });

@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { z } from 'zod';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { badRequest, json, unauthorized } from '@/lib/response';
@@ -8,7 +9,7 @@ import { getRevenueMetrics, type RevenueMetricType } from '@/queries/sql/revenue
 
 const revenueMetricType = z.enum(['country', 'region', 'referrer', 'channel']);
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -40,4 +41,8 @@ export async function GET(
   const parameters = { ...filters, currency } as RevenuParameters;
 
   return json(await getRevenueMetrics(websiteId, parameters, filters, type as RevenueMetricType));
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

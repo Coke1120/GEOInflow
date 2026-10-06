@@ -26,6 +26,14 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  cancelLiekanAiRun: {
+    operationId: 'cancelLiekanAiRun',
+    method: 'post',
+    path: '/api/liekan/ai/runs/{id}/cancel',
+    pathParams: ['id'],
+    queryParams: [],
+    hasBody: false,
+  },
   cancelTwoFactorSetup: {
     operationId: 'cancelTwoFactorSetup',
     method: 'post',
@@ -63,6 +71,22 @@ export const operations = {
     method: 'post',
     path: '/api/boards/{boardId}/shares',
     pathParams: ['boardId'],
+    queryParams: [],
+    hasBody: true,
+  },
+  createLiekanAiConnection: {
+    operationId: 'createLiekanAiConnection',
+    method: 'post',
+    path: '/api/liekan/ai/connections',
+    pathParams: [],
+    queryParams: [],
+    hasBody: true,
+  },
+  createLiekanAiConversation: {
+    operationId: 'createLiekanAiConversation',
+    method: 'post',
+    path: '/api/liekan/ai/conversations',
+    pathParams: [],
     queryParams: [],
     hasBody: true,
   },
@@ -202,6 +226,22 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
+  deleteLiekanAiConnection: {
+    operationId: 'deleteLiekanAiConnection',
+    method: 'delete',
+    path: '/api/liekan/ai/connections/{id}',
+    pathParams: ['id'],
+    queryParams: [],
+    hasBody: true,
+  },
+  deleteLiekanAiConversation: {
+    operationId: 'deleteLiekanAiConversation',
+    method: 'delete',
+    path: '/api/liekan/ai/conversations/{id}',
+    pathParams: ['id'],
+    queryParams: [],
+    hasBody: false,
+  },
   deleteLink: {
     operationId: 'deleteLink',
     method: 'delete',
@@ -331,6 +371,14 @@ export const operations = {
       'pageSize',
       'maxResults',
     ],
+    hasBody: false,
+  },
+  findLiekanAiRun: {
+    operationId: 'findLiekanAiRun',
+    method: 'get',
+    path: '/api/liekan/ai/runs',
+    pathParams: [],
+    queryParams: ['clientRequestId'],
     hasBody: false,
   },
   getBoard: {
@@ -857,12 +905,69 @@ export const operations = {
     ],
     hasBody: false,
   },
+  getLiekanAiCatalog: {
+    operationId: 'getLiekanAiCatalog',
+    method: 'get',
+    path: '/api/liekan/ai/catalog',
+    pathParams: [],
+    queryParams: ['offset', 'websiteId'],
+    hasBody: false,
+  },
+  getLiekanAiConnections: {
+    operationId: 'getLiekanAiConnections',
+    method: 'get',
+    path: '/api/liekan/ai/connections',
+    pathParams: [],
+    queryParams: ['spaceKind', 'spaceId'],
+    hasBody: false,
+  },
+  getLiekanAiContext: {
+    operationId: 'getLiekanAiContext',
+    method: 'get',
+    path: '/api/liekan/ai/conversations/{id}/contexts/{contextId}',
+    pathParams: ['id', 'contextId'],
+    queryParams: [],
+    hasBody: false,
+  },
+  getLiekanAiConversation: {
+    operationId: 'getLiekanAiConversation',
+    method: 'get',
+    path: '/api/liekan/ai/conversations/{id}',
+    pathParams: ['id'],
+    queryParams: [],
+    hasBody: false,
+  },
+  getLiekanAiConversations: {
+    operationId: 'getLiekanAiConversations',
+    method: 'get',
+    path: '/api/liekan/ai/conversations',
+    pathParams: [],
+    queryParams: ['websiteId', 'cursor', 'limit'],
+    hasBody: false,
+  },
+  getLiekanAiMessages: {
+    operationId: 'getLiekanAiMessages',
+    method: 'get',
+    path: '/api/liekan/ai/conversations/{id}/messages',
+    pathParams: ['id'],
+    queryParams: ['cursor', 'limit'],
+    hasBody: false,
+  },
+  getLiekanAiRun: {
+    operationId: 'getLiekanAiRun',
+    method: 'get',
+    path: '/api/liekan/ai/runs/{id}',
+    pathParams: ['id'],
+    queryParams: [],
+    hasBody: false,
+  },
   getLiekanFeatureAnalytics: {
     operationId: 'getLiekanFeatureAnalytics',
     method: 'get',
     path: '/api/liekan/websites/{websiteId}/analytics',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'startAt',
       'endAt',
       'timezone',
@@ -894,6 +999,7 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/goals/{goalId}/analytics',
     pathParams: ['websiteId', 'goalId'],
     queryParams: [
+      'refresh',
       'startAt',
       'endAt',
       'timezone',
@@ -925,6 +1031,7 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/journeys/details',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'startAt',
       'endAt',
       'timezone',
@@ -943,6 +1050,7 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/journeys',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'startAt',
       'endAt',
       'timezone',
@@ -969,6 +1077,7 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/page-report',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'resource',
       'startAt',
       'endAt',
@@ -979,7 +1088,6 @@ export const operations = {
       'filter',
       'search',
       'chartPeriod',
-      'refresh',
     ],
     hasBody: false,
   },
@@ -989,6 +1097,7 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/report',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'resource',
       'startAt',
       'endAt',
@@ -1008,6 +1117,14 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/settings',
     pathParams: ['websiteId'],
     queryParams: [],
+    hasBody: false,
+  },
+  getLiekanSharedReport: {
+    operationId: 'getLiekanSharedReport',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/shared-report',
+    pathParams: ['websiteId'],
+    queryParams: ['startAt', 'endAt', 'timezone', 'chartPeriod', 'refresh'],
     hasBody: false,
   },
   getLiekanWebsiteSummary: {
@@ -1724,6 +1841,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/attribution',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -1766,6 +1884,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/breakdown',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -1813,6 +1932,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/events',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'startAt',
       'endAt',
       'startDate',
@@ -1999,6 +2119,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/funnels/stats',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2055,6 +2176,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/goals/stats',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2095,6 +2217,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/heatmaps',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2135,6 +2258,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/journeys',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2176,6 +2300,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/metrics',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'startAt',
       'endAt',
       'startDate',
@@ -2221,6 +2346,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/pageviews',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'startAt',
       'endAt',
       'startDate',
@@ -2262,6 +2388,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/performance/chart',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2301,6 +2428,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/performance/metrics',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2342,6 +2470,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/performance/stats',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2450,6 +2579,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/retention',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2661,6 +2791,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/funnels/{funnelId}/stats',
     pathParams: ['websiteId', 'funnelId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2699,6 +2830,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/goals/{goalId}/stats',
     pathParams: ['websiteId', 'goalId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -2813,6 +2945,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/sessions',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'startAt',
       'endAt',
       'startDate',
@@ -2968,6 +3101,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/stats',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'startAt',
       'endAt',
       'startDate',
@@ -3009,6 +3143,7 @@ export const operations = {
     path: '/api/websites/{websiteId}/utm/metrics',
     pathParams: ['websiteId'],
     queryParams: [
+      'refresh',
       'path',
       'referrer',
       'title',
@@ -3108,6 +3243,14 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
+  postLiekanAiAnalysis: {
+    operationId: 'postLiekanAiAnalysis',
+    method: 'post',
+    path: '/api/liekan/ai/conversations/{id}/messages',
+    pathParams: ['id'],
+    queryParams: [],
+    hasBody: true,
+  },
   postLiekanLogsImport: {
     operationId: 'postLiekanLogsImport',
     method: 'post',
@@ -3172,6 +3315,14 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
+  testLiekanAiConnection: {
+    operationId: 'testLiekanAiConnection',
+    method: 'post',
+    path: '/api/liekan/ai/connections/{id}/test',
+    pathParams: ['id'],
+    queryParams: [],
+    hasBody: true,
+  },
   transferWebsite: {
     operationId: 'transferWebsite',
     method: 'post',
@@ -3185,6 +3336,14 @@ export const operations = {
     method: 'post',
     path: '/api/boards/{boardId}',
     pathParams: ['boardId'],
+    queryParams: [],
+    hasBody: true,
+  },
+  updateLiekanAiConnection: {
+    operationId: 'updateLiekanAiConnection',
+    method: 'patch',
+    path: '/api/liekan/ai/connections/{id}',
+    pathParams: ['id'],
     queryParams: [],
     hasBody: true,
   },
@@ -3340,9 +3499,7 @@ export type OperationInput<K extends OperationId> = OperationPathParams<K> &
 export type OperationOutput<K extends OperationId> = OperationTypes[K]['responses'] extends {
   200: { content: infer C };
 }
-  ? C extends { 'application/json': infer R }
-    ? R
-    : C[keyof C]
+  ? C[keyof C]
   : unknown;
 
 export abstract class GeneratedUmamiClient {
@@ -3362,6 +3519,18 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'batch'>> {
     return this.execute('batch', input, options);
+  }
+
+  /**
+   * 停止本人正在执行的 AI 任务
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `POST /api/liekan/ai/runs/{id}/cancel`
+   */
+  cancelLiekanAiRun(
+    input: OperationInput<'cancelLiekanAiRun'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'cancelLiekanAiRun'>> {
+    return this.execute('cancelLiekanAiRun', input, options);
   }
 
   /**
@@ -3422,6 +3591,30 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'createBoardShare'>> {
     return this.execute('createBoardShare', input, options);
+  }
+
+  /**
+   * 新建加密 API 配置
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `POST /api/liekan/ai/connections`
+   */
+  createLiekanAiConnection(
+    input: OperationInput<'createLiekanAiConnection'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'createLiekanAiConnection'>> {
+    return this.execute('createLiekanAiConnection', input, options);
+  }
+
+  /**
+   * 新建绑定明确网站的本人对话
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `POST /api/liekan/ai/conversations`
+   */
+  createLiekanAiConversation(
+    input: OperationInput<'createLiekanAiConversation'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'createLiekanAiConversation'>> {
+    return this.execute('createLiekanAiConversation', input, options);
   }
 
   /**
@@ -3627,6 +3820,30 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * 删除 API 配置并撤销相关任务
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `DELETE /api/liekan/ai/connections/{id}`
+   */
+  deleteLiekanAiConnection(
+    input: OperationInput<'deleteLiekanAiConnection'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'deleteLiekanAiConnection'>> {
+    return this.execute('deleteLiekanAiConnection', input, options);
+  }
+
+  /**
+   * 删除本人对话、依据及可回查内容
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `DELETE /api/liekan/ai/conversations/{id}`
+   */
+  deleteLiekanAiConversation(
+    input: OperationInput<'deleteLiekanAiConversation'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'deleteLiekanAiConversation'>> {
+    return this.execute('deleteLiekanAiConversation', input, options);
+  }
+
+  /**
    * Delete a tracked link
    * Deletes the specified tracked link after checking the caller's permission to remove it.
    * `DELETE /api/links/{linkId}`
@@ -3802,6 +4019,18 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'exportWebsite'>> {
     return this.execute('exportWebsite', input, options);
+  }
+
+  /**
+   * 按本人请求标识恢复任务
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `GET /api/liekan/ai/runs`
+   */
+  findLiekanAiRun(
+    input: OperationInput<'findLiekanAiRun'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'findLiekanAiRun'>> {
+    return this.execute('findLiekanAiRun', input, options);
   }
 
   /**
@@ -3997,6 +4226,90 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * 获取 AI 模块状态、模型模板与可访问网站
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `GET /api/liekan/ai/catalog`
+   */
+  getLiekanAiCatalog(
+    input?: OperationInput<'getLiekanAiCatalog'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAiCatalog'>> {
+    return this.execute('getLiekanAiCatalog', input, options);
+  }
+
+  /**
+   * 获取当前空间已配置 API 列表
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `GET /api/liekan/ai/connections`
+   */
+  getLiekanAiConnections(
+    input: OperationInput<'getLiekanAiConnections'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAiConnections'>> {
+    return this.execute('getLiekanAiConnections', input, options);
+  }
+
+  /**
+   * 查看回答生成时的原范围和事实依据
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `GET /api/liekan/ai/conversations/{id}/contexts/{contextId}`
+   */
+  getLiekanAiContext(
+    input: OperationInput<'getLiekanAiContext'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAiContext'>> {
+    return this.execute('getLiekanAiContext', input, options);
+  }
+
+  /**
+   * 读取本人对话元数据
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `GET /api/liekan/ai/conversations/{id}`
+   */
+  getLiekanAiConversation(
+    input: OperationInput<'getLiekanAiConversation'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAiConversation'>> {
+    return this.execute('getLiekanAiConversation', input, options);
+  }
+
+  /**
+   * 读取本人当前网站对话列表
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `GET /api/liekan/ai/conversations`
+   */
+  getLiekanAiConversations(
+    input: OperationInput<'getLiekanAiConversations'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAiConversations'>> {
+    return this.execute('getLiekanAiConversations', input, options);
+  }
+
+  /**
+   * 获取本人当前仍有权限的私有对话记录
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `GET /api/liekan/ai/conversations/{id}/messages`
+   */
+  getLiekanAiMessages(
+    input: OperationInput<'getLiekanAiMessages'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAiMessages'>> {
+    return this.execute('getLiekanAiMessages', input, options);
+  }
+
+  /**
+   * 读取本人任务状态和已保存结果
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `GET /api/liekan/ai/runs/{id}`
+   */
+  getLiekanAiRun(
+    input: OperationInput<'getLiekanAiRun'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAiRun'>> {
+    return this.execute('getLiekanAiRun', input, options);
+  }
+
+  /**
    * 查询 Liekan 明细统计
    * `GET /api/liekan/websites/{websiteId}/analytics`
    */
@@ -4082,6 +4395,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getLiekanSettings'>> {
     return this.execute('getLiekanSettings', input, options);
+  }
+
+  /**
+   * Read aggregate website statistics authorized by a live overview share or complete login
+   * `GET /api/liekan/websites/{websiteId}/shared-report`
+   */
+  getLiekanSharedReport(
+    input: OperationInput<'getLiekanSharedReport'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanSharedReport'>> {
+    return this.execute('getLiekanSharedReport', input, options);
   }
 
   /**
@@ -5183,6 +5507,18 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * 发起单次只读 AI 网站数据分析
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `POST /api/liekan/ai/conversations/{id}/messages`
+   */
+  postLiekanAiAnalysis(
+    input: OperationInput<'postLiekanAiAnalysis'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'postLiekanAiAnalysis'>> {
+    return this.execute('postLiekanAiAnalysis', input, options);
+  }
+
+  /**
    * post Liekan logs/import
    * `POST /api/liekan/websites/{websiteId}/logs/import`
    */
@@ -5270,6 +5606,18 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * 实时测试当前 API 配置
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `POST /api/liekan/ai/connections/{id}/test`
+   */
+  testLiekanAiConnection(
+    input: OperationInput<'testLiekanAiConnection'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'testLiekanAiConnection'>> {
+    return this.execute('testLiekanAiConnection', input, options);
+  }
+
+  /**
    * Transfer website ownership
    * Transfers the specified website to another user or team after checking permission for the destination.
    * `POST /api/websites/{websiteId}/transfer`
@@ -5291,6 +5639,18 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'updateBoard'>> {
     return this.execute('updateBoard', input, options);
+  }
+
+  /**
+   * 版本化编辑 API、启停和默认连接
+   * AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+   * `PATCH /api/liekan/ai/connections/{id}`
+   */
+  updateLiekanAiConnection(
+    input: OperationInput<'updateLiekanAiConnection'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'updateLiekanAiConnection'>> {
+    return this.execute('updateLiekanAiConnection', input, options);
   }
 
   /**

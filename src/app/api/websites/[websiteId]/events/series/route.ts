@@ -11,6 +11,7 @@ async function getResponse(
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
   const schema = z.object({
+    refresh: z.literal('1').optional(),
     startAt: z.coerce.number().int(),
     endAt: z.coerce.number().int(),
     unit: unitParam.optional(),

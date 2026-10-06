@@ -1,38 +1,333 @@
 'use client';
-import { replaceEqualDeep } from '@tanstack/react-query';
-const freshness = new WeakMap<object, number>();
-const requests = new WeakMap<AbortSignal, number>();
-export const freshnessExpiry = (data: object) => freshness.get(data);
+import {
+  hashKey,
+  replaceEqualDeep,
+  useQueryClient,
+  type UseQueryResult,
+  type QueryClient,
+} from '@tanstack/react-query';
+import { useEffect, useReducer, useRef } from 'react';
+import { statisticsCacheTtl } from './cache-policy';
+import { promoteRequestConsumer } from './request-pool';
+
+interface Freshness {
+  deadline: number;
+  expiresAt: number;
+  generatedAt?: number;
+  ttl?: number;
+  failedRetryAfterMs?: number;
+}
+const freshness = new WeakMap<object, Freshness>();
+const requests = new WeakMap<AbortSignal, Freshness>();
+const requestOptions = new WeakMap<
+  AbortSignal,
+  { refresh?: boolean; priority?: 'foreground' | 'prefetch' }
+>();
+const pendingQueries = new Map<string, Set<AbortSignal>>();
+export function promoteQueryRequest(queryKey: readonly unknown[]) {
+  for (const signal of pendingQueries.get(hashKey(queryKey)) || []) {
+    const options = requestOptions.get(signal);
+    if (options) options.priority = 'foreground';
+    promoteRequestConsumer(signal);
+  }
+}
+export function observeRequestPriority(client: QueryClient) {
+  return client.getQueryCache().subscribe(event => {
+    if (event.type === 'observerAdded' && event.query.isActive())
+      promoteQueryRequest(event.query.queryKey);
+  });
+}
+export const monotonicNow = () => performance.now();
+export const freshnessExpiry = (data: object) => freshness.get(data)?.expiresAt;
+export const hasClientFreshness = (data: unknown) =>
+  !!data && typeof data === 'object' && freshness.has(data);
+export const clientRequestOptions = (signal?: AbortSignal) => signal && requestOptions.get(signal);
+
+function remember(data: unknown, value: Freshness) {
+  if (data && typeof data === 'object') freshness.set(data, value);
+}
+// Used for local fixtures and explicitly browser-cached configuration.
 export function rememberFreshness(data: unknown, expiresAt: number) {
-  if (data && typeof data === 'object' && Number.isFinite(expiresAt))
-    freshness.set(data, expiresAt);
+  if (Number.isFinite(expiresAt))
+    remember(data, { expiresAt, deadline: monotonicNow() + expiresAt - Date.now() });
+}
+/** Error rows carry retry timing, with no successful statistics lifetime. */
+export function rememberAggregateFailure(data: unknown, retryAfterMs = 0) {
+  remember(data, { expiresAt: 0, deadline: monotonicNow(), failedRetryAfterMs: retryAfterMs });
+}
+function timestamp(value: unknown) {
+  if (value == null || value === '') return NaN;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : Date.parse(String(value));
+}
+/** Translate server time once; wall-clock changes cannot renew a response. */
+export function rememberResponseFreshness(
+  data: any,
+  headers: Headers,
+  startedAt: number,
+  receivedAt = monotonicNow(),
+) {
+  const expiresAt = timestamp(headers.get('X-Liekan-Expires-At') ?? data?.meta?.expiresAt);
+  const generatedAt = timestamp(headers.get('X-Liekan-Generated-At') ?? data?.meta?.generatedAt);
+  const exactServerTime = timestamp(headers.get('X-Liekan-Server-Time'));
+  const date = timestamp(headers.get('Date'));
+  const serverTime = Number.isFinite(exactServerTime) ? exactServerTime : date;
+  const precision = Number.isFinite(exactServerTime) ? 0 : 1000;
+  const valid =
+    Number.isFinite(expiresAt) &&
+    Number.isFinite(generatedAt) &&
+    Number.isFinite(serverTime) &&
+    expiresAt > generatedAt &&
+    generatedAt <= serverTime + precision;
+  remember(data, {
+    expiresAt: valid ? expiresAt : 0,
+    generatedAt: valid ? generatedAt : undefined,
+    ttl: valid ? Math.min(300000, expiresAt - generatedAt) : undefined,
+    deadline: valid
+      ? receivedAt +
+        Math.min(300000, expiresAt - serverTime) -
+        Math.max(0, receivedAt - startedAt) -
+        precision
+      : -Infinity,
+  });
+}
+export function copyClientFreshness(data: unknown, source: unknown) {
+  if (!source || typeof source !== 'object') return;
+  const next = freshness.get(source);
+  if (!next) return;
+  const previous = data && typeof data === 'object' ? freshness.get(data) : undefined;
+  remember(data, previous && previous.deadline <= next.deadline ? previous : next);
 }
 export function rememberRequestFreshness(data: object, signal?: AbortSignal) {
-  const expiry = freshness.get(data);
-  if (signal && expiry != null)
-    requests.set(signal, Math.min(requests.get(signal) ?? Infinity, expiry));
+  const value = freshness.get(data);
+  if (signal && value) {
+    const previous = requests.get(signal);
+    requests.set(signal, previous && previous.deadline <= value.deadline ? previous : value);
+  }
 }
-export async function withClientFreshness<T>(signal: AbortSignal, load: () => Promise<T>) {
-  const value = await load();
-  const expiry = requests.get(signal);
-  if (expiry != null) rememberFreshness(value, expiry);
-  return value;
+/** A selected projection follows its current response, including renewed unchanged values. */
+export function projectClientFreshness(data: unknown, source: unknown) {
+  if (!source || typeof source !== 'object') return;
+  const next = freshness.get(source);
+  if (!next) return;
+  const previous = data && typeof data === 'object' ? freshness.get(data) : undefined;
+  remember(
+    data,
+    previous?.expiresAt === next.expiresAt && previous.deadline < next.deadline ? previous : next,
+  );
+}
+export async function withClientFreshness<T>(
+  signal: AbortSignal,
+  load: () => Promise<T>,
+  options?: {
+    refresh?: boolean;
+    priority?: 'foreground' | 'prefetch';
+    queryKey?: readonly unknown[];
+  },
+) {
+  requests.delete(signal);
+  requestOptions.set(signal, options || {});
+  const key = options?.queryKey && hashKey(options.queryKey);
+  if (key) {
+    if (!pendingQueries.has(key)) pendingQueries.set(key, new Set());
+    pendingQueries.get(key).add(signal);
+  }
+  try {
+    const value = await load();
+    const expiry = requests.get(signal);
+    if (expiry) remember(value, expiry);
+    return value;
+  } finally {
+    requestOptions.delete(signal);
+    requests.delete(signal);
+    if (key) {
+      pendingQueries.get(key)?.delete(signal);
+      if (!pendingQueries.get(key)?.size) pendingQueries.delete(key);
+    }
+  }
 }
 export function shareWithFreshness(oldData: unknown, newData: unknown) {
+  const previous = oldData && typeof oldData === 'object' ? freshness.get(oldData) : undefined;
+  const next = newData && typeof newData === 'object' ? freshness.get(newData) : undefined;
   const shared = replaceEqualDeep(oldData, newData);
-  const expiry = newData && typeof newData === 'object' ? freshness.get(newData) : undefined;
-  if (expiry != null) rememberFreshness(shared, expiry);
+  if (next)
+    remember(
+      shared,
+      previous?.expiresAt > 0 &&
+        previous.expiresAt === next.expiresAt &&
+        previous.deadline < next.deadline
+        ? previous
+        : next,
+    );
   return shared;
 }
-export function remainingFreshness(data: any, updatedAt: number, fallback = 30000) {
-  const expiresAt =
-    data?.meta?.expiresAt ?? (data && typeof data === 'object' ? freshness.get(data) : undefined);
-  return Math.max(0, Math.min(300000, (expiresAt ?? updatedAt + fallback) - Date.now()));
+export function remainingFreshness(data: any, updatedAt: number, fallback = 0) {
+  const value = data && typeof data === 'object' ? freshness.get(data) : undefined;
+  return Math.max(
+    0,
+    Math.min(300000, value ? value.deadline - monotonicNow() : updatedAt + fallback - Date.now()),
+  );
 }
-// TanStack measures staleTime from dataUpdatedAt. Preserve the server's original expiry.
-export function freshnessStaleTime(query: any, fallback = 30000) {
+// TanStack measures staleTime from dataUpdatedAt; the deadline stays monotonic.
+export function freshnessStaleTime(query: any, fallback = 0) {
   return (
     Math.max(0, Date.now() - query.state.dataUpdatedAt) +
     remainingFreshness(query.state.data, query.state.dataUpdatedAt, fallback)
   );
+}
+export function aggregateGrace(data: unknown, endAt?: number, timezone?: string) {
+  const value = data && typeof data === 'object' ? freshness.get(data) : undefined;
+  if (value?.ttl) return value.ttl >= 300000 ? 300000 : 30000;
+  return Number.isFinite(endAt) ? statisticsCacheTtl(endAt, timezone) : 30000;
+}
+export function canDisplayAggregate(data: unknown, grace: number, now = monotonicNow()) {
+  const value = data && typeof data === 'object' ? freshness.get(data) : undefined;
+  return !!value && now < value.deadline + grace;
+}
+
+/** Active modules renew at their server deadline and bound retained failed reads. */
+export function useFreshnessLifecycle<T>(
+  result: UseQueryResult<T, any>,
+  options: {
+    queryKey: readonly unknown[];
+    enabled?: boolean;
+    aggregate?: boolean;
+    endAt?: number;
+    timezone?: string;
+    interval?: number;
+  },
+): UseQueryResult<T, any> & { isStaleAggregate?: boolean } {
+  const client = useQueryClient();
+  const [version, tick] = useReducer(value => value + 1, 0);
+  const key = JSON.stringify(options.queryKey);
+  const automatic = useRef({ key, last: -Infinity, errorAt: 0, retryAt: 0, observedAt: 0 });
+  if (automatic.current.key !== key)
+    automatic.current = { key, last: -Infinity, errorAt: 0, retryAt: 0, observedAt: 0 };
+  const current = useRef(result);
+  current.current = result;
+  const aggregate =
+    options.aggregate ?? (hasClientFreshness(result.data) || result.error?.aggregate === true);
+  const restricted = [401, 403, 404].includes(result.error?.status);
+  const grace = aggregateGrace(result.data, options.endAt, options.timezone);
+  useEffect(() => {
+    if (options.enabled !== false) promoteQueryRequest(options.queryKey);
+  }, [key, options.enabled]);
+  useEffect(() => {
+    if (!restricted) return;
+    const query = client.getQueryCache().find({ queryKey: options.queryKey, exact: true });
+    if (query?.state.data !== undefined) query.setState({ data: undefined });
+  }, [restricted, client, key]);
+  useEffect(() => {
+    if (options.enabled === false || !aggregate || restricted) return;
+    const state = automatic.current;
+    const now = monotonicNow();
+    if (result.error && state.errorAt !== result.errorUpdatedAt) {
+      state.errorAt = result.errorUpdatedAt;
+      state.retryAt = now + Math.max(grace, Number(result.error.retryAfterMs) || 0);
+    } else if (!result.error) {
+      state.errorAt = 0;
+      if (result.dataUpdatedAt !== state.observedAt) {
+        state.observedAt = result.dataUpdatedAt;
+        const proof =
+          result.data && typeof result.data === 'object' ? freshness.get(result.data) : undefined;
+        state.retryAt =
+          proof && proof.deadline <= now && result.isFetchedAfterMount !== false
+            ? now + Math.max(grace, proof.failedRetryAfterMs || 0)
+            : 0;
+      }
+    }
+    let timer: ReturnType<typeof setTimeout>;
+    const schedule = () => {
+      clearTimeout(timer);
+      const query = current.current;
+      const value =
+        query.data && typeof query.data === 'object' ? freshness.get(query.data) : undefined;
+      if ((!value && !query.error) || [401, 403, 404].includes(query.error?.status)) return;
+      const time = monotonicNow();
+      const visible = document.visibilityState !== 'hidden';
+      const online = navigator.onLine !== false;
+      const deadline = value?.deadline ?? state.retryAt;
+      const target = Math.max(
+        options.interval ? state.last + options.interval : deadline,
+        state.retryAt,
+        deadline <= state.last ? state.last + (options.interval || grace) : -Infinity,
+      );
+      const hideAt = value ? value.deadline + grace : Infinity;
+      const fetching =
+        query.isFetching ||
+        client.getQueryCache().find({ queryKey: options.queryKey, exact: true })?.state
+          .fetchStatus === 'fetching';
+      if (visible && online && !fetching && target <= time) {
+        state.last = time;
+        void query.refetch({ cancelRefetch: false }).catch(() => {});
+        tick();
+        return;
+      }
+      const next = Math.min(
+        deadline > time ? deadline : Infinity,
+        hideAt > time ? hideAt : Infinity,
+        visible && online && !fetching ? target : Infinity,
+      );
+      if (Number.isFinite(next))
+        timer = setTimeout(
+          () => {
+            tick();
+            schedule();
+          },
+          Math.max(1, next - time),
+        );
+    };
+    const resume = () => {
+      tick();
+      schedule();
+    };
+    schedule();
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('focus', resume);
+    window.addEventListener('online', resume);
+    window.addEventListener('offline', resume);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('online', resume);
+      window.removeEventListener('offline', resume);
+    };
+  }, [
+    key,
+    aggregate,
+    restricted,
+    options.enabled,
+    options.interval,
+    result.data,
+    result.dataUpdatedAt,
+    result.errorUpdatedAt,
+    result.isFetching,
+    grace,
+    version,
+  ]);
+  const hidden =
+    restricted || (aggregate && result.data != null && !canDisplayAggregate(result.data, grace));
+  const expired =
+    aggregate && result.data != null && remainingFreshness(result.data, result.dataUpdatedAt) <= 0;
+  return {
+    ...result,
+    isStaleAggregate: expired,
+    ...(hidden
+      ? {
+          data: undefined,
+          isPending: false,
+          isError: true,
+          isSuccess: false,
+          status: 'error',
+          error:
+            result.error ||
+            new Error(
+              navigator.onLine === false
+                ? '统计数据已过期，请恢复连接后重试。'
+                : '统计数据已过期，请重试读取。',
+            ),
+        }
+      : {}),
+  } as UseQueryResult<T, any> & { isStaleAggregate?: boolean };
 }

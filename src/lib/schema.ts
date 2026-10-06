@@ -14,6 +14,7 @@ export const unitParam = z.string().refine(value => UNIT_TYPES.includes(value), 
 });
 
 export const dateRangeParams = {
+  refresh: z.literal('1').optional(),
   startAt: z.coerce.number().optional(),
   endAt: z.coerce.number().optional(),
   startDate: z.coerce.date().optional(),

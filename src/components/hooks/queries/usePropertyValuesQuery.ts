@@ -34,7 +34,7 @@ export function usePropertyValuesQuery(
         ...params,
       },
     ],
-    queryFn: () =>
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
       get(
         source === 'event'
           ? `/websites/${websiteId}/event-data/values`
@@ -50,6 +50,8 @@ export function usePropertyValuesQuery(
           dataType,
           ...serializePropertyFilters(propertyFilters),
         },
+        {},
+        signal,
       ),
     enabled: !!(websiteId && propertyName),
     ...options,

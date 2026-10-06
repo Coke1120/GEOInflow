@@ -81,20 +81,21 @@ function attributionCte(
 export async function featureAnalytics(websiteId: string, input: unknown) {
   const parsed = analysisQuery.safeParse(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
-  const p = parsed.data;
+  const { refresh, ...p } = parsed.data;
   const filters = await filtersFor(websiteId, {
     ...p,
     ...(p.eventName ? { drill_event: `eq.${p.eventName}` } : {}),
   });
   if (
     !bypassQueryCache() &&
-    ['events', 'utm', 'sources', 'performance', 'revenue', 'attribution'].includes(p.kind)
+    ['events', 'utm', 'sources', 'performance', 'attribution', 'heatmap-scroll'].includes(p.kind)
   ) {
     const result = await analyticsCache.read(
       analyticsCacheKey('feature-analytics-v1', [process.env.DATABASE_URL, websiteId, p, filters]),
       statisticsCacheTtl(p.endAt, p.timezone),
       [websiteCacheTag(websiteId)],
       () => computeFeatureAnalytics(websiteId, p, filters),
+      refresh === '1',
     );
     noteCacheResult(result);
     return result.value;
@@ -196,6 +197,7 @@ async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) 
         'liekanRevenueRows',
       ),
     ]);
+    noteCacheResult({ value: null, generatedAt: Date.now(), expiresAt: Date.now(), status: 'miss' });
     return clean({
       rows: rows.map(row => ({
         ...row,
@@ -355,7 +357,7 @@ async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) 
 export async function featureJourney(websiteId: string, input: unknown): Promise<JourneyData> {
   const parsed = journeyQuery.safeParse(input);
   if (!parsed.success) throw new LiekanError('路径参数无效');
-  const p = parsed.data;
+  const { refresh, ...p } = parsed.data;
   let nodes: string[];
   if (p.sequence) {
     try {
@@ -371,6 +373,19 @@ export async function featureJourney(websiteId: string, input: unknown): Promise
     )
       throw new LiekanError('路径标识无效');
   }
+  if (!nodes && !bypassQueryCache()) {
+    const result = await analyticsCache.read(
+      analyticsCacheKey('feature-journey-v2', [process.env.DATABASE_URL, websiteId, p]),
+      statisticsCacheTtl(p.endAt, p.timezone), [websiteCacheTag(websiteId)],
+      () => computeFeatureJourney(websiteId, p, nodes),
+      refresh === '1',
+    );
+    noteCacheResult(result);
+    return result.value;
+  }
+  return computeFeatureJourney(websiteId, p, nodes);
+}
+async function computeFeatureJourney(websiteId: string, p: any, nodes?: string[]): Promise<JourneyData> {
   const { cte, params } = selectEvents(
     websiteId,
     await filtersFor(websiteId, {

@@ -19,11 +19,16 @@ function useListChartsQuery(queryKey: string, path: string, idsInput: string[]) 
 
   return useQuery<WebsiteListChartsResponse>({
     queryKey: [queryKey, { ids, timezone: resolvedTimezone }],
-    queryFn: () =>
-      get(path, {
-        ids: ids.join(','),
-        timezone: resolvedTimezone,
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        path,
+        {
+          ids: ids.join(','),
+          timezone: resolvedTimezone,
+        },
+        {},
+        signal,
+      ),
     enabled: ids.length > 0,
     staleTime: 5 * 60 * 1000,
   });

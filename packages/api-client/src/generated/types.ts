@@ -530,6 +530,263 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/ai/catalog': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取 AI 模块状态、模型模板与可访问网站
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    get: operations['getLiekanAiCatalog'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/ai/connections': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取当前空间已配置 API 列表
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    get: operations['getLiekanAiConnections'];
+    put?: never;
+    /**
+     * 新建加密 API 配置
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    post: operations['createLiekanAiConnection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/ai/connections/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * 删除 API 配置并撤销相关任务
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    delete: operations['deleteLiekanAiConnection'];
+    options?: never;
+    head?: never;
+    /**
+     * 版本化编辑 API、启停和默认连接
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    patch: operations['updateLiekanAiConnection'];
+    trace?: never;
+  };
+  '/api/liekan/ai/connections/{id}/test': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 实时测试当前 API 配置
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    post: operations['testLiekanAiConnection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/ai/conversations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 读取本人当前网站对话列表
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    get: operations['getLiekanAiConversations'];
+    put?: never;
+    /**
+     * 新建绑定明确网站的本人对话
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    post: operations['createLiekanAiConversation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/ai/conversations/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 读取本人对话元数据
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    get: operations['getLiekanAiConversation'];
+    put?: never;
+    post?: never;
+    /**
+     * 删除本人对话、依据及可回查内容
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    delete: operations['deleteLiekanAiConversation'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/ai/conversations/{id}/contexts/{contextId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 查看回答生成时的原范围和事实依据
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    get: operations['getLiekanAiContext'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/ai/conversations/{id}/messages': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 获取本人当前仍有权限的私有对话记录
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    get: operations['getLiekanAiMessages'];
+    put?: never;
+    /**
+     * 发起单次只读 AI 网站数据分析
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    post: operations['postLiekanAiAnalysis'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/ai/runs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 按本人请求标识恢复任务
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    get: operations['findLiekanAiRun'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/ai/runs/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * 读取本人任务状态和已保存结果
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    get: operations['getLiekanAiRun'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/ai/runs/{id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * 停止本人正在执行的 AI 任务
+     * @description AI 契约 version 1，仅完整会话身份可使用；账户 API Key、公共分享及 2FA 中间身份拒绝。私有响应不缓存。
+     */
+    post: operations['cancelLiekanAiRun'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/collectors/pair': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** pairLiekanCollector */
+    post: operations['pairLiekanCollector'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/links/{linkId}/sources': {
     parameters: {
       query?: never;
@@ -539,6 +796,57 @@ export interface paths {
     };
     /** 查询链接来源与地域的真实点击次数 */
     get: operations['getLiekanLinkSources'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/log-sources/{sourceId}/batches': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** receiveLiekanAutomaticBatch */
+    post: operations['receiveLiekanAutomaticBatch'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/log-sources/{sourceId}/heartbeat': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** heartbeatLiekanCollector */
+    post: operations['heartbeatLiekanCollector'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/oauth/cloudflare/callback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** callbackLiekanCloudflare */
+    get: operations['callbackLiekanCloudflare'];
     put?: never;
     post?: never;
     delete?: never;
@@ -618,6 +926,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/websites/{websiteId}/installation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read website installation progress and log receipts */
+    get: operations['getLiekanInstallation'];
+    put?: never;
+    /** Save website installation guide progress */
+    post: operations['saveLiekanInstallation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/websites/{websiteId}/journeys': {
     parameters: {
       query?: never;
@@ -646,6 +972,92 @@ export interface paths {
     get: operations['getLiekanJourneyDetails'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/log-sources': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanLogSources */
+    get: operations['getLiekanLogSources'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/log-sources/{sourceId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** manageLiekanLogSource */
+    put: operations['manageLiekanLogSource'];
+    post?: never;
+    /** disconnectLiekanLogSource */
+    delete: operations['disconnectLiekanLogSource'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/log-sources/cloudflare/finalize': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** finalizeLiekanCloudflare */
+    post: operations['finalizeLiekanCloudflare'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/log-sources/cloudflare/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** startLiekanCloudflare */
+    post: operations['startLiekanCloudflare'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/log-sources/server/pairing': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** createLiekanServerPairing */
+    post: operations['createLiekanServerPairing'];
     delete?: never;
     options?: never;
     head?: never;
@@ -714,6 +1126,23 @@ export interface paths {
     get: operations['getLiekanSettings'];
     /** put Liekan settings */
     put: operations['putLiekanSettings'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/shared-report': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read aggregate website statistics authorized by a live overview share or complete login */
+    get: operations['getLiekanSharedReport'];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -6571,6 +7000,3091 @@ export interface operations {
       };
     };
   };
+  getLiekanAiCatalog: {
+    parameters: {
+      query?: {
+        /** @description Number of rows to skip before returning results. */
+        offset?: number;
+        /** @description ID of the website. */
+        websiteId?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            limits: {
+              connectionsPerSpace: number;
+              dailyRequests: number;
+              maxDays: number;
+              maxQuestionCharacters: number;
+              /** @constant */
+              quotaTimezone: 'UTC';
+            };
+            module: {
+              enabled: boolean;
+              reason?: string;
+            };
+            nextOffset: number | null;
+            /** @constant */
+            protocolVersion: 1;
+            spaces: {
+              canManage: boolean;
+              canUse: boolean;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @enum {string} */
+              kind: 'personal' | 'team';
+              /** @description Display name of the resource. */
+              name: string;
+            }[];
+            templates: {
+              baseUrl: string;
+              contextWindow: number;
+              /** @enum {string} */
+              contextWindowSource?: 'application_limit' | 'provider_documented';
+              documentationUrls: string[];
+              documented: {
+                [key: string]: boolean | null;
+              };
+              /** @description Unique identifier of the resource. */
+              id: string;
+              model: string;
+              /** @description Display name of the resource. */
+              name: string;
+              notes: string[];
+              protocol: string;
+              provider: string;
+              /** @description Region or subdivision of the visitor. */
+              region?: string | null;
+              requestPolicy?: {
+                [key: string]: unknown;
+              };
+            }[];
+            websiteLimit: number;
+            websites: {
+              /** @description Domain name associated with the resource. */
+              domain: string | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @description Display name of the resource. */
+              name: string;
+              ownerUserId: string | null;
+              space:
+                | {
+                    /**
+                     * Format: uuid
+                     * @description Unique identifier of the resource.
+                     */
+                    id: string;
+                    /** @constant */
+                    kind: 'personal';
+                  }
+                | {
+                    /**
+                     * Format: uuid
+                     * @description Unique identifier of the resource.
+                     */
+                    id: string;
+                    /** @constant */
+                    kind: 'team';
+                  };
+              /** @description ID of the associated team. */
+              teamId: string | null;
+            }[];
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanAiConnections: {
+    parameters: {
+      query: {
+        spaceId: string;
+        spaceKind: 'personal' | 'team';
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            canManage: boolean;
+            canUse: boolean;
+            items: {
+              baseUrl: string;
+              capabilities: {
+                documented: {
+                  stream: boolean | null;
+                  structuredOutput: boolean | null;
+                  text: boolean | null;
+                  tools: boolean | null;
+                  usage: boolean | null;
+                };
+                keyVerified: {
+                  stream: boolean | null;
+                  structuredOutput: boolean | null;
+                  text: boolean | null;
+                  tools: boolean | null;
+                  usage: boolean | null;
+                };
+                protocolTested: {
+                  stream: boolean | null;
+                  structuredOutput: boolean | null;
+                  text: boolean | null;
+                  tools: boolean | null;
+                  usage: boolean | null;
+                };
+              };
+              configVersion: number;
+              contextWindow?: number;
+              /** @enum {string} */
+              contextWindowSource?: 'application_limit' | 'provider_documented';
+              enabled: boolean;
+              hasKey: boolean;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              isDefault: boolean;
+              lastCall: {
+                completedAt: string | null;
+                /** @description Date and time the record was created. */
+                createdAt: string;
+                errorCode: string | null;
+                /** @enum {string} */
+                operation: 'test' | 'analysis';
+                state: string;
+              } | null;
+              model: string;
+              /** @description Display name of the resource. */
+              name: string;
+              ownerUserId: string | null;
+              /** @enum {string} */
+              protocol: 'openai-chat' | 'anthropic-messages';
+              /** @constant */
+              protocolVersion: 1;
+              /** @enum {string} */
+              provider:
+                | 'openai'
+                | 'anthropic'
+                | 'gemini'
+                | 'deepseek'
+                | 'qwen'
+                | 'kimi'
+                | 'minimax'
+                | 'custom';
+              /** @description Region or subdivision of the visitor. */
+              region?: string | null;
+              rowVersion: number;
+              /** @description ID of the associated team. */
+              teamId: string | null;
+              testedAt: string | null;
+              /** @enum {string} */
+              testState: 'untested' | 'testing' | 'connected' | 'failed';
+              workspaceId: string | null;
+            }[];
+            /** @constant */
+            protocolVersion: 1;
+            /** @description Permission role assigned to the user. */
+            role: string;
+            teamRole: string | null;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  createLiekanAiConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description API key authentication details. */
+          apiKey: string;
+          baseUrl: string;
+          enabled?: boolean;
+          isDefault?: boolean;
+          model: string;
+          /** @description Display name of the resource. */
+          name: string;
+          /** @enum {string} */
+          protocol: 'openai-chat' | 'anthropic-messages';
+          /** @enum {string} */
+          provider:
+            | 'openai'
+            | 'anthropic'
+            | 'gemini'
+            | 'deepseek'
+            | 'qwen'
+            | 'kimi'
+            | 'minimax'
+            | 'custom';
+          space:
+            | {
+                /**
+                 * Format: uuid
+                 * @description Unique identifier of the resource.
+                 */
+                id: string;
+                /** @constant */
+                kind: 'personal';
+              }
+            | {
+                /**
+                 * Format: uuid
+                 * @description Unique identifier of the resource.
+                 */
+                id: string;
+                /** @constant */
+                kind: 'team';
+              };
+          /** @enum {string} */
+          templateId?:
+            | 'openai'
+            | 'anthropic'
+            | 'gemini'
+            | 'deepseek'
+            | 'qwen'
+            | 'kimi'
+            | 'minimax'
+            | 'custom';
+          workspaceId?: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            baseUrl: string;
+            capabilities: {
+              documented: {
+                stream: boolean | null;
+                structuredOutput: boolean | null;
+                text: boolean | null;
+                tools: boolean | null;
+                usage: boolean | null;
+              };
+              keyVerified: {
+                stream: boolean | null;
+                structuredOutput: boolean | null;
+                text: boolean | null;
+                tools: boolean | null;
+                usage: boolean | null;
+              };
+              protocolTested: {
+                stream: boolean | null;
+                structuredOutput: boolean | null;
+                text: boolean | null;
+                tools: boolean | null;
+                usage: boolean | null;
+              };
+            };
+            configVersion: number;
+            contextWindow?: number;
+            /** @enum {string} */
+            contextWindowSource?: 'application_limit' | 'provider_documented';
+            enabled: boolean;
+            hasKey: boolean;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            isDefault: boolean;
+            model: string;
+            /** @description Display name of the resource. */
+            name: string;
+            ownerUserId: string | null;
+            /** @enum {string} */
+            protocol: 'openai-chat' | 'anthropic-messages';
+            /** @constant */
+            protocolVersion: 1;
+            /** @enum {string} */
+            provider:
+              | 'openai'
+              | 'anthropic'
+              | 'gemini'
+              | 'deepseek'
+              | 'qwen'
+              | 'kimi'
+              | 'minimax'
+              | 'custom';
+            /** @description Region or subdivision of the visitor. */
+            region?: string | null;
+            rowVersion: number;
+            /** @description ID of the associated team. */
+            teamId: string | null;
+            testedAt: string | null;
+            /** @enum {string} */
+            testState: 'untested' | 'testing' | 'connected' | 'failed';
+            workspaceId: string | null;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  deleteLiekanAiConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          rowVersion: number;
+        };
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            deleted: true;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  updateLiekanAiConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description API key authentication details. */
+          apiKey?: string;
+          baseUrl: string;
+          enabled?: boolean;
+          isDefault?: boolean;
+          model: string;
+          /** @description Display name of the resource. */
+          name: string;
+          /** @enum {string} */
+          protocol: 'openai-chat' | 'anthropic-messages';
+          /** @enum {string} */
+          provider:
+            | 'openai'
+            | 'anthropic'
+            | 'gemini'
+            | 'deepseek'
+            | 'qwen'
+            | 'kimi'
+            | 'minimax'
+            | 'custom';
+          rowVersion: number;
+          /** @enum {string} */
+          templateId?:
+            | 'openai'
+            | 'anthropic'
+            | 'gemini'
+            | 'deepseek'
+            | 'qwen'
+            | 'kimi'
+            | 'minimax'
+            | 'custom';
+          workspaceId?: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            baseUrl: string;
+            capabilities: {
+              documented: {
+                stream: boolean | null;
+                structuredOutput: boolean | null;
+                text: boolean | null;
+                tools: boolean | null;
+                usage: boolean | null;
+              };
+              keyVerified: {
+                stream: boolean | null;
+                structuredOutput: boolean | null;
+                text: boolean | null;
+                tools: boolean | null;
+                usage: boolean | null;
+              };
+              protocolTested: {
+                stream: boolean | null;
+                structuredOutput: boolean | null;
+                text: boolean | null;
+                tools: boolean | null;
+                usage: boolean | null;
+              };
+            };
+            configVersion: number;
+            contextWindow?: number;
+            /** @enum {string} */
+            contextWindowSource?: 'application_limit' | 'provider_documented';
+            enabled: boolean;
+            hasKey: boolean;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            isDefault: boolean;
+            model: string;
+            /** @description Display name of the resource. */
+            name: string;
+            ownerUserId: string | null;
+            /** @enum {string} */
+            protocol: 'openai-chat' | 'anthropic-messages';
+            /** @constant */
+            protocolVersion: 1;
+            /** @enum {string} */
+            provider:
+              | 'openai'
+              | 'anthropic'
+              | 'gemini'
+              | 'deepseek'
+              | 'qwen'
+              | 'kimi'
+              | 'minimax'
+              | 'custom';
+            /** @description Region or subdivision of the visitor. */
+            region?: string | null;
+            rowVersion: number;
+            /** @description ID of the associated team. */
+            teamId: string | null;
+            testedAt: string | null;
+            /** @enum {string} */
+            testState: 'untested' | 'testing' | 'connected' | 'failed';
+            workspaceId: string | null;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  testLiekanAiConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          clientRequestId: string;
+          expectedConfigVersion: number;
+        };
+      };
+    };
+    responses: {
+      /** @description 新任务事件流；同 UUID 已完成任务返回保存结果 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            callAttempted: boolean;
+            /** Format: uuid */
+            clientRequestId: string;
+            completedAt?: string | null;
+            configVersion: number;
+            connectionId?: string | null;
+            /** @description Error details returned when the operation fails. */
+            error: {
+              /** @enum {string} */
+              code:
+                | 'facts_timeout'
+                | 'facts_unavailable'
+                | 'credentials'
+                | 'model'
+                | 'busy'
+                | 'upstream'
+                | 'timeout'
+                | 'network'
+                | 'cancelled'
+                | 'protocol'
+                | 'empty_output'
+                | 'truncated_output'
+                | 'refused_output'
+                | 'test_incomplete'
+                | 'oversize'
+                | 'input_budget'
+                | 'unsafe_endpoint'
+                | 'invalid_request'
+                | 'conflict'
+                | 'invalidated'
+                | 'interrupted';
+              /** @description Human-readable explanation of the result. */
+              message: string;
+            } | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            latencyMs: number | null;
+            /** @enum {string} */
+            operation: 'test' | 'analysis';
+            /** @constant */
+            protocolVersion: 1;
+            result?: unknown;
+            stage: string;
+            /**
+             * Format: date-time
+             * @description Date and time the recording started.
+             */
+            startedAt: string;
+            /** @enum {string} */
+            state:
+              | 'accepted'
+              | 'preparing'
+              | 'calling'
+              | 'validating'
+              | 'cancel_requested'
+              | 'completed'
+              | 'failed'
+              | 'cancelled'
+              | 'interrupted'
+              | 'invalidated';
+            ttftMs: number | null;
+            usage: {
+              inputTokens: number | null;
+              outputTokens: number | null;
+              totalTokens: number | null;
+            } | null;
+          };
+          'text/event-stream': string;
+        };
+      };
+      /** @description 同 UUID 任务仍在执行，返回原状态及查询位置 */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            callAttempted: boolean;
+            /** Format: uuid */
+            clientRequestId: string;
+            completedAt?: string | null;
+            configVersion: number;
+            connectionId?: string | null;
+            /** @description Error details returned when the operation fails. */
+            error: {
+              /** @enum {string} */
+              code:
+                | 'facts_timeout'
+                | 'facts_unavailable'
+                | 'credentials'
+                | 'model'
+                | 'busy'
+                | 'upstream'
+                | 'timeout'
+                | 'network'
+                | 'cancelled'
+                | 'protocol'
+                | 'empty_output'
+                | 'truncated_output'
+                | 'refused_output'
+                | 'test_incomplete'
+                | 'oversize'
+                | 'input_budget'
+                | 'unsafe_endpoint'
+                | 'invalid_request'
+                | 'conflict'
+                | 'invalidated'
+                | 'interrupted';
+              /** @description Human-readable explanation of the result. */
+              message: string;
+            } | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            latencyMs: number | null;
+            /** @enum {string} */
+            operation: 'test' | 'analysis';
+            /** @constant */
+            protocolVersion: 1;
+            result?: unknown;
+            stage: string;
+            /**
+             * Format: date-time
+             * @description Date and time the recording started.
+             */
+            startedAt: string;
+            /** @enum {string} */
+            state:
+              | 'accepted'
+              | 'preparing'
+              | 'calling'
+              | 'validating'
+              | 'cancel_requested'
+              | 'completed'
+              | 'failed'
+              | 'cancelled'
+              | 'interrupted'
+              | 'invalidated';
+            ttftMs: number | null;
+            usage: {
+              inputTokens: number | null;
+              outputTokens: number | null;
+              totalTokens: number | null;
+            } | null;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanAiConversations: {
+    parameters: {
+      query: {
+        cursor?: string;
+        /** @description Maximum number of rows to return. */
+        limit?: number;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: {
+              /**
+               * Format: date-time
+               * @description Date and time the record was created.
+               */
+              createdAt: string;
+              /**
+               * Format: date-time
+               * @description Date and time the credential expires.
+               */
+              expiresAt: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @constant */
+              protocolVersion?: 1;
+              /** @description Title of the page. */
+              title: string;
+              /**
+               * Format: date-time
+               * @description Date and time the record was last updated.
+               */
+              updatedAt: string;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            }[];
+            nextCursor: string | null;
+            /** @constant */
+            protocolVersion: 1;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  createLiekanAiConversation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /**
+           * Format: uuid
+           * @description ID of the website.
+           */
+          websiteId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /**
+             * Format: date-time
+             * @description Date and time the record was created.
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Date and time the credential expires.
+             */
+            expiresAt: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            /** @constant */
+            protocolVersion?: 1;
+            /** @description Title of the page. */
+            title: string;
+            /**
+             * Format: date-time
+             * @description Date and time the record was last updated.
+             */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanAiConversation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /**
+             * Format: date-time
+             * @description Date and time the record was created.
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Date and time the credential expires.
+             */
+            expiresAt: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            /** @constant */
+            protocolVersion?: 1;
+            /** @description Title of the page. */
+            title: string;
+            /**
+             * Format: date-time
+             * @description Date and time the record was last updated.
+             */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  deleteLiekanAiConversation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @constant */
+            deleted: true;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanAiContext: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        contextId: string;
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            checksum: string;
+            /**
+             * Format: date-time
+             * @description Date and time the record was created.
+             */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Date and time the credential expires.
+             */
+            expiresAt: string;
+            facts: {
+              businessProfile: {
+                /** @constant */
+                state: 'unconfigured';
+                value: null;
+              };
+              /** @constant */
+              coverage: 'unverified';
+              currentRange: {
+                /**
+                 * Format: date-time
+                 * @description End of the date range as a Unix timestamp in milliseconds.
+                 */
+                endAt: string;
+                /**
+                 * Format: date-time
+                 * @description Start of the date range as a Unix timestamp in milliseconds.
+                 */
+                startAt: string;
+              };
+              facts: (
+                | {
+                    /** @description Data returned by the operation. */
+                    data: {
+                      changePercent: {
+                        /** @description Pageview counts for the selected period. */
+                        pageviews: number | null;
+                        /** @description Unique visitor counts for the selected period. */
+                        visitors: number | null;
+                        /** @description Visit counts for the selected period. */
+                        visits: number | null;
+                      };
+                      current: {
+                        /** @description Pageview counts for the selected period. */
+                        pageviews: number;
+                        /** @description Unique visitor counts for the selected period. */
+                        visitors: number;
+                        /** @description Visit counts for the selected period. */
+                        visits: number;
+                      } | null;
+                      logs: {
+                        aiRequests: number;
+                        errors5xx: number;
+                        errors403: number;
+                        errors404: number;
+                        requests: number;
+                      } | null;
+                      previous: {
+                        /** @description Pageview counts for the selected period. */
+                        pageviews: number;
+                        /** @description Unique visitor counts for the selected period. */
+                        visitors: number;
+                        /** @description Visit counts for the selected period. */
+                        visits: number;
+                      } | null;
+                      previousLogs: {
+                        aiRequests: number;
+                        errors5xx: number;
+                        errors403: number;
+                        errors404: number;
+                        requests: number;
+                      } | null;
+                      /** @constant */
+                      scope: 'human browser events and imported server logs';
+                    };
+                    /**
+                     * @description Unique identifier of the resource.
+                     * @constant
+                     */
+                    id: 'summary';
+                    label: string;
+                    /** @enum {string} */
+                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                  }
+                | {
+                    /** @description Data returned by the operation. */
+                    data: {
+                      changePercent: number | null;
+                      omitted: number;
+                      previousRequests: number | null;
+                      requests: number | null;
+                      rows: {
+                        changePercent: number | null;
+                        /** @enum {string} */
+                        class: '训练' | '搜索' | '用户触发';
+                        /** @description Display name of the resource. */
+                        name: string;
+                        previousRequests: number;
+                        requests: number;
+                        vendor: string;
+                        /** @enum {string} */
+                        verification: 'verified_range' | 'range_mismatch' | 'unverified';
+                      }[];
+                      /** @constant */
+                      scope: 'AI classes: 训练, 搜索, 用户触发; UA classification with verification states';
+                      total: number;
+                      truncated: boolean;
+                    };
+                    /**
+                     * @description Unique identifier of the resource.
+                     * @constant
+                     */
+                    id: 'bots';
+                    label: string;
+                    /** @enum {string} */
+                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                  }
+                | {
+                    /** @description Data returned by the operation. */
+                    data: {
+                      changePercent: number | null;
+                      current: {
+                        errors5xx: number;
+                        errors403: number;
+                        errors404: number;
+                        requests: number;
+                      } | null;
+                      omitted: number;
+                      paths: {
+                        path: string;
+                        requests: number;
+                        /** @enum {string} */
+                        statusGroup: '403' | '404' | '5xx';
+                      }[];
+                      previous: {
+                        errors5xx: number;
+                        errors403: number;
+                        errors404: number;
+                        requests: number;
+                      } | null;
+                      previousRequests: number | null;
+                      requests: number | null;
+                      /** @constant */
+                      sampleMethod: 'latest_by_created_at_desc_id_desc';
+                      samples: {
+                        bot: string;
+                        path: string;
+                        status: number;
+                        /** Format: date-time */
+                        time: string;
+                      }[];
+                      samplesOmitted: number;
+                      samplesTruncated: boolean;
+                      sampleTotal: number;
+                      /** @constant */
+                      scope: 'imported logs: HTTP 403, 404 and 500–599; current and previous aggregate counts; paths and latest samples from current period; coverage unverified';
+                      total: number;
+                      truncated: boolean;
+                    };
+                    /**
+                     * @description Unique identifier of the resource.
+                     * @constant
+                     */
+                    id: 'log-errors';
+                    label: string;
+                    /** @enum {string} */
+                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                  }
+                | {
+                    /** @description Data returned by the operation. */
+                    data: {
+                      changePercent: number | null;
+                      /** @description Pageview counts for the selected period. */
+                      pageviews: number | null;
+                      previousPageviews: number | null;
+                      previousVisits: number | null;
+                      /** @constant */
+                      scope: 'first browser pageview attribution using the approved AI channel catalog';
+                      /** @description Visit counts for the selected period. */
+                      visits: number | null;
+                    };
+                    /**
+                     * @description Unique identifier of the resource.
+                     * @constant
+                     */
+                    id: 'ai-referrals';
+                    label: string;
+                    /** @enum {string} */
+                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                  }
+                | {
+                    /** @description Data returned by the operation. */
+                    data: {
+                      omitted: number;
+                      rows: {
+                        aiRequests: number | null;
+                        humanPageviews: number | null;
+                        path: string;
+                        previousAiRequests: number | null;
+                        previousHumanPageviews: number | null;
+                      }[];
+                      /** @constant */
+                      scope: 'browser paths and encoded imported AI request paths; union of current and previous periods ranked by current then previous counts; stored forms may differ; query and fragment excluded';
+                      total: number;
+                      truncated: boolean;
+                    };
+                    /**
+                     * @description Unique identifier of the resource.
+                     * @constant
+                     */
+                    id: 'pages';
+                    label: string;
+                    /** @enum {string} */
+                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                  }
+                | {
+                    /** @description Data returned by the operation. */
+                    data: {
+                      configured: number;
+                      invalidDefinitions: number;
+                      omitted: number;
+                      rows: {
+                        changePercent: number | null;
+                        convertedVisits: number;
+                        /** @description Number of matching records. */
+                        count: number;
+                        /** @description Display name of the resource. */
+                        name: string;
+                        previousConvertedVisits: number;
+                        previousCount: number;
+                        previousRatePercent: number | null;
+                        ratePercent: number | null;
+                        /** @enum {string} */
+                        type: 'path' | 'event';
+                      }[];
+                      /** @constant */
+                      scope: 'configured goal matching events; rates use converted browser visits divided by browser visits';
+                      total: number;
+                      truncated: boolean;
+                    };
+                    /**
+                     * @description Unique identifier of the resource.
+                     * @constant
+                     */
+                    id: 'goals';
+                    label: string;
+                    /** @enum {string} */
+                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                  }
+              )[];
+              /** Format: date-time */
+              generatedAt: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              inputBudget?: {
+                bytes: number;
+                tokenUpperBound: number;
+                trimmed: {
+                  historyTurns: number;
+                  logSamples: number;
+                  topRows: number;
+                };
+              };
+              metrics: {
+                changePercent: number | null;
+                /** @enum {string} */
+                key: 'pageviews' | 'visitors' | 'visits' | 'aiRequests' | 'aiReferrals';
+                label: string;
+                /** @enum {string} */
+                state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                value: number | null;
+              }[];
+              /** @constant */
+              metricVersion: 'liekan-ai-facts-v1';
+              modelConfiguration?: {
+                configVersion: number;
+                /** Format: uuid */
+                connectionId: string;
+                contextWindow?: number;
+                /** @enum {string} */
+                contextWindowSource?: 'application_limit' | 'provider_documented';
+                model: string;
+                provider: string;
+                /** @description Region or subdivision of the visitor. */
+                region?: string | null;
+              };
+              previousRange: {
+                /**
+                 * Format: date-time
+                 * @description End of the date range as a Unix timestamp in milliseconds.
+                 */
+                endAt: string;
+                /**
+                 * Format: date-time
+                 * @description Start of the date range as a Unix timestamp in milliseconds.
+                 */
+                startAt: string;
+              };
+              /** @constant */
+              promptVersion: 'liekan-ai-prompt-v1';
+              /** @constant */
+              protocolVersion: 1;
+              rangeNotes: {
+                currentDayIncomplete: boolean;
+                endClamped: boolean;
+                /** Format: date-time */
+                originalEndAt: string;
+              };
+              sourceStates: {
+                /** @enum {string} */
+                aiReferrals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                /** @enum {string} */
+                catalog: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                /** @enum {string} */
+                goals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                /** @enum {string} */
+                human: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                /** @enum {string} */
+                logs: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              space:
+                | {
+                    /**
+                     * Format: uuid
+                     * @description Unique identifier of the resource.
+                     */
+                    id: string;
+                    /** @constant */
+                    kind: 'personal';
+                  }
+                | {
+                    /**
+                     * Format: uuid
+                     * @description Unique identifier of the resource.
+                     */
+                    id: string;
+                    /** @constant */
+                    kind: 'team';
+                  };
+              timeZone: string;
+              website: {
+                /** @description Domain name associated with the resource. */
+                domain: string | null;
+                /**
+                 * Format: uuid
+                 * @description Unique identifier of the resource.
+                 */
+                id: string;
+                /** @description Display name of the resource. */
+                name: string;
+              };
+              /** Format: uuid */
+              websiteEpoch: string;
+            };
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            /** @constant */
+            protocolVersion: 1;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanAiMessages: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        /** @description Maximum number of rows to return. */
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: {
+              contextId: string | null;
+              /**
+               * Format: date-time
+               * @description Date and time the record was created.
+               */
+              createdAt: string;
+              /**
+               * Format: date-time
+               * @description Date and time the credential expires.
+               */
+              expiresAt: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @enum {string} */
+              origin: 'local' | 'provider';
+              question: string;
+              result: unknown | null;
+              runId: string | null;
+              state: string | null;
+            }[];
+            nextCursor: string | null;
+            /** @constant */
+            protocolVersion: 1;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  postLiekanAiAnalysis: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          clientRequestId: string;
+          /** Format: uuid */
+          connectionId?: string;
+          /**
+           * Format: date-time
+           * @description End of the date range as a Unix timestamp in milliseconds.
+           */
+          endAt: string;
+          expectedConfigVersion: number;
+          localOnly?: boolean;
+          question: string;
+          /**
+           * Format: date-time
+           * @description Start of the date range as a Unix timestamp in milliseconds.
+           */
+          startAt: string;
+          /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+          timezone: string;
+        };
+      };
+    };
+    responses: {
+      /** @description 新任务事件流；同 UUID 已完成任务返回保存结果 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            callAttempted: boolean;
+            /** Format: uuid */
+            clientRequestId: string;
+            completedAt?: string | null;
+            configVersion: number;
+            connectionId?: string | null;
+            /** @description Error details returned when the operation fails. */
+            error: {
+              /** @enum {string} */
+              code:
+                | 'facts_timeout'
+                | 'facts_unavailable'
+                | 'credentials'
+                | 'model'
+                | 'busy'
+                | 'upstream'
+                | 'timeout'
+                | 'network'
+                | 'cancelled'
+                | 'protocol'
+                | 'empty_output'
+                | 'truncated_output'
+                | 'refused_output'
+                | 'test_incomplete'
+                | 'oversize'
+                | 'input_budget'
+                | 'unsafe_endpoint'
+                | 'invalid_request'
+                | 'conflict'
+                | 'invalidated'
+                | 'interrupted';
+              /** @description Human-readable explanation of the result. */
+              message: string;
+            } | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            latencyMs: number | null;
+            /** @enum {string} */
+            operation: 'test' | 'analysis';
+            /** @constant */
+            protocolVersion: 1;
+            result?: unknown;
+            stage: string;
+            /**
+             * Format: date-time
+             * @description Date and time the recording started.
+             */
+            startedAt: string;
+            /** @enum {string} */
+            state:
+              | 'accepted'
+              | 'preparing'
+              | 'calling'
+              | 'validating'
+              | 'cancel_requested'
+              | 'completed'
+              | 'failed'
+              | 'cancelled'
+              | 'interrupted'
+              | 'invalidated';
+            ttftMs: number | null;
+            usage: {
+              inputTokens: number | null;
+              outputTokens: number | null;
+              totalTokens: number | null;
+            } | null;
+          };
+          'text/event-stream': string;
+        };
+      };
+      /** @description 同 UUID 任务仍在执行，返回原状态及查询位置 */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            callAttempted: boolean;
+            /** Format: uuid */
+            clientRequestId: string;
+            completedAt?: string | null;
+            configVersion: number;
+            connectionId?: string | null;
+            /** @description Error details returned when the operation fails. */
+            error: {
+              /** @enum {string} */
+              code:
+                | 'facts_timeout'
+                | 'facts_unavailable'
+                | 'credentials'
+                | 'model'
+                | 'busy'
+                | 'upstream'
+                | 'timeout'
+                | 'network'
+                | 'cancelled'
+                | 'protocol'
+                | 'empty_output'
+                | 'truncated_output'
+                | 'refused_output'
+                | 'test_incomplete'
+                | 'oversize'
+                | 'input_budget'
+                | 'unsafe_endpoint'
+                | 'invalid_request'
+                | 'conflict'
+                | 'invalidated'
+                | 'interrupted';
+              /** @description Human-readable explanation of the result. */
+              message: string;
+            } | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            latencyMs: number | null;
+            /** @enum {string} */
+            operation: 'test' | 'analysis';
+            /** @constant */
+            protocolVersion: 1;
+            result?: unknown;
+            stage: string;
+            /**
+             * Format: date-time
+             * @description Date and time the recording started.
+             */
+            startedAt: string;
+            /** @enum {string} */
+            state:
+              | 'accepted'
+              | 'preparing'
+              | 'calling'
+              | 'validating'
+              | 'cancel_requested'
+              | 'completed'
+              | 'failed'
+              | 'cancelled'
+              | 'interrupted'
+              | 'invalidated';
+            ttftMs: number | null;
+            usage: {
+              inputTokens: number | null;
+              outputTokens: number | null;
+              totalTokens: number | null;
+            } | null;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  findLiekanAiRun: {
+    parameters: {
+      query: {
+        clientRequestId: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            callAttempted: boolean;
+            /** Format: uuid */
+            clientRequestId: string;
+            completedAt?: string | null;
+            configVersion: number;
+            connectionId?: string | null;
+            /** @description Error details returned when the operation fails. */
+            error: {
+              /** @enum {string} */
+              code:
+                | 'facts_timeout'
+                | 'facts_unavailable'
+                | 'credentials'
+                | 'model'
+                | 'busy'
+                | 'upstream'
+                | 'timeout'
+                | 'network'
+                | 'cancelled'
+                | 'protocol'
+                | 'empty_output'
+                | 'truncated_output'
+                | 'refused_output'
+                | 'test_incomplete'
+                | 'oversize'
+                | 'input_budget'
+                | 'unsafe_endpoint'
+                | 'invalid_request'
+                | 'conflict'
+                | 'invalidated'
+                | 'interrupted';
+              /** @description Human-readable explanation of the result. */
+              message: string;
+            } | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            latencyMs: number | null;
+            /** @enum {string} */
+            operation: 'test' | 'analysis';
+            /** @constant */
+            protocolVersion: 1;
+            result?: unknown;
+            stage: string;
+            /**
+             * Format: date-time
+             * @description Date and time the recording started.
+             */
+            startedAt: string;
+            /** @enum {string} */
+            state:
+              | 'accepted'
+              | 'preparing'
+              | 'calling'
+              | 'validating'
+              | 'cancel_requested'
+              | 'completed'
+              | 'failed'
+              | 'cancelled'
+              | 'interrupted'
+              | 'invalidated';
+            ttftMs: number | null;
+            usage: {
+              inputTokens: number | null;
+              outputTokens: number | null;
+              totalTokens: number | null;
+            } | null;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanAiRun: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            callAttempted: boolean;
+            /** Format: uuid */
+            clientRequestId: string;
+            completedAt?: string | null;
+            configVersion: number;
+            connectionId?: string | null;
+            /** @description Error details returned when the operation fails. */
+            error: {
+              /** @enum {string} */
+              code:
+                | 'facts_timeout'
+                | 'facts_unavailable'
+                | 'credentials'
+                | 'model'
+                | 'busy'
+                | 'upstream'
+                | 'timeout'
+                | 'network'
+                | 'cancelled'
+                | 'protocol'
+                | 'empty_output'
+                | 'truncated_output'
+                | 'refused_output'
+                | 'test_incomplete'
+                | 'oversize'
+                | 'input_budget'
+                | 'unsafe_endpoint'
+                | 'invalid_request'
+                | 'conflict'
+                | 'invalidated'
+                | 'interrupted';
+              /** @description Human-readable explanation of the result. */
+              message: string;
+            } | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            latencyMs: number | null;
+            /** @enum {string} */
+            operation: 'test' | 'analysis';
+            /** @constant */
+            protocolVersion: 1;
+            result?: unknown;
+            stage: string;
+            /**
+             * Format: date-time
+             * @description Date and time the recording started.
+             */
+            startedAt: string;
+            /** @enum {string} */
+            state:
+              | 'accepted'
+              | 'preparing'
+              | 'calling'
+              | 'validating'
+              | 'cancel_requested'
+              | 'completed'
+              | 'failed'
+              | 'cancelled'
+              | 'interrupted'
+              | 'invalidated';
+            ttftMs: number | null;
+            usage: {
+              inputTokens: number | null;
+              outputTokens: number | null;
+              totalTokens: number | null;
+            } | null;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  cancelLiekanAiRun: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Unique identifier of the resource. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description 成功 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            callAttempted: boolean;
+            /** Format: uuid */
+            clientRequestId: string;
+            completedAt?: string | null;
+            configVersion: number;
+            connectionId?: string | null;
+            /** @description Error details returned when the operation fails. */
+            error: {
+              /** @enum {string} */
+              code:
+                | 'facts_timeout'
+                | 'facts_unavailable'
+                | 'credentials'
+                | 'model'
+                | 'busy'
+                | 'upstream'
+                | 'timeout'
+                | 'network'
+                | 'cancelled'
+                | 'protocol'
+                | 'empty_output'
+                | 'truncated_output'
+                | 'refused_output'
+                | 'test_incomplete'
+                | 'oversize'
+                | 'input_budget'
+                | 'unsafe_endpoint'
+                | 'invalid_request'
+                | 'conflict'
+                | 'invalidated'
+                | 'interrupted';
+              /** @description Human-readable explanation of the result. */
+              message: string;
+            } | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            latencyMs: number | null;
+            /** @enum {string} */
+            operation: 'test' | 'analysis';
+            /** @constant */
+            protocolVersion: 1;
+            result?: unknown;
+            stage: string;
+            /**
+             * Format: date-time
+             * @description Date and time the recording started.
+             */
+            startedAt: string;
+            /** @enum {string} */
+            state:
+              | 'accepted'
+              | 'preparing'
+              | 'calling'
+              | 'validating'
+              | 'cancel_requested'
+              | 'completed'
+              | 'failed'
+              | 'cancelled'
+              | 'interrupted'
+              | 'invalidated';
+            ttftMs: number | null;
+            usage: {
+              inputTokens: number | null;
+              outputTokens: number | null;
+              totalTokens: number | null;
+            } | null;
+          };
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description 需要完整登录、当前资源权限及有效参数；限额和暂不可用返回明确错误。 */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  pairLiekanCollector: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          code: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful log ingestion operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getLiekanLinkSources: {
     parameters: {
       query: {
@@ -6682,6 +10196,381 @@ export interface operations {
       };
     };
   };
+  receiveLiekanAutomaticBatch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sourceId: string;
+      };
+      cookie?: never;
+    };
+    /** @description Server protocol JSON, or Cloudflare NDJSON. Optional gzip Content-Encoding. Compressed limit 5 MiB; decoded limit 10 MiB; 1000 events. */
+    requestBody: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+        'application/octet-stream': string;
+        'application/x-ndjson': string;
+      };
+    };
+    responses: {
+      /** @description Successful log ingestion operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  heartbeatLiekanCollector: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sourceId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          bytes: number;
+          /**
+           * @default none
+           * @enum {string}
+           */
+          errorCode?:
+            | 'none'
+            | 'offline'
+            | 'buffer-full'
+            | 'rotation-gap'
+            | 'unreadable'
+            | 'format-error';
+          gap: boolean;
+          pending: number;
+          version: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful log ingestion operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  callbackLiekanCloudflare: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Return to authenticated website setup after staging authorization */
+      303: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getLiekanFeatureAnalytics: {
     parameters: {
       query: {
@@ -6714,6 +10603,7 @@ export interface operations {
         page?: number;
         /** @description Name of the custom event or session property. */
         propertyName?: string;
+        refresh?: '1';
         retentionDate?: string;
         retentionDay?: number;
         saved?: '0' | '1';
@@ -7371,6 +11261,7 @@ export interface operations {
         page?: number;
         /** @description Name of the custom event or session property. */
         propertyName?: string;
+        refresh?: '1';
         retentionDate?: string;
         retentionDay?: number;
         saved?: '0' | '1';
@@ -7489,6 +11380,240 @@ export interface operations {
       };
     };
   };
+  getLiekanInstallation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Website installation progress */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  saveLiekanInstallation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json':
+          | {
+              /** @constant */
+              action: 'select-method';
+              /** @enum {string} */
+              method: 'cloudflare' | 'server' | 'manual';
+            }
+          | {
+              /** @constant */
+              action: 'continue';
+              /** @enum {string} */
+              method: 'cloudflare' | 'server' | 'manual';
+              /** @enum {string} */
+              step: 'logs' | 'finish';
+            }
+          | {
+              /** @constant */
+              action: 'skip-browser';
+            }
+          | {
+              /** @constant */
+              action: 'skip-logs';
+              /** @enum {string} */
+              method: 'cloudflare' | 'server' | 'manual';
+            }
+          | {
+              /** @constant */
+              action: 'skip-checks';
+              /** @enum {string} */
+              method: 'cloudflare' | 'server' | 'manual';
+            }
+          | {
+              /** @constant */
+              action: 'finish';
+              /** @enum {string} */
+              method: 'cloudflare' | 'server' | 'manual';
+            };
+      };
+    };
+    responses: {
+      /** @description Website installation progress */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
   getLiekanJourneys: {
     parameters: {
       query: {
@@ -7497,6 +11622,7 @@ export interface operations {
         endStep?: string;
         /** @description Page number, starting at 1. */
         page?: number;
+        refresh?: '1';
         sequence?: string;
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt: number;
@@ -7654,6 +11780,7 @@ export interface operations {
         endStep?: string;
         /** @description Page number, starting at 1. */
         page?: number;
+        refresh?: '1';
         sequence?: string;
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt: number;
@@ -7800,6 +11927,732 @@ export interface operations {
         content: {
           'application/json': components['schemas']['ApiError'];
         };
+      };
+    };
+  };
+  getLiekanLogSources: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful log ingestion operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  manageLiekanLogSource: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sourceId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          action: 'pause' | 'resume' | 'select' | 'rotate';
+        };
+      };
+    };
+    responses: {
+      /** @description Successful log ingestion operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  disconnectLiekanLogSource: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        sourceId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful log ingestion operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  finalizeLiekanCloudflare: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          acceptCosts?: boolean;
+          /** Format: uuid */
+          flowId: string;
+          zoneId?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Successful log ingestion operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  startLiekanCloudflare: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful log ingestion operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  createLiekanServerPairing: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful log ingestion operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            [key: string]: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Source, epoch, event identity or configuration conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate or backlog capacity exceeded; retry later */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Persistent receiver or provider configuration unavailable; retry later */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };
@@ -7969,12 +12822,14 @@ export interface operations {
             contractVersion: 1;
             insights: string[];
             meta: {
+              aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
               /** @description Date and time the credential expires. */
               expiresAt: number;
               generatedAt: number;
               latestImportAt: string | null;
+              logsConfigured?: boolean;
               nextCursor?: string;
               /** @description Page number, starting at 1. */
               page?: number;
@@ -8100,6 +12955,7 @@ export interface operations {
         filter?: '' | 'ai' | 'abnormal' | 'other';
         /** @description Page number, starting at 1. */
         page?: number;
+        refresh?: '1';
         resource:
           | 'overview'
           | 'ai/overview'
@@ -8438,9 +13294,11 @@ export interface operations {
             contractVersion: 1;
             insights: string[];
             meta: {
+              aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
               latestImportAt: string | null;
+              logsConfigured?: boolean;
               nextCursor?: string;
               /** @description Page number, starting at 1. */
               page?: number;
@@ -8635,6 +13493,7 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
+          aiCrawlerEnabled?: boolean;
           allowlist?: string[];
           robots?: string;
           rules?: {
@@ -8695,6 +13554,284 @@ export interface operations {
            */
           'application/json': components['schemas']['ApiError'];
         };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  getLiekanSharedReport: {
+    parameters: {
+      query: {
+        chartPeriod?: '30d' | '7d' | '24h';
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt: number;
+        refresh?: '1';
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Read-only aggregate dashboard */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            capabilities: {
+              goals: boolean;
+            };
+            cards: {
+              detail?: string;
+              key: string;
+              label: string;
+              /** @enum {string} */
+              state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @description Time interval used to group results: minute, hour, day, month, or year. */
+              unit?: string;
+              value: number | string | null;
+            }[];
+            charts: {
+              d1: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              d2: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              d3: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              g1: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              g2: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              h1: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              h2: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              h3: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+            };
+            /** @constant */
+            contractVersion: 1;
+            insights: string[];
+            meta: {
+              aiCrawlerEnabled?: boolean;
+              canManage: boolean;
+              demo: boolean;
+              latestImportAt: string | null;
+              logsConfigured?: boolean;
+              nextCursor?: string;
+              /** @description Page number, starting at 1. */
+              page?: number;
+              /** @description Number of results per page. */
+              pageSize?: number;
+              previousCursor?: string;
+              ruleCount: number;
+              totalLogs?: number;
+            };
+            range: {
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            };
+            states: {
+              /** @enum {string} */
+              catalog: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @enum {string} */
+              goals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @enum {string} */
+              human: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              /** @enum {string} */
+              logs: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+            };
+            tables: {
+              cityBody: {
+                bounceRate: number | null;
+                /** @description City of the visitor. */
+                city: string;
+                conversionRate: number | null;
+                /** @description Replay duration in milliseconds. */
+                duration: number | null;
+                sessions: number;
+                share: number | null;
+              }[];
+              envGrid: {
+                category: string;
+                /** @description Display name of the resource. */
+                name: string;
+                share: number | null;
+              }[];
+            };
+            website: {
+              /** @description Domain name associated with the resource. */
+              domain: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @description Display name of the resource. */
+              name: string;
+            };
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Share scope does not permit this website overview */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Not found. */
       404: {
@@ -15486,6 +20623,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -15671,6 +20809,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -17502,6 +22641,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description Search text used to filter results. */
@@ -18509,6 +23649,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -18661,6 +23802,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -19323,6 +24465,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -19468,6 +24611,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -19611,6 +24755,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -19816,6 +24961,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -19966,6 +25112,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description Search text used to filter results. */
@@ -20239,6 +25386,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -20361,6 +25509,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -20508,6 +25657,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -20654,6 +25804,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -21371,6 +26522,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -23798,6 +28950,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description Search text used to filter results. */
@@ -24866,6 +30019,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */
@@ -25115,6 +30269,7 @@ export interface operations {
         query?: string;
         /** @description Filter by referring URL. */
         referrer?: string;
+        refresh?: '1';
         /** @description Region or subdivision of the visitor. */
         region?: string;
         /** @description ID of a saved segment used to filter results. */

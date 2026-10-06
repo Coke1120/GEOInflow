@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { linkPayload, resourceUrl } from '@/lib/liekan/contracts/workspace';
 import { FeatureProvider } from './context';
+import { freshAggregateFixture } from '@/test/liekan-freshness';
 import { LinksPixelsPages } from './LinksPixelsPages';
 
 const mocks = vi.hoisted(() => ({
@@ -57,7 +58,16 @@ beforeEach(() => {
     range: { startAt: 100, endAt: 200, unit: 'day', timezone: 'UTC' },
     filters: {},
     query: {},
-    api: { get: mocks.get, post: mocks.post, del: mocks.del },
+    api: {
+      get: async (path: string, params?: any, signal?: AbortSignal) => {
+        const value = await mocks.get(path, params, signal);
+        return /\/(stats|pageviews|metrics|charts)$/.test(path)
+          ? freshAggregateFixture(value, signal)
+          : value;
+      },
+      post: mocks.post,
+      del: mocks.del,
+    },
     href: (page: string, params: any = {}) => `/${page}/${params.id || ''}`,
     navigate: mocks.navigate,
     notify: mocks.notify,
@@ -133,13 +143,13 @@ describe('links and pixels use native resource and tracking contracts', () => {
       expect(within(owner).queryByRole('option', { name: '只读团队' })).not.toBeInTheDocument();
       await userEvent.selectOptions(owner, 'team-1');
       await userEvent.type(
-        screen.getByLabelText(kind === 'link' ? /链接名称/ : /像素名称/),
+        screen.getByLabelText(kind === 'link' ? /链接名称/ : /图片名称/),
         '增长资源',
       );
       if (kind === 'link')
         await userEvent.type(screen.getByLabelText(/目标 URL/), 'https://example.com/launch');
       await userEvent.click(
-        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素' }),
+        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存图片' }),
       );
       await waitFor(() =>
         expect(mocks.post).toHaveBeenCalledWith(
@@ -161,13 +171,13 @@ describe('links and pixels use native resource and tracking contracts', () => {
       expect(owner).toHaveValue('team-1');
       await userEvent.selectOptions(owner, '');
       await userEvent.type(
-        screen.getByLabelText(kind === 'link' ? /链接名称/ : /像素名称/),
+        screen.getByLabelText(kind === 'link' ? /链接名称/ : /图片名称/),
         '个人资源',
       );
       if (kind === 'link')
         await userEvent.type(screen.getByLabelText(/目标 URL/), 'https://example.com/personal');
       await userEvent.click(
-        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素' }),
+        screen.getByRole('button', { name: kind === 'link' ? '保存链接' : '保存图片' }),
       );
       await waitFor(() => expect(mocks.post).toHaveBeenCalled());
       expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('teamId');
@@ -194,8 +204,8 @@ describe('links and pixels use native resource and tracking contracts', () => {
     const owner = await screen.findByRole('combobox', { name: /所属空间/ });
     expect(owner).not.toBeDisabled();
     await userEvent.selectOptions(owner, '');
-    await userEvent.type(screen.getByLabelText(/像素名称/), '个人像素');
-    await userEvent.click(screen.getByRole('button', { name: '保存像素' }));
+    await userEvent.type(screen.getByLabelText(/图片名称/), '个人像素');
+    await userEvent.click(screen.getByRole('button', { name: '保存图片' }));
     await waitFor(() => expect(mocks.post).toHaveBeenCalled());
     expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('teamId');
   });
@@ -239,7 +249,7 @@ describe('links and pixels use native resource and tracking contracts', () => {
     const drawer = within(screen.getByRole('dialog'));
     expect(drawer.getByText(/将删除链接“公告链接”及其统计数据/)).toBeInTheDocument();
     expect(drawer.getByText(/短链地址和分享链接将失效/)).toBeInTheDocument();
-    fireEvent.submit(drawer.getByRole('button', { name: '删除链接' }).closest('form'));
+    fireEvent.submit((drawer.getByRole('button', { name: '删除链接' }) as HTMLButtonElement).form);
     expect(await drawer.findByText('请输入链接名称确认删除')).toBeInTheDocument();
     expect(mocks.del).not.toHaveBeenCalled();
     await userEvent.type(drawer.getByLabelText(/输入 公告链接 确认/), '公告链接');
@@ -312,10 +322,10 @@ describe('links and pixels use native resource and tracking contracts', () => {
   });
   it('pixel creation carries its native slug and uses the configured tracking host', async () => {
     mount('pixel-editor');
-    await userEvent.type(await screen.findByLabelText(/像素名称/), '邮件简报');
-    const url = (screen.getByLabelText(/像素地址/) as HTMLInputElement).value;
+    await userEvent.type(await screen.findByLabelText(/图片名称/), '邮件简报');
+    const url = (screen.getByLabelText(/图片地址/) as HTMLInputElement).value;
     expect(url).toMatch(/^https:\/\/pixel\.example\/[a-f0-9]{12}$/);
-    await userEvent.click(screen.getByRole('button', { name: '保存像素' }));
+    await userEvent.click(screen.getByRole('button', { name: '保存图片' }));
     await waitFor(() =>
       expect(mocks.post).toHaveBeenCalledWith('/pixels', {
         name: '邮件简报',
@@ -344,7 +354,7 @@ describe('links and pixels use native resource and tracking contracts', () => {
         return original(path, params, signal);
       });
       mount(`${kind}-detail`);
-      await screen.findByRole('img', { name: kind === 'link' ? '链接访问趋势' : '像素请求趋势' });
+      await screen.findByRole('img', { name: kind === 'link' ? '链接访问趋势' : '图片请求趋势' });
       const calls = mocks.get.mock.calls.filter(
         call => call[0].startsWith(`/websites/${id}/`) && !call[0].endsWith('/daterange'),
       );
@@ -391,5 +401,69 @@ describe('links and pixels use native resource and tracking contracts', () => {
       resourceUrl('https://app.example', '/stats', 'pixel', 'reference_01', 'https://px.example/'),
     ).toBe('https://px.example/reference_01');
     expect(() => linkPayload({ name: '邮件', slug: 'short' }, 'pixel')).toThrow('标识需要 8');
+  });
+});
+
+describe('resource addresses wait for host configuration', () => {
+  it.each(['link', 'pixel'] as const)(
+    'keeps %s operations unavailable until the configured address arrives',
+    async kind => {
+      context.route = { page: `${kind}-detail`, id: `${kind}-1`, teamId: 'team-1' };
+      const original = mocks.get.getMockImplementation()!;
+      let finish!: (value: any) => void;
+      const configuration = new Promise(resolve => {
+        finish = resolve;
+      });
+      mocks.get.mockImplementation((path: string, params: any, signal: any) => {
+        if (path === '/config') return configuration;
+        if (path === '/pixels/pixel-1') return Promise.resolve({ ...link, id: 'pixel-1' });
+        return original(path, params, signal);
+      });
+      const user = userEvent.setup();
+      const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+      mount(`${kind}-detail`);
+      const button = await screen.findByRole('button', {
+        name: kind === 'pixel' ? '复制图片代码' : '查看链接二维码',
+      });
+      expect(button).toBeDisabled();
+      if (kind === 'pixel') {
+        expect(screen.getByRole('button', { name: '复制图片地址' })).toBeDisabled();
+        expect(
+          screen.getByRole('heading', { name: '安装代码' }).closest('section')?.textContent,
+        ).not.toContain(window.location.origin);
+        await user.click(button);
+        expect(write).not.toHaveBeenCalled();
+      }
+      await act(async () =>
+        finish({ linksUrl: 'https://go.example', pixelsUrl: 'https://pixel.example' }),
+      );
+      await waitFor(() => expect(button).toBeEnabled());
+      if (kind === 'pixel') {
+        await user.click(button);
+        expect(write).toHaveBeenCalledWith(
+          '<img src="https://pixel.example/announcement" width="1" height="1" alt="" />',
+        );
+        await user.click(screen.getByRole('button', { name: '复制图片地址' }));
+        expect(write).toHaveBeenLastCalledWith('https://pixel.example/announcement');
+      } else {
+        expect(screen.getByText('https://go.example/announcement')).toBeInTheDocument();
+      }
+    },
+  );
+  it('uses the instance address after an empty configuration is successfully read', async () => {
+    context.route = { page: 'pixel-detail', id: 'pixel-1', teamId: 'team-1' };
+    const original = mocks.get.getMockImplementation()!;
+    mocks.get.mockImplementation((path: string, params: any, signal: any) => {
+      if (path === '/config') return Promise.resolve({});
+      if (path === '/pixels/pixel-1') return Promise.resolve({ ...link, id: 'pixel-1' });
+      return original(path, params, signal);
+    });
+    const user = userEvent.setup();
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    mount('pixel-detail');
+    const copy = await screen.findByRole('button', { name: '复制图片地址' });
+    await waitFor(() => expect(copy).toBeEnabled());
+    await user.click(copy);
+    expect(write).toHaveBeenCalledWith(`${window.location.origin}/p/announcement`);
   });
 });

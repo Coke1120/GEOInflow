@@ -50,13 +50,18 @@ export function useWebsiteValuesQuery({
 
   return useQuery({
     queryKey: ['websites:values', { websiteId, type, startDate, endDate, search }],
-    queryFn: () =>
-      get(`/websites/${websiteId}/values`, {
-        type,
-        startAt: +startDate,
-        endAt: +endDate,
-        search: getSearch(type, search),
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/values`,
+        {
+          type,
+          startAt: +startDate,
+          endAt: +endDate,
+          search: getSearch(type, search),
+        },
+        {},
+        signal,
+      ),
     enabled: !!(websiteId && type && startDate && endDate),
   });
 }

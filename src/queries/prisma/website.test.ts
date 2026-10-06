@@ -8,7 +8,8 @@ const { transactionMock, redisDelMock, redisSetMock, resetLiekanMock } = vi.hois
   resetLiekanMock: vi.fn(),
 }));
 
-vi.mock('@/lib/liekan/upstream/lifecycle', () => ({ resetLiekanStatistics: resetLiekanMock }));
+vi.mock('@/lib/liekan/upstream/ai-lifecycle', () => ({ clearAiWebsiteInTransaction: vi.fn() }));
+vi.mock('@/lib/liekan/upstream/lifecycle', () => ({ resetLiekanStatistics: resetLiekanMock,stopWebsiteSources:vi.fn() }));
 
 vi.mock('@/lib/prisma', () => ({
   default: {
@@ -160,6 +161,8 @@ describe('website delete dependencies', () => {
       'annotation',
       'share',
       'websiteDelete',
+      'rawSql',
+      'rawSql',
     ]);
   });
 
@@ -202,6 +205,8 @@ describe('website delete dependencies', () => {
       'websiteEvent',
       'session',
       'websiteUpdate',
+      'rawSql',
+      'rawSql',
     ]);
   });
 

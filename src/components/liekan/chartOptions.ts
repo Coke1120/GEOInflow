@@ -779,10 +779,19 @@ function referenceChartOptions(id: string, chart: ChartData): any {
       return {
         tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 次（{d}%）' }),
         legend: {
+          type: 'scroll',
+          left: 16,
+          right: 16,
           bottom: 4,
+          pageIconSize: 10,
           itemWidth: 10,
           itemHeight: 10,
           textStyle: { fontSize: 11, color: SUB },
+          data: chart.labels
+            .map((name, index) => ({ name, value: chart.series[0]?.values[index] ?? 0 }))
+            .sort((a, b) => b.value - a.value)
+            .slice(0, 5)
+            .map(row => row.name),
         },
         series: [
           {

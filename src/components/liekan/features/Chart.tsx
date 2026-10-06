@@ -1,6 +1,7 @@
 'use client';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Panel } from './ui';
+import { observeChartLayout } from '../mobileChart';
 import { ChartLoading, Skeleton, useDataLoading } from '../DataLoading';
 export interface ChartSeries {
   name: string;
@@ -32,13 +33,16 @@ export function Chart({
   onClick?: (params: any) => void;
 }) {
   const loading = useDataLoading();
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const ref = useRef<HTMLDivElement>(null),
     click = useRef(onClick);
   click.current = onClick;
   useEffect(() => {
+    setFailed(false);
     if (loading) return;
     let chart: any,
-      observer: ResizeObserver,
+      stopLayout: () => void,
       canceled = false;
     void (async () => {
       const echarts = await import('echarts');
@@ -150,28 +154,46 @@ export function Chart({
           lineStyle: { ...(base.series[i] as any)?.lineStyle, ...s.lineStyle },
           itemStyle: { ...(base.series[i] as any)?.itemStyle, ...s.itemStyle },
         }));
-      chart.setOption(final);
+      stopLayout = observeChartLayout(chart, ref.current, final, () => {
+        stopLayout?.();
+        chart?.dispose();
+        chart = undefined;
+        if (!canceled) setFailed(true);
+      });
       chart.on('click', (params: any) => click.current?.(params));
-      observer = new ResizeObserver(() => chart?.resize());
-      observer.observe(ref.current);
-    })();
+    })().catch(() => {
+      if (!canceled) {
+        stopLayout?.();
+        chart?.dispose();
+        chart = undefined;
+        setFailed(true);
+      }
+    });
     return () => {
       canceled = true;
-      observer?.disconnect();
+      stopLayout?.();
       chart?.dispose();
     };
-  }, [JSON.stringify({ labels, series, type, horizontal, option }), loading]);
+  }, [JSON.stringify({ labels, series, type, horizontal, option }), loading, attempt]);
   const content = (
     <>
       <div
         className="chart"
         style={{ height, position: 'relative' }}
-        ref={ref}
-        role="img"
+        role={failed ? 'group' : 'img'}
         aria-label={`${title || '统计图表'}${loading ? ': 正在读取' : ''}`}
         aria-busy={loading || undefined}
       >
+        <div ref={ref} style={{ width: '100%', height: '100%' }} />
         {loading && <ChartLoading />}
+        {failed && (
+          <div className="chart-failure" role="alert">
+            图表加载失败
+            <button className="btn" type="button" onClick={() => setAttempt(value => value + 1)}>
+              重试图表
+            </button>
+          </div>
+        )}
       </div>
       <div className="legend-note">
         {loading ? (
@@ -179,11 +201,11 @@ export function Chart({
         ) : !option && !series.some(s => s.values.some(v => v != null)) ? (
           '当前范围没有数据'
         ) : type === 'sankey' ? (
-          '可悬停查看访客量，点击节点查看路径详情'
+          '点按或悬停查看访客量，点击节点查看路径详情'
         ) : horizontal ? (
-          '可悬停查看数值，右侧同时显示数量'
+          '点按或悬停查看数值，右侧同时显示数量'
         ) : (
-          '可悬停查看数值，点击图例切换序列'
+          '点按或悬停查看数值，点击图例切换序列'
         )}
       </div>
       {!loading && children}

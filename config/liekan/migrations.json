@@ -3,5 +3,19 @@
   "002_catalog_evidence.sql": "d6b8f4ce0c69e37b54466aff03c34b6fc5f9d24ede9edbe545e7e8ad0b783121",
   "003_remove_upstream_foreign_keys.sql": "3e93f2dde579240a1fe194475ed415faf1c0f53ad931a75bb280d87e5a9605e0",
   "004_lifecycle_and_catalog_evidence.sql": "42464afb0eefce596b6350714fd339bf3d4ce6a5b1c2b3f48d4a2d58920dd4f0",
-  "005_default_admin_login.sql": "022db9c3d86a3e15bcf048fe4b5055dbafc2c65ef75a24267b34ce8efc8a88f7"
+  "005_default_admin_login.sql": "022db9c3d86a3e15bcf048fe4b5055dbafc2c65ef75a24267b34ce8efc8a88f7",
+  "006_website_installation.sql": "396723c97125d343e4f1b46e7be96dc998c75ed21a0e8b840f79819a8f4b3d1f",
+  "007_ai_connections.sql": "f10060b76667ebb72e18cda803402d139e08659ef5c1c70e7d16e5943380c4d9",
+  "007_automatic_logs.sql": "3e8f018a61406777b2b76ba8062b8fa587b9939706ac4af1089c138aff9acf95",
+  "008_ai_conversations.sql": "d7a3d79ef7379690858c9349aeda9c4ddbc5bb909b83314fe7da3601e8f9ebde",
+  "008_log_recovery.sql": "98093b52301d2da9a6d116bffd264b507a47f434b1bac9c69a398f95454df6df",
+  "009_ai_endpoint_limits.sql": "6de599c77929a0c95c473c68e6d72d8ec4e6b814680014523e7b84bdd8dcb11a",
+  "009_log_processing_index.sql": "7f6342a3124b76892e4bbeec8229c4444ca8a6ab6ce3ccbb492310d4b790de13",
+  "010_ai_workspaces.sql": "7a4ec0ac0dc8e00e363a7e898fab3a6dd6476d5d391bd3a9781f23b75f5afceb",
+  "010_oauth_cleanup.sql": "8acda80aad3ba44e716263728d57195737ba515e122b7a0289e2a132321ba519",
+  "011_ai_config_audit.sql": "99e4b8f4b253e7921b0cea60a60ae33c6c1224cf3be901dc34adde5af6958795",
+  "011_ai_crawler_display.sql": "09597d39cda1c6912cad442672845310ebef159f5579e121c91ca66b4a1a9060",
+  "012_ai_invariants_and_history.sql": "b1e7f79f218217f05f2e76a44f0eb1e874458c0db066d36ae3e78c2f18ac37dd",
+  "012_analytics_revision.sql": "32e078740783a20a9e3d106ed3f783288c3a656ca71e878268b2683d68f46ccb",
+  "013_effective_log_union.sql": "b34cec16ba9e2e872b9add3f85a67c4f1a26368c1d388a99cad522b01bf0117f"
 }

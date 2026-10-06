@@ -27,8 +27,7 @@ vi.mock('../useFilterParameters', () => ({
   }),
 }));
 
-import { DATA_TYPE } from '@/lib/constants';
-import { OPERATORS } from '@/lib/constants';
+import { DATA_TYPE, OPERATORS } from '@/lib/constants';
 import { usePropertyFieldsQuery } from './usePropertyFieldsQuery';
 import { usePropertyValuesQuery } from './usePropertyValuesQuery';
 
@@ -45,7 +44,14 @@ describe('event property query params', () => {
         'website-1',
         'plan',
         DATA_TYPE.string,
-        [{ propertyName: 'tier', dataType: DATA_TYPE.string, operator: OPERATORS.equals, value: 'pro' }],
+        [
+          {
+            propertyName: 'tier',
+            dataType: DATA_TYPE.string,
+            operator: OPERATORS.equals,
+            value: 'pro',
+          },
+        ],
         'signup',
       ),
     );
@@ -54,18 +60,23 @@ describe('event property query params', () => {
 
     await queryFn();
 
-    expect(getMock).toHaveBeenCalledWith('/websites/website-1/event-data/values', {
-      event: 'eq.signup',
-      eventName: 'signup',
-      country: 'US',
-      startAt: 100,
-      endAt: 200,
-      unit: 'day',
-      timezone: 'UTC',
-      propertyName: 'plan',
-      dataType: DATA_TYPE.string,
-      pf_tier: `${DATA_TYPE.string}.${OPERATORS.equals}.pro`,
-    });
+    expect(getMock).toHaveBeenCalledWith(
+      '/websites/website-1/event-data/values',
+      {
+        event: 'eq.signup',
+        eventName: 'signup',
+        country: 'US',
+        startAt: 100,
+        endAt: 200,
+        unit: 'day',
+        timezone: 'UTC',
+        propertyName: 'plan',
+        dataType: DATA_TYPE.string,
+        pf_tier: `${DATA_TYPE.string}.${OPERATORS.equals}.pro`,
+      },
+      {},
+      undefined,
+    );
   });
 
   test('keeps the selected event name when loading property fields', async () => {
@@ -75,14 +86,19 @@ describe('event property query params', () => {
 
     await queryFn();
 
-    expect(getMock).toHaveBeenCalledWith('/websites/website-1/event-data/fields', {
-      event: 'eq.signup',
-      eventName: 'signup',
-      country: 'US',
-      startAt: 100,
-      endAt: 200,
-      unit: 'day',
-      timezone: 'UTC',
-    });
+    expect(getMock).toHaveBeenCalledWith(
+      '/websites/website-1/event-data/fields',
+      {
+        event: 'eq.signup',
+        eventName: 'signup',
+        country: 'US',
+        startAt: 100,
+        endAt: 200,
+        unit: 'day',
+        timezone: 'UTC',
+      },
+      {},
+      undefined,
+    );
   });
 });

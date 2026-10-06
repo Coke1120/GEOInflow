@@ -133,7 +133,7 @@ async function relationalQuery(
     {
       ...params,
       ...queryParams,
-    },
+    }, 'getJourney',
   ).then(parseResult);
 }
 
@@ -243,7 +243,7 @@ async function clickhouseQuery(
     {
       ...params,
       ...queryParams,
-    },
+    }, 'getJourney',
   ).then(parseResult);
 }
 

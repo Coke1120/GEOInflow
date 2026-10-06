@@ -5,7 +5,8 @@ export function useTwoFactorUserStatusQuery(userId: string) {
 
   return useQuery({
     queryKey: ['user-2fa-status', userId],
-    queryFn: () => get(`/admin/users/${userId}/2fa`),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(`/admin/users/${userId}/2fa`, {}, {}, signal),
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });

@@ -2,7 +2,7 @@ import { createHash, createHmac } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import Papa from 'papaparse';
 import { BOT_RULES, type BotRule, classifyBot } from './rules/bots';
-import { verifyBotIp } from './rules/verify';
+import { verifyBotIp, type VerificationSnapshots } from './rules/verify';
 import { parseCombinedDate, parseStrictDate } from './strict-date';
 
 export interface LogRecord {
@@ -80,6 +80,7 @@ export function parseLogInput(
   domain: string,
   secret: string,
   rules: BotRule[] = BOT_RULES,
+  snapshots?: VerificationSnapshots,
 ) {
   const serialized = input.content ?? JSON.stringify(input.records ?? []);
   if (Buffer.byteLength(serialized) > MAX_BYTES) throw new Error('文件上限 10 MiB');
@@ -93,6 +94,7 @@ export function parseLogInput(
   const records: LogRecord[] = [];
   const errors: { line: number; reason: string }[] = [];
   const occurrences = new Map<string, number>();
+  const validLines: number[] = [];
   rows.forEach((raw, index) => {
     try {
       let obj: any = raw;
@@ -149,13 +151,14 @@ export function parseLogInput(
         bot: bot.name,
         vendor: bot.vendor,
         type: bot.type,
-        verification: verifyBotIp(ip, bot.name, userAgent, time.toISOString()),
+        verification: verifyBotIp(ip, bot.name, userAgent, time.toISOString(),snapshots),
       };
       const fingerprint = createHash('sha256')
         .update(JSON.stringify([normalized.time, path, method, status, bytes, ipHash, userAgent]))
         .digest('hex');
       const occurrence = (occurrences.get(fingerprint) ?? 0) + 1;
       occurrences.set(fingerprint, occurrence);
+      validLines.push(index + 1);
       records.push({
         id: createHash('sha256').update(`${fingerprint}:${occurrence}`).digest('hex'),
         ...normalized,
@@ -167,6 +170,7 @@ export function parseLogInput(
   return {
     records,
     accepted: records.length,
+    validLines,
     rejected: errors.length,
     errors: errors.slice(0, 100),
     digest: createHash('sha256').update(JSON.stringify(records)).digest('hex'),

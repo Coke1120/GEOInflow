@@ -103,6 +103,13 @@
 .content {
   margin-left: var(--lk-side-w, 228px);
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.content > .pageBody {
+  flex: 1;
+  min-height: 0;
 }
 .resizer {
   position: absolute;
@@ -123,8 +130,7 @@
   cursor: col-resize;
 }
 .header {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 30;
   background: rgba(245, 247, 250, 0.85);
   backdrop-filter: blur(16px);
@@ -212,43 +218,6 @@
 .mobileBackdrop {
   display: none;
 }
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(22, 24, 29, 0.28);
-  z-index: 100;
-  display: flex;
-  justify-content: flex-end;
-}
-.drawer {
-  width: min(560px, 100%);
-  height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  background: #fff;
-  border-left: 1px solid #e9ecf1;
-  box-shadow: -12px 0 40px rgba(22, 24, 29, 0.08);
-  padding: 24px;
-}
-.drawerHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-.drawerTitle {
-  font-size: 16px !important;
-  font-weight: 700 !important;
-}
-.close {
-  display: flex;
-  width: 32px;
-  height: 32px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
-  color: #697386 !important;
-}
 .form {
   display: grid;
   gap: 16px;
@@ -275,24 +244,10 @@
   min-height: 200px;
   font-family: ui-monospace, monospace;
 }
-.drawer .help {
-  font-size: 11.5px;
-  color: #9aa3b2;
-  line-height: 1.65;
-}
-.drawer .status {
+.help {
   font-size: 12px;
-  color: #0f62fe;
-}
-.formActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-.primary {
-  background: #0f62fe !important;
-  color: #fff !important;
-  border-color: #0f62fe !important;
+  color: #697386;
+  line-height: 1.65;
 }
 .dateFields {
   display: grid;
@@ -452,5 +407,107 @@
     min-height: 40px;
     display: flex;
     align-items: center;
+  }
+}
+
+.tabsFrame {
+  width: 100%;
+  min-width: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+.analysisLoading {
+  max-width: 1136px;
+  margin: 24px auto;
+  padding: 24px;
+  background: #fff;
+  border: 1px solid #e9ecf1;
+  border-radius: 14px;
+  color: #697386;
+  font-size: 12px;
+}
+.loadingLines {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+.loadingLines span {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: #f5f7fa;
+}
+.loadingLines span:last-child {
+  width: 65%;
+}
+@media (max-width: 900px) {
+  .content {
+    padding-top: 0;
+  }
+  .tabsFrame {
+    padding: 0 20px;
+  }
+  .analysisLoading {
+    margin: 24px 20px;
+  }
+}
+
+@media (max-width: 900px) {
+  .headerActions {
+    flex-wrap: wrap;
+  }
+  .headerActions button,
+  .analysisTools a,
+  .tools button,
+  .notice button,
+  .formActions button,
+  .close {
+    min-height: 44px;
+  }
+  .analysisTools a {
+    display: inline-flex;
+    align-items: center;
+  }
+  .close {
+    min-width: 44px;
+  }
+  .drawer {
+    height: 100dvh;
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .drawerHeader {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 3;
+    padding-block: 8px;
+  }
+  .formActions {
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding-block: 12px;
+    z-index: 2;
+    flex-wrap: wrap;
+  }
+  .dateButton {
+    min-height: 44px;
+  }
+}
+@media (max-width: 540px) {
+  .headerActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .headerActions button {
+    font-size: 12px !important;
+  }
+  .form :is(input, select, textarea) {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .drawer {
+    padding-inline: 16px;
   }
 }

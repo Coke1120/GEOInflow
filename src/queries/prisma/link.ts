@@ -1,3 +1,5 @@
+import { bumpAnalyticsRevision } from '@/lib/liekan/upstream/analytics-revision';
+import { analyticsCache, invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
 import type { Link, Prisma } from '@/generated/prisma/client';
 import prisma from '@/lib/prisma';
 import { sanitizeSortFilters } from '@/lib/sort';
@@ -61,13 +63,34 @@ export async function getTeamLinks(teamId: string, filters?: QueryFilters) {
 }
 
 export async function createLink(data: Prisma.LinkUncheckedCreateInput) {
-  return prisma.client.link.create({ data });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.link.create({ data });
+    await bumpAnalyticsRevision(tx, 'link', result.id);
+    return result;
+  });
+  analyticsCache.invalidate(`link:${result.id}`);
+  invalidateWebsiteAnalytics(result.id);
+  return result;
 }
 
 export async function updateLink(linkId: string, data: any) {
-  return prisma.client.link.update({ where: { id: linkId }, data });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.link.update({ where: { id: linkId }, data });
+    await bumpAnalyticsRevision(tx, 'link', result.id);
+    return result;
+  });
+  analyticsCache.invalidate(`link:${result.id}`);
+  invalidateWebsiteAnalytics(result.id);
+  return result;
 }
 
 export async function deleteLink(linkId: string) {
-  return prisma.client.link.delete({ where: { id: linkId } });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.link.delete({ where: { id: linkId } });
+    await bumpAnalyticsRevision(tx, 'link', result.id);
+    return result;
+  });
+  analyticsCache.invalidate(`link:${result.id}`);
+  invalidateWebsiteAnalytics(result.id);
+  return result;
 }

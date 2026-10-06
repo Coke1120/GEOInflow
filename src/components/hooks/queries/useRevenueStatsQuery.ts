@@ -31,22 +31,28 @@ export function useRevenueStatsQuery(
   options?: UseQueryOptions<RevenueStatsData, Error, RevenueStatsData>,
 ) {
   const { get, useQuery } = useApi();
-  const { startAt, endAt } = useDateParameters();
+  const { startAt, endAt, timezone } = useDateParameters();
   const filters = useFilterParameters({ includePagination: false });
 
   return useQuery<RevenueStatsData>({
     queryKey: [
       'websites:revenue:stats',
-      { websiteId, currency, compare, startAt, endAt, ...filters },
+      { websiteId, currency, compare, startAt, endAt, timezone, ...filters },
     ],
-    queryFn: () =>
-      get(`/websites/${websiteId}/revenue/stats`, {
-        currency,
-        compare,
-        startAt,
-        endAt,
-        ...filters,
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/revenue/stats`,
+        {
+          currency,
+          compare,
+          startAt,
+          endAt,
+          timezone,
+          ...filters,
+        },
+        {},
+        signal,
+      ),
     enabled: !!(websiteId && currency),
     placeholderData: keepPreviousData,
     ...options,

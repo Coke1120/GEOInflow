@@ -13,7 +13,7 @@ export function useTwoFactorStatusQuery(enabled: boolean) {
 
   return useQuery<TwoFactorStatusData>({
     queryKey: ['2fa-status'],
-    queryFn: () => get('/2fa/status'),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => get('/2fa/status', {}, {}, signal),
     enabled,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,

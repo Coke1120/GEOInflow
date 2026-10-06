@@ -7,8 +7,8 @@ export function usePixelQuery(pixelId?: string) {
 
   return useQuery({
     queryKey: ['pixel', { pixelId, modified }],
-    queryFn: () => {
-      return get(`/pixels/${pixelId}`);
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/pixels/${pixelId}`, {}, {}, signal);
     },
     enabled: !!pixelId,
   });

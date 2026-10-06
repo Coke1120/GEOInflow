@@ -98,7 +98,7 @@ async function relationalQuery(
     on c.cohort_date = s.cohort_date
     where c.day_number <= 31
     order by 1, 2`,
-    queryParams,
+    queryParams, 'getRetention',
   );
 }
 
@@ -174,6 +174,6 @@ async function clickhouseQuery(
     on c.cohort_date = s.cohort_date
     where c.day_number <= 31
     order by 1, 2`,
-    queryParams,
+    queryParams, 'getRetention',
   );
 }

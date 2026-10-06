@@ -1,6 +1,7 @@
+import { bumpAnalyticsRevision } from '@/lib/liekan/upstream/analytics-revision';
 import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
 import { Prisma, type Report } from '@/generated/prisma/client';
-import prisma from '@/lib/prisma';
+import prisma, { getRawQueryClient } from '@/lib/prisma';
 import type { PageResult, QueryFilters } from '@/lib/types';
 
 import ReportFindManyArgs = Prisma.ReportFindManyArgs;
@@ -13,7 +14,7 @@ export type ReportListItem = Report & {
 };
 
 async function findReport(criteria: Prisma.ReportFindUniqueArgs) {
-  return prisma.client.report.findUnique(criteria);
+  return (getRawQueryClient(prisma.client, { write: true }) as typeof prisma.client).report.findUnique(criteria);
 }
 
 export async function getReport(reportId: string) {
@@ -89,19 +90,32 @@ export async function getWebsiteReports(websiteId: string, filters: QueryFilters
 }
 
 export async function createReport(data: Prisma.ReportUncheckedCreateInput) {
-  const result = await prisma.client.report.create({ data });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.report.create({ data });
+    await bumpAnalyticsRevision(tx, 'website', result.websiteId);
+    return result;
+  });
   invalidateWebsiteAnalytics(result.websiteId);
   return result;
 }
 
 export async function updateReport(reportId: string, data: any) {
-  const result = await prisma.client.report.update({ where: { id: reportId }, data });
+  const result = await prisma.transaction(async tx => {
+    const before = await tx.report.findUnique({ where: { id: reportId } });
+    const result = await tx.report.update({ where: { id: reportId }, data });
+    await bumpAnalyticsRevision(tx, 'website', result.websiteId, before?.websiteId);
+    return result;
+  });
   invalidateWebsiteAnalytics(result.websiteId);
   return result;
 }
 
 export async function deleteReport(reportId: string) {
-  const result = await prisma.client.report.delete({ where: { id: reportId } });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.report.delete({ where: { id: reportId } });
+    await bumpAnalyticsRevision(tx, 'website', result.websiteId);
+    return result;
+  });
   invalidateWebsiteAnalytics(result.websiteId);
   return result;
 }

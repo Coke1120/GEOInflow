@@ -16,17 +16,22 @@ export function useReplaysQuery(websiteId: string, params?: Record<string, strin
       'replays',
       { websiteId, modified, startAt, endAt, unit, timezone, ...filters, ...params },
     ],
-    queryFn: pageParams => {
-      return get(`/websites/${websiteId}/replays`, {
-        startAt,
-        endAt,
-        unit,
-        timezone,
-        ...filters,
-        ...pageParams,
-        ...params,
-        maxResults: MAX_PAGING_RESULTS,
-      });
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        `/websites/${websiteId}/replays`,
+        {
+          startAt,
+          endAt,
+          unit,
+          timezone,
+          ...filters,
+          ...pageParams,
+          ...params,
+          maxResults: MAX_PAGING_RESULTS,
+        },
+        {},
+        signal,
+      );
     },
   });
 }

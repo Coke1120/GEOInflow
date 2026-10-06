@@ -1,5 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { Overview } from './pages/Overview';
+import { Content } from './pages/Content';
+import { tableCsv } from './data';
 import { AiPreference } from './pages/AiPreference';
 import { Conversions } from './pages/Conversions';
 import { HumanGeo } from './pages/HumanGeo';
@@ -35,6 +38,29 @@ function report(): LiekanReport {
   };
 }
 describe('evidence-backed reference copy', () => {
+  it('renders visitor statistics and exports visitor columns when crawler display is off', () => {
+    const data = report();
+    data.meta.aiCrawlerEnabled = false;
+    data.tables.visitorTopBody = [{ path: '/welcome', pv: 25, uv: 10 }];
+    data.tables.visitorPgBody = [{ path: '/welcome', pv: 25, uv: 10 }];
+    const html = renderToStaticMarkup(
+      <ReportContext.Provider value={actions}>
+        <Overview report={data} rangeLabel="范围" />
+        <Content report={data} rangeLabel="范围" />
+      </ReportContext.Provider>,
+    );
+    expect(html).toContain('访客浏览趋势');
+    expect(html).toContain('浏览量 PV');
+    expect(html).toContain('/welcome');
+    expect(html).not.toMatch(/AI 蜘蛛|AI 抓取|GEO 评价|最活跃蜘蛛/);
+    const csv = tableCsv('visitorTopBody', data.tables.visitorTopBody, '', {
+      label: '浏览量 PV',
+      direction: -1,
+    });
+    expect(csv).toContain('浏览量 PV');
+    expect(csv).toContain('25');
+    expect(csv).not.toMatch(/AI|蜘蛛|抓取/);
+  });
   it('uses observed AI referral sessions and weighted bounce rate without source sample claims', () => {
     const data = report();
     data.tables.srcBody = [

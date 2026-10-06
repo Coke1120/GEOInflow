@@ -88,6 +88,18 @@ describe('derived statistics cache', () => {
       analyticsCacheKey('report-v2', ['site-a', 1]),
     );
   });
+  it.each([
+    ['nested filters', (refresh: string) => ({ filters: { refresh } })],
+    ['SQL bindings', (refresh: string) => ['SELECT $1', { refresh }]],
+    ['share parameters', (refresh: string) => ({ share: { parameters: { refresh } } })],
+  ])('preserves business fields named refresh in %s', (_name, input) => {
+    expect(analyticsCacheKey('business', input('eq.first'))).not.toBe(
+      analyticsCacheKey('business', input('eq.second')),
+    );
+    expect(analyticsCacheKey('business', input('eq.first'))).toBe(
+      analyticsCacheKey('business', input('eq.first')),
+    );
+  });
   it('manual refresh supersedes a background flight and coalesces overlapping refresh requests', async () => {
     const cache = new QueryCache();
     let finish!: (value: number) => void;

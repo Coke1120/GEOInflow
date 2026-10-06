@@ -13,14 +13,19 @@ export function useEventDataPropertiesQuery(websiteId: string, options?: ReactQu
       'websites:event-data:properties',
       { websiteId, startAt, endAt, unit, timezone, ...filters },
     ],
-    queryFn: () =>
-      get(`/websites/${websiteId}/event-data/properties`, {
-        startAt,
-        endAt,
-        unit,
-        timezone,
-        ...filters,
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/event-data/properties`,
+        {
+          startAt,
+          endAt,
+          unit,
+          timezone,
+          ...filters,
+        },
+        {},
+        signal,
+      ),
     enabled: !!websiteId,
     ...options,
   });

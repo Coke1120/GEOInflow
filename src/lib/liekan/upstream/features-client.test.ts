@@ -42,9 +42,7 @@ it('cancels pre-save website reads so their late results cannot refresh the cach
     queryKey: key,
     queryFn: ({ signal }) => {
       oldSignal = signal;
-      return new Promise(resolve => {
-        finish = resolve;
-      });
+      return new Promise(resolve => { finish = resolve; });
     },
   });
   await client.prefetchQuery({ queryKey: other, queryFn: async () => ({ value: 'other' }) });
@@ -86,9 +84,7 @@ it('invalidates GEO, metadata and resource queries after a global settings refre
     queryKey: keys[0],
     queryFn: ({ signal }) => {
       oldSignal = signal;
-      return new Promise(resolve => {
-        finish = resolve;
-      });
+      return new Promise(resolve => { finish = resolve; });
     },
   });
   await invalidateFeatureUserQueries(client, 'user');
@@ -241,4 +237,87 @@ describe('accessible website collection', () => {
     expect(get.mock.calls[0][0]).toBe('/me/websites');
     expect(get.mock.calls[0][1]).not.toHaveProperty('includeTeams');
   });
+});
+
+it('forces only covered aggregate GETs on a manual read and keeps ordinary reads unforced', async () => {
+  const { withClientFreshness } = await import('./client-freshness');
+  const fetch = vi.fn(async (_input: URL) => Response.json({ value: 7 }));
+  vi.stubGlobal('fetch', fetch);
+  await withClientFreshness(new AbortController().signal, async () => {
+    const signal = new AbortController().signal;
+    return featureApi.get('/websites/site/stats', {}, signal);
+  });
+  const signal = new AbortController().signal;
+  await withClientFreshness(
+    signal,
+    async () => {
+      await featureApi.get('/websites/site/stats', {}, signal);
+      await featureApi.get('/websites/site', {}, signal);
+    },
+    { refresh: true },
+  );
+  expect(new URL(String(fetch.mock.calls[0][0])).searchParams.has('refresh')).toBe(false);
+  expect(new URL(String(fetch.mock.calls[1][0])).searchParams.get('refresh')).toBe('1');
+  expect(new URL(String(fetch.mock.calls[2][0])).searchParams.has('refresh')).toBe(false);
+});
+it('keeps privacy detail reads outside the aggregate refresh policy', async () => {
+  const { isAggregateRequest } = await import('./features-client');
+  expect(isAggregateRequest('/liekan/websites/site/analytics', { kind: 'session' })).toBe(false);
+  expect(isAggregateRequest('/liekan/websites/site/analytics', { kind: 'revenue' })).toBe(false);
+  expect(isAggregateRequest('/websites/site/replays/visit')).toBe(false);
+  expect(isAggregateRequest('/websites/site/journeys/details')).toBe(false);
+  expect(isAggregateRequest('/websites/site/revenue/stats')).toBe(true);
+});
+it('retains server retry guidance on automatic read failures', async () => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => Response.json({}, { status: 503, headers: { 'Retry-After': '90' } })),
+  );
+  await expect(featureApi.get('/websites/site/stats')).rejects.toMatchObject({
+    status: 503,
+    retryAfterMs: 90000,
+  });
+});
+
+it.each([
+  '/liekan/websites/site/goals/goal/analytics',
+  '/websites/site/goals/stats',
+  '/websites/site/funnels/stats',
+  '/websites/site/goals/goal/stats',
+  '/websites/site/funnels/funnel/savedstats',
+])('uses the aggregate freshness and manual refresh policy for %s', async path => {
+  const { isAggregateRequest } = await import('./features-client');
+  const { hasClientFreshness, withClientFreshness } = await import('./client-freshness');
+  expect(isAggregateRequest(path)).toBe(true);
+  const fetch = vi.fn(async (_input: URL) => Response.json({ visitors: 7 }));
+  vi.stubGlobal('fetch', fetch);
+  const signal = new AbortController().signal;
+  const value = await withClientFreshness(signal, () => featureApi.get(path, {}, signal), {
+    refresh: true,
+  });
+  expect(hasClientFreshness(value)).toBe(true);
+  expect(new URL(String(fetch.mock.calls[0][0])).searchParams.get('refresh')).toBe('1');
+});
+
+it('clears private AI data after user lifecycle refresh while preserving another identity', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+  const keys = [ ['liekan-ai','user','catalog'], ['liekan-ai','user','conversation','site','conversation'], ['liekan-ai','user','messages','site','conversation'], ['liekan-ai','user','context','conversation','snapshot'] ];
+  for (const key of keys) client.setQueryData(key, { private: 'old data' });
+  const other = ['liekan-ai','other','messages','site','conversation'];
+  client.setQueryData(other, { private: 'other identity' });
+  await invalidateFeatureUserQueries(client, 'user');
+  for (const key of keys) expect(client.getQueryData(key)).toBeUndefined();
+  expect(client.getQueryData(other)).toEqual({ private: 'other identity' });
+  client.clear();
+});
+it('clears website AI content and snapshot keys after website lifecycle refresh', async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
+  const keys = [ ['liekan-ai','user','catalog'], ['liekan-ai','user','catalog-selected','site'], ['liekan-ai','user','conversation','site','conversation'], ['liekan-ai','user','messages','site','conversation'], ['liekan-ai','user','history','site'], ['liekan-ai','user','context','conversation','snapshot'] ];
+  for (const key of keys) client.setQueryData(key, { private: 'old data' });
+  const other = ['liekan-ai','user','messages','other-site','conversation'];
+  client.setQueryData(other, { private: 'other website' });
+  await invalidateFeatureWebsiteQueries(client, 'site');
+  for (const key of keys) expect(client.getQueryData(key)).toBeUndefined();
+  expect(client.getQueryData(other)).toEqual({ private: 'other website' });
+  client.clear();
 });

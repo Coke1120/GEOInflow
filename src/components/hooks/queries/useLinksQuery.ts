@@ -13,11 +13,16 @@ export function useLinksQuery(
 
   return usePagedQuery({
     queryKey: ['links', { teamId, modified, ...params }],
-    queryFn: pageParams => {
-      return get(teamId ? `/teams/${teamId}/links` : '/links', {
-        ...pageParams,
-        ...params,
-      });
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        teamId ? `/teams/${teamId}/links` : '/links',
+        {
+          ...pageParams,
+          ...params,
+        },
+        {},
+        signal,
+      );
     },
     ...options,
   });

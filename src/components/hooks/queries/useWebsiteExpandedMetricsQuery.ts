@@ -19,7 +19,7 @@ export function useWebsiteExpandedMetricsQuery(
   options?: ReactQueryOptions<WebsiteExpandedMetricsData>,
 ) {
   const { get, useQuery } = useApi();
-  const { startAt, endAt } = useDateParameters();
+  const { startAt, endAt, timezone } = useDateParameters();
   const filters = useFilterParameters();
 
   return useQuery<WebsiteExpandedMetricsData>({
@@ -29,17 +29,24 @@ export function useWebsiteExpandedMetricsQuery(
         websiteId,
         startAt,
         endAt,
+        timezone,
         ...filters,
         ...params,
       },
     ],
-    queryFn: async () =>
-      get(`/websites/${websiteId}/metrics/expanded`, {
-        startAt,
-        endAt,
-        ...filters,
-        ...params,
-      }),
+    queryFn: async ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/metrics/expanded`,
+        {
+          startAt,
+          endAt,
+          timezone,
+          ...filters,
+          ...params,
+        },
+        {},
+        signal,
+      ),
     enabled: !!websiteId,
     placeholderData: keepPreviousData,
     ...options,

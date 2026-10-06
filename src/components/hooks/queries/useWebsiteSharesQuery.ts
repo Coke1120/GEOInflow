@@ -12,8 +12,8 @@ export function useWebsiteSharesQuery(
 
   return usePagedQuery({
     queryKey: ['websiteShares', { websiteId, modified }],
-    queryFn: pageParams => {
-      return get(`/websites/${websiteId}/shares`, pageParams);
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/websites/${websiteId}/shares`, pageParams, {}, signal);
     },
     ...options,
   });

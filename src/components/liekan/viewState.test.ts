@@ -81,3 +81,17 @@ describe('shareable GEO view conditions', () => {
     expect(newYork.endAt).toBe(Date.parse('2026-03-21T03:59:59.999Z'));
   });
 });
+
+it('restores visitor overview sorting and applies it to the exported rows', async () => {
+  const { tableCsv, selectRows } = await import('./data');
+  const rows = [
+    { path: '/large', pv: 20, uv: 4 },
+    { path: '/small', pv: 1, uv: 9 },
+  ];
+  const ascending = readViewState({ sort: '浏览量 PV', direction: 'asc' }, 'overview');
+  expect(selectRows(rows, '', ascending.sort, 'visitorTopBody')[0].path).toBe('/small');
+  const descending = readViewState({ sort: '访客数 UV', direction: 'desc' }, 'overview');
+  expect(selectRows(rows, '', descending.sort, 'visitorTopBody')[0].path).toBe('/small');
+  const csv = tableCsv('visitorTopBody', rows, '', ascending.sort);
+  expect(csv.indexOf('/small')).toBeLessThan(csv.indexOf('/large'));
+});

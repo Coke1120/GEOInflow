@@ -3,11 +3,13 @@ import { useListState } from './listState';
 
 import {
   freshnessStaleTime,
-  withClientFreshness,
   shareWithFreshness,
+  monotonicNow,
 } from '@/lib/liekan/upstream/client-freshness';
-import { useQuery } from '@tanstack/react-query';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useDateRangeClock } from '@/lib/liekan/upstream/date-range-clock';
+import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import {
@@ -45,14 +47,24 @@ import {
   getFeaturePreferences,
 } from '@/lib/liekan/upstream/features-client';
 import { Chart } from './Chart';
-import { FeatureProvider, useAction, useData, useFeature, useResourceContext } from './context';
+import { SharedWebsiteOverview } from './SharedWebsiteOverview';
+import { sharedDateRange } from '@/lib/liekan/contracts/shared-report';
+import sharedStyles from '@/styles/liekan/SharedReport.module.css';
+import {
+  FeatureProvider,
+  useAction,
+  useData,
+  useFeature,
+  useFreshQuery,
+  useResourceContext,
+} from './context';
 import {
   Badge,
   Body,
   Button,
   Check,
   Definition,
-  Drawer,
+  LiekanDialog,
   Field,
   Form,
   Icon,
@@ -140,9 +152,11 @@ function Search({ value, onChange }: { value: string; onChange: (value: string) 
 function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) {
   const action = useAction();
   return (
-    <Drawer title={title} onClose={() => !action.busy && onClose()}>
+    <LiekanDialog protectUnsaved={false} title={title} onClose={() => !action.busy && onClose()}>
       <Form
         busy={action.busy}
+        danger
+        trackUnsaved={false}
         submitLabel={title}
         onSubmit={async (values: any) => {
           if (values.confirmation !== word) throw new Error(`请输入 ${word} 确认`);
@@ -153,7 +167,7 @@ function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) 
         <Notice tone="red">{children}</Notice>
         <Field label={`输入 ${word} 确认`} name="confirmation" required autoComplete="off" />
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 
@@ -198,8 +212,9 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
     !!c.user.isAdmin,
   );
   return (
-    <Drawer title="创建团队" onClose={() => !action.busy && onClose()}>
+    <LiekanDialog title="创建团队" onClose={() => !action.busy && onClose()}>
       <Form
+        columns
         busy={action.busy}
         submitLabel="创建团队"
         onSubmit={async (values: any) => {
@@ -211,7 +226,11 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
               }),
             '团队已创建',
           );
-          await c.refresh();
+          try {
+            await c.refresh();
+          } catch {
+            c.notify('团队已创建，页面状态刷新失败，请重新读取。');
+          }
           onClose();
         }}
       >
@@ -229,7 +248,7 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
           <Definition items={[['团队所有者', c.user.username]]} />
         )}
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function TwoFactorBadge({ userId }: { userId: string }) {
@@ -319,6 +338,8 @@ function Teams({ admin = false }: { admin?: boolean }) {
       >
         <QueryState query={q}>
           <Table
+            mobile
+            rowKeys={rows.map(team => team.id)}
             columns={
               admin
                 ? ['团队', '所有者', '成员', '网站', '操作']
@@ -369,6 +390,7 @@ function MemberDrawer({
   const c = useFeature(),
     action = useAction(),
     [remove, setRemove] = useState(false);
+  const pending = useRef(false);
   const users = useData(
     ['member-user-options', team.id],
     signal => getAllFeatureRows<any>('/admin/users', {}, signal),
@@ -378,72 +400,100 @@ function MemberDrawer({
     choices = teamRoleOptions.filter(
       ([value]) => c.user.isAdmin || selfRole === 'team-owner' || value !== 'team-manager',
     );
-  if (remove)
-    return (
-      <Confirm
-        title="移除成员"
-        word="REMOVE"
-        onClose={onClose}
-        onConfirm={() => c.api.del(`/teams/${team.id}/users/${member.userId}`)}
-      >
-        成员将失去本团队资源的访问权限，个人账户继续保留。
-      </Confirm>
-    );
   return (
-    <Drawer
-      title={member ? '编辑成员角色' : '添加已有用户'}
-      onClose={() => !action.busy && onClose()}
+    <LiekanDialog
+      subtitle={team.name + (member ? ' · ' + (member.user?.username || member.userId) : '')}
+      title={remove ? '移除成员' : member ? '编辑成员角色' : '添加团队成员'}
+      protectUnsaved={!remove && !action.busy && !pending.current}
+      onClose={() => !action.busy && !pending.current && onClose()}
     >
       <Form
+        columns
         busy={action.busy}
-        submitLabel={member ? '保存角色' : '添加成员'}
+        danger={remove}
+        submitLabel={remove ? '移除成员' : member ? '保存成员角色' : '添加团队成员'}
         onSubmit={async (values: any) => {
-          await action.run(() =>
-            c.api.post(`/teams/${team.id}/users${member ? `/${member.userId}` : ''}`, {
-              role: values.role,
-              ...(!member && { userId: values.userId }),
-            }),
-          );
-          await c.refresh();
-          onClose();
+          pending.current = true;
+          try {
+            if (remove) {
+              if (values.confirmation !== 'REMOVE') throw new Error('请输入 REMOVE 确认');
+              await action.run(
+                () => c.api.del(`/teams/${team.id}/users/${member.userId}`),
+                '成员已移除',
+              );
+            } else {
+              await action.run(() =>
+                c.api.post(`/teams/${team.id}/users${member ? `/${member.userId}` : ''}`, {
+                  role: values.role,
+                  ...(!member && { userId: values.userId }),
+                }),
+              );
+            }
+            try {
+              await c.refresh();
+            } catch {
+              c.notify(
+                `${remove ? '成员已移除' : member ? '成员角色已保存' : '成员已添加'}，页面状态刷新失败，请重新读取。`,
+              );
+            }
+            onClose();
+          } finally {
+            pending.current = false;
+          }
         }}
       >
-        {member ? (
-          <Field label="用户名" defaultValue={member.user?.username || member.userId} readOnly />
-        ) : c.user.isAdmin ? (
-          <QueryState query={users}>
-            <Select
-              label="用户名"
-              name="userId"
-              required
-              options={(users.data || [])
-                .filter((user: any) => !team.members?.some((m: any) => m.userId === user.id))
-                .map((user: any) => [user.id, user.username])}
-            />
-          </QueryState>
+        {remove ? (
+          <>
+            <Notice tone="red">
+              成员“{member.user?.username || member.userId}”将失去团队“{team.name}
+              ”的资源访问权限，个人账户继续保留。
+            </Notice>
+            <Field label="输入 REMOVE 确认" name="confirmation" required autoComplete="off" />
+          </>
         ) : (
-          <Field
-            label="已有用户 ID"
-            name="userId"
-            required
-            pattern="[a-fA-F0-9-]{36}"
-            help="请向该用户取得账户 ID。现有接口仅向系统管理员开放全局用户名列表。"
-          />
-        )}
-        <Select
-          label="团队角色"
-          name="role"
-          defaultValue={member?.role || 'team-member'}
-          options={choices}
-        />
-        <Notice>添加使用本系统已有账户。</Notice>
-        {member && (
-          <Button danger disabled={action.busy} onClick={() => setRemove(true)}>
-            移除成员
-          </Button>
+          <>
+            {member ? (
+              <Field
+                label="用户名"
+                defaultValue={member.user?.username || member.userId}
+                readOnly
+              />
+            ) : c.user.isAdmin ? (
+              <QueryState query={users}>
+                <Select
+                  label="用户名"
+                  name="userId"
+                  required
+                  options={(users.data || [])
+                    .filter((user: any) => !team.members?.some((m: any) => m.userId === user.id))
+                    .map((user: any) => [user.id, user.username])}
+                />
+              </QueryState>
+            ) : (
+              <Field
+                label="已有用户 ID"
+                name="userId"
+                required
+                pattern="[a-fA-F0-9-]{36}"
+                help="请向该用户取得账户 ID。现有接口仅向系统管理员开放全局用户名列表。"
+              />
+            )}
+            <Select
+              label="团队角色"
+              name="role"
+              defaultValue={member?.role || 'team-member'}
+              options={choices}
+            />
+            <Notice>添加使用本系统已有账户。</Notice>
+            {member && (
+              <Button danger disabled={action.busy} onClick={() => setRemove(true)}>
+                移除成员
+              </Button>
+            )}
+          </>
         )}
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function TeamDetail() {
@@ -535,6 +585,8 @@ function TeamDetail() {
             >
               <QueryState query={members}>
                 <Table
+                  mobile
+                  rowKeys={rowsOf<any>(members.data).map(member => member.id || member.userId)}
                   columns={['成员', '用户名', '角色', '双重验证', '加入时间', '操作']}
                   rows={rowsOf<any>(members.data).map(member => [
                     member.user?.username || member.userId,
@@ -600,6 +652,8 @@ function TeamDetail() {
             >
               <QueryState query={resources}>
                 <Table
+                  mobile
+                  rowKeys={rowsOf<FeatureEntity>(resources.data).map(site => site.id)}
                   columns={['网站', '域名', '状态', '操作']}
                   rows={rowsOf<FeatureEntity>(resources.data).map(site => [
                     site.name,
@@ -794,8 +848,9 @@ function CreateUser({ onClose }: { onClose: () => void }) {
   const c = useFeature(),
     action = useAction();
   return (
-    <Drawer title="创建系统用户" onClose={() => !action.busy && onClose()}>
+    <LiekanDialog title="创建系统用户" onClose={() => !action.busy && onClose()}>
       <Form
+        columns
         busy={action.busy}
         submitLabel="创建用户"
         onSubmit={async (values: any) => {
@@ -816,7 +871,7 @@ function CreateUser({ onClose }: { onClose: () => void }) {
         />
         <Select label="系统角色" name="role" options={userRoleOptions} defaultValue="user" />
       </Form>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function AdminUsers() {
@@ -853,6 +908,8 @@ function AdminUsers() {
       >
         <QueryState query={q}>
           <Table
+            mobile
+            rowKeys={rowsOf<any>(q.data).map(user => user.id)}
             columns={['用户名', '系统角色', '团队', '双重验证', '状态', '操作']}
             rows={rowsOf<any>(q.data).map(user => [
               user.username,
@@ -999,6 +1056,12 @@ function AdminUser() {
           <Panel title="用户资源" subtitle="管理员查看该账户的网站和团队。">
             <QueryState query={resources}>
               <Table
+                mobile
+                identity={1}
+                rowKeys={[
+                  ...(resources.data?.teams || []).map((team: any) => `team:${team.id}`),
+                  ...(resources.data?.websites || []).map((site: any) => `site:${site.id}`),
+                ]}
                 columns={['类型', '资源名称', '角色', '操作']}
                 rows={[
                   ...(resources.data?.teams || []).map((team: any) => [
@@ -1093,6 +1156,8 @@ function AdminWebsites() {
       >
         <QueryState query={q}>
           <Table
+            mobile
+            rowKeys={rowsOf<any>(q.data).map(site => site.id)}
             columns={['网站', '域名', '所属空间', '所有者', '操作']}
             rows={rowsOf<any>(q.data).map(site => [
               site.name,
@@ -1118,7 +1183,7 @@ function AdminWebsites() {
         </QueryState>
       </Panel>
       {filter && (
-        <Drawer title="筛选全局资源" onClose={() => setFilter(false)}>
+        <LiekanDialog title="按所属空间筛选" onClose={() => setFilter(false)}>
           <QueryState query={teams}>
             <Form
               submitLabel="应用筛选"
@@ -1139,7 +1204,7 @@ function AdminWebsites() {
               />
             </Form>
           </QueryState>
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );
@@ -1237,56 +1302,60 @@ export function ResourceAnalytics({
     };
   const get =
     request || ((path: string, query: any, signal?: AbortSignal) => c.api.get(path, query, signal));
-  const q = useQuery({
-    queryKey: [
-      'liekan-feature',
-      'resource-analytics',
-      request ? (request as any).shareToken : c?.user?.id,
-      id,
-      kind,
-      params,
-      metrics,
-      variant,
-      allowGoals,
-    ],
-    queryFn: ({ signal }) =>
-      withClientFreshness(signal, async () => {
-        const [stats, trend, aiTrend] = await Promise.all([
-          metrics ? get(`/websites/${id}/stats`, params, signal) : null,
-          get(`/websites/${id}/pageviews`, params, signal),
-          kind === 'website'
-            ? get(
-                `/websites/${id}/pageviews`,
-                { ...params, drill_channel: 'eq.AI 搜索引荐' },
-                signal,
-              )
-            : null,
-        ]);
-        const aiStats =
-          metrics && variant && kind === 'website'
-            ? await get(
-                `/websites/${id}/stats`,
-                { ...params, drill_channel: 'eq.AI 搜索引荐' },
-                signal,
-              )
-            : null;
-        let appointment: any = null;
-        if (metrics && variant && kind === 'website' && allowGoals) {
-          const goals = await allSharedRows(get, `/websites/${id}/goals`, signal);
-          const goal = goals.find((g: any) =>
-            /预约|appointment|book.*demo|demo.*book/i.test(g.name || ''),
-          );
-          if (goal)
-            appointment = await get(`/websites/${id}/goals/${goal.id}/stats`, params, signal);
-        }
-        return { stats, trend, aiTrend, aiStats, appointment };
-      }),
-    staleTime: query => freshnessStaleTime(query),
-    gcTime: 600000,
-    structuralSharing: shareWithFreshness,
-    enabled: !!id,
-    retry: false,
-  });
+  const q = useFreshQuery(
+    {
+      queryKey: [
+        'liekan-feature',
+        'resource-analytics',
+        request ? (request as any).shareCacheKey || (request as any).shareToken : c?.user?.id,
+        id,
+        kind,
+        params,
+        metrics,
+        variant,
+        allowGoals,
+      ],
+      queryFn: ({ signal }) =>
+        (async () => {
+          const [stats, trend, aiTrend] = await Promise.all([
+            metrics ? get(`/websites/${id}/stats`, params, signal) : null,
+            get(`/websites/${id}/pageviews`, params, signal),
+            kind === 'website'
+              ? get(
+                  `/websites/${id}/pageviews`,
+                  { ...params, drill_channel: 'eq.AI 搜索引荐' },
+                  signal,
+                )
+              : null,
+          ]);
+          const aiStats =
+            metrics && variant && kind === 'website'
+              ? await get(
+                  `/websites/${id}/stats`,
+                  { ...params, drill_channel: 'eq.AI 搜索引荐' },
+                  signal,
+                )
+              : null;
+          let appointment: any = null;
+          if (metrics && variant && kind === 'website' && allowGoals) {
+            const goals = await allSharedRows(get, `/websites/${id}/goals`, signal);
+            const goal = goals.find((g: any) =>
+              /预约|appointment|book.*demo|demo.*book/i.test(g.name || ''),
+            );
+            if (goal)
+              appointment = await get(`/websites/${id}/goals/${goal.id}/stats`, params, signal);
+          }
+          return { stats, trend, aiTrend, aiStats, appointment };
+        })(),
+      staleTime: query => freshnessStaleTime(query),
+      gcTime: 600000,
+      structuralSharing: shareWithFreshness,
+      enabled: !!id,
+      retry: false,
+      ...(request ? { gcTime: 600000 } : {}),
+    },
+    { aggregate: true, endAt: params.endAt, timezone: params.timezone },
+  );
   const trend = q.data?.trend,
     points = trend?.pageviews || [],
     sessions = trend?.sessions || [];
@@ -1351,7 +1420,9 @@ export function ResourceAnalytics({
         <Chart
           title={title}
           subtitle="所选日期范围"
-          labels={points.map((point: any) => String(point.x))}
+          labels={points.map((point: any) =>
+            params.unit === 'day' ? String(point.x).slice(5, 10) : String(point.x),
+          )}
           series={[
             {
               name: kind === 'link' ? '点击次数' : kind === 'pixel' ? '请求次数' : '访客',
@@ -1411,6 +1482,8 @@ function Boards() {
       >
         <QueryState query={q}>
           <Table
+            mobile
+            rowKeys={rowsOf<any>(q.data).map(board => board.id)}
             columns={['名称', '类型', '关联资源', '更新时间', '操作']}
             rows={rowsOf<any>(q.data).map(board => {
               const entity = boardEntity(board.parameters, board.type);
@@ -1571,9 +1644,10 @@ function WidgetDrawer({
     actualType = fixed ? boardResource.entityType : entityType,
     eventOnly = type === 'EventsChart';
   return (
-    <Drawer title={column ? '编辑看板组件' : '添加看板组件'} onClose={onClose}>
+    <LiekanDialog size="wide" title={column ? '编辑看板组件' : '添加看板组件'} onClose={onClose}>
       <QueryState query={entities}>
         <Form
+          columns
           submitLabel={column ? '保存组件' : '添加组件'}
           onSubmit={(values: any) => {
             const entityId = fixed ? boardResource.entityId : values.entityId;
@@ -1675,6 +1749,7 @@ function WidgetDrawer({
               defaultValue={column?.component?.props?.type || 'channel'}
             />
           )}
+          <Notice>组件保存后，请继续保存看板以保留本次配置。</Notice>
           <Check
             name="full"
             defaultChecked={
@@ -1688,7 +1763,7 @@ function WidgetDrawer({
           </Check>
         </Form>
       </QueryState>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 function NativeWidget({
@@ -1720,34 +1795,38 @@ function NativeWidget({
     conversion = ['Goal', 'Funnel'].includes(component?.type),
     eventMetrics = component?.type === 'EventsMetricsBar',
     reportId = component?.props?.reportId;
-  const q = useQuery({
-    queryKey: [
-      'liekan-feature',
-      'board-widget',
-      request ? request.shareToken : c?.user?.id,
-      id,
-      component,
-      params,
-    ],
-    queryFn: ({ signal }) =>
-      get(
-        `/websites/${id}/${conversion ? `${component.type === 'Goal' ? 'goals' : 'funnels'}/${reportId}/stats` : eventMetrics ? 'events/stats' : events ? 'events/series' : component.type === 'UTM' ? 'utm/metrics' : 'metrics'}`,
-        {
-          ...params,
-          type: events
-            ? 'event'
-            : component.type === 'UTM'
-              ? component.props?.param || 'utm_source'
-              : component.type === 'WorldMap'
-                ? 'country'
-                : dimension,
-          limit: component.props?.limit || 10,
-        },
-        signal,
-      ),
-    enabled: !!id && (table || events || eventMetrics || (conversion && !!reportId)),
-    retry: false,
-  });
+  const q = useFreshQuery(
+    {
+      queryKey: [
+        'liekan-feature',
+        'board-widget',
+        request ? request.shareCacheKey || request.shareToken : c?.user?.id,
+        id,
+        component,
+        params,
+      ],
+      queryFn: ({ signal }) =>
+        get(
+          `/websites/${id}/${conversion ? `${component.type === 'Goal' ? 'goals' : 'funnels'}/${reportId}/stats` : eventMetrics ? 'events/stats' : events ? 'events/series' : component.type === 'UTM' ? 'utm/metrics' : 'metrics'}`,
+          {
+            ...params,
+            type: events
+              ? 'event'
+              : component.type === 'UTM'
+                ? component.props?.param || 'utm_source'
+                : component.type === 'WorldMap'
+                  ? 'country'
+                  : dimension,
+            limit: component.props?.limit || 10,
+          },
+          signal,
+        ),
+      enabled: !!id && (table || events || eventMetrics || (conversion && !!reportId)),
+      retry: false,
+      ...(request ? { gcTime: 600000 } : {}),
+    },
+    { aggregate: true, endAt: params.endAt, timezone: params.timezone },
+  );
   if (!component) return <div className="state-box">尚未配置组件</div>;
   if (component.type === 'TextBlock')
     return (
@@ -2411,12 +2490,22 @@ export function ShareDrawer({
   const parameters = share?.parameters || {},
     permitted = entity ? canManageResource(c.user, entity, c.teams) : true;
   return (
-    <Drawer title="分享设置" onClose={() => !action.busy && onClose()}>
+    <LiekanDialog
+      title={share ? '编辑分享链接' : '创建分享链接'}
+      subtitle="设置分享资源、统计页面范围与访问保护。"
+      className="share-dialog"
+      onClose={() => !action.busy && onClose()}
+    >
       <QueryState query={entities}>
         <Form
           busy={action.busy}
           disabled={!permitted}
           submitLabel={share ? '保存分享链接' : '创建分享链接'}
+          cancel={
+            <Button disabled={action.busy} onClick={onClose}>
+              取消
+            </Button>
+          }
           onSubmit={async (values: any) => {
             const id = share?.entityId || entity?.id || values.entityId;
             if (!id) throw new Error('请选择分享资源');
@@ -2440,93 +2529,123 @@ export function ShareDrawer({
             onClose();
           }}
         >
-          <Field
-            label="分享名称"
-            name="name"
-            defaultValue={share?.name || entity?.name || ''}
-            required
-            maxLength={200}
-          />
-          <Select
-            label="分享类型"
-            value={kind}
-            onChange={e => setKind(e.target.value)}
-            disabled={!!share || !!entity}
-            options={Object.keys(shareTypes).map(key => [key, labels[key]])}
-          />
-          {!share && !entity && (
-            <Select
-              key={kind}
-              label="关联资源"
-              name="entityId"
-              required
-              options={[
-                ['', '请选择资源'],
-                ...(entities.data?.[kind] || [])
-                  .filter((resource: any) => canManageResource(c.user, resource, c.teams))
-                  .map((resource: any) => [resource.id, resource.name]),
-              ]}
-            />
-          )}
-          {(share || entity) && (
-            <Definition
-              items={[
-                [
-                  '关联资源',
-                  entity?.name ||
-                    entities.data?.[kind]?.find((resource: any) => resource.id === share?.entityId)
-                      ?.name ||
-                    share?.entityId,
-                ],
-              ]}
-            />
-          )}
-          <Check name="allowFilter" defaultChecked={parameters.allowFilter !== false}>
-            允许访客调整筛选
-          </Check>
-          <Select
-            label="主题"
-            name="theme"
-            defaultValue="light"
-            help="新界面当前支持浅色主题。保存后此分享使用浅色。"
-            options={[
-              { value: 'light', label: '浅色' },
-              { value: 'dark', label: '深色（暂不支持）', disabled: true },
-              { value: 'system', label: '跟随系统（暂不支持）', disabled: true },
-            ]}
-          />
-          <Field
-            label={parameters.hasPassword ? '修改分享密码（可选）' : '分享密码（可选）'}
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            help={
-              parameters.hasPassword
-                ? '留空保留当前密码。修改密码后，已验证的访客需要重新验证。'
-                : '设置后访客需要输入密码。'
-            }
-          />
-          {parameters.hasPassword && <Check name="removePassword">取消密码保护</Check>}
-          <h3>允许显示的统计页面</h3>
-          <div className="two">
-            {shareSections.map(([key, label]) => (
-              <Check
-                key={key}
-                name={key}
-                defaultChecked={
-                  typeof parameters[key] === 'boolean'
-                    ? parameters[key]
-                    : ['overview', 'events'].includes(key)
-                }
-              >
-                {label}
-              </Check>
-            ))}
+          <div className="share-settings-grid">
+            <div className="share-settings-column">
+              <section className="share-settings-section">
+                <div className="share-section-heading">
+                  <h3>基本信息</h3>
+                  <p className="muted">选择要分享的资源，方便访客识别。</p>
+                </div>
+                <Field
+                  label="分享名称"
+                  name="name"
+                  defaultValue={share?.name || entity?.name || ''}
+                  required
+                  maxLength={200}
+                />
+                <Select
+                  label="分享类型"
+                  value={kind}
+                  onChange={e => setKind(e.target.value)}
+                  disabled={!!share || !!entity}
+                  options={Object.keys(shareTypes).map(key => [key, labels[key]])}
+                />
+                {!share && !entity ? (
+                  <Select
+                    key={kind}
+                    label="关联资源"
+                    name="entityId"
+                    required
+                    options={[
+                      ['', '请选择资源'],
+                      ...(entities.data?.[kind] || [])
+                        .filter((resource: any) => canManageResource(c.user, resource, c.teams))
+                        .map((resource: any) => [resource.id, resource.name]),
+                    ]}
+                  />
+                ) : (
+                  <Field
+                    label="关联资源"
+                    readOnly
+                    value={
+                      entity?.name ||
+                      entities.data?.[kind]?.find(
+                        (resource: any) => resource.id === share?.entityId,
+                      )?.name ||
+                      share?.entityId ||
+                      ''
+                    }
+                  />
+                )}
+              </section>
+              <section className="share-settings-section">
+                <div className="share-section-heading">
+                  <h3>访问保护</h3>
+                  <p className="muted">按需设置密码，控制分享页面的访问。</p>
+                </div>
+                <Field
+                  label={parameters.hasPassword ? '修改分享密码（可选）' : '分享密码（可选）'}
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  help={
+                    parameters.hasPassword
+                      ? '留空保留当前密码。修改后访客需要重新验证。'
+                      : '设置后访客需要输入密码。'
+                  }
+                />
+                {parameters.hasPassword && <Check name="removePassword">取消密码保护</Check>}
+              </section>
+            </div>
+            <div className="share-settings-column">
+              <section className="share-settings-section">
+                <div className="share-section-heading">
+                  <h3>统计页面范围</h3>
+                  <p className="muted">访客只能查看已勾选的统计页面。</p>
+                </div>
+                <div className="share-page-options">
+                  {shareSections.map(([key, label]) => (
+                    <Check
+                      key={key}
+                      name={key}
+                      defaultChecked={
+                        typeof parameters[key] === 'boolean'
+                          ? parameters[key]
+                          : ['overview', 'events'].includes(key)
+                      }
+                    >
+                      {label}
+                    </Check>
+                  ))}
+                </div>
+              </section>
+              <section className="share-settings-section">
+                <div className="share-section-heading">
+                  <h3>浏览设置</h3>
+                </div>
+                <Switch
+                  name="allowFilter"
+                  label="允许访客调整筛选"
+                  help="访客可在分享范围内调整统计条件。"
+                  defaultChecked={parameters.allowFilter !== false}
+                />
+                <Select
+                  label="主题"
+                  name="theme"
+                  defaultValue="light"
+                  help="分享页面当前使用浅色主题。"
+                  options={[
+                    { value: 'light', label: '浅色' },
+                    { value: 'dark', label: '深色（暂不支持）', disabled: true },
+                    { value: 'system', label: '跟随系统（暂不支持）', disabled: true },
+                  ]}
+                />
+              </section>
+            </div>
           </div>
-          <Notice>公开访客可以查看允许的统计页面。</Notice>
         </Form>
       </QueryState>
-    </Drawer>
+    </LiekanDialog>
   );
 }
 export function WebsiteSharing() {
@@ -2609,7 +2728,9 @@ function Sharing() {
         <QueryState query={entities}>
           <QueryState query={q}>
             <Table
-              columns={['名称', '资源类型', '页面范围', '筛选权限', '状态', '操作']}
+              mobile
+              rowKeys={rows.map((share: any) => share.id)}
+              columns={['名称', '资源类型', '页面范围', '筛选权限', '状态', '操作', '分享链接']}
               rows={rows.map((share: any) => [
                 <div key="share-name">
                   {share.name}
@@ -2661,6 +2782,23 @@ function Sharing() {
                     {share.parameters?.enabled === false ? '启用' : '停用'}
                   </Button>
                 </div>,
+                share.slug ? (
+                  <a
+                    key="share-visit"
+                    className="btn share-visit"
+                    href={`${process.env.basePath || ''}/share/${encodeURIComponent(share.slug)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`访问分享链接：${share.name}（新标签页）`}
+                  >
+                    访问分享链接
+                    <Icon name="external" />
+                  </a>
+                ) : (
+                  <span key="share-unavailable" className="muted">
+                    链接未生成
+                  </span>
+                ),
               ])}
               page={page}
               pages={Math.max(1, Math.ceil(filtered.length / 20))}
@@ -2706,12 +2844,14 @@ function PublicStats({
   active,
   range,
   filters,
+  dateControls,
   onExpired,
 }: {
   share: any;
   active: string;
   range: any;
   filters: any;
+  dateControls?: ReactNode;
   onExpired: () => void;
 }) {
   const id =
@@ -2728,7 +2868,7 @@ function PublicStats({
         if ([401, 403, 404].includes(error.status)) onExpired();
         throw error;
       }),
-    { shareToken: share.token },
+    { shareToken: share.token, shareCacheKey: share.cacheKey },
   );
   const safeBoard = (board: any) => {
     const parameters: WorkspaceParameters = board.parameters || {},
@@ -2775,59 +2915,74 @@ function PublicStats({
       },
     };
   };
-  const q = useQuery({
-    queryKey: ['liekan-public', share.token, active, id, range, filters],
-    queryFn: async ({ signal }) => {
-      if (active === 'events')
-        return request(
-          `/websites/${id}/events/series`,
-          { ...range, ...filters, limit: 100 },
-          signal,
-        );
-      if (active === 'utm')
-        return request(
-          `/websites/${id}/utm/metrics`,
-          { ...range, ...filters, type: 'utm_source' },
-          signal,
-        );
-      if (active === 'goals') {
-        const [goals, funnels] = await Promise.all([
-          hasShareSection(share.parameters, 'goals')
-            ? allSharedRows(request, `/websites/${id}/goals`, signal)
-            : null,
-          hasShareSection(share.parameters, 'funnels')
-            ? allSharedRows(request, `/websites/${id}/funnels`, signal)
-            : null,
-        ]);
-        const results = await Promise.all([
-          ...rowsOf<any>(goals).map(async row => ({
-            kind: '目标',
-            ...row,
-            stats: await request(
-              `/websites/${id}/goals/${row.id}/stats`,
-              { ...range, ...filters },
-              signal,
-            ),
-          })),
-          ...rowsOf<any>(funnels).map(async row => ({
-            kind: '漏斗',
-            ...row,
-            stats: await request(
-              `/websites/${id}/funnels/${row.id}/stats`,
-              { ...range, ...filters },
-              signal,
-            ),
-          })),
-        ]);
-        return { results };
-      }
-      if (share.boardId) return request(`/boards/${share.boardId}`, undefined, signal);
-      return null;
+  const q = useFreshQuery(
+    {
+      queryKey: ['liekan-public', share.cacheKey, active, id, range, filters],
+      queryFn: async ({ signal }) => {
+        if (active === 'events')
+          return request(
+            `/websites/${id}/events/series`,
+            { ...range, ...filters, limit: 100 },
+            signal,
+          );
+        if (active === 'utm')
+          return request(
+            `/websites/${id}/utm/metrics`,
+            { ...range, ...filters, type: 'utm_source' },
+            signal,
+          );
+        if (active === 'goals') {
+          const [goals, funnels] = await Promise.all([
+            hasShareSection(share.parameters, 'goals')
+              ? allSharedRows(request, `/websites/${id}/goals`, signal)
+              : null,
+            hasShareSection(share.parameters, 'funnels')
+              ? allSharedRows(request, `/websites/${id}/funnels`, signal)
+              : null,
+          ]);
+          const results = await Promise.all([
+            ...rowsOf<any>(goals).map(async row => ({
+              kind: '目标',
+              ...row,
+              stats: await request(
+                `/websites/${id}/goals/${row.id}/stats`,
+                { ...range, ...filters },
+                signal,
+              ),
+            })),
+            ...rowsOf<any>(funnels).map(async row => ({
+              kind: '漏斗',
+              ...row,
+              stats: await request(
+                `/websites/${id}/funnels/${row.id}/stats`,
+                { ...range, ...filters },
+                signal,
+              ),
+            })),
+          ]);
+          return { results, configurationOnly: results.length === 0 };
+        }
+        if (share.boardId) return request(`/boards/${share.boardId}`, undefined, signal);
+        return null;
+      },
+      enabled: (!!id && active !== 'overview') || (active === 'overview' && !!share.boardId),
+      retry: false,
+      gcTime: 600000,
     },
-    enabled: (!!id && active !== 'overview') || (active === 'overview' && !!share.boardId),
-    retry: false,
-  });
+    { aggregate: data => active !== 'overview' && !data?.configurationOnly, endAt: range.endAt, timezone: range.timezone },
+  );
   if (!id && !share.boardId) return <Notice>分享资源尚未提供统计数据。</Notice>;
+  if (active === 'overview' && share.websiteId && !share.boardId && !share.linkId && !share.pixelId)
+    return (
+      <SharedWebsiteOverview
+        id={id}
+        token={share.token}
+        cacheKey={share.cacheKey}
+        range={range}
+        request={request}
+        dateControls={dateControls}
+      />
+    );
   if (active === 'overview' && !share.boardId)
     return (
       <ResourceAnalytics
@@ -2919,43 +3074,252 @@ export function ShareFeatureView({
   slug: string;
   initialPage?: string;
 }) {
-  const verification = useRef<{ slug: string; controller?: AbortController }>({ slug });
-  verification.current.slug = slug;
+  const client = useQueryClient();
+  const verification = useRef<{
+    slug: string;
+    controller?: AbortController;
+    generation: number;
+    token?: string;
+    cacheKey?: string;
+  }>({ slug, generation: 0 });
+  if (verification.current.slug !== slug) {
+    verification.current.slug = slug;
+    verification.current.token = undefined;
+    verification.current.generation++;
+  }
   const [verified, setVerified] = useState<any>(null),
     [passwordError, setPasswordError] = useState(''),
     [busy, setBusy] = useState(false),
     [active, setActive] = useState(initialPage),
     [filters, setFilters] = useState<any>({});
-  const [range, setRange] = useState(() => ({
-    startAt: Date.now() - 7 * 86400000,
-    endAt: Date.now(),
-    timezone: 'UTC',
-    unit: 'day',
-  }));
+  const [authorization, setAuthorization] = useState<{
+    slug: string;
+    data: any;
+    deadline: number;
+  }>();
+  const [presetDays, setPresetDays] = useState<number | null>(30);
+  const rangeNow = useDateRangeClock('Asia/Shanghai', presetDays != null);
+  const [range, setRange] = useState(() => sharedDateRange());
+  useEffect(() => {
+    if (presetDays != null) setRange(sharedDateRange(presetDays));
+  }, [rangeNow, presetDays]);
+  const retryAt = useRef(0);
+  const clearPublicQueries = () =>
+    client.removeQueries({
+      predicate: query =>
+        (['liekan-public', 'liekan-shared-report'].includes(String(query.queryKey[0])) &&
+          query.queryKey[1] === verification.current.cacheKey) ||
+        (query.queryKey[0] === 'liekan-feature' &&
+          ['board-widget', 'resource-analytics'].includes(String(query.queryKey[1])) &&
+          query.queryKey[2] === verification.current.cacheKey),
+    });
+  const previousScope = useRef('');
+  const acceptAuthorization = (data: any) => {
+    const parameters = Object.fromEntries(
+      Object.entries(data.parameters || {}).filter(
+        ([key]) => !['theme', 'hasPassword'].includes(key),
+      ),
+    );
+    const scope = hashKey([
+      data.shareId,
+      data.shareType,
+      data.websiteId,
+      data.linkId,
+      data.pixelId,
+      data.boardId,
+      data.boardLayoutHash,
+      [...(data.websiteIds || [])].sort(),
+      [...(data.linkIds || [])].sort(),
+      [...(data.pixelIds || [])].sort(),
+      parameters,
+    ]);
+    const cacheKey = hashKey([slug, scope]);
+    if (previousScope.current && previousScope.current !== cacheKey) clearPublicQueries();
+    previousScope.current = cacheKey;
+    verification.current.cacheKey = cacheKey;
+    verification.current.token = data.token;
+    setAuthorization({
+      slug,
+      data: { ...data, cacheKey },
+      deadline: data.token ? monotonicNow() + 30000 : Infinity,
+    });
+  };
   const q = useQuery({
     queryKey: ['liekan-public-share', slug],
-    queryFn: ({ signal }) =>
-      featureRequest('GET', `/share/${encodeURIComponent(slug)}`, undefined, signal, undefined, ''),
+    queryFn: async ({ signal }) => {
+      const generation = verification.current.generation;
+      try {
+        const data = await featureRequest(
+          'GET',
+          `/share/${encodeURIComponent(slug)}`,
+          undefined,
+          signal,
+          verification.current.token,
+          '',
+        );
+        if (
+          !signal.aborted &&
+          verification.current.slug === slug &&
+          verification.current.generation === generation &&
+          document.visibilityState !== 'hidden'
+        ) {
+          retryAt.current = 0;
+          acceptAuthorization(data);
+          if (data.requiresPassword) setVerified(null);
+          else if (verification.current.token) setVerified(data);
+        }
+        return data;
+      } catch (error: any) {
+        if (
+          !signal.aborted &&
+          verification.current.slug === slug &&
+          verification.current.generation === generation
+        ) {
+          retryAt.current = monotonicNow() + Math.max(30000, Number(error.retryAfterMs) || 0);
+          if ([401, 403, 404].includes(error.status)) {
+            clearPublicQueries();
+            verification.current.token = undefined;
+            setVerified(null);
+            setAuthorization(undefined);
+          }
+        }
+        throw error;
+      }
+    },
     retry: false,
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: query =>
+      typeof document === 'undefined' || document.visibilityState === 'hidden'
+        ? false
+        : Math.max(30000, Number((query.state.error as any)?.retryAfterMs) || 0),
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
+  const qRef = useRef(q);
+  qRef.current = q;
   useEffect(() => {
     verification.current.controller?.abort();
+    verification.current.token = undefined;
     setBusy(false);
     setVerified(null);
+    setAuthorization(current => (current?.slug === slug ? current : undefined));
     setPasswordError('');
     setFilters({});
     setActive(initialPage);
+    return () => {
+      clearPublicQueries();
+    };
   }, [slug, initialPage]);
   useEffect(() => () => verification.current.controller?.abort(), []);
-  // Every data request revalidates a former token; an expired proof returns the password form.
   useEffect(() => {
-    if (q.error) setVerified(null);
-  }, [q.error]);
-  const share = verified || q.data,
+    if (!authorization?.data?.token) return;
+    const timer = setTimeout(
+      () => setAuthorization(current => (current === authorization ? undefined : current)),
+      Math.max(0, authorization.deadline - monotonicNow()),
+    );
+    return () => clearTimeout(timer);
+  }, [authorization]);
+  useEffect(() => {
+    const resume = async () => {
+      verification.current.generation++;
+      setAuthorization(undefined);
+      await client.cancelQueries({ queryKey: ['liekan-public-share', slug], exact: true });
+      if (document.visibilityState === 'hidden' || navigator.onLine === false) return;
+      if (monotonicNow() < retryAt.current) return;
+      void qRef.current.refetch({ cancelRefetch: false });
+    };
+    const focus = () => {
+      if (document.visibilityState !== 'hidden') void resume();
+    };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('focus', focus);
+    window.addEventListener('online', focus);
+    return () => {
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('focus', focus);
+      window.removeEventListener('online', focus);
+    };
+  }, [slug, client]);
+  const share =
+      authorization?.slug === slug && authorization.deadline > monotonicNow()
+        ? authorization.data
+        : undefined,
     allowed = allowedShareSections(share?.parameters),
     selected = allowed.some(([id]) => id === active) ? active : allowed[0]?.[0];
+  const authorizationError =
+    q.error ||
+    (!share && navigator.onLine === false ? new Error('分享授权已过期，请恢复连接后重试。') : null);
+  const authorizedQuery = {
+    ...q,
+    data: share,
+    error: authorizationError,
+    isPending: !share && !authorizationError,
+  };
+  const websiteOverview =
+    selected === 'overview' &&
+    !!share?.websiteId &&
+    !share.boardId &&
+    !share.linkId &&
+    !share.pixelId;
+  const dateControls = share?.token && share.parameters?.allowFilter !== false && (
+    <div className={sharedStyles.filters}>
+      <div className="actions" aria-label="快捷日期范围">
+        {(
+          [
+            ['30 天', 30],
+            ['7 天', 7],
+            ['24h', 1],
+          ] as const
+        ).map(([label, days]) => (
+          <Button
+            key={label}
+            primary={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
+            aria-pressed={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
+            onClick={() => {
+              setRange(sharedDateRange(days));
+              setPresetDays(days);
+            }}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      <Field
+        label="开始日期"
+        type="date"
+        value={formatInTimeZone(range.startAt, range.timezone, 'yyyy-MM-dd')}
+        onChange={e => {
+          const time = +fromZonedTime(`${e.target.value}T00:00:00`, range.timezone);
+          if (Number.isFinite(time)) {
+            setRange({ ...range, startAt: time });
+            setPresetDays(null);
+          }
+        }}
+      />
+      <Field
+        label="结束日期"
+        type="date"
+        value={formatInTimeZone(range.endAt, range.timezone, 'yyyy-MM-dd')}
+        onChange={e => {
+          const time = +fromZonedTime(`${e.target.value}T23:59:59.999`, range.timezone);
+          if (Number.isFinite(time)) {
+            setRange({ ...range, endAt: time });
+            setPresetDays(null);
+          }
+        }}
+      />
+      {!websiteOverview && (
+        <Field
+          label="页面路径"
+          placeholder="输入路径筛选"
+          value={filters.path?.slice(3) || ''}
+          onChange={e => setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})}
+        />
+      )}
+    </div>
+  );
   const closed = q.error && (q.error as any).status === 404;
   return (
     <main className="public-shell" id="main-content" data-share-theme="light">
@@ -2991,7 +3355,7 @@ export function ShareFeatureView({
             <p>此链接目前无法查看数据，请联系分享创建者。</p>
           </div>
         ) : (
-          <QueryState query={q}>
+          <QueryState query={authorizedQuery}>
             {share?.requiresPassword && !verified ? (
               <Panel title="输入分享密码" subtitle="验证后查看允许的统计页面。">
                 <Body>
@@ -3018,6 +3382,7 @@ export function ShareFeatureView({
                         if (controller.signal.aborted || verification.current.slug !== currentSlug)
                           return;
                         setVerified(result);
+                        acceptAuthorization(result);
                         form.reset();
                       } catch (e: any) {
                         if (controller.signal.aborted || verification.current.slug !== currentSlug)
@@ -3042,48 +3407,23 @@ export function ShareFeatureView({
               </Panel>
             ) : share?.token ? (
               <>
-                <Tabs items={allowed} active={selected || ''} onChange={setActive} />
-                {share.parameters?.allowFilter !== false && (
-                  <div className="filter-line">
-                    <Field
-                      label="开始日期"
-                      type="date"
-                      value={new Date(range.startAt).toISOString().slice(0, 10)}
-                      onChange={e => {
-                        const time = Date.parse(`${e.target.value}T00:00:00Z`);
-                        if (Number.isFinite(time))
-                          setRange(current => ({ ...current, startAt: time }));
-                      }}
-                    />
-                    <Field
-                      label="结束日期"
-                      type="date"
-                      value={new Date(range.endAt).toISOString().slice(0, 10)}
-                      onChange={e => {
-                        const time = Date.parse(`${e.target.value}T23:59:59.999Z`);
-                        if (Number.isFinite(time))
-                          setRange(current => ({ ...current, endAt: time }));
-                      }}
-                    />
-                    <Field
-                      label="页面路径"
-                      placeholder="输入路径筛选"
-                      value={filters.path?.slice(3) || ''}
-                      onChange={e =>
-                        setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})
-                      }
-                    />
-                  </div>
+                {allowed.length > 1 && (
+                  <Tabs items={allowed} active={selected || ''} onChange={setActive} />
                 )}
+                {!websiteOverview && dateControls}
                 {selected ? (
                   <PublicStats
-                    key={share.token}
+                    key={share.cacheKey}
                     share={share}
                     active={selected}
                     range={range}
                     filters={share.parameters?.allowFilter === false ? {} : filters}
+                    dateControls={dateControls}
                     onExpired={() => {
                       setVerified(null);
+                      clearPublicQueries();
+                      verification.current.token = undefined;
+                      setAuthorization(undefined);
                       void q.refetch();
                     }}
                   />
@@ -3093,6 +3433,7 @@ export function ShareFeatureView({
                 <Button
                   onClick={async () => {
                     setVerified(null);
+                    setAuthorization(undefined);
                     await q.refetch();
                   }}
                 >

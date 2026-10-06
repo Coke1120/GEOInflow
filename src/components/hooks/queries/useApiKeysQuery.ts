@@ -15,6 +15,6 @@ export function useApiKeysQuery() {
 
   return useQuery<ApiKeyData[]>({
     queryKey: ['api-keys', { modified }],
-    queryFn: () => get('/me/api-keys'),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => get('/me/api-keys', {}, {}, signal),
   });
 }

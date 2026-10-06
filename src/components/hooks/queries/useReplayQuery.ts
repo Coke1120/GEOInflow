@@ -16,8 +16,13 @@ export function useReplayQuery(
 
   return useQuery({
     queryKey: ['replay', { websiteId, replayId, until, chunkIndex, eventIndex }],
-    queryFn: () => {
-      return get(`/websites/${websiteId}/replays/${replayId}`, { until, chunkIndex, eventIndex });
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        `/websites/${websiteId}/replays/${replayId}`,
+        { until, chunkIndex, eventIndex },
+        {},
+        signal,
+      );
     },
     enabled: Boolean(websiteId && replayId),
   });

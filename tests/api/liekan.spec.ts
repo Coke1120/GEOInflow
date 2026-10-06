@@ -2,6 +2,68 @@ import { expect, test } from './fixtures';
 import { createWebsite, deleteWebsite } from './helpers/entities';
 import { pageReportParts } from '../../src/lib/liekan/contracts/page-report';
 
+test('keeps the deployed shared overview scoped and aggregate-only', async ({
+  admin,
+  user,
+  api,
+  share,
+  seed,
+}) => {
+  const path = `/api/liekan/websites/${seed.website.id}/shared-report`;
+  const params = { ...seed.range, timezone: 'Asia/Shanghai', chartPeriod: '30d' };
+  expect((await api.get(path, { params })).status).toBe(401);
+  expect((await user.get(path, { params })).status).toBe(403);
+  for (const client of [admin, await share()]) {
+    const result = await client.get(path, { params });
+    expect(result.status).toBe(200);
+    expect(result.body.website.id).toBe(seed.website.id);
+    expect(Object.keys(result.body.website).sort()).toEqual(['domain', 'id', 'name']);
+    expect(Object.keys(result.body.tables).sort()).toEqual(['cityBody', 'envGrid']);
+    expect(Object.keys(result.body.charts).sort()).toEqual([
+      'd1',
+      'd2',
+      'd3',
+      'g1',
+      'g2',
+      'h1',
+      'h2',
+      'h3',
+    ]);
+    expect(result.body.meta).toEqual({
+      aiCrawlerEnabled: true,
+      demo: false,
+      canManage: false,
+      latestImportAt: null,
+      ruleCount: 0,
+    });
+    expect((await client.get(path, { params: { ...params, resource: 'logs' } })).status).toBe(400);
+  }
+  const publicClient = await share();
+  const settings = `/api/liekan/websites/${seed.website.id}/settings`;
+  try {
+    expect((await admin.put(settings, { aiCrawlerEnabled: false })).status).toBe(200);
+    for (let i = 0; i < 2; i++) {
+      const hidden = await publicClient.get(path, { params });
+      expect(hidden.status).toBe(200);
+      expect(hidden.body.meta.aiCrawlerEnabled).toBe(false);
+      expect(hidden.body.states.logs).toBe('unsupported');
+      expect(hidden.body.states.catalog).toBe('unsupported');
+      expect(hidden.body.cards.some(card => card.label === 'AI 蜘蛛请求')).toBe(false);
+      expect(hidden.body.meta.logsConfigured).toBeUndefined();
+    }
+  } finally {
+    expect((await admin.put(settings, { aiCrawlerEnabled: true })).status).toBe(200);
+  }
+  expect((await publicClient.get(path, { params })).body.meta.aiCrawlerEnabled).toBe(true);
+  expect(
+    (
+      await (
+        await share()
+      ).get(`/api/liekan/websites/${seed.website2.id}/shared-report`, { params })
+    ).status,
+  ).toBe(403);
+});
+
 test.describe('Liekan evidence and website boundary', () => {
   test.describe.configure({ mode: 'serial' });
   let id = '',
@@ -29,6 +91,24 @@ test.describe('Liekan evidence and website boundary', () => {
     expect((await api.post(`${path}/logs/import`, {})).status).toBe(401);
     expect((await api.put(`${path}/catalog`, {})).status).toBe(401);
     expect((await api.put(`${path}/settings`, {})).status).toBe(401);
+  });
+  test('serves an aggregate shared overview to authorized website readers', async ({
+    api,
+    user,
+    admin,
+  }) => {
+    const url = `/api/liekan/websites/${id}/shared-report`;
+    const params = {
+      startAt: Date.now() - 86400000,
+      endAt: Date.now() + 1000,
+      timezone: 'Asia/Shanghai',
+    };
+    expect((await api.get(url, { params })).status).toBe(401);
+    expect((await user.get(url, { params })).status).toBe(403);
+    const response = await admin.get(url, { params });
+    expect(response.status).toBe(200);
+    expect(response.body.website.id).toBe(id);
+    expect(response.body.tables.logBody).toBeUndefined();
   });
   test('enforces rule classes and separates missing evidence from zero', async ({ admin }) => {
     const path = `/api/liekan/websites/${id}`;
@@ -225,6 +305,20 @@ test.describe('Liekan evidence and website boundary', () => {
     expect(cleared.body.charts.pf2.rows.some(row => row.path === '/plain')).toBe(false);
     expect(cleared.body.tables.apBody.find(row => row.path === '/plain').freshness).toBeNull();
   });
+  test('keeps installation metadata readable and persists setup changes', async ({ admin }) => {
+    const path = `/api/liekan/websites/${id}/installation`;
+    const before = await admin.get(path);
+    expect(before.status).toBe(200);
+    expect(before.body.canManage).toBe(true);
+    expect(before.body.logs.total).toBeGreaterThan(0);
+    const saved = await admin.post(path, { action: 'select-method', method: 'manual' });
+    expect(saved.status).toBe(200);
+    expect(saved.body.progress).toMatchObject({ method: 'manual', lastStep: 'logs' });
+    const after = await admin.get(path);
+    expect(after.body.progress).toEqual(saved.body.progress);
+    expect(after.body.logs.total).toBe(before.body.logs.total);
+  });
+
   test('clears statistics on reset and removes owned evidence on UUID reuse', async ({ admin }) => {
     const path = `/api/liekan/websites/${id}`;
     expect((await admin.post(`/api/websites/${id}/reset`, {})).status).toBe(200);
@@ -273,7 +367,7 @@ test.describe('Liekan statistics cache', () => {
     expect(fresh.headers['x-liekan-cache']).toBe('miss');
     expect(fresh.body.meta.generatedAt).toBeGreaterThan(warm.body.meta.generatedAt);
     const expanded = await admin.get(`/api/websites/${seed.website.id}/metrics/expanded`, {
-      params: { ...params, type: 'url' },
+      params: { ...params, type: 'path' },
     });
     expect(expanded.status).toBe(200);
     expect(expanded.body.length).toBeGreaterThan(0);
@@ -318,7 +412,7 @@ test.describe('Liekan statistics cache', () => {
             format: 'json',
             records: [
               {
-                time: new Date().toISOString(),
+                time: new Date(params.endAt - 1000).toISOString(),
                 ip: '203.0.113.9',
                 method: 'GET',
                 path: '/seen',
@@ -351,7 +445,8 @@ test.describe('Liekan statistics cache', () => {
       });
       expect(summary.status).toBe(200);
       expect(
-        (await user.post(`/api/websites/${website.id}/transfer`, { userId: seed.admin.id })).status,
+        (await admin.post(`/api/websites/${website.id}/transfer`, { userId: seed.admin.id }))
+          .status,
       ).toBe(200);
       expect((await user.get(`${path}/page-report`, { params })).status).toBe(403);
       expect(

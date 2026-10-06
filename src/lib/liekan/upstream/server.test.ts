@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
   stats: vi.fn(),
   raw: vi.fn(),
+  member: vi.fn(),
+  report: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({
   checkAuth: mocks.auth,
@@ -21,18 +23,110 @@ vi.mock('@/lib/prisma', () => ({
   getRawQueryClient: mocks.raw,
 }));
 vi.mock('@/queries/sql', () => ({ getWebsiteStats: mocks.stats }));
+vi.mock('./page-report', () => ({ readPageReport: mocks.report }));
 
 import { authorize, humanTotals, lockWritableWebsite, query } from './server';
+import { GET as pageReport } from '@/app/api/liekan/websites/[websiteId]/page-report/route';
+import { api } from '@/lib/liekan/http';
 
 const id = '5b4c0de0-6c47-5b51-8f53-11e5e8c79001';
 const request = new Request(`http://localhost/api/liekan/websites/${id}/report`);
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.raw.mockReturnValue({
+    website: { findFirst: mocks.website },
+    teamUser: { findFirst: mocks.member },
+  });
   mocks.website.mockResolvedValue({ id, name: 'Website', domain: 'example.com' });
   mocks.view.mockResolvedValue(true);
   mocks.update.mockResolvedValue(false);
 });
 describe('Liekan authenticated website boundary', () => {
+  it('rechecks direct detail access without a cache result', async () => {
+    mocks.auth.mockResolvedValue({ user: { id: 'reader', role: 'user' } });
+    mocks.website.mockResolvedValue({ id, userId: null, teamId: 'team' });
+    mocks.member.mockResolvedValue({ role: 'team-member' });
+    const response = await api(async () => {
+      await authorize(request, id);
+      mocks.member.mockResolvedValue(null);
+      return { rows: [{ id: 'private-session' }] };
+    });
+    expect(response.status).toBe(403);
+    expect(await response.json()).not.toHaveProperty('rows');
+  });
+  it('preserves a successful write that removes the authorized resource', async () => {
+    mocks.auth.mockResolvedValue({ user: { id: 'reader', role: 'user' } });
+    mocks.website.mockResolvedValue({ id, userId: 'reader', teamId: null });
+    mocks.update.mockResolvedValue(true);
+    const response = await api(async () => {
+      await authorize(new Request(request.url, { method: 'DELETE' }), id, true);
+      mocks.website.mockResolvedValue(null);
+      return { deleted: true };
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ deleted: true });
+  });
+  it.each(['member-removed', 'owner-changed', 'team-deleted'])(
+    'rejects a direct log report when access changes during computation (%s)',
+    async change => {
+      mocks.auth.mockResolvedValue({ user: { id: 'reader', role: 'user' } });
+      mocks.website.mockResolvedValue({
+        id,
+        name: 'Website',
+        domain: 'example.com',
+        userId: null,
+        teamId: 'team',
+      });
+      mocks.member.mockResolvedValue({ role: 'team-member' });
+      mocks.report.mockImplementation(async () => {
+        if (change === 'owner-changed') {
+          mocks.website.mockResolvedValue({ id, userId: 'other-owner', teamId: null });
+        } else {
+          mocks.member.mockResolvedValue(null);
+        }
+        return {
+          value: { meta: {}, resource: 'logs' },
+          generatedAt: 1,
+          expiresAt: 0,
+          status: 'miss',
+          tier: 'computed',
+        };
+      });
+      const response = await pageReport(new Request(`${request.url}?resource=logs`), {
+        params: Promise.resolve({ websiteId: id }),
+      });
+      expect(response.status).toBe(403);
+      expect(await response.json()).not.toHaveProperty('resource');
+      if (change !== 'owner-changed')
+        expect(mocks.member).toHaveBeenCalledWith({
+          where: { teamId: 'team', userId: 'reader', team: { deletedAt: null } },
+          select: { role: true },
+        });
+    },
+  );
+  it('permits a direct log report for a current team member', async () => {
+    mocks.auth.mockResolvedValue({ user: { id: 'reader', role: 'user' } });
+    mocks.website.mockResolvedValue({
+      id,
+      name: 'Website',
+      domain: 'example.com',
+      userId: null,
+      teamId: 'team',
+    });
+    mocks.member.mockResolvedValue({ role: 'team-member' });
+    mocks.report.mockResolvedValue({
+      value: { meta: {}, resource: 'logs' },
+      generatedAt: 1,
+      expiresAt: 0,
+      status: 'miss',
+      tier: 'computed',
+    });
+    const response = await pageReport(new Request(`${request.url}?resource=logs`), {
+      params: Promise.resolve({ websiteId: id }),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toHaveProperty('resource', 'logs');
+  });
   it('requires full user authentication and excludes valid share context', async () => {
     mocks.auth.mockResolvedValue(null);
     await expect(authorize(request, id)).rejects.toMatchObject({ status: 401 });

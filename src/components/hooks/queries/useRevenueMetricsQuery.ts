@@ -18,7 +18,7 @@ export function useRevenueMetricsQuery(
   options?: ReactQueryOptions<RevenueMetricsData>,
 ) {
   const { get, useQuery } = useApi();
-  const { startAt, endAt } = useDateParameters();
+  const { startAt, endAt, timezone } = useDateParameters();
   const filters = useFilterParameters({ includePagination: false });
 
   return useQuery<RevenueMetricsData>({
@@ -28,17 +28,24 @@ export function useRevenueMetricsQuery(
         websiteId,
         startAt,
         endAt,
+        timezone,
         ...filters,
         ...params,
       },
     ],
-    queryFn: async () =>
-      get(`/websites/${websiteId}/revenue/metrics`, {
-        startAt,
-        endAt,
-        ...filters,
-        ...params,
-      }),
+    queryFn: async ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/revenue/metrics`,
+        {
+          startAt,
+          endAt,
+          timezone,
+          ...filters,
+          ...params,
+        },
+        {},
+        signal,
+      ),
     enabled: !!(websiteId && params.currency && params.type),
     placeholderData: keepPreviousData,
     ...options,

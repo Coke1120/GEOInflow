@@ -8,8 +8,8 @@ export function useTeamWebsitesQuery(teamId: string) {
 
   return usePagedQuery({
     queryKey: ['teams:websites', { teamId, modified }],
-    queryFn: (params: any) => {
-      return get(`/teams/${teamId}/websites`, params);
+    queryFn: (params: any, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/teams/${teamId}/websites`, params, {}, signal);
     },
   });
 }

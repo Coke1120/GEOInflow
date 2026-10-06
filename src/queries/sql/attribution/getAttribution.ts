@@ -1,3 +1,4 @@
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -27,7 +28,10 @@ export async function getAttribution(
   ...args: [websiteId: string, parameters: AttributionParameters, filters: QueryFilters]
 ): Promise<AttributionResult> {
   return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
+    [PRISMA]: () =>
+      nativeAggregate('native-attribution-v1', args[0], args[1], args[2], () =>
+        relationalQuery(...args),
+      ),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
 }

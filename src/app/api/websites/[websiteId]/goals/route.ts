@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { definitionListSchema, goalDefinitionSchema } from '@/lib/analytics-schema';
 import { uuid } from '@/lib/crypto';
 import { parseRequest } from '@/lib/request';
@@ -5,7 +6,7 @@ import { json, unauthorized } from '@/lib/response';
 import { canUpdateWebsite, canViewWebsiteSection } from '@/permissions';
 import { createReport, getReports } from '@/queries/prisma';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -37,4 +38,8 @@ export async function POST(
       parameters: body.parameters,
     }),
   );
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

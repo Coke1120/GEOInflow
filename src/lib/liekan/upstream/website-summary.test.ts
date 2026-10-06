@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   dates: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({ checkAuth: mocks.auth }));
-vi.mock('@/lib/prisma', () => ({ default: { client: { website: { findMany: mocks.sites } } } }));
+vi.mock('@/lib/prisma', () => ({ default: { client: { website: { findMany: mocks.sites } } }, getRawQueryClient: (client: unknown) => client }));
 vi.mock('@/permissions', () => ({ canViewWebsiteSection: mocks.allowed }));
 vi.mock('@/lib/request', () => ({ getQueryFilters: mocks.filters }));
 vi.mock('@/queries/sql', () => ({

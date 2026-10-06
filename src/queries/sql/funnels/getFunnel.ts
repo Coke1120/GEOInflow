@@ -185,7 +185,7 @@ async function relationalQuery(
     {
       ...params,
       ...queryParams,
-    },
+    }, 'getFunnel',
   ).then(formatResults(steps));
 }
 
@@ -343,7 +343,7 @@ async function clickhouseQuery(
     {
       ...params,
       ...queryParams,
-    },
+    }, 'getFunnel',
   ).then(formatResults(steps));
 }
 

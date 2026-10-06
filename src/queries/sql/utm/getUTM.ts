@@ -49,7 +49,7 @@ async function relationalQuery(
     order by 2 desc
     limit 50
     `,
-    queryParams,
+    queryParams, 'getUTM',
   );
 }
 
@@ -81,6 +81,6 @@ async function clickhouseQuery(
     order by 2 desc
     limit 50
     `,
-    queryParams,
+    queryParams, 'getUTM',
   );
 }

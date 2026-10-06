@@ -9,11 +9,16 @@ export function useTeamsQuery(params?: Record<string, any>, options?: ReactQuery
 
   return usePagedQuery({
     queryKey: ['teams:admin', { modified, ...params }],
-    queryFn: pageParams => {
-      return get(`/admin/teams`, {
-        ...pageParams,
-        ...params,
-      });
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        `/admin/teams`,
+        {
+          ...pageParams,
+          ...params,
+        },
+        {},
+        signal,
+      );
     },
     ...options,
   });

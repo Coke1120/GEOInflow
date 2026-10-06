@@ -1,4 +1,6 @@
 import { LiekanError } from './upstream/server';
+import { withQueryCacheHeaders } from './upstream/cache-context';
+import { AnalyticsRestart, AnalyticsUnavailable } from './upstream/analytics-budget';
 export async function readBody(request: Request, maxBytes = 11 * 1024 * 1024) {
   const reader = request.body?.getReader();
   if (!reader) throw new LiekanError('请求内容为空');
@@ -27,12 +29,14 @@ export async function api(
   work: () => Promise<unknown>,
   headers: () => Record<string, string> = () => ({}),
 ) {
+  return withQueryCacheHeaders(async () => {
   try {
     const value = await work();
     return Response.json(value, {
       headers: { 'Cache-Control': 'private, no-store', ...headers() },
     });
   } catch (error) {
+    if (error instanceof AnalyticsRestart) throw error;
     const status = error instanceof LiekanError ? error.status : 500;
     return Response.json(
       {
@@ -42,7 +46,8 @@ export async function api(
           code: 'liekan-error',
         },
       },
-      { status },
+      { status, headers: {'Cache-Control':'private, no-store', ...([429,503].includes(status)?{'Retry-After':String(error instanceof AnalyticsUnavailable ? error.retryAfter : 60)}:{}) } },
     );
   }
+  });
 }

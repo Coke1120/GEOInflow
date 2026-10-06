@@ -1,7 +1,9 @@
 import { invalidateWebsiteAnalytics } from './upstream/query-cache';
+import { bumpAnalyticsRevision } from './upstream/analytics-revision';
 import { randomUUID } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import { parseCatalog, parseLogInput } from './ingest';
+import { verificationSnapshots } from './log-ingestion/ranges';
 import { BOT_RULES, BOT_TYPES, type BotRule } from './rules/bots';
 import {
   LiekanError,
@@ -11,19 +13,26 @@ import {
   type WriteIdentity,
 } from './upstream/server';
 
-const settingsQuery =
-  'SELECT robots,allowlist,rules,is_demo AS "isDemo" FROM liekan_setting WHERE website_id=$1::uuid';
+const settingsQuery = `SELECT s.robots,s.allowlist,s.rules,s.is_demo AS "isDemo",s.ai_crawler_enabled AS "aiCrawlerEnabled",
+    (EXISTS (SELECT 1 FROM liekan_log_source WHERE website_id=$1::uuid AND state='active')
+      OR EXISTS (SELECT 1 FROM liekan_import WHERE website_id=$1::uuid AND accepted>0
+        AND (kind='automatic' OR NOT COALESCE(s.is_demo,false)))) AS "logsConfigured"
+    FROM (SELECT $1::uuid AS website_id) w LEFT JOIN liekan_setting s USING (website_id)`;
 function settingsFromRow(row?: {
   robots?: string;
   allowlist?: string[];
   rules?: BotRule[];
   isDemo?: boolean;
+  aiCrawlerEnabled?: boolean;
+  logsConfigured?: boolean;
 }) {
   return {
     robots: row?.robots ?? '',
     allowlist: row?.allowlist ?? [],
     rules: row?.rules ?? BOT_RULES,
     isDemo: row?.isDemo ?? false,
+    aiCrawlerEnabled: row?.aiCrawlerEnabled ?? true,
+    logsConfigured: row?.logsConfigured ?? false,
   };
 }
 export async function getSettings(id: string) {
@@ -36,10 +45,14 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
     typeof body !== 'object' ||
     Array.isArray(body) ||
     !Object.keys(body).length ||
-    Object.keys(body).some(key => !['robots', 'allowlist', 'rules'].includes(key))
+    Object.keys(body).some(
+      key => !['robots', 'allowlist', 'rules', 'aiCrawlerEnabled'].includes(key),
+    )
   )
     throw new LiekanError('设置格式无效');
   const has = (key: string) => Object.hasOwn(body, key);
+  if (has('aiCrawlerEnabled') && typeof body.aiCrawlerEnabled !== 'boolean')
+    throw new LiekanError('AI 蜘蛛展示设置必须为布尔值');
   if (has('robots') && (typeof body.robots !== 'string' || body.robots.length > 50000))
     throw new LiekanError('设置格式无效');
   if (has('allowlist')) {
@@ -76,15 +89,22 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
       robots: has('robots') ? body.robots : current.robots,
       allowlist: has('allowlist') ? body.allowlist : current.allowlist,
       rules: has('rules') ? body.rules : current.rules,
+      aiCrawlerEnabled: has('aiCrawlerEnabled') ? body.aiCrawlerEnabled : current.aiCrawlerEnabled,
     };
     await tx.$executeRawUnsafe(
-      'INSERT INTO liekan_setting(website_id,robots,allowlist,rules) VALUES ($1::uuid,$2,$3::jsonb,$4::jsonb) ON CONFLICT(website_id) DO UPDATE SET robots=$2,allowlist=$3::jsonb,rules=$4::jsonb,updated_at=now()',
+      'INSERT INTO liekan_setting(website_id,robots,allowlist,rules,ai_crawler_enabled) VALUES ($1::uuid,$2,$3::jsonb,$4::jsonb,$5) ON CONFLICT(website_id) DO UPDATE SET robots=$2,allowlist=$3::jsonb,rules=$4::jsonb,ai_crawler_enabled=$5,updated_at=now()',
       id,
       next.robots,
       JSON.stringify(next.allowlist),
       JSON.stringify(next.rules),
+      next.aiCrawlerEnabled,
     );
-    return { ...next, isDemo: current.isDemo };
+    await tx.$executeRawUnsafe(
+      'INSERT INTO liekan_log_state(website_id,data_revision) VALUES ($1::uuid,1) ON CONFLICT(website_id) DO UPDATE SET data_revision=liekan_log_state.data_revision+1,updated_at=now()',
+      id,
+    );
+    await bumpAnalyticsRevision(tx, 'website', id);
+    return { ...next, isDemo: current.isDemo, logsConfigured: current.logsConfigured };
   });
   invalidateWebsiteAnalytics(id);
   return result;
@@ -102,6 +122,7 @@ export async function importLogs(id: string, domain: string, input: any, identit
           throw new LiekanError('缺少 APP_SECRET，无法保护来源标识');
         })(),
       settings.rules as BotRule[],
+      await verificationSnapshots(),
     );
   } catch (error) {
     throw new LiekanError((error as Error).message);
@@ -123,10 +144,31 @@ export async function importLogs(id: string, domain: string, input: any, identit
     );
     if (old.length) return { ...old[0], duplicate: true, inserted: 0, errors: parsed.errors };
     const rate = await tx.$queryRawUnsafe(
-      "SELECT count(*)::int AS count FROM liekan_import WHERE website_id=$1::uuid AND imported_at>now()-interval '1 minute'",
+      "SELECT count(*)::int AS count FROM liekan_import WHERE website_id=$1::uuid AND kind='manual' AND imported_at>now()-interval '1 minute'",
       id,
     );
     if (rate[0].count >= 5) throw new LiekanError('每站点每分钟上限 5 次导入', 429);
+    const intervals = await tx.$queryRawUnsafe(
+      'SELECT starts_at,ends_at FROM liekan_log_interval WHERE website_id=$1::uuid',
+      id,
+    );
+    const allowed = parsed.records.filter((record, index) => {
+      const time = +new Date(record.time);
+      if (
+        !intervals.some(
+          row =>
+            time >= +new Date(row.starts_at) && (!row.ends_at || time < +new Date(row.ends_at)),
+        )
+      )
+        return true;
+      parsed.errors.push({ line: parsed.validLines[index], reason: '时间范围与自动日志来源重叠' });
+      return false;
+    });
+    parsed.errors = parsed.errors.slice(0, 100);
+    parsed.rejected += parsed.records.length - allowed.length;
+    parsed.records = allowed;
+    parsed.accepted = allowed.length;
+    if (!allowed.length) throw new LiekanError('日志时间范围与自动来源重叠，请导入其他时间段', 409);
     const importId = randomUUID();
     await tx.$executeRawUnsafe(
       'INSERT INTO liekan_import (id,website_id,digest,accepted,rejected) VALUES ($1::uuid,$2::uuid,$3,$4,$5)',
@@ -148,6 +190,10 @@ export async function importLogs(id: string, domain: string, input: any, identit
         JSON.stringify(parsed.records.slice(offset, offset + 500)),
       );
     }
+    await tx.$executeRawUnsafe(
+      'INSERT INTO liekan_log_state(website_id,data_revision) VALUES ($1::uuid,1) ON CONFLICT(website_id) DO UPDATE SET data_revision=liekan_log_state.data_revision+1',
+      id,
+    );
     return {
       id: importId,
       accepted: parsed.accepted,
@@ -220,6 +266,7 @@ export async function importCatalog(
         );
       }
     }
+    await bumpAnalyticsRevision(tx, 'website', id);
   });
   invalidateWebsiteAnalytics(id);
   return { accepted: rows.length, mode: 'upsert' };

@@ -5,6 +5,7 @@ import { deleteSession } from '@/queries/prisma/session';
 import { analyticsCache, websiteCacheTag } from './query-cache';
 afterEach(() => analyticsCache.clear());
 it('invalidates derived website statistics after a committed session deletion', async () => {
+  vi.stubEnv('DATABASE_URL', 'postgresql://test:test@localhost/test');
   mocks.tx = Object.fromEntries(
     [
       'session',
@@ -26,6 +27,7 @@ it('invalidates derived website statistics after a committed session deletion', 
       },
     ]),
   );
+  mocks.tx.$executeRawUnsafe = vi.fn();
   const load = vi
     .fn()
     .mockResolvedValueOnce({ pageviews: 4 })

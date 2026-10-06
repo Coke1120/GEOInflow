@@ -60,7 +60,7 @@ async function relationalQuery(
     order by p75 desc
     ${limit ? `limit ${limit}` : ''}
     `,
-    { ...queryParams, startDate, endDate },
+    { ...queryParams, startDate, endDate }, 'getPerformanceMetrics',
   );
 }
 
@@ -97,6 +97,6 @@ async function clickhouseQuery(
     order by p75 desc
     ${limit ? `limit ${limit}` : ''}
     `,
-    { ...queryParams, startDate, endDate },
+    { ...queryParams, startDate, endDate }, 'getPerformanceMetrics',
   );
 }

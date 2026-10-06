@@ -54,6 +54,7 @@ export function featureDateRange(
 }
 export const analysisQuery = z
   .object({
+    refresh: z.literal('1').optional(),
     startAt: z.coerce.number().int().min(0),
     endAt: z.coerce.number().int().min(0),
     timezone: z.string().max(80).default('Asia/Shanghai'),
@@ -104,6 +105,7 @@ export const analysisQuery = z
   });
 export const journeyQuery = z
   .object({
+    refresh: z.literal('1').optional(),
     startAt: z.coerce.number().int().min(0),
     endAt: z.coerce.number().int().min(0),
     timezone: z.string().max(80).default('Asia/Shanghai'),

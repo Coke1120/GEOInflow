@@ -6,6 +6,7 @@ const { findUniqueMock } = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/prisma', () => ({
+  getRawQueryClient: (client: unknown) => client,
   default: {
     client: {
       user: {

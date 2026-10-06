@@ -14,6 +14,7 @@ import {
 
 // GET analytics have one authoritative timestamp range. Dynamic filters are retained by parseRequest.
 export const analyticsParams = {
+  refresh: z.literal('1').optional(),
   ...filterParams,
   startAt: z.coerce.number().int().min(0).max(8640000000000000),
   endAt: z.coerce.number().int().min(0).max(8640000000000000),

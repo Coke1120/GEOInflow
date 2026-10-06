@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import styles from '@/styles/liekan/Shell.module.css';
 import { chartOptions } from './chartOptions';
 import { loadEcharts } from './chartRuntime';
+import { observeChartLayout } from './mobileChart';
 import { ChartLoading, LoadingLines, Skeleton, useDataLoading } from './DataLoading';
 import {
   columns,
@@ -20,7 +21,14 @@ import type { DataState, LiekanReport, Row } from './types';
 function reportState(report: LiekanReport, table?: string): DataState {
   if (!report) return 'not_connected';
   if (table === 'goalBody') return report.states.goals;
-  if (table === 'cityBody' || table === 'srcBody' || table === 'pgBody') return report.states.human;
+  if (
+    table === 'visitorTopBody' ||
+    table === 'visitorPgBody' ||
+    table === 'cityBody' ||
+    table === 'srcBody' ||
+    table === 'pgBody'
+  )
+    return report.states.human;
   return report.states.logs;
 }
 export function MetricCard({
@@ -77,10 +85,10 @@ export function ReferenceChart({
     if (loading || !hasData || !container.current) return;
     let disposed = false;
     let instance: any;
-    let observer: ResizeObserver;
+    let stopLayout: () => void;
     const cleanup = () => {
-      observer?.disconnect();
-      observer = undefined;
+      stopLayout?.();
+      stopLayout = undefined;
       try {
         instance?.dispose();
       } catch {}
@@ -96,7 +104,12 @@ export function ReferenceChart({
         if (disposed || !container.current) return;
         instance = echarts.init(container.current);
         const option = chartOptions(id, chart);
-        if (id === 'd1' && report?.states.logs === 'not_connected')
+        if (
+          id === 'd1' &&
+          (report?.states.logs === 'not_connected' || report?.meta.aiCrawlerEnabled === false)
+        )
+          option.series = option.series.slice(0, 1);
+        if (id === 'c1' && report?.meta.aiCrawlerEnabled === false)
           option.series = option.series.slice(0, 1);
         option.animation = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const axes = Array.isArray(option.yAxis)
@@ -117,22 +130,14 @@ export function ReferenceChart({
           if (axis.min != null && min < axis.min) axis.min = Math.max(0, Math.floor(min * 0.8));
           if (axis.max != null && max > axis.max) axis.max = Math.ceil(max * 1.1);
         });
-        instance.setOption(option);
-        observer = new ResizeObserver(() => {
-          try {
-            instance?.resize();
-          } catch {
-            fail();
-          }
-        });
-        observer.observe(container.current);
+        stopLayout = observeChartLayout(instance, container.current, option, fail);
       })
       .catch(fail);
     return () => {
       disposed = true;
       cleanup();
     };
-  }, [id, chart, hasData, report?.states.logs, attempt, loading]);
+  }, [id, chart, hasData, report?.states.logs, report?.meta.aiCrawlerEnabled, attempt, loading]);
   const state =
     chart?.state ||
     (id.startsWith('h') || id.startsWith('g') || id.startsWith('s')
@@ -215,6 +220,12 @@ export function SortHeading({ className, label }: { className: string; label: st
   );
 }
 const cellClasses: Record<string, string[]> = {
+  visitorPgBody: ['pl-6 pr-4 py-3', ...Array(5).fill('px-4 py-3 num text-right')],
+  visitorTopBody: [
+    'pl-6 pr-4 py-3 num text-[12px] font-medium text-ink',
+    'px-4 py-3 num text-right',
+    'px-4 py-3 num text-right pr-6',
+  ],
   topBody: [
     'pl-6 pr-4 py-3 num text-[12px] font-medium text-ink',
     'px-4 py-3 num text-right',
@@ -704,7 +715,7 @@ export function LatestLog({ className, report }: { className: string; report?: L
 
 export function LiveStatus({ report, live }: { report?: LiekanReport; live?: boolean }) {
   const loading = useDataLoading();
-  const connected = report?.states.logs === 'available' || report?.states.logs === 'estimated';
+  const connected = ['available', 'empty', 'estimated'].includes(report?.states.logs);
   return (
     <>
       <span

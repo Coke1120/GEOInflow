@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { z } from 'zod';
 import { fromZonedTime } from 'date-fns-tz';
 import { EVENT_TYPE } from '@/lib/constants';
@@ -9,6 +10,7 @@ import { canViewPixel } from '@/permissions';
 import { getWebsiteListCharts } from '@/queries/sql';
 
 const schema = z.object({
+  refresh: z.literal('1').optional(),
   ids: z
     .string()
     .transform(value => value.split(',').map(item => item.trim()).filter(Boolean))
@@ -18,7 +20,7 @@ const schema = z.object({
   timezone: timezoneParam.optional(),
 });
 
-export async function GET(request: Request) {
+async function getResponse(request: Request) {
   const { auth, query, error } = await parseRequest(request, schema);
 
   if (error) {
@@ -49,4 +51,8 @@ export async function GET(request: Request) {
   });
 
   return json({ data });
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

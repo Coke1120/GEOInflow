@@ -1,4 +1,5 @@
 import { ROLES, SHARE_TOKEN_TYPE } from '@/lib/constants';
+import { checkAuth } from '@/lib/auth';
 import { secret } from '@/lib/crypto';
 import { createToken } from '@/lib/jwt';
 import { readBody } from '@/lib/liekan/http';
@@ -70,13 +71,18 @@ async function resolveShare(
     return notFound();
   }
   if (hasSharePassword(share.parameters)) {
-    if (password === undefined) return json({ requiresPassword: true, name: share.name });
+    if (password === undefined) {
+      const auth = await checkAuth(request);
+      if (!auth || !('shareToken' in auth) || !auth.shareToken || auth.shareToken.shareId !== share.id)
+        return json({ requiresPassword: true, name: share.name });
+    } else {
     const release = await acquireSharePasswordAttempt(request, share.id);
     try {
       if (!(await verifySharePasswordAsync(password, share.parameters)))
         return unauthorized({ message: '分享密码不正确' });
     } finally {
       release();
+    }
     }
   }
 

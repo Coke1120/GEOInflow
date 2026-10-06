@@ -2,14 +2,11 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { chromium } from '@playwright/test';
+import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
 
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
-const target = new URL(base);
-assert(
-  ['127.0.0.1', 'localhost'].includes(target.hostname) && target.port === '3302',
-  'Use the isolated candidate on port 3302',
-);
-const seed = JSON.parse(fs.readFileSync('tests/api/.runtime/127.0.0.1-3302/seed.json', 'utf8'));
+const target = isolatedAcceptanceTarget(base);
+const seed = JSON.parse(fs.readFileSync(acceptanceSeedFile(target), 'utf8'));
 const out = 'test-results/liekan-feature-flows';
 fs.mkdirSync(out, { recursive: true });
 let token;
@@ -44,6 +41,7 @@ async function pageAt(path, slow = false) {
   });
   await context.addInitScript(t => localStorage.setItem('umami.auth', JSON.stringify(t)), token);
   const page = await context.newPage();
+  page.setDefaultNavigationTimeout(30000);
   page.on('pageerror', e => result.errors.push(e.message));
   page.on('response', r => {
     if (r.url().includes('/api/') && r.status() >= 500) result.errors.push('HTTP ' + r.status());
@@ -211,7 +209,7 @@ try {
   });
   await context.close();
   const switchSite = await api('POST', '/websites', {
-    name: '隔离交互切换网站',
+    name: '隔离交互切换网站 ' + Date.now(),
     domain: 'switch-flow.test',
   });
   created.push(['/websites/' + switchSite.id]);
@@ -231,10 +229,11 @@ try {
         date,
       }),
   ));
-  await page.locator('.site-switch').click();
+  await page.getByRole('button', { name: /切换网站，当前/ }).click();
   const switchDialog = page.getByRole('dialog', { name: '切换网站' });
-  await switchDialog.locator('[name=site]').selectOption(switchSite.id);
-  await switchDialog.getByRole('button', { name: '切换网站', exact: true }).click();
+  await switchDialog
+    .getByRole('button', { name: `选择网站 ${switchSite.name}`, exact: true })
+    .click();
   await page.waitForURL(u => u.pathname === `/websites/${switchSite.id}/sessions`);
   await page.waitForLoadState('networkidle');
   const switched = new URL(page.url());
@@ -264,18 +263,18 @@ try {
   assert(await page.getByText('日期参数无效，当前使用默认日期范围。').isVisible());
   await page.getByRole('button', { name: '重置日期', exact: true }).click();
   await page.waitForURL(u => u.searchParams.get('date') === '30day');
-  await page.goto(
-    base + `/liekan/funnel-editor?${new URLSearchParams({ websiteId: seed.website.id, date })}`,
-  );
   await page.waitForLoadState('networkidle');
+  await context.close();
+  ({ page, context } = await pageAt(
+    `/liekan/funnel-editor?${new URLSearchParams({ websiteId: seed.website.id, date })}`,
+  ));
   await page.getByRole('button', { name: '下移步骤 1', exact: true }).click();
   const editorUrl = page.url();
   async function chooseNextSite() {
-    await page.locator('.site-switch').click();
+    await page.getByRole('button', { name: /切换网站，当前/ }).click();
     const picker = page.getByRole('dialog', { name: '切换网站', exact: true });
-    await picker.locator('[name=site]').selectOption(switchSite.id);
-    await picker.getByRole('button', { name: '切换网站', exact: true }).click();
-    await page.getByRole('dialog', { name: '当前修改尚未保存', exact: true }).waitFor();
+    await picker.getByRole('button', { name: `选择网站 ${switchSite.name}`, exact: true }).click();
+    await page.getByRole('dialog', { name: '放弃未保存的修改？', exact: true }).waitFor();
     assert.equal(await page.getByRole('dialog').count(), 1);
   }
   await chooseNextSite();
@@ -300,7 +299,7 @@ try {
     await page.locator('[name=name]').fill(`隔离归属检查${kind} ${Date.now()}`);
     if (kind === 'link') await page.locator('[name=url]').fill('https://example.com/review');
     await page
-      .getByRole('button', { name: kind === 'link' ? '保存链接' : '保存像素', exact: true })
+      .getByRole('button', { name: kind === 'link' ? '保存链接' : '保存图片', exact: true })
       .click();
     await page.waitForURL(u => new RegExp(`^/${kind}s/[^/]+$`).test(u.pathname));
     const id = new URL(page.url()).pathname.split('/').pop();
@@ -369,9 +368,7 @@ try {
     .click();
   await page.waitForURL(u => u.pathname === '/liekan/annotations');
   const toolsUrl = new URL(page.url());
-  const toolsParent = page
-    .getByRole('navigation', { name: '页面位置' })
-    .getByRole('link', { name: '访问记录', exact: true });
+  const toolsParent = page.getByRole('tab', { name: '访问记录', exact: true });
   result.checks.push({
     name: 'detail-to-tool-to-tool keeps a reachable source list',
     passed:
@@ -423,10 +420,7 @@ try {
     await page.locator('.analysis-tools').getByRole('link', { name: label, exact: true }).click();
     await page.waitForURL(u => u.pathname === path);
   }
-  await page
-    .getByRole('navigation', { name: '页面位置' })
-    .getByRole('link', { name: '访问旅程', exact: true })
-    .click();
+  await page.getByRole('tab', { name: '访问旅程', exact: true }).click();
   await page.waitForURL(u => u.pathname.endsWith('/journeys'));
   const journeyUrl = new URL(page.url());
   result.checks.push({

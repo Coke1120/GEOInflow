@@ -3,6 +3,9 @@ import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { assertProductImports } from './liekan-boundaries.mjs';
+import { assertDialogContract } from './liekan-dialog-contract.mjs';
+
+assertDialogContract();
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const manifest = JSON.parse(readFileSync('design/reference/geo-stats-v3/manifest.json', 'utf8'));
@@ -23,6 +26,19 @@ if (hash(JSON.stringify(featureUI.files)) !== baseline.featureUiManifestSha256)
 for (const [file, digest] of Object.entries(featureUI.files))
   if (hash(readFileSync(`${featureUI.directory}/${file}`)) !== digest)
     throw new Error(`Supplemental UI drift: ${file}`);
+const aiUI = JSON.parse(readFileSync('config/liekan/ai-ui.json', 'utf8'));
+if (hash(JSON.stringify(aiUI.sha256)) !== baseline.aiUiManifestSha256)
+  throw new Error('Approved AI UI fingerprint changed');
+for (const [file, digest] of Object.entries(aiUI.sha256))
+  if (hash(readFileSync(`${aiUI.referenceRoot}/${file}`)) !== digest)
+    throw new Error(`AI UI reference drift: ${file}`);
+if (!aiUI.chatHome?.sha256 || !Object.keys(aiUI.chatHome.sha256).length)
+  throw new Error('Approved AI homepage reference manifest is required');
+if (hash(JSON.stringify(aiUI.chatHome.sha256)) !== baseline.aiChatHomeUiManifestSha256)
+  throw new Error('Approved AI homepage reference fingerprint changed');
+for (const [file, digest] of Object.entries(aiUI.chatHome.sha256))
+  if (hash(readFileSync(`${aiUI.chatHome.referenceRoot}/${file}`)) !== digest)
+    throw new Error(`AI homepage reference drift: ${file}`);
 const migrationLock = JSON.parse(readFileSync('config/liekan/migrations.json', 'utf8'));
 if (
   JSON.stringify(
@@ -67,7 +83,7 @@ changed.push(
     .filter(Boolean),
 );
 const own = path =>
-  /^(src\/lib\/liekan\/|src\/components\/liekan\/|src\/styles\/liekan\/|src\/app\/api\/liekan\/|src\/app\/\(main\)\/websites\/\[websiteId\]\/geo\/|scripts\/liekan-|db\/liekan\/|config\/liekan\/|design\/|docs\/|public\/liekan\/|tests\/liekan\/|tests\/api\/liekan\.spec\.ts$)/.test(
+  /^(src\/lib\/liekan\/|src\/liekan-agent\/|src\/liekan-worker\/|src\/components\/liekan\/|src\/styles\/liekan\/|src\/app\/api\/liekan\/|src\/app\/\(main\)\/websites\/\[websiteId\]\/geo\/|scripts\/liekan-|db\/liekan\/|config\/liekan\/|design\/|docs\/|public\/liekan\/|tests\/liekan\/|tests\/api\/liekan\.spec\.ts$)/.test(
     path,
   );
 for (const path of changed)

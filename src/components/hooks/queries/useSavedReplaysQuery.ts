@@ -8,10 +8,15 @@ export function useSavedReplaysQuery(websiteId: string) {
 
   return usePagedQuery({
     queryKey: ['replays:saved', { websiteId, modified }],
-    queryFn: pageParams => {
-      return get(`/websites/${websiteId}/replays/saved`, {
-        ...pageParams,
-      });
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        `/websites/${websiteId}/replays/saved`,
+        {
+          ...pageParams,
+        },
+        {},
+        signal,
+      );
     },
   });
 }

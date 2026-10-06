@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders, prepareAnalyticsVersions } from '@/lib/liekan/upstream/cache-context';
 import { funnelParametersSchema, savedStatsQuerySchema } from '@/lib/analytics-schema';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { badRequest, json, notFound, unauthorized } from '@/lib/response';
@@ -5,7 +6,7 @@ import { canViewReport, canViewWebsiteSection } from '@/permissions';
 import { getReport } from '@/queries/prisma';
 import { type FunnelParameters, getFunnel } from '@/queries/sql/funnels/getFunnel';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string; funnelId: string }> },
 ) {
@@ -13,6 +14,7 @@ export async function GET(
   if (error) return error();
   const { websiteId, funnelId } = await params;
   if (!(await canViewWebsiteSection(auth, websiteId, 'funnels'))) return unauthorized();
+  await prepareAnalyticsVersions([`website:${websiteId.toLowerCase()}`]);
   const report = await getReport(funnelId);
   if (!report || report.websiteId !== websiteId || report.type !== 'funnel') return notFound();
   if (!(await canViewReport(auth, report))) return unauthorized();
@@ -21,4 +23,8 @@ export async function GET(
   const filters = await getQueryFilters(query, websiteId);
   const parameters = { ...parsed.data, ...filters } as FunnelParameters;
   return json(await getFunnel(websiteId, parameters, filters));
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

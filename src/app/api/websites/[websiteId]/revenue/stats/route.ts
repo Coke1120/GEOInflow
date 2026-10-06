@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { z } from 'zod';
 import { getCompareDate } from '@/lib/date';
 import { getQueryFilters, parseRequest } from '@/lib/request';
@@ -7,7 +8,7 @@ import { canViewWebsiteSection } from '@/permissions';
 import type { RevenuParameters } from '@/queries/sql/revenue/getRevenueChart';
 import { getRevenueStats } from '@/queries/sql/revenue/getRevenueStats';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -41,4 +42,8 @@ export async function GET(
   ]);
 
   return json({ ...stats, comparison });
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

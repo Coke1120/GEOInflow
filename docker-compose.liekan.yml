@@ -16,6 +16,14 @@ services:
       DISABLE_TELEMETRY: '1'
       NEXT_TELEMETRY_DISABLED: '1'
       DEFAULT_LOCALE: zh-CN
+      LIEKAN_ANALYTICS_REDIS_URL: ${LIEKAN_ANALYTICS_REDIS_URL:-redis://analytics-cache:6379}
+      LIEKAN_AI_ENABLED: ${LIEKAN_AI_ENABLED:-false}
+      LIEKAN_AI_ENCRYPTION_KEY: ${LIEKAN_AI_ENCRYPTION_KEY:-}
+      LIEKAN_PUBLIC_URL: ${LIEKAN_PUBLIC_URL:-}
+      LIEKAN_LOG_CREDENTIALS_KEY: ${LIEKAN_LOG_CREDENTIALS_KEY:-}
+      LIEKAN_LOG_PREVIOUS_KEYS: ${LIEKAN_LOG_PREVIOUS_KEYS:-}
+      CLOUDFLARE_OAUTH_CLIENT_ID: ${CLOUDFLARE_OAUTH_CLIENT_ID:-}
+      CLOUDFLARE_OAUTH_CLIENT_SECRET: ${CLOUDFLARE_OAUTH_CLIENT_SECRET:-}
     depends_on:
       db:
         condition: service_healthy
@@ -25,8 +33,59 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+  log-worker:
+    image: liekan:0.2.4
+    command: ['node', 'dist/liekan-worker.mjs']
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      APP_SECRET: ${APP_SECRET:?APP_SECRET required}
+      LIEKAN_PUBLIC_URL: ${LIEKAN_PUBLIC_URL:-}
+      LIEKAN_LOG_CREDENTIALS_KEY: ${LIEKAN_LOG_CREDENTIALS_KEY:-}
+      LIEKAN_LOG_PREVIOUS_KEYS: ${LIEKAN_LOG_PREVIOUS_KEYS:-}
+      CLOUDFLARE_OAUTH_CLIENT_ID: ${CLOUDFLARE_OAUTH_CLIENT_ID:-}
+      CLOUDFLARE_OAUTH_CLIENT_SECRET: ${CLOUDFLARE_OAUTH_CLIENT_SECRET:-}
+      DISABLE_TELEMETRY: '1'
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "const fs=require('fs');process.exit(Date.now()-fs.statSync('/tmp/liekan-worker-heartbeat').mtimeMs<120000?0:1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 4
+    restart: unless-stopped
+  analytics-worker:
+    image: liekan:0.2.4
+    command: ['node', 'dist/liekan-analytics-worker.mjs']
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      APP_SECRET: ${APP_SECRET:?APP_SECRET required}
+      LIEKAN_ANALYTICS_REDIS_URL: ${LIEKAN_ANALYTICS_REDIS_URL:-redis://analytics-cache:6379}
+      DISABLE_TELEMETRY: '1'
+    cpus: 1.0
+    mem_limit: 512m
+    depends_on:
+      app:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'node', '-e', "const fs=require('fs');process.exit(Date.now()-fs.statSync('/tmp/liekan-analytics-worker-heartbeat').mtimeMs<120000?0:1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 4
+    restart: unless-stopped
+  analytics-cache:
+    image: redis:7.4-alpine
+    command: ['redis-server', '--maxmemory', '256mb', '--maxmemory-policy', 'allkeys-lru', '--save', '', '--appendonly', 'no']
+    mem_limit: 384m
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
   db:
     image: postgres:15-alpine
+    shm_size: '256mb'
     ports:
       - '127.0.0.1:15435:5432'
     environment:

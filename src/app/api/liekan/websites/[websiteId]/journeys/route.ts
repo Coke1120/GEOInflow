@@ -1,7 +1,8 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { api } from '@/lib/liekan/http';
 import { authorize } from '@/lib/liekan/upstream/server';
 import { featureJourney } from '@/lib/liekan/upstream/feature-analytics';
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -10,4 +11,8 @@ export async function GET(
     await authorize(request, websiteId);
     return featureJourney(websiteId, Object.fromEntries(new URL(request.url).searchParams));
   });
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

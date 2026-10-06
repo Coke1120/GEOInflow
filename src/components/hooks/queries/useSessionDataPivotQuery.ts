@@ -20,17 +20,22 @@ export function useSessionDataPivotQuery(
       'websites:session-data-pivot',
       { websiteId, propertyName, propertyFilters, startAt, endAt, unit, timezone, ...params },
     ],
-    queryFn: () =>
-      get(`/websites/${websiteId}/session-data-pivot`, {
-        startAt,
-        endAt,
-        unit,
-        timezone,
-        propertyName,
-        ...serializePropertyFilters(propertyFilters),
-        ...params,
-        maxResults: MAX_PAGING_RESULTS,
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/session-data-pivot`,
+        {
+          startAt,
+          endAt,
+          unit,
+          timezone,
+          propertyName,
+          ...serializePropertyFilters(propertyFilters),
+          ...params,
+          maxResults: MAX_PAGING_RESULTS,
+        },
+        {},
+        signal,
+      ),
     enabled: !!(websiteId && propertyName),
     ...options,
   });

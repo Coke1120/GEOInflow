@@ -1,3 +1,9 @@
+.readRegion {
+  position: relative;
+  min-width: 0;
+  display: inherit;
+  gap: inherit;
+}
 .status {
   position: absolute;
   width: 1px;

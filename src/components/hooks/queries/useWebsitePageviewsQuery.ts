@@ -21,15 +21,20 @@ export function useWebsitePageviewsQuery(
       'websites:pageviews',
       { websiteId, compare, startAt, endAt, unit, timezone, ...queryParams },
     ],
-    queryFn: () =>
-      get(`/websites/${websiteId}/pageviews`, {
-        compare,
-        startAt,
-        endAt,
-        unit,
-        timezone,
-        ...queryParams,
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/pageviews`,
+        {
+          compare,
+          startAt,
+          endAt,
+          unit,
+          timezone,
+          ...queryParams,
+        },
+        {},
+        signal,
+      ),
     enabled: !!websiteId,
     ...options,
   });

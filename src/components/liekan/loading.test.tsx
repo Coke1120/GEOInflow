@@ -1,11 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiekanPage } from './LiekanPage';
+import { freshAggregateFixture } from '@/test/liekan-freshness';
 import { LiekanShell } from './LiekanShell';
 import type { LiekanReport } from './types';
 import { WebsiteLayout } from '@/app/(main)/websites/[websiteId]/WebsiteLayout';
 
 const mocks = vi.hoisted(() => ({
+  display: {} as { aiCrawlerEnabled?: boolean },
+  websiteId: 'site-a',
+  setQueryData: vi.fn(),
   metadata: { data: undefined, isPending: true, isError: false, refetch: vi.fn() } as any,
   report: { data: undefined, isPending: true, isError: false, refetch: vi.fn() } as any,
   pathname: '/websites/site-a/geo/content',
@@ -13,8 +17,14 @@ const mocks = vi.hoisted(() => ({
   previous: { data: undefined, isPending: false, isError: false, refetch: vi.fn() } as any,
   website: { id: 'site-a', name: '当前网站', domain: 'a.test' },
 }));
-vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn().mockResolvedValue(undefined) }),
+vi.mock('@tanstack/react-query', async importOriginal => ({
+  ...(await importOriginal<typeof import('@tanstack/react-query')>()),
+  useQueryClient: () => ({
+    getQueryData: vi.fn(),
+    getQueryCache: () => ({ find: () => undefined }),
+    setQueryData: mocks.setQueryData,
+    invalidateQueries: vi.fn().mockResolvedValue(undefined),
+  }),
 }));
 vi.mock('next/link', () => ({
   default: ({ children, prefetch: _prefetch, ...props }: any) => <a {...props}>{children}</a>,
@@ -44,18 +54,22 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
   }),
   useApi: () => ({
     useQuery: (options: any) =>
-      options.queryKey[4] < Date.parse('2026-08-31') ? mocks.previous : mocks.report,
+      options.queryKey.includes('website-display-settings')
+        ? { data: mocks.display, refetch: vi.fn().mockResolvedValue({}), isFetching: false }
+        : options.queryKey[4] < Date.parse('2026-08-31')
+          ? mocks.previous
+          : mocks.report,
   }),
   useNavigation: () => ({
     pathname: mocks.pathname,
-    websiteId: 'site-a',
+    websiteId: mocks.websiteId,
     query: mocks.params,
     router: { push: vi.fn(), replace: vi.fn() },
     updateParams: vi.fn(),
   }),
 }));
 function report(): LiekanReport {
-  return {
+  return freshAggregateFixture({
     contractVersion: 1,
     website: { id: 'site-a', name: '当前网站', domain: 'a.test' },
     range: { startAt: 1, endAt: 2, timezone: 'Asia/Shanghai' },
@@ -65,15 +79,43 @@ function report(): LiekanReport {
     tables: {},
     insights: [],
     meta: { demo: false, canManage: false, latestImportAt: null, ruleCount: 0 },
-  };
+  });
 }
 describe('analysis loading states', () => {
   beforeEach(() => {
+    mocks.display = {};
+    mocks.websiteId = 'site-a';
+    mocks.setQueryData.mockClear();
     mocks.pathname = '/websites/site-a/geo/content';
     mocks.params = { date: '30day' };
     mocks.previous = { data: undefined, isPending: false, isError: false, refetch: vi.fn() };
     mocks.metadata = { data: undefined, isPending: true, isError: false, refetch: vi.fn() };
     mocks.report = { data: undefined, isPending: true, isError: false, refetch: vi.fn() };
+  });
+  it('shares report-confirmed crawler display by current website and user without copying partial settings', () => {
+    const data = report();
+    data.meta.aiCrawlerEnabled = false;
+    mocks.metadata = { ...mocks.metadata, data: mocks.website, isPending: false };
+    mocks.report = { ...mocks.report, data, isPending: false };
+    const page = (userId: string) => (
+      <LiekanShell user={{ id: userId } as any}>
+        <LiekanPage resource="content" />
+      </LiekanShell>
+    );
+    const view = render(page('user'));
+    expect(mocks.setQueryData).toHaveBeenCalledWith(
+      ['liekan-feature', 'user', 'reported-crawler-display', 'site-a'],
+      false,
+    );
+    expect(
+      mocks.setQueryData.mock.calls.every(([key]) => !key.includes('website-display-settings')),
+    ).toBe(true);
+    mocks.setQueryData.mockClear();
+    mocks.websiteId = 'site-b';
+    mocks.metadata = { ...mocks.metadata, data: { id: 'site-b', name: '网站 B' } };
+    mocks.report = { ...mocks.report, data: undefined, isPending: true };
+    view.rerender(page('user'));
+    expect(mocks.setQueryData).not.toHaveBeenCalled();
   });
   it('keeps the entire fixed layout visible and withholds values until metadata arrives', () => {
     mocks.report = { ...mocks.report, data: report(), isPending: false };
@@ -84,8 +126,8 @@ describe('analysis loading states', () => {
         </WebsiteLayout>
       </LiekanShell>,
     );
-    expect(screen.getByRole('heading', { name: '页面与内容' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '高级筛选' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '页面与事件' })).toBeInTheDocument();
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
     expect(screen.getByText('有流量页面')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '页面排行（人类访问）' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'PV' })).toBeInTheDocument();
@@ -188,15 +230,57 @@ describe('analysis loading states', () => {
     mocks.params = { date: '30day', compareWeek: '1' };
     const current = report();
     current.cards = [{ key: 'visitors', label: '访客数 UV', value: 123, state: 'available' }];
-    const previous = { ...current, cards: [{ ...current.cards[0], value: 999 }] };
+    const previous = freshAggregateFixture({
+      ...current,
+      cards: [{ ...current.cards[0], value: 999 }],
+    });
     mocks.report = { ...mocks.report, data: current, isPending: false };
     mocks.previous = { ...mocks.previous, data: previous };
     const view = render(<LiekanPage resource="human/overview" />);
-    expect(screen.getByText('上周 999')).toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '999' })).toBeInTheDocument();
     mocks.previous = { ...mocks.previous, isError: true, error: { status } };
     view.rerender(<LiekanPage resource="human/overview" />);
-    expect(screen.queryByText('上周 999')).not.toBeInTheDocument();
-    expect(screen.getByText('当前 123')).toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent('读取上周范围数据失败');
+    expect(screen.queryByRole('cell', { name: '999' })).not.toBeInTheDocument();
+    expect(screen.getByRole('cell', { name: '123' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('上周数据读取失败');
   });
+});
+
+it('shows a reversible closed state when a hidden crawler report is opened directly', () => {
+  const data = report();
+  data.meta.aiCrawlerEnabled = false;
+  mocks.report = { data, isPending: false, error: null, isFetching: false };
+  mocks.metadata = { data: { id: 'site-a', name: '当前网站' }, isPending: false, error: null };
+  const view = render(<LiekanPage resource="ai/overview" />);
+  expect(screen.getByText('AI 蜘蛛数据展示已关闭')).toBeInTheDocument();
+  expect(screen.queryByText('识别 AI 蜘蛛')).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: '网站设置' })).toBeInTheDocument();
+  data.meta.aiCrawlerEnabled = true;
+  view.rerender(<LiekanPage resource="ai/overview" />);
+  expect(screen.queryByText('AI 蜘蛛数据展示已关闭')).not.toBeInTheDocument();
+});
+
+it('withholds the previous crawler projection when display is off and report refresh fails', () => {
+  mocks.display = { aiCrawlerEnabled: false };
+  const data = report();
+  data.meta.aiCrawlerEnabled = true;
+  data.insights = ['旧 AI 蜘蛛发现'];
+  data.charts.d1 = {
+    labels: ['2026-10-01'],
+    series: [
+      { name: '人类 PV', values: [1] },
+      { name: 'AI 蜘蛛请求', values: [8] },
+    ],
+  };
+  mocks.report = {
+    data,
+    isPending: false,
+    error: new Error('Temporary report failure'),
+    isFetching: false,
+    refetch: vi.fn().mockResolvedValue({}),
+  };
+  mocks.metadata = { data: { id: 'site-a', name: '当前网站' }, isPending: false, error: null };
+  render(<LiekanPage resource="overview" />);
+  expect(screen.queryByText('旧 AI 蜘蛛发现')).not.toBeInTheDocument();
+  expect(screen.getByText('访客浏览趋势')).toBeInTheDocument();
 });

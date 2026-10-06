@@ -7,6 +7,7 @@ import { loadShareEntity } from './live-share';
 import { ENTITY_TYPE } from '@/lib/constants';
 import { resourceSourcesQuery } from '../contracts/resource-sources';
 import { LiekanError } from './server';
+import { bindCacheRequest } from './cache-context';
 export async function linkSources(request: Request, id: string, input: unknown) {
   const parsed = resourceSourcesQuery.safeParse(input);
   if (
@@ -19,6 +20,11 @@ export async function linkSources(request: Request, id: string, input: unknown) 
     throw new LiekanError('需要完整登录', 401);
   if (!(await loadShareEntity(ENTITY_TYPE.link, id))) throw new LiekanError('链接不存在', 404);
   if (!(await canViewLink(auth, id))) throw new LiekanError('无权访问该链接', 403);
+  bindCacheRequest(request, auth, parsed.data, async () => {
+    const fresh = await checkAuth(request);
+    return !!fresh?.user && fresh.user.id === auth.user.id && fresh.user.role === auth.user.role &&
+      !!(await loadShareEntity(ENTITY_TYPE.link, id));
+  });
   const p = parsed.data;
   try {
     new Intl.DateTimeFormat('zh-CN', { timeZone: p.timezone }).format();

@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders, prepareAnalyticsVersions } from '@/lib/liekan/upstream/cache-context';
 import { goalParametersSchema, savedStatsQuerySchema } from '@/lib/analytics-schema';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { badRequest, json, notFound, unauthorized } from '@/lib/response';
@@ -6,7 +7,7 @@ import { getReport } from '@/queries/prisma';
 import { analysisQuery } from '@/lib/liekan/contracts/analysis';
 import { type GoalParameters, getGoal } from '@/queries/sql/goals/getGoal';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string; goalId: string }> },
 ) {
@@ -14,6 +15,7 @@ export async function GET(
   if (error) return error();
   const { websiteId, goalId } = await params;
   if (!(await canViewWebsiteSection(auth, websiteId, 'goals'))) return unauthorized();
+  await prepareAnalyticsVersions([`website:${websiteId.toLowerCase()}`]);
   const report = await getReport(goalId);
   if (!report || report.websiteId !== websiteId || report.type !== 'goal') return notFound();
   if (!(await canViewReport(auth, report))) return unauthorized();
@@ -39,4 +41,8 @@ export async function GET(
     auth,
   );
   return json({ ...stats, series: detail.series, conversions: detail.conversions });
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

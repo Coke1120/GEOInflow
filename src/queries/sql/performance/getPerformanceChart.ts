@@ -45,7 +45,7 @@ async function relationalQuery(
     group by t
     order by t
     `,
-    { ...queryParams, startDate, endDate },
+    { ...queryParams, startDate, endDate }, 'getPerformanceChart',
   );
 
   return { chart };
@@ -80,7 +80,7 @@ async function clickhouseQuery(
     group by t
     order by t
     `,
-    { ...queryParams, startDate, endDate },
+    { ...queryParams, startDate, endDate }, 'getPerformanceChart',
   );
 
   return { chart };

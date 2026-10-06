@@ -13,7 +13,8 @@ function useDefinitionsQuery(
   const { get } = useApi();
   return usePagedQuery({
     queryKey: [`websites:${feature}`, { websiteId, modified }],
-    queryFn: params => get(`/websites/${websiteId}/${feature}`, params),
+    queryFn: (params, { signal }: { signal?: AbortSignal } = {}) =>
+      get(`/websites/${websiteId}/${feature}`, params, {}, signal),
     enabled: !!websiteId,
     ...options,
   });
@@ -23,7 +24,8 @@ function useDefinitionQuery(feature: 'funnels' | 'goals', websiteId: string, id:
   const { get, useQuery } = useApi();
   return useQuery<Omit<Report, 'parameters'> & { parameters: any }>({
     queryKey: [`websites:${feature}:definition`, { websiteId, id, modified }],
-    queryFn: () => get(`/websites/${websiteId}/${feature}/${id}`),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(`/websites/${websiteId}/${feature}/${id}`, {}, {}, signal),
     enabled: !!websiteId && !!id,
   });
 }

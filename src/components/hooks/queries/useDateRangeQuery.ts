@@ -11,7 +11,8 @@ export function useDateRangeQuery(websiteId: string, options?: ReactQueryOptions
 
   const { data } = useQuery<DateRange>({
     queryKey: ['date-range', websiteId],
-    queryFn: () => get(`/websites/${websiteId}/daterange`),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(`/websites/${websiteId}/daterange`, {}, {}, signal),
     enabled: !!websiteId,
     ...options,
   });

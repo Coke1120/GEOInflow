@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { performanceMetricsQuerySchema } from '@/lib/analytics-schema';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { json, unauthorized } from '@/lib/response';
@@ -5,7 +6,7 @@ import { canViewWebsiteSection } from '@/permissions';
 import type { PerformanceParameters } from '@/queries/sql/performance/getPerformance';
 import { getPerformanceMetrics } from '@/queries/sql/performance/getPerformanceMetrics';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -25,4 +26,8 @@ export async function GET(
       query.limit ?? (query.type === 'device' ? undefined : 500),
     ),
   );
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

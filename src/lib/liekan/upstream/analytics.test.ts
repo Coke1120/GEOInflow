@@ -106,12 +106,10 @@ describe('saved funnel isolation', () => {
     expect(getFunnel).not.toHaveBeenCalled();
     configure({
       window: 30,
-      steps: [
-        { type: 'path', value: '/a' },
-        { type: 'event', value: 'download' },
-      ],
+      steps: [{ type: 'path', value: '/a' }, { type: 'event', value: 'download' }],
     });
     expect((await getHumanFacts('site', start, end, 'UTC', ['pages'])).funnelError).toBeNull();
     expect(getFunnel).not.toHaveBeenCalled();
   });
+
 });

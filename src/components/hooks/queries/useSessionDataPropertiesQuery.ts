@@ -31,16 +31,21 @@ export function useSessionDataPropertiesQuery(
         ...filters,
       },
     ],
-    queryFn: () =>
-      get(`/websites/${websiteId}/session-data/properties`, {
-        startAt,
-        endAt,
-        unit,
-        timezone,
-        propertyName,
-        ...serializePropertyFilters(propertyFilters),
-        ...filters,
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/session-data/properties`,
+        {
+          startAt,
+          endAt,
+          unit,
+          timezone,
+          propertyName,
+          ...serializePropertyFilters(propertyFilters),
+          ...filters,
+        },
+        {},
+        signal,
+      ),
     enabled: !!websiteId,
     ...options,
   });

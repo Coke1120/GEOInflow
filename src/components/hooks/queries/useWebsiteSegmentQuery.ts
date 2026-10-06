@@ -13,7 +13,8 @@ export function useWebsiteSegmentQuery(
 
   return useQuery({
     queryKey: ['website:segments', { websiteId, segmentId, modified }],
-    queryFn: () => get(`/websites/${websiteId}/segments/${segmentId}`),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(`/websites/${websiteId}/segments/${segmentId}`, {}, {}, signal),
     enabled: !!(websiteId && segmentId),
     placeholderData: keepPreviousData,
     ...options,

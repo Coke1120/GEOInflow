@@ -13,11 +13,16 @@ export function usePixelsQuery(
 
   return usePagedQuery({
     queryKey: ['pixels', { teamId, modified, ...params }],
-    queryFn: pageParams => {
-      return get(teamId ? `/teams/${teamId}/pixels` : '/pixels', {
-        ...pageParams,
-        ...params,
-      });
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        teamId ? `/teams/${teamId}/pixels` : '/pixels',
+        {
+          ...pageParams,
+          ...params,
+        },
+        {},
+        signal,
+      );
     },
     ...options,
   });

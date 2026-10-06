@@ -8,6 +8,7 @@ import {
   type ExportRequest,
 } from '@/lib/liekan/contracts/exports';
 import { streamFeatureExport } from '@/lib/liekan/upstream/features-client';
+import { numberLabel } from '@/lib/liekan/contracts/features';
 import { useFeature } from './context';
 import {
   Badge,
@@ -16,7 +17,7 @@ import {
   Check,
   Code,
   Definition,
-  Drawer,
+  LiekanDialog,
   Field,
   Form,
   Icon,
@@ -230,9 +231,50 @@ export function Exports() {
         </Body>
       </Panel>
       {manifestOpen && file && (
-        <Drawer title="导出字段清单" onClose={() => setManifestOpen(false)}>
-          <Code>{JSON.stringify(file.manifest, null, 2)}</Code>
-        </Drawer>
+        <LiekanDialog size="wide" title="导出字段清单" onClose={() => setManifestOpen(false)}>
+          <div className="stack">
+            <Definition
+              items={[
+                ['网站', file.manifest.website.name + ' · ' + file.manifest.website.domain],
+                [
+                  '统计期间',
+                  `${formatInTimeZone(file.manifest.range.startAt, file.manifest.range.timezone, 'yyyy-MM-dd')} 至 ${formatInTimeZone(file.manifest.range.endAt, file.manifest.range.timezone, 'yyyy-MM-dd')}`,
+                ],
+                ['时区', file.manifest.range.timezone],
+                ['文件格式', file.manifest.format.toUpperCase()],
+                [
+                  '导出上限',
+                  `${numberLabel(file.manifest.limits.rows)} 行 · ${file.manifest.limits.bytes / 1024 / 1024} MiB`,
+                ],
+              ]}
+            />
+            <Notice>{file.manifest.privacy}</Notice>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>文件</th>
+                    <th>行数</th>
+                    <th>字段</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {file.manifest.files.map(entry => (
+                    <tr key={entry.name}>
+                      <td>{entry.name}</td>
+                      <td>{numberLabel(entry.rows)}</td>
+                      <td>{entry.fields.join('、') || '无字段'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <details>
+              <summary>查看原始 JSON 清单</summary>
+              <Code>{JSON.stringify(file.manifest, null, 2)}</Code>
+            </details>
+          </div>
+        </LiekanDialog>
       )}
     </div>
   );

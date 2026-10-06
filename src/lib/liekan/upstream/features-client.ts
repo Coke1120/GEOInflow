@@ -1,7 +1,15 @@
 'use client';
+import { isAggregateRequest } from './cache-policy';
 import type { QueryClient } from '@tanstack/react-query';
-import { RequestPool } from './request-pool';
-import { rememberFreshness, freshnessExpiry, rememberRequestFreshness } from './client-freshness';
+import { browserReads as reads } from './request-pool';
+import {
+  clientRequestOptions,
+  copyClientFreshness,
+  monotonicNow,
+  rememberResponseFreshness,
+  rememberRequestFreshness,
+  rememberAggregateFailure,
+} from './client-freshness';
 import type { WebsiteSummary } from '../contracts/website-summary';
 import { getApiUrl } from '@/lib/api-url';
 import { getClientAuthToken, removeClientAuthToken, setClientAuthToken } from '@/lib/client';
@@ -69,11 +77,23 @@ export class FeatureApiError extends Error {
     public status: number,
     public code?: string,
     public details?: any,
+    public retryAfterMs?: number,
   ) {
     super(message);
   }
 }
-const reads = new RequestPool();
+export { isAggregateRequest } from './cache-policy';
+
+function retryAfter(response: Response) {
+  const value = response.headers.get('Retry-After');
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const serverTime =
+    Number(response.headers.get('X-Liekan-Server-Time')) ||
+    Date.parse(response.headers.get('Date') || '');
+  return Math.max(0, Date.parse(value) - (Number.isFinite(serverTime) ? serverTime : Date.now()));
+}
 export async function featureRequest<T = any>(
   method: string,
   path: string,
@@ -81,8 +101,11 @@ export async function featureRequest<T = any>(
   signal?: AbortSignal,
   shareToken?: string,
   tokenOverride?: string,
+  options?: { priority?: 'foreground' | 'prefetch' },
 ): Promise<T> {
   const url = new URL(getApiUrl(path), window.location.origin);
+  const aggregate = method === 'GET' && isAggregateRequest(path, params);
+  const context = clientRequestOptions(signal);
   if (method === 'GET' && params)
     for (const [key, value] of Object.entries(params)) {
       if (value != null && value !== '')
@@ -91,6 +114,7 @@ export async function featureRequest<T = any>(
           typeof value === 'object' ? JSON.stringify(value) : String(value),
         );
     }
+  if (aggregate && context?.refresh) url.searchParams.set('refresh', '1');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (shareToken) {
     headers['x-umami-share-token'] = shareToken;
@@ -100,6 +124,7 @@ export async function featureRequest<T = any>(
     if (token) headers.authorization = `Bearer ${token}`;
   }
   const load = async (requestSignal?: AbortSignal) => {
+    const startedAt = monotonicNow();
     const response = await fetch(url, {
       method,
       headers,
@@ -114,20 +139,35 @@ export async function featureRequest<T = any>(
         response.status,
         data?.error?.code,
         data?.error,
+        retryAfter(response),
       );
-    const expiresAt = Number(response.headers.get('X-Liekan-Expires-At'));
-    if (response.headers.has('X-Liekan-Expires-At')) rememberFreshness(data, expiresAt);
+    if (aggregate) rememberResponseFreshness(data, response.headers, startedAt);
     return data;
   };
-  const data = await (method === 'GET'
-    ? reads.read(JSON.stringify([url.href, headers]), load, signal)
-    : load(signal));
-  if (data && typeof data === 'object') rememberRequestFreshness(data, signal);
-  return data;
+  try {
+    const data = await (method === 'GET'
+      ? reads.read(
+          JSON.stringify([url.href, headers]),
+          load,
+          signal,
+          options?.priority ?? context?.priority,
+        )
+      : load(signal));
+    if (data && typeof data === 'object') rememberRequestFreshness(data, signal);
+    return data;
+  } catch (error: any) {
+    if (aggregate && error && typeof error === 'object' && error.name !== 'AbortError')
+      error.aggregate = true;
+    throw error;
+  }
 }
 export const featureApi = {
-  get: <T = any>(path: string, params?: Record<string, any>, signal?: AbortSignal) =>
-    featureRequest<T>('GET', path, params, signal),
+  get: <T = any>(
+    path: string,
+    params?: Record<string, any>,
+    signal?: AbortSignal,
+    options?: { priority?: 'foreground' | 'prefetch' },
+  ) => featureRequest<T>('GET', path, params, signal, undefined, undefined, options),
   post: <T = any>(path: string, body?: Record<string, any>) =>
     featureRequest<T>('POST', path, body),
   put: <T = any>(path: string, body?: Record<string, any>) => featureRequest<T>('PUT', path, body),
@@ -249,10 +289,12 @@ export async function invalidateFeatureUserQueries(client: QueryClient, userId: 
       const key = query.queryKey;
       return key[0] === 'liekan'
         ? key[13] === userId
-        : key[0] === 'liekan-feature' && key.includes(userId);
+        : (key[0] === 'liekan-feature' && key.includes(userId)) ||
+            (key[0] === 'liekan-ai' && key[1] === userId);
     },
   };
   await client.cancelQueries(filters);
+  client.removeQueries({ queryKey: ['liekan-ai', userId] });
   return client.invalidateQueries(filters);
 }
 export async function invalidateFeatureWebsiteQueries(client: QueryClient, websiteId: string) {
@@ -260,6 +302,7 @@ export async function invalidateFeatureWebsiteQueries(client: QueryClient, websi
     predicate: (query: { queryKey: readonly unknown[] }) => {
       const key = query.queryKey;
       if (key[0] === 'liekan') return key[1] === websiteId;
+      if (key[0] === 'liekan-ai') return key.includes(websiteId) || ['catalog','catalog-selected','context'].includes(String(key[2]));
       return (
         key[0] === 'liekan-feature' &&
         (key.includes(websiteId) ||
@@ -269,6 +312,7 @@ export async function invalidateFeatureWebsiteQueries(client: QueryClient, websi
     },
   };
   await client.cancelQueries(filters);
+  client.removeQueries({ predicate: query => query.queryKey[0] === 'liekan-ai' && filters.predicate(query) });
   return client.invalidateQueries(filters);
 }
 export async function getFeatureWebsiteSummary(
@@ -291,8 +335,7 @@ export async function getFeatureWebsiteSummary(
         },
         signal,
       );
-      const expiry = freshnessExpiry(result);
-      if (expiry) rememberFreshness(rows, Math.min(freshnessExpiry(rows) ?? Infinity, expiry));
+      copyClientFreshness(rows, result);
       return result;
     } catch (error: any) {
       if (error.name === 'AbortError') throw error;
@@ -309,6 +352,11 @@ export async function getFeatureWebsiteSummary(
   };
   for (let start = 0; start < sorted.length; start += 50)
     rows.push(...(await readChunk(sorted.slice(start, start + 50))));
+  if (rows.length && rows.every(row => row.error))
+    rememberAggregateFailure(
+      rows,
+      Math.max(...rows.map(row => Number(row.error?.retryAfterMs) || 0)),
+    );
   return rows;
 }
 export function saveFeaturePreferences(value: {

@@ -22,7 +22,7 @@ export function usePropertyDateSeriesQuery(
       `websites:${source}-data:date-series`,
       { websiteId, propertyName, eventName, propertyFilters, startAt, endAt, timezone, ...params },
     ],
-    queryFn: () =>
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
       get(
         source === 'event'
           ? `/websites/${websiteId}/event-data-pivot/date-series`
@@ -36,6 +36,8 @@ export function usePropertyDateSeriesQuery(
           ...serializePropertyFilters(propertyFilters),
           ...params,
         },
+        {},
+        signal,
       ),
     enabled: !!(websiteId && propertyName && (source === 'session' || eventName)),
     ...options,

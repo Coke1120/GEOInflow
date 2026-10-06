@@ -5,7 +5,8 @@ export function useActiveUsersQuery(websiteId: string, options?: ReactQueryOptio
   const { get, useQuery } = useApi();
   return useQuery<any>({
     queryKey: ['websites:active', websiteId],
-    queryFn: () => get(`/websites/${websiteId}/active`),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(`/websites/${websiteId}/active`, {}, {}, signal),
     enabled: !!websiteId,
     ...options,
   });

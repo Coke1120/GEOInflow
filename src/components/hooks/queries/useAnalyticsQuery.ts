@@ -24,7 +24,8 @@ export function useAnalyticsQuery<T>(
   });
   return useQuery<T>({
     queryKey: [`websites:${path}`, { websiteId: params.websiteId, ...query, modified }],
-    queryFn: () => get(`/websites/${params.websiteId}/${path}`, query),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(`/websites/${params.websiteId}/${path}`, query, {}, signal),
     enabled: !!params.websiteId,
     ...options,
   });

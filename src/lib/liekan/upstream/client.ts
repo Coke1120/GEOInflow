@@ -6,10 +6,12 @@ import { DATE_RANGE_CONFIG, DEFAULT_DATE_RANGE_VALUE } from '@/lib/constants';
 import { getCompareDate } from '@/lib/date';
 import { getItem } from '@/lib/storage';
 import { readFeatureDateRange } from './date-range';
+import { useDateRangeClock } from './date-range-clock';
 export function useFeatureDateRange(timezone: string) {
   const { query } = useCoreNavigation();
   const { locale } = useLocale();
   const date = query.date || getItem(DATE_RANGE_CONFIG) || DEFAULT_DATE_RANGE_VALUE;
+  const now = useDateRangeClock(timezone, !String(date).startsWith('range:'));
   const { dateRange, invalidDate } = useMemo(
     () =>
       readFeatureDateRange(
@@ -19,7 +21,7 @@ export function useFeatureDateRange(timezone: string) {
         timezone,
         locale,
       ),
-    [date, query.unit, query.offset, timezone, locale],
+    [date, query.unit, query.offset, timezone, locale, now],
   );
   return {
     dateRange,

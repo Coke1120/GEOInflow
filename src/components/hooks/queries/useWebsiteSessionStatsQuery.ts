@@ -9,8 +9,13 @@ export function useWebsiteSessionStatsQuery(websiteId: string, options?: Record<
 
   return useQuery({
     queryKey: ['sessions:stats', { websiteId, startAt, endAt, unit, timezone, ...filters }],
-    queryFn: () =>
-      get(`/websites/${websiteId}/sessions/stats`, { startAt, endAt, unit, timezone, ...filters }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/sessions/stats`,
+        { startAt, endAt, unit, timezone, ...filters },
+        {},
+        signal,
+      ),
     enabled: !!websiteId,
     ...options,
   });

@@ -6,13 +6,27 @@ import {
   navigationFor,
   needsWebsite,
   pageNavigation,
+  trackingSourcePage,
 } from '@/lib/liekan/contracts/navigation';
 
-export const featurePages = mapping.pages.map(page => ({
-  ...page,
-  title: pageNavigation[page.id]?.title || page.title,
-}));
+export const featurePages = [
+  ...mapping.pages.map(page => ({
+    ...page,
+    title: pageNavigation[page.id]?.title || page.title,
+  })),
+  {
+    id: 'help',
+    title: '帮助中心',
+    group: 'help',
+    summary: '指标、配置与全球蜘蛛资料',
+    route: '',
+    kind: 'reference',
+  },
+];
 const unscopedPages = new Set([
+  'ai-chat',
+  'ai-config',
+  'help',
   'dashboard',
   'dashboard-edit',
   'account',
@@ -34,8 +48,12 @@ const unscopedPages = new Set([
   'share-preview',
 ]);
 export function normalizeFeatureScope(route: FeatureRoute): FeatureRoute {
+  if (route.page === 'help') return { page: 'help' };
   return {
     ...route,
+    ...(['ai-chat', 'ai-config'].includes(route.page)
+      ? { id: undefined, from: undefined, context: undefined }
+      : {}),
     ...(!needsWebsite(route) ? { websiteId: undefined } : {}),
     ...(unscopedPages.has(route.page) || navigationFor(route).scope === 'admin'
       ? { teamId: undefined }
@@ -99,6 +117,26 @@ export function matchFeatureRoute(
   return null;
 }
 export function featureHref(page: string, params: Record<string, any> = {}): string {
+  if (['ai-chat', 'ai-config'].includes(page)) {
+    const search = new URLSearchParams();
+    for (const key of ['aiSite', 'aiConversation', 'aiRun', 'aiRequest']) {
+      const value = params[key];
+      if (
+        typeof value === 'string' &&
+        /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value)
+      )
+        search.set(key, value);
+    }
+    return `/liekan/${page}${search.size ? '?' + search.toString() : ''}`;
+  }
+  if (page === 'help') {
+    const search = new URLSearchParams();
+    for (const key of ['section', 'article', 'crawler']) {
+      const value = params[key];
+      if (typeof value === 'string' && /^[a-z0-9-]{1,80}$/.test(value)) search.set(key, value);
+    }
+    return `/liekan/help${search.size ? '?' + search.toString() : ''}`;
+  }
   const record = featurePages.find(p => p.id === page);
   const geo =
     page in geoPaths && params.websiteId
@@ -177,6 +215,7 @@ export function featureNavigationHref(
   page: string,
   params: Record<string, any> = {},
 ) {
+  if (page === 'help') return featureHref(page, params);
   if (route.context === 'admin' && page === 'teams') page = 'admin-teams';
   if (route.context === 'admin' && page === 'websites') page = 'admin-websites';
   const target = {
@@ -189,6 +228,9 @@ export function featureNavigationHref(
   } as FeatureRoute;
   const scoped = needsWebsite(target);
   const geo = page in geoPaths;
+  const trackingSource = trackingSourcePage(route);
+  const trackingSwitch =
+    trackingSource && ['links', 'pixels'].includes(page) && trackingSource !== page;
   const analysisTools = new Set(['filters', 'annotations', 'exports']);
   const journeySource =
     ['journeys', 'path-detail'].includes(route.page) ||
@@ -202,6 +244,7 @@ export function featureNavigationHref(
       ([key, value]) =>
         isTimeParameter(key, value) ||
         (key === 'returnTo' &&
+          !trackingSwitch &&
           !!(scoped ? safeReturnHref(query[key]) : safeListReturnHref(query[key]))) ||
         (scoped && !geo && websiteFilter.test(key)) ||
         (journeySource && journeyTarget && /^(type|steps|startStep|endStep)$/.test(key)) ||
@@ -226,7 +269,7 @@ export function featureNavigationHref(
   }
   if (geo && Object.keys(query).some(key => websiteFilter.test(key))) result.clearedFilters = '1';
   const returnTo = scoped ? safeReturnHref(query.returnTo) : safeListReturnHref(query.returnTo);
-  if (returnTo) {
+  if (returnTo && !trackingSwitch) {
     const targetUrl = new URL(returnTo, 'http://liekan.local');
     if (
       matchFeatureRoute(targetUrl.pathname, Object.fromEntries(targetUrl.searchParams))?.page ===
@@ -245,7 +288,7 @@ export function featureNavigationHref(
     'admin-websites',
     'admin-teams',
   ]);
-  if (lists.has(route.page) && route.page !== page) {
+  if (!trackingSwitch && lists.has(route.page) && route.page !== page) {
     const origin = featureHref(route.page, {
       ...(route.teamId ? { teamId: route.teamId } : {}),
       ...(route.id ? { id: route.id } : {}),

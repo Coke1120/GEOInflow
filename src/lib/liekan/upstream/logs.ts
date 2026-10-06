@@ -1,3 +1,5 @@
+import { logInputConnectedSql } from './log-input';
+import { withLogStatisticsRead } from './ai-log-read-priority';
 import { formatInTimeZone } from 'date-fns-tz';
 import { decodeCursor, encodeCursor } from '../cursor';
 import { humanPathFromEncoded } from './paths';
@@ -8,7 +10,10 @@ export const staticRequestExtensionPattern =
   '[.](js|mjs|cjs|css|map|avif|webp|png|jpg|jpeg|gif|svg|ico|bmp|tif|tiff|woff|woff2|ttf|otf|eot|mp3|m4a|wav|ogg|mp4|webm|mov|avi)([?#]|$)';
 export const isStaticRequestPath = (path: string) =>
   new RegExp(staticRequestExtensionPattern, 'i').test(path);
-export async function getLogFacts(
+export async function getLogFacts(...args: Parameters<typeof readLogFacts>) {
+  return withLogStatisticsRead(() => readLogFacts(...args));
+}
+async function readLogFacts(
   id: string,
   start: Date,
   end: Date,
@@ -20,11 +25,13 @@ export async function getLogFacts(
   seek: 'after' | 'before' = 'after',
   fields?: readonly string[],
 ) {
+  const read = <T = any>(sql: string, ...params: any[]) =>
+    withLogStatisticsRead(() => query<T>(sql, ...params));
   const base =
-    'FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND $4::text IS NOT NULL';
+    'FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND $4::text IS NOT NULL';
   const ai = " AND bot_type IN('训练','搜索','用户触发')";
   const args = [id, start, end, timezone];
-  const q = (sql: string) => query(sql, ...args);
+  const q = (sql: string) => read(sql, ...args);
   const filterSql =
     filter === 'ai'
       ? ai
@@ -80,19 +87,19 @@ export async function getLogFacts(
           )
         : Promise.resolve([]),
       needs('catalog')
-        ? query(
+        ? read(
             'SELECT path,title,content_type AS type,word_count AS "wordCount",published_at AS "publishedAt",content_updated_at AS "updatedAt",link_depth AS "linkDepth",evidence_source AS source,structured,structure_score AS "structureScore" FROM liekan_catalog WHERE website_id=$1::uuid ORDER BY path',
             id,
           )
         : Promise.resolve([]),
       needs('latest')
-        ? query(
-            'SELECT imported_at AS time FROM liekan_import WHERE website_id=$1::uuid ORDER BY imported_at DESC LIMIT 1',
+        ? read(
+            `SELECT (SELECT imported_at FROM liekan_import WHERE website_id=$1::uuid AND accepted>0 ORDER BY imported_at DESC LIMIT 1) AS time, ${logInputConnectedSql} AS connected`,
             id,
           )
         : Promise.resolve([]),
       needs('recent')
-        ? query(
+        ? read(
             `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,bot_type AS "botType",verification ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT 100${paginationSql}`,
             ...args,
             search,
@@ -100,7 +107,7 @@ export async function getLogFacts(
           )
         : Promise.resolve([]),
       needs('count')
-        ? query(
+        ? read(
             `SELECT count(*)::int AS count ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0`,
             ...args,
             search,
@@ -116,13 +123,14 @@ export async function getLogFacts(
     hours,
     catalog,
     latest: latest[0]?.time ?? null,
+    connected: latest[0]?.connected ?? Boolean(latest[0]?.time),
     recent: cursor && seek === 'before' ? recent.reverse() : recent,
     nextCursor: recent.length ? encodeCursor(recent.at(-1)) : '',
     previousCursor: page > 1 && recent.length ? encodeCursor(recent[0]) : '',
     totalLogs: count[0].count,
     previousBots: needs('previousBots')
       ? await query(
-          'SELECT bot AS name,vendor,bot_type AS type,count(*)::int AS requests FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3 GROUP BY 1,2,3',
+          'SELECT bot AS name,vendor,bot_type AS type,count(*)::int AS requests FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3 GROUP BY 1,2,3',
           id,
           new Date(Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1))),
           new Date(start.getTime() - 1),
@@ -133,7 +141,7 @@ export async function getLogFacts(
 export async function getLogToday(id: string, start: Date, end: Date) {
   const [rows, imports] = await Promise.all([
     query(
-      `SELECT count(*) FILTER(WHERE path !~* '${staticRequestExtensionPattern}')::int AS requests,count(*) FILTER(WHERE status>=400)::int AS abnormal FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3`,
+      `SELECT count(*) FILTER(WHERE path !~* '${staticRequestExtensionPattern}')::int AS requests,count(*) FILTER(WHERE status>=400)::int AS abnormal FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3`,
       id,
       start,
       end,
@@ -159,8 +167,8 @@ export async function getContentImpact(id: string, start: Date, end: Date) {
     `WITH targets AS (SELECT * FROM jsonb_to_recordset($2::jsonb) AS c(path text,"humanPath" text,"publishedAt" timestamptz))
     SELECT c.path,
     (SELECT count(*)::int FROM website_event e WHERE e.website_id=$1::uuid AND e.url_path=c."humanPath" AND e.event_type=1 AND e.created_at>=c."publishedAt" AND e.created_at<c."publishedAt"+interval '7 days') AS pv,
-    (SELECT count(*)::int FROM liekan_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c."publishedAt" AND l.created_at<c."publishedAt"+interval '7 days')-
-    (SELECT count(*)::int FROM liekan_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c."publishedAt"-interval '7 days' AND l.created_at<c."publishedAt") AS increment
+    (SELECT count(*)::int FROM liekan_effective_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c."publishedAt" AND l.created_at<c."publishedAt"+interval '7 days')-
+    (SELECT count(*)::int FROM liekan_effective_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c."publishedAt"-interval '7 days' AND l.created_at<c."publishedAt") AS increment
     FROM targets c ORDER BY c."publishedAt" DESC`,
     id,
     JSON.stringify(
@@ -170,7 +178,7 @@ export async function getContentImpact(id: string, start: Date, end: Date) {
 }
 export async function getMonthlyAiShare(id: string, end: Date, timezone: string) {
   const rows = await query<{ month: string; total: number; ai: number }>(
-    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE bot_type IN('训练','搜索','用户触发'))::int AS ai FROM liekan_log WHERE website_id=$1::uuid AND created_at<=$2 AND created_at>=((date_trunc('month',$2::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
+    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE bot_type IN('训练','搜索','用户触发'))::int AS ai FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at<=$2 AND created_at>=((date_trunc('month',$2::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
     id,
     end,
     timezone,
@@ -189,7 +197,7 @@ export async function getPlotLogs(
   hour = false,
 ) {
   return query(
-    `SELECT to_char(created_at AT TIME ZONE $4,'${hour ? 'YYYY-MM-DD HH24:00' : 'YYYY-MM-DD'}') AS day,bot,bot_type AS type,count(*)::int AS count FROM liekan_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3 GROUP BY 1,2,3 ORDER BY 1`,
+    `SELECT to_char(created_at AT TIME ZONE $4,'${hour ? 'YYYY-MM-DD HH24:00' : 'YYYY-MM-DD'}') AS day,bot,bot_type AS type,count(*)::int AS count FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3 GROUP BY 1,2,3 ORDER BY 1`,
     id,
     start,
     end,

@@ -29,9 +29,40 @@ vi.mock('@/queries/sql', () => ({ getFunnel: vi.fn() }));
 import { liekanReportSchema } from './contracts/report';
 import { pageReportParts, type ReportResource } from './contracts/page-report';
 import { buildReport } from './report';
+import { sharedReportParts } from './contracts/shared-report';
 
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
+
+it('builds the share profile without log rows or unrelated statistics and bounds trends to the selected dates', async () => {
+  const startAt = 3 * 86400000;
+  const report = await buildReport(
+    website,
+    false,
+    { ...params, startAt, endAt: startAt + 86400000 },
+    'share',
+  );
+  expect(Object.keys(report.charts)).toEqual(expect.arrayContaining([...sharedReportParts.charts]));
+  expect(Object.keys(report.charts)).toHaveLength(8);
+  expect(Object.keys(report.tables).sort()).toEqual(['cityBody', 'envGrid']);
+  expect(mocks.logs.mock.calls[0][9]).toEqual(sharedReportParts.logs);
+  expect(mocks.human.mock.calls[0][4]).toEqual(sharedReportParts.human);
+  expect(mocks.humanDays.mock.calls[0][1]).toEqual(new Date(startAt));
+  expect(mocks.months).not.toHaveBeenCalled();
+  expect(mocks.conversions).not.toHaveBeenCalled();
+  const localRange = await buildReport(
+    website,
+    false,
+    {
+      ...params,
+      startAt: Date.parse('2026-09-05T16:00:00Z'),
+      endAt: Date.parse('2026-10-05T15:59:59Z'),
+      timezone: 'Asia/Shanghai',
+    },
+    'share',
+  );
+  expect(localRange.insights[0]).toMatch(/^2026-09-06 至 2026-10-05/);
+});
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.human.mockResolvedValue({
@@ -72,6 +103,15 @@ beforeEach(() => {
   mocks.months.mockResolvedValue([]);
 });
 describe('report evidence states', () => {
+  it('excludes private funnel configuration diagnostics from the public share profile', async () => {
+    const human = await mocks.human();
+    const funnelError = '已保存的漏斗配置无效，请检查目标配置';
+    mocks.human.mockResolvedValue({ ...human, funnelError, funnelState: 'unsupported' });
+    const shared = await buildReport(website, false, params, 'share');
+    expect(shared.insights).not.toContain(funnelError);
+    const privateReport = await buildReport(website, false, params);
+    expect(privateReport.insights).toContain(funnelError);
+  });
   it('keeps the report usable and shows a safe unsupported state for an invalid saved funnel', async () => {
     const human = await mocks.human();
     mocks.human.mockResolvedValue({
@@ -432,4 +472,43 @@ describe('report evidence states', () => {
     expect(report.charts.d1.series[1].values).toEqual([5]);
     expect(report.tables.botBody).toHaveLength(2);
   });
+});
+
+it('shows an active log source without an import as empty and keeps its import time unknown', async () => {
+  mocks.logs.mockResolvedValue({ ...(await mocks.logs()), connected: true, latest: null });
+  const result = await buildReport(website, false, params);
+  expect(result.states.logs).toBe('empty');
+  expect(result.meta.latestImportAt).toBeNull();
+});
+
+it('projects visitor-only overview while preserving crawler analytics and re-enabling the original overview', async () => {
+  mocks.settings.mockResolvedValue({
+    isDemo: false,
+    rules: [],
+    robots: '',
+    aiCrawlerEnabled: false,
+  });
+  const report = await buildReport(website, true, params, true);
+  expect(report.meta.aiCrawlerEnabled).toBe(false);
+  expect(report.cards.map(card => card.label)).toEqual([
+    '访客数 UV',
+    '浏览量 PV',
+    '跳出率',
+    '平均访问时长',
+  ]);
+  expect(report.charts.d1.series.map(series => series.name)).toEqual(['浏览量 PV']);
+  expect(Object.keys(report.charts)).toEqual(['d1', 'd3']);
+  expect(Object.keys(report.tables)).toEqual(['visitorTopBody']);
+  expect(report.insights.join('')).not.toMatch(/AI|抓取|目录|蜘蛛/);
+  const history = await buildReport(website, true, { ...params, resource: 'ai/overview' }, true);
+  expect(history.cards.map(card => card.label)).toContain('AI 蜘蛛请求（30天）');
+  mocks.settings.mockResolvedValue({
+    isDemo: false,
+    rules: [],
+    robots: '',
+    aiCrawlerEnabled: true,
+  });
+  expect((await buildReport(website, true, params, true)).cards.map(card => card.label)).toContain(
+    'AI 蜘蛛请求',
+  );
 });

@@ -12,6 +12,8 @@ import {
 import { badRequest, unauthorized } from '@/lib/response';
 import type { QueryFilters } from '@/lib/types';
 import { getWebsiteSegment } from '@/queries/prisma';
+import { bindCacheRequest, cacheHeadersEnabled, prepareAnalyticsVersions, runCacheAuthorization } from './liekan/upstream/cache-context';
+import prisma, { getRawQueryClient } from './prisma';
 
 export async function parseRequest(
   request: Request,
@@ -54,13 +56,18 @@ export async function parseRequest(
   }
 
   if (!options?.skipAuth && !error) {
-    auth = await checkAuth(request);
+    auth = await runCacheAuthorization(() => checkAuth(request));
 
     if (!auth) {
       error = () => unauthorized();
     }
   }
 
+  if (!error && auth) bindCacheRequest(request, auth, query, async () => {
+    const fresh = await checkAuth(request);
+    return !!fresh && JSON.stringify(('shareToken' in fresh && fresh.shareToken) || { id: fresh.user?.id, role: fresh.user?.role }) ===
+      JSON.stringify(auth.shareToken || { id: auth.user?.id, role: auth.user?.role });
+  });
   return { url, query, body, auth, error };
 }
 
@@ -102,7 +109,9 @@ export function getRequestFilters(query: Record<string, any>) {
 }
 
 export async function setWebsiteDate(websiteId: string, data: Record<string, any>) {
-  const website = await fetchWebsite(websiteId);
+  const website = cacheHeadersEnabled()
+    ? await (getRawQueryClient(prisma.client, { write: true }) as typeof prisma.client).website.findUnique({ where: { id: websiteId } })
+    : await fetchWebsite(websiteId);
   const cloudMode = !!process.env.CLOUD_MODE;
 
   if (cloudMode && website && !website.teamId) {
@@ -132,6 +141,7 @@ export async function getQueryFilters(
   let match = params?.match;
 
   if (websiteId) {
+    await prepareAnalyticsVersions([`website:${websiteId.toLowerCase()}`]);
     await setWebsiteDate(websiteId, dateRange);
 
     if (params.segment) {

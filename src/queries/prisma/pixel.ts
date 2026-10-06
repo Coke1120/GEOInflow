@@ -1,3 +1,5 @@
+import { bumpAnalyticsRevision } from '@/lib/liekan/upstream/analytics-revision';
+import { analyticsCache, invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
 import type { Pixel, Prisma } from '@/generated/prisma/client';
 import prisma from '@/lib/prisma';
 import { sanitizeSortFilters } from '@/lib/sort';
@@ -55,13 +57,34 @@ export async function getTeamPixels(teamId: string, filters?: QueryFilters) {
 }
 
 export async function createPixel(data: Prisma.PixelUncheckedCreateInput) {
-  return prisma.client.pixel.create({ data });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.pixel.create({ data });
+    await bumpAnalyticsRevision(tx, 'pixel', result.id);
+    return result;
+  });
+  analyticsCache.invalidate(`pixel:${result.id}`);
+  invalidateWebsiteAnalytics(result.id);
+  return result;
 }
 
 export async function updatePixel(pixelId: string, data: any) {
-  return prisma.client.pixel.update({ where: { id: pixelId }, data });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.pixel.update({ where: { id: pixelId }, data });
+    await bumpAnalyticsRevision(tx, 'pixel', result.id);
+    return result;
+  });
+  analyticsCache.invalidate(`pixel:${result.id}`);
+  invalidateWebsiteAnalytics(result.id);
+  return result;
 }
 
 export async function deletePixel(pixelId: string) {
-  return prisma.client.pixel.delete({ where: { id: pixelId } });
+  const result = await prisma.transaction(async tx => {
+    const result = await tx.pixel.delete({ where: { id: pixelId } });
+    await bumpAnalyticsRevision(tx, 'pixel', result.id);
+    return result;
+  });
+  analyticsCache.invalidate(`pixel:${result.id}`);
+  invalidateWebsiteAnalytics(result.id);
+  return result;
 }

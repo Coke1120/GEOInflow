@@ -1,4 +1,5 @@
 import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
+import { bumpAnalyticsRevision } from '@/lib/liekan/upstream/analytics-revision';
 import { z } from 'zod';
 import type { Prisma, Website } from '@/generated/prisma/client';
 import { ROLES } from '@/lib/constants';
@@ -197,11 +198,15 @@ export async function updateWebsite(
   websiteId: string,
   data: Prisma.WebsiteUpdateInput | Prisma.WebsiteUncheckedUpdateInput,
 ) {
-  const result = await prisma.client.website.update({
-    where: {
-      id: websiteId,
-    },
-    data,
+  const result = await prisma.transaction(async tx=>{
+    const before=await tx.website.findUnique({where:{id:websiteId}});
+    const updated=await tx.website.update({where:{id:websiteId},data});
+    if(before && (before.domain!==updated.domain || before.userId!==updated.userId || before.teamId!==updated.teamId)) {
+      await (await import('@/lib/liekan/upstream/lifecycle')).stopWebsiteSources(tx,websiteId);
+      await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiWebsiteInTransaction(tx, websiteId);
+    }
+    await bumpAnalyticsRevision(tx, 'website', websiteId);
+    return updated;
   });
   invalidateWebsiteAnalytics(websiteId);
   return result;
@@ -227,6 +232,7 @@ export async function resetWebsite(websiteId: string, identity?: { userId: strin
         },
       });
 
+      await bumpAnalyticsRevision(tx, 'website', websiteId);
       return website;
     },
     {
@@ -248,6 +254,8 @@ export async function deleteWebsite(websiteId: string) {
 
   return transaction(
     async tx => {
+      await (await import('@/lib/liekan/upstream/lifecycle')).stopWebsiteSources(tx,websiteId,true);
+      await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiWebsiteInTransaction(tx, websiteId);
       await deleteWebsiteDependentData(tx, websiteId);
 
       await tx.report.deleteMany({
@@ -277,6 +285,7 @@ export async function deleteWebsite(websiteId: string) {
             where: { id: websiteId },
           });
 
+      await bumpAnalyticsRevision(tx, 'website', websiteId);
       return website;
     },
     {

@@ -9,8 +9,8 @@ export function usePixelSharesQuery({ pixelId }: { pixelId: string }, options?: 
 
   return usePagedQuery({
     queryKey: ['pixelShares', { pixelId, modified }],
-    queryFn: pageParams => {
-      return get(`/pixels/${pixelId}/shares`, pageParams);
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/pixels/${pixelId}/shares`, pageParams, {}, signal);
     },
     ...options,
   });

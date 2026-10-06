@@ -21,6 +21,8 @@ test('saved funnels use ID stats with global dates, timezone, and filters', asyn
   expect(mocks.get.mock.lastCall).toEqual([
     '/websites/w/funnels/saved/stats',
     { startAt: 1000, endAt: 2000, timezone: 'UTC', unit: 'day', browser1: 'eq.Chrome' },
+    {},
+    undefined,
   ]);
 });
 

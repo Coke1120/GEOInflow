@@ -5,6 +5,10 @@ import {
   rememberRequestFreshness,
   shareWithFreshness,
   withClientFreshness,
+  rememberResponseFreshness,
+  remainingFreshness,
+  monotonicNow,
+  canDisplayAggregate,
 } from './client-freshness';
 import { statisticsCacheTtl } from './cache-policy';
 afterEach(() => vi.useRealTimers());
@@ -22,7 +26,7 @@ it('preserves the earliest server expiry through composed dashboard responses', 
     return { a, b };
   });
   expect(freshnessStaleTime({ state: { data, dataUpdatedAt: 10000 } })).toBe(2000);
-  vi.setSystemTime(11500);
+  vi.advanceTimersByTime(1500);
   expect(freshnessStaleTime({ state: { data, dataUpdatedAt: 10000 } })).toBe(2000);
 });
 it('uses the selected timezone day boundary for historical cache expiry', () => {
@@ -41,4 +45,80 @@ it('preserves unchanged metadata identity while updating its response expiry', (
   const shared = shareWithFreshness(old, next);
   expect(shared).toBe(old);
   expect(freshnessStaleTime({ state: { data: shared, dataUpdatedAt: 10000 } })).toBe(5000);
+});
+
+it.each([-300000, 300000])('uses server time despite a browser clock skew of %s ms', skew => {
+  vi.useFakeTimers();
+  vi.setSystemTime(1000000 + skew);
+  const data = {};
+  const startedAt = monotonicNow();
+  vi.advanceTimersByTime(700);
+  rememberResponseFreshness(
+    data,
+    new Headers({
+      'X-Liekan-Generated-At': '1000000',
+      'X-Liekan-Expires-At': '1030000',
+      'X-Liekan-Server-Time': '1000100',
+    }),
+    startedAt,
+  );
+  expect(remainingFreshness(data, Date.now())).toBe(29200);
+  vi.setSystemTime(Date.now() + 300000);
+  expect(remainingFreshness(data, Date.now())).toBe(29200);
+  vi.advanceTimersByTime(29200);
+  expect(remainingFreshness(data, Date.now())).toBe(0);
+});
+it('subtracts Date precision and round trip when exact server time is unavailable', () => {
+  vi.useFakeTimers();
+  const data = {};
+  rememberResponseFreshness(
+    data,
+    new Headers({
+      'X-Liekan-Generated-At': '1000000',
+      'X-Liekan-Expires-At': '1030000',
+      Date: new Date(1000000).toUTCString(),
+    }),
+    monotonicNow() - 500,
+  );
+  expect(remainingFreshness(data, Date.now())).toBe(28500);
+});
+it.each([{}, { 'X-Liekan-Expires-At': 'invalid' }, { 'X-Liekan-Expires-At': '1030000' }])(
+  'expires aggregate responses without valid freshness proof',
+  headers => {
+    const data = {};
+    rememberResponseFreshness(data, new Headers(headers), monotonicNow());
+    expect(remainingFreshness(data, Date.now())).toBe(0);
+    expect(canDisplayAggregate(data, 30000)).toBe(false);
+  },
+);
+it('does not renew an identical server expiry through structural sharing', () => {
+  vi.useFakeTimers();
+  const old = { rows: [] },
+    next = { rows: [] };
+  const headers = new Headers({
+    'X-Liekan-Generated-At': '1000000',
+    'X-Liekan-Expires-At': '1030000',
+    'X-Liekan-Server-Time': '1000000',
+  });
+  rememberResponseFreshness(old, headers, monotonicNow());
+  vi.advanceTimersByTime(10000);
+  rememberResponseFreshness(next, headers, monotonicNow());
+  const shared = shareWithFreshness(old, next);
+  expect(shared).toBe(old);
+  expect(remainingFreshness(shared, Date.now())).toBe(20000);
+});
+
+it('accepts fractional generation times with a rounded Date header conservatively', () => {
+  vi.useFakeTimers();
+  const data = {};
+  rememberResponseFreshness(
+    data,
+    new Headers({
+      'X-Liekan-Generated-At': '1000900',
+      'X-Liekan-Expires-At': '1030900',
+      Date: new Date(1000000).toUTCString(),
+    }),
+    monotonicNow() - 500,
+  );
+  expect(remainingFreshness(data, Date.now())).toBe(29400);
 });

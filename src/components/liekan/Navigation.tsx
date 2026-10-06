@@ -1,7 +1,8 @@
 'use client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { FeatureEntity, FeatureRoute, FeatureUser } from '@/lib/liekan/contracts/features';
 import {
   accountNavigation,
@@ -11,10 +12,12 @@ import {
   globalNavigation,
   navigationFor,
   websiteNavigation,
+  websiteNavigationIcons,
 } from '@/lib/liekan/contracts/navigation';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 import type { ReportResource } from '@/lib/liekan/contracts/page-report';
 import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
+import { observeRequestPriority } from '@/lib/liekan/upstream/client-freshness';
 import { useFeatureDateRange, useNavigation } from '@/lib/liekan/upstream/client';
 import {
   clearFeatureLogin,
@@ -26,8 +29,9 @@ import {
 import styles from '@/styles/liekan/Navigation.module.css';
 import '@/styles/liekan/Features.module.css';
 import { featureHref, featureWebsiteSwitchHref, safeReturnHref } from './features/routes';
-import { Drawer, Form, Icon, Notice, QueryState, Select } from './features/ui';
+import { DialogActions, LiekanDialog, Icon, Notice, QueryState } from './features/ui';
 import { defaultDateRange } from './viewState';
+import { NavigationFeedback } from './NavigationFeedback';
 
 export function useSidebarWidth() {
   const [width, setWidth] = useState(228);
@@ -52,6 +56,7 @@ export function Navigation({
   width,
   onWidth,
   href = featureHref,
+  websiteContextTarget,
 }: {
   user: FeatureUser;
   route: FeatureRoute;
@@ -59,17 +64,24 @@ export function Navigation({
   width: number;
   onWidth: (width: number) => void;
   href?: (page: string, params?: Record<string, any>) => string;
+  websiteContextTarget?: HTMLElement;
 }) {
   const nav = useNavigation();
   const client = useQueryClient();
+  useEffect(() => observeRequestPriority(client), [client]);
   const meta = navigationFor(route);
   const website = meta.scope === 'website';
-  const groups =
+  const allGroups =
     meta.scope === 'admin' ? adminNavigation : website ? websiteNavigation : globalNavigation;
-  const [expanded, setExpanded] = useState(meta.section);
   const [mobile, setMobile] = useState(false);
   const [account, setAccount] = useState(meta.scope === 'account');
   const [switching, setSwitching] = useState(false);
+  const [siteSearch, setSiteSearch] = useState('');
+  const context = useRef<HTMLDivElement>(null);
+  const siteButton = useRef<HTMLButtonElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const footer = useRef<HTMLElement>(null);
+  const accountButton = useRef<HTMLButtonElement>(null);
   const [leaving, setLeaving] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
   const logoutStarted = useRef(false);
@@ -92,31 +104,63 @@ export function Navigation({
     staleTime: 300000,
     gcTime: 600000,
   });
+  const displaySettings = useQuery<{ isDemo?: boolean; aiCrawlerEnabled?: boolean }>({
+    queryKey: ['liekan-feature', user.id, 'website-display-settings', route.websiteId],
+    queryFn: ({ signal }) =>
+      featureApi.get(`/liekan/websites/${route.websiteId}/settings`, {}, signal),
+    enabled: website && !!route.websiteId,
+    retry: false,
+    staleTime: 300000,
+    gcTime: 600000,
+  });
+  const reportedDisplay = useQuery<boolean>({
+    queryKey: ['liekan-feature', user.id, 'reported-crawler-display', route.websiteId],
+    queryFn: skipToken,
+    gcTime: 600000,
+  });
+  const crawlerEnabled = displaySettings.data?.aiCrawlerEnabled ?? reportedDisplay.data;
+  const groups = allGroups.filter(
+    group => !(website && group.id === 'ai' && crawlerEnabled === false),
+  );
   useEffect(() => {
-    setExpanded(meta.section);
     setAccount(meta.scope === 'account');
     setMobile(false);
     setSwitching(false);
     setLeaving('');
   }, [nav.pathname, meta.section, meta.scope, route.websiteId, route.id]);
   useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    const closeDesktopMenu = () => {
+      if (!media.matches) setMobile(false);
+    };
+    media.addEventListener('change', closeDesktopMenu);
+    return () => media.removeEventListener('change', closeDesktopMenu);
+  }, []);
+  useEffect(() => {
     if (!mobile) return;
     const before = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     sidebar.current?.querySelector<HTMLElement>('a,button')?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMobile(false);
+      if (event.key === 'Escape' && !sidebar.current?.querySelector('#account-navigation'))
+        setMobile(false);
       if (event.key !== 'Tab') return;
-      const nodes = sidebar.current?.querySelectorAll<HTMLElement>('a[href],button:not(:disabled)');
-      const first = nodes?.[0],
-        last = nodes?.[nodes.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
+      const nodes = Array.from(
+        sidebar.current?.querySelectorAll<HTMLElement>(
+          'a[href]:not([tabindex="-1"]),button:not(:disabled):not([tabindex="-1"])',
+        ) || [],
+      );
+      if (!nodes.length) return;
+      const current = nodes.indexOf(document.activeElement as HTMLElement);
+      const next = event.shiftKey
+        ? current <= 0
+          ? nodes.length - 1
+          : current - 1
+        : current < 0 || current === nodes.length - 1
+          ? 0
+          : current + 1;
+      event.preventDefault();
+      nodes[next].focus();
     };
     document.addEventListener('keydown', onKey);
     return () => {
@@ -125,13 +169,44 @@ export function Navigation({
       toggle.current?.focus();
     };
   }, [mobile]);
+  useEffect(() => {
+    if (!switching && !account) return;
+    if (switching) searchInput.current?.focus();
+    const outside = (event: PointerEvent) => {
+      if (!context.current?.contains(event.target as Node)) setSwitching(false);
+      if (!footer.current?.contains(event.target as Node)) setAccount(false);
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (switching) {
+        setSwitching(false);
+        siteButton.current?.focus();
+      }
+      if (account) {
+        setAccount(false);
+        accountButton.current?.focus();
+      }
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [switching, account]);
   const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
   const { dateRange } = useFeatureDateRange(timezone);
   const warmTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const warming = useRef(false);
-  const cancelWarm = () => clearTimeout(warmTimer.current);
-  useEffect(() => cancelWarm, []);
-  const warm = (page: string) => {
+  const warming = useRef<{ queryKey: readonly unknown[] }>(undefined);
+  const cancelWarm = () => {
+    clearTimeout(warmTimer.current);
+    const pending = warming.current;
+    warming.current = undefined;
+    if (pending)
+      void client.cancelQueries({ queryKey: pending.queryKey, exact: true, type: 'inactive' });
+  };
+  useEffect(() => cancelWarm, [route.websiteId, route.teamId, user.id]);
+  const warm = (page: string, immediate = false) => {
     cancelWarm();
     if (
       !website ||
@@ -141,43 +216,49 @@ export function Navigation({
       warming.current
     )
       return;
-    warmTimer.current = setTimeout(() => {
-      if (warming.current) return;
-      warming.current = true;
-      const path = geoPaths[page];
-      const resource = (
-        page === 'overview'
-          ? 'overview'
-          : page === 'geo-ai'
-            ? 'ai/overview'
-            : page === 'geo-human'
-              ? 'human/overview'
-              : path.slice(1)
-      ) as ReportResource;
-      const range = nav.query.date
-        ? featureDateRange(dateRange, timezone)
-        : defaultDateRange(Date.now(), timezone);
-      const chartPeriod =
-        ['overview', 'human/overview'].includes(resource) &&
-        ['24h', '7d'].includes(nav.query.chartPeriod)
-          ? nav.query.chartPeriod
-          : '30d';
-      void client
-        .prefetchQuery(
-          pageReportQuery(
-            user.id,
-            route.websiteId,
-            { resource, startAt: range.startAt, endAt: range.endAt, timezone, chartPeriod },
-            route.teamId,
-          ),
-        )
-        .finally(() => {
-          warming.current = false;
+    warmTimer.current = setTimeout(
+      () => {
+        if (warming.current) return;
+        const path = geoPaths[page];
+        const resource = (
+          page === 'overview'
+            ? 'overview'
+            : page === 'geo-ai'
+              ? 'ai/overview'
+              : page === 'geo-human'
+                ? 'human/overview'
+                : path.slice(1)
+        ) as ReportResource;
+        const range =
+          nav.query.date && nav.query.dateMode !== 'default'
+            ? featureDateRange(dateRange, timezone)
+            : defaultDateRange(Date.now(), timezone);
+        const chartPeriod =
+          ['overview', 'human/overview'].includes(resource) &&
+          ['24h', '7d'].includes(nav.query.chartPeriod)
+            ? nav.query.chartPeriod
+            : '30d';
+        const options = pageReportQuery(
+          user.id,
+          route.websiteId,
+          { resource, startAt: range.startAt, endAt: range.endAt, timezone, chartPeriod },
+          route.teamId,
+          undefined,
+          'prefetch',
+        );
+        const pending = { queryKey: options.queryKey };
+        warming.current = pending;
+        void client.prefetchQuery(options).finally(() => {
+          if (warming.current === pending) warming.current = undefined;
         });
-    }, 150);
+      },
+      immediate ? 0 : 200,
+    );
   };
   const currentSite = site?.id === route.websiteId ? site : undefined;
-  const siteName = currentSite?.name || '选择网站';
+  const siteName = currentSite?.name || (route.websiteId ? '正在加载网站' : '选择网站');
+  const demo = currentSite?.demo === true || displaySettings.data?.isDemo === true;
+  const displayName = demo ? siteName.replace(/[（(]示例数据[）)]/, '').trim() : siteName;
   const teamName =
     teamsQuery.data?.find(team => team.id === currentSite?.teamId)?.name ||
     (currentSite?.teamId ? '团队空间' : '个人空间');
@@ -189,6 +270,7 @@ export function Navigation({
       : {};
   const safeHref = (page: string) => href(page, ownerParams);
   const changeSite = (id: string) => {
+    cancelWarm();
     const next = featureWebsiteSwitchHref(route, id, nav.query);
     if (document.querySelector('form[data-unsaved="true"]')) {
       setSwitching(false);
@@ -198,8 +280,148 @@ export function Navigation({
     nav.router.push(next);
     setSwitching(false);
   };
+  const websitesHref =
+    safeReturnHref(nav.query.returnTo) || featureHref('websites', { teamId: currentSite?.teamId });
+  const matchingSites = (sitesQuery.data || []).filter(item =>
+    `${item.name} ${item.domain || ''}`
+      .toLocaleLowerCase()
+      .includes(siteSearch.trim().toLocaleLowerCase()),
+  );
+  const websiteContext = website && (
+    <div ref={context} className={styles.headerContext}>
+      <Link
+        prefetch={false}
+        className={styles.back}
+        href={websitesHref}
+        aria-label="返回网站列表"
+        title="返回网站列表"
+      >
+        <Icon name="back" />
+      </Link>
+      <div className={styles.sitePicker}>
+        <button
+          ref={siteButton}
+          type="button"
+          className={`${styles.siteSwitch} site-switch`}
+          onClick={() => {
+            setMobile(false);
+            setSiteSearch('');
+            setSwitching(!switching);
+          }}
+          aria-label={`切换网站，当前${siteName}`}
+          aria-expanded={switching}
+          aria-busy={!currentSite && !!route.websiteId}
+          aria-controls="website-picker"
+          aria-haspopup="dialog"
+          title={siteName}
+        >
+          <Icon name="globe" />
+          <strong className={styles.siteName}>{displayName}</strong>
+          {demo && <span className={styles.demoBadge}>示例</span>}
+          <Icon name="down" />
+        </button>
+        {switching && (
+          <div
+            id="website-picker"
+            role="dialog"
+            aria-label="切换网站"
+            className={styles.sitePopover}
+            onBlur={event => {
+              if (
+                event.relatedTarget &&
+                !event.currentTarget.contains(event.relatedTarget as Node) &&
+                !siteButton.current?.contains(event.relatedTarget as Node)
+              )
+                setSwitching(false);
+            }}
+          >
+            <div className={styles.siteCurrent}>
+              <strong>{siteName}</strong>
+              <span>{currentSite?.domain || '正在确认网站信息'}</span>
+              {currentSite && <small>{teamName}</small>}
+            </div>
+            <label className={styles.siteSearch}>
+              <Icon name="search" />
+              <input
+                ref={searchInput}
+                value={siteSearch}
+                aria-label="搜索网站"
+                placeholder="搜索网站名称或域名"
+                onChange={event => setSiteSearch(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    context.current
+                      ?.querySelector<HTMLButtonElement>('[data-site-option]')
+                      ?.focus();
+                  }
+                }}
+              />
+            </label>
+            <div data-liekan-features className={styles.pickerState}>
+              <QueryState query={sitesQuery}>
+                <div className={styles.siteOptions}>
+                  {matchingSites.map(item => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      data-site-option
+                      className={`${styles.siteOption} ${item.id === route.websiteId ? styles.selected : ''}`}
+                      aria-label={`选择网站 ${item.name}`}
+                      aria-current={item.id === route.websiteId ? 'true' : undefined}
+                      onClick={() => {
+                        if (item.id === route.websiteId) {
+                          setSwitching(false);
+                          siteButton.current?.focus();
+                        } else changeSite(item.id);
+                      }}
+                      onKeyDown={event => {
+                        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+                        event.preventDefault();
+                        const buttons = [
+                          ...context.current.querySelectorAll<HTMLButtonElement>(
+                            '[data-site-option]',
+                          ),
+                        ];
+                        const index = buttons.indexOf(event.currentTarget);
+                        const next =
+                          event.key === 'Home'
+                            ? 0
+                            : event.key === 'End'
+                              ? buttons.length - 1
+                              : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) %
+                                buttons.length;
+                        buttons[next]?.focus();
+                      }}
+                    >
+                      <span>
+                        <strong>{item.name}</strong>
+                        <small>{item.domain}</small>
+                      </span>
+                      {item.id === route.websiteId && <Icon name="check" />}
+                    </button>
+                  ))}
+                  {!matchingSites.length && (
+                    <p className={styles.pickerEmpty}>
+                      {sitesQuery.data?.length ? '没有匹配的网站' : '当前没有可访问的网站'}
+                    </p>
+                  )}
+                </div>
+              </QueryState>
+            </div>
+            <Link prefetch={false} href={websitesHref} className={styles.siteManage}>
+              <Icon name="grid" />
+              全部网站
+              <Icon name="chevron" />
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
   return (
     <>
+      {websiteContextTarget ? createPortal(websiteContext, websiteContextTarget) : websiteContext}
       <button
         ref={toggle}
         type="button"
@@ -209,7 +431,7 @@ export function Navigation({
         onClick={() => setMobile(!mobile)}
       >
         <Icon name="menu" />
-        页面导航
+        <span className={styles.srOnly}>页面导航</span>
       </button>
       {mobile && (
         <button
@@ -221,7 +443,7 @@ export function Navigation({
       )}
       <aside
         ref={sidebar}
-        className={`${styles.sidebar} ${mobile ? styles.open : ''}`}
+        className={`${styles.sidebar} ${mobile ? styles.open : ''} ${styles.preview}`}
         id="liekan-navigation"
         aria-label={website ? '网站导航' : meta.scope === 'admin' ? '系统管理导航' : '全局导航'}
       >
@@ -235,122 +457,105 @@ export function Navigation({
             猎看统计<small>LIEKAN GEO STATS</small>
           </span>
         </Link>
-        {website && (
-          <div className={styles.websiteContext}>
-            <Link
-              prefetch={false}
-              className={styles.back}
-              href={
-                safeReturnHref(nav.query.returnTo) ||
-                featureHref('websites', { teamId: currentSite?.teamId })
-              }
-            >
-              <Icon name="back" />
-              返回网站列表
-            </Link>
-            <button
-              type="button"
-              className={`${styles.siteSwitch} site-switch`}
-              onClick={() => {
-                setMobile(false);
-                setSwitching(true);
-              }}
-              aria-label={`切换网站，当前${siteName}`}
-            >
-              <span className={styles.avatar}>{siteName.slice(0, 1)}</span>
-              <span className={styles.siteText}>
-                <strong title={siteName}>{siteName}</strong>
-                <small title={currentSite?.domain}>{currentSite?.domain || '请明确选择网站'}</small>
-                <small>{currentSite ? teamName : ''}</small>
-              </span>
-              <Icon name="down" />
-            </button>
-          </div>
-        )}
         <nav className={styles.nav} aria-label="业务导航" data-navigation-primary>
           {meta.scope === 'admin' && <div className={styles.caption}>系统管理</div>}
           {groups.map(group => (
             <div key={group.id} data-navigation-group={group.id}>
-              <div
-                className={`${styles.group} ${meta.section === group.id ? styles.currentGroup : ''}`}
-              >
-                <Link
-                  prefetch={false}
-                  className={`${styles.item} ${!group.children && activePage === group.page ? styles.selected : ''}`}
-                  aria-current={!group.children && activePage === group.page ? 'page' : undefined}
-                  href={safeHref(group.page)}
-                  onMouseEnter={() => warm(group.page)}
-                  onFocus={() => warm(group.page)}
-                  onMouseLeave={cancelWarm}
-                  onBlur={cancelWarm}
-                  onClick={() => group.children && setExpanded(group.id)}
-                >
-                  <Icon name={group.icon} />
-                  <span>{group.label}</span>
-                </Link>
-                {group.children && (
-                  <button
-                    type="button"
-                    className={styles.expand}
-                    aria-label={`${expanded === group.id ? '收起' : '展开'}${group.label}`}
-                    aria-expanded={expanded === group.id}
-                    aria-controls={`nav-${group.id}`}
-                    onClick={() => setExpanded(expanded === group.id ? '' : group.id)}
-                  >
-                    <Icon name={expanded === group.id ? 'up' : 'down'} />
-                  </button>
-                )}
-              </div>
-              {group.children && expanded === group.id && (
-                <div className={styles.children} id={`nav-${group.id}`}>
-                  {group.children.map(item => (
-                    <Link
-                      prefetch={false}
-                      className={`${styles.item} ${activePage === item.page ? styles.selected : ''}`}
-                      aria-current={activePage === item.page ? 'page' : undefined}
-                      key={item.page}
-                      href={safeHref(item.page)}
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
+              {group.sectionLabel && (
+                <div className={styles.sectionLabel}>{group.sectionLabel}</div>
               )}
+              {group.children && <div className={styles.sectionLabel}>{group.label}</div>}
+              <div className={styles.expandedItems}>
+                {(group.children || [group]).map(item => (
+                  <Link
+                    prefetch={false}
+                    key={item.page}
+                    className={`${styles.item} ${activePage === item.page ? styles.selected : ''}`}
+                    aria-current={activePage === item.page ? 'page' : undefined}
+                    href={safeHref(item.page)}
+                    onMouseEnter={() => warm(item.page)}
+                    onFocus={() => warm(item.page, true)}
+                    onMouseLeave={cancelWarm}
+                    onBlur={cancelWarm}
+                  >
+                    <Icon
+                      name={
+                        website
+                          ? websiteNavigationIcons[item.page] || group.icon
+                          : item.icon || group.icon
+                      }
+                    />
+                    <span>{item.label}</span>
+                    <NavigationFeedback />
+                  </Link>
+                ))}
+              </div>
             </div>
           ))}
         </nav>
-        <footer className={styles.footer}>
-          {website && (
+        <footer ref={footer} className={styles.footer}>
+          <div className={styles.footerRow}>
+            <button
+              ref={accountButton}
+              type="button"
+              className={styles.accountToggle}
+              aria-label="个人账户"
+              aria-expanded={account}
+              aria-controls="account-navigation"
+              onClick={event => {
+                event.currentTarget.focus();
+                setAccount(!account);
+              }}
+            >
+              <span className={styles.avatar}>{user.username?.slice(0, 1) || 'L'}</span>
+              <span className={styles.siteText}>
+                <strong title={user.username}>{user.username}</strong>
+              </span>
+            </button>
             <Link
               prefetch={false}
-              className={`${styles.item} ${meta.section === 'website-settings' ? styles.selected : ''}`}
-              aria-current={meta.section === 'website-settings' ? 'page' : undefined}
-              href={safeHref('website-settings')}
+              className={styles.footerIcon}
+              href={featureHref('websites', {
+                teamId: website ? currentSite?.teamId : route.teamId,
+              })}
+              aria-label="网站列表"
+              title="网站列表"
             >
-              <Icon name="shield" />
-              网站设置
+              <Icon name="grid" />
             </Link>
-          )}
-          {!website && user.isAdmin && (
-            <Link prefetch={false} className={styles.item} href={featureHref('admin-users')}>
-              <Icon name="shield" />
-              系统管理
-            </Link>
-          )}
-          <button
-            type="button"
-            className={styles.accountToggle}
-            aria-expanded={account}
-            aria-controls="account-navigation"
-            onClick={() => setAccount(!account)}
-          >
-            <span className={styles.avatar}>{user.username?.slice(0, 1) || 'L'}</span>
-            <span className={styles.siteText}>
-              <strong>个人账户</strong>
-              <small title={user.username}>{user.username}</small>
-            </span>
-            <Icon name={account ? 'up' : 'down'} />
-          </button>
+            {website ? (
+              <Link
+                prefetch={false}
+                className={`${styles.footerIcon} ${meta.section === 'website-settings' ? styles.selected : ''}`}
+                aria-current={meta.section === 'website-settings' ? 'page' : undefined}
+                href={safeHref('website-settings')}
+                aria-label="网站设置"
+                title="网站设置"
+              >
+                <Icon name="settings" />
+              </Link>
+            ) : user.isAdmin ? (
+              <Link
+                prefetch={false}
+                className={styles.footerIcon}
+                href={featureHref('admin-users')}
+                aria-label="系统管理"
+                title="系统管理"
+              >
+                <Icon name="shield" />
+              </Link>
+            ) : (
+              <Link
+                prefetch={false}
+                className={styles.footerIcon}
+                href={featureHref('preferences')}
+                aria-label="偏好设置"
+                title="偏好设置"
+              >
+                <Icon name="settings" />
+              </Link>
+            )}
+          </div>
           {account && (
             <nav className={styles.accountMenu} id="account-navigation" aria-label="个人账户">
               {accountNavigation.map(item => (
@@ -416,41 +621,14 @@ export function Navigation({
           }}
         />
       </aside>
-      {switching && (
-        <Drawer title="切换网站" onClose={() => setSwitching(false)}>
-          <QueryState query={sitesQuery}>
-            {sitesQuery.data?.length ? (
-              <Form
-                trackUnsaved={false}
-                submitLabel="切换网站"
-                onSubmit={async values => {
-                  if (!sitesQuery.data.some(site => site.id === values.site))
-                    throw new Error('请选择可访问的网站');
-                  changeSite(values.site);
-                }}
-              >
-                <Select
-                  label="网站"
-                  name="site"
-                  defaultValue={route.websiteId}
-                  options={sitesQuery.data.map(site => [
-                    site.id,
-                    `${site.name} · ${site.domain || ''}`,
-                  ])}
-                />
-              </Form>
-            ) : (
-              <Notice>
-                当前账户暂无可访问网站。<Link href={featureHref('websites')}>返回网站列表</Link>
-              </Notice>
-            )}
-          </QueryState>
-        </Drawer>
-      )}
       {leaving && (
-        <Drawer title="当前修改尚未保存" onClose={() => setLeaving('')}>
+        <LiekanDialog
+          protectUnsaved={false}
+          title="放弃未保存的修改？"
+          onClose={() => setLeaving('')}
+        >
           <Notice>切换网站会放弃当前表单中的修改。</Notice>
-          <div data-liekan-features className="form-actions">
+          <DialogActions>
             <button type="button" className="btn" onClick={() => setLeaving('')}>
               继续编辑
             </button>
@@ -465,8 +643,8 @@ export function Navigation({
             >
               放弃修改并切换
             </button>
-          </div>
-        </Drawer>
+          </DialogActions>
+        </LiekanDialog>
       )}
     </>
   );

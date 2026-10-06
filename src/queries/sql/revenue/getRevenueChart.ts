@@ -84,7 +84,7 @@ async function relationalQuery(
     group by x, t
     order by t
     `,
-    queryParams,
+    queryParams, 'getRevenueChart',
   );
 
   return { chart };
@@ -142,7 +142,7 @@ async function clickhouseQuery(
     group by x, t
     order by t
     `,
-    queryParams,
+    queryParams, 'getRevenueChart',
   );
 
   return { chart };

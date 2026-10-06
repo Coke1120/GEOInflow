@@ -7,8 +7,8 @@ export function useReplaySavedQuery(websiteId: string, replayId: string) {
 
   return useQuery({
     queryKey: ['replay:saved', { websiteId, replayId, modified }],
-    queryFn: () => {
-      return get(`/websites/${websiteId}/replays/saved/${replayId}`);
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/websites/${websiteId}/replays/saved/${replayId}`, {}, {}, signal);
     },
     enabled: Boolean(websiteId && replayId),
   });

@@ -1,4 +1,4 @@
-import prisma from '@/lib/prisma';
+import prisma, { getRawQueryClient } from '@/lib/prisma';
 
 export async function createApiKey(data: {
   id: string;
@@ -19,7 +19,7 @@ export async function createApiKey(data: {
 }
 
 export async function getApiKeyByHash(keyHash: string) {
-  return prisma.client.apiKey.findUnique({
+  return (getRawQueryClient(prisma.client, { write: true }) as typeof prisma.client).apiKey.findUnique({
     where: { keyHash },
   });
 }

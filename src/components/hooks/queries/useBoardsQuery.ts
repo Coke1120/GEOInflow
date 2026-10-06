@@ -13,11 +13,16 @@ export function useBoardsQuery(
 
   return usePagedQuery({
     queryKey: ['boards', { teamId, modified, ...params }],
-    queryFn: pageParams => {
-      return get(teamId ? `/teams/${teamId}/boards` : '/boards', {
-        ...pageParams,
-        ...params,
-      });
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        teamId ? `/teams/${teamId}/boards` : '/boards',
+        {
+          ...pageParams,
+          ...params,
+        },
+        {},
+        signal,
+      );
     },
     ...options,
   });

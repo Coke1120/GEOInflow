@@ -24,14 +24,15 @@ export function useWebsiteQuery(
     if (modified != null && seen.get(identity) !== modified && options?.queryKey) {
       seen.set(identity, modified);
       if (options.queryKey[0] !== 'liekan-feature')
-        void client.invalidateQueries({ queryKey: options.queryKey, exact: true });
+        void client.invalidateQueries({ queryKey: options.queryKey });
       void invalidateFeatureWebsiteQueries(client, websiteId);
     }
   }, [modified, identity, client, options?.queryKey]);
 
   return useQuery({
     queryKey: ['website', { websiteId, modified }],
-    queryFn: () => get(`/websites/${websiteId}`),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(`/websites/${websiteId}`, {}, {}, signal),
     enabled: !!websiteId,
     placeholderData: keepPreviousData,
     ...options,

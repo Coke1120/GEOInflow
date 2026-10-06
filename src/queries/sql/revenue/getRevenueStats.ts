@@ -69,7 +69,7 @@ async function relationalQuery(
       (select count(*) from filtered_sessions) as total_sessions
     from filtered_revenue
     `,
-    queryParams,
+    queryParams, 'getRevenueStats',
   ).then(result => result?.[0]);
 
   total.average = total.count > 0 ? Number(total.sum) / Number(total.count) : 0;
@@ -129,7 +129,7 @@ async function clickhouseQuery(
       (select count() from filtered_sessions) as total_sessions
     from filtered_revenue
     `,
-    queryParams,
+    queryParams, 'getRevenueStats',
   ).then(result => result?.[0]);
 
   total.average = total.count > 0 ? total.sum / total.count : 0;

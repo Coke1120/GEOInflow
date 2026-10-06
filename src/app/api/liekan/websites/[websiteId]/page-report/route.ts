@@ -1,6 +1,7 @@
 import { api } from '@/lib/liekan/http';
 import { readPageReport } from '@/lib/liekan/upstream/page-report';
 import { authorize } from '@/lib/liekan/upstream/server';
+import { noteCacheResult } from '@/lib/liekan/upstream/cache-context';
 
 export async function GET(
   request: Request,
@@ -21,6 +22,7 @@ export async function GET(
       );
       result.value.website = access.website;
       result.value.meta.canManage = access.canManage;
+      noteCacheResult(result);
       headers = {
         'X-Liekan-Cache': result.status,
         'X-Liekan-Generated-At': String(result.generatedAt),

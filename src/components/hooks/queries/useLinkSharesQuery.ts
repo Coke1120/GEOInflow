@@ -9,8 +9,8 @@ export function useLinkSharesQuery({ linkId }: { linkId: string }, options?: Rea
 
   return usePagedQuery({
     queryKey: ['linkShares', { linkId, modified }],
-    queryFn: pageParams => {
-      return get(`/links/${linkId}/shares`, pageParams);
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/links/${linkId}/shares`, pageParams, {}, signal);
     },
     ...options,
   });

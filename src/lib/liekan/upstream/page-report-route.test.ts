@@ -7,6 +7,7 @@ vi.mock('./server', async () => ({
 vi.mock('./page-report', () => ({ readPageReport: mocks.read }));
 import { GET } from '@/app/api/liekan/websites/[websiteId]/page-report/route';
 import { LiekanError } from './errors';
+import { bindCacheRequest } from './cache-context';
 const id = '11111111-1111-4111-8111-111111111111';
 const request = () =>
   new Request(
@@ -47,3 +48,27 @@ it.each([401, 404])(
     expect(response.headers.has('X-Liekan-Expires-At')).toBe(false);
   },
 );
+
+it('records the shared cache source for page response freshness', async () => {
+  mocks.read.mockResolvedValueOnce({
+    value: { meta: {} },
+    generatedAt: 1,
+    expiresAt: 30001,
+    status: 'hit',
+    tier: 'redis',
+  });
+  const response = await GET(request(), params);
+  expect(response.headers.get('X-Liekan-Cache-Tier')).toBe('redis');
+  expect(response.headers.get('X-Liekan-Cache-Source')).toBe('redis');
+});
+
+it('checks final page authorization after reading a cached result', async () => {
+  const authorizeAgain = vi.fn(async () => false);
+  mocks.authorize.mockImplementation(async request => {
+    bindCacheRequest(request, { user: { id: 'actor' } }, {}, authorizeAgain);
+    return { website: { id, name: 'Current name', domain: 'example.test' }, canManage: false };
+  });
+  const response = await GET(request(), params);
+  expect(response.status).toBe(403);
+  expect(authorizeAgain).toHaveBeenCalledTimes(1);
+});

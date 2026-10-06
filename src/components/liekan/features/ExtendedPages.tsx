@@ -17,7 +17,8 @@ import {
   Body,
   Button,
   Definition,
-  Drawer,
+  LiekanDialog,
+  DialogActions,
   Field,
   Form,
   Icon,
@@ -53,6 +54,13 @@ function useWebsiteQuery(key: any[], path: string, params: any = {}, enabled = t
     key,
     signal => c.api.get(`${own ? '/liekan' : ''}/websites/${c.siteId}/${path}`, params, signal),
     !!c.siteId && enabled,
+    ['revenue', 'replays'].includes(params.kind) || path.startsWith('replays/')
+      ? {
+          queryKey: ['liekan-feature', c.user.id, c.siteId, ...key, params],
+          staleTime: 0,
+          direct: true,
+        }
+      : undefined,
   );
 }
 const masked = (id: string) => `访客 ${id?.replaceAll('-', '').slice(-6) || '—'}`;
@@ -772,7 +780,7 @@ function ReplayPlayer() {
             }
             onClick={() => setSaveOpen(true)}
           >
-            {saved.data?.isSaved ? '已保存' : '保存录制'}
+            {saved.data?.isSaved ? '已保存' : '保存会话回放'}
           </Button>
         </div>
       </div>
@@ -869,8 +877,8 @@ function ReplayPlayer() {
         </div>
       </QueryState>
       {saveOpen && (
-        <Drawer
-          title={saved.data?.isSaved ? '已保存录制' : '保存录制'}
+        <LiekanDialog
+          title={saved.data?.isSaved ? '管理已保存回放' : '保存会话回放'}
           onClose={() => {
             if (!action.busy) setSaveOpen(false);
           }}
@@ -879,7 +887,7 @@ function ReplayPlayer() {
             <Form
               busy={action.busy}
               error={action.error}
-              submitLabel="保存录制"
+              submitLabel="保存回放"
               onSubmit={async v => {
                 await action.run(
                   () =>
@@ -892,30 +900,33 @@ function ReplayPlayer() {
                 setSaveOpen(false);
               }}
             >
-              <Field label="保存名称" name="name" required maxLength={100} />
+              <Notice>为当前会话回放添加名称，便于在已保存列表中查找。</Notice>
+              <Field label="回放名称" name="name" required maxLength={100} />
             </Form>
           )}
           {saved.data?.isSaved && (
             <>
-              <Notice>此录制已保存，可在已保存列表查看或取消保存。</Notice>
+              <Notice>此会话回放已保存，可在已保存列表查看或取消保存。</Notice>
               {action.error && <Notice tone="red">{action.error}</Notice>}
-              <Button
-                danger
-                disabled={action.busy}
-                onClick={async () => {
-                  await action.run(
-                    () =>
-                      c.api.post(`/websites/${c.siteId}/replays/saved/${id}`, { isSaved: false }),
-                    '录制已取消保存',
-                  );
-                  setSaveOpen(false);
-                }}
-              >
-                取消保存
-              </Button>
+              <DialogActions>
+                <Button
+                  danger
+                  disabled={action.busy}
+                  onClick={async () => {
+                    await action.run(
+                      () =>
+                        c.api.post(`/websites/${c.siteId}/replays/saved/${id}`, { isSaved: false }),
+                      '录制已取消保存',
+                    );
+                    setSaveOpen(false);
+                  }}
+                >
+                  取消保存此回放
+                </Button>
+              </DialogActions>
             </>
           )}
-        </Drawer>
+        </LiekanDialog>
       )}
     </>
   );

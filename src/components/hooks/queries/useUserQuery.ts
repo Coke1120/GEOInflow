@@ -9,7 +9,7 @@ export function useUserQuery(userId: string, options?: ReactQueryOptions) {
 
   return useQuery({
     queryKey: ['users', { userId, modified }],
-    queryFn: () => get(`/users/${userId}`),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => get(`/users/${userId}`, {}, {}, signal),
     enabled: !!userId,
     placeholderData: keepPreviousData,
     ...options,

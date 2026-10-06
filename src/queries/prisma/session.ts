@@ -1,4 +1,5 @@
 import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
+import { bumpAnalyticsRevision } from '@/lib/liekan/upstream/analytics-revision';
 import prisma from '@/lib/prisma';
 
 export async function deleteSession(
@@ -117,6 +118,7 @@ export async function deleteSession(
       },
     });
 
+    await bumpAnalyticsRevision(tx, 'website', websiteId);
     return session;
   });
   invalidateWebsiteAnalytics(websiteId);

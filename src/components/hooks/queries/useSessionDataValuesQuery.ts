@@ -17,15 +17,20 @@ export function useSessionDataValuesQuery(
       'websites:session-data:values',
       { websiteId, propertyName, startAt, endAt, unit, timezone, ...filters },
     ],
-    queryFn: () =>
-      get(`/websites/${websiteId}/session-data/values`, {
-        startAt,
-        endAt,
-        unit,
-        timezone,
-        ...filters,
-        propertyName,
-      }),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/session-data/values`,
+        {
+          startAt,
+          endAt,
+          unit,
+          timezone,
+          ...filters,
+          propertyName,
+        },
+        {},
+        signal,
+      ),
     enabled: !!(websiteId && propertyName),
     ...options,
   });

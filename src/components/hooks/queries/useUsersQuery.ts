@@ -8,10 +8,15 @@ export function useUsersQuery() {
 
   return usePagedQuery({
     queryKey: ['users:admin', { modified }],
-    queryFn: (pageParams: any) => {
-      return get('/admin/users', {
-        ...pageParams,
-      });
+    queryFn: (pageParams: any, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        '/admin/users',
+        {
+          ...pageParams,
+        },
+        {},
+        signal,
+      );
     },
   });
 }

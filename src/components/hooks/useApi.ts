@@ -1,9 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { getApiUrl } from '@/lib/api-url';
 import { getClientAuthToken } from '@/lib/client';
 import { SHARE_CONTEXT_HEADER, SHARE_TOKEN_HEADER } from '@/lib/constants';
-import { type FetchResponse, httpDelete, httpGet, httpPost, httpPut } from '@/lib/fetch';
+import { type FetchResponse, httpDelete, httpPost, httpPut } from '@/lib/fetch';
+import { nativeGet, nativeIdentityKey, useNativeQuery } from '@/lib/liekan/upstream/native-client';
 import { useApp } from '@/store/app';
 
 async function handleResponse(res: FetchResponse): Promise<any> {
@@ -18,16 +19,16 @@ async function handleResponse(res: FetchResponse): Promise<any> {
 export function useApi() {
   const shareId = useApp(state => state.share?.shareId);
   const shareToken = useApp(state => state.shareToken?.token);
+  const userId = useApp(state => state.user?.id);
 
   const shareHeaders =
-    shareId && shareToken
-      ? { [SHARE_TOKEN_HEADER]: shareToken, [SHARE_CONTEXT_HEADER]: '1' }
-      : {};
+    shareId && shareToken ? { [SHARE_TOKEN_HEADER]: shareToken, [SHARE_CONTEXT_HEADER]: '1' } : {};
 
   const defaultHeaders = {
     authorization: `Bearer ${getClientAuthToken()}`,
     ...shareHeaders,
   };
+  const identity = nativeIdentityKey(defaultHeaders, userId);
   const getUrl = (url: string) => {
     return getApiUrl(url);
   };
@@ -38,33 +39,33 @@ export function useApi() {
 
   return {
     get: useCallback(
-      async (url: string, params: object = {}, headers: object = {}) => {
-        return httpGet(getUrl(url), params, getHeaders(headers)).then(handleResponse);
+      async (url: string, params: object = {}, headers: object = {}, signal?: AbortSignal) => {
+        return nativeGet(url, params, getHeaders(headers), signal);
       },
-      [httpGet],
+      [identity],
     ),
 
     post: useCallback(
       async (url: string, params: object = {}, headers: object = {}) => {
         return httpPost(getUrl(url), params, getHeaders(headers)).then(handleResponse);
       },
-      [httpPost],
+      [identity],
     ),
 
     put: useCallback(
       async (url: string, params: object = {}, headers: object = {}) => {
         return httpPut(getUrl(url), params, getHeaders(headers)).then(handleResponse);
       },
-      [httpPut],
+      [identity],
     ),
 
     del: useCallback(
       async (url: string, params: object = {}, headers: object = {}) => {
         return httpDelete(getUrl(url), params, getHeaders(headers)).then(handleResponse);
       },
-      [httpDelete],
+      [identity],
     ),
-    useQuery,
+    useQuery: useNativeQuery,
     useMutation,
   };
 }

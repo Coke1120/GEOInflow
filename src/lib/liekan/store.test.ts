@@ -3,7 +3,13 @@ import { createSchema } from 'zod-openapi';
 import { operations } from '@/app/api/liekan/websites/[websiteId]/settings/contract';
 import { BOT_RULES, classifyBot } from './rules/bots';
 
-type SettingsRow = { robots: string; allowlist: string[]; rules: unknown[]; isDemo: boolean };
+type SettingsRow = {
+  robots: string;
+  allowlist: string[];
+  rules: unknown[];
+  isDemo: boolean;
+  aiCrawlerEnabled?: boolean;
+};
 const mocks = vi.hoisted(() => ({
   settings: null as SettingsRow | null,
   catalog: new Map<string, Record<string, unknown>>(),
@@ -68,6 +74,7 @@ const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubEnv('DATABASE_URL', 'postgresql://test:test@localhost/test');
   mocks.settings = null;
   mocks.catalog.clear();
   mocks.calls = [];
@@ -88,6 +95,7 @@ beforeEach(() => {
         allowlist: JSON.parse(params[2] as string),
         rules: JSON.parse(params[3] as string),
         isDemo: mocks.settings?.isDemo ?? false,
+        aiCrawlerEnabled: params[4] as boolean,
       };
     } else if (sql.startsWith('INSERT INTO liekan_catalog')) {
       const rows = JSON.parse(params[1] as string);
@@ -122,6 +130,32 @@ beforeEach(() => {
 });
 
 describe('settings field updates', () => {
+  it('defaults crawler display on, persists both choices, and preserves it across concurrent legacy edits', async () => {
+    expect((await getSettings(id)).aiCrawlerEnabled).toBe(true);
+    await Promise.all([
+      saveSettings(id, { aiCrawlerEnabled: false }, identity),
+      saveSettings(id, { robots: 'User-agent: *' }, identity),
+    ]);
+    expect(await getSettings(id)).toMatchObject({
+      aiCrawlerEnabled: false,
+      robots: 'User-agent: *',
+    });
+    await saveSettings(id, { aiCrawlerEnabled: true }, identity);
+    expect((await getSettings(id)).aiCrawlerEnabled).toBe(true);
+  });
+
+  it('rejects non-boolean display preferences in the API contract and store', async () => {
+    const schema = operations[1].operation.requestBody.content['application/json'].schema;
+    expect(schema.safeParse({ aiCrawlerEnabled: false }).success).toBe(true);
+    for (const value of ['false', 0, null, undefined]) {
+      expect(schema.safeParse({ aiCrawlerEnabled: value }).success).toBe(false);
+      await expect(saveSettings(id, { aiCrawlerEnabled: value }, identity)).rejects.toMatchObject({
+        status: 400,
+      });
+    }
+    expect(mocks.execute).not.toHaveBeenCalled();
+  });
+
   it('publishes partial and legacy full bodies while excluding unknown and read-only fields', () => {
     const schema = operations[1].operation.requestBody.content['application/json'].schema;
     for (const input of [
@@ -164,6 +198,8 @@ describe('settings field updates', () => {
       allowlist: [],
       rules: [customRule],
       isDemo: true,
+      aiCrawlerEnabled: true,
+      logsConfigured: false,
     });
     expect(mocks.calls.slice(0, 3)).toEqual(['lock', 'read', 'write']);
     expect(mocks.lock).toHaveBeenCalledWith(expect.anything(), id, identity);
@@ -173,7 +209,12 @@ describe('settings field updates', () => {
     const partial = await saveSettings(id.toUpperCase(), { robots: 'User-agent: *' }, identity);
     expect(partial).toMatchObject({ robots: 'User-agent: *', allowlist: [], rules: BOT_RULES });
     const complete = { robots: '', allowlist: ['192.0.2.0/24'], rules: [customRule] };
-    expect(await saveSettings(id, complete, identity)).toEqual({ ...complete, isDemo: false });
+    expect(await saveSettings(id, complete, identity)).toEqual({
+      ...complete,
+      isDemo: false,
+      aiCrawlerEnabled: true,
+      logsConfigured: false,
+    });
   });
 
   it('requires a known field and rejects unknown, protected or invalid fields before writing', async () => {

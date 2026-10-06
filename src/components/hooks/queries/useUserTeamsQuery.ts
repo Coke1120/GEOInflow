@@ -8,8 +8,8 @@ export function useUserTeamsQuery(userId: string) {
 
   return usePagedQuery({
     queryKey: ['teams', { userId, modified }],
-    queryFn: params => {
-      return get(`/users/${userId}/teams`, params);
+    queryFn: (params, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/users/${userId}/teams`, params, {}, signal);
     },
     enabled: !!userId,
   });

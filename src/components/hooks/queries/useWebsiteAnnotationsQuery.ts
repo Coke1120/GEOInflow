@@ -13,7 +13,8 @@ export function useWebsiteAnnotationsQuery(
 
   return useQuery({
     queryKey: ['website:annotations', { websiteId, modified, ...params }],
-    queryFn: () => get(`/websites/${websiteId}/annotations`, params),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(`/websites/${websiteId}/annotations`, params, {}, signal),
     enabled: !!websiteId,
     placeholderData: keepPreviousData,
     ...options,

@@ -1,4 +1,6 @@
 import { beforeAll, describe, expect, test, vi } from 'vitest';
+import { analyticsCache } from './liekan/upstream/query-cache';
+import { bindCacheRequest, withQueryCacheHeaders } from './liekan/upstream/cache-context';
 
 process.env.DATABASE_URL ??= 'postgresql://user:pass@localhost:5432/umami?schema=public';
 delete process.env.DATABASE_REPLICA_URL;
@@ -80,6 +82,78 @@ describe('getRawQueryClient', () => {
 
     expect(getRawQueryClient(client, { write: true })).toBe(client);
   });
+});
+
+test('native aggregates use the request timezone when SQL parameters omit it', async () => {
+  const clock = vi.spyOn(Date, 'now').mockReturnValue(+new Date('2026-10-05T01:00:00Z'));
+  const read = vi.spyOn(analyticsCache, 'read').mockResolvedValue({
+    value: [{ count: 1 }],
+    generatedAt: Date.now(),
+    expiresAt: Date.now() + 30000,
+    status: 'hit',
+    tier: 'memory',
+  });
+  try {
+    for (const timezone of ['UTC', 'America/Los_Angeles']) {
+      await withQueryCacheHeaders(async () => {
+        bindCacheRequest(
+          new Request('http://localhost/api/websites/site/heatmaps'),
+          { user: { id: 'actor' } },
+          { timezone },
+        );
+        await prisma.rawQuery(
+          'select count(*) from website_event where website_id={{websiteId}}',
+          {
+            websiteId: 'site',
+            endDate: new Date('2026-10-04T20:00:00Z'),
+          },
+          'getHeatmap',
+        );
+        return Response.json({ ok: true });
+      });
+    }
+    expect(read.mock.calls.map(call => call[1])).toEqual([300000, 30000]);
+    expect(read.mock.calls[0][0]).not.toEqual(read.mock.calls[1][0]);
+  } finally {
+    read.mockRestore();
+    clock.mockRestore();
+  }
+});
+
+test('equivalent native SQL bindings share a key across worker and HTTP metadata', async () => {
+  const read = vi
+    .spyOn(analyticsCache, 'read')
+    .mockResolvedValue({
+      value: [{ count: 1 }],
+      generatedAt: Date.now(),
+      expiresAt: Date.now() + 30000,
+      status: 'hit',
+      tier: 'memory',
+    });
+  try {
+    await withQueryCacheHeaders(async () => {
+      bindCacheRequest(
+        new Request('http://localhost/api/websites/site/stats'),
+        { user: { id: 'actor' } },
+        { timezone: 'UTC' },
+      );
+      const parameters = { websiteId: 'site', startDate: new Date(1000), endDate: new Date(2000) };
+      const sql =
+        'select count(*) from website_event where website_id={{websiteId::uuid}} and created_at between {{startDate}} and {{endDate}}';
+      await prisma.rawQuery(sql, parameters, 'getWebsiteStats');
+      await prisma.rawQuery(
+        sql,
+        { ...parameters, compare: 'prev', startAt: 1000, endAt: 2000, currency: 'USD' },
+        'getWebsiteStats',
+      );
+      await prisma.rawQuery(sql, { ...parameters, endDate: new Date(3000) }, 'getWebsiteStats');
+      return Response.json({ ok: true });
+    });
+    expect(read.mock.calls[0][0]).toEqual(read.mock.calls[1][0]);
+    expect(read.mock.calls[0][0]).not.toEqual(read.mock.calls[2][0]);
+  } finally {
+    read.mockRestore();
+  }
 });
 
 describe('getDateSQL timezone formatting', () => {

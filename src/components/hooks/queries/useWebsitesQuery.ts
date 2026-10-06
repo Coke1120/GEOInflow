@@ -9,11 +9,16 @@ export function useWebsitesQuery(params?: Record<string, any>, options?: ReactQu
 
   return usePagedQuery({
     queryKey: ['websites:admin', { modified, ...params }],
-    queryFn: pageParams => {
-      return get(`/admin/websites`, {
-        ...pageParams,
-        ...params,
-      });
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        `/admin/websites`,
+        {
+          ...pageParams,
+          ...params,
+        },
+        {},
+        signal,
+      );
     },
     ...options,
   });

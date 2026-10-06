@@ -29,6 +29,10 @@ describe('read-only data regression runner', () => {
     expect(replay).toContain(sql.trim().slice(5));
     expect(adapters.sourceHash()).toMatch(/^[a-f0-9]{64}$/);
   });
+  it('isolates effective log reads in the synthetic fixture', () => {
+    const replay = readonlyFixtureSQL('SELECT count(*) FROM liekan_effective_log', []);
+    expect(replay).toContain('liekan_effective_log AS (SELECT * FROM liekan_log)');
+  });
   it('rejects mutations before preparing a fixture and binds literal values safely', () => {
     expect(() => readonlyFixtureSQL('DELETE FROM liekan_log', [])).toThrow('read queries only');
     const replay = readonlyFixtureSQL('SELECT $1::text AS value', ["author's value"]);

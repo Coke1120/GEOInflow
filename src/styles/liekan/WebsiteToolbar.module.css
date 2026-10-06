@@ -1,0 +1,69 @@
+.toolbar {
+  --lk-toolbar-control-height: 36px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e9ecf1;
+  position: sticky;
+  top: 0;
+  z-index: 32;
+}
+.context {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.toolbar .context :global(.site-switch) {
+  max-width: 100%;
+  min-height: var(--lk-toolbar-control-height);
+  height: var(--lk-toolbar-control-height);
+}
+.actions {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 100%;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.actions:empty {
+  display: none;
+}
+.actions > div {
+  justify-content: flex-end;
+}
+.toolbar .actions button {
+  min-height: var(--lk-toolbar-control-height);
+  height: var(--lk-toolbar-control-height);
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .toolbar {
+    --lk-toolbar-control-height: 44px;
+    padding: 0 20px;
+    flex-wrap: wrap;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 540px) {
+  .toolbar {
+    padding: 0 16px 8px;
+  }
+  .context {
+    flex-basis: 100%;
+  }
+  .actions {
+    width: 100%;
+  }
+}

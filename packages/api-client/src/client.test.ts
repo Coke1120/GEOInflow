@@ -1,6 +1,6 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, expectTypeOf, test } from 'vitest';
 import { UmamiClient } from './client';
-import { operations } from './generated/operations';
+import { type OperationOutput, operations } from './generated/operations';
 
 interface Captured {
   url: URL;
@@ -147,4 +147,26 @@ describe('UmamiClient', () => {
     expect(result).toEqual({ visitors: 3 });
     expect(calls[0].url.pathname).toBe('/api/websites/w1/active');
   });
+});
+
+test('declares both JSON and SSE AI responses without retrying the paid POST', async () => {
+  type Run = OperationOutput<'getLiekanAiRun'>;
+  expectTypeOf<OperationOutput<'testLiekanAiConnection'>>().toEqualTypeOf<Run | string>();
+  expectTypeOf<OperationOutput<'postLiekanAiAnalysis'>>().toEqualTypeOf<Run | string>();
+  const stream = 'event: done\ndata: {"state":"completed"}\n\n';
+  const calls: string[] = [];
+  const client = new UmamiClient({
+    fetch: async url => {
+      calls.push(url.toString());
+      return calls.length === 1
+        ? new Response(stream, { headers: { 'content-type': 'text/event-stream' } })
+        : new Response('{"state":"completed"}', {
+            headers: { 'content-type': 'application/json' },
+          });
+    },
+  });
+  const input = { id: 'fixture', clientRequestId: 'fixture-request', expectedConfigVersion: 1 };
+  expect(await client.testLiekanAiConnection(input)).toBe(stream);
+  expect(await client.testLiekanAiConnection(input)).toEqual({ state: 'completed' });
+  expect(calls).toHaveLength(2);
 });

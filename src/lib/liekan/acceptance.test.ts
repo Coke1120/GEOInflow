@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
@@ -36,8 +37,10 @@ import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { syncBuiltinESMExports } from 'node:module';
 const head=${JSON.stringify(head)}, upstream=${JSON.stringify(upstream)}, lock=${JSON.stringify(lock)}, version=${JSON.stringify(version)}, fault=${JSON.stringify(fault)};
+const port=fault==='default-http-port'?80:fault==='custom-port'?3346:3302, baseUrl='http://127.0.0.1:'+port;
 let keepAlive, restoreStarted=false;
 const ledger=Object.entries(lock).map(([name,checksum])=>({name,checksum,appliedAt:'fixture'}));
+if(fault==='installation-checksum')ledger.find(row=>row.name==='006_website_installation.sql').checksum='changed';
 const official=[{migration_name:'26_add_api_key',checksum:createHash('sha256').update('SELECT 1;\\n').digest('hex'),finished_at:'fixture',rolled_back_at:null}];
 if(fault==='official-checksum')official[0].checksum='modified';
 if(fault==='official-missing')official[0].migration_name='deleted_official_migration';
@@ -45,8 +48,9 @@ if(fault==='official-unfinished')official[0].finished_at=null;
 cp.execFileSync=(command,args,options={})=>{
  if(command==='git')return args[0]==='rev-parse'?head:'';
  const verb=args[0];
+ if(verb==='create'&&args.includes('-p')&&args[args.indexOf('-p')+1]!=='127.0.0.1:'+port+':3000')throw Error('Docker port mismatch');
  if(verb==='create'&&options.env?.DATABASE_URL?.endsWith('/liekan_restore'))restoreStarted=true;
- if(verb==='image')return args.at(-1)==='{{.Id}}'?'sha256:fixture':JSON.stringify({'org.opencontainers.image.revision':head,'org.opencontainers.image.version':version,'io.liekan.ui.sha256':upstream.uiManifestSha256,'io.liekan.feature-ui.sha256':fault==='feature-ui-label'?'wrong':upstream.featureUiManifestSha256,'io.liekan.upstream.revision':upstream.commit,'io.liekan.migration':String(upstream.liekanMigration)});
+ if(verb==='image')return args.at(-1)==='{{.Id}}'?'sha256:fixture':JSON.stringify({'org.opencontainers.image.revision':head,'org.opencontainers.image.version':version,'io.liekan.ui.sha256':upstream.uiManifestSha256,'io.liekan.feature-ui.sha256':fault==='feature-ui-label'?'wrong':upstream.featureUiManifestSha256,'io.liekan.upstream.revision':upstream.commit,'io.liekan.migration':String(upstream.liekanMigration),'io.liekan.ai-ui.sha256':fault==='ai-ui-label'?'wrong':upstream.aiUiManifestSha256});
  if(verb==='compose')return 'fixture-source';
  if(verb==='inspect')return JSON.stringify({'com.docker.compose.project':'liekan','com.docker.compose.service':'db'});
  if(verb==='network'&&args[1]==='ls')return 'fixture-network';
@@ -61,6 +65,8 @@ cp.execFileSync=(command,args,options={})=>{
  }
  if(verb==='exec'&&args.includes('psql')){
   const sql=args.at(-1);
+  if(sql==="SELECT to_regclass('liekan_installation') IS NOT NULL")return args.includes('liekan_restore')&&((fault==='installation-old-backup'&&!restoreStarted)||(fault==='installation-missing'&&restoreStarted))?'f':'t';
+  if(sql.includes('FROM liekan_installation'))return JSON.stringify(!args.includes('liekan_restore')||fault==='installation-old-backup'?[]:[{websiteId:'fixture-website',method:'cloudflare',lastStep:fault==='installation-state'&&restoreStarted?'finish':'logs',browserCheckDeferred:true,logCheckDeferred:false,completedAt:null,updatedAt:'2026-10-04T00:00:00Z'}]);
   if(sql.includes('information_schema'))return JSON.stringify([{exists:true}]);
   if(sql.includes('_prisma_migrations'))return JSON.stringify(fault==='pending-upgrade'&&args.includes('liekan_restore')&&!restoreStarted?[]:official);
   if(sql==='SELECT count(*) FROM liekan_migration')return String(upstream.liekanMigration);
@@ -80,10 +86,16 @@ cp.spawnSync=(command,args,options={})=>{
   if(fault==='data-regression-failed')return {status:1};
   fs.writeSync(options.stdio[1],JSON.stringify({passed:true,sourceHash:'a'.repeat(64),checks:Array.from({length:8},(_,i)=>'fixture '+i),readOnly:true,fixture:'synthetic-relations'})+'\\n');
  }
- if(args.includes('playwright.api.config.ts')){fs.mkdirSync('tests/api/.runtime/127.0.0.1-3302/coverage',{recursive:true});fs.writeFileSync('tests/api/.runtime/127.0.0.1-3302/coverage/summary.json','{}');}
+ if(args.includes('playwright.api.config.ts')){if(options.env.PLAYWRIGHT_BASE_URL!==baseUrl)throw Error('API origin mismatch');const coverage='tests/api/.runtime/'+new URL(baseUrl).host.replace(/[^a-z0-9.-]+/gi,'-')+'/coverage';fs.mkdirSync(coverage,{recursive:true});fs.writeFileSync(coverage+'/summary.json','{}');}
+ if(args.some(arg=>['scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-ai-home-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:16},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
- if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:68*4},()=>({passed:true}))}));}
+ if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:68*4},()=>({passed:true})),mobile:{head:fault==='mobile-visual-head'?'other':head,passed:fault!=='mobile-visual-failed',checks:fault==='mobile-visual-count'?1:79*4*2}}));}
+ if(args.includes('scripts/liekan-ai-visual.mjs')){if(fault==='ai-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai',{recursive:true});fs.writeFileSync('test-results/liekan-ai/report.json',JSON.stringify({passed:true,head:fault==='ai-visual-head'?'other':head,checks:Array.from({length:fault==='ai-visual-count'?1:8},()=>({passed:fault!=='ai-visual-check'})),errors:fault==='ai-visual-errors'?['fixture error']:[]}));}
+ if(args.includes('scripts/liekan-ai-home-visual.mjs')){if(fault==='ai-home-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai-home-v3',{recursive:true});const widths=fault==='ai-home-empty'?[]:fault==='ai-home-count'?[1440]:fault==='ai-home-extra'?[1440,1280,375,320,500]:[1440,1280,375,320];fs.writeFileSync('test-results/liekan-ai-home-v3/report.json',JSON.stringify({passed:fault!=='ai-home-passed',head:fault==='ai-home-head'?'other':head,checks:widths.map(width=>({width,focus:true,reference:true,keyboard:true,overflow:0})),errors:fault==='ai-home-errors'?['fixture error']:[]}));}
+
+ if(args.includes('scripts/liekan-dialog-visual.mjs')){if(fault==='dialog-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-dialogs',{recursive:true});fs.writeFileSync('test-results/liekan-dialogs/report.json',JSON.stringify({passed:fault!=='dialog-visual-passed',head:fault==='dialog-visual-head'?'other':head,checks:Array.from({length:fault==='dialog-visual-count'?1:50},()=>({})),duplicates:fault==='dialog-visual-duplicates-missing'?undefined:(fault==='dialog-visual-duplicates-count'?[1]:[1,1,2,3,4,5,16]).map(id=>({id})),responsive:Array.from({length:fault==='dialog-visual-responsive'?1:15},()=>({})),supplementalResponsive:fault==='dialog-visual-supplemental-missing'?undefined:Array.from({length:fault==='dialog-visual-supplemental-count'?1:8},()=>({})),errors:fault==='dialog-visual-errors'?['fixture error']:[],cleanup:{passed:fault!=='dialog-visual-cleanup'}}));}
+ if(args.includes('scripts/liekan-help-visual.mjs')){if(fault==='help-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-help',{recursive:true});fs.writeFileSync('test-results/liekan-help/report.json',JSON.stringify({passed:fault!=='help-visual-passed',head:fault==='help-visual-head'?'other':head,checks:Array.from({length:fault==='help-visual-count'?9:12},()=>({passed:fault!=='help-visual-check'})),errors:fault==='help-visual-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-visual.mjs')){fs.mkdirSync('test-results/liekan-visual',{recursive:true});fs.writeFileSync('test-results/liekan-visual/geometry.json',JSON.stringify({passed:true,head}));}
  return {status:0};
 };
@@ -97,9 +109,10 @@ cp.spawn=(command,args,options={})=>{
  });
  return child;
 };
-net.createServer=()=>({once(){},listen(_port,_host,callback){callback();},close(callback){callback();}});
+net.createServer=()=>({once(){},listen(_port,_host,callback){if(_port!==port||_host!=='127.0.0.1')throw Error('Port reservation mismatch');callback();},close(callback){callback();}});
 syncBuiltinESMExports();
 globalThis.fetch=async(_url,options={})=>{
+ if(_url!==baseUrl+'/api/heartbeat')throw Error('Heartbeat origin mismatch');
  if(fault!=='cancel')return {ok:true};
  keepAlive=setInterval(()=>{},1000);
  console.log('fixture-ready');
@@ -112,6 +125,11 @@ globalThis.fetch=async(_url,options={})=>{
     args: ['--import', preload, path.join(root, 'scripts/liekan-acceptance.mjs')],
     env: {
       PATH: process.env.PATH,
+      ...(fault === 'custom-port'
+        ? { LIEKAN_ACCEPTANCE_PORT: '3346' }
+        : fault === 'default-http-port'
+          ? { LIEKAN_ACCEPTANCE_PORT: '80' }
+          : {}),
       NODE_ENV: 'test' as const,
       APP_SECRET: 'fixture-secret',
       TWO_FACTOR_ENCRYPTION_KEY: 'a'.repeat(64),
@@ -120,26 +138,54 @@ globalThis.fetch=async(_url,options={})=>{
 }
 
 describe('isolated acceptance CLI failure paths', () => {
-  it('accepts a complete isolated fixture', () => {
-    const setup = fixture('none');
-    try {
-      const result = spawnSync(process.execPath, setup.args, {
-        cwd: setup.cwd,
-        env: setup.env,
-        encoding: 'utf8',
-        timeout: 20000,
-      });
-      if (result.status !== 0) throw new Error(result.stderr || result.stdout);
-      expect(fs.existsSync(path.join(setup.cwd, 'outputs/acceptance.json'))).toBe(true);
-      const report = JSON.parse(
-        fs.readFileSync(path.join(setup.cwd, 'outputs/acceptance.json'), 'utf8'),
-      );
-      expect(report.dataRegression.readOnly).toBe(true);
-      expect(report.dataRegression.checks).toHaveLength(8);
-    } finally {
-      fs.rmSync(setup.cwd, { recursive: true, force: true });
-    }
-  });
+  it.each(['none', 'custom-port', 'default-http-port'])(
+    'accepts a complete isolated fixture with %s',
+    fault => {
+      const setup = fixture(fault);
+      try {
+        const result = spawnSync(process.execPath, setup.args, {
+          cwd: setup.cwd,
+          env: setup.env,
+          encoding: 'utf8',
+          timeout: 20000,
+        });
+        if (result.status !== 0) throw new Error(result.stderr || result.stdout);
+        expect(fs.existsSync(path.join(setup.cwd, 'outputs/acceptance.json'))).toBe(true);
+        const report = JSON.parse(
+          fs.readFileSync(path.join(setup.cwd, 'outputs/acceptance.json'), 'utf8'),
+        );
+        expect(report.url).toBe(
+          `http://127.0.0.1:${fault === 'default-http-port' ? 80 : fault === 'custom-port' ? 3346 : 3302}`,
+        );
+        expect(report.dataRegression.readOnly).toBe(true);
+        expect(report.dataRegression.checks).toHaveLength(8);
+        expect(report.aiHomeVisual.checks.map((check: { width: number }) => check.width)).toEqual([
+          1440, 1280, 375, 320,
+        ]);
+      } finally {
+        fs.rmSync(setup.cwd, { recursive: true, force: true });
+      }
+    },
+  );
+  it.each(['', '0', '-1', '65536', '3346x', '127.0.0.1:3346', ' 3346'])(
+    'rejects an invalid acceptance port %j before Docker work',
+    port => {
+      const setup = fixture('none');
+      try {
+        const result = spawnSync(process.execPath, setup.args, {
+          cwd: setup.cwd,
+          env: { ...setup.env, LIEKAN_ACCEPTANCE_PORT: port },
+          encoding: 'utf8',
+          timeout: 20000,
+        });
+        expect(result.status).not.toBe(0);
+        expect(result.stderr).toContain('LIEKAN_ACCEPTANCE_PORT');
+        expect(fs.readdirSync(path.join(setup.cwd, 'outputs'))).toEqual(['verification.json']);
+      } finally {
+        fs.rmSync(setup.cwd, { recursive: true, force: true });
+      }
+    },
+  );
   it('allows the restored pending official migration before upgrade and requires it afterwards', () => {
     const setup = fixture('pending-upgrade');
     try {
@@ -160,21 +206,77 @@ describe('isolated acceptance CLI failure paths', () => {
       fs.rmSync(setup.cwd, { recursive: true, force: true });
     }
   });
+  it('upgrades a backup predating website installation without losing the empty state', () => {
+    const setup = fixture('installation-old-backup');
+    try {
+      const result = spawnSync(process.execPath, setup.args, {
+        cwd: setup.cwd,
+        env: setup.env,
+        encoding: 'utf8',
+        timeout: 20000,
+      });
+      expect(result.status).toBe(0);
+      const report = JSON.parse(
+        fs.readFileSync(path.join(setup.cwd, 'outputs/acceptance.json'), 'utf8'),
+      );
+      expect(report.installationBefore).toEqual({ present: false });
+      expect(report.installationAfter).toMatchObject({ present: true, count: 0 });
+    } finally {
+      fs.rmSync(setup.cwd, { recursive: true, force: true });
+    }
+  });
   it.each([
+    'installation-checksum',
+    'installation-state',
+    'installation-missing',
     'backup-signal',
     'backup-error',
     'restore-signal',
     'restore-error',
     'data-regression-failed',
     'feature-ui-label',
+    'ai-ui-label',
+    'ai-visual-failed',
+    'ai-visual-head',
+    'ai-visual-count',
+    'ai-visual-check',
+    'ai-visual-errors',
+    'ai-home-failed',
+    'ai-home-head',
+    'ai-home-empty',
+    'ai-home-count',
+    'ai-home-extra',
+    'ai-home-passed',
+    'ai-home-errors',
     'feature-flows-failed',
     'feature-flows-head',
     'feature-flows-count',
     'feature-flows-check',
     'feature-flows-errors',
+    'dialog-visual-failed',
+    'dialog-visual-passed',
+    'dialog-visual-head',
+    'dialog-visual-count',
+    'dialog-visual-duplicates-missing',
+    'dialog-visual-duplicates-count',
+    'dialog-visual-responsive',
+    'dialog-visual-supplemental-missing',
+    'dialog-visual-supplemental-count',
+    'dialog-visual-errors',
+    'dialog-visual-cleanup',
     'feature-visual-failed',
     'feature-visual-head',
     'feature-visual-count',
+    'mobile-visual-head',
+    'mobile-visual-count',
+    'mobile-visual-failed',
+
+    'help-visual-failed',
+    'help-visual-passed',
+    'help-visual-head',
+    'help-visual-count',
+    'help-visual-check',
+    'help-visual-errors',
   ])('rejects %s instead of publishing a full acceptance', fault => {
     const setup = fixture(fault);
     try {
@@ -278,4 +380,50 @@ describe('isolated acceptance CLI failure paths', () => {
     },
     20000,
   );
+});
+
+describe('dialog visual replay fixture snapshot', () => {
+  async function capture(api: (method: string, url: string, body?: any) => Promise<any>) {
+    const source = fs.readFileSync(path.join(root, 'scripts/liekan-dialog-visual.mjs'), 'utf8');
+    const start = source.search(/  const (?:savedReplays|replayStatus) = await api\(/);
+    const end = source.indexOf("  await buttons('replay-player', [[45", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    return runInNewContext(
+      `(async () => { let replayOriginal; ${source.slice(start, end)}; return replayOriginal; })()`,
+      { api, seed: { website: { id: 'site' }, data: { replayVisitId: 'visit' } } },
+    );
+  }
+
+  it('captures the original saved replay beyond the first page before changing it', async () => {
+    const calls: string[] = [];
+    const record = { visitId: 'visit', name: 'original replay' };
+    const original = await capture(async (method, url) => {
+      calls.push(`${method} ${url}`);
+      if (method === 'POST') return { ok: true };
+      if (url.endsWith('/saved/visit')) return { isSaved: true };
+      const page = new URL(url, 'http://fixture').searchParams.get('page') || '1';
+      return {
+        count: 201,
+        data:
+          page === '2'
+            ? [record]
+            : Array.from({ length: 200 }, (_, i) => ({ visitId: `other-${i}` })),
+      };
+    });
+    expect(original.record).toEqual(record);
+    expect(calls[0]).toBe('GET /websites/site/replays/saved/visit');
+    expect(calls.at(-1)).toBe('POST /websites/site/replays/saved/visit');
+  });
+
+  it('stops before changing the replay when its saved record cannot be captured', async () => {
+    const changes: any[] = [];
+    await expect(
+      capture(async (method, url, body) => {
+        if (method === 'POST') changes.push(body);
+        return url.endsWith('/saved/visit') ? { isSaved: true } : { count: 1, data: [] };
+      }),
+    ).rejects.toThrow(/saved replay/i);
+    expect(changes).toEqual([]);
+  });
 });

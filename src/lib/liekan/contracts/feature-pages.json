@@ -543,6 +543,22 @@
       "summary": "返回工作台或查找页面。",
       "route": "",
       "kind": "增补状态"
+    },
+    {
+      "id": "ai-chat",
+      "title": "快速发起",
+      "group": "ai",
+      "summary": "选择网站、日期和模型，基于统计依据发起分析。",
+      "route": "",
+      "kind": "AI 能力"
+    },
+    {
+      "id": "ai-config",
+      "title": "AI配置器",
+      "group": "ai",
+      "summary": "管理模型连接、实时测试和默认分析模型。",
+      "route": "",
+      "kind": "AI 能力"
     }
   ],
   "routes": [

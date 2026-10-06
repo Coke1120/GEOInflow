@@ -13,7 +13,7 @@ export function useUserWebsitesQuery(
 
   return usePagedQuery({
     queryKey: ['websites', { userId, teamId, modified, ...params }],
-    queryFn: pageParams => {
+    queryFn: (pageParams, { signal }: { signal?: AbortSignal } = {}) => {
       return get(
         teamId
           ? `/teams/${teamId}/websites`
@@ -24,6 +24,8 @@ export function useUserWebsitesQuery(
           ...pageParams,
           ...params,
         },
+        {},
+        signal,
       );
     },
     ...options,

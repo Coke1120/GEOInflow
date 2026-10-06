@@ -1,3 +1,4 @@
+import { analyticsCacheLimits } from './cache-policy';
 import { createHash } from 'node:crypto';
 import { deserialize, serialize } from 'node:v8';
 import { Decimal } from '@prisma/client/runtime/client';
@@ -16,14 +17,17 @@ function unpack([kind, value]: any): any {
   if (kind === 2) return Object.fromEntries(value.map(([key, item]: any) => [key, unpack(item)]));
   return value;
 }
-const encode = (value: unknown) => serialize(pack(value));
-const decode = (bytes: Buffer) => unpack(deserialize(bytes));
+export const encodeAnalyticsResult = (value: unknown) => serialize(pack(value));
+export const decodeAnalyticsResult = (bytes: Buffer) => unpack(deserialize(bytes));
+const encode = encodeAnalyticsResult;
+const decode = decodeAnalyticsResult;
 
 export interface CachedResult<T> {
   value: T;
   generatedAt: number;
   expiresAt: number;
   status: 'hit' | 'miss' | 'coalesced';
+  tier?: 'memory' | 'redis' | 'computed';
 }
 interface Entry {
   bytes: Buffer;
@@ -39,15 +43,66 @@ interface Flight {
 
 /** Bounded, process-local derived data. Authorization is performed by each caller. */
 export class QueryCache {
+  private runtime?: <T>(
+    key: string,
+    ttl: number,
+    tags: string[],
+    load: () => Promise<T>,
+    refresh: boolean,
+  ) => Promise<CachedResult<T>>;
   private entries = new Map<string, Entry>();
   private flights = new Map<string, Flight>();
   private bytes = 0;
 
   constructor(
-    private maxEntries = 128,
-    private maxBytes = 32 * 1024 * 1024,
+    private maxEntries: number = analyticsCacheLimits.entries,
+    private maxBytes: number = analyticsCacheLimits.bytes,
     private now = Date.now,
   ) {}
+
+  configure(runtime: QueryCache['runtime']) {
+    this.runtime = runtime;
+  }
+  get isRuntimeConfigured() {
+    return !!this.runtime;
+  }
+
+  getLocal<T>(key: string): CachedResult<T> | undefined {
+    const entry = this.entries.get(key);
+    if (!entry || entry.expiresAt <= this.now()) {
+      this.remove(key);
+      return;
+    }
+    this.entries.delete(key);
+    this.entries.set(key, entry);
+    return {
+      value: decode(entry.bytes),
+      generatedAt: entry.generatedAt,
+      expiresAt: entry.expiresAt,
+      status: 'hit',
+      tier: 'memory',
+    };
+  }
+
+  putLocal<T>(key: string, result: CachedResult<T>, tags: string[]) {
+    const bytes = encode(result.value);
+    if (
+      result.expiresAt <= this.now() ||
+      bytes.length > Math.min(this.maxBytes, analyticsCacheLimits.resultBytes)
+    )
+      return;
+    this.remove(key);
+    for (const [oldKey, old] of this.entries) if (old.expiresAt <= this.now()) this.remove(oldKey);
+    while (this.entries.size >= this.maxEntries || this.bytes + bytes.length > this.maxBytes)
+      this.remove(this.entries.keys().next().value!);
+    this.entries.set(key, {
+      bytes,
+      tags,
+      generatedAt: result.generatedAt,
+      expiresAt: result.expiresAt,
+    });
+    this.bytes += bytes.length;
+  }
 
   invalidate(tag: string) {
     for (const [key, entry] of this.entries) if (entry.tags.includes(tag)) this.remove(key);
@@ -75,6 +130,7 @@ export class QueryCache {
     load: () => Promise<T>,
     refresh = false,
   ): Promise<CachedResult<T>> {
+    if (this.runtime) return this.runtime(key, ttl, tags, load, refresh);
     if (refresh) this.remove(key);
     const entry = this.entries.get(key);
     if (entry && entry.expiresAt > this.now()) {
@@ -135,8 +191,14 @@ const symbol = Symbol.for('liekan.analytics-cache.v1');
 const shared = globalThis as typeof globalThis & { [symbol]?: QueryCache };
 export const analyticsCache = (shared[symbol] ??= new QueryCache());
 export const websiteCacheTag = (id: string) => `website:${id.toLowerCase()}`;
-export const invalidateWebsiteAnalytics = (id: string) =>
-  analyticsCache.invalidate(websiteCacheTag(id));
+export function invalidateWebsiteAnalytics(...ids: string[]) {
+  const websites = [...new Set(ids.filter(Boolean))];
+  for (const id of websites) analyticsCache.invalidate(websiteCacheTag(id));
+  // Queue production is advisory and cannot roll back a completed mutation.
+  void import('./analytics-hot')
+    .then(module => module.notifyAnalyticsHotInvalidation(websites))
+    .catch(() => {});
+}
 export function analyticsCacheKey(namespace: string, value: unknown) {
   const canonical = (item: any): any => {
     if (item instanceof Date) return item.toISOString();

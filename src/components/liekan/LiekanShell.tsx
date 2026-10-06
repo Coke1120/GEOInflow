@@ -1,19 +1,28 @@
 'use client';
 import { type CSSProperties, createContext, type ReactNode, useContext, useState } from 'react';
 import type { FeatureUser } from '@/lib/liekan/contracts/features';
-import { geoPageFromPath, pageNavigation } from '@/lib/liekan/contracts/navigation';
+import {
+  geoPageFromPath,
+  navigationFor,
+  pageNavigation,
+  websiteAnalysisFamily,
+} from '@/lib/liekan/contracts/navigation';
 import { useNavigation, useWebsiteQuery } from '@/lib/liekan/upstream/client';
 import { featureSiteQuery } from '@/lib/liekan/upstream/features-client';
 import reference from '@/styles/liekan/Reference.module.css';
 import styles from '@/styles/liekan/Shell.module.css';
+import { AnalysisTabs } from './AnalysisTabs';
 import { DataLoading } from './DataLoading';
 import { featureNavigationHref, matchFeatureRoute } from './features/routes';
 import { Navigation, useSidebarWidth } from './Navigation';
+import { ProductFooter } from './ProductFooter';
+import { WebsiteToolbar } from './WebsiteToolbar';
 import type { LiekanReport } from './types';
 
 const ShellContext = createContext<{
   setWebsite: (website: LiekanReport['website']) => void;
   setBotCount: (count: number) => void;
+  websiteActionsTarget: HTMLDivElement;
 }>(null);
 export const useLiekanShell = () => useContext(ShellContext);
 export function LiekanShell({ children, user }: { children: ReactNode; user: FeatureUser }) {
@@ -34,10 +43,12 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
     !metadataRestricted && metadata.data?.id === websiteId ? metadata.data : undefined;
   const currentWebsite = !metadataRestricted && website?.id === websiteId ? website : undefined;
   const site = currentMetadata ? { ...currentWebsite, ...currentMetadata } : currentWebsite;
+  const [websiteContextTarget, setWebsiteContextTarget] = useState<HTMLDivElement>(null);
+  const [websiteActionsTarget, setWebsiteActionsTarget] = useState<HTMLDivElement>(null);
   const href = (page: string, params: Record<string, any> = {}) =>
     featureNavigationHref(route, query, page, params);
   return (
-    <ShellContext.Provider value={{ setWebsite, setBotCount }}>
+    <ShellContext.Provider value={{ setWebsite, setBotCount, websiteActionsTarget }}>
       <div
         className={styles.shell}
         style={{ '--lk-side-w': `${width}px` } as CSSProperties}
@@ -47,21 +58,31 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
         <Navigation
           user={user}
           route={route}
-          site={site && { ...site, teamId: (site as any).teamId }}
+          site={site}
           width={width}
           onWidth={setWidth}
           href={href}
+          websiteContextTarget={websiteContextTarget}
         />
         <div className={styles.content} id="main-content">
-          <div className={isGeo ? reference.root : styles.coreFrame}>
+          <div className={`${styles.pageBody} ${isGeo ? reference.root : styles.coreFrame}`}>
+            {navigationFor(route).scope === 'website' && (
+              <WebsiteToolbar
+                contextRef={setWebsiteContextTarget}
+                actionsRef={setWebsiteActionsTarget}
+              />
+            )}
             {isGeo && !currentMetadata && metadata.isError ? (
               <>
                 <div className={styles.header}>
                   <div className={styles.headerInner}>
                     <h1 className="text-[16px] font-bold tracking-tight">
-                      {pageNavigation[route.page]?.title}
+                      {websiteAnalysisFamily(route)?.label || pageNavigation[route.page]?.title}
                     </h1>
                   </div>
+                </div>
+                <div className={styles.tabsFrame}>
+                  <AnalysisTabs route={route} href={href} />
                 </div>
                 <div className={styles.notice} role="status">
                   无法读取网站信息
@@ -74,6 +95,7 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
               <DataLoading loading={isGeo && !currentMetadata}>{children}</DataLoading>
             )}
           </div>
+          <ProductFooter />
         </div>
       </div>
     </ShellContext.Provider>

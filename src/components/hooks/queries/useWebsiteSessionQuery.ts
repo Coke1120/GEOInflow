@@ -5,8 +5,8 @@ export function useWebsiteSessionQuery(websiteId: string, sessionId: string | un
 
   return useQuery({
     queryKey: ['session', { websiteId, sessionId }],
-    queryFn: () => {
-      return get(`/websites/${websiteId}/sessions/${sessionId}`);
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => {
+      return get(`/websites/${websiteId}/sessions/${sessionId}`, {}, {}, signal);
     },
     enabled: Boolean(websiteId && sessionId),
   });

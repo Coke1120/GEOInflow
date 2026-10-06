@@ -10,6 +10,7 @@ import {
 } from './query-cache';
 import { LiekanError } from './errors';
 import { withoutQueryCache } from './cache-context';
+import { query, reportSnapshot } from './server';
 
 export async function readPageReport(
   website: { id: string; name: string; domain: string },
@@ -18,7 +19,7 @@ export async function readPageReport(
 ): Promise<CachedResult<LiekanPageReport>> {
   const parsed = reportQuery.safeParse(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
-  const p = parsed.data;
+  const { refresh: requestedRefresh, ...p } = parsed.data;
   let today: number;
   try {
     today = +fromZonedTime(
@@ -35,7 +36,9 @@ export async function readPageReport(
         ? 300000
         : 30000;
   const load = async () => {
-    const report = await withoutQueryCache(() => buildReport(website, false, p, true));
+    const report = await reportSnapshot(() =>
+      withoutQueryCache(() => buildReport(website, false, p, true)),
+    );
     const generatedAt = Date.now();
     return pageReportSchema.parse({
       ...report,
@@ -52,8 +55,27 @@ export async function readPageReport(
       status: 'miss',
     };
   }
-  const key = analyticsCacheKey('page-report-v1', [process.env.DATABASE_URL, website.id, p]);
-  const result = await analyticsCache.read(key, ttl, [websiteCacheTag(website.id)], load, refresh);
+  const revision = analyticsCache.isRuntimeConfigured
+    ? undefined
+    : (
+        await query(
+          'SELECT data_revision::text AS data,policy_revision::text AS policy FROM liekan_log_state WHERE website_id=$1::uuid',
+          website.id,
+        )
+      )[0] || { data: '0', policy: '0' };
+  const key = analyticsCacheKey('page-report-v2', [
+    process.env.DATABASE_URL,
+    website.id,
+    p,
+    revision,
+  ]);
+  const result = await analyticsCache.read(
+    key,
+    ttl,
+    [websiteCacheTag(website.id)],
+    load,
+    refresh || requestedRefresh === '1',
+  );
   result.value.meta.generatedAt = result.generatedAt;
   result.value.meta.expiresAt = result.expiresAt;
   return result;

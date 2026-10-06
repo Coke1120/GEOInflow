@@ -1,0 +1,34 @@
+{
+  "approval": "2026-10-04 已确认的 AI 原型和后端一期、二期方案",
+  "referenceRoot": "design/prototypes/liekan-ai-v1",
+  "sha256": {
+    "README.md": "2219c736990681539cbd231999b887f56de639db9c9da9be8f7b2d84a5f4c8a5",
+    "ai-chat.html": "16ede7c2af4ca39e6d92b33df17afd286f698e7badc5a1eb5729bac6e6b76e86",
+    "ai-config.html": "9630037813644d7a43af47f7c6f32accec7ac364fd41c67f4a28883a894a9e15",
+    "assets/ai.css": "b24da0c93e26fff1f1f0f275034544d4288cb00e64202395f11d61e6f22f2f88",
+    "assets/ai.js": "75568d76023e5fdaa1dc624d214d554bf419b87b2e6eaebbf48a3c67f39a2f84",
+    "assets/config.css": "e8244556eae4a8fbe1842555c6b9a920ea77001ec671465ad6eb89213519b63d",
+    "assets/config.js": "c6634145493ee1d241de017c9a2ec2b969657ac4af1ca5bebadf60c9ab8a0b5e",
+    "assets/model-presets.js": "21f2ac9f9f0b71beda52522c0b4f14f8e7c4b281d6661d795018095a9502d492",
+    "model-api-guide.md": "41c4343666950c35a6b190b6ab7a6424e1d029a2231d2453b7550a18346933c2"
+  },
+  "scope": ["ai-chat", "ai-config"],
+  "originalBodyPolicy": "保留原统计页面主体与图表验收，新增 AI 页面单独验收。",
+  "chatHome": {
+    "approval": "2026-10-05 用户指定 agent.html 的首页样式与交互，并要求修复叠加聚焦边框",
+    "composer": "网站、日期与模型选择位于输入框底部左侧，圆形发送按钮位于右侧。",
+    "shortcuts": ["AI 抓取分析", "来源渠道", "地域地图", "页面与事件", "转化分析", "日志访问流"],
+    "questions": 4,
+    "setup": "未配置时发送打开居中配置弹窗，保存并成功测试后自动选用连接，保留原问题。",
+    "navigation": "网站快捷入口必须携带明确网站与有效 date 范围，日志入口关闭实时模式。",
+    "referenceRoot": "design/reference/ai-chat-home-v3",
+    "sha256": {
+      "agent.html": "b32254cad9a92cd9521f5a6e1382ee4750f84be9921b5dfc942fee68e8efe020",
+      "assets/tailwind-offline.css": "26916a568c15ab05e62bb05dfcae4c2d2586f581768e317eadbc26ad3573d86a",
+      "assets/page-boot.js": "de4f58e1ab4a9f49c9a890faed713600cf6e3166d94c9981e79e89c1f3e8ec89",
+      "assets/workbench-shell.css": "0296111974b6736478c95f6187398f350fe21c2a628f0189e6e99200cbcacb7d",
+      "assets/workbench-shell.js": "1f8b6a3ef15b9bfabd41a7f651960c4206f3fe8e706f96d9d991d2bdc9527d7f"
+    },
+    "focus": "2026-10-05 用户要求输入时去掉深色外边框：首页与继续提问的输入区聚焦时均保持原有浅色边界；网站和模型选择以已有控件边界标记键盘焦点，无额外内描边。"
+  }
+}

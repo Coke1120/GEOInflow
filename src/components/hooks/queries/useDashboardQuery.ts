@@ -9,7 +9,7 @@ export function useDashboardQuery(options?: ReactQueryOptions) {
 
   return useQuery({
     queryKey: ['dashboard', { modified }],
-    queryFn: () => get('/dashboard'),
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => get('/dashboard', {}, {}, signal),
     placeholderData: keepPreviousData,
     ...options,
   });

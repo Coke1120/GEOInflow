@@ -30,15 +30,20 @@ export function useRevenueChartQuery(
         ...filters,
       },
     ],
-    queryFn: async () =>
-      get(`/websites/${websiteId}/revenue/chart`, {
-        currency,
-        startAt,
-        endAt,
-        timezone,
-        unit,
-        ...filters,
-      }),
+    queryFn: async ({ signal }: { signal?: AbortSignal } = {}) =>
+      get(
+        `/websites/${websiteId}/revenue/chart`,
+        {
+          currency,
+          startAt,
+          endAt,
+          timezone,
+          unit,
+          ...filters,
+        },
+        {},
+        signal,
+      ),
     enabled: !!(websiteId && currency),
     placeholderData: keepPreviousData,
     ...options,

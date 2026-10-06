@@ -1,14 +1,14 @@
 import { checkAuth } from '@/lib/auth';
 import { DEFAULT_RESET_DATE } from '@/lib/constants';
 import { getCompareDate } from '@/lib/date';
-import prisma from '@/lib/prisma';
+import prisma, { getRawQueryClient } from '@/lib/prisma';
 import { getQueryFilters } from '@/lib/request';
 import type { Auth } from '@/lib/types';
 import { canViewWebsiteSection } from '@/permissions';
 import { getWebsiteDateRange, getWebsiteStats } from '@/queries/sql';
 import { websiteSummaryQuery, websiteSummarySchema } from '../contracts/website-summary';
 import { statisticsCacheTtl } from './cache-policy';
-import { noteCacheResult, withoutQueryCache } from './cache-context';
+import { bindCacheRequest, noteCacheResult, prepareAnalyticsVersions, withoutQueryCache } from './cache-context';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './query-cache';
 import { LiekanError, query } from './server';
 
@@ -29,8 +29,13 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
   const auth = await checkAuth(request);
   if (!auth?.user || auth.user.deletedAt || ('shareToken' in auth && auth.shareToken))
     throw new LiekanError('需要完整登录', 401);
+  bindCacheRequest(request, auth, parsed.data, async () => {
+    const fresh = await checkAuth(request);
+    return !!fresh?.user && fresh.user.id === auth.user.id && fresh.user.role === auth.user.role;
+  });
+  await prepareAnalyticsVersions(p.ids.map(websiteCacheTag));
   // Check current ownership and permissions before every cache read.
-  const sites = await prisma.client.website.findMany({
+  const sites = await (getRawQueryClient(prisma.client, { write: true }) as typeof prisma.client).website.findMany({
     where: { id: { in: p.ids }, deletedAt: null },
     select: { id: true, createdAt: true },
   });

@@ -1,6 +1,6 @@
 'use client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import type {
   FeatureEntity,
   FeatureRange,
@@ -10,8 +10,11 @@ import type {
 import { hasDateControl, needsWebsite } from '@/lib/liekan/contracts/navigation';
 import {
   freshnessStaleTime,
+  remainingFreshness,
   withClientFreshness,
   shareWithFreshness,
+  hasClientFreshness,
+  useFreshnessLifecycle,
 } from '@/lib/liekan/upstream/client-freshness';
 import type { featureApi } from '@/lib/liekan/upstream/features-client';
 import { useDataLoading } from '../DataLoading';
@@ -51,40 +54,127 @@ export function useResourceContext(entity?: FeatureEntity) {
     if (entity?.id) c?.setEntity?.(entity);
   }, [entity?.id, entity?.name, entity?.teamId, entity?.userId, c?.setEntity]);
 }
+export function useFreshQuery<T = any>(
+  options: any,
+  policy: {
+    aggregate?: boolean | ((data: T | undefined) => boolean);
+    direct?: boolean;
+    endAt?: number;
+    timezone?: string;
+    interval?: number;
+  } = {},
+) {
+  const aggregateFor = (data: T | undefined) =>
+    typeof policy.aggregate === 'function' ? policy.aggregate(data) : policy.aggregate;
+  const key = JSON.stringify(options.queryKey);
+  const currentKey = useRef(key);
+  currentKey.current = key;
+  const force = useRef<string>(null);
+  const client = useQueryClient();
+  const manual = useRef<{ key: string; promise: Promise<any> }>(null);
+  const result = useQuery<T, any>({
+    ...options,
+    queryFn: (context: any) => {
+      const refresh = force.current === JSON.stringify(context.queryKey);
+      if (refresh) force.current = null;
+      return withClientFreshness(context.signal, () => options.queryFn(context), {
+        refresh,
+        queryKey: context.queryKey,
+      });
+    },
+    retry: false,
+    staleTime: policy.direct
+      ? 0
+      : (options.staleTime ??
+        ((query: any) =>
+          freshnessStaleTime(
+            query,
+            aggregateFor(query.state.data) || hasClientFreshness(query.state.data) ? 0 : 300000,
+          ))),
+    gcTime: policy.direct ? 0 : (options.gcTime ?? 600000),
+    structuralSharing: shareWithFreshness,
+    refetchOnMount: (query: any) =>
+      hasClientFreshness(query.state.data) &&
+      remainingFreshness(query.state.data, query.state.dataUpdatedAt) <= 0
+        ? 'always'
+        : (options.refetchOnMount ?? true),
+    refetchOnWindowFocus: policy.direct
+      ? true
+      : (query: any) =>
+          !(
+            aggregateFor(query.state.data) ||
+            hasClientFreshness(query.state.data) ||
+            query.state.error?.aggregate
+          ),
+    refetchOnReconnect: policy.direct
+      ? true
+      : (query: any) =>
+          !(
+            aggregateFor(query.state.data) ||
+            hasClientFreshness(query.state.data) ||
+            query.state.error?.aggregate
+          ),
+  });
+  const visible = useFreshnessLifecycle(result, {
+    ...policy,
+    aggregate: policy.direct ? false : aggregateFor(result.data),
+    queryKey: options.queryKey,
+    enabled: options.enabled,
+  });
+  return {
+    ...visible,
+    refetch: (settings?: any) => {
+      if (manual.current?.key === key) return manual.current.promise;
+      const promise = (async () => {
+        await client.cancelQueries({ queryKey: options.queryKey, exact: true });
+        if (currentKey.current !== key) return result;
+        force.current = key;
+        return result.refetch({ ...settings, cancelRefetch: false });
+      })();
+      const running = { key, promise };
+      manual.current = running;
+      const release = () => {
+        if (manual.current === running) {
+          manual.current = null;
+          if (force.current === key) force.current = null;
+        }
+      };
+      void promise.then(release, release);
+      return promise;
+    },
+  };
+}
 export function useData<T = any>(
   key: string | any[],
   load: (signal: AbortSignal) => Promise<T>,
   enabled = true,
-  cache?: { queryKey: any[]; staleTime: number },
+  cache?: { queryKey: any[]; staleTime: number; aggregate?: boolean; direct?: boolean },
 ) {
   const c = useFeature();
   const loading = useDataLoading();
-  const result = useQuery<T>({
-    queryKey: cache?.queryKey ?? [
-      'liekan-feature',
-      c?.user?.id,
-      c?.siteId,
-      c?.route?.teamId,
-      c?.route?.context,
-      c?.query?.scope,
-      c?.route?.id,
-      c?.route && hasDateControl(c.route) ? c?.range : undefined,
-      c?.route && needsWebsite(c.route) ? c?.filters : undefined,
-      ...(Array.isArray(key) ? key : [key]),
-    ],
-    queryFn: ({ signal }) => withClientFreshness(signal, () => load(signal)),
-    enabled: enabled && !loading,
-    retry: false,
-    staleTime: query =>
-      ['realtime', 'session-detail', 'replay-view'].includes(c?.route?.page)
-        ? 0
-        : freshnessStaleTime(
-            query,
-            cache?.staleTime ?? (c?.route && hasDateControl(c.route) ? 30000 : 300000),
-          ),
-    gcTime: 600000,
-    structuralSharing: shareWithFreshness,
-  });
+  const direct =
+    cache?.direct ||
+    ['realtime', 'session-detail', 'replay-view', 'replay-player'].includes(c?.route?.page);
+  const result = useFreshQuery<T>(
+    {
+      queryKey: cache?.queryKey ?? [
+        'liekan-feature',
+        c?.user?.id,
+        c?.siteId,
+        c?.route?.teamId,
+        c?.route?.context,
+        c?.query?.scope,
+        c?.route?.id,
+        c?.route && hasDateControl(c.route) ? c?.range : undefined,
+        c?.route && needsWebsite(c.route) ? c?.filters : undefined,
+        ...(Array.isArray(key) ? key : [key]),
+      ],
+      queryFn: ({ signal }: { signal: AbortSignal }) => load(signal),
+      enabled: enabled && !loading,
+      ...(cache?.staleTime != null ? { staleTime: cache.staleTime } : {}),
+    },
+    { aggregate: cache?.aggregate, direct, endAt: c?.range?.endAt, timezone: c?.range?.timezone },
+  );
   return loading ? { ...result, data: undefined, isPending: true } : result;
 }
 export function useAction() {

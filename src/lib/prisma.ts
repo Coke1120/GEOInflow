@@ -1,7 +1,7 @@
 import { PrismaPg } from '@prisma/adapter-pg';
 import { readReplicas } from '@prisma/extension-read-replicas';
 import debug from 'debug';
-import { PrismaClient } from '@/generated/prisma/client';
+import { PrismaClient, type Prisma } from '@/generated/prisma/client';
 import {
   DATA_TYPE,
   DEFAULT_PAGE_SIZE,
@@ -13,10 +13,18 @@ import { getCountryFilterValues, getRegionFilterValues } from './country';
 import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
 import { channelFilterColumn } from './liekan/upstream/filter-extension';
+import { privateAiQueryLog } from './liekan/upstream/ai-query-logging';
 import { getQuerySnapshot } from './liekan/upstream/query-snapshot';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './liekan/upstream/query-cache';
-import { cacheHeadersEnabled, noteCacheResult } from './liekan/upstream/cache-context';
+import {
+  cacheHeadersEnabled,
+  noteCacheResult,
+  currentCacheContext,
+} from './liekan/upstream/cache-context';
 import { statisticsCacheTtl } from './liekan/upstream/cache-policy';
+import { installAnalyticsRuntime } from './liekan/upstream/analytics-runtime';
+import { isAnalyticsWorker } from './liekan/upstream/process-role';
+import { primaryMetadataClient } from './liekan/upstream/analytics-deadline';
 
 const log = debug('umami:prisma');
 
@@ -64,6 +72,8 @@ export function getRawQueryClient(
     write?: boolean;
   } = {},
 ) {
+  const metadata = primaryMetadataClient();
+  if (metadata) return metadata as RawQueryClient;
   if (write) {
     const primary = typeof client.$primary === 'function' ? client.$primary() : null;
     return isRawQueryExecutor(primary) ? primary : client;
@@ -771,7 +781,7 @@ async function executeRawQuery(
   name?: string,
   write = false,
 ): Promise<any> {
-  if (process.env.LOG_QUERY) {
+  if (process.env.LOG_QUERY && !getQuerySnapshot()?.aiPrivate) {
     log('QUERY:\n', sql);
     log('PARAMETERS:\n', data);
     log('NAME:\n', name);
@@ -813,20 +823,47 @@ async function rawQuery(sql: string, data: Record<string, any>, name?: string): 
     'getPageviewExpandedMetrics',
     'getEventStats',
     'getEventMetrics',
+    'getWebsiteEventStats',
+    'getEventExpandedMetrics',
+    'getGoal',
+    'getFunnel',
+    'getRetention',
+    'getJourney',
+    'getBreakdown',
+    'getPerformanceStats',
+    'getPerformanceChart',
+    'getPerformanceMetrics',
+    'getRevenueStats',
+    'getRevenueChart',
+    'getRevenueMetrics',
+    'getUTM',
+    'getWebsiteListCharts',
+    'getHeatmap',
+    'liekanFeatureGoal',
+    'liekanLinkSourcesCount',
+    'liekanLinkSourcesRows',
+    'liekanRevenueCount',
     'getSessionStats',
     'getSessionMetrics',
     'getSessionExpandedMetrics',
   ]);
-  if (data.websiteId && cacheable.has(name) && !getQuerySnapshot() && cacheHeadersEnabled()) {
+  const ids = data.websiteId ? [data.websiteId] : data.websiteIds;
+  const cacheTimezone = data.timezone || currentCacheContext()?.parameters?.timezone;
+  if (ids?.length && cacheable.has(name) && !getQuerySnapshot() && cacheHeadersEnabled()) {
+    const cacheBindings = Object.fromEntries(
+      [...sql.matchAll(/\{\{\s*(\w+)(?:::\w+)?\s*}}/g)].map(match => [match[1], data[match[1]]]),
+    );
+    const inputKey = analyticsCacheKey('native-statistics-v1', [
+      process.env.DATABASE_URL,
+      process.env.DATABASE_REPLICA_URL,
+      sql,
+      cacheBindings,
+      cacheTimezone,
+    ]);
     const result = await analyticsCache.read(
-      analyticsCacheKey('native-statistics-v1', [
-        process.env.DATABASE_URL,
-        process.env.DATABASE_REPLICA_URL,
-        sql,
-        data,
-      ]),
-      data.endDate ? statisticsCacheTtl(data.endDate, data.timezone) : 30000,
-      [websiteCacheTag(data.websiteId)],
+      inputKey,
+      data.endDate ? statisticsCacheTtl(data.endDate, cacheTimezone) : 30000,
+      ids.map(websiteCacheTag),
       () => executeRawQuery(sql, data, name),
     );
     noteCacheResult(result);
@@ -925,8 +962,10 @@ function getSearchParameters(query: string, filters: Record<string, any>[]) {
   };
 }
 
-function transaction(input: any, options?: any) {
-  return client.$transaction(input, options);
+function transaction<T>(input: (tx: any) => Promise<T>, options?: any): Promise<T>;
+function transaction(input: any[], options?: any): Promise<any[]>;
+function transaction(input: any, options?: any): any {
+  return (getRawQueryClient(client, { write: true }) as typeof client).$transaction(input, options);
 }
 
 export function getSchema() {
@@ -952,7 +991,10 @@ function getClient() {
 
   const schema = getSchema();
 
-  const baseAdapter = new PrismaPg({ connectionString: url }, { schema });
+  const baseAdapter = new PrismaPg(
+    { connectionString: url, ...(isAnalyticsWorker() ? { max: 2 } : {}) },
+    { schema },
+  );
 
   const baseClient = new PrismaClient({
     adapter: baseAdapter,
@@ -961,7 +1003,7 @@ function getClient() {
   });
 
   if (logQuery) {
-    baseClient.$on('query', log);
+    baseClient.$on('query', event => log(privateAiQueryLog(event)));
   }
 
   if (!replicaUrl) {
@@ -979,7 +1021,7 @@ function getClient() {
   });
 
   if (logQuery) {
-    replicaClient.$on('query', log);
+    replicaClient.$on('query', event => log(privateAiQueryLog(event)));
   }
 
   const extended = baseClient.$extends(
@@ -995,6 +1037,7 @@ function getClient() {
 }
 
 const client = (globalThis[PRISMA] || getClient()) as ReturnType<typeof getClient>;
+installAnalyticsRuntime(analyticsCache, () => getRawQueryClient(client, { write: true }));
 
 export default {
   client,

@@ -86,3 +86,63 @@ describe('overlapping browser reads', () => {
     expect(peak).toBe(6);
   });
 });
+it('holds speculative reads while visible reads are loading and admits only one prefetch', async () => {
+  const pool = new RequestPool(6);
+  const finish: Array<(value: number) => void> = [];
+  const visible = pool.read('visible', () => new Promise<number>(resolve => finish.push(resolve)));
+  const speculative = vi.fn(() => new Promise<number>(resolve => finish.push(resolve)));
+  const a = pool.read('warm-a', speculative, undefined, 'prefetch');
+  const b = pool.read('warm-b', speculative, undefined, 'prefetch');
+  await Promise.resolve();
+  expect(speculative).not.toHaveBeenCalled();
+  finish[0](1);
+  await visible;
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(speculative).toHaveBeenCalledTimes(1);
+  finish[1](2);
+  await a;
+  await Promise.resolve();
+  await Promise.resolve();
+  expect(speculative).toHaveBeenCalledTimes(2);
+  finish[2](3);
+  expect(await b).toBe(3);
+});
+it('promotes a queued prefetch when a visible consumer needs the same request', async () => {
+  const pool = new RequestPool(1);
+  let finish!: (value: number) => void;
+  const busy = pool.read(
+    'busy',
+    () =>
+      new Promise<number>(resolve => {
+        finish = resolve;
+      }),
+  );
+  const order: string[] = [];
+  const warm = pool.read(
+    'same',
+    async () => {
+      order.push('same');
+      return 7;
+    },
+    undefined,
+    'prefetch',
+  );
+  const other = pool.read(
+    'other',
+    async () => {
+      order.push('other');
+      return 8;
+    },
+    undefined,
+    'prefetch',
+  );
+  const visible = pool.read('same', async () => 99);
+  await Promise.resolve();
+  finish(0);
+  await busy;
+  expect(await visible).toBe(7);
+  expect(await warm).toBe(7);
+  expect(await other).toBe(8);
+  expect(order).toEqual(['same', 'other']);
+});

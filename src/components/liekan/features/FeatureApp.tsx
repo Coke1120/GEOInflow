@@ -21,27 +21,33 @@ import {
   invalidateFeatureUserQueries,
 } from '@/lib/liekan/upstream/features-client';
 import '@/styles/liekan/Features.module.css';
+import shellStyles from '@/styles/liekan/Shell.module.css';
 import {
-  globalNavigation,
   hasDateControl,
   navigationFor,
   needsWebsite,
-  pageNavigation,
   resourceListPages,
-  websiteNavigation,
+  websiteAnalysisFamily,
 } from '@/lib/liekan/contracts/navigation';
+import { AnalysisTabs } from '../AnalysisTabs';
 import { DataLoading } from '../DataLoading';
 import { Navigation, useSidebarWidth } from '../Navigation';
+import { ProductFooter } from '../ProductFooter';
+import { WebsiteToolbar } from '../WebsiteToolbar';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
+import { AiPages, aiPages } from './AiPages';
+import { HelpCenter } from './HelpCenter';
 import { FeatureProvider } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
 import { featureHref, featureNavigationHref, featurePages, normalizeFeatureScope } from './routes';
-import { Button, Drawer, Field, Form, Icon, Notice, QueryState, Select } from './ui';
+import { SavedSegments } from './SavedSegments';
+import { Button, LiekanDialog, Field, Form, Icon, Notice, QueryState } from './ui';
 import { WorkspacePages, workspacePages } from './WorkspacePages';
 
 export const coreFeaturePages = new Set([
+  'help',
   'websites',
   'onboarding',
   'tracking',
@@ -65,9 +71,14 @@ export const coreFeaturePages = new Set([
 export function canRenderFeatureRoute(route: FeatureRoute | null) {
   return (
     !!route &&
-    [coreFeaturePages, analysisPages, extendedPages, workspacePages, linksPixelsPages].some(pages =>
-      pages.has(route.page),
-    )
+    [
+      coreFeaturePages,
+      analysisPages,
+      extendedPages,
+      workspacePages,
+      linksPixelsPages,
+      aiPages,
+    ].some(pages => pages.has(route.page))
   );
 }
 export function FeatureApp({
@@ -194,7 +205,7 @@ export function FeatureApp({
   const teamsQuery = useQuery({
     queryKey: ['liekan-feature', user.id, 'teams'],
     queryFn: ({ signal }) => getAllFeatureRows<FeatureEntity>('/me/teams', {}, signal),
-    enabled: !setup,
+    enabled: !setup && route.page !== 'help',
     retry: false,
     staleTime: 300000,
     gcTime: 600000,
@@ -232,6 +243,9 @@ export function FeatureApp({
   });
   const site = siteQuery.data || sites.find(s => s.id === siteId);
   const current = forceSetup ? { ...route, page: 'two-factor' } : route;
+  const websiteLayout = meta.scope === 'website';
+  const [segmentsOpen, setSegmentsOpen] = useState(false);
+  const [websiteContextTarget, setWebsiteContextTarget] = useState<HTMLDivElement>(null);
   const page = featurePages.find(p => p.id === current.page);
   const href = useCallback(
     (page: string, params: Record<string, any> = {}) =>
@@ -276,6 +290,7 @@ export function FeatureApp({
   );
   useEffect(() => {
     setDateOpen(false);
+    setSegmentsOpen(false);
   }, [nav.pathname, route.websiteId, route.id]);
   useEffect(() => {
     if (!toast) return;
@@ -310,22 +325,43 @@ export function FeatureApp({
         </div>
       </FeatureProvider>
     );
+  const family = websiteAnalysisFamily(current);
   const currentTitle =
-    current.id && /-editor$/.test(current.page)
-      ? (page?.title || '').replace(/^创建/, '编辑')
-      : page?.title || '猎看统计';
-  const section = [...globalNavigation, ...websiteNavigation].find(
-    group => group.id === meta.section,
+    family && !meta.parent && current.page !== 'segments'
+      ? family.label
+      : current.id && /-editor$/.test(current.page)
+        ? (page?.title || '').replace(/^创建/, '编辑')
+        : page?.title || '猎看统计';
+  const pageKey = `${siteId || current.teamId || user.id}:${current.page}:${current.id || ''}`;
+  const invalidRange = datePage && range.endAt - range.startAt > 1096 * 86400000;
+  const readOnlyGlobalPage = !setup && ['websites', 'dashboard'].includes(current.page);
+  const metadata = teamState?.isPending || teamState?.error ? teamState : sitesQuery;
+  const showAnalysisTools =
+    websiteRequired &&
+    !['tracking', 'install-check', 'website-settings', 'recorder-settings', 'sharing'].includes(
+      current.page,
+    ) &&
+    !!siteId;
+  const rangeContext = datePage && (
+    <div className="range-context">
+      统计期间：{formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
+      {formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')} · 统计时区：{timezone}
+    </div>
+  );
+  const analysisTabs = (
+    <AnalysisTabs
+      route={current}
+      href={href}
+      onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
+    />
   );
   const content =
-    !setup && (teamState?.isPending || teamState?.error) ? (
-      teamState.isPending && ['websites', 'dashboard'].includes(current.page) ? (
-        <DataLoading loading label="正在读取数据">
-          <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
-        </DataLoading>
-      ) : (
-        <QueryState query={teamState}>{null}</QueryState>
-      )
+    readOnlyGlobalPage && !invalidRange ? (
+      <QueryState readOnly={!metadata.error} query={metadata}>
+        <FeaturePage key={pageKey} page={current.page} />
+      </QueryState>
+    ) : !setup && (teamState?.isPending || teamState?.error) ? (
+      <QueryState query={teamState}>{null}</QueryState>
     ) : !setup && websiteRequired && !siteId ? (
       <Notice>
         请选择需要查看的网站。
@@ -350,32 +386,34 @@ export function FeatureApp({
       </Notice>
     ) : !setup && websiteRequired && siteQuery.error ? (
       <QueryState query={siteQuery}>{null}</QueryState>
-    ) : !setup &&
-      needsSites &&
-      !websiteRequired &&
-      sitesQuery.isPending &&
-      ['websites', 'dashboard'].includes(current.page) ? (
-      <DataLoading loading label="正在读取数据">
-        <FeaturePage key={`${current.teamId || user.id}:${current.page}`} page={current.page} />
-      </DataLoading>
     ) : !setup && needsSites && !websiteRequired && (sitesQuery.isPending || sitesQuery.error) ? (
       <QueryState query={sitesQuery}>{null}</QueryState>
-    ) : datePage && range.endAt - range.startAt > 1096 * 86400000 ? (
+    ) : invalidRange ? (
       <Notice>日期范围上限 3 年，请调整日期后查看。</Notice>
     ) : (
-      <FeaturePage
-        key={`${siteId || current.teamId || user.id}:${current.page}:${current.id || ''}`}
-        page={current.page}
-      />
+      <FeaturePage key={pageKey} page={current.page} />
     );
+  const dateControl = datePage && (
+    <Button onClick={() => setDateOpen(true)}>
+      {formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
+      {formatInTimeZone(range.endAt, timezone, 'MM-dd')}
+      <Icon name="down" />
+    </Button>
+  );
   if (setup)
     return (
       <FeatureProvider value={value}>
         <div data-liekan-features lang="zh-CN" className="identity-flow">
           <main className="content" id="main-content">
             <h1>{currentTitle}</h1>
+            <AnalysisTabs
+              route={current}
+              href={href}
+              onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
+            />
             {content}
           </main>
+          <ProductFooter />
           {toast && (
             <div className="toast" role="status">
               {toast}
@@ -388,6 +426,7 @@ export function FeatureApp({
     <FeatureProvider value={value}>
       <div
         data-liekan-features
+        data-website-layout={websiteLayout || undefined}
         lang="zh-CN"
         style={
           {
@@ -407,84 +446,19 @@ export function FeatureApp({
           width={width}
           onWidth={setWidth}
           href={href}
+          websiteContextTarget={websiteContextTarget}
         />
         <div className="shell-content">
+          {websiteLayout && (
+            <WebsiteToolbar contextRef={setWebsiteContextTarget} actions={dateControl} />
+          )}
           <header className="header">
             <div className="header-inner">
               <div>
-                <nav className="breadcrumbs" aria-label="页面位置">
-                  {meta.scope === 'website' ? (
-                    <>
-                      <Link href={href('overview')}>网站</Link>
-                      <span>/</span>
-                      <span title={site?.name}>{site?.name || '选择网站'}</span>
-                      <span>/</span>
-                    </>
-                  ) : (
-                    <>
-                      <Link
-                        href={featureHref(
-                          meta.scope === 'admin'
-                            ? 'admin-users'
-                            : meta.scope === 'account'
-                              ? 'account'
-                              : 'dashboard',
-                        )}
-                      >
-                        {meta.scope === 'admin'
-                          ? '系统管理'
-                          : meta.scope === 'account'
-                            ? '个人账户'
-                            : '全局管理'}
-                      </Link>
-                      <span>/</span>
-                    </>
-                  )}
-                  {section && section.label !== currentTitle && (
-                    <>
-                      <Link href={href(section.page)}>{section.label}</Link>
-                      <span>/</span>
-                    </>
-                  )}
-                  {meta.parent && meta.parent !== section?.page && (
-                    <>
-                      <Link
-                        href={href(
-                          meta.parent,
-                          current.page === 'board-design' ? { id: current.id } : {},
-                        )}
-                      >
-                        {pageNavigation[meta.parent]?.title ||
-                          featurePages.find(page => page.id === meta.parent)?.title ||
-                          '返回列表'}
-                      </Link>
-                      <span>/</span>
-                    </>
-                  )}
-                  <span aria-current="page">{currentTitle}</span>
-                  {current.id && (
-                    <span className="muted" title={ownedEntity?.name || current.id}>
-                      · {ownedEntity?.name || current.id.slice(0, 8)}
-                    </span>
-                  )}
-                </nav>
                 <h1>{currentTitle}</h1>
-                <div className="subtitle">
-                  {site?.domain ? `${site.domain} · ` : ''}
-                  {ownedEntity && !websiteRequired
-                    ? `${ownedEntity.teamId ? teams.find(team => team.id === ownedEntity.teamId)?.name || '团队空间' : '个人空间'} · `
-                    : ''}
-                  {page?.summary}
-                </div>
               </div>
               <div className="header-actions">
-                {datePage && (
-                  <Button onClick={() => setDateOpen(true)}>
-                    {formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
-                    {formatInTimeZone(range.endAt, timezone, 'MM-dd')}
-                    <Icon name="down" />
-                  </Button>
-                )}
+                {!websiteLayout && dateControl}
                 {resourceListPages.has(current.page) && meta.scope === 'global' && (
                   <label className="context-select">
                     <span>所属空间</span>
@@ -540,6 +514,21 @@ export function FeatureApp({
               </div>
             </div>
           </header>
+          {showAnalysisTools && (
+            <>
+              <div className={shellStyles.tabsFrame} data-analysis-tabs-frame>
+                {analysisTabs}
+              </div>
+              <div className={`analysis-context ${shellStyles.analysisTools}`}>
+                {rangeContext}
+                <div className="analysis-tools">
+                  <Link href={href('filters')}>高级筛选</Link>
+                  <Link href={href('annotations')}>图表注释</Link>
+                  <Link href={href('exports')}>导出数据</Link>
+                </div>
+              </div>
+            </>
+          )}
           <main className="content" id="main-content">
             {datePage && invalidDate && (
               <Notice tone="amber">
@@ -559,40 +548,28 @@ export function FeatureApp({
                 </Button>
               </Notice>
             )}
-            {datePage && (
-              <div className="range-context">
-                统计期间：{formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
-                {formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')} · 统计时区：{timezone}
-              </div>
-            )}
+            {!showAnalysisTools && rangeContext}
             {websiteRequired && nav.query.clearedFilters === '1' && (
               <Notice>已清除当前页面不支持的筛选，统计采用页面显示的条件。</Notice>
             )}
-            {websiteRequired &&
-              ![
-                'tracking',
-                'install-check',
-                'website-settings',
-                'recorder-settings',
-                'sharing',
-              ].includes(current.page) &&
-              siteId && (
-                <div className="analysis-tools">
-                  <Link href={href('filters')}>高级筛选</Link>
-                  <Link href={href('annotations')}>图表注释</Link>
-                  <Link href={href('exports')}>导出数据</Link>
-                </div>
-              )}
+            {!showAnalysisTools && analysisTabs}
             {content}
           </main>
+          <ProductFooter />
         </div>
         {toast && (
           <div className="toast" role="status">
             {toast}
           </div>
         )}
+        {segmentsOpen && <SavedSegments onClose={() => setSegmentsOpen(false)} />}
         {dateOpen && (
-          <Drawer title="日期范围" onClose={() => setDateOpen(false)}>
+          <LiekanDialog
+            title="选择日期范围"
+            subtitle={timezone}
+            protectUnsaved={false}
+            onClose={() => setDateOpen(false)}
+          >
             <Form
               trackUnsaved={false}
               submitLabel="应用日期范围"
@@ -631,7 +608,7 @@ export function FeatureApp({
                 />
               </div>
             </Form>
-          </Drawer>
+          </LiekanDialog>
         )}
       </div>
     </FeatureProvider>
@@ -654,6 +631,8 @@ function FeaturePage({ page }: { page: string }) {
         </div>
       </Notice>
     );
+  if (aiPages.has(page)) return <AiPages page={page} />;
+  if (page === 'help') return <HelpCenter />;
   if (coreFeaturePages.has(page)) return <CorePages page={page} />;
   if (analysisPages.has(page)) return <AnalyticsPages page={page} />;
   if (extendedPages.has(page)) return <ExtendedPages page={page} />;

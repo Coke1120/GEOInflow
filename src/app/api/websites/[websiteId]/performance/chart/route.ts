@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { performanceChartQuerySchema } from '@/lib/analytics-schema';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { json, unauthorized } from '@/lib/response';
@@ -5,7 +6,7 @@ import { canViewWebsiteSection } from '@/permissions';
 import type { PerformanceParameters } from '@/queries/sql/performance/getPerformance';
 import { getPerformanceChart } from '@/queries/sql/performance/getPerformanceChart';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -16,4 +17,8 @@ export async function GET(
   const filters = await getQueryFilters(query, websiteId);
   const parameters = { ...query, ...filters } as PerformanceParameters;
   return json(await getPerformanceChart(websiteId, parameters, filters));
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args));
 }

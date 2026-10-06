@@ -1,5 +1,6 @@
 import { z } from 'zod';
 export const reportQuery = z.object({
+  refresh: z.literal('1').optional(),
   resource: z.enum([
     'overview',
     'ai/overview',

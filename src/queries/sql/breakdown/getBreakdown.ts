@@ -103,7 +103,7 @@ async function relationalQuery(
     order by 2 desc, 1 desc
     limit 500
     `,
-    queryParams,
+    queryParams, 'getBreakdown',
   );
 }
 
@@ -167,7 +167,7 @@ async function clickhouseQuery(
     order by 2 desc, 1 desc
     limit 500
     `,
-    queryParams,
+    queryParams, 'getBreakdown',
   );
 }
 

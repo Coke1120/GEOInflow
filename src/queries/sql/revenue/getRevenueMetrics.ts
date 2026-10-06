@@ -112,7 +112,7 @@ async function relationalQuery(
       group by 1
       order by value desc
       `,
-      queryParams,
+      queryParams, 'getRevenueMetrics',
     );
   }
 
@@ -133,7 +133,7 @@ async function relationalQuery(
       group by 1, 2
       order by value desc
       `,
-      queryParams,
+      queryParams, 'getRevenueMetrics',
     );
   }
 
@@ -167,7 +167,7 @@ async function relationalQuery(
       group by we.referrer_domain
       order by value desc
       `,
-      queryParams,
+      queryParams, 'getRevenueMetrics',
     );
   }
 
@@ -231,7 +231,7 @@ async function relationalQuery(
     group by name
     order by value desc
     `,
-    queryParams,
+    queryParams, 'getRevenueMetrics',
   );
 }
 
@@ -324,7 +324,7 @@ async function clickhouseQuery(
       group by 1
       order by value desc
       `,
-      queryParams,
+      queryParams, 'getRevenueMetrics',
     );
   }
 
@@ -345,7 +345,7 @@ async function clickhouseQuery(
       group by 1, 2
       order by value desc
       `,
-      queryParams,
+      queryParams, 'getRevenueMetrics',
     );
   }
 
@@ -380,7 +380,7 @@ async function clickhouseQuery(
       group by 1
       order by value desc
       `,
-      queryParams,
+      queryParams, 'getRevenueMetrics',
     );
   }
 
@@ -448,7 +448,7 @@ async function clickhouseQuery(
     group by 1
     order by value desc;
     `,
-    queryParams,
+    queryParams, 'getRevenueMetrics',
   );
 }
 

@@ -5,8 +5,13 @@ export function useSessionDataQuery(websiteId: string, sessionId: string) {
 
   return useQuery({
     queryKey: ['session:data', { websiteId, sessionId }],
-    queryFn: () => {
-      return get(`/websites/${websiteId}/sessions/${sessionId}/properties`, { websiteId });
+    queryFn: ({ signal }: { signal?: AbortSignal } = {}) => {
+      return get(
+        `/websites/${websiteId}/sessions/${sessionId}/properties`,
+        { websiteId },
+        {},
+        signal,
+      );
     },
   });
 }
