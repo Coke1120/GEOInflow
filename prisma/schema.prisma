@@ -107,6 +107,10 @@ model Website {
   updatedAt DateTime? @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
+  // Short public handle for URLs, assigned by liekan_website_site_number_seq from 101.
+  // The UUID above remains the primary key and tracker identifier.
+  siteNumber Int? @unique @map("site_number")
+
   recorderEnabled Boolean @default(false) @map("recorder_enabled")
   replayConfig    Json?   @map("replay_config")
 

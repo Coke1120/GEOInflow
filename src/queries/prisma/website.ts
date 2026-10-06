@@ -79,16 +79,24 @@ export async function findWebsite(criteria: Prisma.WebsiteFindUniqueArgs) {
   return prisma.client.website.findUnique(criteria);
 }
 
-export async function getWebsite(websiteId: string) {
-  if (!z.uuid().safeParse(websiteId).success) {
-    return null;
-  }
+// Websites are addressable by their UUID or by the short site number shown in URLs
+// (site_number starts at 101 and is assigned by liekan_website_site_number_seq).
+const WEBSITE_HANDLE_PATTERN = /^\d{1,9}$/;
 
-  const website = await findWebsite({
-    where: {
-      id: websiteId,
-    },
-  });
+export async function getWebsite(websiteId: string) {
+  const website = z.uuid().safeParse(websiteId).success
+    ? await findWebsite({
+        where: {
+          id: websiteId,
+        },
+      })
+    : WEBSITE_HANDLE_PATTERN.test(websiteId)
+      ? await prisma.client.website.findFirst({
+          where: {
+            siteNumber: Number(websiteId),
+          },
+        })
+      : null;
 
   if (!website) {
     return null;

@@ -65,3 +65,6 @@ yarn-error.log*
 
 # Signed collector assets are built artifacts; signing keys stay outside source.
 /public/liekan-agent/
+
+# ZCode session-local working files (plans, scratch state) never enter the repo.
+/.zcode/

@@ -247,6 +247,7 @@ export default withNextIntl({
   },
   basePath,
   output: isVercel ? undefined : 'standalone',
+  serverExternalPackages: ['pg'],
   typescript: {
     ignoreBuildErrors: false,
   },
