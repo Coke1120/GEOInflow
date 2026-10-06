@@ -1,5 +1,5 @@
 import { Column, Label, Text, TextField } from '@umami/react-zen';
-import { useConfig, useMessages } from '@/components/hooks';
+import { useConfig, useMessages, useWebsite } from '@/components/hooks';
 
 const SCRIPT_NAME = 'script.js';
 
@@ -14,6 +14,9 @@ export function WebsiteTrackingCode({
 }) {
   const { t, messages, labels } = useMessages();
   const config = useConfig();
+  // /api/send keys on the canonical website UUID; websiteId may be a short site number.
+  const website = useWebsite();
+  const trackerWebsiteId = website?.id || websiteId;
 
   const trackerScriptName =
     config?.trackerScriptName?.split(',')?.map((n: string) => n.trim())?.[0] || SCRIPT_NAME;
@@ -30,7 +33,7 @@ export function WebsiteTrackingCode({
 
   const url = trackerScriptName?.startsWith('http') ? trackerScriptName : getUrl(trackerScriptName);
 
-  const code = `<script defer src="${url}" data-website-id="${websiteId}"></script>`;
+  const code = `<script defer src="${url}" data-website-id="${trackerWebsiteId}"></script>`;
 
   return (
     <Column gap>

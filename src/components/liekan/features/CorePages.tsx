@@ -1097,7 +1097,7 @@ function RecorderSettings() {
                   help="匹配元素不进入回放。"
                   readOnly={!manage}
                 />
-                <TrackingCode websiteId={c.siteId} file="recorder.js" />
+                <TrackingCode websiteId={query.data.id} file="recorder.js" />
               </Form>
             )}
           </QueryState>

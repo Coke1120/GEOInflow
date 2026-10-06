@@ -4077,6 +4077,49 @@
       "owner": "Liekan compatibility adapters",
       "constraint": "The rewrite runs first and only rewrites numeric website handles on /api/websites, /api/realtime and compat paths; all other upstream middleware behavior is preserved",
       "removalCondition": "Remove when upstream analytics routes accept the site number handle natively"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteTrackingCode.tsx",
+      "purpose": "Render the tracking snippet with the canonical website UUID even when the settings URL carries a short site number",
+      "tests": [
+        "src/app/(main)/websites/[websiteId]/settings/WebsiteTrackingCode.test.tsx",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "The embedded data-website-id must be the website UUID; only the surrounding navigation uses the site number handle",
+      "removalCondition": "Remove when upstream settings pages stop carrying website identifiers in URLs"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteTrackingCode.test.tsx",
+      "purpose": "Cover UUID embedding in the tracking snippet for short site number URLs and the prop fallback outside a website context",
+      "tests": [
+        "pnpm exec vitest run src/app/(main)/websites/[websiteId]/settings/WebsiteTrackingCode.test.tsx"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Cases cover the loaded website UUID embedding and the websiteId prop fallback; no other snippet behavior is asserted",
+      "removalCondition": "Remove together with WebsiteTrackingCode.tsx"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteReplaySettings.tsx",
+      "purpose": "Render the recorder snippet with the canonical website UUID even when the settings URL carries a short site number",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "The embedded data-website-id must be the website UUID; only the surrounding navigation uses the site number handle",
+      "removalCondition": "Remove when upstream settings pages stop carrying website identifiers in URLs"
+    },
+    {
+      "path": "src/app/(main)/console/[websiteId]/TestConsolePage.tsx",
+      "purpose": "Tag the console self-tracking scripts with the canonical website UUID when the console URL carries a short site number",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "data-website-id comes from the loaded website row; chart and event queries keep addressing the URL handle through the middleware rewrite",
+      "removalCondition": "Remove when upstream console pages stop carrying website identifiers in URLs"
     }
   ]
 }

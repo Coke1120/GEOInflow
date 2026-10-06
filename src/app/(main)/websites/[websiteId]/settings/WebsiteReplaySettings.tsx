@@ -56,7 +56,9 @@ export function WebsiteReplaySettings({ websiteId }: { websiteId: string }) {
     ? `${process.env.cloudUrl}/${RECORDER_NAME}`
     : `${window?.location?.origin || ''}${process.env.basePath || ''}/${RECORDER_NAME}`;
 
-  const recorderCode = `<script defer src="${recorderUrl}" data-website-id="${websiteId}"></script>`;
+  // /api/send keys on the canonical website UUID; websiteId may be a short site number.
+  const trackerWebsiteId = website?.id || websiteId;
+  const recorderCode = `<script defer src="${recorderUrl}" data-website-id="${trackerWebsiteId}"></script>`;
   const sectionLabel = `${t(labels.replays)} & ${t(labels.heatmaps)}`;
 
   const saveRecorderConfig = async (nextConfig: RecorderConfig, rollback?: () => void) => {

@@ -112,14 +112,14 @@ export function TestConsolePage({ websiteId }: { websiteId: string }) {
       <Column gap="6" paddingY="6">
         <Script
           async
-          data-website-id={websiteId}
+          data-website-id={data.id}
           src={`${process.env.basePath || ''}/script.js`}
           data-cache="true"
           data-performance="true"
         />
         <Script
           async
-          data-website-id={websiteId}
+          data-website-id={data.id}
           src={`${process.env.basePath || ''}/recorder.js`}
         />
         <Panel>
