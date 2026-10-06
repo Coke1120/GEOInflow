@@ -1,6 +1,6 @@
 {
   "baselineVersion": "liekan-navigation-v0.2.2",
-  "approval": "2026-10-04 用户确认紧凑站点选择、14 个常展开菜单、五组分析 Tab 与单行账户栏；全局保留数据总览，以数据管理和协作管理两个静态分类组织其余五个入口，链接与图片追踪合并到追踪管理",
+  "approval": "2026-10-04 用户确认紧凑站点选择、14 个常展开菜单、五组分析 Tab 与单行账户栏；全局保留数据总览，以数据管理和协作管理两个静态分类组织其余五个入口，链接与图片追踪合并到追踪管理；2026-10-06 用户确认帮助中心入口仅保留在全局管理侧栏",
   "originalReferencePolicy": "Original HTML, SHA-256 fingerprints, chart pixels, table columns and body VI remain authoritative. Approved navigation/header/toolbars have bounded independent checks.",
   "groups": {
     "global": [
@@ -149,12 +149,6 @@
             "label": "日志访问流"
           }
         ]
-      },
-      {
-        "id": "help",
-        "label": "帮助中心",
-        "page": "help",
-        "children": []
       }
     ],
     "admin": [

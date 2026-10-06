@@ -98,7 +98,6 @@ export const websiteNavigation: NavigationGroup[] = [
       { page: 'geo-logs', label: '日志访问流' },
     ],
   },
-  helpNavigation,
 ];
 export const websiteAnalysisTabs: Record<string, NavigationItem[]> = {
   'geo-sources': [

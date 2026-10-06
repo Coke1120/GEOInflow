@@ -115,14 +115,14 @@ describe('website navigation transitions', () => {
         />,
       );
       const primary = screen.getByRole('navigation', { name: '业务导航' });
-      expect(within(primary).getAllByRole('link')).toHaveLength(15);
+      expect(within(primary).getAllByRole('link')).toHaveLength(14);
       expect(within(primary).queryAllByRole('button')).toHaveLength(0);
       expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
       for (const link of within(primary).getAllByRole('link')) {
         expect(link.querySelector('svg')).not.toBeNull();
-        if (link.textContent === '帮助中心') expect(link).toHaveAttribute('href', '/liekan/help');
-        else expect(link.getAttribute('href')).toContain('site-a');
+        expect(link.getAttribute('href')).toContain('site-a');
       }
+      expect(within(primary).queryByRole('link', { name: '帮助中心' })).toBeNull();
       expect(within(primary).queryByRole('link', { name: '深度分析' })).toBeNull();
       expect(view.container.querySelector('aside .site-switch')).toBeNull();
       fireEvent.click(within(target).getByRole('button', { name: /切换网站，当前/ }));

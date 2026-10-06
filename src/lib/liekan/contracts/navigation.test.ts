@@ -294,7 +294,6 @@ describe('navigation task boundaries', () => {
       '访客与来源',
       '内容与转化',
       '实时监测',
-      '帮助中心',
     ]);
   });
   it('keeps account and global resource URLs free of accidental website association', () => {
