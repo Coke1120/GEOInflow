@@ -24,7 +24,7 @@ export function WebsitesDataTable({
         <Favicon domain={row.domain} />
       </Icon>
       <Text truncate title={row.name} style={{ maxWidth: '100%' }}>
-        <Link href={renderUrl(`/websites/${row.id}`, false)}>{row.name}</Link>
+        <Link href={renderUrl(`/websites/${row.siteNumber ?? row.id}`, false)}>{row.name}</Link>
       </Text>
     </Row>
   );

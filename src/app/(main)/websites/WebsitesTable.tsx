@@ -79,7 +79,7 @@ export function WebsitesTable({
       {showActions && (
         <DataColumn id="action" label=" " align="end" width="48px">
           {(row: any) => {
-            const websiteId = row.id;
+            const websiteId = row.siteNumber ?? row.id;
 
             return (
               <LinkButton href={renderUrl(`/websites/${websiteId}/settings`)} variant="quiet">

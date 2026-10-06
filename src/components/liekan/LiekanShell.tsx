@@ -9,6 +9,7 @@ import {
 } from '@/lib/liekan/contracts/navigation';
 import { useNavigation, useWebsiteQuery } from '@/lib/liekan/upstream/client';
 import { featureSiteQuery } from '@/lib/liekan/upstream/features-client';
+import { websiteMatchesHandle } from '@/lib/liekan/website-handle';
 import reference from '@/styles/liekan/Reference.module.css';
 import styles from '@/styles/liekan/Shell.module.css';
 import { AnalysisTabs } from './AnalysisTabs';
@@ -40,8 +41,9 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
   });
   const metadataRestricted = [401, 403, 404].includes((metadata.error as any)?.status);
   const currentMetadata =
-    !metadataRestricted && metadata.data?.id === websiteId ? metadata.data : undefined;
-  const currentWebsite = !metadataRestricted && website?.id === websiteId ? website : undefined;
+    !metadataRestricted && websiteMatchesHandle(metadata.data, websiteId) ? metadata.data : undefined;
+  const currentWebsite =
+    !metadataRestricted && websiteMatchesHandle(website, websiteId) ? website : undefined;
   const site = currentMetadata ? { ...currentWebsite, ...currentMetadata } : currentWebsite;
   const [websiteContextTarget, setWebsiteContextTarget] = useState<HTMLDivElement>(null);
   const [websiteActionsTarget, setWebsiteActionsTarget] = useState<HTMLDivElement>(null);

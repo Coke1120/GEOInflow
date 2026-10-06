@@ -97,7 +97,7 @@ export const pages: Array<{
   },
 ];
 export function isWebsiteLanding(pathname: string) {
-  return /^(?:\/teams\/[a-f0-9-]{36})?\/websites\/[a-f0-9-]{36}$/.test(pathname);
+  return /^(?:\/teams\/[a-f0-9-]{36})?\/websites\/(?:[a-f0-9-]{36}|\d{1,9})$/.test(pathname);
 }
 export function isLiekanRoute(pathname: string) {
   return /\/websites\/[^/]+\/geo(?:\/|$)/.test(pathname);

@@ -1,6 +1,7 @@
 import { Icon, Row, Tab, TabList, Tabs, Text } from '@umami/react-zen';
 import { useMessages, useNavigation, useWebsite } from '@/components/hooks';
 import { ChartPie, Clock, Eye, User } from '@/components/icons';
+import { websiteHandle } from '@/lib/liekan/website-handle';
 import { Lightning } from '@/components/svg';
 
 export function WebsiteTabs() {
@@ -53,7 +54,11 @@ export function WebsiteTabs() {
         <TabList>
           {links.map(({ id, label, icon, path }) => {
             return (
-              <Tab key={id} id={id} href={renderUrl(`/websites/${website.id}${path}`, resetParams)}>
+              <Tab
+                key={id}
+                id={id}
+                href={renderUrl(`/websites/${websiteHandle(website)}${path}`, resetParams)}
+              >
                 <Row alignItems="center" gap>
                   <Icon>{icon}</Icon>
                   <Text>{label}</Text>

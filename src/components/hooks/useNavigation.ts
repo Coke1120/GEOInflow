@@ -6,13 +6,20 @@ const entityId = (pathname: string, entity: string) =>
   pathname.match(
     new RegExp(`/${entity}/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})(?=/|$)`),
   )?.[1];
+// Website URLs carry either the UUID or the short numeric site number.
+const websiteId = (pathname: string) =>
+  pathname.match(
+    new RegExp(
+      `/websites/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}|\\d{1,9})(?=/|$)`,
+    ),
+  )?.[1];
 
 export function useNavigation() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const teamId = entityId(pathname, 'teams');
-  const websiteId = entityId(pathname, 'websites');
+  const siteId = websiteId(pathname);
   const linkId = entityId(pathname, 'links');
   const pixelId = entityId(pathname, 'pixels');
   const boardId = entityId(pathname, 'boards');
@@ -49,7 +56,7 @@ export function useNavigation() {
     searchParams,
     query: queryParams,
     teamId,
-    websiteId,
+    websiteId: siteId,
     linkId,
     pixelId,
     boardId,

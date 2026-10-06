@@ -20,7 +20,9 @@ export function TeamWebsitesTable({
   return (
     <DataTable data={data}>
       <DataColumn id="name" label={<SortableLabel label={t(labels.name)} sortKey="name" />}>
-        {(row: any) => <Link href={`/teams/${teamId}/websites/${row.id}`}>{row.name}</Link>}
+        {(row: any) => (
+          <Link href={`/teams/${teamId}/websites/${row.siteNumber ?? row.id}`}>{row.name}</Link>
+        )}
       </DataColumn>
       <DataColumn id="domain" label={<SortableLabel label={t(labels.domain)} sortKey="domain" />} />
       <DataColumn id="createdBy" label={t(labels.createdBy)}>

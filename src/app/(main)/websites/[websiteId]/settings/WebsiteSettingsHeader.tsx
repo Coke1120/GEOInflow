@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { useMessages, useNavigation, useWebsite } from '@/components/hooks';
 import { ArrowLeft, Globe } from '@/components/icons';
 import { decodePunycodeDomain } from '@/lib/format';
+import { websiteHandle } from '@/lib/liekan/website-handle';
 
 export function WebsiteSettingsHeader() {
   const website = useWebsite();
@@ -14,7 +15,7 @@ export function WebsiteSettingsHeader() {
   return (
     <>
       <Row marginTop="6">
-        <Link href={renderUrl(`/websites/${website.id}`)}>
+        <Link href={renderUrl(`/websites/${websiteHandle(website)}`)}>
           <IconLabel icon={<ArrowLeft />} label={t(labels.website)} />
         </Link>
       </Row>

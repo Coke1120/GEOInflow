@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { useMessages, useNavigation, useWebsite } from '@/components/hooks';
 import { Edit } from '@/components/icons';
 import { ActiveUsers } from '@/components/metrics/ActiveUsers';
+import { websiteHandle } from '@/lib/liekan/website-handle';
 
 export function WebsiteHeader({
   showActions,
@@ -28,13 +29,15 @@ export function WebsiteHeader({
     <PageHeader
       title={website.name}
       icon={<Favicon domain={website.domain} />}
-      titleHref={allowLink ? renderUrl(`/websites/${website.id}`, false) : undefined}
+      titleHref={
+        allowLink ? renderUrl(`/websites/${websiteHandle(website)}`, false) : undefined
+      }
     >
       <Row alignItems="center" gap="6" wrap="wrap">
-        <ActiveUsers websiteId={website.id} allowLink={allowLink} />
+        <ActiveUsers websiteId={websiteHandle(website)} allowLink={allowLink} />
 
         {showActions && (
-          <LinkButton href={renderUrl(`/websites/${website.id}/settings`, false)}>
+          <LinkButton href={renderUrl(`/websites/${websiteHandle(website)}/settings`, false)}>
             <IconLabel icon={<Edit />}>{t(labels.edit)}</IconLabel>
           </LinkButton>
         )}

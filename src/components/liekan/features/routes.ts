@@ -94,7 +94,8 @@ export function matchFeatureRoute(
     const names: string[] = [];
     const pattern = route.route.replace(/\[([^\]]+)\]/g, (_full, name) => {
       names.push(name);
-      return `(${uuid})`;
+      // The website segment accepts the short site number as well as the UUID.
+      return name === 'websiteId' ? `(${uuid}|\\d{1,9})` : `(${uuid})`;
     });
     const match = path.match(new RegExp(`^${pattern}/?$`));
     if (!match) continue;
@@ -121,11 +122,11 @@ export function featureHref(page: string, params: Record<string, any> = {}): str
     const search = new URLSearchParams();
     for (const key of ['aiSite', 'aiConversation', 'aiRun', 'aiRequest']) {
       const value = params[key];
-      if (
+      const valid =
         typeof value === 'string' &&
-        /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value)
-      )
-        search.set(key, value);
+        (/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value) ||
+          (key === 'aiSite' && /^\d{1,9}$/.test(value)));
+      if (typeof value === 'string' && valid) search.set(key, value);
     }
     return `/liekan/${page}${search.size ? '?' + search.toString() : ''}`;
   }

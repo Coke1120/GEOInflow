@@ -22,7 +22,7 @@ export function AdminWebsitesTable({ data = [], ...props }: { data: any[] }) {
         <DataColumn id="name" label={<SortableLabel label={t(labels.name)} sortKey="name" />}>
           {(row: any) => (
             <Text truncate>
-              <Link href={`/admin/websites/${row.id}`}>{row.name}</Link>
+              <Link href={`/admin/websites/${row.siteNumber ?? row.id}`}>{row.name}</Link>
             </Text>
           )}
         </DataColumn>
@@ -66,7 +66,7 @@ export function AdminWebsitesTable({ data = [], ...props }: { data: any[] }) {
             return (
               <MenuButton>
                 <MenuItem
-                  onAction={() => router.push(`/admin/websites/${id}`)}
+                  onAction={() => router.push(`/admin/websites/${row.siteNumber ?? row.id}`)}
                   data-test="link-button-edit"
                 >
                   <Row alignItems="center" gap>

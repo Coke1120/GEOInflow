@@ -20,6 +20,7 @@ import {
   refreshFeatureIdentity,
   invalidateFeatureUserQueries,
 } from '@/lib/liekan/upstream/features-client';
+import { websiteHandle } from '@/lib/liekan/website-handle';
 import '@/styles/liekan/Features.module.css';
 import shellStyles from '@/styles/liekan/Shell.module.css';
 import {
@@ -371,7 +372,7 @@ export function FeatureApp({
               <Link
                 key={item.id}
                 className="btn"
-                href={featureHref(current.page, { websiteId: item.id })}
+                href={featureHref(current.page, { websiteId: websiteHandle(item) })}
               >
                 {item.name}
               </Link>

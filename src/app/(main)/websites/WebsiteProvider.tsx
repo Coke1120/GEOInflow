@@ -2,6 +2,7 @@
 import { Loading } from '@umami/react-zen';
 import { useApp } from '@/store/app';
 import { featureSiteQuery } from '@/lib/liekan/upstream/features-client';
+import { websiteMatchesHandle } from '@/lib/liekan/website-handle';
 import { createContext, type ReactNode } from 'react';
 import { useWebsiteQuery } from '@/components/hooks/queries/useWebsiteQuery';
 import type { Website } from '@/generated/prisma/client';
@@ -39,7 +40,7 @@ export function WebsiteProvider({
   }
 
   return (
-    <WebsiteContext.Provider value={website?.id === websiteId ? website : null}>
+    <WebsiteContext.Provider value={websiteMatchesHandle(website, websiteId) ? website : null}>
       {children}
     </WebsiteContext.Provider>
   );

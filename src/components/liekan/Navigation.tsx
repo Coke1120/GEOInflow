@@ -28,6 +28,7 @@ import {
 } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Navigation.module.css';
 import '@/styles/liekan/Features.module.css';
+import { websiteHandle, websiteMatchesHandle } from '@/lib/liekan/website-handle';
 import { featureHref, featureWebsiteSwitchHref, safeReturnHref } from './features/routes';
 import { DialogActions, LiekanDialog, Icon, Notice, QueryState } from './features/ui';
 import { defaultDateRange } from './viewState';
@@ -255,7 +256,7 @@ export function Navigation({
       immediate ? 0 : 200,
     );
   };
-  const currentSite = site?.id === route.websiteId ? site : undefined;
+  const currentSite = websiteMatchesHandle(site, route.websiteId) ? site : undefined;
   const siteName = currentSite?.name || (route.websiteId ? '正在加载网站' : '选择网站');
   const demo = currentSite?.demo === true || displaySettings.data?.isDemo === true;
   const displayName = demo ? siteName.replace(/[（(]示例数据[）)]/, '').trim() : siteName;
@@ -361,19 +362,21 @@ export function Navigation({
             <div data-liekan-features className={styles.pickerState}>
               <QueryState query={sitesQuery}>
                 <div className={styles.siteOptions}>
-                  {matchingSites.map(item => (
+                  {matchingSites.map(item => {
+                    const selected = websiteMatchesHandle(item, route.websiteId);
+                    return (
                     <button
                       type="button"
                       key={item.id}
                       data-site-option
-                      className={`${styles.siteOption} ${item.id === route.websiteId ? styles.selected : ''}`}
+                      className={`${styles.siteOption} ${selected ? styles.selected : ''}`}
                       aria-label={`选择网站 ${item.name}`}
-                      aria-current={item.id === route.websiteId ? 'true' : undefined}
+                      aria-current={selected ? 'true' : undefined}
                       onClick={() => {
-                        if (item.id === route.websiteId) {
+                        if (selected) {
                           setSwitching(false);
                           siteButton.current?.focus();
-                        } else changeSite(item.id);
+                        } else changeSite(websiteHandle(item));
                       }}
                       onKeyDown={event => {
                         if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -398,9 +401,10 @@ export function Navigation({
                         <strong>{item.name}</strong>
                         <small>{item.domain}</small>
                       </span>
-                      {item.id === route.websiteId && <Icon name="check" />}
+                      {selected && <Icon name="check" />}
                     </button>
-                  ))}
+                    );
+                  })}
                   {!matchingSites.length && (
                     <p className={styles.pickerEmpty}>
                       {sitesQuery.data?.length ? '没有匹配的网站' : '当前没有可访问的网站'}
