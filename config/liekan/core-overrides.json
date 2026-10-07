@@ -1158,9 +1158,9 @@
     },
     {
       "path": "src/app/(main)/websites/[websiteId]/layout.tsx",
-      "purpose": "Liekan browser title for retained management pages",
+      "purpose": "Liekan browser title for retained management pages, including the single-suffix default so the parent template does not double the product name",
       "owner": "Liekan branding",
-      "constraint": "Change display metadata only; preserve layout and authorization",
+      "constraint": "Change display metadata only; preserve layout, parallel modal slots and authorization; title.default must stay suffix-free because (main) reapplies its template",
       "verification": "Production build and browser title readback",
       "removalCondition": "Upstream supports an external product title",
       "tests": [
@@ -4141,6 +4141,30 @@
       "owner": "Liekan compatibility adapters",
       "constraint": "data-website-id comes from the loaded website row; chart and event queries keep addressing the URL handle through the middleware rewrite",
       "removalCondition": "Remove when upstream console pages stop carrying website identifiers in URLs"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/sessions/SessionProfileModal.tsx",
+      "purpose": "Treat the intercepting session modal as open only while the pathname still points at it, so segment-cache slot reuse cannot leave a ghost modal or rewrite another page URL",
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Client-side guard only; keep the standalone /sessions/[sessionId] deep-link page and the @modal intercept route untouched",
+      "verification": "Production build plus browser walkthrough of modal open/close and soft navigation away",
+      "removalCondition": "Upstream renders the modal slot without parallel-route reuse or provides an open-state guard",
+      "tests": [
+        "pnpm exec tsc --noEmit",
+        "Browser walkthrough: open session modal, navigate away, confirm no ghost modal and no URL rewrite"
+      ]
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/replays/ReplayModal.tsx",
+      "purpose": "Same pathname guard as the session modal, covering both the intercept route and the ?replay= query mode on the replays page",
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Client-side guard only; keep the query-param mode on /replays and the standalone /replays/[replayId] page untouched",
+      "verification": "Production build plus browser walkthrough of replay modal open/close and soft navigation away",
+      "removalCondition": "Upstream renders the modal slot without parallel-route reuse or provides an open-state guard",
+      "tests": [
+        "pnpm exec tsc --noEmit",
+        "Browser walkthrough: open replay modal from list and URL, navigate away, confirm no ghost modal"
+      ]
     }
   ]
 }
