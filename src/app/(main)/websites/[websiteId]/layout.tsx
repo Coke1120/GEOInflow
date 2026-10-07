@@ -29,6 +29,6 @@ export default async function ({
 export const metadata: Metadata = {
   title: {
     template: '%s | Liekan',
-    default: 'Websites | Liekan',
+    default: 'Websites',
   },
 };

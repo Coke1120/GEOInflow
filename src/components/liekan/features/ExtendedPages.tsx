@@ -430,7 +430,11 @@ function Heatmaps() {
                 ['主要点击', points.length ? '见坐标明细' : '未采集', '由实际点击坐标聚合'],
                 [
                   '采样率',
-                  recorder.data ? `${Number(recorder.data.heatmapSampleRate) * 100}%` : null,
+                  recorder.data
+                    ? recorder.data.heatmapSampleRate == null
+                      ? '未开启'
+                      : `${Number(recorder.data.heatmapSampleRate) * 100}%`
+                    : null,
                   '行为采集配置',
                 ],
               ]
