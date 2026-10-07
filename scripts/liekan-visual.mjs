@@ -556,6 +556,28 @@ try {
       navigationBaseline.geo[name].title,
       `${name} approved header title`,
     );
+    // 用户批准（2026-10-07）：快捷时间钮位于工具栏最前、自定义范围 chip 之前，默认 30 天亮。
+    const toolbarButtons = await actual
+      .locator('[data-website-toolbar-actions] button')
+      .allTextContents();
+    assert.deepEqual(
+      toolbarButtons.slice(0, 3),
+      ['24h', '7 天', '30 天'],
+      `${name} quick range buttons must lead the website toolbar`,
+    );
+    assert(
+      toolbarButtons.length > 3,
+      `${name} custom range chip missing after the quick range buttons`,
+    );
+    assert.equal(
+      await actual
+        .locator('[data-website-toolbar-actions] button')
+        .filter({ hasText: '30 天' })
+        .first()
+        .getAttribute('aria-pressed'),
+      'true',
+      `${name} default 30-day quick range must be active`,
+    );
     assert.deepEqual(
       await actual.locator('[class*="analysisTools"] a').allTextContents(),
       ['高级筛选', '图表注释', '导出数据', '分享当前网站'],
