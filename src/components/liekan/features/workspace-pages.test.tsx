@@ -248,6 +248,37 @@ describe('workspace permissions and native board persistence', () => {
       expect(chart.labels).toEqual(points.map(point => point.x));
     });
   });
+  it('keeps the boards resource cell neutral while workspace entities load', async () => {
+    let releaseEntities: (rows: any[]) => void = () => {};
+    const pendingEntities = new Promise<any[]>(resolve => {
+      releaseEntities = resolve;
+    });
+    mocks.get.mockImplementation(async (path: string) =>
+      path === '/boards'
+        ? {
+            data: [
+              {
+                id: 'board-linked',
+                name: '链接看板',
+                type: 'link',
+                parameters: { linkId: 'link-1' },
+                updatedAt: '2026-10-01T00:00:00Z',
+              },
+            ],
+            count: 1,
+          }
+        : { data: [], count: 0 },
+    );
+    mocks.all.mockImplementation(async (path: string) =>
+      path === '/teams' ? [team] : path === '/admin/users' ? [owner] : pendingEntities,
+    );
+    mount(<WorkspacePages page="boards" />);
+    expect(await screen.findByText('链接看板')).toBeInTheDocument();
+    expect(screen.getByText('正在读取')).toBeInTheDocument();
+    expect(screen.queryByText('资源不存在')).not.toBeInTheDocument();
+    act(() => releaseEntities([{ id: 'link-1', name: '落地页链接' }]));
+    expect(await screen.findByText('落地页链接')).toBeInTheDocument();
+  });
   it('allows a read-only team entry to create a board in personal space', async () => {
     const viewer = { ...owner, id: 'viewer' };
     const readTeam = { ...team, members: [{ userId: viewer.id, role: 'team-view-only' }] };

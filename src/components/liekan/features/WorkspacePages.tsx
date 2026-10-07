@@ -1494,7 +1494,11 @@ function Boards() {
                 board.name,
                 <Badge key="cell-badge-19">{labels[board.type] || board.type}</Badge>,
                 entity.entityId
-                  ? resources.find(item => item.id === entity.entityId)?.name || '资源不存在'
+                  ? entities.data
+                    ? resources.find(item => item.id === entity.entityId)?.name || '资源不存在'
+                    : entities.isPending
+                      ? '正在读取'
+                      : '—'
                   : `${boardColumns(board.parameters).length} 个组件`,
                 date(board.updatedAt),
                 <LinkButton key="cell-linkbutton-20" page="board-view" params={{ id: board.id }}>
