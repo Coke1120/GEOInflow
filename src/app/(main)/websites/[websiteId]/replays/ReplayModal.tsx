@@ -1,6 +1,7 @@
 'use client';
 import { Column, Dialog, Modal, type ModalProps } from '@umami/react-zen';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { ReplayPlayback } from '@/app/(main)/websites/[websiteId]/replays/[replayId]/ReplayPlayback';
 import { ControlledDialog } from '@/components/common/ControlledDialog';
 import { useNavigation } from '@/components/hooks';
@@ -19,7 +20,11 @@ export function ReplayModal({ websiteId, replayId, className, ...props }: Replay
     searchParams,
     updateParams,
   } = useNavigation();
+  const pathname = usePathname();
   const activeReplayId = replayId || replay;
+  // 弹窗有路由参数（@modal 拦截）与 ?replay= 查询参数两种打开方式；
+  // 段缓存可能在软导航后复用 @modal 槽位，地址不在 replays 下时一律视为关闭。
+  const onReplaysPath = pathname.startsWith(buildPath(`/websites/${websiteId}/replays`));
   const [replayOrientation, setReplayOrientation] = useState<'portrait' | 'landscape' | null>(null);
 
   useEffect(() => {
@@ -38,6 +43,7 @@ export function ReplayModal({ websiteId, replayId, className, ...props }: Replay
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
+      if (!onReplaysPath) return;
       if (replayId) {
         const query = Object.fromEntries(searchParams.entries());
         delete query.replay;
@@ -54,7 +60,7 @@ export function ReplayModal({ websiteId, replayId, className, ...props }: Replay
       <Modal
         {...props}
         className={modalClassName}
-        isOpen={!!activeReplayId}
+        isOpen={!!activeReplayId && onReplaysPath}
         onOpenChange={handleOpenChange}
       >
         <Column height="100%">
