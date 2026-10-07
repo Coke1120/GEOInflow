@@ -369,6 +369,10 @@
   color: #0f62fe;
   font-weight: 600;
 }
+/* .btn:hover（hover:hover 媒体查询内）与激活规则同特异性但更靠后，会把激活边框盖回 #a6c1ff。 */
+:global([data-liekan-features] .btn[aria-pressed='true']:hover) {
+  border-color: #0f62fe;
+}
 :global([data-liekan-features] .icon-btn) {
   padding: 8px;
   width: 40px;

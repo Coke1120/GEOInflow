@@ -524,6 +524,10 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             offset: undefined,
             dateMode: undefined,
             live: undefined,
+            // 与 setRange 一致：换时间范围必须重置日志服务端分页，避免带着旧 page/cursor 请求。
+            page: undefined,
+            cursor: undefined,
+            seek: undefined,
           })
         }
       />
@@ -655,6 +659,9 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                       offset: undefined,
                       dateMode: undefined,
                       live: undefined,
+                      page: undefined,
+                      cursor: undefined,
+                      seek: undefined,
                     })
                   }
                 >

@@ -26,7 +26,8 @@ export function activeQuickDateRange(
     return QUICK_TOKENS.has(params.date) ? (params.date as QuickDateRangeToken) : null;
   }
   if (defaultToken) return defaultToken;
-  const raw = localStorage.getItem(STORED_DATE_RANGE_KEY);
+  // 与 upstream getItem 相同的 SSR 守卫；当前两个调用方都不会在服务端走到这里，防御未来新增调用。
+  const raw = typeof window === 'undefined' ? null : localStorage.getItem(STORED_DATE_RANGE_KEY);
   if (raw && raw !== 'undefined') {
     try {
       const value = JSON.parse(raw);

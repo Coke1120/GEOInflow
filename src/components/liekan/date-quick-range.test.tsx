@@ -42,6 +42,15 @@ describe('activeQuickDateRange', () => {
   it('defaults to 24hour when nothing is stored and no default token is given', () => {
     expect(activeQuickDateRange({})).toBe('24hour');
   });
+
+  it('does not touch localStorage during server-side rendering', () => {
+    vi.stubGlobal('window', undefined);
+    try {
+      expect(activeQuickDateRange({})).toBe('24hour');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('QuickRangeButtons', () => {

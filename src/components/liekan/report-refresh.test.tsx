@@ -455,7 +455,7 @@ it('labels offline expired GEO statistics and replaces them with a connection re
   }
 });
 
-it('clears dateMode and live when an empty-state range shortcut is used', async () => {
+it('clears dateMode, live and log pagination when an empty-state range shortcut is used', async () => {
   // dateMode=default 残留会让 dynamicDefault 忽略新 token 并把 URL 回写成 range:，快捷键必须清掉它。
   state.date = 'range:1727827200000:1791388799999';
   state.dateMode = 'default';
@@ -472,6 +472,9 @@ it('clears dateMode and live when an empty-state range shortcut is used', async 
     offset: undefined,
     dateMode: undefined,
     live: undefined,
+    page: undefined,
+    cursor: undefined,
+    seek: undefined,
   });
   expect(state.push).toHaveBeenCalledWith('/next-range', { scroll: false });
 });
