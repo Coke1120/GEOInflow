@@ -622,7 +622,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           )}
           {query.isError && !report && !restricted && !liveLogs && (
             <>
-              也可缩小时间范围后重试：
+              <span>也可缩小时间范围后重试：</span>
               {(
                 [
                   ['24hour', '近 24 小时'],
@@ -712,7 +712,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
           }
         />
-      ) : metadataLoading || query.isPending || displayMismatch || (query.isError && !restricted) ? (
+      ) : metadataLoading ||
+        query.isPending ||
+        displayMismatch ||
+        // 过期聚合是连接问题而非加载中，保留纯提示态；其余无数据的错误中间态用占位避免空白。
+        (query.isError && !restricted && !query.isStaleAggregate) ? (
         <AnalysisLoading
           resource={resource}
           aiCrawlerEnabled={!crawlerHidden}
