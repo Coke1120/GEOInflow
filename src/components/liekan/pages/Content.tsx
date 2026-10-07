@@ -6,10 +6,14 @@ import {
   ReportRows,
   SortHeading,
 } from '../ReportComponents';
+import { formatValue, tableLimits } from '../data';
 import type { ReportViewProps } from '../types';
 
 export function Content({ report, aiCrawlerEnabled }: ReportViewProps) {
   const crawlerEnabled = aiCrawlerEnabled !== false && report?.meta.aiCrawlerEnabled !== false;
+  const journeyTotal = (report?.tables.journeyList ?? [])
+    .slice(0, tableLimits.journeyList)
+    .reduce((sum, row) => sum + (Number(row.count) || 0), 0);
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -61,24 +65,35 @@ export function Content({ report, aiCrawlerEnabled }: ReportViewProps) {
               )}
             </tr>
           </thead>
-          <ReportRows table={crawlerEnabled ? 'pgBody' : 'visitorPgBody'} report={report} />
+          <ReportRows
+            table={crawlerEnabled ? 'pgBody' : 'visitorPgBody'}
+            report={report}
+            pageSize={20}
+          />
         </table>
       </section>
-      <section className="grid grid-cols-2 gap-4">
-        <div className="card fade-in d2">
-          <div className="px-6 pt-5 pb-2">
+      <section className="card fade-in d2">
+        <div className="px-6 pt-5 pb-2 flex items-start justify-between gap-3">
+          <div>
             <h2 className="text-[14px] font-bold tracking-tight">站内访问路径 TOP6</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">会话中最常见的页面跳转序列</p>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              会话中最常见的页面跳转序列 · 占比按 TOP6 会话合计
+            </p>
           </div>
-          <ReportList id="journeyList" className="px-6 pb-5 pt-2 space-y-2" report={report} />
+          {journeyTotal > 0 && (
+            <span className="num text-[11px] text-faint shrink-0 mt-1">
+              TOP6 合计 {formatValue(journeyTotal)} 会话
+            </span>
+          )}
         </div>
-        <div className="card fade-in d3">
-          <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">内容更新与流量响应</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">发布/更新日期 × 随后 7 天流量</p>
-          </div>
-          <ReferenceChart id="c1" height={250} report={report} />
+        <ReportList id="journeyList" className="px-6 pb-5 pt-2 space-y-2" report={report} />
+      </section>
+      <section className="card fade-in d3">
+        <div className="px-6 pt-5 pb-2">
+          <h2 className="text-[14px] font-bold tracking-tight">内容更新与流量响应</h2>
+          <p className="text-[11.5px] text-faint mt-0.5">发布/更新日期 × 随后 7 天流量</p>
         </div>
+        <ReferenceChart id="c1" height={250} report={report} />
       </section>
     </main>
   );

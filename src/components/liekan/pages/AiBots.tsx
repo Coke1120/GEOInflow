@@ -29,7 +29,7 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
               <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="趋势" />
             </tr>
           </thead>
-          <ReportRows table="botBody" report={report} />
+          <ReportRows table="botBody" report={report} pageSize={20} />
         </table>
       </section>
       <section className="grid grid-cols-2 gap-4">

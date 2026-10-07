@@ -8,7 +8,7 @@ import type { LiekanReport } from './types';
 vi.mock('./chartRuntime', () => ({ loadEcharts: vi.fn() }));
 
 const emptyReport: LiekanReport = {
-  contractVersion: 1,
+  contractVersion: 2,
   website: { id: 'site', name: '当前网站', domain: 'example.test' },
   range: { startAt: 1, endAt: 2, timezone: 'Asia/Shanghai' },
   states: { human: 'available', logs: 'available', catalog: 'available', goals: 'available' },

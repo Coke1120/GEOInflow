@@ -9,7 +9,7 @@ export const dataStateSchema = z.enum([
 export type DataState = z.infer<typeof dataStateSchema>;
 export type Row = Record<string, string | number | null | boolean>;
 export interface LiekanReport {
-  contractVersion: 1;
+  contractVersion: 2;
   website: { id: string; name: string; domain: string; siteNumber?: number | null };
   range: { startAt: number; endAt: number; timezone: string };
   states: { human: DataState; logs: DataState; catalog: DataState; goals: DataState };
@@ -44,6 +44,9 @@ export interface LiekanReport {
     pageSize?: number;
     nextCursor?: string;
     previousCursor?: string;
+    // 可分页明细表的序列化状态：键为表名（pagableTables 白名单），出现在哪个表
+    // 就表示该表已按 pageSize 服务端切片，客户端不再本地分页。
+    tablePages?: Record<string, { page: number; pageSize: number; total: number }>;
   };
 }
 
@@ -78,7 +81,7 @@ export const chartIds = [
   'f3',
 ] as const;
 export const liekanReportSchema = z.object({
-  contractVersion: z.literal(1),
+  contractVersion: z.literal(2),
   website: z.object({
     id: z.uuid(),
     name: z.string(),
@@ -125,5 +128,15 @@ export const liekanReportSchema = z.object({
     pageSize: z.number().int().positive().optional(),
     nextCursor: z.string().optional(),
     previousCursor: z.string().optional(),
+    tablePages: z
+      .record(
+        z.string(),
+        z.object({
+          page: z.number().int().positive(),
+          pageSize: z.number().int().positive(),
+          total: z.number().int().nonnegative(),
+        }),
+      )
+      .optional(),
   }),
 });

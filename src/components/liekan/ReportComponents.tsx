@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import styles from '@/styles/liekan/Shell.module.css';
 import { chartOptions } from './chartOptions';
 import { loadEcharts } from './chartRuntime';
-import { observeChartLayout } from './mobileChart';
 import { ChartLoading, LoadingLines, Skeleton, useDataLoading } from './DataLoading';
 import {
   columns,
@@ -15,6 +14,8 @@ import {
   stateLabels,
   tableLimits,
 } from './data';
+import { Button } from './features/ui';
+import { observeChartLayout } from './mobileChart';
 import { useReportActions } from './ReportContext';
 import type { DataState, LiekanReport, Row } from './types';
 
@@ -396,96 +397,262 @@ export function ReportRows({
   table,
   report,
   limit,
+  pageSize,
 }: {
   table: string;
   report?: LiekanReport;
   limit?: number;
+  pageSize?: number;
 }) {
   const a = useReportActions();
   const loading = useDataLoading();
   const fields = columns[table] || [];
+  const meta = report?.meta;
+  // 服务端分页模式：meta.tablePages 有键 = 该表已是服务端切片，页码/总数/页宽全部来自
+  // meta；本地筛选/排序/搜索仅作用于当前页（页脚提示），翻页经 onTablePage 重新请求。
+  const serverPage = meta?.tablePages?.[table];
   const selected = selectRows(report?.tables[table] || [], a.filter, a.sort, table, a.query);
-  const displayLimit = limit ?? tableLimits[table];
-  const rows = displayLimit ? selected.slice(0, displayLimit) : selected;
+  const perPage = typeof pageSize === 'number' && pageSize > 0 ? pageSize : 0;
+  const paged = perPage > 0 || !!serverPage;
+  const [page, setPage] = useState(1);
+  const [pendingBatch, setPendingBatch] = useState<{ target: number; batchPage: number } | null>(
+    null,
+  );
+  const pages = paged ? Math.max(1, Math.ceil(selected.length / perPage)) : 1;
+  useEffect(() => {
+    setPage(1);
+    setPendingBatch(null);
+  }, [a.filter, a.sort.label, a.sort.direction, a.query, table]);
+  useEffect(() => {
+    if (page > pages) setPage(pages);
+  }, [page, pages]);
+  const safePage = Math.min(page, pages);
+  // 日志监测页窗口式分页：后端 keyset 每批 meta.pageSize 条已全部在前端，
+  // 按 pageSize 切窗呈现全局页码；批内翻页本地完成，跨批边界经 onLogsPage 换批，
+  // pendingBatch 记录跨批目标页，等新批到达后落到批内对应位置。
+  const logsWindow =
+    paged && table === 'logBody' && typeof meta?.totalLogs === 'number' ? meta : null;
+  const batchPage = logsWindow ? logsWindow.page || 1 : 0;
+  const batchPerPages = logsWindow
+    ? Math.max(1, Math.ceil((logsWindow.pageSize || 100) / perPage))
+    : 0;
+  const batchFirstGlobal = logsWindow ? (batchPage - 1) * batchPerPages + 1 : 0;
+  const batchLastGlobal = logsWindow ? batchFirstGlobal + batchPerPages - 1 : 0;
+  const globalPages = logsWindow ? Math.max(1, Math.ceil(logsWindow.totalLogs / perPage)) : 0;
+  const desiredGlobal = logsWindow
+    ? pendingBatch
+      ? Math.min(pendingBatch.target, globalPages)
+      : Math.min(batchFirstGlobal + safePage - 1, globalPages)
+    : 0;
+  useEffect(() => {
+    if (pendingBatch && batchPage === pendingBatch.batchPage) {
+      setPage(Math.min(Math.max(pendingBatch.target - batchFirstGlobal + 1, 1), pages));
+      setPendingBatch(null);
+    }
+  }, [pendingBatch, batchPage, batchFirstGlobal, pages]);
+  const localPage = logsWindow
+    ? Math.min(Math.max(desiredGlobal - batchFirstGlobal + 1, 1), pages)
+    : safePage;
+  const rows = serverPage
+    ? selected
+    : logsWindow
+      ? selected.slice((localPage - 1) * perPage, localPage * perPage)
+      : paged
+        ? selected.slice((safePage - 1) * perPage, safePage * perPage)
+        : selected.slice(0, limit ?? tableLimits[table]);
   const state = reportState(report, table);
   return (
-    <tbody className="divide-y divide-line/60" id={table} aria-busy={loading || undefined}>
-      {loading ? (
-        Array.from({ length: 3 }, (_, i) => (
-          <tr key={i} aria-hidden="true">
-            {fields.map(([field], j) => (
-              <td key={field} className={cellClasses[table]?.[j] || 'px-4 py-3'}>
-                <Skeleton width={j === 0 ? '80%' : '65%'} />
-              </td>
-            ))}
+    <>
+      <tbody className="divide-y divide-line/60" id={table} aria-busy={loading || undefined}>
+        {loading ? (
+          Array.from({ length: 3 }, (_, i) => (
+            <tr key={i} aria-hidden="true">
+              {fields.map(([field], j) => (
+                <td key={field} className={cellClasses[table]?.[j] || 'px-4 py-3'}>
+                  <Skeleton width={j === 0 ? '80%' : '65%'} />
+                </td>
+              ))}
+            </tr>
+          ))
+        ) : rows.length ? (
+          rows.map((row, i) => (
+            <tr
+              key={String(row.id || row.path || row.name || row.source || row.time || i) + i}
+              className="hover:bg-[#FAFBFD] transition-colors"
+            >
+              {fields.map(([field], j) => (
+                <td
+                  key={field}
+                  title={formatCellValue(row, field, table)}
+                  className={
+                    (cellClasses[table]?.[j] || 'px-4 py-3') +
+                    (field === 'trend'
+                      ? String(row.trend || '').startsWith('-')
+                        ? ' text-down'
+                        : ' text-up'
+                      : field === 'status'
+                        ? Number(row.status) >= 400
+                          ? ' text-up'
+                          : Number(row.status) === 304
+                            ? ' text-faint'
+                            : ' text-down'
+                        : field === 'conversionRate' && /AI/.test(String(row.channel))
+                          ? ' text-down font-semibold'
+                          : '')
+                  }
+                  style={
+                    field === 'userAgent'
+                      ? {
+                          maxWidth: 300,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }
+                      : undefined
+                  }
+                >
+                  <Cell row={row} field={field} table={table} />
+                </td>
+              ))}
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colSpan={fields.length} className={styles.emptyRow}>
+              {a.query
+                ? '没有匹配的记录'
+                : stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state]}
+            </td>
           </tr>
-        ))
-      ) : rows.length ? (
-        rows.map((row, i) => (
-          <tr
-            key={String(row.id || row.path || row.name || row.source || row.time || i) + i}
-            className="hover:bg-[#FAFBFD] transition-colors"
-          >
-            {fields.map(([field], j) => (
-              <td
-                key={field}
-                title={formatCellValue(row, field, table)}
-                className={
-                  (cellClasses[table]?.[j] || 'px-4 py-3') +
-                  (field === 'trend'
-                    ? String(row.trend || '').startsWith('-')
-                      ? ' text-down'
-                      : ' text-up'
-                    : field === 'status'
-                      ? Number(row.status) >= 400
-                        ? ' text-up'
-                        : Number(row.status) === 304
-                          ? ' text-faint'
-                          : ' text-down'
-                      : field === 'conversionRate' && /AI/.test(String(row.channel))
-                        ? ' text-down font-semibold'
-                        : '')
+        )}
+      </tbody>
+      {paged &&
+        (serverPage
+          ? serverPage.total > serverPage.pageSize
+          : logsWindow
+            ? logsWindow.totalLogs > perPage
+            : selected.length > perPage) && (
+        <tfoot>
+          <tr>
+            <td colSpan={fields.length} className="border-t border-line p-0">
+              <Pager
+                total={
+                  serverPage ? serverPage.total : logsWindow ? logsWindow.totalLogs : selected.length
                 }
-                style={
-                  field === 'userAgent'
-                    ? {
-                        maxWidth: 300,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }
-                    : undefined
+                page={serverPage ? serverPage.page : logsWindow ? desiredGlobal : safePage}
+                pages={
+                  serverPage
+                    ? Math.max(1, Math.ceil(serverPage.total / serverPage.pageSize))
+                    : logsWindow
+                      ? globalPages
+                      : pages
                 }
-              >
-                <Cell row={row} field={field} table={table} />
-              </td>
-            ))}
+                label={
+                  serverPage && (a.filter || a.sort.label || a.query) ? '当前页内筛选' : undefined
+                }
+                onPrev={
+                  serverPage
+                    ? () => a.onTablePage?.(table, serverPage.page - 1)
+                    : logsWindow
+                      ? () => {
+                          if (safePage > 1) {
+                            setPage(safePage - 1);
+                            return;
+                          }
+                          if (!a.onLogsPage || batchPage <= 1 || !logsWindow.previousCursor) return;
+                          setPendingBatch({ target: batchFirstGlobal - 1, batchPage: batchPage - 1 });
+                          a.onLogsPage(batchPage - 1);
+                        }
+                      : () => setPage(p => Math.max(1, p - 1))
+                }
+                onNext={
+                  serverPage
+                    ? () => a.onTablePage?.(table, serverPage.page + 1)
+                    : logsWindow
+                      ? () => {
+                          if (safePage < pages) {
+                            setPage(safePage + 1);
+                            return;
+                          }
+                          if (!a.onLogsPage || !logsWindow.nextCursor) return;
+                          if (batchLastGlobal + 1 > globalPages) return;
+                          setPendingBatch({ target: batchLastGlobal + 1, batchPage: batchPage + 1 });
+                          a.onLogsPage(batchPage + 1);
+                        }
+                      : () => setPage(p => Math.min(pages, p + 1))
+                }
+              />
+            </td>
           </tr>
-        ))
-      ) : (
-        <tr>
-          <td colSpan={fields.length} className={styles.emptyRow}>
-            {a.query
-              ? '没有匹配的记录'
-              : stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state]}
-          </td>
-        </tr>
+        </tfoot>
       )}
-    </tbody>
+    </>
+  );
+}
+function Pager({
+  total,
+  page,
+  pages,
+  label,
+  disabled,
+  onPrev,
+  onNext,
+}: {
+  total: number;
+  page: number;
+  pages: number;
+  label?: string;
+  disabled?: boolean;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3" data-report-pager>
+      <span className="text-[11px] text-faint">
+        {label ? `${label} · ` : ''}共 {formatValue(total)} 条
+      </span>
+      <div className="flex items-center gap-2">
+        <span className="num text-[11px] text-faint">
+          第 {formatValue(page)} / {formatValue(pages)} 页
+        </span>
+        <Button disabled={disabled || page <= 1} onClick={onPrev}>
+          上一页
+        </Button>
+        <Button disabled={disabled || page >= pages} onClick={onNext}>
+          下一页
+        </Button>
+      </div>
+    </div>
   );
 }
 export function ReportList({
   id,
   className,
   report,
+  pageSize,
 }: {
   id: string;
   className: string;
   report?: LiekanReport;
+  pageSize?: number;
 }) {
   const loading = useDataLoading();
   const sourceRows = report?.tables[id] || [];
-  const rows = tableLimits[id] ? sourceRows.slice(0, tableLimits[id]) : sourceRows;
+  const perPage = typeof pageSize === 'number' && pageSize > 0 ? pageSize : 0;
+  const paged = id !== 'envGrid' && perPage > 0;
+  const [page, setPage] = useState(1);
+  const pages = paged ? Math.max(1, Math.ceil(sourceRows.length / perPage)) : 1;
+  useEffect(() => {
+    if (page > pages) setPage(pages);
+  }, [page, pages]);
+  const safePage = Math.min(page, pages);
+  const rows = paged
+    ? sourceRows.slice((safePage - 1) * perPage, safePage * perPage)
+    : tableLimits[id]
+      ? sourceRows.slice(0, tableLimits[id])
+      : sourceRows;
+  const journeyShareTotal =
+    id === 'journeyList' ? rows.reduce((sum, row) => sum + (Number(row.count) || 0), 0) : 0;
   const state =
     id === 'blindList'
       ? report?.states.catalog
@@ -560,95 +727,130 @@ export function ReportList({
     );
   }
   return (
-    <div id={id} className={className}>
-      {rows.length
-        ? rows.map((row, i) => {
-            if (id === 'pathList')
-              return (
-                <div key={i} className="flex items-center gap-3">
-                  {step(i)}
-                  <span className="num text-[10.5px] text-faint shrink-0 w-[52px]">
-                    {row.time && /^\d{4}-\d{2}-\d{2}T/.test(String(row.time))
-                      ? new Intl.DateTimeFormat('zh-CN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: false,
-                          timeZone: 'Asia/Shanghai',
-                        }).format(new Date(String(row.time)))
-                      : formatValue(row.time)}
-                  </span>
-                  <span
-                    className="num text-[11.5px] text-ink flex-1 truncate"
-                    title={formatValue(row.path)}
-                  >
-                    {formatValue(row.path)}
-                  </span>
-                  <span className="text-[10.5px] text-faint shrink-0">
-                    {formatValue(row.status)}
-                  </span>
-                </div>
-              );
-            if (id === 'blindList')
-              return (
-                <div key={i} className="px-6 py-3 hover:bg-[#FAFBFD] transition-colors">
-                  <p
-                    className="num text-[12px] font-medium text-ink truncate"
-                    title={formatValue(row.path)}
-                  >
-                    {formatValue(row.path)}
-                  </p>
-                  <p className="text-[11px] text-faint mt-1">{formatValue(row.reason)}</p>
-                  <p className="text-[11px] text-brand mt-0.5">{formatValue(row.suggestion)}</p>
-                </div>
-              );
-            if (id === 'journeyList')
-              return (
-                <div key={i} className="rounded-lg bg-wash px-3 py-2.5">
-                  <div className="flex items-center gap-2">
+    <>
+      <div id={id} className={className}>
+        {rows.length
+          ? rows.map((row, i) => {
+              if (id === 'pathList')
+                return (
+                  <div key={i} className="flex items-center gap-3">
                     {step(i)}
+                    <span className="num text-[10.5px] text-faint shrink-0 w-[52px]">
+                      {row.time && /^\d{4}-\d{2}-\d{2}T/.test(String(row.time))
+                        ? new Intl.DateTimeFormat('zh-CN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false,
+                            timeZone: 'Asia/Shanghai',
+                          }).format(new Date(String(row.time)))
+                        : formatValue(row.time)}
+                    </span>
                     <span
-                      className="num text-[11.5px] text-ink truncate flex-1"
+                      className="num text-[11.5px] text-ink flex-1 truncate"
                       title={formatValue(row.path)}
                     >
                       {formatValue(row.path)}
                     </span>
+                    <span className="text-[10.5px] text-faint shrink-0">
+                      {formatValue(row.status)}
+                    </span>
                   </div>
-                  <p className="text-[10.5px] text-faint mt-1" style={{ marginLeft: 28 }}>
-                    {formatValue(row.count)} 会话
-                    {row.conversionRate != null ? ` · 转化 ${percentage(row.conversionRate)}` : ''}
-                  </p>
-                </div>
-              );
-            if (id === 'robotsList')
+                );
+              if (id === 'blindList')
+                return (
+                  <div key={i} className="px-6 py-3 hover:bg-[#FAFBFD] transition-colors">
+                    <p
+                      className="num text-[12px] font-medium text-ink truncate"
+                      title={formatValue(row.path)}
+                    >
+                      {formatValue(row.path)}
+                    </p>
+                    <p className="text-[11px] text-faint mt-1">{formatValue(row.reason)}</p>
+                    <p className="text-[11px] text-brand mt-0.5">{formatValue(row.suggestion)}</p>
+                  </div>
+                );
+              if (id === 'journeyList') {
+                // 全宽行首行放深度与 TOP6 内占比条；会话计数必须保留在 <p> 里，
+                // 视觉夹具按 journeyList 行内 p 文本解析 count 与转化率。
+                const depth = String(row.path ?? '').split(' → ').length;
+                const share =
+                  journeyShareTotal > 0 ? (Number(row.count) || 0) / journeyShareTotal : 0;
+                return (
+                  <div key={i} className="rounded-lg bg-wash px-3 py-2.5">
+                    <div className="flex items-center gap-3">
+                      {step(i)}
+                      <span
+                        className="num text-[11.5px] text-ink truncate flex-1"
+                        title={formatValue(row.path)}
+                      >
+                        {formatValue(row.path)}
+                      </span>
+                      <span className="text-[10.5px] text-faint shrink-0">
+                        {depth > 1 ? `${depth} 页` : '单页'}
+                      </span>
+                      <span className="w-[120px] h-1.5 rounded-full bg-brand/10 overflow-hidden shrink-0">
+                        <span
+                          className="block h-full rounded-full bg-brand/60"
+                          style={{ width: `${Math.min(100, share * 100).toFixed(1)}%` }}
+                        />
+                      </span>
+                      <span className="num text-[11px] text-sub shrink-0 w-[44px] text-right">
+                        {percentage(share * 100)}
+                      </span>
+                    </div>
+                    <p className="text-[10.5px] text-faint mt-1" style={{ marginLeft: 32 }}>
+                      {formatValue(row.count)} 会话
+                      {row.conversionRate != null
+                        ? ` · 转化 ${percentage(row.conversionRate)}`
+                        : ''}
+                    </p>
+                  </div>
+                );
+              }
+              if (id === 'robotsList')
+                return (
+                  <div key={i} className="flex items-center gap-2.5 rounded-lg bg-wash px-3 py-2">
+                    <span className="flex-1 text-ink text-[11.5px] font-medium">
+                      {formatValue(row.bot)}
+                    </span>
+                    <Badge value={row.policy} />
+                  </div>
+                );
+              if (id === 'pipeList')
+                return (
+                  <div key={i} className="flex items-center gap-3 rounded-lg bg-wash px-3 py-2.5">
+                    <span className="text-[11.5px] font-bold text-brand shrink-0 w-[52px]">
+                      {formatValue(row.name)}
+                    </span>
+                    <span className="text-[11.5px] text-sub flex-1">{formatValue(row.detail)}</span>
+                  </div>
+                );
               return (
-                <div key={i} className="flex items-center gap-2.5 rounded-lg bg-wash px-3 py-2">
-                  <span className="flex-1 text-ink text-[11.5px] font-medium">
+                <div key={i} className="flex items-center gap-2.5 rounded-lg bg-wash px-3 py-2.5">
+                  <span className="num text-[11.5px] font-semibold text-ink shrink-0 w-[110px]">
                     {formatValue(row.bot)}
                   </span>
-                  <Badge value={row.policy} />
-                </div>
-              );
-            if (id === 'pipeList')
-              return (
-                <div key={i} className="flex items-center gap-3 rounded-lg bg-wash px-3 py-2.5">
-                  <span className="text-[11.5px] font-bold text-brand shrink-0 w-[52px]">
-                    {formatValue(row.name)}
+                  <span className="flex-1 text-[11.5px] text-sub">
+                    {formatValue(row.preference)}
                   </span>
-                  <span className="text-[11.5px] text-sub flex-1">{formatValue(row.detail)}</span>
                 </div>
               );
-            return (
-              <div key={i} className="flex items-center gap-2.5 rounded-lg bg-wash px-3 py-2.5">
-                <span className="num text-[11.5px] font-semibold text-ink shrink-0 w-[110px]">
-                  {formatValue(row.bot)}
-                </span>
-                <span className="flex-1 text-[11.5px] text-sub">{formatValue(row.preference)}</span>
-              </div>
-            );
-          })
-        : empty}
-    </div>
+            })
+          : empty}
+      </div>
+      {paged && sourceRows.length > perPage && (
+        <div className="border-t border-line">
+          <Pager
+            total={sourceRows.length}
+            page={safePage}
+            pages={pages}
+            onPrev={() => setPage(p => Math.max(1, p - 1))}
+            onNext={() => setPage(p => Math.min(pages, p + 1))}
+          />
+        </div>
+      )}
+    </>
   );
 }
 export function InsightRows({

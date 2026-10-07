@@ -1,13 +1,13 @@
-import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
-import { sharedReportParts } from './contracts/shared-report';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import { reportQuery } from './contracts/query';
+import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
+import { parseReportQuery, pagableTables, tablePageSize } from './contracts/query';
 import {
   type DataState,
   type LiekanReport,
   liekanReportSchema,
   type Row,
 } from './contracts/report';
+import { sharedReportParts } from './contracts/shared-report';
 import { getSettings } from './store';
 import {
   classifyEntrySource,
@@ -38,13 +38,39 @@ function stringifySafe(value: unknown): any {
     JSON.stringify(value, (_key, item) => (typeof item === 'bigint' ? Number(item) : item)),
   );
 }
+// 序列化层切片（修正后 B1）：事实仍全量参与派生——AI 富化、pf1 回查、卡片与图表都依赖全量
+// 页路径且含 SQL 不可表达的解码路径连接——因此只在响应组装时按 tp_* 页码切片白名单明细表，
+// 并回写 total 供客户端服务端分页模式渲染。
+// page-report 路径始终下发（缺省第 1 页）：客户端据 meta.tablePages 判定服务端模式并经
+// onTablePage 翻页，不下发则客户端只会本地分页，服务端切片永远无法生效；
+// legacy /report 与 share 路径保持显式请求才切，避免破坏既有全量消费方。
+function capTablePages(
+  report: LiekanReport,
+  tablePages: Record<string, number>,
+  always: boolean,
+) {
+  for (const table of pagableTables) {
+    const requested = tablePages[table];
+    if (!always && !requested) continue;
+    const rows = report.tables[table];
+    if (!rows) continue;
+    const page = requested ?? 1;
+    const start = (page - 1) * tablePageSize;
+    report.tables[table] = rows.slice(start, start + tablePageSize);
+    report.meta.tablePages = {
+      ...report.meta.tablePages,
+      [table]: { page, pageSize: tablePageSize, total: rows.length },
+    };
+  }
+}
+
 export async function buildReport(
   website: { id: string; name: string; domain: string; siteNumber?: number | null },
   canManage: boolean,
   input: unknown,
   pageOnly: boolean | 'share' = false,
 ): Promise<LiekanReport> {
-  const parsed = reportQuery.safeParse(input);
+  const parsed = parseReportQuery(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
   const p = parsed.data;
   const parts =
@@ -130,7 +156,7 @@ export async function buildReport(
     catalogState: DataState = l.catalog.length ? 'available' : 'not_connected',
     goalState: DataState = h.goals.length ? 'available' : 'not_connected';
   const r: LiekanReport = {
-    contractVersion: 1,
+    contractVersion: 2,
     website,
     range: { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
     states: { human: humanState, logs: logState, catalog: catalogState, goals: goalState },
@@ -895,5 +921,6 @@ export async function buildReport(
       delete r.meta.previousCursor;
     }
   } else liekanReportSchema.parse(r);
+  capTablePages(r, p.tablePages, pageOnly === true);
   return r;
 }

@@ -1,6 +1,6 @@
+import { Skeleton, useDataLoading } from '../DataLoading';
 import { InsightRows, MetricCard, ReferenceChart, ReportList } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
-import { Skeleton, useDataLoading } from '../DataLoading';
 
 export function AiPreference({ report, rangeLabel }: ReportViewProps) {
   const loading = useDataLoading();
@@ -42,9 +42,14 @@ export function AiPreference({ report, rangeLabel }: ReportViewProps) {
         </div>
         <div className="card fade-in d3">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">各蜘蛛内容偏好 TOP1</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">各蜘蛛内容偏好</h2>
           </div>
-          <ReportList id="prefList" className="px-6 pb-5 space-y-2" report={report} />
+          <ReportList
+            id="prefList"
+            className={`px-6 space-y-2${(report?.tables.prefList?.length ?? 0) > 6 ? '' : ' pb-5'}`}
+            report={report}
+            pageSize={6}
+          />
         </div>
       </section>
       <section className="grid grid-cols-2 gap-4">

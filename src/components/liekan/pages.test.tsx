@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import { AiOverview } from './pages/AiOverview';
 import { Overview } from './pages/Overview';
 import { Content } from './pages/Content';
 import { tableCsv } from './data';
@@ -21,7 +22,7 @@ const actions = {
 };
 function report(): LiekanReport {
   return {
-    contractVersion: 1,
+    contractVersion: 2,
     website: { id: 'site', name: '站点', domain: 'example.test' },
     range: { startAt: 1, endAt: 2, timezone: 'Asia/Shanghai' },
     states: {
@@ -131,5 +132,60 @@ describe('evidence-backed reference copy', () => {
     expect(insights.querySelector('b')).toHaveTextContent('GEO 洞察：');
     expect(insights).toHaveTextContent('实际目录覆盖已接入。 引用结果仍待验证。');
     expect(insights.querySelector('.rounded-full')).toBeNull();
+  });
+  it('shows the robots policy list five entries per page with a pager', () => {
+    const data = report();
+    data.states.logs = 'available';
+    data.tables.robotsList = Array.from({ length: 8 }, (_, i) => ({
+      bot: `Spider-${i + 1}`,
+      policy: '未设置',
+    }));
+    const html = renderToStaticMarkup(
+      <ReportContext.Provider value={actions}>
+        <AiOverview report={data} rangeLabel="范围" />
+      </ReportContext.Provider>,
+    );
+    expect(html).toContain('Spider-5');
+    expect(html).not.toContain('Spider-6');
+    expect(html).toContain('共 8 条');
+    expect(html).toContain('第 1 / 2 页');
+  });
+  it('shows the spider preference list six entries per page with a pager', () => {
+    const data = report();
+    data.states.logs = 'available';
+    data.tables.prefList = Array.from({ length: 9 }, (_, i) => ({
+      bot: `Spider-${i + 1}`,
+      preference: '文档（30.00% 抓取集中）',
+    }));
+    const html = renderToStaticMarkup(
+      <ReportContext.Provider value={actions}>
+        <AiPreference report={data} rangeLabel="范围" />
+      </ReportContext.Provider>,
+    );
+    expect(html).toContain('各蜘蛛内容偏好');
+    expect(html).not.toContain('各蜘蛛内容偏好 TOP1');
+    expect(html).toContain('Spider-6');
+    expect(html).not.toContain('Spider-7');
+    expect(html).toContain('共 9 条');
+    expect(html).toContain('第 1 / 2 页');
+  });
+  it('lays the journey paths full width with depth and top-six share', () => {
+    const data = report();
+    data.states.logs = 'available';
+    data.tables.journeyList = [
+      { path: '/', count: 900 },
+      { path: '/a → /b → /c', count: 100 },
+    ];
+    const html = renderToStaticMarkup(
+      <ReportContext.Provider value={actions}>
+        <Content report={data} rangeLabel="范围" />
+      </ReportContext.Provider>,
+    );
+    expect(html).toContain('占比按 TOP6 会话合计');
+    expect(html).toContain('TOP6 合计 1,000 会话');
+    expect(html).toContain('单页');
+    expect(html).toContain('3 页');
+    expect(html).toContain('90%');
+    expect(html).toContain('10%');
   });
 });

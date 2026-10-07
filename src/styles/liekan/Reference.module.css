@@ -78,6 +78,9 @@
 .root :global(.bg-brand\/10) {
   background-color: rgba(15, 98, 254, 0.1);
 }
+.root :global(.bg-brand\/60) {
+  background-color: rgba(15, 98, 254, 0.6);
+}
 .root :global(.bg-gradient-to-br) {
   background-image: linear-gradient(to bottom right, #0f62fe, #4589ff);
 }
@@ -180,6 +183,9 @@
 .root :global(.h-1\.5) {
   height: 6px;
 }
+.root :global(.h-full) {
+  height: 100%;
+}
 .root :global(.h-2) {
   height: 8px;
 }
@@ -233,6 +239,9 @@
 }
 .root :global(.items-center) {
   align-items: center;
+}
+.root :global(.items-start) {
+  align-items: flex-start;
 }
 .root :global(.justify-between) {
   justify-content: space-between;
@@ -595,6 +604,9 @@
 .root :global(.w-\[38px\]) {
   width: 38px;
 }
+.root :global(.w-\[44px\]) {
+  width: 44px;
+}
 .root :global(.w-\[52px\]) {
   width: 52px;
 }
@@ -609,6 +621,9 @@
 }
 .root :global(.w-\[90px\]) {
   width: 90px;
+}
+.root :global(.w-\[120px\]) {
+  width: 120px;
 }
 .root :global(.w-full) {
   width: 100%;

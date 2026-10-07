@@ -58,7 +58,7 @@ export function AiPages({ report, rangeLabel }: ReportViewProps) {
               <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="内容新鲜度" />
             </tr>
           </thead>
-          <ReportRows table="apBody" report={report} />
+          <ReportRows table="apBody" report={report} pageSize={20} />
         </table>
       </section>
       <section className="grid grid-cols-2 gap-4">
@@ -78,6 +78,7 @@ export function AiPages({ report, rangeLabel }: ReportViewProps) {
             id="blindList"
             className="divide-y divide-line/60 text-[12px]"
             report={report}
+            pageSize={20}
           />
         </div>
       </section>

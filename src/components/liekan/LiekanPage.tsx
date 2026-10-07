@@ -1,9 +1,10 @@
 'use client';
-import Link from 'next/link';
-import { createPortal } from 'react-dom';
 import { useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
+import { managementLabels } from '@/lib/liekan/contracts/management';
 import {
   geoPageFromPath,
   pageNavigation,
@@ -12,15 +13,15 @@ import {
 import { websiteMatchesHandle } from '@/lib/liekan/website-handle';
 import {
   useApi,
+  useFeatureAppState,
   useFeatureDateRange,
   useNavigation,
   useWebsite,
-  useFeatureAppState,
 } from '@/lib/liekan/upstream/client';
-import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
-import { useDateRangeClock } from '@/lib/liekan/upstream/date-range-clock';
 import { useFreshnessLifecycle } from '@/lib/liekan/upstream/client-freshness';
+import { useDateRangeClock } from '@/lib/liekan/upstream/date-range-clock';
 import { featureApi, getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
+import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
 import styles from '@/styles/liekan/Shell.module.css';
 import { AnalysisLoading, reportViews } from './AnalysisLoading';
 import { AnalysisTabs } from './AnalysisTabs';
@@ -37,11 +38,16 @@ import {
 } from './data';
 import { featureNavigationHref } from './features/routes';
 import { useLiekanShell } from './LiekanShell';
-import { managementLabels } from '@/lib/liekan/contracts/management';
 import { ManagementDrawer } from './ManagementDrawer';
 import { ReportContext } from './ReportContext';
 import type { LiekanReport, Resource } from './types';
-import { defaultDateRange, isLiveLogView, previousWeekRange, readViewState } from './viewState';
+import {
+  clearTablePages,
+  defaultDateRange,
+  isLiveLogView,
+  previousWeekRange,
+  readViewState,
+} from './viewState';
 
 export function LiekanPage({ resource }: { resource: Resource }) {
   const metadataLoading = useDataLoading();
@@ -61,10 +67,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const dynamicDefault = !params.date || params.dateMode === 'default';
   const now = useDateRangeClock(timezone, dynamicDefault);
   const [liveNow, setLiveNow] = useState(now);
-  const { filter, search, logPage, cursor, seek, chartPeriod, sort, compare } = readViewState(
-    params,
-    resource,
-  );
+  const { filter, search, logPage, cursor, seek, chartPeriod, sort, compare, tablePages } =
+    readViewState(params, resource);
   const pageIdentity = JSON.stringify([
     userId,
     websiteId,
@@ -132,6 +136,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     endAt,
     timezone,
     chartPeriod,
+    ...(Object.keys(tablePages).length ? { tablePages } : {}),
     ...(resource === 'logs'
       ? {
           page: logPage,
@@ -156,14 +161,23 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const rawQuery = api.useQuery<LiekanReport>({
     ...currentReport,
     enabled: !!websiteId,
-    placeholderData: (previous, previousQuery) =>
-      resource === 'logs' &&
-      websiteMatchesHandle(previous?.website, websiteId) &&
-      previousQuery?.queryKey[3] === resource &&
-      previousQuery?.queryKey[13] === userId &&
-      (liveLogs || (previous.range.startAt === startAt && previous.range.endAt === endAt))
+    placeholderData: (previous, previousQuery) => {
+      // logs 换批与 tp_* 翻页都会换 queryKey：queryKey[13] 是 tp_ 页码集合槽位，
+      // 仅该槽位变化时保留上一份数据，翻页期间显示旧切片 + 更新提示而非整页骨架。
+      const pageTurnOnly =
+        !!previousQuery &&
+        currentReport.queryKey.length === previousQuery.queryKey.length &&
+        currentReport.queryKey.every(
+          (value, index) => index === 13 || value === previousQuery.queryKey[index],
+        );
+      return (resource === 'logs' || pageTurnOnly) &&
+        websiteMatchesHandle(previous?.website, websiteId) &&
+        previousQuery?.queryKey[3] === resource &&
+        previousQuery?.queryKey[14] === userId &&
+        (liveLogs || (previous.range.startAt === startAt && previous.range.endAt === endAt))
         ? previous
-        : undefined,
+        : undefined;
+    },
     refetchInterval: resource === 'logs' && !liveLogs ? 10000 : false,
   });
   const query = useFreshnessLifecycle(rawQuery, {
@@ -363,7 +377,14 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       updateView({ chartPeriod: label === '24h' ? '24h' : label === '7 天' ? '7d' : '30d' });
       return;
     }
-    updateView({ filter: label, page: undefined, cursor: undefined, seek: undefined });
+    // 筛选/排序改变行内容与顺序：清空服务端分页参数，等价回第 1 页并恢复本地全量模式。
+    updateView({
+      ...clearTablePages(tablePages),
+      filter: label,
+      page: undefined,
+      cursor: undefined,
+      seek: undefined,
+    });
     setMessage(
       label === '仅人类'
         ? '此筛选显示未识别或其他请求；服务器日志无法确认访问者为人类。'
@@ -371,6 +392,15 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           ? '重复抓取率待接入，当前保留已有页面顺序。'
           : '',
     );
+  };
+  const gotoLogsPage = (page: number) => {
+    const next = page > logPage;
+    const cursor = next ? report?.meta.nextCursor : report?.meta.previousCursor;
+    updateView({
+      page,
+      cursor: cursor || undefined,
+      seek: cursor ? (next ? 'after' : 'before') : undefined,
+    });
   };
   const onAction = (label: string) => {
     if (label.startsWith('导出')) {
@@ -384,6 +414,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           : resource === 'content' && report.meta.aiCrawlerEnabled === false
             ? 'visitorPgBody'
             : primaryTables[resource];
+      // 服务端分页表中客户端只持有当前切片；切片未覆盖全量时导出走既有服务端导出
+      // （10 万行/50 MiB 上限），整表就在当前切片内则保留本地 CSV。
+      const serverPage = table ? report.meta.tablePages?.[table] : undefined;
+      if (serverPage && !(serverPage.page === 1 && serverPage.total <= serverPage.pageSize)) {
+        router.push(href('exports'));
+        return;
+      }
       const content = table
         ? tableCsv(table, report.tables[table] || [], filter, sort, search)
         : csvMatrix(
@@ -505,12 +542,17 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         onFilter,
         onSort: label => {
           updateView({
+            ...clearTablePages(tablePages),
             filter: filter.startsWith('按') ? undefined : filter,
             sort: label,
             direction: sort.label === label && sort.direction === -1 ? 'asc' : 'desc',
           });
         },
         onAction,
+        onLogsPage: gotoLogsPage,
+        // 翻页只改本表页码；各表白名单独立，其他表已请求的页码保持不变。
+        onTablePage: (table, page) =>
+          updateView({ [`tp_${table}`]: page > 1 ? page : undefined }),
       }}
     >
       {shell?.websiteActionsTarget && createPortal(headerActions, shell.websiteActionsTarget)}
@@ -678,15 +720,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             })
           }
           initialSearch={search}
-          onPage={page => {
-            const next = page > logPage;
-            const cursor = next ? report?.meta.nextCursor : report?.meta.previousCursor;
-            updateView({
-              page,
-              cursor: cursor || undefined,
-              seek: cursor ? (next ? 'after' : 'before') : undefined,
-            });
-          }}
+          onPage={gotoLogsPage}
           onLogsFilter={onFilter}
           logsFilter={filter}
           report={report}

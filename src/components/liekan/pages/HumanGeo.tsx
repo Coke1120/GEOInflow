@@ -48,7 +48,7 @@ export function HumanGeo({ report, rangeLabel }: ReportViewProps) {
       </section>
       <section className="card fade-in d2 overflow-hidden">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
-          <h2 className="text-[14px] font-bold tracking-tight">城市明细 TOP12</h2>
+          <h2 className="text-[14px] font-bold tracking-tight">城市明细</h2>
           <span className="text-[11.5px] text-faint">本地人工 GeoIP · 更新日期待核验</span>
         </div>
         <table className="w-full text-[12.5px]">
@@ -62,7 +62,7 @@ export function HumanGeo({ report, rangeLabel }: ReportViewProps) {
               <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="转化率" />
             </tr>
           </thead>
-          <ReportRows table="cityBody" report={report} />
+          <ReportRows table="cityBody" report={report} pageSize={20} />
         </table>
       </section>
     </main>

@@ -3,7 +3,7 @@ import * as schemas from '@/lib/analytics-schema';
 import { EVENT_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import { withDateRange } from '@/lib/schema';
 import { analysisQuery, journeyQuery } from '../contracts/analysis';
-import { reportQuery } from '../contracts/query';
+import { parseReportQuery } from '../contracts/query';
 import { sharedReportQuery } from '../contracts/shared-report';
 
 export const analyticsRefreshJobSchema = z
@@ -76,7 +76,11 @@ export function parseAnalyticsHotParameters(target: string, input: Record<string
     parameters.fields = JSON.stringify(parameters.fields);
   if (target === 'native:funnels/stats' && Array.isArray(parameters.steps))
     parameters.steps = JSON.stringify(parameters.steps);
-  if (target === 'feature:page-report') return reportQuery.parse(parameters);
+  if (target === 'feature:page-report') {
+    const parsed = parseReportQuery(parameters);
+    if (!parsed.success) throw parsed.error;
+    return parsed.data;
+  }
   if (target === 'feature:shared-report') return sharedReportQuery.parse(parameters);
   if (target === 'feature:analytics') return analysisQuery.parse(parameters);
   if (target === 'feature:journeys') return journeyQuery.parse(parameters);

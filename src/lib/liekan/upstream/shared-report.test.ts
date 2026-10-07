@@ -42,7 +42,7 @@ beforeEach(() => {
   mocks.entity.mockResolvedValue({ ...website, userId: 'private-owner' });
   mocks.snapshot.mockImplementation(async work => work());
   mocks.build.mockResolvedValue({
-    contractVersion: 1,
+    contractVersion: 2,
     website,
     range: input,
     states: { human: 'available', logs: 'available', catalog: 'available', goals: 'available' },
