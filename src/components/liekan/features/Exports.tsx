@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import {
   EXPORT_MAX_BYTES,
@@ -9,6 +10,7 @@ import {
 } from '@/lib/liekan/contracts/exports';
 import { streamFeatureExport } from '@/lib/liekan/upstream/features-client';
 import { numberLabel } from '@/lib/liekan/contracts/features';
+import { websiteMatchesHandle } from '@/lib/liekan/website-handle';
 import { useFeature } from './context';
 import {
   Badge,
@@ -28,6 +30,11 @@ import {
 
 export function Exports() {
   const c = useFeature();
+  const searchParams = useSearchParams();
+  // 路由解析会对非 website 页面剥掉 websiteId，这里从原始 URL 恢复发起导出时的站点。
+  const requestedSite = c.sites.find(site =>
+    websiteMatchesHandle(site, searchParams.get('websiteId') || ''),
+  );
   const [format, setFormat] = useState<ExportRequest['format']>('zip');
   const [status, setStatus] = useState('idle');
   const [progress, setProgress] = useState({ stage: '正在查询所选数据', percent: 0 });
@@ -134,7 +141,7 @@ export function Exports() {
             <Select
               label="导出网站"
               name="website"
-              defaultValue={c.siteId}
+              defaultValue={requestedSite?.id || c.siteId}
               options={c.sites.map(site => [site.id, site.name])}
               required
             />
