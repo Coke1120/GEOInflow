@@ -247,6 +247,24 @@ describe('feature navigation scope', () => {
       expect.objectContaining({ dateMode: undefined, live: undefined }),
     );
   });
+  it('shows website toolbar quick ranges and clears time extras on click', async () => {
+    mocks.navigation.query = { date: 'range:1727827200000:1791388799999', dateMode: 'default' };
+    mocks.navigation.updateParams.mockReturnValue('/next-range');
+    mount({ page: 'events', websiteId: personal.id });
+    await screen.findByRole('button', { name: '切换网站，当前个人网站' });
+    // dateMode=default 继承自 GEO 默认窗口，快捷钮按 30 天高亮。
+    expect(screen.getByRole('button', { name: '30 天' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '24h' })).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(screen.getByRole('button', { name: '24h' }));
+    expect(mocks.navigation.updateParams).toHaveBeenCalledWith({
+      date: '24hour',
+      unit: undefined,
+      offset: undefined,
+      dateMode: undefined,
+      live: undefined,
+    });
+    expect(mocks.push).toHaveBeenCalledWith('/next-range');
+  });
   it.each([
     { page: 'admin-users' },
     { page: 'admin-user', id: 'user-2' },

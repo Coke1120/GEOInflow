@@ -26,6 +26,7 @@ import styles from '@/styles/liekan/Shell.module.css';
 import { AnalysisLoading, reportViews } from './AnalysisLoading';
 import { AnalysisTabs } from './AnalysisTabs';
 import { useDataLoading } from './DataLoading';
+import { activeQuickDateRange, QuickRangeButtons } from './date-quick-range';
 import {
   cardLabels,
   csvMatrix,
@@ -513,6 +514,19 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const View = reportViews[resource];
   const headerActions = (
     <div className={styles.headerActions}>
+      <QuickRangeButtons
+        variant="chip"
+        activeToken={activeQuickDateRange(params, '30day')}
+        onSelect={token =>
+          updateView({
+            date: token,
+            unit: undefined,
+            offset: undefined,
+            dateMode: undefined,
+            live: undefined,
+          })
+        }
+      />
       <button
         type="button"
         className="chip"

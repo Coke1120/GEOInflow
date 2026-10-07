@@ -35,6 +35,7 @@ import { DataLoading } from '../DataLoading';
 import { Navigation, useSidebarWidth } from '../Navigation';
 import { ProductFooter } from '../ProductFooter';
 import { WebsiteToolbar } from '../WebsiteToolbar';
+import { activeQuickDateRange, QuickRangeButtons } from '../date-quick-range';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
 import { AiPages, aiPages } from './AiPages';
@@ -401,6 +402,29 @@ export function FeatureApp({
       <Icon name="down" />
     </Button>
   );
+  // 快捷时间按钮只进网站项目工具栏；非 websiteLayout 的页头（dateControl 的另一处渲染）不加。
+  const websiteDateActions =
+    websiteLayout &&
+    datePage && (
+      <>
+        <QuickRangeButtons
+          variant="btn"
+          activeToken={activeQuickDateRange(nav.query)}
+          onSelect={token =>
+            nav.router.push(
+              nav.updateParams({
+                date: token,
+                unit: undefined,
+                offset: undefined,
+                dateMode: undefined,
+                live: undefined,
+              }),
+            )
+          }
+        />
+        {dateControl}
+      </>
+    );
   if (setup)
     return (
       <FeatureProvider value={value}>
@@ -451,7 +475,7 @@ export function FeatureApp({
         />
         <div className="shell-content">
           {websiteLayout && (
-            <WebsiteToolbar contextRef={setWebsiteContextTarget} actions={dateControl} />
+            <WebsiteToolbar contextRef={setWebsiteContextTarget} actions={websiteDateActions} />
           )}
           <header className="header">
             <div className="header-inner">
