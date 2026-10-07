@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import {
   EXPORT_MAX_BYTES,
@@ -30,11 +29,9 @@ import {
 
 export function Exports() {
   const c = useFeature();
-  const searchParams = useSearchParams();
-  // 路由解析会对非 website 页面剥掉 websiteId，这里从原始 URL 恢复发起导出时的站点。
-  const requestedSite = c.sites.find(site =>
-    websiteMatchesHandle(site, searchParams.get('websiteId') || ''),
-  );
+  // 选项值用站点 UUID，而 c.siteId 携带 URL 里的短编号或 UUID；
+  // 先换算成对应站点的 id，短编号入口才能命中默认选项。
+  const currentSite = c.sites.find(site => websiteMatchesHandle(site, c.siteId));
   const [format, setFormat] = useState<ExportRequest['format']>('zip');
   const [status, setStatus] = useState('idle');
   const [progress, setProgress] = useState({ stage: '正在查询所选数据', percent: 0 });
@@ -141,7 +138,7 @@ export function Exports() {
             <Select
               label="导出网站"
               name="website"
-              defaultValue={requestedSite?.id || c.siteId}
+              defaultValue={currentSite?.id || c.siteId}
               options={c.sites.map(site => [site.id, site.name])}
               required
             />
