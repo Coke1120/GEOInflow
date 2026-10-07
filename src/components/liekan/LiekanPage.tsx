@@ -633,7 +633,16 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                 <button
                   key={value}
                   type="button"
-                  onClick={() => updateView({ date: value, unit: undefined, offset: undefined })}
+                  // dateMode 必须一并清除：残留 default 会让 dynamicDefault 忽略新 token 并回写 range:。
+                  onClick={() =>
+                    updateView({
+                      date: value,
+                      unit: undefined,
+                      offset: undefined,
+                      dateMode: undefined,
+                      live: undefined,
+                    })
+                  }
                 >
                   {label}
                 </button>

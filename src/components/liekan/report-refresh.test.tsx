@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiekanPage } from './LiekanPage';
 import { freshAggregateFixture } from '@/test/liekan-freshness';
@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   compare: false,
   date: '30day' as string | undefined,
   dateMode: undefined as string | undefined,
+  push: vi.fn(),
   replace: vi.fn(),
   updateParams: vi.fn(),
   afterSaved: undefined as undefined | (() => Promise<void>),
@@ -83,7 +84,7 @@ vi.mock('@/lib/liekan/upstream/client', async () => {
         dateMode: state.dateMode,
         ...(state.compare ? { compareWeek: '1' } : {}),
       },
-      router: { push: vi.fn(), replace: state.replace },
+      router: { push: state.push, replace: state.replace },
       updateParams: state.updateParams,
     }),
   };
@@ -106,11 +107,14 @@ const report = (value: string) =>
   });
 let client: QueryClient;
 beforeEach(() => {
+  // offline 用例会向 window 派发 offline 事件；onlineManager 是全局的，必须在每个用例前复位。
+  onlineManager.setOnline(true);
   state.get.mockReset();
   state.compare = false;
   state.date = '30day';
   state.dateMode = undefined;
   state.updateParams.mockReset().mockReturnValue('/next-range');
+  state.push.mockReset();
   state.replace.mockReset();
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
@@ -413,7 +417,7 @@ it('labels offline expired GEO statistics and replaces them with a connection re
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-05T00:00:00Z'));
   let online = true;
-  vi.spyOn(navigator, 'onLine', 'get').mockImplementation(() => online);
+  const onLineSpy = vi.spyOn(navigator, 'onLine', 'get').mockImplementation(() => online);
   state.get.mockImplementation(() => {
     const value = report('offline-value');
     rememberResponseFreshness(
@@ -446,6 +450,28 @@ it('labels offline expired GEO statistics and replaces them with a connection re
     expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
     expect(screen.queryByText('pending')).not.toBeInTheDocument();
   } finally {
+    onLineSpy.mockRestore();
     vi.useRealTimers();
   }
+});
+
+it('clears dateMode and live when an empty-state range shortcut is used', async () => {
+  // dateMode=default 残留会让 dynamicDefault 忽略新 token 并把 URL 回写成 range:，快捷键必须清掉它。
+  state.date = 'range:1727827200000:1791388799999';
+  state.dateMode = 'default';
+  state.get.mockRejectedValue(new Error('statistics unavailable'));
+  render(
+    <QueryClientProvider client={client}>
+      <LiekanPage resource="content" />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(await screen.findByRole('button', { name: '近 7 天' }, { timeout: 5000 }));
+  expect(state.updateParams).toHaveBeenCalledWith({
+    date: '7day',
+    unit: undefined,
+    offset: undefined,
+    dateMode: undefined,
+    live: undefined,
+  });
+  expect(state.push).toHaveBeenCalledWith('/next-range', { scroll: false });
 });
