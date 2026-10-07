@@ -92,6 +92,19 @@ const visitor = (id: string) => `访客 ${id?.replaceAll('-', '').slice(-6) || '
 function date(value: any, timezone: string) {
   return value ? formatInTimeZone(value, timezone, 'yyyy-MM-dd HH:mm:ss') : '—';
 }
+// 报表分组桶是服务端 date_trunc 生成的文本；按 unit 渲染成紧凑标签，解析失败时原样展示。
+function bucketLabel(value: any, unit: string | undefined, timezone: string) {
+  if (value == null || Number.isNaN(Date.parse(value))) return value;
+  const pattern =
+    unit === 'minute' || unit === 'hour'
+      ? 'MM-dd HH:mm'
+      : unit === 'month'
+        ? 'yyyy-MM'
+        : unit === 'year'
+          ? 'yyyy'
+          : 'MM-dd';
+  return formatInTimeZone(value, timezone, pattern);
+}
 export function canManage(c: ReturnType<typeof useFeature>) {
   return (
     c.user.isAdmin ||
@@ -278,7 +291,8 @@ function Events() {
   const d = query.data,
     t = d?.totals;
   const points: any[] = timeline.data || [];
-  const labels = [...new Set(points.map(r => r.t))];
+  const buckets = [...new Set(points.map(r => r.t))];
+  const labels = buckets.map(t => bucketLabel(t, scope.unit, scope.timezone));
   const names = [...new Set(points.map(r => r.x))];
   return (
     <>
@@ -297,8 +311,10 @@ function Events() {
             labels={labels}
             series={names.map(name => ({
               name,
-              values: labels.map(t =>
-                points.filter(r => r.x === name && r.t === t).reduce((s, r) => s + Number(r.y), 0),
+              values: buckets.map(bucket =>
+                points
+                  .filter(r => r.x === name && r.t === bucket)
+                  .reduce((s, r) => s + Number(r.y), 0),
               ),
             }))}
           />

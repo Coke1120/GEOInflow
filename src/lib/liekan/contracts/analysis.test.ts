@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   completedObservationDate,
   conditionsToQuery,
+  duration,
   featureDateRange,
   relativeDaySeries,
   retentionSummary,
@@ -32,6 +33,15 @@ describe('Liekan analysis boundaries', () => {
         'UTC',
       ),
     ).toEqual([5, 0, 7]);
+  });
+  it('formats durations without unbounded minute counts', () => {
+    expect(duration(null)).toBe('—');
+    expect(duration(0)).toBe('00:00');
+    expect(duration(59.4)).toBe('00:59');
+    expect(duration(759)).toBe('12:39');
+    expect(duration(3600)).toBe('1:00:00');
+    expect(duration(45554)).toBe('12:39:14');
+    expect(duration(45554 + 40 * 86400)).toBe('40 天 12 小时');
   });
   it('excludes incomplete observation days and weights mature cohorts', () => {
     expect(completedObservationDate(Date.parse('2026-10-03T04:00Z'), 'Asia/Shanghai')).toBe(

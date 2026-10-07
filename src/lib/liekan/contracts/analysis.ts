@@ -141,7 +141,12 @@ export const percentage = (num: number, den: number) =>
 export function duration(seconds: number | null | undefined) {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
   const s = Math.max(0, Math.round(seconds));
-  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  // 会话身份按月加盐，可跨周延续；未封顶的 mm:ss 会渲染成 45554:15 这类不可读值。
+  if (s >= 86400) return `${Math.floor(s / 86400)} 天 ${Math.floor((s % 86400) / 3600)} 小时`;
+  const hh = Math.floor(s / 3600);
+  const ss = String(s % 60).padStart(2, '0');
+  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
+  return hh ? `${hh}:${mm}:${ss}` : `${String(Math.floor(s / 60)).padStart(2, '0')}:${ss}`;
 }
 export type AnalysisCondition = { name: string; operator: string; value: string };
 export function conditionsToQuery(
