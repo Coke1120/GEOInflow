@@ -692,7 +692,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
           }
         />
-      ) : metadataLoading || query.isPending || displayMismatch ? (
+      ) : metadataLoading || query.isPending || displayMismatch || (query.isError && !restricted) ? (
         <AnalysisLoading
           resource={resource}
           aiCrawlerEnabled={!crawlerHidden}
