@@ -212,6 +212,13 @@
   font-weight: 600;
   margin-left: 10px;
 }
+/* geo 页外层包着冻结的 Reference root，其 :is(button) 与 .notice button 同特异性且靠后，
+   这里用 .pageBody 提升一级，保证提示框内按钮样式不被覆盖。 */
+.pageBody .notice button {
+  color: #0f62fe;
+  font-weight: 600;
+  margin-left: 10px;
+}
 .mobileToggle {
   display: none;
 }

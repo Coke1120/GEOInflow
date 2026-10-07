@@ -620,6 +620,26 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               重试
             </button>
           )}
+          {query.isError && !report && !restricted && !liveLogs && (
+            <>
+              也可缩小时间范围后重试：
+              {(
+                [
+                  ['24hour', '近 24 小时'],
+                  ['7day', '近 7 天'],
+                  ['30day', '近 30 天'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => updateView({ date: value, unit: undefined, offset: undefined })}
+                >
+                  {label}
+                </button>
+              ))}
+            </>
+          )}
           {search && (
             <button
               type="button"
