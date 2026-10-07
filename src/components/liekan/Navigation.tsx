@@ -265,7 +265,7 @@ export function Navigation({
     (currentSite?.teamId ? '团队空间' : '个人空间');
   const activePage = activeNavigationPage(route);
   const ownerParams = website
-    ? { websiteId: route.websiteId }
+    ? { websiteId: (currentSite && websiteHandle(currentSite)) || route.websiteId }
     : route.teamId
       ? { teamId: route.teamId }
       : {};

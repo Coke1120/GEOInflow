@@ -12,6 +12,7 @@ import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
+import { websiteHandle } from '@/lib/liekan/website-handle';
 import {
   allowedShareSections,
   bindBoardComponent,
@@ -1449,6 +1450,7 @@ function Boards() {
   const c = useFeature(),
     [page, setPage] = useListState('page', 1),
     [search, setSearch] = useListState('search', '');
+  const entities = useWorkspaceEntities();
   const q = useData(['boards', c.route.teamId, page, search], signal =>
     c.api.get(
       c.route.teamId ? `/teams/${c.route.teamId}/boards` : '/boards',
@@ -1487,11 +1489,12 @@ function Boards() {
             columns={['名称', '类型', '关联资源', '更新时间', '操作']}
             rows={rowsOf<any>(q.data).map(board => {
               const entity = boardEntity(board.parameters, board.type);
+              const resources: any[] = (entities.data as any)?.[entity.entityType] || [];
               return [
                 board.name,
                 <Badge key="cell-badge-19">{labels[board.type] || board.type}</Badge>,
                 entity.entityId
-                  ? c.sites.find(site => site.id === entity.entityId)?.name || entity.entityId
+                  ? resources.find(item => item.id === entity.entityId)?.name || '资源不存在'
                   : `${boardColumns(board.parameters).length} 个组件`,
                 date(board.updatedAt),
                 <LinkButton key="cell-linkbutton-20" page="board-view" params={{ id: board.id }}>
@@ -2432,24 +2435,33 @@ function Dashboard({ editing = false }: { editing?: boolean }) {
           </div>
           {ids.length ? (
             <div className="two">
-              {ids.map(id => (
-                <Panel
-                  key={id}
-                  title={c.sites.find(site => site.id === id)?.name || id}
-                  actions={
-                    <>
-                      <LinkButton page="overview" params={{ websiteId: id }}>
-                        查看统计
-                      </LinkButton>
-                      <LinkButton page="website-settings" params={{ websiteId: id }}>
-                        网站设置
-                      </LinkButton>
-                    </>
-                  }
-                >
-                  <ResourceAnalytics id={id} metrics={false} title="" />
-                </Panel>
-              ))}
+              {ids.map(id => {
+                const site = c.sites.find(item => item.id === id);
+                return (
+                  <Panel
+                    key={id}
+                    title={site?.name || id}
+                    actions={
+                      <>
+                        <LinkButton
+                          page="overview"
+                          params={{ websiteId: site ? websiteHandle(site) : id }}
+                        >
+                          查看统计
+                        </LinkButton>
+                        <LinkButton
+                          page="website-settings"
+                          params={{ websiteId: site ? websiteHandle(site) : id }}
+                        >
+                          网站设置
+                        </LinkButton>
+                      </>
+                    }
+                  >
+                    <ResourceAnalytics id={id} metrics={false} title="" />
+                  </Panel>
+                );
+              })}
             </div>
           ) : (
             <Notice>尚未固定网站。可以在编辑工作台中选择可访问的网站。</Notice>

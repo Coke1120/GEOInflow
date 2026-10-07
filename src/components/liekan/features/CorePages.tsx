@@ -14,6 +14,7 @@ import {
   safeCallbackUrl,
 } from '@/lib/liekan/contracts/core';
 import { countOf, type FeatureEntity, numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
+import { websiteHandle } from '@/lib/liekan/website-handle';
 import type { DataState, LiekanReport } from '@/lib/liekan/contracts/report';
 import {
   featureSiteQuery,
@@ -331,10 +332,10 @@ function Websites() {
                     ? formatDate(stat.lastAt, c.range.timezone)
                     : '等待查询',
                 <div className="actions" key="actions">
-                  <LinkButton page="website-settings" params={{ websiteId: site.id }}>
+                  <LinkButton page="website-settings" params={{ websiteId: websiteHandle(site) }}>
                     网站设置
                   </LinkButton>
-                  <LinkButton page="overview" params={{ websiteId: site.id }}>
+                  <LinkButton page="overview" params={{ websiteId: websiteHandle(site) }}>
                     查看统计
                   </LinkButton>
                 </div>,
