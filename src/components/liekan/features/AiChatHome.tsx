@@ -248,9 +248,15 @@ export function ChatHome({
                 {label}
               </a>
             ))}
-            <button type="button" disabled={disabled} onClick={onHistory || onChooseSite}>
-              回答记录
-            </button>
+            {siteId ? (
+              <button type="button" disabled={disabled} onClick={onHistory}>
+                回答记录
+              </button>
+            ) : (
+              <button type="button" disabled title="选择网站后可查看历史对话">
+                回答记录
+              </button>
+            )}
             {[
               ['来源分析', 'geo-sources'],
               ['数据导出', 'exports'],
