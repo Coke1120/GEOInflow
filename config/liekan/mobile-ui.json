@@ -1,14 +1,53 @@
 {
   "baselineVersion": "liekan-mobile-v1",
   "approvedDate": "2026-10-04",
-  "pageCount": 79,
+  "pageCount": 77,
   "navigationBreakpoint": 900,
   "contentBreakpoint": 540,
   "touchTarget": 44,
   "inputFontSize": 16,
-  "widths": [320, 375, 430, 768],
-  "boundaryWidths": [390, 540, 900, 901],
-  "desktopWidths": [1280, 1440],
-  "resourceLists": ["websites", "api-keys", "goals", "funnels", "teams", "team-detail", "admin-users", "admin-user", "admin-websites", "admin-teams", "boards", "sharing", "links", "pixels", "segments", "cohorts", "annotations"],
-  "preserved": ["desktopReference", "tableFields", "chartSeries", "queryConditions", "resourceOwnership", "savedBoardLayout", "replayCoordinates"]
+  "widths": [
+    320,
+    375,
+    430,
+    768
+  ],
+  "boundaryWidths": [
+    390,
+    540,
+    900,
+    901
+  ],
+  "desktopWidths": [
+    1280,
+    1440
+  ],
+  "resourceLists": [
+    "websites",
+    "api-keys",
+    "goals",
+    "funnels",
+    "teams",
+    "team-detail",
+    "admin-users",
+    "admin-user",
+    "admin-websites",
+    "admin-teams",
+    "boards",
+    "sharing",
+    "links",
+    "pixels",
+    "segments",
+    "cohorts",
+    "annotations"
+  ],
+  "preserved": [
+    "desktopReference",
+    "tableFields",
+    "chartSeries",
+    "queryConditions",
+    "resourceOwnership",
+    "savedBoardLayout",
+    "replayCoordinates"
+  ]
 }
