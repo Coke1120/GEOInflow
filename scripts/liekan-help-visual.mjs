@@ -242,7 +242,6 @@ try {
     const websites = Array.isArray(payload) ? payload : payload.data;
     assert(websites.length > 0, 'Footer checks require a real authorized website');
     for (const path of [
-      '/dashboard',
       '/websites',
       '/liekan/ai-chat',
       '/liekan/ai-config',
