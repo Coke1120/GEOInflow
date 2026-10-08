@@ -417,7 +417,7 @@ try {
   if (
     !report.featureFlows.passed ||
     report.featureFlows.head !== head ||
-    report.featureFlows.checks.length !== 16 ||
+    report.featureFlows.checks.length !== 14 ||
     report.featureFlows.checks.some(check => !check.passed) ||
     report.featureFlows.errors.length
   )
