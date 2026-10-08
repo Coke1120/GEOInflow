@@ -249,7 +249,7 @@ describe('navigation task boundaries', () => {
     }
   });
   it('assigns every supplemental and GEO page to a scope and an accessible parent', () => {
-    expect(featurePages).toHaveLength(71);
+    expect(featurePages).toHaveLength(69);
     expect(Object.keys(geoPaths)).toHaveLength(11);
     for (const page of [...featurePages.map(page => page.id), ...Object.keys(geoPaths)]) {
       expect(pageNavigation[page], page).toBeDefined();
@@ -259,7 +259,6 @@ describe('navigation task boundaries', () => {
     }
     expect(globalNavigation.map(group => group.label)).toEqual([
       '快速发起',
-      '数据总览',
       '数据管理',
       '协作管理',
       '帮助中心',
@@ -268,7 +267,6 @@ describe('navigation task boundaries', () => {
     const globalItems = globalNavigation.flatMap(group => group.children || [group]);
     expect(globalItems.map(item => item.label)).toEqual([
       '快速发起',
-      '数据总览',
       '网站管理',
       '数据看板',
       '追踪管理',
@@ -279,7 +277,6 @@ describe('navigation task boundaries', () => {
     ]);
     expect(globalItems.map(item => item.icon)).toEqual([
       'plus',
-      'grid',
       'globe',
       'bars',
       'target',

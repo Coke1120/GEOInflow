@@ -25,7 +25,7 @@ import { analyticsCache } from './query-cache';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const p = { ids: id, startAt: 1000000000000, endAt: 1000000100000, timezone: 'Asia/Shanghai' };
-const zero = { pageviews: 0, visitors: 0, visits: 0, bounces: 0, totaltime: 0 };
+const zero = { pageviews: 0, visitors: 0, visits: 0, bounces: 0, totaltime: 0, aiVisits: 0 };
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv('CLICKHOUSE_URL', '');
@@ -37,8 +37,8 @@ beforeEach(() => {
   mocks.query.mockResolvedValue([
     {
       id,
-      current: { ...zero, pageviews: 4, visitors: 2 },
-      previous: zero,
+      current: { ...zero, pageviews: 4, visitors: 2, aiVisits: 1 },
+      previous: { ...zero, aiVisits: 3 },
       received: true,
       last_at: new Date(1234),
     },
@@ -52,7 +52,8 @@ it('coalesces repeated summaries and rechecks revoked access before a warm read'
     readWebsiteSummary(request, p),
   ]);
   expect(a).toEqual(b);
-  expect(a[0]).toMatchObject({ id, views: 4, received: true, visitors: 2 });
+  expect(a[0]).toMatchObject({ id, views: 4, received: true, visitors: 2, aiVisits: 1 });
+  expect(a[0].comparison).toMatchObject({ aiVisits: 3 });
   expect(mocks.query).toHaveBeenCalledTimes(1);
   mocks.allowed.mockResolvedValue(false);
   await expect(readWebsiteSummary(request, p)).rejects.toMatchObject({ status: 403 });
@@ -78,12 +79,17 @@ it('preserves native reset filtering in compatibility fallback', async () => {
     startDate: reset,
     endDate: new Date(input.endAt),
   }));
-  mocks.stats.mockResolvedValue(zero);
+  mocks.stats.mockImplementation(async (_id: string, filters: any) =>
+    filters.drill_channel === 'eq.AI 搜索引荐' ? { ...zero, visits: 2 } : zero,
+  );
   mocks.dates.mockResolvedValue({ endDate: null });
   const rows = await readWebsiteSummary(new Request('http://localhost'), p);
   expect(rows[0].received).toBe(false);
+  expect(rows[0].aiVisits).toBe(2);
+  expect(rows[0].comparison.aiVisits).toBe(2);
   expect(mocks.stats.mock.calls[0][1].startDate).toEqual(reset);
   expect(mocks.stats.mock.calls[2][1].startDate).toEqual(reset);
+  expect(mocks.stats.mock.calls[4][1].drill_channel).toBe('eq.AI 搜索引荐');
   expect(mocks.filters).toHaveBeenCalledTimes(2);
   expect(mocks.query).not.toHaveBeenCalled();
 });

@@ -118,7 +118,7 @@ export function safeCallbackUrl(value: string | null) {
 
 export function featureNavigationPath(value: string, basePath: string) {
   const path = safeCallbackUrl(value);
-  if (!path) return '/dashboard';
+  if (!path) return '/websites';
   if (!basePath) return path;
   if (path === basePath) return '/';
   return path.startsWith(`${basePath}/`) ? path.slice(basePath.length) : path;

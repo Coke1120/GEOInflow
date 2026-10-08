@@ -28,6 +28,11 @@ import {
   verifyFeatureSso,
   verifyFeatureTwoFactor,
 } from '@/lib/liekan/upstream/features-client';
+import {
+  projectToday,
+  projectTrend,
+  websiteDayWindow,
+} from '@/lib/liekan/upstream/website-day-metrics';
 import { ManagementDrawer } from '../ManagementDrawer';
 import { managementLabels } from '@/lib/liekan/contracts/management';
 import { Chart } from './Chart';
@@ -178,6 +183,62 @@ function MissingWebsite() {
 function ReadonlyNotice() {
   return <Notice tone="amber">当前角色可以查看此配置。保存操作需要网站管理权限。</Notice>;
 }
+const percentLabel = (value: number | null) => (value == null ? '—' : `${value.toFixed(2)}%`);
+const bounceRateLabel = (row: any) => {
+  const visits = Number(row?.visits ?? 0);
+  return visits > 0 ? (Number(row?.bounces ?? 0) / visits) * 100 : null;
+};
+/** 今日 / 昨日 / 预计今日 three-line metric cell; rates have no projection. */
+function MetricRows({
+  today,
+  yesterday,
+  timezone,
+  kind,
+}: {
+  today: number | null;
+  yesterday: number | null;
+  timezone: string;
+  kind: 'count' | 'percent';
+}) {
+  const estimate = kind === 'count' ? projectToday(today, timezone) : null;
+  const trend = projectTrend(estimate, yesterday);
+  return (
+    <div className="site-metrics">
+      <div className="site-metric">
+        <span className="site-metric-label">今日</span>
+        <span className="site-metric-value">
+          {kind === 'percent' ? percentLabel(today) : today == null ? '—' : numberLabel(today)}
+        </span>
+      </div>
+      <div className="site-metric">
+        <span className="site-metric-label">昨日</span>
+        <span className="site-metric-value">
+          {kind === 'percent'
+            ? percentLabel(yesterday)
+            : yesterday == null
+              ? '—'
+              : numberLabel(yesterday)}
+        </span>
+      </div>
+      <div className="site-metric">
+        <span className="site-metric-label">预计今日</span>
+        <span className="site-metric-value">
+          {estimate == null ? '—' : numberLabel(estimate)}
+          {trend === 1 && (
+            <span className="metric-arrow metric-up" aria-label="预计高于昨日">
+              ▲
+            </span>
+          )}
+          {trend === -1 && (
+            <span className="metric-arrow metric-down" aria-label="预计低于昨日">
+              ▼
+            </span>
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function InstallSteps({ query, websiteId }: { query: any; websiteId: string }) {
   const c = useFeature();
@@ -236,7 +297,14 @@ function Websites() {
       c.api.get,
     ),
   );
+  // 今日窗口自带 compare=昨日，四个指标列共用一次请求。
+  const todayWindow = websiteDayWindow(c.range.timezone);
+  const todayQuery = useData(
+    ['website-management-today', c.sites.map(site => site.id), todayWindow.startAt],
+    signal => getFeatureWebsiteSummary(c.sites.map(site => site.id), todayWindow, signal, c.api.get),
+  );
   const stats = query.data || [];
+  const todayStats = todayQuery.data || [];
   const readable = stats.filter(row => !row.error);
   const ready = !query.isPending && !query.error && Array.isArray(query.data);
   const partial = ready && readable.length < c.sites.length;
@@ -293,14 +361,35 @@ function Websites() {
           <Table
             mobile
             rowKeys={c.sites.map(site => site.id)}
-            columns={['网站', '所属空间', '浏览采集状态', '访问次数', '最近接收', '操作']}
-            numeric={[3]}
+            columns={[
+              '网站',
+              '所属空间',
+              '浏览采集状态',
+              '访问次数',
+              '访客数',
+              '跳出率',
+              'AI访问次数',
+              '操作',
+            ]}
+            numeric={[3, 4, 5, 6]}
+            static={[3, 4, 5, 6]}
             search
+            onRowClick={(_, index) =>
+              c.navigate('overview', { websiteId: websiteHandle(c.sites[index]) })
+            }
             rows={c.sites.map(site => {
               const stat = stats.find(row => row.id === site.id);
+              const day = todayStats.find(row => row.id === site.id);
+              const dayRead = day && !day.error ? day : null;
+              const yesterday = dayRead ? dayRead.comparison : null;
               return [
                 <>
-                  <span className="table-title">{site.name}</span>
+                  <Link
+                    className="table-title"
+                    href={c.href('overview', { websiteId: websiteHandle(site) })}
+                  >
+                    {site.name}
+                  </Link>
                   <span className="table-meta">{site.domain}</span>
                 </>,
                 c.teams.find(team => team.id === site.teamId)?.name ||
@@ -325,13 +414,39 @@ function Websites() {
                         ? '待验证'
                         : '等待查询'}
                 </Badge>,
-                stat && !stat.error ? numberLabel(stat.views) : '—',
-                stat?.error
-                  ? '无法读取'
-                  : stat
-                    ? formatDate(stat.lastAt, c.range.timezone)
-                    : '等待查询',
-                <div className="actions" key="actions">
+                <MetricRows
+                  key="views"
+                  kind="count"
+                  timezone={c.range.timezone}
+                  today={dayRead ? dayRead.views : null}
+                  yesterday={yesterday ? yesterday.views : null}
+                />,
+                <MetricRows
+                  key="visitors"
+                  kind="count"
+                  timezone={c.range.timezone}
+                  today={dayRead ? dayRead.visitors : null}
+                  yesterday={yesterday ? yesterday.visitors : null}
+                />,
+                <MetricRows
+                  key="bounce"
+                  kind="percent"
+                  timezone={c.range.timezone}
+                  today={dayRead ? bounceRateLabel(dayRead) : null}
+                  yesterday={yesterday ? bounceRateLabel(yesterday) : null}
+                />,
+                <MetricRows
+                  key="ai"
+                  kind="count"
+                  timezone={c.range.timezone}
+                  today={dayRead ? dayRead.aiVisits : null}
+                  yesterday={yesterday ? yesterday.aiVisits : null}
+                />,
+                <div
+                  className="actions"
+                  key="actions"
+                  onClick={event => event.stopPropagation()}
+                >
                   <LinkButton page="website-settings" params={{ websiteId: websiteHandle(site) }}>
                     网站设置
                   </LinkButton>
@@ -343,6 +458,10 @@ function Websites() {
             })}
             empty="还没有网站。添加网站后安装专用跟踪代码。"
           />
+          <p className="metric-note">
+            口径：访问次数为页面浏览 PV；访客数与跳出率按会话统计；AI访问次数为
+            AI 搜索引荐会话；预计今日按当天已流逝进度折算，跳出率不提供预计值。
+          </p>
         </QueryState>
       </Panel>
       {partial && (

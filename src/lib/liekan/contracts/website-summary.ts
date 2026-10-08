@@ -23,6 +23,7 @@ const totals = z.object({
   visits: z.number(),
   bounces: z.number(),
   totaltime: z.number(),
+  aiVisits: z.number(),
 });
 export const websiteSummarySchema = z.array(
   totals.extend({

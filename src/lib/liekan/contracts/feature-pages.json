@@ -393,22 +393,6 @@
       "kind": "兼容页重绘"
     },
     {
-      "id": "dashboard",
-      "title": "工作台",
-      "group": "workspace",
-      "summary": "跨网站摘要与固定网站。",
-      "route": "/dashboard",
-      "kind": "兼容页重绘"
-    },
-    {
-      "id": "dashboard-edit",
-      "title": "编辑工作台",
-      "group": "workspace",
-      "summary": "网站选择、排序与显示选项。",
-      "route": "/dashboard/edit",
-      "kind": "兼容页重绘"
-    },
-    {
       "id": "sharing",
       "title": "分享管理",
       "group": "workspace",
@@ -638,18 +622,6 @@
       "source": "src/app/(main)/console/[websiteId]/page.tsx",
       "route": "/console/[websiteId]",
       "target": "install-check.html",
-      "entry": "页面"
-    },
-    {
-      "source": "src/app/(main)/dashboard/edit/page.tsx",
-      "route": "/dashboard/edit",
-      "target": "dashboard-edit.html",
-      "entry": "页面"
-    },
-    {
-      "source": "src/app/(main)/dashboard/page.tsx",
-      "route": "/dashboard",
-      "target": "dashboard.html",
       "entry": "页面"
     },
     {

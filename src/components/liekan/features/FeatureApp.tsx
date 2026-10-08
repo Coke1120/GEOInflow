@@ -136,14 +136,7 @@ export function FeatureApp({
       ? route.teamId
       : undefined;
   const siteScope =
-    [
-      'dashboard',
-      'dashboard-edit',
-      'boards',
-      'board-view',
-      'board-editor',
-      'board-design',
-    ].includes(route.page) ||
+    ['boards', 'board-view', 'board-editor', 'board-design'].includes(route.page) ||
     websiteRequired ||
     nav.query.scope === 'all'
       ? 'all'
@@ -152,8 +145,6 @@ export function FeatureApp({
     websiteRequired ||
     [
       'websites',
-      'dashboard',
-      'dashboard-edit',
       'boards',
       'board-view',
       'board-editor',
@@ -182,14 +173,7 @@ export function FeatureApp({
       const source = getFeatureSites(
         signal,
         websiteRequired ||
-          [
-            'dashboard',
-            'dashboard-edit',
-            'boards',
-            'board-view',
-            'board-editor',
-            'board-design',
-          ].includes(route.page)
+          ['boards', 'board-view', 'board-editor', 'board-design'].includes(route.page)
           ? undefined
           : route.teamId,
         siteScope,
@@ -336,7 +320,7 @@ export function FeatureApp({
         : page?.title || '猎看统计';
   const pageKey = `${siteId || current.teamId || user.id}:${current.page}:${current.id || ''}`;
   const invalidRange = datePage && range.endAt - range.startAt > 1096 * 86400000;
-  const readOnlyGlobalPage = !setup && ['websites', 'dashboard'].includes(current.page);
+  const readOnlyGlobalPage = !setup && ['websites'].includes(current.page);
   const metadata = teamState?.isPending || teamState?.error ? teamState : sitesQuery;
   const showAnalysisTools =
     websiteRequired &&
@@ -650,7 +634,7 @@ function FeaturePage({ page }: { page: string }) {
             ? '请重新登录后继续。'
             : '页面不存在或已被移除。'}
         <div className="form-actions">
-          <Link className="btn" href={page === 'session-expired' ? '/login' : '/dashboard'}>
+          <Link className="btn" href={page === 'session-expired' ? '/login' : '/websites'}>
             {page === 'session-expired' ? '重新登录' : '返回工作台'}
           </Link>
         </div>

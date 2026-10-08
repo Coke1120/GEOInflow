@@ -13914,10 +13914,12 @@ export interface operations {
         };
         content: {
           'application/json': {
+            aiVisits: number;
             /** @description Number of visits with only one pageview. */
             bounces: number;
             /** @description Analytics for the comparison period. */
             comparison: {
+              aiVisits: number;
               /** @description Number of visits with only one pageview. */
               bounces: number;
               /** @description Pageview counts for the selected period. */

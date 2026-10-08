@@ -5,8 +5,8 @@ import { featureHref, featurePages, featureWebsiteSwitchHref, matchFeatureRoute 
 const uuid = '11111111-1111-4111-8111-111111111111';
 describe('approved scene routing', () => {
   it('registers every approved supplemental scene without duplicate IDs', () => {
-    expect(featurePages).toHaveLength(71);
-    expect(new Set(featurePages.map(p => p.id)).size).toBe(71);
+    expect(featurePages).toHaveLength(69);
+    expect(new Set(featurePages.map(p => p.id)).size).toBe(69);
     for (const p of featurePages)
       expect(matchFeatureRoute(`/liekan/${p.id}`, { websiteId: uuid, id: uuid })).toMatchObject(
         p.id === 'help'
@@ -20,7 +20,7 @@ describe('approved scene routing', () => {
   });
   it('preserves route opt-out, team context and safe query values', () => {
     expect(matchFeatureRoute('/websites', { legacy: '1' })).toBeNull();
-    expect(matchFeatureRoute('/liekan')).toMatchObject({ page: 'dashboard' });
+    expect(matchFeatureRoute('/liekan')).toMatchObject({ page: 'websites' });
     expect(matchFeatureRoute(`/teams/${uuid}/websites`)).toMatchObject({
       page: 'websites',
       teamId: uuid,
@@ -68,8 +68,8 @@ describe('approved scene routing', () => {
     );
     expect(featureHref('overview', { websiteId: uuid })).toBe(`/websites/${uuid}/geo`);
   });
-  it('keeps the user dashboard global when opened from a team workspace', () => {
-    for (const page of ['dashboard', 'dashboard-edit']) {
+  it('keeps unscoped pages free of team scope when opened from a team workspace', () => {
+    for (const page of ['teams', 'help']) {
       const url = new URL(featureHref(page, { teamId: uuid }), 'http://localhost');
       expect(url.searchParams.has('teamId')).toBe(false);
       expect(matchFeatureRoute(url.pathname, { teamId: uuid })?.teamId).toBeUndefined();

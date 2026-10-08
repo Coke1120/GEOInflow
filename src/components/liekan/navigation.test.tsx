@@ -325,7 +325,6 @@ describe('website navigation transitions', () => {
     const entries = within(primary).getAllByRole('link');
     expect(entries.map(entry => entry.textContent)).toEqual([
       '快速发起',
-      '数据总览',
       '网站管理',
       '数据看板',
       '追踪管理',
@@ -337,7 +336,7 @@ describe('website navigation transitions', () => {
     expect(within(primary).queryAllByRole('button')).toHaveLength(0);
     expect(within(primary).getByText('数据管理')).toBeInTheDocument();
     expect(within(primary).getByText('协作管理')).toBeInTheDocument();
-    expect(primary.querySelectorAll('[data-navigation-group]')).toHaveLength(6);
+    expect(primary.querySelectorAll('[data-navigation-group]')).toHaveLength(5);
     expect(primary.querySelectorAll('a[aria-current="page"]')).toHaveLength(1);
     expect(within(primary).getByRole('link', { name: selected })).toHaveAttribute(
       'aria-current',

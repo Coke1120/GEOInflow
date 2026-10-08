@@ -615,6 +615,47 @@
   display: block;
   margin-top: 2px;
 }
+:global([data-liekan-features] .site-metrics) {
+  display: grid;
+  gap: 3px;
+  min-width: 10em;
+}
+:global([data-liekan-features] .site-metric) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+:global([data-liekan-features] .site-metric-label) {
+  font-size: 11px;
+  color: var(--sub);
+  white-space: nowrap;
+}
+:global([data-liekan-features] .site-metric-value) {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+:global([data-liekan-features] .metric-arrow) {
+  font-size: 10px;
+  margin-left: 4px;
+}
+:global([data-liekan-features] .metric-up) {
+  color: var(--red, #d92d20);
+}
+:global([data-liekan-features] .metric-down) {
+  color: var(--sub);
+}
+:global([data-liekan-features] tr.row-click) {
+  cursor: pointer;
+}
+:global([data-liekan-features] tr.row-click:hover td) {
+  background: color-mix(in srgb, var(--brand) 6%, transparent);
+}
+:global([data-liekan-features] .metric-note) {
+  font-size: 11.5px;
+  color: var(--sub);
+  margin: 10px 24px 0;
+}
 :global([data-liekan-features] .table-footer) {
   padding: 10px 24px;
   border-top: 1px solid var(--line);

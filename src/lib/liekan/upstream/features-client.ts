@@ -182,7 +182,7 @@ export function acceptFeatureLogin(response: any) {
   setClientAuthToken(response.token);
   setUser(response.user);
   sessionStorage.removeItem('umami.partial-token');
-  return consumeReturnUrl() ?? '/dashboard';
+  return consumeReturnUrl() ?? '/websites';
 }
 export function clearFeatureLogin() {
   removeClientAuthToken();
@@ -196,7 +196,7 @@ export async function resumeFeatureLogin(signal?: AbortSignal): Promise<string |
     const user = await featureRequest('POST', '/auth/verify', {}, signal, undefined, token);
     if (signal?.aborted || getClientAuthToken() !== token) return null;
     setUser(user);
-    return consumeReturnUrl() ?? '/dashboard';
+    return consumeReturnUrl() ?? '/websites';
   } catch (error) {
     if (signal?.aborted || getClientAuthToken() !== token) return null;
     if (error instanceof FeatureApiError && error.status === 401) {

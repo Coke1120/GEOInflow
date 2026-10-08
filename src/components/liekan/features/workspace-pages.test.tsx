@@ -183,14 +183,6 @@ beforeEach(() => {
       };
     if (path.endsWith('/pageviews'))
       return { pageviews: [{ x: '2026-10-01', y: 8 }], sessions: [{ x: '2026-10-01', y: 4 }] };
-    if (path === '/dashboard')
-      return {
-        parameters: {
-          extension: 'retained',
-          rows: [],
-          liekan: { siteIds: ['site-1'], showAI: true, showCompare: true },
-        },
-      };
     if (path.endsWith('/metrics')) return [{ x: 'llm', y: 2 }];
     return { data: [], count: 0 };
   });
@@ -605,24 +597,6 @@ describe('workspace permissions and native board persistence', () => {
     ).toBe(true);
     expect(getBoardEntityIds({ type: 'mixed', parameters }).websiteIds).toEqual([site.id]);
   });
-  it('preserves native dashboard rows and saves only accessible selected websites', async () => {
-    context.route = { page: 'dashboard-edit' };
-    mount(<WorkspacePages page="dashboard-edit" />);
-    await userEvent.click(await screen.findByRole('checkbox', { name: /产品网站/ }));
-    await userEvent.click(screen.getByRole('button', { name: '保存工作台' }));
-    await waitFor(() =>
-      expect(mocks.post).toHaveBeenCalledWith(
-        '/dashboard',
-        expect.objectContaining({
-          parameters: expect.objectContaining({
-            extension: 'retained',
-            rows: [],
-            liekan: expect.objectContaining({ siteIds: [] }),
-          }),
-        }),
-      ),
-    );
-  });
   it('loads delayed workspace sites and team resources and keeps renamed site choices current', async () => {
     context = { ...context, sites: [], teams: [], route: { page: 'board-editor' } };
     const teamLink = { id: 'team-link', name: '团队推广链接', teamId: team.id };
@@ -648,92 +622,6 @@ describe('workspace permissions and native board persistence', () => {
     await userEvent.selectOptions(screen.getByRole('combobox', { name: '看板类型' }), 'link');
     await waitFor(() =>
       expect(screen.queryByRole('option', { name: teamLink.name })).not.toBeInTheDocument(),
-    );
-  });
-  it('waits for delayed website hydration before initializing and saving existing dashboard pins', async () => {
-    context = {
-      ...context,
-      sites: [],
-      sitesLoading: true,
-      route: { page: 'dashboard-edit' },
-    };
-    const view = mount(<WorkspacePages page="dashboard-edit" />);
-    await waitFor(() =>
-      expect(mocks.get).toHaveBeenCalledWith('/dashboard', undefined, expect.any(AbortSignal)),
-    );
-    await waitFor(() =>
-      expect(view.client.getQueryCache().getAll()[0]?.state.status).toBe('success'),
-    );
-    expect(screen.queryByRole('button', { name: '保存工作台' })).not.toBeInTheDocument();
-
-    view.updateContext({ ...context, sites: [site], sitesLoading: false });
-    expect(await screen.findByRole('checkbox', { name: /产品网站/ })).toBeChecked();
-    await userEvent.click(screen.getByRole('button', { name: '保存工作台' }));
-    await waitFor(() =>
-      expect(mocks.post).toHaveBeenCalledWith(
-        '/dashboard',
-        expect.objectContaining({
-          parameters: expect.objectContaining({
-            extension: 'retained',
-            rows: [],
-            liekan: expect.objectContaining({ siteIds: [site.id] }),
-          }),
-        }),
-      ),
-    );
-  });
-  it('allows an actually empty accessible website set to save an empty dashboard', async () => {
-    context = { ...context, sites: [], sitesLoading: false, route: { page: 'dashboard-edit' } };
-    mount(<WorkspacePages page="dashboard-edit" />);
-    await userEvent.click(await screen.findByRole('button', { name: '保存工作台' }));
-    await waitFor(() =>
-      expect(mocks.post).toHaveBeenCalledWith(
-        '/dashboard',
-        expect.objectContaining({
-          parameters: expect.objectContaining({ liekan: expect.objectContaining({ siteIds: [] }) }),
-        }),
-      ),
-    );
-  });
-  it('waits for the saved dashboard when website choices are already ready', async () => {
-    context = { ...context, sitesLoading: false, route: { page: 'dashboard-edit' } };
-    let complete: (dashboard: any) => void;
-    mocks.get.mockImplementation(
-      (path: string) =>
-        new Promise(resolve => {
-          if (path === '/dashboard') complete = resolve;
-        }),
-    );
-    mount(<WorkspacePages page="dashboard-edit" />);
-    await waitFor(() => expect(complete).toBeTypeOf('function'));
-    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '保存工作台' })).not.toBeInTheDocument();
-    expect(mocks.post).not.toHaveBeenCalled();
-
-    const rows = structuredClone(nativeBoard.parameters.rows);
-    await act(async () => {
-      complete({
-        name: '已有工作台',
-        parameters: {
-          extension: 'retained',
-          rows,
-          liekan: { siteIds: [site.id], showAI: false, showCompare: true },
-        },
-      });
-    });
-    expect(await screen.findByRole('checkbox', { name: /产品网站/ })).toBeChecked();
-    await userEvent.click(screen.getByRole('button', { name: '保存工作台' }));
-    await waitFor(() =>
-      expect(mocks.post).toHaveBeenCalledWith(
-        '/dashboard',
-        expect.objectContaining({
-          parameters: expect.objectContaining({
-            extension: 'retained',
-            rows,
-            liekan: expect.objectContaining({ siteIds: [site.id], showAI: false }),
-          }),
-        }),
-      ),
     );
   });
   it('distinguishes absent analytics from a measured zero', () => {

@@ -16,7 +16,7 @@ assertDialogContract();
 const navigationBaseline = JSON.parse(fs.readFileSync('config/liekan/navigation-ui.json', 'utf8'));
 assert.equal(
   navigationBaseline.baselineVersion,
-  'liekan-navigation-v0.2.2',
+  'liekan-navigation-v0.2.3',
   'Explicit approved navigation baseline required',
 );
 const featureReference = JSON.parse(fs.readFileSync('config/liekan/feature-ui.json', 'utf8'));
@@ -35,11 +35,11 @@ assert.deepEqual(
     .filter(id => id !== 'help')
     .sort(),
   manifest.pages.map(p => p.id).sort(),
-  'All 68 feature scenarios require independent navigation expectations',
+  'All 66 feature scenarios require independent navigation expectations',
 );
 const aiReference = JSON.parse(fs.readFileSync('config/liekan/ai-ui.json', 'utf8'));
 const originalPages = manifest.pages.filter(page => !aiReference.scope.includes(page.id));
-assert.equal(originalPages.length, 68, 'Preserve all original supplemental page checks');
+assert.equal(originalPages.length, 66, 'Preserve all original supplemental page checks');
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const out = 'test-results/liekan-features';
 fs.mkdirSync(out, { recursive: true });

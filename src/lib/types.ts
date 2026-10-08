@@ -168,6 +168,7 @@ export interface FilterParams {
   segment?: string;
   cohort?: string;
   compare?: string;
+  drill_channel?: string;
   excludeBounce?: boolean;
   match?: 'all' | 'any';
 }

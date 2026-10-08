@@ -179,13 +179,12 @@ describe('core API mappings', () => {
   });
   it('passes logical paths to Next navigation when a base path is configured', () => {
     expect(featureNavigationPath('/stats/dashboard', '/stats')).toBe('/dashboard');
-    expect(featureNavigationPath('/dashboard', '/stats')).toBe('/dashboard');
     expect(featureNavigationPath('/stats', '/stats')).toBe('/');
     expect(featureNavigationPath('/stats-other/dashboard', '/stats')).toBe(
       '/stats-other/dashboard',
     );
-    expect(featureNavigationPath('//attacker.example', '/stats')).toBe('/dashboard');
-    expect(featureNavigationPath('/\n/attacker.example', '/stats')).toBe('/dashboard');
+    expect(featureNavigationPath('//attacker.example', '/stats')).toBe('/websites');
+    expect(featureNavigationPath('/\n/attacker.example', '/stats')).toBe('/websites');
   });
   it('converts recorder percentages and minutes and keeps both collection switches off', () => {
     expect(
@@ -283,7 +282,7 @@ describe('core API mappings', () => {
     expect(conversionRate(0, 0)).toBe('—');
     expect(conversionRate(0, 100)).toBe('0.00%');
     expect(conversionRate(25, 100)).toBe('25.00%');
-    expect(safeCallbackUrl('/dashboard?websiteId=abc')).toBe('/dashboard?websiteId=abc');
+    expect(safeCallbackUrl('/websites?websiteId=abc')).toBe('/websites?websiteId=abc');
     for (const url of ['//attacker.example', 'javascript:alert(1)', '/\\attacker.example', '/a:b'])
       expect(safeCallbackUrl(url)).toBeNull();
     for (const code of [...Array.from({ length: 32 }, (_, i) => i), 127]) {
@@ -434,6 +433,26 @@ describe('core form flows', () => {
       { id: 'expired', error: { status: 401, message: 'Expired' } },
       { id: 'failed', error: { status: 503, message: 'Unavailable' } },
     ];
+    mocks.query['website-management-today'] = [
+      {
+        id: 'active',
+        views: 12,
+        visitors: 6,
+        visits: 9,
+        bounces: 3,
+        aiVisits: 2,
+        comparison: { views: 8, visitors: 4, visits: 6, bounces: 2, aiVisits: 1 },
+      },
+      {
+        id: 'zero',
+        views: 0,
+        visitors: 0,
+        visits: 0,
+        bounces: 0,
+        aiVisits: 0,
+        comparison: { views: 0, visitors: 0, visits: 0, bounces: 0, aiVisits: 0 },
+      },
+    ];
     const { rerender } = render(<CorePages page="websites" />);
     expect(screen.getByText('无统计权限')).toBeInTheDocument();
     expect(screen.getByText('需要重新登录')).toBeInTheDocument();
@@ -441,8 +460,12 @@ describe('core form flows', () => {
     const views = document.querySelectorAll('.metric')[3] as HTMLElement;
     expect(within(views).getByText('120')).toBeInTheDocument();
     expect(views).toHaveTextContent('已读取 2 / 5 个网站的小计');
-    expect(within(screen.getByText('零访问网站').closest('tr')).getByText('0')).toBeInTheDocument();
-    expect(within(screen.getByText('故障网站').closest('tr')).getByText('—')).toBeInTheDocument();
+    expect(
+      within(screen.getByText('零访问网站').closest('tr')).getAllByText('0').length,
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      within(screen.getByText('故障网站').closest('tr')).getAllByText('—').length,
+    ).toBeGreaterThanOrEqual(9);
     mocks.context.sites = [{ id: 'failed', name: '故障网站' }];
     mocks.query['website-management-stats'] = [
       { id: 'failed', error: { status: 503, message: 'Unavailable' } },

@@ -27,8 +27,6 @@ const unscopedPages = new Set([
   'ai-chat',
   'ai-config',
   'help',
-  'dashboard',
-  'dashboard-edit',
   'account',
   'security',
   'two-factor',
@@ -71,7 +69,7 @@ export function matchFeatureRoute(
   query: Record<string, string> = {},
 ): FeatureRoute | null {
   if (query.legacy === '1') return null;
-  if (/^\/liekan\/?$/.test(pathname)) return { page: 'dashboard' };
+  if (/^\/liekan\/?$/.test(pathname)) return { page: 'websites' };
   let path = pathname;
   const team = path.match(new RegExp(`^/teams/(${uuid})(?=/)`));
   if (team && !path.match(new RegExp(`^/teams/${uuid}/?$`))) path = path.slice(team[0].length);
@@ -143,7 +141,7 @@ export function featureHref(page: string, params: Record<string, any> = {}): str
     page in geoPaths && params.websiteId
       ? `/websites/${params.websiteId}/geo${geoPaths[page]}`
       : '';
-  if (!record && !geo) return '/dashboard';
+  if (!record && !geo) return '/websites';
   const base =
     (params.context === 'admin' && page === 'website-settings' && params.websiteId
       ? `/admin/websites/${params.websiteId}`

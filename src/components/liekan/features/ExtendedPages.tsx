@@ -945,7 +945,7 @@ export function ExtendedPages({ page }: { page: string }) {
         '权限不足',
         '当前身份仅能查看授权网站。此操作需要资源管理员权限。',
         '返回工作台',
-        'dashboard',
+        'websites',
       ],
       'session-expired': [
         '登录已过期',
@@ -959,7 +959,7 @@ export function ExtendedPages({ page }: { page: string }) {
         '页面不存在',
         '页面可能已经移动，或当前地址无效。可返回工作台选择需要的功能。',
         '返回工作台',
-        'dashboard',
+        'websites',
       ],
     };
     const state = states[page];

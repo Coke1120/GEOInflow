@@ -454,7 +454,7 @@ export function Navigation({
         <Link
           prefetch={false}
           className={styles.brand}
-          href={website ? safeHref('overview') : featureHref('dashboard')}
+          href={website ? safeHref('overview') : featureHref('websites')}
         >
           <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
           <span>

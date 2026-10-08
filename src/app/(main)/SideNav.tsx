@@ -22,7 +22,6 @@ import {
   LayoutDashboard,
   LinkIcon,
   PanelLeft,
-  PanelsLeftBottom,
 } from '@/components/icons';
 import { UserButton } from '@/components/input/UserButton';
 import { BrandIcon } from '@/components/liekan/Icons';
@@ -33,16 +32,6 @@ export function SideNav(props: any) {
   const [isCollapsed] = useGlobalState('sidenav-collapsed', false);
 
   const links = [
-    ...(!teamId
-      ? [
-          {
-            id: 'dashboard',
-            label: t(labels.dashboard),
-            path: '/dashboard',
-            icon: <PanelsLeftBottom />,
-          },
-        ]
-      : []),
     {
       id: 'boards',
       label: t(labels.boards),

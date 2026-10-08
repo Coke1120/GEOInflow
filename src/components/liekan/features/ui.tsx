@@ -429,6 +429,8 @@ export function Table({
   mobile = false,
   rowKeys,
   identity = 0,
+  static: staticColumns = [],
+  onRowClick,
 }: {
   columns: string[];
   rows: ReactNode[][];
@@ -441,6 +443,10 @@ export function Table({
   mobile?: boolean;
   rowKeys?: string[];
   identity?: number;
+  /** Column indexes without a sort button (composite metric cells). */
+  static?: number[];
+  /** Whole-row shortcut; clicks on links, buttons and form fields stay local. */
+  onRowClick?: (row: ReactNode[], index: number) => void;
 }) {
   const c = useFeature();
   const loading = useDataLoading();
@@ -525,22 +531,32 @@ export function Table({
                   key={i}
                   scope="col"
                   className={numeric.includes(i) ? 'numeric' : ''}
-                  aria-sort={sort?.column === i ? (sort.desc ? 'descending' : 'ascending') : 'none'}
+                  aria-sort={
+                    !staticColumns.includes(i) && sort?.column === i
+                      ? sort.desc
+                        ? 'descending'
+                        : 'ascending'
+                      : 'none'
+                  }
                 >
-                  <button
-                    className="table-sort"
-                    disabled={loading}
-                    onClick={() => {
-                      const desc = sort?.column === i ? !sort.desc : false;
-                      setSort({ column: i, desc });
-                      c?.updateQuery?.({ sort: x, direction: desc ? 'desc' : 'asc' });
-                    }}
-                  >
-                    {x}{' '}
-                    <span aria-hidden="true">
-                      {sort?.column === i ? (sort.desc ? '↓' : '↑') : '↕'}
-                    </span>
-                  </button>
+                  {staticColumns.includes(i) ? (
+                    <span className="table-sort">{x}</span>
+                  ) : (
+                    <button
+                      className="table-sort"
+                      disabled={loading}
+                      onClick={() => {
+                        const desc = sort?.column === i ? !sort.desc : false;
+                        setSort({ column: i, desc });
+                        c?.updateQuery?.({ sort: x, direction: desc ? 'desc' : 'asc' });
+                      }}
+                    >
+                      {x}{' '}
+                      <span aria-hidden="true">
+                        {sort?.column === i ? (sort.desc ? '↓' : '↑') : '↕'}
+                      </span>
+                    </button>
+                  )}
                 </th>
               ))}
             </tr>
@@ -583,7 +599,24 @@ export function Table({
                   .map((_, j) => j)
                   .filter(j => j !== identity && !/操作|状态|角色|所属|空间/.test(columns[j]));
                 return (
-                  <tr key={rowKey} data-expanded={open || undefined}>
+                  <tr
+                    key={rowKey}
+                    data-expanded={open || undefined}
+                    className={onRowClick ? 'row-click' : undefined}
+                    onClick={
+                      onRowClick
+                        ? event => {
+                            if (
+                              (event.target as HTMLElement).closest(
+                                'a,button,input,select,textarea,label,[role="button"]',
+                              )
+                            )
+                              return;
+                            onRowClick(row, sourceIndex);
+                          }
+                        : undefined
+                    }
+                  >
                     {row.map((v, j) => (
                       <td
                         key={j}

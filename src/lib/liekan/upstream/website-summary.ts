@@ -9,6 +9,7 @@ import { getWebsiteDateRange, getWebsiteStats } from '@/queries/sql';
 import { websiteSummaryQuery, websiteSummarySchema } from '../contracts/website-summary';
 import { statisticsCacheTtl } from './cache-policy';
 import { bindCacheRequest, noteCacheResult, prepareAnalyticsVersions, withoutQueryCache } from './cache-context';
+import { channelFilterColumn } from './filter-extension';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './query-cache';
 import { LiekanError, query } from './server';
 
@@ -48,7 +49,7 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
   if (!p.ids.length) return [];
   const current = { startDate: new Date(p.startAt), endDate: new Date(p.endAt) };
   const previous = getCompareDate('prev', current.startDate, current.endDate);
-  const zero = { pageviews: 0, visitors: 0, visits: 0, bounces: 0, totaltime: 0 };
+  const zero = { pageviews: 0, visitors: 0, visits: 0, bounces: 0, totaltime: 0, aiVisits: 0 };
   const normalize = (row: any) =>
     Object.fromEntries(Object.keys(zero).map(key => [key, Number(row?.[key] ?? 0)])) as typeof zero;
   const result = await analyticsCache.read(
@@ -74,21 +75,29 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
             { startAt: +site.createdAt, endAt: Date.now() },
             site.id,
           );
-          const [stats, comparison, dates, lifetime] = await withoutQueryCache(() =>
+          // The AI drill mirrors the workspace AI card: event-level channel attribution.
+          const [stats, comparison, dates, lifetime, ai, aiComparison] = await withoutQueryCache(() =>
             Promise.all([
               getWebsiteStats(site.id, filters),
               getWebsiteStats(site.id, { ...filters, ...comparisonFilters }),
               getWebsiteDateRange(site.id),
               getWebsiteStats(site.id, lifetimeFilters),
+              getWebsiteStats(site.id, { ...filters, drill_channel: 'eq.AI 搜索引荐' }),
+              getWebsiteStats(site.id, {
+                ...filters,
+                ...comparisonFilters,
+                drill_channel: 'eq.AI 搜索引荐',
+              }),
             ]),
           );
           rows.push({
             id: site.id,
             ...normalize(stats),
-            comparison: normalize(comparison),
+            comparison: { ...normalize(comparison), aiVisits: normalize(aiComparison).visits },
             views: normalize(stats).pageviews,
             received: normalize(lifetime).pageviews > 0,
             lastAt: dates?.endDate ? new Date(dates.endDate).toISOString() : null,
+            aiVisits: normalize(ai).visits,
           });
         }
         return websiteSummarySchema.parse(rows);
@@ -103,10 +112,18 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
         FROM website_event e JOIN windows w ON e.created_at BETWEEN w.start_at AND w.end_at
         WHERE e.website_id=ANY($1::uuid[]) AND e.event_type!=5
         GROUP BY 1,2,3,4 HAVING COUNT(*) FILTER(WHERE e.event_type NOT IN (2,5))>0
+      ), ai AS (
+        SELECT e.website_id,w.label,COUNT(DISTINCT e.visit_id) AS "aiVisits"
+        FROM website_event e JOIN windows w ON e.created_at BETWEEN w.start_at AND w.end_at
+        WHERE e.website_id=ANY($1::uuid[]) AND e.event_type NOT IN (2,5)
+          AND ${channelFilterColumn('e.')}='AI 搜索引荐'
+        GROUP BY 1,2
       ), totals AS (
-        SELECT website_id,label,SUM(c) AS pageviews,COUNT(DISTINCT session_id) AS visitors,COUNT(DISTINCT visit_id) AS visits,
-          SUM(CASE WHEN c=1 AND custom=0 THEN 1 ELSE 0 END) AS bounces,SUM(FLOOR(EXTRACT(epoch FROM last_at-first_at))) AS totaltime
-        FROM visits GROUP BY 1,2
+        SELECT v.website_id,v.label,SUM(v.c) AS pageviews,COUNT(DISTINCT v.session_id) AS visitors,COUNT(DISTINCT v.visit_id) AS visits,
+          SUM(CASE WHEN v.c=1 AND v.custom=0 THEN 1 ELSE 0 END) AS bounces,SUM(FLOOR(EXTRACT(epoch FROM v.last_at-v.first_at))) AS totaltime,
+          COALESCE(a."aiVisits",0) AS "aiVisits"
+        FROM visits v LEFT JOIN ai a ON a.website_id=v.website_id AND a.label=v.label
+        GROUP BY 1,2,a."aiVisits"
       ) SELECT w.website_id AS id,
         COALESCE((SELECT row_to_json(t) FROM totals t WHERE t.website_id=w.website_id AND label='current'),'{}') AS current,
         COALESCE((SELECT row_to_json(t) FROM totals t WHERE t.website_id=w.website_id AND label='previous'),'{}') AS previous,

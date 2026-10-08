@@ -34,7 +34,7 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
   const isGeo = pathname.includes('/geo');
   const route = pathname.includes('/geo')
     ? { page: geoPageFromPath(pathname), websiteId }
-    : matchFeatureRoute(pathname, query) || { page: 'dashboard' };
+    : matchFeatureRoute(pathname, query) || { page: 'websites' };
   const metadata = useWebsiteQuery(isGeo ? websiteId : undefined, {
     ...featureSiteQuery(user.id, websiteId),
     placeholderData: undefined,

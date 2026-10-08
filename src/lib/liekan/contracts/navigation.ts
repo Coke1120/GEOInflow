@@ -22,7 +22,6 @@ export interface PageNavigation {
 const helpNavigation = { id: 'help', page: 'help', label: '帮助中心', icon: 'book' };
 export const globalNavigation: NavigationGroup[] = [
   { id: 'ai-chat', page: 'ai-chat', label: '快速发起', icon: 'plus' },
-  { id: 'dashboard', page: 'dashboard', label: '数据总览', icon: 'grid' },
   {
     id: 'data',
     page: 'websites',
@@ -193,11 +192,9 @@ export const geoPaths: Record<string, string> = {
 };
 
 const pageDefinitions: Array<[PageScope, string, string | undefined, string[]]> = [
-  ['global', 'dashboard', undefined, ['dashboard']],
   ['global', 'ai-chat', undefined, ['ai-chat']],
   ['global', 'ai-config', undefined, ['ai-config']],
   ['global', 'help', undefined, ['help']],
-  ['global', 'dashboard', 'dashboard', ['dashboard-edit']],
   ['global', 'websites', undefined, ['websites']],
   ['global', 'websites', 'websites', ['onboarding']],
   ['website', 'website-settings', undefined, ['website-settings']],
@@ -244,7 +241,7 @@ const pageDefinitions: Array<[PageScope, string, string | undefined, string[]]> 
   ['global', 'tracking', undefined, ['links', 'pixels']],
   ['global', 'tracking', 'links', ['link-editor', 'link-detail']],
   ['global', 'tracking', 'pixels', ['pixel-editor', 'pixel-detail']],
-  ['state', 'dashboard', undefined, ['access-denied', 'session-expired', 'not-found']],
+  ['state', 'websites', undefined, ['access-denied', 'session-expired', 'not-found']],
 ];
 export const pageNavigation: Record<string, PageNavigation> = Object.fromEntries(
   pageDefinitions.flatMap(([scope, section, parent, pages]) =>
@@ -268,8 +265,6 @@ const titles: Record<string, string> = {
   'pixel-editor': '创建图片追踪',
   'pixel-detail': '图片追踪详情',
   help: '帮助中心',
-  dashboard: '数据总览',
-  'dashboard-edit': '编辑总览',
   revenue: '收入',
   account: '账户资料',
   'api-keys': 'API 密钥',
@@ -305,7 +300,7 @@ export function analysisSourcePage(page: string) {
 }
 
 export function navigationFor(route: FeatureRoute): PageNavigation {
-  const meta = pageNavigation[route.page] || { scope: 'state', section: 'dashboard' };
+  const meta = pageNavigation[route.page] || { scope: 'state', section: 'websites' };
   if (
     ['filters', 'annotations', 'exports'].includes(route.page) &&
     route.from &&
@@ -356,7 +351,6 @@ export function websiteAnalysisFamily(route: FeatureRoute) {
 export const resourceListPages = new Set(['websites', 'boards', 'sharing', 'links', 'pixels']);
 export const datedPages = new Set([
   'websites',
-  'dashboard',
   'board-view',
   'links',
   'pixels',

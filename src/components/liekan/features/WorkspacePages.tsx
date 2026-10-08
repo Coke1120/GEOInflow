@@ -42,7 +42,6 @@ import {
 } from '@/lib/liekan/contracts/workspace';
 import {
   featureRequest,
-  getFeatureWebsiteSummary,
   mapFeatureRows,
   getAllFeatureRows,
   getFeaturePreferences,
@@ -71,7 +70,6 @@ import {
   Icon,
   LinkButton,
   Metrics,
-  StaticHeading,
   Notice,
   Panel,
   QueryState,
@@ -95,8 +93,6 @@ export const workspacePages = new Set([
   'board-editor',
   'board-design',
   'board-view',
-  'dashboard',
-  'dashboard-edit',
   'sharing',
   'share-preview',
 ]);
@@ -129,7 +125,7 @@ function Forbidden() {
     <Notice tone="amber">
       当前账户没有系统管理权限。
       <div className="form-actions">
-        <LinkButton page="dashboard">返回工作台</LinkButton>
+        <LinkButton page="websites">返回工作台</LinkButton>
       </div>
     </Notice>
   );
@@ -2269,223 +2265,6 @@ function BoardPage({ page }: { page: string }) {
   );
 }
 
-function dashboardIds(board: any, sites: FeatureEntity[]) {
-  const configured = board?.parameters?.liekan?.siteIds;
-  if (Array.isArray(configured))
-    return configured.filter((id: string) => sites.some(site => site.id === id));
-  const native = boardColumns(board?.parameters)
-    .map(({ column }) => column.component?.entityId || column.component?.websiteId)
-    .filter(Boolean);
-  return native.length
-    ? [...new Set(native)].filter(id => sites.some(site => site.id === id))
-    : sites.map(site => site.id);
-}
-function DashboardEdit({ board }: { board: any }) {
-  const c = useFeature(),
-    action = useAction(),
-    [ids, setIds] = useState<string[]>(dashboardIds(board, c.sites));
-  return (
-    <Panel title="工作台布局" subtitle="选择要固定的网站，使用按钮调整次序。">
-      <Body>
-        <Form
-          busy={action.busy}
-          submitLabel="保存工作台"
-          cancel={<LinkButton page="dashboard">取消</LinkButton>}
-          onSubmit={async (values: any) => {
-            const existing: WorkspaceParameters = board?.parameters || {},
-              liekan = {
-                ...existing.liekan,
-                siteIds: ids,
-                showAI: values.showAI === 'on',
-                showCompare: values.showCompare === 'on',
-              };
-            await action.run(
-              () =>
-                c.api.post('/dashboard', {
-                  name: board?.name || '工作台',
-                  description: board?.description || '',
-                  parameters: { ...existing, liekan },
-                }),
-              '工作台已保存',
-            );
-            c.navigate('dashboard');
-          }}
-        >
-          {c.sites.map(site => (
-            <div className="switch-row" key={site.id}>
-              <Check
-                checked={ids.includes(site.id)}
-                onChange={e =>
-                  setIds(current =>
-                    e.target.checked ? [...current, site.id] : current.filter(id => id !== site.id),
-                  )
-                }
-              >
-                <strong>{site.name}</strong>
-                <small style={{ display: 'block' }}>{site.domain}</small>
-              </Check>
-            </div>
-          ))}
-          <div className="condition-group">
-            <h3 style={{ marginBottom: 12 }}>当前顺序</h3>
-            {ids.map((id, index) => (
-              <div className="row between" style={{ margin: '8px 0' }} key={id}>
-                <span>
-                  {index + 1}. {c.sites.find(site => site.id === id)?.name}
-                </span>
-                <Button
-                  disabled={index === 0}
-                  onClick={() =>
-                    setIds(current => {
-                      const next = [...current];
-                      [next[index - 1], next[index]] = [next[index], next[index - 1]];
-                      return next;
-                    })
-                  }
-                >
-                  上移
-                </Button>
-              </div>
-            ))}
-          </div>
-          <Check name="showAI" defaultChecked={board?.parameters?.liekan?.showAI !== false}>
-            显示 AI 引荐访客摘要
-          </Check>
-          <Check
-            name="showCompare"
-            defaultChecked={board?.parameters?.liekan?.showCompare !== false}
-          >
-            显示前期对比
-          </Check>
-        </Form>
-      </Body>
-    </Panel>
-  );
-}
-function Dashboard({ editing = false }: { editing?: boolean }) {
-  const c = useFeature(),
-    q = useData('dashboard-record', signal => c.api.get('/dashboard', undefined, signal));
-  const ids = dashboardIds(q.data, c.sites),
-    settings = q.data?.parameters?.liekan;
-  const stats = useData(
-    ['dashboard-stats', ids, settings?.showAI],
-    async signal => {
-      const summaries = await getFeatureWebsiteSummary(ids, c.range, signal, c.api.get);
-      const failed = summaries.find(row => row.error);
-      if (failed) throw failed.error;
-      return Promise.all(
-        summaries.map(async value => {
-          const aiStats =
-            settings?.showAI === false
-              ? null
-              : await c.api.get(
-                  `/websites/${value.id}/stats`,
-                  { ...c.range, ...c.filters, drill_channel: 'eq.AI 搜索引荐' },
-                  signal,
-                );
-          return { ...value, ai: nativeMetric(aiStats?.visitors) };
-        }),
-      );
-    },
-    !editing && !q.isPending && !q.error,
-  );
-  const sum = (key: string) =>
-    stats.data?.every((row: any) => nativeMetric(row[key]) != null)
-      ? stats.data.reduce((total: number, row: any) => total + nativeMetric(row[key]), 0)
-      : null;
-  const change = (key: string) => {
-    if (settings?.showCompare === false || !stats.data) return '当前期间';
-    const current = sum(key),
-      previous = stats.data.every((row: any) => nativeMetric(row.comparison?.[key]) != null)
-        ? stats.data.reduce(
-            (total: number, row: any) => total + nativeMetric(row.comparison[key]),
-            0,
-          )
-        : null;
-    return previous == null || current == null
-      ? '前期数据未提供'
-      : `前期 ${numberLabel(previous)} · 变化 ${numberLabel(current - previous)}`;
-  };
-  return (
-    <QueryState query={q}>
-      {editing ? (
-        <QueryState query={{ isPending: !!c.sitesLoading }}>
-          <DashboardEdit key={q.data?.updatedAt || 'new'} board={q.data} />
-        </QueryState>
-      ) : (
-        <>
-          <QueryState query={stats}>
-            <Metrics
-              loading={stats.isPending}
-              items={[
-                [
-                  '全部网站访客',
-                  readable(sum('visitors')),
-                  `所选 ${ids.length} 个网站 · ${change('visitors')}`,
-                ],
-                ['页面访问', readable(sum('pageviews')), change('pageviews')],
-                [
-                  'AI 引荐访客',
-                  settings?.showAI === false ? '已隐藏' : readable(sum('ai')),
-                  '按网站累计，跨网站不去重',
-                ],
-                ['管理空间', c.route.teamId ? '团队' : '个人 / 团队', '跨网站快速访问'],
-              ]}
-            />
-          </QueryState>
-          <div className="row between">
-            <StaticHeading>固定的网站</StaticHeading>
-            <LinkButton page="dashboard-edit">编辑工作台</LinkButton>
-          </div>
-          {ids.length ? (
-            <div className="two">
-              {ids.map(id => {
-                const site = c.sites.find(item => item.id === id);
-                return (
-                  <Panel
-                    key={id}
-                    title={site?.name || id}
-                    actions={
-                      <>
-                        <LinkButton
-                          page="overview"
-                          params={{ websiteId: site ? websiteHandle(site) : id }}
-                        >
-                          查看统计
-                        </LinkButton>
-                        <LinkButton
-                          page="website-settings"
-                          params={{ websiteId: site ? websiteHandle(site) : id }}
-                        >
-                          网站设置
-                        </LinkButton>
-                      </>
-                    }
-                  >
-                    <ResourceAnalytics id={id} metrics={false} title="" />
-                  </Panel>
-                );
-              })}
-            </div>
-          ) : (
-            <Notice>尚未固定网站。可以在编辑工作台中选择可访问的网站。</Notice>
-          )}
-          <Panel title="快速入口" subtitle="从工作台进入常用管理与分析。">
-            <Body>
-              <div className="row">
-                <LinkButton page="websites">管理网站</LinkButton>
-                <LinkButton page="boards">自定义看板</LinkButton>
-                <LinkButton page="realtime">实时访客</LinkButton>
-                <LinkButton page="exports">完整导出</LinkButton>
-              </div>
-            </Body>
-          </Panel>
-        </>
-      )}
-    </QueryState>
-  );
-}
-
 export function ShareDrawer({
   share,
   entity,
@@ -3494,8 +3273,6 @@ export function WorkspacePages({ page }: { page: string }) {
   if (page === 'admin-security') return <AdminSecurity />;
   if (page === 'boards') return <Boards />;
   if (page.startsWith('board-')) return <BoardPage page={page} />;
-  if (page === 'dashboard' || page === 'dashboard-edit')
-    return <Dashboard editing={page === 'dashboard-edit'} />;
   if (page === 'sharing') return <Sharing />;
   if (page === 'share-preview') return <SharePreview />;
   return null;

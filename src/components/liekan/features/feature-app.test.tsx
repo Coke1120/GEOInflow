@@ -78,7 +78,7 @@ function mount(route: any, identity: any = user) {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.navigation = {
-    pathname: '/dashboard/edit',
+    pathname: '/websites',
     query: {},
     router: { push: mocks.push, replace: vi.fn() },
     updateParams: vi.fn(),
@@ -88,12 +88,6 @@ beforeEach(() => {
   );
   mocks.all.mockResolvedValue([{ id: teamId, name: '团队' }]);
   mocks.get.mockImplementation(async (path: string) => {
-    if (path === '/dashboard')
-      return {
-        name: '工作台',
-        userId: user.id,
-        parameters: { rows: [], liekan: { siteIds: [personal.id, teamSite.id] } },
-      };
     if (path === `/websites/${personal.id}`) return personal;
     if (path === `/websites/${teamSite.id}`) return teamSite;
     throw new Error(`Unexpected request ${path}`);
@@ -278,7 +272,7 @@ describe('feature navigation scope', () => {
     async route => {
       const view = mount(route);
       expect(await screen.findByText('当前账户没有访问此资源的权限。')).toBeInTheDocument();
-      expect(view.container.querySelectorAll('[data-navigation-group]')).toHaveLength(6);
+      expect(view.container.querySelectorAll('[data-navigation-group]')).toHaveLength(5);
       expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
       expect(mocks.get).not.toHaveBeenCalled();
     },
@@ -304,10 +298,10 @@ describe('feature navigation scope', () => {
     expect(mocks.sites).toHaveBeenCalledWith(expect.any(AbortSignal), undefined, 'all');
     expect(view.container.querySelector('.site-switch')).toBeNull();
   });
-  it('shows nine grouped global entries and no implicit website on an account page', async () => {
+  it('shows eight grouped global entries and no implicit website on an account page', async () => {
     const view = mount({ page: 'account', websiteId: personal.id, teamId });
     const sidebar = view.container.querySelector('#liekan-navigation');
-    expect(sidebar.querySelectorAll('[data-navigation-group]')).toHaveLength(6);
+    expect(sidebar.querySelectorAll('[data-navigation-group]')).toHaveLength(5);
     expect(sidebar.querySelector('.site-switch')).toBeNull();
     expect(screen.queryByRole('link', { name: '系统管理' })).not.toBeInTheDocument();
     expect(mocks.sites).not.toHaveBeenCalled();
@@ -320,25 +314,6 @@ describe('feature navigation scope', () => {
       `/websites/${personal.id}`,
       expect.anything(),
       expect.anything(),
-    );
-  });
-  it('loads and preserves all user dashboard pins when reached from a team', async () => {
-    mount({ page: 'dashboard-edit', teamId });
-    expect(await screen.findByRole('checkbox', { name: /个人网站/ })).toBeChecked();
-    expect(screen.getByRole('checkbox', { name: /团队网站/ })).toBeChecked();
-    expect(mocks.sites).toHaveBeenCalledWith(expect.any(AbortSignal), undefined, 'all');
-    await userEvent.click(screen.getByRole('button', { name: '保存工作台' }));
-    await waitFor(() =>
-      expect(mocks.post).toHaveBeenCalledWith(
-        '/dashboard',
-        expect.objectContaining({
-          parameters: expect.objectContaining({
-            liekan: expect.objectContaining({
-              siteIds: [personal.id, teamSite.id],
-            }),
-          }),
-        }),
-      ),
     );
   });
   it('switches a saved-audience detail to the new website list with only time selection', async () => {
