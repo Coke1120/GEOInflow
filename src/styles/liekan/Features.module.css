@@ -363,14 +363,14 @@
   padding: 6px 8px;
   font-size: 11.5px;
 }
-:global([data-liekan-features] .btn[aria-pressed='true']) {
+:global([data-liekan-features] .btn[aria-pressed="true"]) {
   background: #edf2ff;
   border-color: #0f62fe;
   color: #0f62fe;
   font-weight: 600;
 }
 /* .btn:hover（hover:hover 媒体查询内）与激活规则同特异性但更靠后，会把激活边框盖回 #a6c1ff。 */
-:global([data-liekan-features] .btn[aria-pressed='true']:hover) {
+:global([data-liekan-features] .btn[aria-pressed="true"]:hover) {
   border-color: #0f62fe;
 }
 :global([data-liekan-features] .icon-btn) {
@@ -625,6 +625,10 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
+}
+/* 文案只在首列渲染；其余列的数值仍与首列数值右缘对齐。 */
+:global([data-liekan-features] .site-metric-bare) {
+  justify-content: flex-end;
 }
 :global([data-liekan-features] .site-metric-label) {
   font-size: 11px;

@@ -491,6 +491,9 @@ describe('core form flows', () => {
     const activeRow = screen.getByText('活跃网站').closest('tr');
     const yesterdayLabel = within(activeRow as HTMLElement).getAllByText('昨日')[0];
     expect(yesterdayLabel.nextElementSibling).toHaveTextContent('8');
+    // 今日/昨日/预计今日文案只保留访问次数列一组，其余三列仅渲染数值行。
+    expect(within(activeRow as HTMLElement).getAllByText('预计今日')).toHaveLength(1);
+    expect((activeRow as HTMLElement).querySelectorAll('.site-metric-bare')).toHaveLength(9);
     expect(
       within(screen.getByText('故障网站').closest('tr')).getAllByText('—').length,
     ).toBeGreaterThanOrEqual(9);

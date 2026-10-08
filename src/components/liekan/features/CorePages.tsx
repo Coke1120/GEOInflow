@@ -189,30 +189,32 @@ const bounceRateLabel = (row: any) => {
   const visits = Number(row?.visits ?? 0);
   return visits > 0 ? (Number(row?.bounces ?? 0) / visits) * 100 : null;
 };
-/** 今日 / 昨日 / 预计今日 three-line metric cell; rates have no projection. */
+/** 今日 / 昨日 / 预计今日 three-line metric cell; rates have no projection. Row captions render once per table row, so later metric columns pass labels={false}. */
 function MetricRows({
   today,
   yesterday,
   timezone,
   kind,
+  labels = true,
 }: {
   today: number | null;
   yesterday: number | null;
   timezone: string;
   kind: 'count' | 'percent';
+  labels?: boolean;
 }) {
   const estimate = kind === 'count' ? projectToday(today, timezone) : null;
   const trend = projectTrend(estimate, yesterday);
   return (
     <div className="site-metrics">
-      <div className="site-metric">
-        <span className="site-metric-label">今日</span>
+      <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
+        {labels && <span className="site-metric-label">今日</span>}
         <span className="site-metric-value">
           {kind === 'percent' ? percentLabel(today) : today == null ? '—' : numberLabel(today)}
         </span>
       </div>
-      <div className="site-metric">
-        <span className="site-metric-label">昨日</span>
+      <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
+        {labels && <span className="site-metric-label">昨日</span>}
         <span className="site-metric-value">
           {kind === 'percent'
             ? percentLabel(yesterday)
@@ -221,8 +223,8 @@ function MetricRows({
               : numberLabel(yesterday)}
         </span>
       </div>
-      <div className="site-metric">
-        <span className="site-metric-label">预计今日</span>
+      <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
+        {labels && <span className="site-metric-label">预计今日</span>}
         <span className="site-metric-value">
           {estimate == null ? '—' : numberLabel(estimate)}
           {trend === 1 && (
@@ -438,6 +440,7 @@ function Websites() {
                 <MetricRows
                   key="visitors"
                   kind="count"
+                  labels={false}
                   timezone={c.range.timezone}
                   today={dayRead ? dayRead.visitors : null}
                   yesterday={yesterday ? yesterday.visitors : null}
@@ -445,6 +448,7 @@ function Websites() {
                 <MetricRows
                   key="bounce"
                   kind="percent"
+                  labels={false}
                   timezone={c.range.timezone}
                   today={dayRead ? bounceRateLabel(dayRead) : null}
                   yesterday={yesterday ? bounceRateLabel(yesterday) : null}
@@ -452,6 +456,7 @@ function Websites() {
                 <MetricRows
                   key="ai"
                   kind="count"
+                  labels={false}
                   timezone={c.range.timezone}
                   today={dayRead ? dayRead.aiVisits : null}
                   yesterday={yesterday ? yesterday.aiVisits : null}
