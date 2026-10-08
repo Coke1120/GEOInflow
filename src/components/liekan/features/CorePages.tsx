@@ -14,6 +14,7 @@ import {
   safeCallbackUrl,
 } from '@/lib/liekan/contracts/core';
 import { countOf, type FeatureEntity, numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
+import { nativeMetric } from '@/lib/liekan/contracts/workspace';
 import { websiteHandle } from '@/lib/liekan/website-handle';
 import type { DataState, LiekanReport } from '@/lib/liekan/contracts/report';
 import {
@@ -301,48 +302,61 @@ function Websites() {
   const todayWindow = websiteDayWindow(c.range.timezone);
   const todayQuery = useData(
     ['website-management-today', c.sites.map(site => site.id), todayWindow.startAt],
-    signal => getFeatureWebsiteSummary(c.sites.map(site => site.id), todayWindow, signal, c.api.get),
+    signal =>
+      getFeatureWebsiteSummary(
+        c.sites.map(site => site.id),
+        todayWindow,
+        signal,
+        c.api.get,
+      ),
   );
   const stats = query.data || [];
   const todayStats = todayQuery.data || [];
   const readable = stats.filter(row => !row.error);
   const ready = !query.isPending && !query.error && Array.isArray(query.data);
   const partial = ready && readable.length < c.sites.length;
-  const hasSummary = ready && (readable.length > 0 || c.sites.length === 0);
-  const installed = readable.filter(row => row.received).length;
-  const unverified = readable.filter(row => !row.received).length;
-  const totalViews = readable.reduce((sum, row) => sum + row.views, 0);
   const scope = c.route.teamId
     ? `${c.teams.find(team => team.id === c.route.teamId)?.name || '当前团队'}空间`
     : c.query.scope === 'all'
       ? '全部可访问网站'
       : '个人空间';
-  const subtotal = `已读取 ${readable.length} / ${c.sites.length} 个网站的小计`;
   const errorLabel = (error: any) =>
     error.status === 401 ? '需要重新登录' : error.status === 403 ? '无统计权限' : '读取失败';
+  // 用户批准（2026-10-08）：页头沿用数据总览的指标卡模式，按当前空间所选网站汇总并对比前期。
+  const cardSum = (pick: (row: any) => any): number | 'missing' | null => {
+    if (!ready) return null;
+    if (!c.sites.length) return 0;
+    if (!readable.length) return null;
+    const values = readable.map(row => nativeMetric(pick(row)));
+    return values.every(value => value != null)
+      ? values.reduce((total, value) => total + (value || 0), 0)
+      : 'missing';
+  };
+  const cardValue = (value: number | 'missing' | null) =>
+    value == null ? '—' : value === 'missing' ? '未提供' : numberLabel(value);
+  const changeLabel = (key: string) => {
+    const current = cardSum(row => row[key]);
+    const previous = cardSum(row => row.comparison?.[key]);
+    return typeof current !== 'number' || typeof previous !== 'number'
+      ? '前期数据未提供'
+      : `前期 ${numberLabel(previous)} · 变化 ${numberLabel(current - previous)}`;
+  };
+  const cardScope = partial
+    ? `已读取 ${readable.length}/${c.sites.length} 个网站`
+    : `所选 ${c.sites.length} 个网站`;
   return (
     <>
       <Metrics
-        loading={[false, query.isPending, query.isPending, query.isPending]}
+        loading={[query.isPending, query.isPending, query.isPending, false]}
         items={[
-          ['管理网站', String(c.sites.length), scope],
           [
-            '已收到浏览数据',
-            hasSummary ? String(installed) : '—',
-            partial ? subtotal : '已收到首条浏览访问',
-            'green',
+            '全部网站访客',
+            cardValue(cardSum(row => row.visitors)),
+            `${cardScope} · ${changeLabel('visitors')}`,
           ],
-          [
-            '待验证',
-            hasSummary ? String(unverified) : '—',
-            partial ? subtotal : '安装后验证接入',
-            'blue',
-          ],
-          [
-            '访问次数',
-            hasSummary ? numberLabel(totalViews) : '—',
-            partial ? `${subtotal} · 当前所选期间` : '当前所选期间',
-          ],
+          ['页面访问', cardValue(cardSum(row => row.pageviews)), changeLabel('pageviews')],
+          ['AI 引荐访客', cardValue(cardSum(row => row.aiVisits)), '按网站累计，跨网站不去重'],
+          ['管理空间', c.route.teamId ? '团队' : '个人 / 团队', '跨网站快速访问'],
         ]}
       />
       <Panel
@@ -442,11 +456,7 @@ function Websites() {
                   today={dayRead ? dayRead.aiVisits : null}
                   yesterday={yesterday ? yesterday.aiVisits : null}
                 />,
-                <div
-                  className="actions"
-                  key="actions"
-                  onClick={event => event.stopPropagation()}
-                >
+                <div className="actions" key="actions" onClick={event => event.stopPropagation()}>
                   <LinkButton page="website-settings" params={{ websiteId: websiteHandle(site) }}>
                     网站设置
                   </LinkButton>
@@ -459,8 +469,8 @@ function Websites() {
             empty="还没有网站。添加网站后安装专用跟踪代码。"
           />
           <p className="metric-note">
-            口径：访问次数为页面浏览 PV；访客数与跳出率按会话统计；AI访问次数为
-            AI 搜索引荐会话；预计今日按当天已流逝进度折算，跳出率不提供预计值。
+            口径：访问次数为页面浏览 PV；访客数与跳出率按会话统计；AI访问次数为 AI
+            搜索引荐会话；预计今日按当天已流逝进度折算，跳出率不提供预计值。
           </p>
         </QueryState>
       </Panel>

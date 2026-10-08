@@ -427,8 +427,25 @@ describe('core form flows', () => {
       { id: 'failed', name: '故障网站' },
     ];
     mocks.query['website-management-stats'] = [
-      { id: 'active', views: 120, received: true, lastAt: '2026-10-01T00:00:00Z' },
-      { id: 'zero', views: 0, received: false },
+      {
+        id: 'active',
+        views: 120,
+        visitors: 60,
+        pageviews: 120,
+        aiVisits: 15,
+        received: true,
+        lastAt: '2026-10-01T00:00:00Z',
+        comparison: { pageviews: 100, visitors: 50, aiVisits: 12 },
+      },
+      {
+        id: 'zero',
+        views: 0,
+        visitors: 0,
+        pageviews: 0,
+        aiVisits: 0,
+        received: false,
+        comparison: { pageviews: 0, visitors: 0, aiVisits: 0 },
+      },
       { id: 'denied', error: { status: 403, message: 'Forbidden' } },
       { id: 'expired', error: { status: 401, message: 'Expired' } },
       { id: 'failed', error: { status: 503, message: 'Unavailable' } },
@@ -450,16 +467,23 @@ describe('core form flows', () => {
         visits: 0,
         bounces: 0,
         aiVisits: 0,
-        comparison: { views: 0, visitors: 0, visits: 0, bounces: 0, aiVisits: 0 },
+        comparison: { pageviews: 0, visitors: 0, visits: 0, bounces: 0, aiVisits: 0 },
       },
     ];
     const { rerender } = render(<CorePages page="websites" />);
     expect(screen.getByText('无统计权限')).toBeInTheDocument();
     expect(screen.getByText('需要重新登录')).toBeInTheDocument();
     expect(screen.getByText('读取失败')).toBeInTheDocument();
-    const views = document.querySelectorAll('.metric')[3] as HTMLElement;
-    expect(within(views).getByText('120')).toBeInTheDocument();
-    expect(views).toHaveTextContent('已读取 2 / 5 个网站的小计');
+    const metricCard = (index: number) =>
+      document.querySelectorAll('.metric')[index] as HTMLElement;
+    expect(within(metricCard(0)).getByText('60')).toBeInTheDocument();
+    expect(metricCard(0)).toHaveTextContent('已读取 2/5 个网站 · 前期 50 · 变化 10');
+    expect(within(metricCard(1)).getByText('120')).toBeInTheDocument();
+    expect(metricCard(1)).toHaveTextContent('前期 100 · 变化 20');
+    expect(within(metricCard(2)).getByText('15')).toBeInTheDocument();
+    expect(metricCard(2)).toHaveTextContent('按网站累计，跨网站不去重');
+    expect(within(metricCard(3)).getByText('个人 / 团队')).toBeInTheDocument();
+    const views = document.querySelectorAll('.metric')[0] as HTMLElement;
     expect(
       within(screen.getByText('零访问网站').closest('tr')).getAllByText('0').length,
     ).toBeGreaterThanOrEqual(3);
@@ -475,9 +499,52 @@ describe('core form flows', () => {
       { id: 'failed', error: { status: 503, message: 'Unavailable' } },
     ];
     rerender(<CorePages page="websites" />);
-    const failedViews = document.querySelectorAll('.metric')[3] as HTMLElement;
-    expect(within(failedViews).getByText('—')).toBeInTheDocument();
-    expect(within(failedViews).queryByText('0')).not.toBeInTheDocument();
+    const visitorCard = document.querySelectorAll('.metric')[0] as HTMLElement;
+    expect(within(visitorCard).getByText('—')).toBeInTheDocument();
+    expect(within(visitorCard).queryByText('0')).not.toBeInTheDocument();
+    expect(within(metricCard(3)).getByText('个人 / 团队')).toBeInTheDocument();
+  });
+  it('renders the dashboard-style summary cards with previous-period comparison', () => {
+    mocks.context.sites = [
+      { id: 'alpha', name: 'Alpha 站' },
+      { id: 'beta', name: 'Beta 站' },
+    ];
+    mocks.query['website-management-stats'] = [
+      {
+        id: 'alpha',
+        received: true,
+        visitors: 40,
+        pageviews: 80,
+        aiVisits: 5,
+        comparison: { visitors: 30, pageviews: 70, aiVisits: 4 },
+      },
+      {
+        id: 'beta',
+        received: true,
+        visitors: 10,
+        pageviews: 20,
+        aiVisits: 2,
+        comparison: { visitors: 15, pageviews: 18, aiVisits: 1 },
+      },
+    ];
+    mocks.query['website-management-today'] = [];
+    const { rerender } = render(<CorePages page="websites" />);
+    const metricCard = (index: number) =>
+      document.querySelectorAll('.metric')[index] as HTMLElement;
+    expect(within(metricCard(0)).getByText('50')).toBeInTheDocument();
+    expect(metricCard(0)).toHaveTextContent('所选 2 个网站 · 前期 45 · 变化 5');
+    expect(within(metricCard(1)).getByText('100')).toBeInTheDocument();
+    expect(metricCard(1)).toHaveTextContent('前期 88 · 变化 12');
+    expect(within(metricCard(2)).getByText('7')).toBeInTheDocument();
+    expect(within(metricCard(3)).getByText('个人 / 团队')).toBeInTheDocument();
+    // 对比块缺失时，数值仍展示，前期对比进入独立的未提供状态。
+    mocks.query['website-management-stats'] = [
+      { id: 'alpha', received: true, visitors: 40, pageviews: 80, aiVisits: 5 },
+      { id: 'beta', received: true, visitors: 10, pageviews: 20, aiVisits: 2 },
+    ];
+    rerender(<CorePages page="websites" />);
+    expect(metricCard(0)).toHaveTextContent('前期数据未提供');
+    expect(within(metricCard(0)).getByText('50')).toBeInTheDocument();
   });
   it('keeps new website recorder collection off and saves actual units', async () => {
     mocks.query['site-record'] = { ...mocks.context.site, replayConfig: {} };
