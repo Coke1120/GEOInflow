@@ -132,7 +132,7 @@ try {
         const navigation = await actual.locator('#liekan-navigation').innerText();
         assert(
           navigation.indexOf('快速发起') >= 0 &&
-            navigation.indexOf('快速发起') < navigation.indexOf('数据总览'),
+            navigation.indexOf('快速发起') < navigation.indexOf('数据管理'),
         );
         assert(navigation.includes('AI能力') && navigation.includes('AI配置器'));
       }
