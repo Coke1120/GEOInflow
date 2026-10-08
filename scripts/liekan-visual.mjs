@@ -12,7 +12,7 @@ if (!['127.0.0.1', 'localhost'].includes(new URL(base).hostname))
 const navigationBaseline = JSON.parse(fs.readFileSync('config/liekan/navigation-ui.json', 'utf8'));
 assert.equal(
   navigationBaseline.baselineVersion,
-  'liekan-navigation-v0.2.2',
+  'liekan-navigation-v0.2.3',
   'Explicit approved navigation baseline required',
 );
 const referenceHashes = JSON.parse(
@@ -639,6 +639,16 @@ try {
       const { diff, ...comparison } = await pixelDiff(refPath, livePath);
       fs.writeFileSync(`${out}/${name}-${chart.id}-diff.png`, Buffer.from(diff, 'base64'));
       chartPixels.push({ id: chart.id, reference: refPath, actual: livePath, ...comparison });
+    }
+    for (const page of [reference, actual]) {
+      // 图表元素截图会滚动页面；粘性页头/侧栏会随残留滚动位置印进整页截图。
+      await page.evaluate(
+        () =>
+          new Promise(resolve => {
+            scrollTo(0, 0);
+            requestAnimationFrame(() => requestAnimationFrame(resolve));
+          }),
+      );
     }
     await reference.screenshot({
       path: `${out}/${name}-reference.png`,
