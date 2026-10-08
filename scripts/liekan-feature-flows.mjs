@@ -78,7 +78,7 @@ try {
     await loginPage.locator('[name=username]').fill(seed.admin.username);
     await loginPage.locator('[name=password]').fill(seed.admin.password);
     await loginPage.getByRole('button', { name: '登录', exact: true }).click();
-    await loginPage.waitForURL(u => u.pathname === '/dashboard');
+    await loginPage.waitForURL(u => u.pathname === '/websites');
     await loginPage.waitForLoadState('networkidle');
     const saved = await loginContext.storageState();
     assert(
@@ -88,7 +88,7 @@ try {
     loginContext = await browser.newContext({ locale: 'zh-CN', storageState: saved });
     loginPage = await loginContext.newPage();
     await loginPage.goto(base + '/login');
-    await loginPage.waitForURL(u => u.pathname === '/dashboard');
+    await loginPage.waitForURL(u => u.pathname === '/websites');
     await loginPage.waitForLoadState('networkidle');
     await loginPage.getByRole('button', { name: /个人账户/ }).click();
     await loginPage.getByRole('button', { name: '退出登录', exact: true }).click();
@@ -110,27 +110,7 @@ try {
   } finally {
     await loginContext.close();
   }
-  await api('POST', '/dashboard', {
-    name: '隔离 review 工作台',
-    description: '',
-    parameters: { liekan: { siteIds: [seed.website.id], showAI: true, showCompare: true } },
-  });
-  let { page, context } = await pageAt('/liekan/dashboard-edit?websiteId=' + seed.website.id, true);
-  const input = page
-    .locator('.switch-row')
-    .filter({ hasText: seed.website.name })
-    .locator('input[type=checkbox]');
-  await input.waitFor();
-  const before = await input.isChecked();
-  await page.getByRole('button', { name: '保存工作台', exact: true }).click();
-  await page.waitForURL(u => u.pathname === '/dashboard');
-  const saved = await api('GET', '/dashboard');
-  result.checks.push({
-    name: 'delayed website load preserves dashboard selection and save',
-    passed: before && saved.parameters.liekan.siteIds.includes(seed.website.id),
-  });
-  await context.close();
-  ({ page, context } = await pageAt('/liekan/board-editor?websiteId=' + seed.website.id, true));
+  let { page, context } = await pageAt('/liekan/board-editor?websiteId=' + seed.website.id, true);
   const options = await page
     .locator('select[name=entity] option')
     .evaluateAll(es => es.map(e => e.value));
@@ -189,32 +169,6 @@ try {
     teamId: seed.team.id,
   });
   created.push(['/websites/' + teamSite.id]);
-  await api('POST', '/dashboard', {
-    name: '隔离交互工作台',
-    description: '',
-    parameters: { liekan: { siteIds: [seed.website.id, teamSite.id] } },
-  });
-  ({ page, context } = await pageAt(
-    `/liekan/dashboard-edit?websiteId=${teamSite.id}&teamId=${seed.team.id}`,
-    true,
-  ));
-  const personalPin = page
-    .locator('.switch-row')
-    .filter({ hasText: seed.website.name })
-    .locator('input[type=checkbox]');
-  await personalPin.waitFor();
-  const personalSelected = await personalPin.isChecked();
-  await page.getByRole('button', { name: '保存工作台', exact: true }).click();
-  await page.waitForURL(u => u.pathname === '/dashboard');
-  const globalDashboard = await api('GET', '/dashboard');
-  result.checks.push({
-    name: 'team entry preserves personal and team pins in the global dashboard',
-    passed:
-      personalSelected &&
-      JSON.stringify(globalDashboard.parameters.liekan.siteIds) ===
-        JSON.stringify([seed.website.id, teamSite.id]),
-  });
-  await context.close();
   const switchSite = await api('POST', '/websites', {
     name: '隔离交互切换网站 ' + Date.now(),
     domain: 'switch-flow.test',
