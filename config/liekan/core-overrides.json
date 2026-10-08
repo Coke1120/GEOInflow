@@ -4165,6 +4165,28 @@
         "pnpm exec tsc --noEmit",
         "Browser walkthrough: open replay modal from list and URL, navigate away, confirm no ghost modal"
       ]
+    },
+    {
+      "path": "src/app/(main)/dashboard/page.tsx",
+      "purpose": "Redirect the retired Liekan global dashboard route to the website management list",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan navigation maintenance",
+      "constraint": "Keep the redirect minimal and preserve any upstream behaviour outside this recorded purpose",
+      "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/app/(main)/dashboard/edit/page.tsx",
+      "purpose": "Redirect the retired Liekan global dashboard route to the website management list",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan navigation maintenance",
+      "constraint": "Keep the redirect minimal and preserve any upstream behaviour outside this recorded purpose",
+      "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     }
   ]
 }
