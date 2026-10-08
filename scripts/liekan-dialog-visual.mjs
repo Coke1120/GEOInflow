@@ -343,7 +343,10 @@ try {
   {
     const { page, context } = await at('retention');
     try {
-      await page.locator('[data-website-toolbar-actions] button').first().click();
+      await page
+        .locator('[data-website-toolbar-actions]')
+        .getByRole('button', { name: / 至 / })
+        .click();
       await record(page, 18, '选择日期范围');
       await dismiss(page);
       await page.getByRole('button', { name: '口径说明', exact: true }).click();
