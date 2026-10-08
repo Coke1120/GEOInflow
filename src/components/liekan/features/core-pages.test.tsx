@@ -441,7 +441,7 @@ describe('core form flows', () => {
         visits: 9,
         bounces: 3,
         aiVisits: 2,
-        comparison: { views: 8, visitors: 4, visits: 6, bounces: 2, aiVisits: 1 },
+        comparison: { pageviews: 8, visitors: 4, visits: 6, bounces: 2, aiVisits: 1 },
       },
       {
         id: 'zero',
@@ -463,6 +463,8 @@ describe('core form flows', () => {
     expect(
       within(screen.getByText('零访问网站').closest('tr')).getAllByText('0').length,
     ).toBeGreaterThanOrEqual(3);
+    // 昨日块沿用 summary 的 pageviews 字段，不提供 views 别名。
+    expect(within(screen.getByText('活跃网站').closest('tr')).getByText('8')).toBeInTheDocument();
     expect(
       within(screen.getByText('故障网站').closest('tr')).getAllByText('—').length,
     ).toBeGreaterThanOrEqual(9);

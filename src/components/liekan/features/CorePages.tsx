@@ -419,7 +419,7 @@ function Websites() {
                   kind="count"
                   timezone={c.range.timezone}
                   today={dayRead ? dayRead.views : null}
-                  yesterday={yesterday ? yesterday.views : null}
+                  yesterday={yesterday ? yesterday.pageviews : null}
                 />,
                 <MetricRows
                   key="visitors"
