@@ -464,7 +464,9 @@ describe('core form flows', () => {
       within(screen.getByText('零访问网站').closest('tr')).getAllByText('0').length,
     ).toBeGreaterThanOrEqual(3);
     // 昨日块沿用 summary 的 pageviews 字段，不提供 views 别名。
-    expect(within(screen.getByText('活跃网站').closest('tr')).getByText('8')).toBeInTheDocument();
+    const activeRow = screen.getByText('活跃网站').closest('tr');
+    const yesterdayLabel = within(activeRow as HTMLElement).getAllByText('昨日')[0];
+    expect(yesterdayLabel.nextElementSibling).toHaveTextContent('8');
     expect(
       within(screen.getByText('故障网站').closest('tr')).getAllByText('—').length,
     ).toBeGreaterThanOrEqual(9);
