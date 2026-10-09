@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
 import {
   manualReadInventory,
@@ -116,6 +116,7 @@ const ordinary = request => {
     !/^\/api\/share\/[^/]+$/.test(path)
   );
 };
+let lastForcedRead = 0;
 async function open(url, authenticated = true) {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
@@ -135,7 +136,11 @@ async function open(url, authenticated = true) {
   const reads = [],
     successes = [];
   page.on('request', request => {
-    if (ordinary(request)) reads.push(new URL(request.url()).pathname);
+    if (ordinary(request)) {
+      const url = new URL(request.url());
+      reads.push(url.pathname);
+      if (url.searchParams.get('refresh') === '1') lastForcedRead = Date.now();
+    }
   });
   page.on('response', response => {
     if (
@@ -158,6 +163,14 @@ async function ready(page) {
     null,
     { timeout: 30000 },
   );
+}
+async function verifyPageReads(page, policy, successes, label, from = 0) {
+  // SPA history changes the URL before React mounts the returning page and starts its reads.
+  await expect(() => assertManualPageReads(policy, successes.slice(from), label)).toPass({
+    timeout: 30000,
+    intervals: [100, 250, 500],
+  });
+  await ready(page);
 }
 function parameters(id) {
   const value = {
@@ -260,23 +273,50 @@ let realSessions = [];
 try {
   // These contexts run concurrently with route coverage, using real elapsed time.
   realSessions = await Promise.all(realCases.map(url => open(url)));
+  const realPolicies = ['websites', 'geo:overview', 'realtime', 'geo:logs'].map(id =>
+    manualPageReads(id, { websiteId: seed.website.id }),
+  );
+  await Promise.all(
+    realSessions.map((session, index) =>
+      verifyPageReads(
+        session.page,
+        realPolicies[index],
+        session.successes,
+        `${realCases[index]}: real idle entry`,
+      ),
+    ),
+  );
   const realStarted = Date.now();
   const realBaselines = realSessions.map(session => session.reads.length);
   // This untouched clock context must exercise an actual BFCache return.
   const history = await open(`/share/${share.slug}`, false);
   try {
+    // Native history navigation avoids Playwright's unsupported BFCache load lifecycle.
+    const native = await history.context.newCDPSession(history.page);
+    await native.send('Page.enable');
+    const entries = await native.send('Page.getNavigationHistory');
+    const entryId = entries.entries[entries.currentIndex].id;
     await history.page.evaluate(() => {
       window.__manualAcceptanceLifetime = 'cached-history';
     });
     await history.page.goto(base + '/liekan/help');
     await ready(history.page);
     const prior = history.successes.length;
-    await history.page.goBack();
+    const read = history.page.waitForResponse(
+      response =>
+        response.ok() &&
+        response.request().method() === 'GET' &&
+        new URL(response.url()).pathname.endsWith('/shared-report'),
+    );
+    await native.send('Page.navigateToHistoryEntry', { entryId });
+    await read;
     await ready(history.page);
-    const restored = await history.page.evaluate(() => ({
-      marker: window.__manualAcceptanceLifetime,
-      event: window.__manualPageShow,
-    }));
+    const state = await native.send('Runtime.evaluate', {
+      expression:
+        'JSON.stringify({marker:window.__manualAcceptanceLifetime,event:window.__manualPageShow})',
+      returnByValue: true,
+    });
+    const restored = JSON.parse(state.result.value);
     assert.equal(
       restored.marker,
       'cached-history',
@@ -292,7 +332,12 @@ try {
       history.successes.slice(prior),
       'BFCache history return',
     );
-    report.cachedHistory = { passed: true, restored, newReads: history.successes.length - prior };
+    report.cachedHistory = {
+      passed: true,
+      driver: 'native-browser-history',
+      restored,
+      newReads: history.successes.length - prior,
+    };
     save();
   } finally {
     await history.context.close();
@@ -306,8 +351,6 @@ try {
     seen.add(key);
     const { context, page, reads, successes } = await open(item.url, item.authenticated !== false);
     try {
-      const initial = reads.length,
-        successful = successes.length;
       const policy = manualPageReads(item.featureId, {
         websiteId: seed.website.id,
         id: item.resourceId,
@@ -315,7 +358,9 @@ try {
         goalId: goalDefinitions[0]?.id,
         funnelId: funnelDefinitions[0]?.id,
       });
-      assertManualPageReads(policy, successes, `${item.id}: entry`);
+      await verifyPageReads(page, policy, successes, `${item.id}: entry`);
+      const initial = reads.length,
+        successful = successes.length;
       const unresolved = page
         .getByRole('alert')
         .filter({ hasText: /读取失败|请求失败|当前页面数据无法读取/ });
@@ -349,11 +394,14 @@ try {
       let refreshed = null;
       if (policy.endpoints.length) {
         assert(await control.isVisible(), `${item.id}: missing refresh control`);
+        // Sequential page checks share one actor and respect the existing forced-read limit.
+        while (Date.now() - lastForcedRead < 5100)
+          await new Promise(resolve => setTimeout(resolve, 5100 - (Date.now() - lastForcedRead)));
         const prior = successes.length;
         await control.click();
         await ready(page);
+        await verifyPageReads(page, policy, successes, `${item.id}: manual refresh`, prior);
         refreshed = reads.length - initial;
-        assertManualPageReads(policy, successes.slice(prior), `${item.id}: manual refresh`);
       }
       let reentry = policy.exception;
       if (policy.endpoints.length) {
@@ -362,6 +410,10 @@ try {
           window.__manualAcceptanceLifetime = marker;
         }, marker);
         const previousUrl = page.url();
+        const native = await context.newCDPSession(page);
+        await native.send('Page.enable');
+        const entries = await native.send('Page.getNavigationHistory');
+        const entryId = entries.entries[entries.currentIndex].id;
         let away = page.locator('a[href^="/liekan/help"]').first();
         if (!(await away.count())) away = page.locator('a[href*="/events"]').first();
         const publicLayout = ['public-share', 'legacy-public-share', 'share-preview'].includes(
@@ -381,7 +433,7 @@ try {
             `${item.id}: navigation reloaded the document`,
           );
         const prior = successes.length;
-        await page.goBack();
+        await native.send('Page.navigateToHistoryEntry', { entryId });
         await ready(page);
         if (!publicLayout)
           assert.equal(
@@ -389,7 +441,7 @@ try {
             marker,
             `${item.id}: return reloaded the document`,
           );
-        assertManualPageReads(policy, successes.slice(prior), `${item.id}: SPA reentry`);
+        await verifyPageReads(page, policy, successes, `${item.id}: SPA reentry`, prior);
         reentry = publicLayout
           ? '整页导航离开后浏览器历史返回，页面数据重新读取'
           : 'SPA 同一文档历史返回，页面数据重新读取';
