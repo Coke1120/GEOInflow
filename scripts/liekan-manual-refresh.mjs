@@ -124,8 +124,12 @@ async function open(url, authenticated = true) {
   });
   if (authenticated)
     await context.addInitScript(
-      token => localStorage.setItem('umami.auth', JSON.stringify(token)),
-      token,
+      ({ origin, token }) => {
+        if (location.origin !== origin || sessionStorage.getItem('manual.auth.seeded')) return;
+        sessionStorage.setItem('manual.auth.seeded', '1');
+        localStorage.setItem('umami.auth', JSON.stringify(token));
+      },
+      { origin: target.origin, token },
     );
   const page = await context.newPage();
   await context.addInitScript(() => {
@@ -134,7 +138,8 @@ async function open(url, authenticated = true) {
     });
   });
   const reads = [],
-    successes = [];
+    successes = [],
+    logouts = [];
   page.on('request', request => {
     if (ordinary(request)) {
       const url = new URL(request.url());
@@ -143,6 +148,11 @@ async function open(url, authenticated = true) {
     }
   });
   page.on('response', response => {
+    if (
+      response.request().method() === 'POST' &&
+      new URL(response.url()).pathname === '/api/auth/logout'
+    )
+      logouts.push(response.status());
     if (
       response.request().method() === 'GET' &&
       new URL(response.url()).pathname.startsWith('/api/') &&
@@ -153,7 +163,7 @@ async function open(url, authenticated = true) {
   page.on('pageerror', error => report.errors.push(error.message));
   await page.goto(base + url);
   await ready(page);
-  return { context, page, reads, successes };
+  return { context, page, reads, successes, logouts };
 }
 async function ready(page) {
   await page.waitForLoadState('networkidle');
@@ -242,7 +252,7 @@ for (const route of [...inventory.routes, ...inventory.geo]) {
     featureId: route.route === '/boards/create' ? 'boards' : featureId,
     resourceId: resourceKey ? values[resourceKey] : null,
     url,
-    authenticated: !['/login', '/login/two-factor', '/logout', '/sso'].includes(url),
+    authenticated: !['/login', '/login/two-factor', '/sso'].includes(url),
   });
 }
 cases.push(
@@ -349,7 +359,10 @@ try {
       continue;
     }
     seen.add(key);
-    const { context, page, reads, successes } = await open(item.url, item.authenticated !== false);
+    const { context, page, reads, successes, logouts } = await open(
+      item.url,
+      item.authenticated !== false,
+    );
     try {
       const policy = manualPageReads(item.featureId, {
         websiteId: seed.website.id,
@@ -358,6 +371,20 @@ try {
         goalId: goalDefinitions[0]?.id,
         funnelId: funnelDefinitions[0]?.id,
       });
+      if (item.url === '/logout') {
+        await page.waitForURL(url => url.pathname === '/login');
+        assert.equal(
+          await page.evaluate(() => localStorage.getItem('umami.auth') === null),
+          true,
+          'Logout retained client credentials',
+        );
+        assert.deepEqual(logouts, [200], 'Logout did not submit exactly one successful request');
+        assert(
+          reads.every(path => path === '/api/config'),
+          'Logout read private page data',
+        );
+        policy.exception = '退出登录清理凭据并返回登录页面';
+      }
       await verifyPageReads(page, policy, successes, `${item.id}: entry`);
       const initial = reads.length,
         successful = successes.length;
@@ -457,6 +484,7 @@ try {
         idleDelta: 0,
         refreshed,
         reentry,
+        ...(item.url === '/logout' ? { logoutStatuses: logouts } : {}),
       });
       save();
     } finally {
