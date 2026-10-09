@@ -4275,6 +4275,14 @@
       "owner": "Liekan refresh compatibility",
       "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
       "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
+    },
+    {
+      "path": "tests/api/liekan-crawler.spec.ts",
+      "purpose": "Verify crawler API authorization, manual refresh and isolated draft persistence",
+      "tests": ["pnpm liekan:verify", "pnpm test:api:run"],
+      "owner": "Liekan crawler compatibility",
+      "constraint": "Use disposable website resources and preserve provider write authority",
+      "removalCondition": "Remove when upstream covers the same crawler read and authorization contracts"
     }
   ]
 }

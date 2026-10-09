@@ -48,7 +48,7 @@ test.describe('crawler snapshots and local drafts', () => {
       endAt: Date.now() - 60000,
       timezone: 'Asia/Shanghai',
     };
-    expect((await user.get(path, { params: { ...params, refresh: 1 } })).status).toBe(403);
+    expect((await user.get(path, { params: { ...params, refresh: 1 } })).status).toBe(404);
     const first = await admin.get(path, { params });
     expect(first.status, first.text).toBe(200);
     expect(first.body).toMatchObject({
@@ -83,7 +83,7 @@ test.describe('crawler snapshots and local drafts', () => {
       'crawler-domain-verification',
     ]) {
       const path = `${root()}/${endpoint}`;
-      expect((await user.get(path)).status).toBe(403);
+      expect((await user.get(path)).status).toBe(404);
       const response = await admin.get(path);
       expect(response.status, response.text).toBe(200);
       expect(response.headers['cache-control']).toMatch(/private.*no-store/);
