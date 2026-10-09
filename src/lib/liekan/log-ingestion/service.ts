@@ -20,6 +20,11 @@ import {
 import { enqueue, LOG_QUEUE, PROVIDER_QUEUE } from './queue';
 import { verificationSnapshots } from './ranges';
 import { newToken, tokenHash } from './secrets';
+import { healthSchema } from '../contracts/log-sources';
+import { BOT_RULES } from '../rules/bots';
+import { recordCrawlerCoverage } from './crawler-quality';
+import { crawlerClassificationVersion } from './crawler-evidence';
+import { persistCrawlerEvidence } from './crawler-evidence';
 
 export interface LogSource {
   id: string;
@@ -323,6 +328,7 @@ export async function processBatch(batchId: string) {
         first.source_id,
         JSON.stringify(valid),
       );
+    await persistCrawlerEvidence(tx, first.website_id, batchId, valid);
     await tx.$executeRawUnsafe(
       'UPDATE liekan_import SET accepted=(SELECT count(*)::int FROM liekan_effective_log WHERE import_id=$1::uuid),inserted=$2 WHERE id=$1::uuid',
       batchId,
@@ -347,17 +353,7 @@ export async function processBatch(batchId: string) {
   });
 }
 export async function heartbeat(sourceId: string, token: string, input: unknown) {
-  const health = z
-    .strictObject({
-      version: z.string().max(40),
-      pending: z.number().int().nonnegative(),
-      bytes: z.number().int().nonnegative(),
-      gap: z.boolean(),
-      errorCode: z
-        .enum(['none', 'offline', 'buffer-full', 'rotation-gap', 'unreadable', 'format-error'])
-        .default('none'),
-    })
-    .safeParse(input);
+  const health = healthSchema.safeParse(input);
   if (!health.success) throw new LiekanError('健康状态无效');
   return transaction(async tx => {
     const live = await validateSource(tx, sourceId, token, true);
@@ -383,8 +379,25 @@ export async function heartbeat(sourceId: string, token: string, input: unknown)
         live.source.state = 'paused';
       }
     }
+    const [setting] = await tx.$queryRawUnsafe(
+      'SELECT rules FROM liekan_setting WHERE website_id=$1::uuid',
+      live.source.website_id,
+    );
+    const coverage = await recordCrawlerCoverage(
+      tx,
+      live.source,
+      live.epoch,
+      health.data,
+      setting?.rules ?? BOT_RULES,
+    );
     return {
       version: 1,
+      coverageVersion: 1,
+      coverageGapRecorded: coverage?.gapRecorded === true,
+      coverageBinding:
+        String((await ensureState(tx, live.source.website_id)).policy_revision) +
+        ':' +
+        crawlerClassificationVersion(setting?.rules ?? BOT_RULES),
       epoch: live.epoch,
       state: live.source.state,
       resetAt: live.resetAt,

@@ -40,6 +40,7 @@ import {
 import { featureNavigationHref } from './features/routes';
 import { useLiekanShell } from './LiekanShell';
 import { ManagementDrawer } from './ManagementDrawer';
+import { CrawlerDialog } from './features/CrawlerDialog';
 import { ReportContext } from './ReportContext';
 import type { LiekanReport, Resource } from './types';
 import {
@@ -569,8 +570,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         onAction,
         onLogsPage: gotoLogsPage,
         // 翻页只改本表页码；各表白名单独立，其他表已请求的页码保持不变。
-        onTablePage: (table, page) =>
-          updateView({ [`tp_${table}`]: page > 1 ? page : undefined }),
+        onTablePage: (table, page) => updateView({ [`tp_${table}`]: page > 1 ? page : undefined }),
       }}
     >
       {shell?.websiteActionsTarget && createPortal(headerActions, shell.websiteActionsTarget)}
@@ -756,50 +756,61 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           }
         />
       ) : null}
-      {(action || compare) && (
-        <ManagementDrawer
-          action={compare ? '对比上周' : action}
+      {action === '蜘蛛归因与控制' || action.startsWith('蜘蛛详情:') ? (
+        <CrawlerDialog
+          key={`${websiteId}:${action}`}
           websiteId={websiteId}
-          websiteName={report?.website?.name || website?.name}
-          websiteDomain={report?.website?.domain || website?.domain}
-          canManage={report?.meta.canManage || false}
+          websiteName={report?.website.name || website?.name}
+          botName={action.startsWith('蜘蛛详情:') ? action.slice(5) : undefined}
+          range={report?.range}
           onClose={close}
-          onSaved={afterSaved}
-          onSearch={value =>
-            updateView({
-              search: value.slice(0, 200),
-              page: undefined,
-              cursor: undefined,
-              seek: undefined,
-            })
-          }
-          initialSearch={search}
-          onPage={gotoLogsPage}
-          onLogsFilter={onFilter}
-          logsFilter={filter}
-          report={report}
-          isFetching={query.isFetching}
-          onRange={setRange}
-          comparison={
-            compare
-              ? {
-                  current: report,
-                  previous: previousRestricted || metadataLoading ? undefined : previous.data,
-                  startAt,
-                  endAt,
-                  previousStartAt: shiftedRange.startAt,
-                  previousEndAt: shiftedRange.endAt,
-                  labels:
-                    resource === 'overview' && report?.meta.aiCrawlerEnabled === false
-                      ? ['访客数 UV', '浏览量 PV', '跳出率', '平均访问时长']
-                      : cardLabels[resource] || [],
-                  error: previous.error,
-                  fetching: previous.isFetching,
-                  refetch: () => previous.refetch(),
-                }
-              : undefined
-          }
         />
+      ) : (
+        (action || compare) && (
+          <ManagementDrawer
+            action={compare ? '对比上周' : action}
+            websiteId={websiteId}
+            websiteName={report?.website?.name || website?.name}
+            websiteDomain={report?.website?.domain || website?.domain}
+            canManage={report?.meta.canManage || false}
+            onClose={close}
+            onSaved={afterSaved}
+            onSearch={value =>
+              updateView({
+                search: value.slice(0, 200),
+                page: undefined,
+                cursor: undefined,
+                seek: undefined,
+              })
+            }
+            initialSearch={search}
+            onPage={gotoLogsPage}
+            onLogsFilter={onFilter}
+            logsFilter={filter}
+            report={report}
+            isFetching={query.isFetching}
+            onRange={setRange}
+            comparison={
+              compare
+                ? {
+                    current: report,
+                    previous: previousRestricted || metadataLoading ? undefined : previous.data,
+                    startAt,
+                    endAt,
+                    previousStartAt: shiftedRange.startAt,
+                    previousEndAt: shiftedRange.endAt,
+                    labels:
+                      resource === 'overview' && report?.meta.aiCrawlerEnabled === false
+                        ? ['访客数 UV', '浏览量 PV', '跳出率', '平均访问时长']
+                        : cardLabels[resource] || [],
+                    error: previous.error,
+                    fetching: previous.isFetching,
+                    refetch: () => previous.refetch(),
+                  }
+                : undefined
+            }
+          />
+        )
       )}
     </ReportContext.Provider>
   );

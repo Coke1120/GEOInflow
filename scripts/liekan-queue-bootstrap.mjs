@@ -52,6 +52,14 @@ try {
       deadLetter: 'liekan-dead-letter',
     });
   }
+  for (const name of ['liekan-crawler-analysis', 'liekan-crawler-check', 'liekan-crawler-control'])
+    await boss.createQueue(name, {
+      policy: 'short',
+      retryLimit: 2,
+      retryDelay: 5,
+      expireInSeconds: 300,
+      retentionSeconds: 3600,
+    });
   await client.query(
     "INSERT INTO liekan_queue_installation(id,package_version,checksum) VALUES ('liekan_jobs','12.36.0',$1) ON CONFLICT DO NOTHING",
     [checksum],

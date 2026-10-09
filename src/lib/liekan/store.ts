@@ -4,6 +4,11 @@ import { randomUUID } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import { parseCatalog, parseLogInput } from './ingest';
 import { verificationSnapshots } from './log-ingestion/ranges';
+import {
+  crawlerClassificationVersion,
+  crawlerIdentityId,
+  persistCrawlerEvidence,
+} from './log-ingestion/crawler-evidence';
 import { BOT_RULES, BOT_TYPES, type BotRule } from './rules/bots';
 import {
   LiekanError,
@@ -112,6 +117,7 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
 export async function importLogs(id: string, domain: string, input: any, identity?: WriteIdentity) {
   id = id.toLowerCase();
   const settings = await getSettings(id);
+  const classificationVersion = crawlerClassificationVersion(settings.rules);
   let parsed: ReturnType<typeof parseLogInput>;
   try {
     parsed = parseLogInput(
@@ -188,6 +194,18 @@ export async function importLogs(id: string, domain: string, input: any, identit
         id,
         importId,
         JSON.stringify(parsed.records.slice(offset, offset + 500)),
+      );
+      await persistCrawlerEvidence(
+        tx,
+        id,
+        importId,
+        parsed.records
+          .slice(offset, offset + 500)
+          .map(row => ({
+            id: row.id,
+            classificationVersion,
+            crawlerId: crawlerIdentityId(row.userAgent, settings.rules),
+          })),
       );
     }
     await tx.$executeRawUnsafe(

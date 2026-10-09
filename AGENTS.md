@@ -14,3 +14,6 @@ Liekan / 猎看统计 is an MIT derivative of Umami, with a separate GEO statist
 - No rhetorical contrast templates in authored prose. Do not commit process plans, local review reports, temporary outputs, screenshots or database dumps.
 
 - Navigation lives in src/lib/liekan/contracts/navigation.ts and the shared Navigation component. Global management, website analytics, account, admin, authentication and public share contexts stay distinct; private analytics require an explicit website ID. Resource metadata determines ownership; cross-site navigation clears site-owned conditions and identifiers. See docs/navigation.md.
+
+- Crawler control uses independent Zone credentials, durable preview/confirmation and per-Zone leases. Unknown provider results quarantine the Zone across disconnected/frozen connections. Read-only handoff reconciliation never transfers write authority; adoption requires a separate confirmed preview. See docs/crawler-control.md.
+- Crawler risk quality must distinguish missing input, unknown continuity, partial gaps and proved observed-file coverage. Preserve classification versions, epoch fencing, late-data correction and self-check exclusion.

@@ -8,6 +8,7 @@ import {
   rm,
   open,
 } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -46,6 +47,161 @@ async function fixture(fetcher: typeof fetch) {
   };
 }
 describe('durable website collector', () => {
+  it('declares only acknowledged cursors after server negotiation and starts a new segment after a recorded gap', async () => {
+    let gapAcknowledged = false;
+    const serverBatchId = randomUUID();
+    let requestBatchId = '';
+    const f = await fixture((async (url, init) => {
+      const body = JSON.parse(String(init.body));
+      if (String(url).endsWith('/heartbeat'))
+        return Response.json({
+          version: 1,
+          epoch: 1,
+          state: 'active',
+          coverageVersion: 1,
+          coverageBinding: 'fixture-v1',
+          coverageGapRecorded: gapAcknowledged,
+        });
+      requestBatchId = body.batchId;
+      return Response.json({
+        batchId: serverBatchId,
+        requestBatchId: body.batchId,
+        epoch: 1,
+        received: body.events.length,
+        valid: body.events.length,
+        rejected: 0,
+      });
+    }) as typeof fetch);
+    try {
+      await f.agent.synchronize();
+      await appendFile(f.config.logPath, line + line.replace('10:00:01', '10:00:03'));
+      await f.agent.read();
+      expect((await f.agent.health()).coverage).toBeUndefined();
+      await f.agent.flush();
+      expect((await f.agent.health()).coverage).toMatchObject({
+        epoch: 1,
+        startsAt: Date.parse('2026-10-04T02:00:01Z'),
+        endsAt: Date.parse('2026-10-04T02:00:03Z'),
+        cursors: [
+          {
+            confirmed: Buffer.byteLength(line + line.replace('10:00:01', '10:00:03')),
+            read: Buffer.byteLength(line + line.replace('10:00:01', '10:00:03')),
+          },
+        ],
+      });
+      expect((await f.agent.health()).coverage.fromBatchId).toBe(serverBatchId);
+      expect(serverBatchId).not.toBe(requestBatchId);
+      f.agent.state.gap = true;
+      expect((await f.agent.health()).coverage).toBeUndefined();
+      gapAcknowledged = true;
+      await f.agent.synchronize();
+      expect(f.agent.state.gap).toBe(false);
+      expect((await f.agent.health()).coverage).toBeUndefined();
+      await appendFile(
+        f.config.logPath,
+        line.replace('10:00:01', '11:00:01') + line.replace('10:00:01', '11:00:03'),
+      );
+      await f.agent.read();
+      await f.agent.flush();
+      expect((await f.agent.health()).coverage.startsAt).toBe(Date.parse('2026-10-04T03:00:01Z'));
+    } finally {
+      await f.cleanup();
+    }
+  });
+  it('joins normal coverage segments at the prior confirmed event boundary after fourteen days', async () => {
+    const ids: string[] = [];
+    const f = await fixture((async (url, init) => {
+      const body = JSON.parse(String(init.body));
+      if (String(url).endsWith('/heartbeat'))
+        return Response.json({ version: 1, epoch: 1, state: 'active', coverageVersion: 1 });
+      const batchId = randomUUID();
+      ids.push(batchId);
+      return Response.json({
+        batchId,
+        requestBatchId: body.batchId,
+        epoch: 1,
+        received: body.events.length,
+        valid: body.events.length,
+        rejected: 0,
+      });
+    }) as typeof fetch);
+    try {
+      await f.agent.synchronize();
+      await appendFile(f.config.logPath, line + line.replace('10:00:01', '10:00:03'));
+      await f.agent.read();
+      await f.agent.flush();
+      await appendFile(f.config.logPath, line.replace('04/Oct', '17/Oct'));
+      await f.agent.read();
+      await f.agent.flush();
+      const before = (await f.agent.health()).coverage;
+      await appendFile(f.config.logPath, line.replace('04/Oct', '19/Oct'));
+      await f.agent.read();
+      await f.agent.flush();
+      const after = (await f.agent.health()).coverage;
+      expect(after.startsAt).toBe(before.endsAt);
+      expect(after.fromBatchId).toBe(ids[1]);
+      expect(after.toBatchId).toBe(ids[2]);
+    } finally {
+      await f.cleanup();
+    }
+  });
+  it('starts a bounded segment after more than fifteen event-time days of silence', async () => {
+    const f = await fixture((async (url, init) => {
+      const body = JSON.parse(String(init.body));
+      if (String(url).endsWith('/heartbeat'))
+        return Response.json({ version: 1, epoch: 1, state: 'active', coverageVersion: 1 });
+      return Response.json({
+        batchId: randomUUID(),
+        requestBatchId: body.batchId,
+        epoch: 1,
+        received: body.events.length,
+        valid: body.events.length,
+        rejected: 0,
+      });
+    }) as typeof fetch);
+    try {
+      await f.agent.synchronize();
+      await appendFile(f.config.logPath, line + line.replace('10:00:01', '10:00:03'));
+      await f.agent.read();
+      await f.agent.flush();
+      await appendFile(
+        f.config.logPath,
+        line.replace('04/Oct', '25/Oct') +
+          line.replace('04/Oct', '25/Oct').replace('10:00:01', '10:00:03'),
+      );
+      await f.agent.read();
+      await f.agent.flush();
+      const proof = (await f.agent.health()).coverage;
+      expect(proof.startsAt).toBe(Date.parse('2026-10-25T02:00:01Z'));
+      expect(proof.endsAt - proof.startsAt).toBe(2000);
+    } finally {
+      await f.cleanup();
+    }
+  });
+  it('keeps the original heartbeat payload for a server without coverage negotiation', async () => {
+    const f = await fixture((async (url, init) => {
+      const body = JSON.parse(String(init.body));
+      if (String(url).endsWith('/heartbeat'))
+        return Response.json({ version: 1, epoch: 1, state: 'active' });
+      return Response.json({
+        requestBatchId: body.batchId,
+        epoch: 1,
+        received: body.events.length,
+        valid: body.events.length,
+        rejected: 0,
+      });
+    }) as typeof fetch);
+    try {
+      await f.agent.synchronize();
+      await appendFile(f.config.logPath, line + line.replace('10:00:01', '10:00:02'));
+      await f.agent.read();
+      await f.agent.flush();
+      expect((await f.agent.health()).coverage).toBeUndefined();
+    } finally {
+      await f.cleanup();
+    }
+  });
+
   it('does not recover a stored inode from an unrelated sibling filename after restart', async () => {
     const sent: any[] = [];
     const fetcher = (async (_url, init) => {

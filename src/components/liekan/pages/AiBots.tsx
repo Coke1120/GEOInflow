@@ -1,7 +1,9 @@
 import { FilterChip, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
+import { useReportActions } from '../ReportContext';
 
 export function AiBots({ report, rangeLabel }: ReportViewProps) {
+  const actions = useReportActions();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="card fade-in d1 overflow-hidden">
@@ -29,7 +31,12 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
               <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="趋势" />
             </tr>
           </thead>
-          <ReportRows table="botBody" report={report} pageSize={20} />
+          <ReportRows
+            table="botBody"
+            report={report}
+            pageSize={20}
+            onCrawler={name => actions.onAction(`蜘蛛详情:${name}`)}
+          />
         </table>
       </section>
       <section className="grid grid-cols-2 gap-4">
@@ -48,6 +55,15 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
               特征分类。匹配结果标记为估算，来源身份验证信息仅在有证据时显示。
             </p>
             <p>管理特征库可以调整本地识别规则。</p>
+            <p>
+              <button
+                type="button"
+                className="text-blue hover:underline focus-visible:ring-2"
+                onClick={() => actions.onAction('蜘蛛归因与控制')}
+              >
+                查看归因、风险与访问策略
+              </button>
+            </p>
           </div>
         </div>
       </section>

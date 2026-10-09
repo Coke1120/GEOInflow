@@ -1,4 +1,6 @@
 import { randomUUID, createHash } from 'node:crypto';
+import { parseCombinedDate } from '../lib/liekan/strict-date';
+import type { CrawlerCoverage } from '../lib/liekan/contracts/crawler-quality';
 import { constants } from 'node:fs';
 import { mkdir, open, readFile, readdir, rename, stat, unlink } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -32,6 +34,9 @@ interface State {
   rejected: number;
   authorized?: boolean;
   observedAt?: number;
+  coverageSupported?: boolean;
+  coverageBinding?: string;
+  coverage?: Omit<CrawlerCoverage, 'cursors'>;
 }
 interface Batch {
   id: string;
@@ -198,6 +203,25 @@ export class Collector {
       bytes,
       gap: this.state.gap,
       errorCode: this.errorCode,
+      ...(this.state.coverageSupported &&
+      this.state.coverage &&
+      this.state.coverage.startsAt < this.state.coverage.endsAt &&
+      this.state.coverage.endsAt - this.state.coverage.startsAt <= 15 * 86400000 &&
+      !files.length &&
+      !this.state.gap &&
+      this.errorCode === 'none' &&
+      Object.values(this.state.files).every(cursor => cursor.confirmed === cursor.offset)
+        ? {
+            coverage: {
+              ...this.state.coverage,
+              cursors: Object.values(this.state.files).map(cursor => ({
+                generation: cursor.generation,
+                confirmed: cursor.confirmed,
+                read: cursor.offset,
+              })),
+            },
+          }
+        : {}),
     };
   }
   async synchronize() {
@@ -230,12 +254,17 @@ export class Collector {
         return !!this.state.authorized;
       }
       const remote = await response.json();
+      this.state.coverageSupported = remote.coverageVersion === 1;
+      if (this.state.coverageBinding !== remote.coverageBinding || remote.state !== 'active')
+        this.state.coverage = undefined;
+      this.state.coverageBinding = remote.coverageBinding;
       if (!Number.isSafeInteger(remote.epoch) || remote.epoch < 1 || remote.version !== 1)
         throw new Error();
       if (remote.epoch !== this.state.epoch) {
         // A website reset explicitly fences the previous collection generation.
         this.state.epoch = remote.epoch;
         this.state.gap = true;
+        this.state.coverage = undefined;
         for (const handle of this.handles.values()) await handle.close();
         this.handles.clear();
         // Retain file positions and replay buffered rows through the server's reset cutoff.
@@ -251,6 +280,11 @@ export class Collector {
             );
           }
         }
+      }
+      if (remote.coverageGapRecorded === true && (await this.pendingFiles()).length === 0) {
+        this.state.gap = false;
+        this.state.coverage = undefined;
+        if (['rotation-gap', 'format-error'].includes(this.errorCode)) this.errorCode = 'none';
       }
       if (this.errorCode === 'offline') this.errorCode = 'none';
       this.state.authorized = remote.state === 'active';
@@ -540,6 +574,52 @@ export class Collector {
       ) {
         this.errorCode = 'offline';
         return false;
+      }
+      if (ack.rejected) {
+        this.state.rejected += ack.rejected;
+        this.state.coverage = undefined;
+        this.errorCode = 'format-error';
+      } else if (
+        this.state.coverageSupported &&
+        !this.state.gap &&
+        this.errorCode !== 'format-error' &&
+        typeof ack.batchId === 'string' &&
+        /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(
+          ack.batchId,
+        )
+      ) {
+        try {
+          const times = batch.events.map(
+            event => +parseCombinedDate(event.line.match(/\[([^\]]+)\]/)?.[1] || ''),
+          );
+          const startsAt = Math.min(...times),
+            endsAt = Math.max(...times),
+            prior = this.state.coverage;
+          if (!prior || endsAt - prior.endsAt > 14 * 86400000)
+            this.state.coverage = {
+              epoch: batch.epoch,
+              fromBatchId: ack.batchId,
+              toBatchId: ack.batchId,
+              startsAt,
+              endsAt,
+            };
+          else if (endsAt - prior.startsAt > 14 * 86400000)
+            this.state.coverage = {
+              epoch: batch.epoch,
+              fromBatchId: prior.toBatchId,
+              toBatchId: ack.batchId,
+              startsAt: prior.endsAt,
+              endsAt,
+            };
+          else
+            this.state.coverage = {
+              ...prior,
+              toBatchId: endsAt >= prior.endsAt ? ack.batchId : prior.toBatchId,
+              endsAt: Math.max(prior.endsAt, endsAt),
+            };
+        } catch {
+          this.state.coverage = undefined;
+        }
       }
       const cursor = this.state.files[batch.key];
       if (cursor?.generation === batch.generation)

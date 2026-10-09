@@ -9,6 +9,9 @@ import {
   LOG_QUEUE,
   PROVIDER_QUEUE,
   RANGE_QUEUE,
+  CRAWLER_ANALYSIS_QUEUE,
+  CRAWLER_CHECK_QUEUE,
+  CRAWLER_CONTROL_QUEUE,
 } from '../lib/liekan/log-ingestion/queue';
 import { reconcilePermissions } from '../lib/liekan/log-ingestion/maintenance';
 import { recoverBatches } from '../lib/liekan/log-ingestion/recovery';
@@ -17,6 +20,12 @@ import { cleanupExpiredAuthorizations } from '../lib/liekan/log-ingestion/cloudf
 import { maintainProvider } from '../lib/liekan/log-ingestion/provider';
 import { sealPlatformSecret, openPlatformSecret } from '../lib/liekan/log-ingestion/secrets';
 import { refreshRanges } from '../lib/liekan/log-ingestion/ranges';
+import { processCrawlerAnalysis } from '../lib/liekan/crawlers/worker';
+import { processCrawlerCheck } from '../lib/liekan/crawler-control/diagnostics';
+import { maintainCrawlerRecords } from '../lib/liekan/crawler-control/retention';
+import { processCrawlerDeployment } from '../lib/liekan/crawler-control/deployments';
+
+import { pauseRestoredCrawlerControl } from '../lib/liekan/crawler-control/restore';
 
 const workerId = randomUUID();
 const boss = new PgBoss({
@@ -78,6 +87,11 @@ async function reconcile() {
   }
 }
 async function main() {
+  if (process.argv.includes('--pause-crawler-control')) {
+    console.log(JSON.stringify(await pauseRestoredCrawlerControl()));
+    await prisma.client.$disconnect();
+    return;
+  }
   if (process.argv.includes('--rekey')) {
     await transaction(async tx => {
       for (const row of await tx.$queryRawUnsafe(
@@ -103,6 +117,17 @@ async function main() {
           'UPDATE liekan_oauth_cleanup SET payload=$2 WHERE id=$1::uuid',
           row.id,
           sealPlatformSecret(openPlatformSecret(row.payload, row.id), row.id),
+        );
+      for (const row of await tx.$queryRawUnsafe(
+        'SELECT id,website_id,token_encrypted FROM liekan_crawler_connection WHERE token_encrypted IS NOT NULL FOR UPDATE',
+      ))
+        await tx.$executeRawUnsafe(
+          'UPDATE liekan_crawler_connection SET token_encrypted=$2 WHERE id=$1::uuid',
+          row.id,
+          sealPlatformSecret(
+            openPlatformSecret(row.token_encrypted, `crawler-control:${row.id}:${row.website_id}`),
+            `crawler-control:${row.id}:${row.website_id}`,
+          ),
         );
     });
     await prisma.client.$disconnect();
@@ -140,6 +165,45 @@ async function main() {
   await boss.work(RANGE_QUEUE, { batchSize: 1 }, async () => {
     await refreshRanges();
   });
+  await boss.work(
+    CRAWLER_ANALYSIS_QUEUE,
+    { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: 2 },
+    async () => {
+      await processCrawlerAnalysis(workerId);
+    },
+  );
+  await boss.work(
+    CRAWLER_CHECK_QUEUE,
+    { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: 2 },
+    async () => {
+      await processCrawlerCheck(workerId);
+    },
+  );
+  await boss.work(
+    CRAWLER_CONTROL_QUEUE,
+    { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: 2 },
+    async () => {
+      await processCrawlerDeployment(workerId);
+    },
+  );
+  const wakeCrawlers = async () => {
+    for (const queue of [CRAWLER_ANALYSIS_QUEUE, CRAWLER_CHECK_QUEUE, CRAWLER_CONTROL_QUEUE])
+      await boss.send(
+        queue,
+        {},
+        {
+          singletonKey: 'wake',
+          singletonSeconds: 2,
+          expireInSeconds: 300,
+          retentionSeconds: 3600,
+          retryLimit: 2,
+        },
+      );
+  };
+  void wakeCrawlers().catch(() => {});
+  const crawlerTimer = setInterval(() => {
+    void wakeCrawlers().catch(() => {});
+  }, 2000);
   await recordHealth();
   void reconcile().catch(() => console.error('Liekan worker maintenance unavailable'));
   await boss.send(RANGE_QUEUE, {}, { singletonKey: 'official', singletonSeconds: 3600 });
@@ -177,6 +241,7 @@ async function main() {
     cleaning = true;
     try {
       await cleanupExpiredAuthorizations(workerId);
+      await maintainCrawlerRecords();
     } finally {
       cleaning = false;
     }
@@ -205,6 +270,7 @@ async function main() {
     clearInterval(health);
     clearInterval(heartbeat);
     clearInterval(ranges);
+    clearInterval(crawlerTimer);
     await boss.stop({ graceful: true, timeout: 30000 });
     await transaction(tx =>
       tx.$executeRawUnsafe('DELETE FROM liekan_worker_state WHERE id=$1', workerId),

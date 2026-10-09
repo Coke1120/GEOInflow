@@ -4,6 +4,9 @@ export const QUEUE_SCHEMA = 'liekan_jobs';
 export const LOG_QUEUE = 'liekan-log-ingest';
 export const PROVIDER_QUEUE = 'liekan-provider-maintenance';
 export const RANGE_QUEUE = 'liekan-range-refresh';
+export const CRAWLER_ANALYSIS_QUEUE = 'liekan-crawler-analysis';
+export const CRAWLER_CHECK_QUEUE = 'liekan-crawler-check';
+export const CRAWLER_CONTROL_QUEUE = 'liekan-crawler-control';
 export const DEAD_QUEUE = 'liekan-dead-letter';
 let queuePromise: Promise<PgBoss> | undefined;
 export function getQueue() {

@@ -35,6 +35,8 @@ import {
   websiteDayWindow,
 } from '@/lib/liekan/upstream/website-day-metrics';
 import { ManagementDrawer } from '../ManagementDrawer';
+import { CrawlerHandoffs } from './CrawlerHandoffs';
+import { CrawlerDialog } from './CrawlerDialog';
 import { managementLabels } from '@/lib/liekan/contracts/management';
 import { Chart } from './Chart';
 import { useAction, useData, useFeature } from './context';
@@ -962,6 +964,7 @@ function WebsiteSettings() {
                           {managementLabels[item]}
                         </Button>
                       ))}
+                      <Button onClick={() => setDrawer('crawler')}>归因、风险与访问控制</Button>
                     </div>
                   </Body>
                 </Panel>
@@ -1005,7 +1008,14 @@ function WebsiteSettings() {
               </Panel>
             </div>
           )}
-          {collectionActions.includes(drawer) ? (
+          {drawer === 'crawler' ? (
+            <CrawlerDialog
+              key={site.id}
+              websiteId={site.id}
+              websiteName={site.name}
+              onClose={() => setDrawer('')}
+            />
+          ) : collectionActions.includes(drawer) ? (
             <ManagementDrawer
               key={`${site.id}:${drawer}`}
               action={drawer}
@@ -1516,66 +1526,71 @@ function Account() {
               <LinkButton page="security">账户安全</LinkButton>
               <LinkButton page="api-keys">API 密钥</LinkButton>
               <LinkButton page="preferences">偏好设置</LinkButton>
+              <Button onClick={() => setDrawer('crawler-handoffs')}>蜘蛛规则交接记录</Button>
             </div>
           </Body>
         </Panel>
       </div>
-      {drawer && (
-        <LiekanDialog
-          subtitle={'当前账户：' + c.user.username}
-          title={drawer === 'username' ? '修改用户名' : '修改密码'}
-          onClose={() => setDrawer('')}
-        >
-          <Form
-            busy={action.busy}
-            error={action.error}
-            submitLabel={drawer === 'password' ? '保存密码' : '保存用户名'}
-            onSubmit={async values => {
-              if (drawer === 'username') {
-                if (!c.user.isAdmin) throw new Error('用户名由系统管理员维护。');
-                await action.run(() =>
-                  c.api.post(`/users/${c.user.id}`, { username: values.username }),
-                );
-                try {
-                  await c.refresh();
-                } catch {
-                  c.notify('用户名已保存，页面状态刷新失败，请重新读取。');
-                }
-              } else {
-                if (values.newPassword !== values.confirmPassword)
-                  throw new Error('两次输入的新密码不一致。');
-                await action.run(
-                  () =>
-                    c.api.post('/me/password', {
-                      currentPassword: values.currentPassword,
-                      newPassword: values.newPassword,
-                    }),
-                  '密码已更新，请重新登录',
-                );
-                clearFeatureLogin();
-                window.location.assign(`${basePath}/login`);
-              }
-              setDrawer('');
-            }}
+      {drawer === 'crawler-handoffs' ? (
+        <CrawlerHandoffs onClose={() => setDrawer('')} />
+      ) : (
+        drawer && (
+          <LiekanDialog
+            subtitle={'当前账户：' + c.user.username}
+            title={drawer === 'username' ? '修改用户名' : '修改密码'}
+            onClose={() => setDrawer('')}
           >
-            {drawer === 'username' ? (
-              <Field
-                label="用户名"
-                name="username"
-                defaultValue={c.user.username}
-                required
-                maxLength={255}
-              />
-            ) : (
-              <>
-                <Notice>密码更新后需要重新登录。</Notice>
-                <PasswordField label="当前密码" name="currentPassword" />
-                <PasswordField label="新密码" name="newPassword" minLength={8} />
-                <PasswordField label="确认新密码" name="confirmPassword" minLength={8} />
-              </>
-            )}
-          </Form>
-        </LiekanDialog>
+            <Form
+              busy={action.busy}
+              error={action.error}
+              submitLabel={drawer === 'password' ? '保存密码' : '保存用户名'}
+              onSubmit={async values => {
+                if (drawer === 'username') {
+                  if (!c.user.isAdmin) throw new Error('用户名由系统管理员维护。');
+                  await action.run(() =>
+                    c.api.post(`/users/${c.user.id}`, { username: values.username }),
+                  );
+                  try {
+                    await c.refresh();
+                  } catch {
+                    c.notify('用户名已保存，页面状态刷新失败，请重新读取。');
+                  }
+                } else {
+                  if (values.newPassword !== values.confirmPassword)
+                    throw new Error('两次输入的新密码不一致。');
+                  await action.run(
+                    () =>
+                      c.api.post('/me/password', {
+                        currentPassword: values.currentPassword,
+                        newPassword: values.newPassword,
+                      }),
+                    '密码已更新，请重新登录',
+                  );
+                  clearFeatureLogin();
+                  window.location.assign(`${basePath}/login`);
+                }
+                setDrawer('');
+              }}
+            >
+              {drawer === 'username' ? (
+                <Field
+                  label="用户名"
+                  name="username"
+                  defaultValue={c.user.username}
+                  required
+                  maxLength={255}
+                />
+              ) : (
+                <>
+                  <Notice>密码更新后需要重新登录。</Notice>
+                  <PasswordField label="当前密码" name="currentPassword" />
+                  <PasswordField label="新密码" name="newPassword" minLength={8} />
+                  <PasswordField label="确认新密码" name="confirmPassword" minLength={8} />
+                </>
+              )}
+            </Form>
+          </LiekanDialog>
+        )
       )}
     </>
   );

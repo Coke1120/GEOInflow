@@ -18,5 +18,6 @@
   "012_ai_invariants_and_history.sql": "b1e7f79f218217f05f2e76a44f0eb1e874458c0db066d36ae3e78c2f18ac37dd",
   "012_analytics_revision.sql": "32e078740783a20a9e3d106ed3f783288c3a656ca71e878268b2683d68f46ccb",
   "013_effective_log_union.sql": "b34cec16ba9e2e872b9add3f85a67c4f1a26368c1d388a99cad522b01bf0117f",
-  "014_website_site_number.sql": "c190133973862168e4c2b8aa38cf551624289e9efb47c01a9eb65d9813294ec9"
+  "014_website_site_number.sql": "c190133973862168e4c2b8aa38cf551624289e9efb47c01a9eb65d9813294ec9",
+  "015_crawler_analysis_control.sql": "b8c1745abfb96ffa79784f4f4bcfd5789e951c2cd286bc8d9b1877e2a3f7ffff"
 }

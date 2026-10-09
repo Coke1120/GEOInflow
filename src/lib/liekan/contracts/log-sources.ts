@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { crawlerCoverageSchema } from './crawler-quality';
 export const sourceActionSchema = z.strictObject({
   action: z.enum(['pause', 'resume', 'select', 'rotate']),
 });
@@ -7,6 +8,7 @@ export const healthSchema = z.strictObject({
   pending: z.number().int().nonnegative(),
   bytes: z.number().int().nonnegative(),
   gap: z.boolean(),
+  coverage: crawlerCoverageSchema.optional(),
   errorCode: z
     .enum(['none', 'offline', 'buffer-full', 'rotation-gap', 'unreadable', 'format-error'])
     .default('none'),

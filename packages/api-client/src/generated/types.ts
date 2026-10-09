@@ -787,6 +787,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/crawler-handoffs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerHandoffs */
+    get: operations['getLiekanCrawlerHandoffs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/crawler-handoffs/reconcile': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerHandoffReconcile */
+    post: operations['postLiekanCrawlerHandoffReconcile'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/links/{linkId}/sources': {
     parameters: {
       query?: never;
@@ -883,6 +917,319 @@ export interface paths {
     /** put Liekan catalog */
     put: operations['putLiekanCatalog'];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/control-connections': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerConnections */
+    get: operations['getLiekanCrawlerConnections'];
+    put?: never;
+    /** postLiekanCrawlerConnection */
+    post: operations['postLiekanCrawlerConnection'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** patchLiekanCrawlerControl */
+    patch: operations['patchLiekanCrawlerControl'];
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/control-connections/{connectionId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** deleteLiekanCrawlerConnection */
+    delete: operations['deleteLiekanCrawlerConnection'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-analysis': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerAnalysis */
+    get: operations['getLiekanCrawlerAnalysis'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** patchLiekanCrawlerAnalysis */
+    patch: operations['patchLiekanCrawlerAnalysis'];
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-checks': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerChecks */
+    get: operations['getLiekanCrawlerChecks'];
+    put?: never;
+    /** postLiekanCrawlerChecks */
+    post: operations['postLiekanCrawlerChecks'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-deployments/{operationId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerDeployment */
+    get: operations['getLiekanCrawlerDeployment'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-deployments/{operationId}/reconcile': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerDeploymentReconcile */
+    post: operations['postLiekanCrawlerDeploymentReconcile'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-domain-verification': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerDomainVerification */
+    get: operations['getLiekanCrawlerDomainVerification'];
+    put?: never;
+    /** postLiekanCrawlerDomainVerification */
+    post: operations['postLiekanCrawlerDomainVerification'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-exports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerExport */
+    post: operations['postLiekanCrawlerExport'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-findings/{findingKey}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** patchLiekanCrawlerFinding */
+    patch: operations['patchLiekanCrawlerFinding'];
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-policies': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerPolicies */
+    get: operations['getLiekanCrawlerPolicies'];
+    put?: never;
+    /** postLiekanCrawlerPolicies */
+    post: operations['postLiekanCrawlerPolicies'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-policies/{policyId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerPolicy */
+    get: operations['getLiekanCrawlerPolicy'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** patchLiekanCrawlerPolicy */
+    patch: operations['patchLiekanCrawlerPolicy'];
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-policies/{policyId}/adopt': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerAdopt */
+    post: operations['postLiekanCrawlerAdopt'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-policies/{policyId}/adopt/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerAdoptPreview */
+    post: operations['postLiekanCrawlerAdoptPreview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-policies/{policyId}/cleanup': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerCleanup */
+    post: operations['postLiekanCrawlerCleanup'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-policies/{policyId}/deploy': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerDeploy */
+    post: operations['postLiekanCrawlerDeploy'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-policies/{policyId}/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerPreview */
+    post: operations['postLiekanCrawlerPreview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-policies/{policyId}/rollback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerRollback */
+    post: operations['postLiekanCrawlerRollback'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-policies/{policyId}/stop': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** postLiekanCrawlerStop */
+    post: operations['postLiekanCrawlerStop'];
     delete?: never;
     options?: never;
     head?: never;
@@ -10085,6 +10432,425 @@ export interface operations {
       };
     };
   };
+  getLiekanCrawlerHandoffs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            handoffs: {
+              connection: {
+                capabilities: {
+                  [key: string]: boolean | number | string | null;
+                };
+                cleanupUntil: string | null;
+                /** @description Date and time the record was created. */
+                createdAt: string;
+                /** @description Domain name associated with the resource. */
+                domain: string;
+                /**
+                 * Format: uuid
+                 * @description Unique identifier of the resource.
+                 */
+                id: string;
+                /** @enum {string} */
+                state: 'active' | 'frozen' | 'disconnected' | 'cleanup';
+                testedAt: string | null;
+                tokenMask: string | null;
+                /** @description Date and time the record was last updated. */
+                updatedAt: string;
+                /**
+                 * Format: uuid
+                 * @description ID of the website.
+                 */
+                websiteId: string;
+                zoneId: string;
+              };
+              deployments: {
+                completedAt: string | null;
+                /** @description Date and time the record was created. */
+                createdAt: string;
+                errorCode: string | null;
+                /**
+                 * Format: uuid
+                 * @description Unique identifier of the resource.
+                 */
+                id: string;
+                instructions: string | null;
+                /** @enum {string} */
+                mode: 'apply' | 'adopt';
+                /** @enum {string} */
+                operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+                /** Format: uuid */
+                policyId: string;
+                policyVersion: number;
+                ref: string;
+                result: unknown;
+                ruleId: string | null;
+                /** @enum {string} */
+                state:
+                  | 'queued'
+                  | 'running'
+                  | 'confirmed'
+                  | 'unknown'
+                  | 'failed'
+                  | 'conflict'
+                  | 'cleanup';
+                /** @description Date and time the record was last updated. */
+                updatedAt: string;
+                /**
+                 * Format: uuid
+                 * @description ID of the website.
+                 */
+                websiteId: string;
+              }[];
+              instruction: string;
+              policies: {
+                /** @enum {string} */
+                action: 'observe' | 'block';
+                appliedVersion: number | null;
+                botIds: (
+                  | 'gptbot'
+                  | 'oai-searchbot'
+                  | 'chatgpt-user'
+                  | 'claudebot'
+                  | 'claude-searchbot'
+                  | 'claude-user'
+                  | 'perplexitybot'
+                  | 'perplexity-user'
+                  | 'bytespider'
+                  | 'googlebot'
+                  | 'baiduspider'
+                  | 'bingbot'
+                  | 'applebot'
+                )[];
+                connectionId: string | null;
+                contextCurrent?: boolean;
+                /** @description Date and time the record was created. */
+                createdAt: string;
+                /** @enum {string} */
+                expectedAccess: 'allow' | 'block';
+                /**
+                 * Format: uuid
+                 * @description Unique identifier of the resource.
+                 */
+                id: string;
+                /** @description Display name of the resource. */
+                name: string;
+                paths: {
+                  /**
+                   * @description Whether records must match all filters or any filter.
+                   * @enum {string}
+                   */
+                  match: 'exact' | 'prefix';
+                  /** Format: starts_with */
+                  value: string;
+                }[];
+                ref: string;
+                remoteHash: string | null;
+                remoteRuleId: string | null;
+                remoteRulesetId: string | null;
+                /** @enum {string} */
+                state: 'draft' | 'enabled' | 'stopped';
+                /** @description Date and time the record was last updated. */
+                updatedAt: string;
+                version: number;
+                /**
+                 * Format: uuid
+                 * @description ID of the website.
+                 */
+                websiteId: string;
+              }[];
+              recoveryConnections: {
+                /** Format: uuid */
+                connectionId: string;
+                /** @description Domain name associated with the resource. */
+                domain: string;
+                /**
+                 * Format: uuid
+                 * @description ID of the website.
+                 */
+                websiteId: string;
+                websiteName: string;
+                zoneId: string;
+              }[];
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerHandoffReconcile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @constant */
+          acknowledgeHandoff: true;
+          /** @default false */
+          acknowledgeNotApplied?: boolean;
+          /** Format: uuid */
+          connectionId: string;
+          /** Format: uuid */
+          deploymentId: string;
+          /**
+           * Format: uuid
+           * @description ID of the website.
+           */
+          websiteId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedAt: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            instructions: string | null;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            ref: string;
+            result: unknown;
+            ruleId: string | null;
+            /** @enum {string} */
+            state:
+              | 'queued'
+              | 'running'
+              | 'confirmed'
+              | 'unknown'
+              | 'failed'
+              | 'conflict'
+              | 'cleanup';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getLiekanLinkSources: {
     parameters: {
       query: {
@@ -10335,6 +11101,21 @@ export interface operations {
       content: {
         'application/json': {
           bytes: number;
+          coverage?: {
+            cursors: {
+              confirmed: number;
+              /** Format: uuid */
+              generation: string;
+              read: number;
+            }[];
+            endsAt: number;
+            epoch: number;
+            /** Format: uuid */
+            fromBatchId: string;
+            startsAt: number;
+            /** Format: uuid */
+            toBatchId: string;
+          };
           /**
            * @default none
            * @enum {string}
@@ -11098,6 +11879,4487 @@ export interface operations {
            */
           'application/json': components['schemas']['ApiError'];
         };
+      };
+    };
+  };
+  getLiekanCrawlerConnections: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            connections: {
+              capabilities: {
+                [key: string]: boolean | number | string | null;
+              };
+              cleanupUntil: string | null;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              /** @description Domain name associated with the resource. */
+              domain: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @enum {string} */
+              state: 'active' | 'frozen' | 'disconnected' | 'cleanup';
+              testedAt: string | null;
+              tokenMask: string | null;
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+              zoneId: string;
+            }[];
+            controlPaused: boolean;
+            permissions: {
+              canControl: boolean;
+              canDraft: boolean;
+              /** @description Whether the user has administrator privileges. */
+              isAdmin?: boolean;
+            };
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+          zoneId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            capabilities: {
+              [key: string]: boolean | number | string | null;
+            };
+            cleanupUntil: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            /** @description Domain name associated with the resource. */
+            domain: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            /** @enum {string} */
+            state: 'active' | 'frozen' | 'disconnected' | 'cleanup';
+            testedAt: string | null;
+            tokenMask: string | null;
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+            zoneId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  patchLiekanCrawlerControl: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          resume: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            controlPaused: boolean;
+            reconciledConnections: number;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  deleteLiekanCrawlerConnection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        connectionId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @default false */
+          retainForConfirmedCleanup?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cleanup?: {
+              completedAt: string | null;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              errorCode: string | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              instructions: string | null;
+              /** @enum {string} */
+              mode: 'apply' | 'adopt';
+              /** @enum {string} */
+              operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+              /** Format: uuid */
+              policyId: string;
+              policyVersion: number;
+              ref: string;
+              result: unknown;
+              ruleId: string | null;
+              /** @enum {string} */
+              state:
+                | 'queued'
+                | 'running'
+                | 'confirmed'
+                | 'unknown'
+                | 'failed'
+                | 'conflict'
+                | 'cleanup';
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            }[];
+            connection: {
+              capabilities: {
+                [key: string]: boolean | number | string | null;
+              };
+              cleanupUntil: string | null;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              /** @description Domain name associated with the resource. */
+              domain: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @enum {string} */
+              state: 'active' | 'frozen' | 'disconnected' | 'cleanup';
+              testedAt: string | null;
+              tokenMask: string | null;
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+              zoneId: string;
+            };
+            /** @constant */
+            remoteTokenRevoked: false;
+            /** @constant */
+            rulesRetained: true;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanCrawlerAnalysis: {
+    parameters: {
+      query?: {
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt?: number;
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt?: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysis: {
+              computedAt: string;
+              errorCode: string | null;
+              windowEnd: string;
+            } | null;
+            bots: {
+              botId:
+                | (
+                    | 'gptbot'
+                    | 'oai-searchbot'
+                    | 'chatgpt-user'
+                    | 'claudebot'
+                    | 'claude-searchbot'
+                    | 'claude-user'
+                    | 'perplexitybot'
+                    | 'perplexity-user'
+                    | 'bytespider'
+                    | 'googlebot'
+                    | 'baiduspider'
+                    | 'bingbot'
+                    | 'applebot'
+                    | 'google-extended'
+                  )
+                | null;
+              bytes: number;
+              denied403429: number;
+              head: number;
+              lastVisit: string;
+              legacyRecords: number;
+              /** @description Display name of the resource. */
+              name: string;
+              rangeMismatch: number;
+              requests: number;
+              status1xx: number;
+              status2xx: number;
+              status3xx: number;
+              status4xx: number;
+              status5xx: number;
+              status304: number;
+              successfulCatalogPages: number;
+              successfulGets: number;
+              unverified: number;
+              verifiedRange: number;
+            }[];
+            criticalPaths: string[];
+            directory: {
+              documentationUrl: string;
+              /**
+               * @description Unique identifier of the resource.
+               * @enum {string}
+               */
+              id:
+                | 'gptbot'
+                | 'oai-searchbot'
+                | 'chatgpt-user'
+                | 'claudebot'
+                | 'claude-searchbot'
+                | 'claude-user'
+                | 'perplexitybot'
+                | 'perplexity-user'
+                | 'bytespider'
+                | 'googlebot'
+                | 'baiduspider'
+                | 'bingbot'
+                | 'applebot'
+                | 'google-extended';
+              identityEvidence: string;
+              impact: string;
+              /** @enum {string} */
+              kind: 'http_crawler' | 'robots_purpose';
+              /** @description Display name of the resource. */
+              name: string;
+              /** @enum {string} */
+              platformId:
+                | 'openai'
+                | 'anthropic'
+                | 'perplexity'
+                | 'bytedance'
+                | 'google'
+                | 'baidu'
+                | 'microsoft'
+                | 'apple';
+              /** @enum {string} */
+              robotsApplicability: 'applicable' | 'user_triggered_caveat';
+              robotsToken: string;
+              /** @enum {string} */
+              type: 'training' | 'search' | 'user' | 'traditional_search';
+              uaSelector: string | null;
+            }[];
+            findings: {
+              /** @enum {string} */
+              botId:
+                | 'gptbot'
+                | 'oai-searchbot'
+                | 'chatgpt-user'
+                | 'claudebot'
+                | 'claude-searchbot'
+                | 'claude-user'
+                | 'perplexitybot'
+                | 'perplexity-user'
+                | 'bytespider'
+                | 'googlebot'
+                | 'baiduspider'
+                | 'bingbot'
+                | 'applebot'
+                | 'google-extended';
+              /** @enum {string} */
+              confidence: 'confirmed' | 'possible' | 'insufficient';
+              facts: {
+                [key: string]: unknown;
+              };
+              firstSeenAt: string;
+              /** @enum {string} */
+              grade: 'high' | 'medium' | 'info';
+              key: string;
+              lastSeenAt: string;
+              occurrenceWindows: number;
+              pathGroup: string;
+              /** @enum {string} */
+              state: 'active' | 'ignored' | 'resolved';
+              /** @enum {string} */
+              type:
+                | 'access'
+                | 'origin'
+                | 'surge'
+                | 'coverage'
+                | 'expected_access'
+                | 'identity'
+                | 'sensitive_path'
+                | 'observation'
+                | 'execution';
+              windowEnd: string;
+            }[];
+            generatedAt: string;
+            pages: {
+              botId:
+                | (
+                    | 'gptbot'
+                    | 'oai-searchbot'
+                    | 'chatgpt-user'
+                    | 'claudebot'
+                    | 'claude-searchbot'
+                    | 'claude-user'
+                    | 'perplexitybot'
+                    | 'perplexity-user'
+                    | 'bytespider'
+                    | 'googlebot'
+                    | 'baiduspider'
+                    | 'bingbot'
+                    | 'applebot'
+                    | 'google-extended'
+                  )
+                | null;
+              bytes: number;
+              denied403429: number;
+              head: number;
+              humanPath: string;
+              mergedPaths: string[];
+              ownedMatches: number;
+              ownedTerminatingBlocks: number;
+              path: string;
+              requests: number;
+              status1xx: number;
+              status2xx: number;
+              status3xx: number;
+              status4xx: number;
+              status5xx: number;
+              status304: number;
+              successfulGets: number;
+            }[];
+            pagesTruncated: boolean;
+            permissions: {
+              canControl: boolean;
+              canDraft: boolean;
+              /** @description Whether the user has administrator privileges. */
+              isAdmin?: boolean;
+            };
+            platforms: {
+              conversions: number | null;
+              goalEvents: number | null;
+              landingPages: {
+                conversions: number | null;
+                goalEvents: number | null;
+                path: string;
+                /** @description Visit counts for the selected period. */
+                visits: number;
+              }[];
+              landingPagesTruncated: boolean;
+              /** @enum {string} */
+              platformId:
+                | 'openai'
+                | 'anthropic'
+                | 'perplexity'
+                | 'bytedance'
+                | 'google'
+                | 'baidu'
+                | 'microsoft'
+                | 'apple';
+              /** @enum {string} */
+              state: 'available' | 'missing';
+              /** @description Visit counts for the selected period. */
+              visits: number | null;
+            }[];
+            previous: {
+              bots: {
+                botId:
+                  | (
+                      | 'gptbot'
+                      | 'oai-searchbot'
+                      | 'chatgpt-user'
+                      | 'claudebot'
+                      | 'claude-searchbot'
+                      | 'claude-user'
+                      | 'perplexitybot'
+                      | 'perplexity-user'
+                      | 'bytespider'
+                      | 'googlebot'
+                      | 'baiduspider'
+                      | 'bingbot'
+                      | 'applebot'
+                      | 'google-extended'
+                    )
+                  | null;
+                bytes: number;
+                denied403429: number;
+                head: number;
+                requests: number;
+                status1xx: number;
+                status2xx: number;
+                status3xx: number;
+                status4xx: number;
+                status5xx: number;
+                status304: number;
+                successfulGets: number;
+              }[];
+              platforms: {
+                conversions: number | null;
+                goalEvents: number | null;
+                landingPages: {
+                  conversions: number | null;
+                  goalEvents: number | null;
+                  path: string;
+                  /** @description Visit counts for the selected period. */
+                  visits: number;
+                }[];
+                landingPagesTruncated: boolean;
+                /** @enum {string} */
+                platformId:
+                  | 'openai'
+                  | 'anthropic'
+                  | 'perplexity'
+                  | 'bytedance'
+                  | 'google'
+                  | 'baidu'
+                  | 'microsoft'
+                  | 'apple';
+                /** @enum {string} */
+                state: 'available' | 'missing';
+                /** @description Visit counts for the selected period. */
+                visits: number | null;
+              }[];
+              quality: {
+                /** @enum {string} */
+                basis: 'event_time' | 'ingestion_time' | 'unknown';
+                classificationVersion: string;
+                sourceVersion: string;
+                /** @enum {string} */
+                state: 'complete' | 'partial' | 'unknown' | 'missing' | 'unsupported';
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+            };
+            quality: {
+              /** @enum {string} */
+              basis: 'event_time' | 'ingestion_time' | 'unknown';
+              classificationVersion: string;
+              sourceVersion: string;
+              /** @enum {string} */
+              state: 'complete' | 'partial' | 'unknown' | 'missing' | 'unsupported';
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            };
+            range: {
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            };
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  patchLiekanCrawlerAnalysis: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          paths: string[];
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            paths: string[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanCrawlerChecks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedAt: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            result: unknown;
+            /** @enum {string} */
+            state: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+          }[];
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerChecks: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          paths: string[];
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            /** @constant */
+            state: 'queued';
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanCrawlerDeployment: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operationId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedAt: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            instructions: string | null;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            ref: string;
+            result: unknown;
+            ruleId: string | null;
+            /** @enum {string} */
+            state:
+              | 'queued'
+              | 'running'
+              | 'confirmed'
+              | 'unknown'
+              | 'failed'
+              | 'conflict'
+              | 'cleanup';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerDeploymentReconcile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        operationId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          acknowledgeHandoff?: boolean;
+          /** @default false */
+          acknowledgeNotApplied?: boolean;
+          /** Format: uuid */
+          connectionId?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedAt: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            instructions: string | null;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            ref: string;
+            result: unknown;
+            ruleId: string | null;
+            /** @enum {string} */
+            state:
+              | 'queued'
+              | 'running'
+              | 'confirmed'
+              | 'unknown'
+              | 'failed'
+              | 'conflict'
+              | 'cleanup';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanCrawlerDomainVerification: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @description Date and time the credential expires. */
+            expiresAt: string | null;
+            /** @description Hostname on which the activity occurred. */
+            hostname: string;
+            /** @description Display name of the resource. */
+            name: string;
+            value?: string;
+            verifiedAt: string | null;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerDomainVerification: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          action: 'create' | 'verify';
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @description Date and time the credential expires. */
+            expiresAt: string | null;
+            /** @description Hostname on which the activity occurred. */
+            hostname: string;
+            /** @description Display name of the resource. */
+            name: string;
+            value?: string;
+            verifiedAt: string | null;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerExport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json':
+          | {
+              existing?: string;
+              /** @constant */
+              kind: 'robots';
+              policy: {
+                /** @enum {string} */
+                action: 'allow' | 'block';
+                botIds: (
+                  | 'gptbot'
+                  | 'oai-searchbot'
+                  | 'chatgpt-user'
+                  | 'claudebot'
+                  | 'claude-searchbot'
+                  | 'claude-user'
+                  | 'perplexitybot'
+                  | 'perplexity-user'
+                  | 'bytespider'
+                  | 'googlebot'
+                  | 'baiduspider'
+                  | 'bingbot'
+                  | 'applebot'
+                  | 'google-extended'
+                )[];
+                paths: {
+                  /**
+                   * @description Whether records must match all filters or any filter.
+                   * @enum {string}
+                   */
+                  match: 'exact' | 'prefix';
+                  /** Format: starts_with */
+                  value: string;
+                }[];
+              };
+            }
+          | {
+              /** @constant */
+              kind: 'nginx';
+              policy: {
+                /** @enum {string} */
+                action: 'observe' | 'block';
+                botIds: (
+                  | 'gptbot'
+                  | 'oai-searchbot'
+                  | 'chatgpt-user'
+                  | 'claudebot'
+                  | 'claude-searchbot'
+                  | 'claude-user'
+                  | 'perplexitybot'
+                  | 'perplexity-user'
+                  | 'bytespider'
+                  | 'googlebot'
+                  | 'baiduspider'
+                  | 'bingbot'
+                  | 'applebot'
+                )[];
+                /** @enum {string} */
+                expectedAccess: 'allow' | 'block';
+                /** @description Display name of the resource. */
+                name: string;
+                paths: {
+                  /**
+                   * @description Whether records must match all filters or any filter.
+                   * @enum {string}
+                   */
+                  match: 'exact' | 'prefix';
+                  /** Format: starts_with */
+                  value: string;
+                }[];
+              };
+              rateLimit?: {
+                burst: number;
+                dryRun: boolean;
+                requestsPerSecond: number;
+              };
+            };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            | ({
+                content?: string | null;
+                fragment: string;
+                /** @constant */
+                kind: 'robots';
+                original: string;
+                reasons: string[];
+                safe: boolean;
+              } & {
+                [key: string]: unknown;
+              })
+            | ({
+                httpContext: string;
+                /** @constant */
+                kind: 'nginx';
+                limitations: string[];
+                rateLimit: {
+                  dryRun: boolean;
+                  httpContext: string;
+                  serverContext: string;
+                } | null;
+                serverContext: string;
+              } & {
+                [key: string]: unknown;
+              });
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  patchLiekanCrawlerFinding: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        findingKey: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          ignored: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            key: string;
+            /** @enum {string} */
+            state: 'active' | 'ignored';
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanCrawlerPolicies: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            connections: {
+              capabilities: {
+                [key: string]: boolean | number | string | null;
+              };
+              cleanupUntil: string | null;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              /** @description Domain name associated with the resource. */
+              domain: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @enum {string} */
+              state: 'active' | 'frozen' | 'disconnected' | 'cleanup';
+              testedAt: string | null;
+              tokenMask: string | null;
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+              zoneId: string;
+            }[];
+            controlPaused: boolean;
+            deployments: {
+              completedAt: string | null;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              errorCode: string | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              instructions: string | null;
+              /** @enum {string} */
+              mode: 'apply' | 'adopt';
+              /** @enum {string} */
+              operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+              /** Format: uuid */
+              policyId: string;
+              policyVersion: number;
+              ref: string;
+              result: unknown;
+              ruleId: string | null;
+              /** @enum {string} */
+              state:
+                | 'queued'
+                | 'running'
+                | 'confirmed'
+                | 'unknown'
+                | 'failed'
+                | 'conflict'
+                | 'cleanup';
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            }[];
+            permissions: {
+              canControl: boolean;
+              canDraft: boolean;
+              /** @description Whether the user has administrator privileges. */
+              isAdmin?: boolean;
+            };
+            policies: {
+              /** @enum {string} */
+              action: 'observe' | 'block';
+              appliedVersion: number | null;
+              botIds: (
+                | 'gptbot'
+                | 'oai-searchbot'
+                | 'chatgpt-user'
+                | 'claudebot'
+                | 'claude-searchbot'
+                | 'claude-user'
+                | 'perplexitybot'
+                | 'perplexity-user'
+                | 'bytespider'
+                | 'googlebot'
+                | 'baiduspider'
+                | 'bingbot'
+                | 'applebot'
+              )[];
+              connectionId: string | null;
+              contextCurrent?: boolean;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              /** @enum {string} */
+              expectedAccess: 'allow' | 'block';
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @description Display name of the resource. */
+              name: string;
+              paths: {
+                /**
+                 * @description Whether records must match all filters or any filter.
+                 * @enum {string}
+                 */
+                match: 'exact' | 'prefix';
+                /** Format: starts_with */
+                value: string;
+              }[];
+              ref: string;
+              remoteHash: string | null;
+              remoteRuleId: string | null;
+              remoteRulesetId: string | null;
+              /** @enum {string} */
+              state: 'draft' | 'enabled' | 'stopped';
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+              version: number;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerPolicies: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          action: 'observe' | 'block';
+          botIds: (
+            | 'gptbot'
+            | 'oai-searchbot'
+            | 'chatgpt-user'
+            | 'claudebot'
+            | 'claude-searchbot'
+            | 'claude-user'
+            | 'perplexitybot'
+            | 'perplexity-user'
+            | 'bytespider'
+            | 'googlebot'
+            | 'baiduspider'
+            | 'bingbot'
+            | 'applebot'
+          )[];
+          /** @enum {string} */
+          expectedAccess: 'allow' | 'block';
+          /** @description Display name of the resource. */
+          name: string;
+          paths: {
+            /**
+             * @description Whether records must match all filters or any filter.
+             * @enum {string}
+             */
+            match: 'exact' | 'prefix';
+            /** Format: starts_with */
+            value: string;
+          }[];
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            action: 'observe' | 'block';
+            appliedVersion: number | null;
+            botIds: (
+              | 'gptbot'
+              | 'oai-searchbot'
+              | 'chatgpt-user'
+              | 'claudebot'
+              | 'claude-searchbot'
+              | 'claude-user'
+              | 'perplexitybot'
+              | 'perplexity-user'
+              | 'bytespider'
+              | 'googlebot'
+              | 'baiduspider'
+              | 'bingbot'
+              | 'applebot'
+            )[];
+            connectionId: string | null;
+            contextCurrent?: boolean;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            /** @enum {string} */
+            expectedAccess: 'allow' | 'block';
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            /** @description Display name of the resource. */
+            name: string;
+            paths: {
+              /**
+               * @description Whether records must match all filters or any filter.
+               * @enum {string}
+               */
+              match: 'exact' | 'prefix';
+              /** Format: starts_with */
+              value: string;
+            }[];
+            ref: string;
+            remoteHash: string | null;
+            remoteRuleId: string | null;
+            remoteRulesetId: string | null;
+            /** @enum {string} */
+            state: 'draft' | 'enabled' | 'stopped';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            version: number;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanCrawlerPolicy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        policyId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            contextCurrent: boolean;
+            controlPaused: boolean;
+            deployments: {
+              completedAt: string | null;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              errorCode: string | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              instructions: string | null;
+              /** @enum {string} */
+              mode: 'apply' | 'adopt';
+              /** @enum {string} */
+              operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+              /** Format: uuid */
+              policyId: string;
+              policyVersion: number;
+              ref: string;
+              result: unknown;
+              ruleId: string | null;
+              /** @enum {string} */
+              state:
+                | 'queued'
+                | 'running'
+                | 'confirmed'
+                | 'unknown'
+                | 'failed'
+                | 'conflict'
+                | 'cleanup';
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            }[];
+            permissions: {
+              canControl: boolean;
+              canDraft: boolean;
+              /** @description Whether the user has administrator privileges. */
+              isAdmin?: boolean;
+            };
+            policy: {
+              /** @enum {string} */
+              action: 'observe' | 'block';
+              appliedVersion: number | null;
+              botIds: (
+                | 'gptbot'
+                | 'oai-searchbot'
+                | 'chatgpt-user'
+                | 'claudebot'
+                | 'claude-searchbot'
+                | 'claude-user'
+                | 'perplexitybot'
+                | 'perplexity-user'
+                | 'bytespider'
+                | 'googlebot'
+                | 'baiduspider'
+                | 'bingbot'
+                | 'applebot'
+              )[];
+              connectionId: string | null;
+              contextCurrent?: boolean;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              /** @enum {string} */
+              expectedAccess: 'allow' | 'block';
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @description Display name of the resource. */
+              name: string;
+              paths: {
+                /**
+                 * @description Whether records must match all filters or any filter.
+                 * @enum {string}
+                 */
+                match: 'exact' | 'prefix';
+                /** Format: starts_with */
+                value: string;
+              }[];
+              ref: string;
+              remoteHash: string | null;
+              remoteRuleId: string | null;
+              remoteRulesetId: string | null;
+              /** @enum {string} */
+              state: 'draft' | 'enabled' | 'stopped';
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+              version: number;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            versions: {
+              body: {
+                /** @enum {string} */
+                action: 'observe' | 'block';
+                botIds: (
+                  | 'gptbot'
+                  | 'oai-searchbot'
+                  | 'chatgpt-user'
+                  | 'claudebot'
+                  | 'claude-searchbot'
+                  | 'claude-user'
+                  | 'perplexitybot'
+                  | 'perplexity-user'
+                  | 'bytespider'
+                  | 'googlebot'
+                  | 'baiduspider'
+                  | 'bingbot'
+                  | 'applebot'
+                )[];
+                /** @enum {string} */
+                expectedAccess: 'allow' | 'block';
+                /** @description Display name of the resource. */
+                name: string;
+                paths: {
+                  /**
+                   * @description Whether records must match all filters or any filter.
+                   * @enum {string}
+                   */
+                  match: 'exact' | 'prefix';
+                  /** Format: starts_with */
+                  value: string;
+                }[];
+              };
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              version: number;
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  patchLiekanCrawlerPolicy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        policyId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          action: 'observe' | 'block';
+          botIds: (
+            | 'gptbot'
+            | 'oai-searchbot'
+            | 'chatgpt-user'
+            | 'claudebot'
+            | 'claude-searchbot'
+            | 'claude-user'
+            | 'perplexitybot'
+            | 'perplexity-user'
+            | 'bytespider'
+            | 'googlebot'
+            | 'baiduspider'
+            | 'bingbot'
+            | 'applebot'
+          )[];
+          /** @enum {string} */
+          expectedAccess: 'allow' | 'block';
+          /** @description Display name of the resource. */
+          name: string;
+          paths: {
+            /**
+             * @description Whether records must match all filters or any filter.
+             * @enum {string}
+             */
+            match: 'exact' | 'prefix';
+            /** Format: starts_with */
+            value: string;
+          }[];
+          version: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            action: 'observe' | 'block';
+            appliedVersion: number | null;
+            botIds: (
+              | 'gptbot'
+              | 'oai-searchbot'
+              | 'chatgpt-user'
+              | 'claudebot'
+              | 'claude-searchbot'
+              | 'claude-user'
+              | 'perplexitybot'
+              | 'perplexity-user'
+              | 'bytespider'
+              | 'googlebot'
+              | 'baiduspider'
+              | 'bingbot'
+              | 'applebot'
+            )[];
+            connectionId: string | null;
+            contextCurrent?: boolean;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            /** @enum {string} */
+            expectedAccess: 'allow' | 'block';
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            /** @description Display name of the resource. */
+            name: string;
+            paths: {
+              /**
+               * @description Whether records must match all filters or any filter.
+               * @enum {string}
+               */
+              match: 'exact' | 'prefix';
+              /** Format: starts_with */
+              value: string;
+            }[];
+            ref: string;
+            remoteHash: string | null;
+            remoteRuleId: string | null;
+            remoteRulesetId: string | null;
+            /** @enum {string} */
+            state: 'draft' | 'enabled' | 'stopped';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            version: number;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerAdopt: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        policyId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          operationId: string;
+          /** Format: uuid */
+          previewId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedAt: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            instructions: string | null;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            ref: string;
+            result: unknown;
+            ruleId: string | null;
+            /** @enum {string} */
+            state:
+              | 'queued'
+              | 'running'
+              | 'confirmed'
+              | 'unknown'
+              | 'failed'
+              | 'conflict'
+              | 'cleanup';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerAdoptPreview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        policyId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': Record<string, never>;
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            after: {
+              [key: string]: unknown;
+            };
+            before: {
+              [key: string]: unknown;
+            };
+            capabilities: {
+              [key: string]: unknown;
+            };
+            /** @description Date and time the credential expires. */
+            expiresAt: string;
+            expression: string | null;
+            /** @description Hostname on which the activity occurred. */
+            hostname: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            impact: {
+              acknowledgement: string;
+              fullSite: boolean;
+              historicalRequests7d: {
+                /** @constant */
+                basis: 'historical_estimate';
+                observedRequests: number;
+                requests: number | null;
+                /** @enum {string} */
+                state: 'missing' | 'partial' | 'available';
+                unclassified: number;
+                /** @constant */
+                windowDays: 7;
+              };
+              otherRules: string;
+              otherRulesSummary: {
+                /** @description Number of matching records. */
+                count: number | null;
+                readable: boolean;
+              };
+              searchBots: string[];
+            };
+            limitations: string[];
+            localOnly: boolean;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            paths: {
+              /**
+               * @description Whether records must match all filters or any filter.
+               * @enum {string}
+               */
+              match: 'exact' | 'prefix';
+              /** Format: starts_with */
+              value: string;
+            }[];
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            targetVersion: number;
+            transfer: {
+              next: {
+                /** Format: uuid */
+                connectionId: string;
+                generation: number;
+                ownerUserId: string | null;
+                /** @description ID of the associated team. */
+                teamId: string | null;
+              };
+              previous: {
+                /** Format: uuid */
+                connectionId: string;
+                generation: number;
+                ownerUserId: string | null;
+                /** @description ID of the associated team. */
+                teamId: string | null;
+              };
+            } | null;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerCleanup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        policyId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          operationId: string;
+          /** Format: uuid */
+          previewId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedAt: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            instructions: string | null;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            ref: string;
+            result: unknown;
+            ruleId: string | null;
+            /** @enum {string} */
+            state:
+              | 'queued'
+              | 'running'
+              | 'confirmed'
+              | 'unknown'
+              | 'failed'
+              | 'conflict'
+              | 'cleanup';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerDeploy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        policyId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          operationId: string;
+          /** Format: uuid */
+          previewId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedAt: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            instructions: string | null;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            ref: string;
+            result: unknown;
+            ruleId: string | null;
+            /** @enum {string} */
+            state:
+              | 'queued'
+              | 'running'
+              | 'confirmed'
+              | 'unknown'
+              | 'failed'
+              | 'conflict'
+              | 'cleanup';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerPreview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        policyId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+          targetVersion?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            after: {
+              [key: string]: unknown;
+            };
+            before: {
+              [key: string]: unknown;
+            };
+            capabilities: {
+              [key: string]: unknown;
+            };
+            /** @description Date and time the credential expires. */
+            expiresAt: string;
+            expression: string | null;
+            /** @description Hostname on which the activity occurred. */
+            hostname: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            impact: {
+              acknowledgement: string;
+              fullSite: boolean;
+              historicalRequests7d: {
+                /** @constant */
+                basis: 'historical_estimate';
+                observedRequests: number;
+                requests: number | null;
+                /** @enum {string} */
+                state: 'missing' | 'partial' | 'available';
+                unclassified: number;
+                /** @constant */
+                windowDays: 7;
+              };
+              otherRules: string;
+              otherRulesSummary: {
+                /** @description Number of matching records. */
+                count: number | null;
+                readable: boolean;
+              };
+              searchBots: string[];
+            };
+            limitations: string[];
+            localOnly: boolean;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            paths: {
+              /**
+               * @description Whether records must match all filters or any filter.
+               * @enum {string}
+               */
+              match: 'exact' | 'prefix';
+              /** Format: starts_with */
+              value: string;
+            }[];
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            targetVersion: number;
+            transfer: {
+              next: {
+                /** Format: uuid */
+                connectionId: string;
+                generation: number;
+                ownerUserId: string | null;
+                /** @description ID of the associated team. */
+                teamId: string | null;
+              };
+              previous: {
+                /** Format: uuid */
+                connectionId: string;
+                generation: number;
+                ownerUserId: string | null;
+                /** @description ID of the associated team. */
+                teamId: string | null;
+              };
+            } | null;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerRollback: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        policyId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          operationId: string;
+          /** Format: uuid */
+          previewId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedAt: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            instructions: string | null;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            ref: string;
+            result: unknown;
+            ruleId: string | null;
+            /** @enum {string} */
+            state:
+              | 'queued'
+              | 'running'
+              | 'confirmed'
+              | 'unknown'
+              | 'failed'
+              | 'conflict'
+              | 'cleanup';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanCrawlerStop: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        policyId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          operationId: string;
+          /** Format: uuid */
+          previewId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedAt: string | null;
+            /** @description Date and time the record was created. */
+            createdAt: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            instructions: string | null;
+            /** @enum {string} */
+            mode: 'apply' | 'adopt';
+            /** @enum {string} */
+            operation: 'deploy' | 'stop' | 'rollback' | 'cleanup';
+            /** Format: uuid */
+            policyId: string;
+            policyVersion: number;
+            ref: string;
+            result: unknown;
+            ruleId: string | null;
+            /** @enum {string} */
+            state:
+              | 'queued'
+              | 'running'
+              | 'confirmed'
+              | 'unknown'
+              | 'failed'
+              | 'conflict'
+              | 'cleanup';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

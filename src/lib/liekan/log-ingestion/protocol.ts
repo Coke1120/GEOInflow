@@ -6,6 +6,12 @@ import { type LogRecord, parseLogInput } from '../ingest';
 import type { VerificationSnapshots } from '../rules/verify';
 import { type BotRule, BOT_RULES } from '../rules/bots';
 import { LiekanError } from '../upstream/errors';
+import {
+  cloudflareCrawlerEvidence,
+  crawlerClassificationVersion,
+  crawlerIdentityId,
+  type CrawlerLogEvidence,
+} from './crawler-evidence';
 
 export const PROTOCOL_VERSION = 1;
 export const MAX_RECORDS = 1000;
@@ -26,6 +32,9 @@ export const hostname = (domain: string) =>
 export interface AutomaticRecord extends LogRecord {
   eventDigest: string;
   verificationVersion: string;
+  classificationVersion?: string;
+  crawlerId?: string | null;
+  crawlerEvidence?: CrawlerLogEvidence | null;
 }
 export function stableUuid(text: string) {
   const bytes = createHash('sha256').update(text).digest().subarray(0, 16);
@@ -46,6 +55,7 @@ export function normalizeAutomatic(
   if (!events.length || events.length > MAX_RECORDS)
     throw new LiekanError('每批需要 1–1000 条日志');
   const records: AutomaticRecord[] = [];
+  const classificationVersion = crawlerClassificationVersion(rules);
   const errors: { line: number; reason: string }[] = [];
   for (let index = 0; index < events.length; index++) {
     try {
@@ -117,6 +127,10 @@ export function normalizeAutomatic(
         id,
         eventDigest,
         verificationVersion: snapshots?.[parsed.records[0].bot]?.version || 'bundled',
+        classificationVersion,
+        crawlerId: crawlerIdentityId(parsed.records[0].userAgent, rules),
+        crawlerEvidence:
+          kind === 'cloudflare' ? cloudflareCrawlerEvidence(raw as Record<string, unknown>) : null,
       });
     } catch {
       errors.push({ line: index + 1, reason: '字段、时间、IP、请求来源或域名无效' });

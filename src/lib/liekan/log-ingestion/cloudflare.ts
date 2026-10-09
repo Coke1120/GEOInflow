@@ -35,6 +35,7 @@ interface Provider extends Access {
   remoteDisabled?: boolean;
   receiverOrigin?: string;
   receiverOrigins?: string[];
+  crawlerFields?: string[];
 }
 interface Flow {
   phase: 'pending' | 'exchanging' | 'authorized';
@@ -448,6 +449,7 @@ export function logpushConfiguration(source: LogSource, config: Provider, epoch:
         'EdgeResponseBodyBytes',
         'RayID',
         'ClientRequestSource',
+        ...(config.crawlerFields || []),
       ],
       timestamp_format: 'rfc3339ns',
       sample_rate: 1,
@@ -543,6 +545,25 @@ export async function maintainCloudflare(
   if (config.expiresAt && config.expiresAt < Date.now() && !config.refreshToken)
     throw new LiekanError('授权已过期，请重新授权', 401);
   const live = await transaction(tx => validateSource(tx, row.id, undefined, true));
+  if (action === 'configure' && config.crawlerFields === undefined) {
+    const fields = await cloudflareApi<Record<string, unknown>>(
+      config.accessToken,
+      `/zones/${config.zoneId}/logpush/datasets/http_requests/fields`,
+    ).catch(() => ({}));
+    config.crawlerFields = [
+      'SecurityAction',
+      'SecurityRuleID',
+      'SecurityRuleIDs',
+      'CacheCacheStatus',
+    ].filter(field => Object.hasOwn(fields, field));
+    await transaction(tx =>
+      tx.$executeRawUnsafe(
+        'UPDATE liekan_log_source SET provider_config=$2 WHERE id=$1::uuid',
+        row.id,
+        sealPlatformSecret(JSON.stringify(config), row.id),
+      ),
+    );
+  }
   const jobs = await cloudflareApi<any[]>(
     config.accessToken,
     `/zones/${config.zoneId}/logpush/jobs`,

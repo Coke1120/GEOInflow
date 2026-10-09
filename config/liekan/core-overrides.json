@@ -124,7 +124,7 @@
     },
     {
       "path": "Dockerfile.liekan",
-      "purpose": "Isolate local Liekan runtime, database and immutable image revision; carry the website site number migration revision",
+      "purpose": "Isolate local Liekan runtime, database and immutable image revision; carry the website site number migration revision; carry crawler analysis/control migration revision",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance"

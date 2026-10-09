@@ -343,8 +343,33 @@ function Badge({ value, field }: { value: unknown; field?: string }) {
   );
 }
 const percentage = formatPercentage;
-function Cell({ row, field, table }: { row: Row; field: string; table: string }) {
+function Cell({
+  row,
+  field,
+  table,
+  onCrawler,
+}: {
+  row: Row;
+  field: string;
+  table: string;
+  onCrawler?: (name: string) => void;
+}) {
   const value = row[field];
+  if (table === 'botBody' && field === 'name' && onCrawler)
+    return (
+      <span className="relative block group">
+        <span className="block num font-medium text-[12px] text-ink group-hover:underline">
+          {formatValue(value)}
+        </span>
+        <span className="block text-[10.5px] text-faint">{formatValue(row.vendor)}</span>
+        <button
+          type="button"
+          aria-label={String(value)}
+          className="absolute inset-0 min-h-[44px] min-w-[44px] border-0 bg-transparent focus-visible:ring-2"
+          onClick={() => onCrawler(String(value))}
+        />
+      </span>
+    );
   if (table === 'botBody' && field === 'name')
     return (
       <>
@@ -398,11 +423,13 @@ export function ReportRows({
   report,
   limit,
   pageSize,
+  onCrawler,
 }: {
   table: string;
   report?: LiekanReport;
   limit?: number;
   pageSize?: number;
+  onCrawler?: (name: string) => void;
 }) {
   const a = useReportActions();
   const loading = useDataLoading();
@@ -511,7 +538,7 @@ export function ReportRows({
                       : undefined
                   }
                 >
-                  <Cell row={row} field={field} table={table} />
+                  <Cell row={row} field={field} table={table} onCrawler={onCrawler} />
                 </td>
               ))}
             </tr>
@@ -532,60 +559,71 @@ export function ReportRows({
           : logsWindow
             ? logsWindow.totalLogs > perPage
             : selected.length > perPage) && (
-        <tfoot>
-          <tr>
-            <td colSpan={fields.length} className="border-t border-line p-0">
-              <Pager
-                total={
-                  serverPage ? serverPage.total : logsWindow ? logsWindow.totalLogs : selected.length
-                }
-                page={serverPage ? serverPage.page : logsWindow ? desiredGlobal : safePage}
-                pages={
-                  serverPage
-                    ? Math.max(1, Math.ceil(serverPage.total / serverPage.pageSize))
-                    : logsWindow
-                      ? globalPages
-                      : pages
-                }
-                label={
-                  serverPage && (a.filter || a.sort.label || a.query) ? '当前页内筛选' : undefined
-                }
-                onPrev={
-                  serverPage
-                    ? () => a.onTablePage?.(table, serverPage.page - 1)
-                    : logsWindow
-                      ? () => {
-                          if (safePage > 1) {
-                            setPage(safePage - 1);
-                            return;
+          <tfoot>
+            <tr>
+              <td colSpan={fields.length} className="border-t border-line p-0">
+                <Pager
+                  total={
+                    serverPage
+                      ? serverPage.total
+                      : logsWindow
+                        ? logsWindow.totalLogs
+                        : selected.length
+                  }
+                  page={serverPage ? serverPage.page : logsWindow ? desiredGlobal : safePage}
+                  pages={
+                    serverPage
+                      ? Math.max(1, Math.ceil(serverPage.total / serverPage.pageSize))
+                      : logsWindow
+                        ? globalPages
+                        : pages
+                  }
+                  label={
+                    serverPage && (a.filter || a.sort.label || a.query) ? '当前页内筛选' : undefined
+                  }
+                  onPrev={
+                    serverPage
+                      ? () => a.onTablePage?.(table, serverPage.page - 1)
+                      : logsWindow
+                        ? () => {
+                            if (safePage > 1) {
+                              setPage(safePage - 1);
+                              return;
+                            }
+                            if (!a.onLogsPage || batchPage <= 1 || !logsWindow.previousCursor)
+                              return;
+                            setPendingBatch({
+                              target: batchFirstGlobal - 1,
+                              batchPage: batchPage - 1,
+                            });
+                            a.onLogsPage(batchPage - 1);
                           }
-                          if (!a.onLogsPage || batchPage <= 1 || !logsWindow.previousCursor) return;
-                          setPendingBatch({ target: batchFirstGlobal - 1, batchPage: batchPage - 1 });
-                          a.onLogsPage(batchPage - 1);
-                        }
-                      : () => setPage(p => Math.max(1, p - 1))
-                }
-                onNext={
-                  serverPage
-                    ? () => a.onTablePage?.(table, serverPage.page + 1)
-                    : logsWindow
-                      ? () => {
-                          if (safePage < pages) {
-                            setPage(safePage + 1);
-                            return;
+                        : () => setPage(p => Math.max(1, p - 1))
+                  }
+                  onNext={
+                    serverPage
+                      ? () => a.onTablePage?.(table, serverPage.page + 1)
+                      : logsWindow
+                        ? () => {
+                            if (safePage < pages) {
+                              setPage(safePage + 1);
+                              return;
+                            }
+                            if (!a.onLogsPage || !logsWindow.nextCursor) return;
+                            if (batchLastGlobal + 1 > globalPages) return;
+                            setPendingBatch({
+                              target: batchLastGlobal + 1,
+                              batchPage: batchPage + 1,
+                            });
+                            a.onLogsPage(batchPage + 1);
                           }
-                          if (!a.onLogsPage || !logsWindow.nextCursor) return;
-                          if (batchLastGlobal + 1 > globalPages) return;
-                          setPendingBatch({ target: batchLastGlobal + 1, batchPage: batchPage + 1 });
-                          a.onLogsPage(batchPage + 1);
-                        }
-                      : () => setPage(p => Math.min(pages, p + 1))
-                }
-              />
-            </td>
-          </tr>
-        </tfoot>
-      )}
+                        : () => setPage(p => Math.min(pages, p + 1))
+                  }
+                />
+              </td>
+            </tr>
+          </tfoot>
+        )}
     </>
   );
 }
