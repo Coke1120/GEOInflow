@@ -7,10 +7,20 @@ export function websiteHandle(website: WebsiteHandleSource): string {
   return website?.siteNumber != null ? String(website.siteNumber) : website?.id;
 }
 
+export function shortWebsitePath(path: string, website: WebsiteHandleSource): string {
+  if (website?.siteNumber == null) return path;
+  return path.replace(
+    /^(\/(?:teams\/[^/]+\/)?websites\/)([^/?#]+)(?=[/?#]|$)/,
+    (match, prefix, handle) => (handle === website.id ? prefix + websiteHandle(website) : match),
+  );
+}
+
 export function websiteMatchesHandle(
   website: WebsiteHandleSource | null | undefined,
   handle: string | null | undefined,
 ): boolean {
   if (!website || !handle) return false;
-  return website.id === handle || (website.siteNumber != null && String(website.siteNumber) === handle);
+  return (
+    website.id === handle || (website.siteNumber != null && String(website.siteNumber) === handle)
+  );
 }

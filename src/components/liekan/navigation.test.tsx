@@ -64,6 +64,49 @@ vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
 }));
 
 describe('website navigation transitions', () => {
+  it('replaces a legacy website URL with its site number and keeps the date and fragment', () => {
+    const id = 'b880cb21-e65a-4fdf-9c0e-3da5aed4e0fa';
+    mocks.pathname = `/websites/${id}/geo/ai/bots`;
+    const suffix = '?date=range%3A1788969600000%3A1791561599999&dateMode=default#risk';
+    window.history.replaceState(null, '', mocks.pathname + suffix);
+    render(
+      <Navigation
+        user={{ id: 'user', username: 'admin' } as any}
+        route={{ page: 'geo-bots', websiteId: id }}
+        site={{ id, siteNumber: 102, name: '当前网站' }}
+        width={228}
+        onWidth={vi.fn()}
+      />,
+    );
+    expect(mocks.replace).toHaveBeenCalledWith(`/websites/102/geo/ai/bots${suffix}`, {
+      scroll: false,
+    });
+    expect(screen.getByRole('link', { name: 'AI 爬虫' })).toHaveAttribute(
+      'href',
+      '/websites/102/geo/ai/bots',
+    );
+  });
+
+  it('waits for matching website metadata before shortening a URL', () => {
+    const id = 'b880cb21-e65a-4fdf-9c0e-3da5aed4e0fa';
+    mocks.pathname = `/websites/${id}/geo/ai/bots`;
+    window.history.replaceState(null, '', mocks.pathname);
+    const props = {
+      user: { id: 'user', username: 'admin' } as any,
+      route: { page: 'geo-bots', websiteId: id },
+      width: 228,
+      onWidth: vi.fn(),
+    };
+    const view = render(<Navigation {...props} />);
+    expect(mocks.replace).not.toHaveBeenCalled();
+    view.rerender(
+      <Navigation {...props} site={{ id: 'another-site', siteNumber: 101, name: '其他网站' }} />,
+    );
+    expect(mocks.replace).not.toHaveBeenCalled();
+    view.rerender(<Navigation {...props} site={{ id, siteNumber: 102, name: '当前网站' }} />);
+    expect(mocks.replace).toHaveBeenCalledWith('/websites/102/geo/ai/bots', { scroll: false });
+  });
+
   it('uses the current report display mode when settings cannot be read and recovers with fresh settings', () => {
     mocks.displayError = true;
     mocks.reportedDisplay = { 'site-a': false };
@@ -98,6 +141,7 @@ describe('website navigation transitions', () => {
     mocks.displayError = false;
     mocks.reportedDisplay = {};
     mocks.pathname = '/websites/site-a/goals/create';
+    window.history.replaceState(null, '', '/');
     document.body.style.overflow = '';
   });
   it('keeps website switching and account actions available in the shared compact website layout', async () => {

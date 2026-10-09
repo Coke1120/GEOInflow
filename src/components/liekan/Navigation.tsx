@@ -28,7 +28,7 @@ import {
 } from '@/lib/liekan/upstream/features-client';
 import styles from '@/styles/liekan/Navigation.module.css';
 import '@/styles/liekan/Features.module.css';
-import { websiteHandle, websiteMatchesHandle } from '@/lib/liekan/website-handle';
+import { shortWebsitePath, websiteHandle, websiteMatchesHandle } from '@/lib/liekan/website-handle';
 import { featureHref, featureWebsiteSwitchHref, safeReturnHref } from './features/routes';
 import { DialogActions, LiekanDialog, Icon, Notice, QueryState } from './features/ui';
 import { defaultDateRange } from './viewState';
@@ -257,6 +257,14 @@ export function Navigation({
     );
   };
   const currentSite = websiteMatchesHandle(site, route.websiteId) ? site : undefined;
+  useEffect(() => {
+    if (!website || !currentSite || window.location.pathname !== nav.pathname) return;
+    const path = shortWebsitePath(nav.pathname, currentSite);
+    if (path !== nav.pathname)
+      nav.router.replace(`${path}${window.location.search}${window.location.hash}`, {
+        scroll: false,
+      });
+  }, [website, currentSite?.id, currentSite?.siteNumber, nav.pathname, nav.router]);
   const siteName = currentSite?.name || (route.websiteId ? '正在加载网站' : '选择网站');
   const demo = currentSite?.demo === true || displaySettings.data?.isDemo === true;
   const displayName = demo ? siteName.replace(/[（(]示例数据[）)]/, '').trim() : siteName;

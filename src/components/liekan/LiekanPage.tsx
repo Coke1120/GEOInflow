@@ -248,6 +248,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     displayQuery.error,
   ]);
   const report = restricted || metadataLoading || displayMismatch ? undefined : query.data;
+  const crawlerWebsite = websiteMatchesHandle(report?.website, websiteId)
+    ? report.website
+    : websiteMatchesHandle(website, websiteId)
+      ? website
+      : undefined;
   const crawlerHidden =
     displayQuery.data?.aiCrawlerEnabled === false || query.data?.meta.aiCrawlerEnabled === false;
   const refresh = () => {
@@ -341,6 +346,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         id: website.id,
         name: website.name,
         domain: website.domain,
+        siteNumber: website.siteNumber,
         teamId: website.teamId,
       } as any);
     if (report?.tables.botBody)
@@ -757,14 +763,16 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         />
       ) : null}
       {action === '蜘蛛归因与控制' || action.startsWith('蜘蛛详情:') ? (
-        <CrawlerDialog
-          key={`${websiteId}:${action}`}
-          websiteId={websiteId}
-          websiteName={report?.website.name || website?.name}
-          botName={action.startsWith('蜘蛛详情:') ? action.slice(5) : undefined}
-          range={report?.range}
-          onClose={close}
-        />
+        crawlerWebsite && (
+          <CrawlerDialog
+            key={`${websiteId}:${action}`}
+            websiteId={crawlerWebsite.id}
+            websiteName={crawlerWebsite.name}
+            botName={action.startsWith('蜘蛛详情:') ? action.slice(5) : undefined}
+            range={report?.range}
+            onClose={close}
+          />
+        )
       ) : (
         (action || compare) && (
           <ManagementDrawer
