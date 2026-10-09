@@ -365,7 +365,8 @@ function Cell({
         <button
           type="button"
           aria-label={String(value)}
-          className="absolute inset-0 min-h-[44px] min-w-[44px] border-0 bg-transparent focus-visible:ring-2"
+          className="absolute inset-0 border-0 bg-transparent focus-visible:ring-2"
+          style={{ minHeight: 44, minWidth: 44 }}
           onClick={() => onCrawler(String(value))}
         />
       </span>

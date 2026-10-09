@@ -539,7 +539,7 @@ export function CrawlerDialog({
                   check.result ? (
                     <details>
                       <summary>查看 robots 与响应证据</summary>
-                      <pre className="code">{JSON.stringify(check.result, null, 2)}</pre>
+                      <pre className="code-block">{JSON.stringify(check.result, null, 2)}</pre>
                     </details>
                   ) : (
                     check.errorCode || '等待 worker 处理'
@@ -689,7 +689,7 @@ export function CrawlerDialog({
                     下载当前草稿
                   </Button>
                 </div>
-                {fragment && <pre className="code">{fragment}</pre>}
+                {fragment && <pre className="code-block">{fragment}</pre>}
               </details>
             </>
           )}
