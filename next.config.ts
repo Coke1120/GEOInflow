@@ -215,8 +215,24 @@ headers.push({
     { key: 'Access-Control-Allow-Methods', value: 'GET, DELETE, POST, PATCH' },
   ],
 });
+const crawlerPrivatePaths = [
+  '/liekan/crawler-handoffs/:path*',
+  ...[
+    'control-connections',
+    'crawler-analysis',
+    'crawler-checks',
+    'crawler-deployments',
+    'crawler-domain-verification',
+    'crawler-exports',
+    'crawler-findings',
+    'crawler-policies',
+  ].map(resource => `/liekan/websites/:websiteId/${resource}/:path*`),
+];
+// Next keeps preconfigured response headers, so private crawler reads need explicit rules.
+const crawlerApiPrefixes = ['/api'];
 if (isRelativeUrl(apiUrl)) {
   const aiApiPrefix = normalizePath(apiUrl);
+  if (aiApiPrefix !== '/' && aiApiPrefix !== '/api') crawlerApiPrefixes.push(aiApiPrefix);
   if (aiApiPrefix !== '/' && aiApiPrefix !== '/api')
     headers.push({
       source: `${aiApiPrefix}/liekan/ai/:path*`,
@@ -227,6 +243,16 @@ if (isRelativeUrl(apiUrl)) {
       ],
     });
 }
+for (const prefix of crawlerApiPrefixes)
+  for (const path of crawlerPrivatePaths)
+    headers.push({
+      source: `${prefix}${path}`,
+      headers: [
+        { key: 'Cache-Control', value: 'private, no-store' },
+        { key: 'Vary', value: 'Authorization' },
+        { key: 'Access-Control-Allow-Methods', value: 'GET, DELETE, POST, PATCH' },
+      ],
+    });
 
 export default withNextIntl({
   reactStrictMode: false,

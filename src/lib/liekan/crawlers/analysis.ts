@@ -13,6 +13,7 @@ import {
 import { LiekanError } from '../upstream/errors';
 import { humanPathFromEncoded } from '../upstream/paths';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from '../upstream/query-cache';
+import { noteCacheResult } from '../upstream/cache-context';
 import { crawlerDirectory } from './directory';
 import { crawlerOwnedBlock, crawlerOwnedMatch } from './execution';
 
@@ -327,6 +328,7 @@ export async function crawlerAnalysis(
         { timeout: 30000, transactionTimeout: 60000, repeatableRead: true },
       ),
   );
+  noteCacheResult(cached);
   const currentAccess = await crawlerTransaction(tx => authorizeCrawler(tx, actor, websiteId));
   return {
     ...cached.value,
