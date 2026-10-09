@@ -924,7 +924,7 @@ function SiteConversation({
                 )}
               </>
             ) : (
-              <p>请联系{space.name}的管理员配置并测试模型，完成后这里会自动读取可用连接。</p>
+              <p>请联系{space.name}的管理员配置并测试模型，完成后请刷新页面读取可用连接。</p>
             )}
           </div>
           <div className={styles.modalFooter}>
