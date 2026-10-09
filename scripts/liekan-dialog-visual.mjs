@@ -6,6 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { chromium } from '@playwright/test';
 import { generateSync } from 'otplib';
 import { checkDialog, assertDialogContract, dialogBaseline } from './liekan-dialog-contract.mjs';
+import { verifyDialogChecker } from './liekan-dialog-contract-fixtures.mjs';
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
 const target = isolatedAcceptanceTarget(base);
 assertDialogContract();
@@ -48,6 +49,7 @@ const fixturePassword = randomBytes(32).toString('hex');
 let own, ownToken, team, switchWebsite, goal, funnel, segment, annotation, board, share;
 let replayOriginal;
 try {
+  result.checkerRegression = await verifyDialogChecker(browser);
   own = await api('POST', '/users', {
     username: 'modal-' + Date.now(),
     password: fixturePassword,

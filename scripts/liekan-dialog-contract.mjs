@@ -43,6 +43,7 @@ export async function checkDialog(page, size = 'standard') {
   );
   await dialog.getByText('正在读取网站设置…', { exact: true }).waitFor({ state: 'hidden' });
   await dialog.getByText('正在生成二维码', { exact: true }).waitFor({ state: 'hidden' });
+  await dialog.getByText('正在读取上周数据…', { exact: true }).waitFor({ state: 'hidden' });
   await page.waitForFunction(() => {
     const panel = document.querySelector('[role="dialog"] .liekan-dialog');
     const actions = panel?.querySelector('.dialog-footer .dialog-actions');
