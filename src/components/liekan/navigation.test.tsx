@@ -17,19 +17,23 @@ const mocks = vi.hoisted(() => ({
   displayError: false,
   reportedDisplay: {} as Record<string, boolean>,
   pathname: '/websites/site-a/goals/create',
+  query: {} as Record<string, string>,
 }));
 vi.mock('next/link', () => ({
   useLinkStatus: () => ({ pending: false }),
   default: ({ children, prefetch: _prefetch, ...props }: any) => <a {...props}>{children}</a>,
 }));
-vi.mock('@/lib/liekan/upstream/client', () => ({
-  useFeatureDateRange: () => ({ dateRange: { startDate: new Date(0), endDate: new Date(1000) } }),
-  useNavigation: () => ({
-    pathname: mocks.pathname,
-    query: {},
-    router: { push: mocks.push, replace: mocks.replace },
-  }),
-}));
+vi.mock('@/lib/liekan/upstream/client', () => {
+  const router = { push: mocks.push, replace: mocks.replace };
+  return {
+    useFeatureDateRange: () => ({ dateRange: { startDate: new Date(0), endDate: new Date(1000) } }),
+    useNavigation: () => ({
+      pathname: mocks.pathname,
+      query: mocks.query,
+      router,
+    }),
+  };
+});
 vi.mock('@tanstack/react-query', async importOriginal => ({
   ...(await importOriginal<typeof import('@tanstack/react-query')>()),
   skipToken: Symbol('skipToken'),
@@ -64,6 +68,29 @@ vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
 }));
 
 describe('website navigation transitions', () => {
+  it('keeps canonicalizing after a date update replaces a cached legacy address', () => {
+    const id = 'b880cb21-e65a-4fdf-9c0e-3da5aed4e0fa';
+    mocks.pathname = `/websites/${id}/geo/ai/bots`;
+    window.history.replaceState(null, '', mocks.pathname);
+    const props = {
+      user: { id: 'user', username: 'admin' } as any,
+      route: { page: 'geo-bots', websiteId: id },
+      site: { id, siteNumber: 102, name: '当前网站' },
+      width: 228,
+      onWidth: vi.fn(),
+    };
+    const view = render(<Navigation {...props} />);
+    expect(mocks.replace).toHaveBeenCalledWith('/websites/102/geo/ai/bots', { scroll: false });
+    mocks.replace.mockClear();
+    mocks.query = { date: 'range:1788969600000:1791561599999', dateMode: 'default' };
+    const suffix = '?date=range%3A1788969600000%3A1791561599999&dateMode=default';
+    window.history.replaceState(null, '', mocks.pathname + suffix);
+    view.rerender(<Navigation {...props} />);
+    expect(mocks.replace).toHaveBeenCalledWith('/websites/102/geo/ai/bots' + suffix, {
+      scroll: false,
+    });
+  });
+
   it('shortens website URLs when the app is mounted under a base path', () => {
     const id = 'b880cb21-e65a-4fdf-9c0e-3da5aed4e0fa';
     mocks.pathname = `/websites/${id}/geo/ai/bots`;
@@ -164,6 +191,7 @@ describe('website navigation transitions', () => {
     mocks.displayError = false;
     mocks.reportedDisplay = {};
     mocks.pathname = '/websites/site-a/goals/create';
+    mocks.query = {};
     window.history.replaceState(null, '', '/');
     document.body.style.overflow = '';
   });

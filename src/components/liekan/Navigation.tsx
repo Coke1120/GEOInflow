@@ -269,7 +269,7 @@ export function Navigation({
       nav.router.replace(`${path}${window.location.search}${window.location.hash}`, {
         scroll: false,
       });
-  }, [website, currentSite?.id, currentSite?.siteNumber, nav.pathname, nav.router]);
+  }, [website, currentSite?.id, currentSite?.siteNumber, nav.pathname, nav.query, nav.router]);
   const siteName = currentSite?.name || (route.websiteId ? '正在加载网站' : '选择网站');
   const demo = currentSite?.demo === true || displaySettings.data?.isDemo === true;
   const displayName = demo ? siteName.replace(/[（(]示例数据[）)]/, '').trim() : siteName;
