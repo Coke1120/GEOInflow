@@ -64,6 +64,29 @@ vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
 }));
 
 describe('website navigation transitions', () => {
+  it('shortens website URLs when the app is mounted under a base path', () => {
+    const id = 'b880cb21-e65a-4fdf-9c0e-3da5aed4e0fa';
+    mocks.pathname = `/websites/${id}/geo/ai/bots`;
+    vi.stubEnv('basePath', '/statistics');
+    try {
+      window.history.replaceState(null, '', `/statistics${mocks.pathname}?date=30day`);
+      render(
+        <Navigation
+          user={{ id: 'user', username: 'admin' } as any}
+          route={{ page: 'geo-bots', websiteId: id }}
+          site={{ id, siteNumber: 102, name: '当前网站' }}
+          width={228}
+          onWidth={vi.fn()}
+        />,
+      );
+      expect(mocks.replace).toHaveBeenCalledWith('/websites/102/geo/ai/bots?date=30day', {
+        scroll: false,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('replaces a legacy website URL with its site number and keeps the date and fragment', () => {
     const id = 'b880cb21-e65a-4fdf-9c0e-3da5aed4e0fa';
     mocks.pathname = `/websites/${id}/geo/ai/bots`;

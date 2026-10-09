@@ -258,7 +258,12 @@ export function Navigation({
   };
   const currentSite = websiteMatchesHandle(site, route.websiteId) ? site : undefined;
   useEffect(() => {
-    if (!website || !currentSite || window.location.pathname !== nav.pathname) return;
+    if (
+      !website ||
+      !currentSite ||
+      window.location.pathname !== `${process.env.basePath || ''}${nav.pathname}`
+    )
+      return;
     const path = shortWebsitePath(nav.pathname, currentSite);
     if (path !== nav.pathname)
       nav.router.replace(`${path}${window.location.search}${window.location.hash}`, {
