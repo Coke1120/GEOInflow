@@ -84,11 +84,13 @@ vi.mock('./context', () => ({
   useAction: () => {
     const [busy, setBusy] = useState(false);
     return {
-      run: async (action: () => Promise<any>, message?: string) => {
+      run: async (action: () => Promise<any>, message?: string, options?: { navigateTo?: string }) => {
         setBusy(true);
         try {
           const result = await action();
           if (message) mocks.context.notify(message);
+          if (options?.navigateTo)
+            mocks.context.navigate(options.navigateTo, undefined, { replace: true });
           return result;
         } finally {
           setBusy(false);
@@ -1344,7 +1346,7 @@ describe('core form flows', () => {
     await user.type(screen.getByLabelText(/输入 研究站 确认/), '研究站');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: '删除网站' }));
     await waitFor(() => expect(mocks.context.api.del).toHaveBeenCalledWith('/websites/site-1'));
-    expect(mocks.context.navigate).toHaveBeenCalledWith('websites');
+    expect(mocks.context.navigate).toHaveBeenCalledWith('websites', undefined, { replace: true });
   });
   it('runs login without the normal app provider and honors partial authentication', async () => {
     mocks.context = null;

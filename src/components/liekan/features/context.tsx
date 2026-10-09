@@ -37,7 +37,7 @@ export interface FeatureContextValue {
   filters: Record<string, any>;
   query: Record<string, string>;
   href: (page: string, params?: Record<string, any>) => string;
-  navigate: (page: string, params?: Record<string, any>) => void;
+  navigate: (page: string, params?: Record<string, any>, options?: { replace?: boolean }) => void;
   notify: (message: string) => void;
   refresh: () => Promise<void>;
   entity?: FeatureEntity;
@@ -163,13 +163,37 @@ export function useAction() {
   const reading = useManualRefresh();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  async function run<T>(action: () => Promise<T>, message = '已保存'): Promise<T> {
+  const scope = JSON.stringify([
+    c?.user?.id,
+    c?.route?.page,
+    c?.site?.id || c?.siteId,
+    c?.route?.id,
+    c?.route?.teamId,
+    c?.route?.context,
+  ]);
+  const current = useRef({ scope, token: reading?.page.token, alive: true });
+  current.current.scope = scope;
+  current.current.token = reading?.page.token;
+  useEffect(() => {
+    current.current.alive = true;
+    return () => {
+      current.current.alive = false;
+    };
+  }, []);
+  async function run<T>(
+    action: () => Promise<T>,
+    message = '已保存',
+    options: { navigateTo?: string } = {},
+  ): Promise<T> {
     setBusy(true);
     setError('');
+    let departing = false;
+    const canComplete = () =>
+      current.current.alive &&
+      current.current.scope === scope &&
+      current.current.token === reading?.page.token;
     try {
       const result = await action();
-      c?.notify(message);
-      await client.invalidateQueries({ queryKey: ['2fa-status'] });
       const websiteId = c?.siteId;
       const globalEdit =
         !websiteId || ['website-settings', 'websites', 'onboarding'].includes(c?.route?.page);
@@ -188,18 +212,35 @@ export function useAction() {
           );
         },
       };
+      if (options.navigateTo) {
+        const completing = reading ? reading.retirePage(reading.page.token) : canComplete();
+        const updating = [
+          client.cancelQueries({ ...filters, type: completing ? 'all' : 'inactive' }),
+          client.invalidateQueries({ ...filters, refetchType: 'none' }),
+          client.invalidateQueries({ queryKey: ['2fa-status'], refetchType: 'none' }),
+        ];
+        if (completing) {
+          c?.notify(message);
+          c?.navigate(options.navigateTo, undefined, { replace: true });
+          departing = true;
+        }
+        await Promise.all(updating);
+        return result;
+      }
+      c?.notify(message);
+      await client.invalidateQueries({ queryKey: ['2fa-status'] });
       await client.cancelQueries({ ...filters, type: 'inactive' });
       await client.invalidateQueries({ ...filters, refetchType: 'none' });
       const updating = reading
         ? reading.refresh(reading.page.token)
         : client.invalidateQueries(filters);
-      await updating.catch(() => c?.notify('已保存，部分数据更新失败，请重试读取'));
+      await updating.catch(() => c?.notify(`${message}，部分数据更新失败，请重试读取`));
       return result;
     } catch (e: any) {
       setError(e?.message || '操作失败');
       throw e;
     } finally {
-      setBusy(false);
+      if (!departing) setBusy(false);
     }
   }
   return { run, busy, error, setError };

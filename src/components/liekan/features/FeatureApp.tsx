@@ -247,7 +247,8 @@ export function FeatureApp({
     [route.page, route.websiteId, route.id, route.teamId, route.context, JSON.stringify(nav.query)],
   );
   const navigate = useCallback(
-    (page: string, params: Record<string, any> = {}) => nav.router.push(href(page, params)),
+    (page: string, params: Record<string, any> = {}, options: { replace?: boolean } = {}) =>
+      options.replace ? nav.router.replace(href(page, params)) : nav.router.push(href(page, params)),
     [href, nav.router],
   );
   const pendingQuery = useRef<Record<string, any>>(null);
@@ -380,6 +381,13 @@ export function FeatureApp({
           </div>
         </QueryState>
       </Notice>
+    ) : !setup && websiteRequired && siteQuery.isSuccess && siteQuery.data === null ? (
+      <Notice tone="red">
+        <p>此网站不存在或已删除。</p>
+        <Link className="btn" href={href('websites')}>
+          返回网站列表
+        </Link>
+      </Notice>
     ) : !setup && websiteRequired && siteQuery.error && !siteQuery.data ? (
       <QueryState query={siteQuery}>{null}</QueryState>
     ) : !setup &&
@@ -463,6 +471,7 @@ export function FeatureApp({
           user={user}
           route={current}
           site={site}
+          siteUnavailable={websiteRequired && siteQuery.isSuccess && siteQuery.data === null}
           width={width}
           onWidth={setWidth}
           href={href}

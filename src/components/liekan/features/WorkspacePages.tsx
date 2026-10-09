@@ -152,7 +152,15 @@ function Search({ value, onChange }: { value: string; onChange: (value: string) 
     </label>
   );
 }
-function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) {
+function Confirm({
+  title,
+  word = 'DELETE',
+  children,
+  onConfirm,
+  onClose,
+  message,
+  navigateTo,
+}: any) {
   const action = useAction();
   return (
     <LiekanDialog protectUnsaved={false} title={title} onClose={() => !action.busy && onClose()}>
@@ -163,7 +171,7 @@ function Confirm({ title, word = 'DELETE', children, onConfirm, onClose }: any) 
         submitLabel={title}
         onSubmit={async (values: any) => {
           if (values.confirmation !== word) throw new Error(`请输入 ${word} 确认`);
-          await action.run(onConfirm);
+          await action.run(onConfirm, message, { navigateTo });
           onClose();
         }}
       >
@@ -793,12 +801,12 @@ function TeamDetail() {
               title={drawer.type === 'delete' ? '删除团队' : '退出团队'}
               word={drawer.type === 'delete' ? 'DELETE' : 'LEAVE'}
               onClose={() => setDrawer(null)}
+              message={drawer.type === 'delete' ? `「${team.name}」已删除` : `已退出「${team.name}」`}
+              navigateTo="teams"
               onConfirm={async () => {
                 await c.api.del(
                   drawer.type === 'delete' ? `/teams/${id}` : `/teams/${id}/users/${c.user.id}`,
                 );
-                await c.refresh();
-                c.navigate('teams');
               }}
             >
               {drawer.type === 'delete'
@@ -1106,9 +1114,10 @@ function AdminUser() {
               title={confirm === 'reset' ? '重置用户双重验证' : '删除用户'}
               word={confirm === 'reset' ? 'RESET' : 'DELETE'}
               onClose={() => setConfirm('')}
+              message={confirm === 'reset' ? '用户双重验证已重置' : '用户已删除'}
+              navigateTo={confirm === 'delete' ? 'admin-users' : undefined}
               onConfirm={async () => {
                 await c.api.del(confirm === 'reset' ? `/admin/users/${id}/2fa` : `/users/${id}`);
-                if (confirm === 'delete') c.navigate('admin-users');
               }}
             >
               {confirm === 'reset'
@@ -2243,9 +2252,10 @@ function BoardCanvas({
         <Confirm
           title="删除看板"
           onClose={() => setConfirm('')}
+          message={`「${board.name}」已删除`}
+          navigateTo="boards"
           onConfirm={async () => {
             await c.api.del(`/boards/${board.id}`);
-            c.navigate('boards');
           }}
         >
           看板及其分享链接会被删除，原始资源数据继续保留。

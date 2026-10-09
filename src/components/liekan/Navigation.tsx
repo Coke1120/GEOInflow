@@ -55,6 +55,7 @@ export function Navigation({
   user,
   route,
   site,
+  siteUnavailable = false,
   width,
   onWidth,
   href = featureHref,
@@ -63,6 +64,7 @@ export function Navigation({
   user: FeatureUser;
   route: FeatureRoute;
   site?: FeatureEntity;
+  siteUnavailable?: boolean;
   width: number;
   onWidth: (width: number) => void;
   href?: (page: string, params?: Record<string, any>) => string;
@@ -210,7 +212,9 @@ export function Navigation({
         scroll: false,
       });
   }, [website, currentSite?.id, currentSite?.siteNumber, nav.pathname, nav.query, nav.router]);
-  const siteName = currentSite?.name || (route.websiteId ? '正在加载网站' : '选择网站');
+  const siteName = siteUnavailable
+    ? '网站不可用'
+    : currentSite?.name || (route.websiteId ? '正在加载网站' : '选择网站');
   const demo = currentSite?.demo === true || displaySettings.data?.isDemo === true;
   const displayName = demo ? siteName.replace(/[（(]示例数据[）)]/, '').trim() : siteName;
   const teamName =

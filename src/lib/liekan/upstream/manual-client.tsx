@@ -56,6 +56,7 @@ interface ManualReading {
   readAt: number;
   error: string;
   refresh: (expectedPage?: number, force?: boolean) => Promise<void>;
+  retirePage: (expectedPage: number) => boolean;
   register: (key: readonly unknown[], observation: ReadObservation) => () => void;
   authorized?: boolean;
 }
@@ -153,6 +154,7 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
     .join('|');
   const lastClock = useRef(clockConditions);
   const current = useRef<PageRead>(null);
+  const retiredPage = useRef<number>(null);
   const pausedScope = useRef<string>(null);
   const pending = useRef<{
     page: PageRead;
@@ -199,6 +201,7 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
   }, []);
   const refresh = useCallback(
     (expectedPage?: number, force = true) => {
+      if (retiredPage.current === current.current?.token) return Promise.resolve();
       if (expectedPage !== undefined && expectedPage !== current.current?.token)
         return Promise.resolve();
       if (force && pending.current?.page === current.current && pending.current.page.force)
@@ -342,7 +345,16 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
       }),
     [client],
   );
-  const authorized = pausedScope.current !== locationScope;
+  const retirePage = useCallback((expectedPage: number) => {
+    if (expectedPage !== current.current?.token || retiredPage.current === expectedPage) return false;
+    retiredPage.current = expectedPage;
+    pending.current?.resolve();
+    pending.current = null;
+    setBusy(false);
+    update();
+    return true;
+  }, []);
+  const authorized = pausedScope.current !== locationScope && retiredPage.current !== page.token;
   const value = useMemo(
     () => ({
       page,
@@ -351,9 +363,10 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
       readAt: readState.token === page.token ? readState.at : 0,
       error: readState.token === page.token ? readState.error : '',
       refresh,
+      retirePage,
       register,
     }),
-    [page, authorized, busy, readState, refresh, register],
+    [page, authorized, busy, readState, refresh, retirePage, register],
   );
   return <ManualContext.Provider value={value}>{children}</ManualContext.Provider>;
 }

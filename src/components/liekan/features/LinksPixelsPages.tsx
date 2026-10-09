@@ -337,8 +337,9 @@ function ResourceEditor({ kind, record }: { kind: 'link' | 'pixel'; record?: Fea
               await action.run(
                 () => c.api.del(`/${path}/${record.id}`),
                 kind === 'link' ? '链接已删除' : '图片已删除',
+                { navigateTo: path },
               );
-              c.navigate(path);
+              setRemove(false);
             }}
           >
             <Notice tone="red">

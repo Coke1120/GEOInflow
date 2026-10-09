@@ -257,6 +257,22 @@ describe('links and pixels use native resource and tracking contracts', () => {
     await waitFor(() => expect(mocks.del).toHaveBeenCalledWith('/links/link-1'));
     expect(mocks.notify).toHaveBeenCalledWith('链接已删除');
   });
+  it('closes deletion confirmation and keeps the old editor locked while navigation is delayed', async () => {
+    context.route = { page: 'link-editor', id: 'link-1', teamId: 'team-1' };
+    mount('link-editor');
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '删除链接' }));
+    const drawer = within(screen.getByRole('dialog'));
+    await user.type(drawer.getByLabelText(/输入 公告链接 确认/), link.name);
+    await user.click(drawer.getByRole('button', { name: '删除链接' }));
+    await waitFor(() =>
+      expect(mocks.navigate).toHaveBeenCalledWith('links', undefined, { replace: true }),
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '删除链接' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: '删除链接' }));
+    expect(mocks.del).toHaveBeenCalledTimes(1);
+  });
   it('rejects non-web target schemes before issuing an update', async () => {
     mount('link-editor');
     await userEvent.type(await screen.findByLabelText(/链接名称/), '链接');
