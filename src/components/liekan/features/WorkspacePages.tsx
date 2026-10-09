@@ -682,7 +682,8 @@ function TeamDetail() {
               <Body>
                 <QueryState query={security}>
                   <Form
-                    key={String(team.twoFactorRequired)}
+                    key={team.id}
+                    resetKey={String(team.twoFactorRequired)}
                     busy={action.busy}
                     disabled={!c.user.isAdmin || !security.data?.isConfigured}
                     submitLabel="保存团队策略"
@@ -718,7 +719,8 @@ function TeamDetail() {
               <Body>
                 {!management && <ReadOnly />}
                 <Form
-                  key={`${team.id}-${team.updatedAt}`}
+                  key={team.id}
+                  resetKey={String(team.updatedAt)}
                   busy={action.busy}
                   disabled={!management}
                   submitLabel="保存团队设置"
@@ -979,7 +981,8 @@ function AdminUser() {
             <Panel title="账户信息" subtitle="管理员可修改用户资料，密码留空表示保留。">
               <Body>
                 <Form
-                  key={`${id}-${q.data.updatedAt}`}
+                  key={id}
+                  resetKey={String(q.data.updatedAt)}
                   busy={action.busy}
                   submitLabel="保存用户"
                   onSubmit={(values: any) =>
@@ -1228,7 +1231,7 @@ function AdminSecurity() {
         <Panel title="系统双重验证策略" subtitle="全局要求覆盖个人与团队的自主设置。">
           <Body>
             <Form
-              key={String(q.data?.globalRequired)}
+              resetKey={String(q.data?.globalRequired)}
               busy={action.busy}
               disabled={!q.data?.isConfigured}
               submitLabel="保存全局策略"
@@ -1998,13 +2001,13 @@ function BoardCanvas({
     [drag, setDrag] = useState(''),
     [confirm, setConfirm] = useState('');
   const previousBoard = useRef(board);
-  useEffect(() => {
+  if (previousBoard.current !== board) {
     const previous = previousBoard.current;
     const localChanges = JSON.stringify(parameters) !== JSON.stringify(previous.parameters || {});
     if (previous.id !== board.id || !editing || !localChanges)
       setParameters(board.parameters || {});
     previousBoard.current = board;
-  }, [board, editing]);
+  }
   const allowed = !request && canManageResource(c?.user, board, c?.teams),
     entries = boardColumns(parameters),
     entity = boardEntity(parameters, board.type);

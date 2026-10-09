@@ -79,7 +79,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
   const stats = useData(
     [`${path}-list-stats`, ids],
     signal => c.api.get(`/${path}/charts`, { ids: ids.join(','), ...c.range }, signal),
-    ids.length > 0,
+    ids.length > 0 && q.isSuccess && !q.isPlaceholderData,
   );
   const team = c.teams.find(team => team.id === c.route.teamId),
     canCreate = canCreateResource(c.user, team);

@@ -860,7 +860,8 @@ function WebsiteSettings() {
                   <Body>
                     {!manage && <ReadonlyNotice />}
                     <Form
-                      key={`${site.id}:${site.name}:${site.domain}`}
+                      key={site.id}
+                      resetKey={`${site.name}:${site.domain}`}
                       busy={action.busy}
                       error={action.error}
                       disabled={!manage}
@@ -1184,7 +1185,8 @@ function RecorderSettings() {
           <QueryState query={query}>
             {query.data && (
               <Form
-                key={`${c.siteId}:${JSON.stringify(config)}`}
+                key={c.siteId}
+                resetKey={JSON.stringify(config)}
                 busy={action.busy}
                 error={action.error}
                 disabled={!manage}

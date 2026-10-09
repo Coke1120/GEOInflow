@@ -633,6 +633,35 @@ describe('workspace permissions and native board persistence', () => {
       mocks.post.mock.calls[0][1].parameters.rows[0].columns.map((column: any) => column.id),
     ).toEqual(['column-2', 'column-1']);
   });
+  it('reads widgets only for the refreshed board source after its definition arrives', async () => {
+    context.route = { page: 'board-view', id: 'board-1' };
+    const originalGet = mocks.get.getMockImplementation();
+    let reads = 0;
+    let finish!: (board: any) => void;
+    mocks.get.mockImplementation((path: string, ...args: any[]) => {
+      if (path !== '/boards/board-1') return originalGet(path, ...args);
+      return ++reads === 1
+        ? structuredClone(nativeBoard)
+        : new Promise(resolve => (finish = resolve));
+    });
+    mount(
+      <ManualRefreshProvider>
+        <ManualRefreshControl />
+        <WorkspacePages page="board-view" />
+      </ManualRefreshProvider>,
+    );
+    await screen.findAllByRole('img');
+    await userEvent.click(screen.getByRole('button', { name: '刷新' }));
+    await waitFor(() => expect(reads).toBe(2));
+    const before = mocks.get.mock.calls.length;
+    const board = structuredClone(nativeBoard);
+    board.parameters.websiteId = 'site-2';
+    await act(async () => finish(board));
+    await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
+    const paths = mocks.get.mock.calls.slice(before).map(call => call[0]);
+    expect(paths.some(path => path.startsWith('/websites/site-2/'))).toBe(true);
+    expect(paths.some(path => path.startsWith('/websites/site-1/'))).toBe(false);
+  });
   it('fixed-source widget edits inherit the board source and remove legacy resource fields on save', async () => {
     context.route = { page: 'board-design', id: 'board-1' };
     const board = structuredClone(nativeBoard);

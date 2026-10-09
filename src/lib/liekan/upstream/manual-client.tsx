@@ -270,30 +270,27 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
         );
         const latest = Math.max(0, ...states.map(state => state?.dataUpdatedAt || 0));
         if (latest && !failures.length)
-          setReadState(state => ({
-            token: active.token,
-            at: latest,
-            error: '',
-          }));
+          setReadState(state =>
+            state.token === active.token && state.at === latest && !state.error
+              ? state
+              : { token: active.token, at: latest, error: '' },
+          );
+        if (failures.length) {
+          const error = '部分数据读取失败，仍显示上次读取结果，请主动重试。';
+          setReadState(state =>
+            state.token === active.token && state.error === error
+              ? state
+              : { token: active.token, at: state.token === active.token ? state.at : 0, error },
+          );
+        }
         if (job?.page === active) {
           pending.current = null;
           setBusy(false);
           if (failures.length) {
-            setReadState(state => ({
-              token: active.token,
-              at: state.token === active.token ? state.at : 0,
-              error: '部分数据读取失败，仍显示上次读取结果，请主动重试。',
-            }));
             job.reject(new Error('部分数据读取失败'));
           } else job.resolve();
         } else if (!job) {
           setBusy(false);
-          if (failures.length)
-            setReadState(state => ({
-              token: active.token,
-              at: state.token === active.token ? state.at : 0,
-              error: '部分数据读取失败，仍显示上次读取结果，请主动重试。',
-            }));
         }
       }, 25);
     };
@@ -406,7 +403,7 @@ export function useManualQueryOptions(options: any) {
   const previous = selection.current;
   const normalSelection =
     previous?.epoch === epoch &&
-    (previous.key === selectionKey ? previous.normal : previous.ready && ready);
+    (previous.key === selectionKey ? previous.normal : previous.normal || previous.ready === ready);
   selection.current = { epoch, key: selectionKey, ready, normal: normalSelection };
   const ordinary =
     options.meta?.readPurpose !== 'authorization' && typeof options.queryFn === 'function';

@@ -1,5 +1,13 @@
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, renderHook, screen } from '@testing-library/react';
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { ManualRefreshControl } from '@/components/liekan/ManualRefreshControl';
 import { pageReportQuery } from './page-report-client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -715,7 +723,9 @@ it('uses an ordinary read for a condition changed during an unfinished manual re
 it('keeps cross-tab reads paused when clearing website alias metadata', async () => {
   setClientAuthToken('first-session');
   navigation.path = '/websites/17';
-  client.setQueryDefaults(['liekan-feature', 'user', 'site'], { meta: { readPurpose: 'ordinary' } });
+  client.setQueryDefaults(['liekan-feature', 'user', 'site'], {
+    meta: { readPurpose: 'ordinary' },
+  });
   client.setQueryData(['liekan-feature', 'user', 'site', '17'], {
     id: 'canonical',
     siteNumber: 17,
@@ -733,6 +743,74 @@ it('keeps cross-tab reads paused when clearing website alias metadata', async ()
   expect(client.getQueryData(['liekan-feature', 'user', 'site', '17'])).toBeUndefined();
   expect(load).toHaveBeenCalledTimes(1);
   expect(hook.result.current.data).toBeUndefined();
+});
+
+it('keeps a condition selected during metadata loading ordinary when the dependency resumes', async () => {
+  const forced: boolean[] = [];
+  let definitions = 0;
+  let finish!: (value: string) => void;
+  const hook = renderHook(
+    ({ condition }) => {
+      const reading = useManualRefresh();
+      const metadata = useManualQuery({
+        queryKey: ['gated-source'],
+        queryFn: () =>
+          ++definitions === 1
+            ? Promise.resolve('v1')
+            : new Promise<string>(resolve => (finish = resolve)),
+      });
+      const query = useManualQuery({
+        queryKey: ['gated-condition', condition, metadata.data],
+        enabled: metadata.isSuccess && !metadata.isPlaceholderData,
+        queryFn: async ({ signal }) => {
+          forced.push(!!clientRequestOptions(signal)?.refresh);
+          return condition;
+        },
+      });
+      return { reading, metadata, query };
+    },
+    { initialProps: { condition: 'a' }, wrapper },
+  );
+  await advance(1);
+  await advance();
+  act(() => {
+    void hook.result.current.reading.refresh().catch(() => {});
+  });
+  await advance();
+  expect(hook.result.current.metadata.isPlaceholderData).toBe(true);
+  expect(hook.result.current.reading.busy).toBe(true);
+  hook.rerender({ condition: 'b' });
+  await advance(1);
+  await act(async () => finish('v2'));
+  await advance(1);
+  await advance();
+  expect(forced).toEqual([false, false]);
+  expect(hook.result.current.query.data).toBe('b');
+  expect(hook.result.current.reading.busy).toBe(false);
+});
+
+it.each(['success', 'failure'])('stops committing an unchanged %s read while idle', async mode => {
+  vi.useRealTimers();
+  let renders = 0;
+  const load = vi.fn(async () => {
+    if (mode === 'failure') throw new Error('fixture unavailable');
+    return 7;
+  });
+  const hook = renderHook(
+    () => {
+      renders++;
+      return useManualQuery({ queryKey: ['idle-render'], queryFn: load });
+    },
+    { wrapper },
+  );
+  await waitFor(() =>
+    expect(hook.result.current.status).toBe(mode === 'success' ? 'success' : 'error'),
+  );
+  await new Promise(resolve => setTimeout(resolve, 150));
+  const before = renders;
+  await new Promise(resolve => setTimeout(resolve, 500));
+  expect(renders - before).toBeLessThan(5);
+  expect(load).toHaveBeenCalledTimes(1);
 });
 
 it('finishes a failed selection and lets the next manual read recover', async () => {

@@ -294,12 +294,15 @@ export function Form({
   error,
   cancel,
   trackUnsaved = true,
+  resetKey,
   danger = false,
   columns = false,
 }: any) {
   const [localError, setLocalError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const form = useRef<HTMLFormElement>(null);
+  const fieldsVersion = useRef(resetKey);
+  if (form.current?.dataset.unsaved !== 'true') fieldsVersion.current = resetKey;
   const formId = useId();
   const dialog = useDialog();
   const cancelAction = dialog ? (
@@ -366,7 +369,7 @@ export function Form({
         disabled={busy || submitting || disabled}
         style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
       >
-        {children}
+        <Fragment key={fieldsVersion.current}>{children}</Fragment>
       </fieldset>
       {(error || localError) && <Notice tone="red">{error || localError}</Notice>}
       <DialogActions>
