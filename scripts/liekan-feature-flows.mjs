@@ -332,11 +332,36 @@ try {
   await page.waitForURL(u => u.pathname === '/liekan/annotations');
   const toolsUrl = new URL(page.url());
   const toolsParent = page.getByRole('tab', { name: '访问记录', exact: true });
+  const sourceWebsite = await api('GET', `/websites/${seed.website.id}`);
+  const sourceHandle = sourceWebsite.siteNumber ?? sourceWebsite.id;
+  const parentPath = new URL(await toolsParent.getAttribute('href'), base).pathname;
+  const parentRead = page.waitForResponse(response => {
+    const path = new URL(response.url()).pathname;
+    return (
+      [
+        `/api/websites/${sourceWebsite.id}/sessions`,
+        `/api/websites/${sourceHandle}/sessions`,
+      ].includes(path) &&
+      response.request().method() === 'GET' &&
+      response.ok()
+    );
+  });
+  await toolsParent.click();
+  await page.waitForURL(url => url.pathname === `/websites/${sourceHandle}/sessions`);
+  await parentRead;
+  await page.waitForLoadState('networkidle');
   result.checks.push({
     name: 'detail-to-tool-to-tool keeps a reachable source list',
+    observed: {
+      from: toolsUrl.searchParams.get('from'),
+      parentPath,
+      returnedPath: new URL(page.url()).pathname,
+    },
     passed:
       toolsUrl.searchParams.get('from') === 'sessions' &&
-      (await toolsParent.getAttribute('href')).includes(`/websites/${seed.website.id}/sessions`),
+      [`/websites/${sourceWebsite.id}/sessions`, `/websites/${sourceHandle}/sessions`].includes(
+        parentPath,
+      ),
   });
   await context.close();
   const readOnlyTeam = (await api('POST', '/teams', { name: `隔离只读团队 ${Date.now()}` }))[0];
