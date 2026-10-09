@@ -982,7 +982,7 @@ function AdminUser() {
               <Body>
                 <Form
                   key={id}
-                  resetKey={String(q.data.updatedAt)}
+                  resetKey={JSON.stringify([q.data.username, q.data.role])}
                   busy={action.busy}
                   submitLabel="保存用户"
                   onSubmit={(values: any) =>

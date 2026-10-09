@@ -117,7 +117,6 @@ it.each(['dirty', 'clean'])(
                 id: 'target',
                 username: 'original',
                 role: 'user',
-                updatedAt: '2026-10-10T00:00:00Z',
               })
             : new Promise<Response>(resolve => (finish = resolve));
         return Response.json([]);
@@ -146,7 +145,6 @@ it.each(['dirty', 'clean'])(
             id: 'target',
             username: 'parallel-user',
             role: 'user',
-            updatedAt: '2026-10-10T00:00:01Z',
           }),
         ),
       );
