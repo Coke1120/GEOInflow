@@ -1,7 +1,11 @@
 'use client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useManualQuery as useQuery,
+  useManualRefresh,
+} from '@/lib/liekan/contracts/manual-refresh';
+import { useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
-import Link from 'next/link';
+import Link from '@/components/liekan/Link';
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 import {
@@ -35,6 +39,7 @@ import { DataLoading } from '../DataLoading';
 import { Navigation, useSidebarWidth } from '../Navigation';
 import { ProductFooter } from '../ProductFooter';
 import { WebsiteToolbar } from '../WebsiteToolbar';
+import { ManualRefreshControl } from '../ManualRefreshControl';
 import { activeQuickDateRange, QuickRangeButtons } from '../date-quick-range';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
@@ -108,6 +113,7 @@ export function FeatureApp({
       : scopedRoute;
   const nav = useNavigation();
   const client = useQueryClient();
+  const reading = useManualRefresh();
   const [toast, setToast] = useState('');
   const [width, setWidth] = useSidebarWidth();
   const [dateOpen, setDateOpen] = useState(false);
@@ -221,7 +227,9 @@ export function FeatureApp({
       : resolveTeam
         ? scopeTeamQuery
         : undefined;
-  const siteId = websiteRequired ? route.websiteId || '' : '';
+  const siteId = websiteRequired
+    ? sites.find(site => websiteMatchesHandle(site, route.websiteId))?.id || route.websiteId || ''
+    : '';
   const siteQuery = useQuery({
     ...featureSiteQuery(user.id, siteId),
     enabled: !!siteId && !setup,
@@ -261,8 +269,8 @@ export function FeatureApp({
   const notify = useCallback((message: string) => setToast(message), []);
   const refresh = useCallback(async () => {
     await refreshFeatureIdentity();
-    await invalidateFeatureUserQueries(client, user.id);
-  }, [client, user.id]);
+    await reading?.refresh(reading.page.token);
+  }, [client, user.id, reading?.refresh, reading?.page.token]);
   const filters = useMemo(
     () =>
       Object.fromEntries(
@@ -343,10 +351,10 @@ export function FeatureApp({
   );
   const content =
     readOnlyGlobalPage && !invalidRange ? (
-      <QueryState readOnly={!metadata.error} query={metadata}>
+      <QueryState readOnly={!metadata.error || !!metadata.data} query={metadata}>
         <FeaturePage key={pageKey} page={current.page} />
       </QueryState>
-    ) : !setup && (teamState?.isPending || teamState?.error) ? (
+    ) : !setup && (teamState?.isPending || (teamState?.error && !teamState?.data)) ? (
       <QueryState query={teamState}>{null}</QueryState>
     ) : !setup && websiteRequired && !siteId ? (
       <Notice>
@@ -370,9 +378,12 @@ export function FeatureApp({
           </div>
         </QueryState>
       </Notice>
-    ) : !setup && websiteRequired && siteQuery.error ? (
+    ) : !setup && websiteRequired && siteQuery.error && !siteQuery.data ? (
       <QueryState query={siteQuery}>{null}</QueryState>
-    ) : !setup && needsSites && !websiteRequired && (sitesQuery.isPending || sitesQuery.error) ? (
+    ) : !setup &&
+      needsSites &&
+      !websiteRequired &&
+      (sitesQuery.isPending || (sitesQuery.error && !sitesQuery.data)) ? (
       <QueryState query={sitesQuery}>{null}</QueryState>
     ) : invalidRange ? (
       <Notice>日期范围上限 3 年，请调整日期后查看。</Notice>
@@ -387,28 +398,26 @@ export function FeatureApp({
     </Button>
   );
   // 快捷时间按钮只进网站项目工具栏；非 websiteLayout 的页头（dateControl 的另一处渲染）不加。
-  const websiteDateActions =
-    websiteLayout &&
-    datePage && (
-      <>
-        <QuickRangeButtons
-          variant="btn"
-          activeToken={activeQuickDateRange(nav.query)}
-          onSelect={token =>
-            nav.router.push(
-              nav.updateParams({
-                date: token,
-                unit: undefined,
-                offset: undefined,
-                dateMode: undefined,
-                live: undefined,
-              }),
-            )
-          }
-        />
-        {dateControl}
-      </>
-    );
+  const websiteDateActions = websiteLayout && datePage && (
+    <>
+      <QuickRangeButtons
+        variant="btn"
+        activeToken={activeQuickDateRange(nav.query)}
+        onSelect={token =>
+          nav.router.push(
+            nav.updateParams({
+              date: token,
+              unit: undefined,
+              offset: undefined,
+              dateMode: undefined,
+              live: undefined,
+            }),
+          )
+        }
+      />
+      {dateControl}
+    </>
+  );
   if (setup)
     return (
       <FeatureProvider value={value}>
@@ -467,6 +476,12 @@ export function FeatureApp({
                 <h1>{currentTitle}</h1>
               </div>
               <div className="header-actions">
+                {current.page !== 'help' && (
+                  <ManualRefreshControl
+                    showTime={datePage || readOnlyGlobalPage}
+                    beforeRefresh={refreshFeatureIdentity}
+                  />
+                )}
                 {!websiteLayout && dateControl}
                 {resourceListPages.has(current.page) && meta.scope === 'global' && (
                   <label className="context-select">

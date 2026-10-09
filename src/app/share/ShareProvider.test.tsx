@@ -6,6 +6,7 @@ import { ENTITY_TYPE } from '@/lib/constants';
 import { setShareData, useApp } from '@/store/app';
 import { setTestUrl } from '@/test/navigation';
 import { ShareProvider } from './ShareProvider';
+import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
 
 vi.mock('@/lib/client', () => ({ getClientAuthToken: () => null }));
 vi.mock('@/components/hooks/useDateParameters', () => ({
@@ -88,12 +89,19 @@ function Statistics() {
 function mount() {
   return render(
     <QueryClientProvider client={client}>
-      <ShareProvider slug="slug">
-        <Statistics />
-      </ShareProvider>
+      <ManualRefreshProvider>
+        <ShareProvider slug="slug">
+          <Statistics />
+        </ShareProvider>
+      </ManualRefreshProvider>
     </QueryClientProvider>,
   );
 }
+
+const expectSnapshotHidden = () => {
+  const value = screen.queryByText('pageviews: 7');
+  expect(!value || !!value.closest('[hidden]')).toBe(true);
+};
 
 it('requires a network proof on first mount even when the share token is cached', async () => {
   const cached = { ...scope, token: 'cached-proof' };
@@ -104,7 +112,7 @@ it('requires a network proof on first mount even when the share token is cached'
   await advance(1);
   expect(proofReads).toBe(1);
   expect(statisticReads).toBe(0);
-  expect(screen.queryByText('pageviews: 7')).toBeNull();
+  expectSnapshotHidden();
   finishProof(authorizationResponse());
   await advance(1);
   expect(screen.getByText('pageviews: 7')).toBeInTheDocument();
@@ -135,13 +143,13 @@ it('pauses proof reads while hidden and gates visible offline or pending recover
   fireEvent(document, new Event('visibilitychange'));
   await advance(1);
   expect(proofReads).toBe(1);
-  expect(screen.queryByText('pageviews: 7')).toBeNull();
+  expectSnapshotHidden();
   online = true;
   holdProof = true;
   fireEvent(window, new Event('online'));
   await advance(1);
   expect(proofReads).toBe(2);
-  expect(screen.queryByText('pageviews: 7')).toBeNull();
+  expectSnapshotHidden();
   finishProof(authorizationResponse());
   await advance(1);
   expect(screen.getByText('pageviews: 7')).toBeInTheDocument();
@@ -155,10 +163,15 @@ it.each([401, 403, 404])(
     await advance(1);
     authorizationResponse = () => Response.json({ error: { message: 'revoked' } }, { status });
     await advance(30000);
-    expect(screen.queryByText('pageviews: 7')).toBeNull();
+    expectSnapshotHidden();
     expect(useApp.getState().share).toBeNull();
     expect(useApp.getState().shareToken).toBeNull();
-    expect(client.getQueryCache().findAll({ queryKey: ['websites:stats'] })).toHaveLength(0);
+    expect(
+      client
+        .getQueryCache()
+        .findAll({ queryKey: ['websites:stats'] })
+        .every(query => query.state.data === undefined),
+    ).toBe(true);
     expect(screen.getByRole('alert')).toHaveTextContent('分享链接已失效或访问权限已变更');
     expect(screen.queryByRole('button', { name: '重试' })).toBeNull();
     await advance(90000);
@@ -183,12 +196,22 @@ it('drops the old native statistics when the public board layout changes', async
   scope = { ...scope, boardLayoutHash: 'layout-b' };
   holdProof = true;
   await advance(30000);
-  expect(screen.queryByText('pageviews: 7')).toBeNull();
+  expectSnapshotHidden();
   finishProof(authorizationResponse());
   await advance(1);
+  expect(statisticReads).toBe(1);
+  expectSnapshotHidden();
+  holdProof = false;
+  fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+  await advance(100);
   expect(statisticReads).toBe(2);
   expect(client.getQueryData(previous)).toBeUndefined();
-  expect(client.getQueryCache().findAll({ queryKey: ['websites:stats'] })).toHaveLength(1);
+  expect(
+    client
+      .getQueryCache()
+      .findAll({ queryKey: ['websites:stats'] })
+      .filter(query => query.state.data !== undefined),
+  ).toHaveLength(1);
 });
 
 it('shows a transient failure after authorization expires and recovers through explicit retry', async () => {
@@ -197,7 +220,7 @@ it('shows a transient failure after authorization expires and recovers through e
   authorizationResponse = () =>
     Response.json({ error: { message: 'unavailable' } }, { status: 503 });
   await advance(30000);
-  expect(screen.queryByText('pageviews: 7')).toBeNull();
+  expectSnapshotHidden();
   expect(screen.getByRole('alert')).toHaveTextContent('分享权限验证失败');
   expect(useApp.getState().shareToken?.token).toBe('proof-1');
   holdProof = true;
@@ -205,7 +228,7 @@ it('shows a transient failure after authorization expires and recovers through e
   await advance(1);
   expect(proofReads).toBe(3);
   expect(screen.queryByRole('alert')).toBeNull();
-  expect(screen.queryByText('pageviews: 7')).toBeNull();
+  expectSnapshotHidden();
   finishProof(Response.json({ ...scope, token: 'recovered-proof' }));
   await advance(1);
   expect(screen.getByText('pageviews: 7')).toBeInTheDocument();
@@ -219,7 +242,7 @@ it('expires authorization by monotonic time when the wall clock moves back', asy
   holdProof = true;
   await advance(30000);
   expect(proofReads).toBe(2);
-  expect(screen.queryByText('pageviews: 7')).toBeNull();
+  expectSnapshotHidden();
   finishProof(authorizationResponse());
   await advance(1);
   expect(screen.getByText('pageviews: 7')).toBeInTheDocument();
@@ -277,5 +300,5 @@ it("uses each later proof failure's latest Retry-After with a 30 second automati
   expect(proofReads).toBe(4);
   await advance(6);
   expect(proofReads).toBe(5);
-  expect(screen.queryByText('pageviews: 7')).toBeNull();
+  expectSnapshotHidden();
 });

@@ -5,6 +5,7 @@ vi.mock('@/lib/db', () => ({ isRelationalOnly: h.relational }));
 vi.mock('./ai-access', () => ({ authorizeAiWebsite: h.website }));
 vi.mock('./ai-db', () => ({ aiTransaction: vi.fn() }));
 import { authenticateCrawler, authorizeCrawler } from './crawler-access';
+import { currentCacheContext, withQueryCacheHeaders } from './cache-context';
 
 const actor = { id: 'a34cc481-2083-47ab-9a88-31459ede8081', role: 'user' };
 beforeEach(() => {
@@ -20,6 +21,18 @@ beforeEach(() => {
   });
 });
 describe('crawler production authorization', () => {
+  it('binds an explicit analysis refresh to the authenticated actor and rechecks identity', async () => {
+    await withQueryCacheHeaders(async () => {
+      await authenticateCrawler(
+        new Request('https://liekan.test/api/liekan/websites/site/crawler-analysis?refresh=1'),
+      );
+      expect(currentCacheContext()).toMatchObject({ refresh: true, actor: actor.id });
+      expect(await currentCacheContext().reauthorize()).toBe(true);
+      h.auth.mockResolvedValue({ authType: 'session', user: { ...actor, id: 'other' } });
+      expect(await currentCacheContext().reauthorize()).toBe(false);
+      return Response.json({});
+    });
+  });
   it.each(['api-key', 'share', undefined])('rejects %s identity', async authType => {
     h.auth.mockResolvedValue({ authType, user: actor });
     await expect(authenticateCrawler(new Request('https://liekan.test/api'))).rejects.toMatchObject(

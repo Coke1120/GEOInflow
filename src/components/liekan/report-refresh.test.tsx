@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider, onlineManager, useQuery } from '@tans
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiekanPage } from './LiekanPage';
 import { freshAggregateFixture } from '@/test/liekan-freshness';
+import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
+import { setTestUrl } from '@/test/navigation';
 
 const state = vi.hoisted(() => ({
   get: vi.fn(),
@@ -13,6 +15,7 @@ const state = vi.hoisted(() => ({
   replace: vi.fn(),
   updateParams: vi.fn(),
   afterSaved: undefined as undefined | (() => Promise<void>),
+  extraQuery: {} as Record<string, string>,
 }));
 vi.mock('next/link', () => ({
   useLinkStatus: () => ({ pending: false }),
@@ -35,6 +38,7 @@ vi.mock('./AnalysisLoading', async () => {
     },
     reportViews: {
       'human/overview': ({ report }: any) => <span>{report?.value}</span>,
+      logs: ({ report }: any) => <span>{report?.value}</span>,
       content: ({ report }: any) => {
         const actions = useReportActions();
         return (
@@ -68,7 +72,7 @@ vi.mock('@/lib/liekan/upstream/features-client', () => ({
   },
 }));
 vi.mock('@/lib/liekan/upstream/client', async () => {
-  const { useQuery } = await import('@tanstack/react-query');
+  const { useManualQuery: useQuery } = await import('@/lib/liekan/contracts/manual-refresh');
   return {
     useApi: () => ({ useQuery }),
     useFeatureAppState: (select: any) => select({ user: { id: 'current-user' } }),
@@ -83,6 +87,7 @@ vi.mock('@/lib/liekan/upstream/client', async () => {
         date: state.date,
         dateMode: state.dateMode,
         ...(state.compare ? { compareWeek: '1' } : {}),
+        ...state.extraQuery,
       },
       router: { push: state.push, replace: state.replace },
       updateParams: state.updateParams,
@@ -111,6 +116,7 @@ beforeEach(() => {
   onlineManager.setOnline(true);
   state.get.mockReset();
   state.compare = false;
+  state.extraQuery = {};
   state.date = '30day';
   state.dateMode = undefined;
   state.updateParams.mockReset().mockReturnValue('/next-range');
@@ -119,6 +125,58 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => client.clear());
+
+it('resets a rolling log cursor before reading the refreshed window and fetches only the first batch', async () => {
+  state.dateMode = 'default';
+  state.extraQuery = { live: '1', page: '3', cursor: 'old-log-cursor', seek: 'after' };
+  setTestUrl(
+    '/websites/site-a/geo/logs?dateMode=default&live=1&page=3&cursor=old-log-cursor&seek=after',
+  );
+  state.get.mockResolvedValue(report('loaded-log-batch'));
+  const tree = () => (
+    <QueryClientProvider client={client}>
+      <ManualRefreshProvider>
+        <LiekanPage resource="logs" />
+      </ManualRefreshProvider>
+    </QueryClientProvider>
+  );
+  const view = render(tree());
+  await screen.findByText('loaded-log-batch');
+  const initial = state.get.mock.calls.filter(call => call[1]?.resource === 'logs');
+  expect(initial).toHaveLength(1);
+  expect(initial[0][1]).toMatchObject({ page: 3, cursor: 'old-log-cursor', seek: 'after' });
+  fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+  await waitFor(() =>
+    expect(state.get.mock.calls.filter(call => call[1]?.resource === 'logs')).toHaveLength(2),
+  );
+  const refreshed = state.get.mock.calls.filter(call => call[1]?.resource === 'logs')[1][1];
+  expect(refreshed.page).toBe(1);
+  expect(refreshed.cursor).toBeFalsy();
+  expect(refreshed.seek).toBeFalsy();
+  expect(refreshed.endAt).toBeGreaterThanOrEqual(initial[0][1].endAt);
+  expect(refreshed.startAt).toBe(refreshed.endAt - 30 * 86400000);
+  expect(state.updateParams).toHaveBeenCalledWith(
+    expect.objectContaining({ page: undefined, cursor: undefined, seek: undefined }),
+  );
+  state.extraQuery = { live: '1' };
+  setTestUrl('/websites/site-a/geo/logs?dateMode=default&live=1');
+  view.rerender(tree());
+  await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
+  expect(state.get.mock.calls.filter(call => call[1]?.resource === 'logs')).toHaveLength(2);
+  state.extraQuery = { live: '1', page: '2', cursor: 'old-log-cursor', seek: 'after' };
+  setTestUrl(
+    '/websites/site-a/geo/logs?dateMode=default&live=1&page=2&cursor=old-log-cursor&seek=after',
+  );
+  view.rerender(tree());
+  await waitFor(() =>
+    expect(state.get.mock.calls.filter(call => call[1]?.resource === 'logs')).toHaveLength(3),
+  );
+  expect(state.get.mock.calls.filter(call => call[1]?.resource === 'logs')[2][1]).toMatchObject({
+    page: 2,
+    cursor: 'old-log-cursor',
+    seek: 'after',
+  });
+});
 describe('GEO refresh after a successful write', () => {
   it.each([false, true])(
     'replaces an old in-flight read with fresh data (cached=%s)',
@@ -197,7 +255,7 @@ it.each([401, 403, 404, 503])(
 );
 
 it.each(['feature', 'report'])(
-  'restarts an active %s read when a save finishes after navigation',
+  'keeps an unrelated active %s read intact when an earlier save finishes',
   async kind => {
     state.get.mockResolvedValue(report('initial'));
     const view = render(
@@ -247,12 +305,12 @@ it.each(['feature', 'report'])(
     await act(async () => {
       await afterSaved();
     });
-    await screen.findByText('next-page-ready');
-    expect(signals[0].aborted).toBe(true);
-    expect(signals).toHaveLength(2);
+    expect(screen.getByText('next-page-pending')).toBeInTheDocument();
+    expect(signals[0].aborted).toBe(false);
+    expect(signals).toHaveLength(1);
     expect(state.get).toHaveBeenCalledOnce();
     await act(async () => pending.resolve('old-page-result'));
-    expect(screen.getByText('next-page-ready')).toBeInTheDocument();
+    expect(await screen.findByText('old-page-result')).toBeInTheDocument();
   },
 );
 
@@ -383,7 +441,7 @@ it('reports a failed manual read while retaining the previous data', async () =>
   expect(screen.getByTestId('report-value')).toHaveTextContent('initial');
 });
 
-it('advances the generated default range at site midnight and updates its URL', async () => {
+it('preserves the generated range and URL across site midnight', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-05T15:59:59Z'));
   state.date = 'range:old:old';
@@ -399,8 +457,8 @@ it('advances the generated default range at site midnight and updates its URL', 
     const first = state.get.mock.calls[0][1];
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     const second = state.get.mock.calls.at(-1)[1];
-    expect(second.startAt).toBe(first.startAt + 86400000);
-    expect(second.endAt).toBe(first.endAt + 86400000);
+    expect(second.startAt).toBe(first.startAt);
+    expect(second.endAt).toBe(first.endAt);
     expect(state.updateParams).toHaveBeenLastCalledWith(
       expect.objectContaining({
         date: `range:${second.startAt}:${second.endAt}`,
@@ -412,7 +470,7 @@ it('advances the generated default range at site midnight and updates its URL', 
   }
 });
 
-it('labels offline expired GEO statistics and replaces them with a connection retry state at the cutoff', async () => {
+it('preserves an offline GEO snapshot beyond the server cache deadline', async () => {
   const { rememberResponseFreshness } = await import('@/lib/liekan/upstream/client-freshness');
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-05T00:00:00Z'));
@@ -442,12 +500,11 @@ it('labels offline expired GEO statistics and replaces them with a connection re
     online = false;
     fireEvent(window, new Event('offline'));
     await act(async () => vi.advanceTimersByTimeAsync(30000));
-    expect(screen.getByText('统计待更新')).toBeInTheDocument();
+    expect(screen.queryByText('统计待更新')).not.toBeInTheDocument();
     expect(screen.getByText('offline-value')).toBeInTheDocument();
     await act(async () => vi.advanceTimersByTimeAsync(30000));
-    expect(screen.queryByText('offline-value')).not.toBeInTheDocument();
-    expect(screen.getByText('统计数据已过期，请恢复连接后重试。')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
+    expect(screen.getByText('offline-value')).toBeInTheDocument();
+    expect(state.get).toHaveBeenCalledTimes(1);
     expect(screen.queryByText('pending')).not.toBeInTheDocument();
   } finally {
     onLineSpy.mockRestore();

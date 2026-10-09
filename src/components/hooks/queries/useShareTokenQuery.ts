@@ -12,6 +12,7 @@ export function useShareTokenQuery(slug: string) {
   const shareToken = useApp(state => state.shareToken?.token);
   const query = useQuery({
     queryKey: ['share', slug],
+    meta: { readPurpose: 'authorization' },
     queryFn: async ({ signal }: { signal?: AbortSignal } = {}) =>
       get(`/share/${slug}`, {}, {}, signal),
     staleTime: 0,

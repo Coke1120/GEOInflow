@@ -21,6 +21,7 @@ import {
   withClientFreshness,
 } from './client-freshness';
 import { browserReads as reads } from './request-pool';
+import { useManualQueryOptions, useRetainedRead } from './manual-client';
 
 const identities = new Map<string, number>();
 let nextIdentity = 0;
@@ -44,6 +45,11 @@ export function nativeShareScope(share: any) {
   );
   for (const name of ['websiteIds', 'pixelIds', 'linkIds'])
     identifiers[name] = share?.[name] ? [...share[name]].sort() : undefined;
+  identifiers.parameters = Object.fromEntries(
+    Object.entries(share?.parameters || {}).filter(
+      ([name]) => !['theme', 'hasPassword'].includes(name),
+    ),
+  );
   return hashKey(['public-native-share', identifiers]);
 }
 export function nativeIdentityKey(headers: HeadersInit, principal?: string, share?: any) {
@@ -253,7 +259,22 @@ export const useNativeQuery: typeof useQuery = ((input: any, queryClient?: any) 
         }
       : {}),
   };
-  const result = useQuery(product ? options : nativeOptions, client);
+  const purpose = ['login', 'share', '2fa-status', 'user-2fa-status', 'subscription'].includes(
+    String(input.queryKey[0]),
+  );
+  const manualOptions = useManualQueryOptions(
+    purpose
+      ? { ...nativeOptions, meta: { ...options.meta, readPurpose: 'authorization' } }
+      : product
+        ? options
+        : nativeOptions,
+  );
+  const result = useRetainedRead(
+    useQuery(manualOptions, client),
+    manualOptions.queryKey,
+    manualOptions,
+    client,
+  );
   // Product callers own their lifecycle; an inert input preserves React's hook ordering.
   const visible = useFreshnessLifecycle(
     product ? { ...result, data: undefined, error: null } : result,
@@ -272,10 +293,12 @@ export const useNativeQuery: typeof useQuery = ((input: any, queryClient?: any) 
   return {
     ...visible,
     refetch: (settings?: any) => {
+      if (!result.manualCanRead || typeof options.queryFn !== 'function')
+        return Promise.resolve(result);
       if (manual.current?.key === key) return manual.current.promise;
       const round = {};
       const promise = (async () => {
-        await client.cancelQueries({ queryKey: options.queryKey, exact: true });
+        await client.cancelQueries({ queryKey: manualOptions.queryKey, exact: true });
         if (currentKey.current !== key) return result;
         force.current = { key, round };
         return result.refetch({ ...settings, cancelRefetch: false });

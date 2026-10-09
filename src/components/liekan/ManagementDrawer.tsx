@@ -156,7 +156,13 @@ export function ManagementDrawer({
         setDirty(false);
       })
       .catch(error => {
-        if (alive) setLoadError(error.message || '无法读取设置');
+        if (!alive) return;
+        if ([401, 403, 404].includes(error.status)) {
+          setSettings(null);
+          setContent('');
+          setDirty(false);
+        }
+        setLoadError(error.message || '无法读取设置');
       })
       .finally(() => {
         if (alive) setBusy(false);
@@ -334,7 +340,9 @@ export function ManagementDrawer({
         {loadError && (
           <div className="notice red" role="alert">
             无法读取设置：{loadError}{' '}
-            <Button onClick={() => setLoadVersion(v => v + 1)}>重新读取设置</Button>
+            <Button disabled={busy || dirty} onClick={() => setLoadVersion(v => v + 1)}>
+              重新读取设置
+            </Button>
           </div>
         )}
         {busy && settingsAction && !saving.current && (
@@ -671,6 +679,11 @@ export function ManagementDrawer({
           </section>
         )}
         <DialogActions>
+          {settingsAction && !loadError && (
+            <Button disabled={busy || dirty} onClick={() => setLoadVersion(value => value + 1)}>
+              重新读取设置
+            </Button>
+          )}
           {action === 'robots.txt 编辑' && (
             <button
               type="button"

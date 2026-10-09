@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
 import { crawlerDirectory } from '@/lib/liekan/crawlers/directory';
 import { exportNginxPolicy } from '@/lib/liekan/crawlers/templates';
 const mocks = vi.hoisted(() => ({ request: vi.fn(), download: vi.fn() }));
@@ -9,6 +9,93 @@ vi.mock('../data', async original => ({
   downloadFile: mocks.download,
 }));
 import { CrawlerDialog } from './CrawlerDialog';
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.clearAllMocks();
+});
+it.each([401, 403, 404])(
+  'clears analysis and draft controls after reload status %s',
+  async status => {
+    const data = {
+      quality: { state: 'missing' },
+      directory: crawlerDirectory,
+      bots: [],
+      pages: [],
+      platforms: [],
+      previous: { bots: [], platforms: [] },
+      findings: [],
+      criticalPaths: ['/'],
+      analysis: null,
+      range: { timezone: 'UTC' },
+      permissions: { canDraft: true, canControl: false },
+    };
+    mocks.request
+      .mockResolvedValueOnce(data)
+      .mockRejectedValueOnce(Object.assign(new Error('权限已变更'), { status }));
+    render(
+      <CrawlerDialog
+        websiteId="12345678-1234-4234-8234-123456789012"
+        onClose={() => {}}
+        controlPanel={() => null}
+      />,
+    );
+    expect(await screen.findByRole('button', { name: '保存关键路径' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: '重新读取归因与风险' }));
+    expect(await screen.findByText('权限已变更')).toBeVisible();
+    expect(screen.queryByRole('button', { name: '保存关键路径' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/公开且期望搜索可访问的关键路径/)).not.toBeInTheDocument();
+  },
+);
+it('keeps a healthy analysis idle and reloads explicitly while protecting unsaved paths', async () => {
+  vi.useFakeTimers();
+  const data = {
+    quality: { state: 'missing' },
+    directory: crawlerDirectory,
+    bots: [],
+    pages: [],
+    platforms: [],
+    previous: { bots: [], platforms: [] },
+    findings: [],
+    criticalPaths: ['/'],
+    analysis: null,
+    range: { timezone: 'UTC' },
+    permissions: { canDraft: true, canControl: false },
+  };
+  mocks.request.mockResolvedValue(data);
+  render(
+    <CrawlerDialog
+      websiteId="12345678-1234-4234-8234-123456789012"
+      onClose={() => {}}
+      controlPanel={() => null}
+    />,
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(mocks.request).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(600000);
+  });
+  window.dispatchEvent(new Event('focus'));
+  window.dispatchEvent(new Event('online'));
+  document.dispatchEvent(new Event('visibilitychange'));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(mocks.request).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button', { name: '重新读取归因与风险' }));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(mocks.request).toHaveBeenCalledTimes(2);
+  const input = screen.getByLabelText(/公开且期望搜索可访问的关键路径/);
+  fireEvent.change(input, { target: { value: '/draft' } });
+  fireEvent.click(screen.getByRole('button', { name: '重新读取归因与风险' }));
+  expect(screen.getByText('请先保存关键路径输入，再重新读取。')).toBeVisible();
+  expect(input).toHaveValue('/draft');
+  expect(mocks.request).toHaveBeenCalledTimes(2);
+});
 it('displays and downloads the dry-run limiter selected in the export form', async () => {
   const data = {
     quality: { state: 'missing' },

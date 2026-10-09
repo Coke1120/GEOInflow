@@ -1,5 +1,9 @@
 'use client';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import {
+  useManualQuery as useQuery,
+  useManualInfiniteQuery as useInfiniteQuery,
+} from '@/lib/liekan/contracts/manual-refresh';
+
 import {
   type ButtonHTMLAttributes,
   type ReactNode,
@@ -146,7 +150,7 @@ export function AiNotice({ children, error = false }: { children: ReactNode; err
     </div>
   );
 }
-export function useAiCatalog() {
+export function useAiCatalog(selectedWebsiteId?: string) {
   const c = useFeature();
   const query = useInfiniteQuery({
     queryKey: ['liekan-ai', c.user.id, 'catalog'],
@@ -156,8 +160,16 @@ export function useAiCatalog() {
     retry: false,
   });
   const pages = query.data?.pages ?? [];
-  const requestedId = c.query.aiSite;
+  const requestedId = selectedWebsiteId ?? c.query.aiSite;
+  const remembered = useRef<AiCatalog>(null);
+  const selectedPage = pages.find(page => page.websites.some(site => site.id === requestedId));
+  if (selectedPage)
+    remembered.current = {
+      ...selectedPage,
+      websites: selectedPage.websites.filter(site => site.id === requestedId),
+    };
   const needsSelected =
+    pages.length > 0 &&
     !!requestedId &&
     uuid.test(requestedId) &&
     !pages.some(page => page.websites.some(site => site.id === requestedId));
@@ -167,7 +179,18 @@ export function useAiCatalog() {
     enabled: needsSelected,
     retry: false,
   });
-  const all = needsSelected && selected.data ? [...pages, selected.data] : pages;
+  const retainedSelection =
+    pages.length > 0 &&
+    needsSelected &&
+    !selected.data &&
+    ![401, 403, 404].includes((selected.error as any)?.status) &&
+    remembered.current?.websites.some(site => site.id === requestedId)
+      ? remembered.current
+      : undefined;
+  const all =
+    needsSelected && (selected.data || retainedSelection)
+      ? [...pages, selected.data || retainedSelection]
+      : pages;
   const data = all.length
     ? {
         ...all[0],
@@ -184,7 +207,7 @@ export function useAiCatalog() {
   return {
     ...query,
     data,
-    isPending: query.isPending || (needsSelected && selected.isPending),
+    isPending: query.isPending || (needsSelected && selected.isPending && !retainedSelection),
     error: query.error || (needsSelected ? selected.error : null),
     refetch: () => Promise.all([query.refetch(), ...(needsSelected ? [selected.refetch()] : [])]),
   };

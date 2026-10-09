@@ -146,6 +146,7 @@ export function parseDateRange(
   unitValue?: string,
   locale = 'en-US',
   timezone?: string,
+  readAt = Date.now(),
 ): DateRange {
   if (typeof value !== 'string') {
     return null;
@@ -167,7 +168,7 @@ export function parseDateRange(
     };
   }
 
-  const date = new Date();
+  const date = new Date(readAt);
   const now = timezone ? toZonedTime(date, timezone) : date;
   const dateLocale = getDateLocale(locale);
   const { num = 1, unit } = parseDateValue(value);

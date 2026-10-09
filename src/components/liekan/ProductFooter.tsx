@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from '@/components/liekan/Link';
 import { liekanFooterLinks, liekanProduct } from '@/lib/liekan/contracts/product';
 import styles from '@/styles/liekan/ProductFooter.module.css';
 

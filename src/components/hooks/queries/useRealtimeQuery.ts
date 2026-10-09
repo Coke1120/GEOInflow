@@ -1,4 +1,3 @@
-import { REALTIME_INTERVAL } from '@/lib/constants';
 import type { RealtimeData } from '@/lib/types';
 import { useApi } from '../useApi';
 
@@ -10,7 +9,7 @@ export function useRealtimeQuery(websiteId: string) {
       return get(`/realtime/${websiteId}`, {}, {}, signal);
     },
     enabled: !!websiteId,
-    refetchInterval: REALTIME_INTERVAL,
+    refetchInterval: false,
   });
 
   return { data, isLoading, error };

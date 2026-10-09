@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ShareFeatureView } from './WorkspacePages';
+import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
 
 vi.mock('next/link', () => ({
   default: ({ children, ...props }: any) => <a {...props}>{children}</a>,
@@ -56,7 +57,9 @@ const advance = (time: number) =>
 function mount(initialPage = 'overview') {
   return render(
     <QueryClientProvider client={client}>
-      <ShareFeatureView slug="public" initialPage={initialPage} />
+      <ManualRefreshProvider>
+        <ShareFeatureView slug="public" initialPage={initialPage} />
+      </ManualRefreshProvider>
     </QueryClientProvider>,
   );
 }
@@ -89,6 +92,11 @@ it('clears public data when the board layout changes while resource identifiers 
     1,
   );
   await advance(30000);
+  expect(fetch.mock.calls.filter(([url]) => String(url).includes('/events/series'))).toHaveLength(
+    1,
+  );
+  fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+  await advance(100);
   expect(fetch.mock.calls.filter(([url]) => String(url).includes('/events/series'))).toHaveLength(
     2,
   );
@@ -313,7 +321,7 @@ it('retains a historical aggregate behind the resume authorization gate and reus
   expect(screen.getByRole('heading', { name: '事件趋势' })).toBeInTheDocument();
   expect(aggregateCalls).toBe(1);
 });
-it('rolls the public default calendar range at Shanghai midnight', async () => {
+it('freezes the public default calendar range across Shanghai midnight', async () => {
   vi.setSystemTime(new Date('2026-10-05T15:59:59Z'));
   const reads: URL[] = [];
   vi.stubGlobal(
@@ -328,8 +336,36 @@ it('rolls the public default calendar range at Shanghai midnight', async () => {
   await advance(1);
   const initialEnd = Number(reads[0].searchParams.get('endAt'));
   await advance(1000);
-  expect(reads.length).toBe(2);
-  expect(Number(reads[1].searchParams.get('endAt'))).toBe(initialEnd + 86400000);
+  expect(reads.length).toBe(1);
+  expect(Number(reads[0].searchParams.get('endAt'))).toBe(initialEnd);
+});
+
+it('reads a newly selected public preset using the selection time after midnight', async () => {
+  vi.setSystemTime(new Date('2026-10-05T15:59:59Z'));
+  const reads: URL[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: URL) => {
+      if (String(input).includes('/api/share/'))
+        return Response.json({
+          ...share(),
+          parameters: { ...share().parameters, allowFilter: true },
+        });
+      reads.push(new URL(String(input)));
+      return aggregate();
+    }),
+  );
+  mount();
+  await advance(50);
+  await advance(120000);
+  const count = reads.length;
+  fireEvent.click(screen.getByRole('button', { name: '7 天' }));
+  await advance(50);
+  expect(reads.length).toBe(count + 1);
+  expect(Number(reads.at(-1)!.searchParams.get('endAt'))).toBeGreaterThan(
+    Number(reads[0].searchParams.get('endAt')),
+  );
+  expect(Number(reads.at(-1)!.searchParams.get('endAt'))).toBeGreaterThanOrEqual(Date.now());
 });
 
 it('preserves explicitly selected public dates across midnight', async () => {

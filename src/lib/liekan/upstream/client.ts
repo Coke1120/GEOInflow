@@ -20,8 +20,9 @@ export function useFeatureDateRange(timezone: string) {
         Number(query.offset || 0),
         timezone,
         locale,
+        now,
       ),
-    [date, query.unit, query.offset, timezone, locale, now],
+    [date, query.unit, query.offset, timezone, now],
   );
   return {
     dateRange,

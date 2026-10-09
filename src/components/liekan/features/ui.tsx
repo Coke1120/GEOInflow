@@ -2,7 +2,7 @@
 import { hasClientFreshness } from '@/lib/liekan/upstream/client-freshness';
 import { useListState } from './listState';
 import { observeActiveTab } from '../tabVisibility';
-import Link from 'next/link';
+import Link from '@/components/liekan/Link';
 import {
   createContext,
   Children,
@@ -452,7 +452,7 @@ export function Table({
   const loading = useDataLoading();
   const panel = useContext(SearchContext);
   useEffect(() => {
-    if (!loading && pages >= 1 && page > pages) onPage?.(pages);
+    if (!loading && pages >= 1 && page > pages) onPage?.(1);
   }, [page, pages, onPage, loading]);
   const [text, setText] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());

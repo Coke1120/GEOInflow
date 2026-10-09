@@ -454,6 +454,21 @@ try {
     report.featureVisual.mobile.checks !== 77 * 4 * 2
   )
     throw new Error('Supplemental visual acceptance incomplete');
+  await run(process.execPath, ['scripts/liekan-manual-refresh.mjs'], 'manual-refresh', {
+    env: { ...process.env, LIEKAN_URL: baseUrl },
+  });
+  report.manualRefresh = JSON.parse(
+    fs.readFileSync('test-results/liekan-manual-refresh/report.json', 'utf8'),
+  );
+  if (
+    !report.manualRefresh.passed ||
+    !report.manualRefresh.finalized ||
+    report.manualRefresh.head !== head ||
+    report.manualRefresh.featureIds.length !== 68 ||
+    report.manualRefresh.realIdle.length !== 4 ||
+    !report.manualRefresh.cachedHistory?.passed
+  )
+    throw new Error('Manual refresh acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-ai-visual.mjs'], 'ai-visual', {
     env: { ...process.env, LIEKAN_URL: baseUrl },
   });

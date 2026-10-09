@@ -1,5 +1,6 @@
 'use client';
-import Link from 'next/link';
+import Link from '@/components/liekan/Link';
+import { useId } from 'react';
 import { getAllFeatureRows } from '@/lib/liekan/upstream/features-client';
 import { canManage } from './AnalyticsPages';
 import { useData, useFeature } from './context';
@@ -40,8 +41,9 @@ function conditionSummary(parameters: any = {}) {
 
 export function SavedSegments({ onClose }: { onClose: () => void }) {
   const c = useFeature();
+  const visit = useId();
   const query = useData<any[]>(
-    ['saved-segment-picker'],
+    ['saved-segment-picker', visit],
     signal => getAllFeatureRows(`/websites/${c.siteId}/segments`, { type: 'segment' }, signal),
     !!c.siteId,
   );
@@ -69,6 +71,9 @@ export function SavedSegments({ onClose }: { onClose: () => void }) {
         </div>
       </QueryState>
       <DialogActions>
+        <Button onClick={() => query.refetch()} disabled={query.isFetching}>
+          重新读取
+        </Button>
         <Link className="btn" href={c.href('segments')}>
           管理分群
         </Link>

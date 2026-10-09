@@ -6,6 +6,7 @@ import { freshAggregateFixture } from '@/test/liekan-freshness';
 
 const state = vi.hoisted(() => ({
   get: vi.fn(),
+  put: vi.fn(),
   afterSaved: undefined as undefined | (() => Promise<void>),
 }));
 vi.mock('next/link', () => ({
@@ -24,7 +25,7 @@ vi.mock('./AnalysisLoading', async () => {
       </>
     );
   }
-  return { AnalysisLoading: View, reportViews: { content: View } };
+  return { AnalysisLoading: View, reportViews: { content: View, overview: View } };
 });
 vi.mock('./ManagementDrawer', () => ({
   ManagementDrawer: ({ onSaved }: any) => {
@@ -44,7 +45,7 @@ vi.mock('@/lib/liekan/upstream/features-client', () => ({
 vi.mock('@/lib/liekan/upstream/client', async () => {
   const { useQuery } = await import('@tanstack/react-query');
   return {
-    useApi: () => ({ useQuery }),
+    useApi: () => ({ useQuery, put: state.put }),
     useFeatureAppState: (select: any) => select({ user: { id: 'current-user' } }),
     useWebsite: () => ({ id: 'site-a', name: '当前网站' }),
     useFeatureDateRange: () => ({
@@ -69,13 +70,60 @@ function deferred<T>() {
 let client: QueryClient;
 beforeEach(() => {
   state.get.mockReset();
+  state.put.mockReset();
   state.afterSaved = undefined;
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => client.clear());
+it('keeps a new page read intact when the display setting save finishes after leaving', async () => {
+  state.get.mockResolvedValue(
+    freshAggregateFixture({
+      value: 'initial',
+      website: { id: 'site-a' },
+      tables: {},
+      states: { logs: 'not_connected' },
+      cards: [],
+      meta: { canManage: true, demo: false, logsConfigured: false },
+    }),
+  );
+  const write = deferred<any>();
+  state.put.mockReturnValue(write.promise);
+  const view = render(
+    <QueryClientProvider client={client}>
+      <LiekanPage resource="overview" />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(await screen.findByRole('button', { name: '仅展示访客统计' }));
+  const read = deferred<string>();
+  const signals: AbortSignal[] = [];
+  function NextPage() {
+    useQuery({
+      queryKey: ['liekan-feature', 'current-user', 'site-b', 'next-page'],
+      initialData: 'retained',
+      queryFn: ({ signal }) => {
+        signals.push(signal);
+        return read.promise;
+      },
+    });
+    return <span>next</span>;
+  }
+  view.rerender(
+    <QueryClientProvider client={client}>
+      <NextPage />
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(signals).toHaveLength(1));
+  await act(async () => {
+    write.resolve({ aiCrawlerEnabled: false });
+    await new Promise(resolve => setTimeout(resolve, 20));
+  });
+  expect(signals[0].aborted).toBe(false);
+  expect(signals).toHaveLength(1);
+  await act(async () => read.resolve('complete'));
+});
 
 it.each(['feature', 'report'])(
-  'restarts an active %s read when a save finishes after navigation',
+  'preserves an unrelated active %s read when a save finishes after navigation',
   async kind => {
     state.get.mockResolvedValue(
       freshAggregateFixture({
@@ -134,11 +182,10 @@ it.each(['feature', 'report'])(
     await act(async () => {
       await afterSaved();
     });
-    await screen.findByText('next-page-ready');
-    expect(signals[0].aborted).toBe(true);
-    expect(signals).toHaveLength(2);
+    expect(signals[0].aborted).toBe(false);
+    expect(signals).toHaveLength(1);
     expect(state.get).toHaveBeenCalledOnce();
     await act(async () => pending.resolve('old-page-result'));
-    expect(screen.getByText('next-page-ready')).toBeInTheDocument();
+    expect(await screen.findByText('old-page-result')).toBeInTheDocument();
   },
 );

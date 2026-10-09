@@ -1,6 +1,6 @@
 'use client';
 import { useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
+import Link from '@/components/liekan/Link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
@@ -25,6 +25,8 @@ import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
 import styles from '@/styles/liekan/Shell.module.css';
 import { AnalysisLoading, reportViews } from './AnalysisLoading';
 import { AnalysisTabs } from './AnalysisTabs';
+import { ManualRefreshControl } from './ManualRefreshControl';
+import { useManualRefresh } from '@/lib/liekan/contracts/manual-refresh';
 import { useDataLoading } from './DataLoading';
 import { activeQuickDateRange, QuickRangeButtons } from './date-quick-range';
 import {
@@ -53,6 +55,7 @@ import {
 
 export function LiekanPage({ resource }: { resource: Resource }) {
   const metadataLoading = useDataLoading();
+  const reading = useManualRefresh();
   const api = useApi();
   const userId = useFeatureAppState(state => state.user?.id);
   const forceRefresh = useRef(false);
@@ -68,7 +71,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const shell = useLiekanShell();
   const dynamicDefault = !params.date || params.dateMode === 'default';
   const now = useDateRangeClock(timezone, dynamicDefault);
-  const [liveNow, setLiveNow] = useState(now);
+  const [savedNow, setLiveNow] = useState(now);
+  const liveNow = reading?.page.now ?? savedNow;
   const { filter, search, logPage, cursor, seek, chartPeriod, sort, compare, tablePages } =
     readViewState(params, resource);
   const pageIdentity = JSON.stringify([
@@ -90,6 +94,18 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const [action, setAction] = useState('');
   const [message, setMessage] = useState('');
   const liveLogs = isLiveLogView(params, resource);
+  const logEpoch = `${reading?.page.token}:${reading?.page.round}`;
+  const logConditions = JSON.stringify([logPage, cursor, seek]);
+  const logReset = useRef<{ epoch: string; conditions: string; active: boolean }>(null);
+  if (logReset.current?.epoch !== logEpoch)
+    logReset.current = {
+      epoch: logEpoch,
+      conditions: logConditions,
+      active: (reading?.page.round || 0) > 0,
+    };
+  else if (logReset.current.conditions !== logConditions) logReset.current.active = false;
+  const resetLogBatch = resource === 'logs' && logReset.current.active;
+  const displayedLogPage = resetLogBatch ? 1 : logPage;
   const defaultRange = defaultDateRange(now, timezone);
   const startAt = liveLogs
     ? liveNow - 30 * 86400000
@@ -108,13 +124,24 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           date: `range:${defaultRange.startAt}:${defaultRange.endAt}`,
           dateMode: 'default',
           live: resource === 'logs' ? '1' : undefined,
+          ...(resetLogBatch ? { page: undefined, cursor: undefined, seek: undefined } : {}),
         }),
         {
           scroll: false,
         },
       );
     else if (liveLogs && params.live !== '1')
-      router.replace(updateParams({ live: '1' }), { scroll: false });
+      router.replace(
+        updateParams({
+          live: '1',
+          ...(resetLogBatch ? { page: undefined, cursor: undefined, seek: undefined } : {}),
+        }),
+        { scroll: false },
+      );
+    else if (resetLogBatch && (params.page || params.cursor || params.seek))
+      router.replace(updateParams({ page: undefined, cursor: undefined, seek: undefined }), {
+        scroll: false,
+      });
   }, [
     params.date,
     dynamicDefault,
@@ -125,13 +152,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     updateParams,
     defaultRange.startAt,
     defaultRange.endAt,
+    resetLogBatch,
+    params.page,
+    params.cursor,
+    params.seek,
   ]);
-  useEffect(() => {
-    if (!liveLogs) return;
-    setLiveNow(Date.now());
-    const timer = window.setInterval(() => setLiveNow(Date.now()), 10000);
-    return () => window.clearInterval(timer);
-  }, [liveLogs]);
   const reportInput = {
     resource,
     startAt,
@@ -141,7 +166,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     ...(Object.keys(tablePages).length ? { tablePages } : {}),
     ...(resource === 'logs'
       ? {
-          page: logPage,
+          page: displayedLogPage,
           filter:
             filter === '仅 AI 蜘蛛'
               ? 'ai'
@@ -151,18 +176,19 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                   ? 'other'
                   : '',
           search: search.slice(0, 200),
-          ...(cursor ? { cursor, seek } : {}),
+          ...(!resetLogBatch && cursor ? { cursor, seek } : {}),
         }
       : {}),
   };
-  const currentReport = pageReportQuery(userId, websiteId, reportInput, teamId, () => {
+  const reportWebsiteId = website?.id || websiteId;
+  const currentReport = pageReportQuery(userId, reportWebsiteId, reportInput, teamId, () => {
     const value = forceRefresh.current;
     forceRefresh.current = false;
     return value;
   });
   const rawQuery = api.useQuery<LiekanReport>({
     ...currentReport,
-    enabled: !!websiteId,
+    enabled: !!websiteId && !metadataLoading,
     placeholderData: (previous, previousQuery) => {
       // logs 换批与 tp_* 翻页都会换 queryKey：queryKey[13] 是 tp_ 页码集合槽位，
       // 仅该槽位变化时保留上一份数据，翻页期间显示旧切片 + 更新提示而非整页骨架。
@@ -180,7 +206,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         ? previous
         : undefined;
     },
-    refetchInterval: resource === 'logs' && !liveLogs ? 10000 : false,
+    refetchInterval: false,
   });
   const query = useFreshnessLifecycle(rawQuery, {
     queryKey: currentReport.queryKey,
@@ -197,12 +223,16 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     promise: Promise<boolean | undefined>;
   }>(null);
   const rawPrevious = api.useQuery<LiekanReport>({
-    ...pageReportQuery(userId, websiteId, { resource, ...shiftedRange, timezone }, teamId),
-    enabled: compare && !!websiteId,
+    ...pageReportQuery(userId, reportWebsiteId, { resource, ...shiftedRange, timezone }, teamId),
+    enabled: compare && !!websiteId && !metadataLoading,
   });
   const previous = useFreshnessLifecycle(rawPrevious, {
-    queryKey: pageReportQuery(userId, websiteId, { resource, ...shiftedRange, timezone }, teamId)
-      .queryKey,
+    queryKey: pageReportQuery(
+      userId,
+      reportWebsiteId,
+      { resource, ...shiftedRange, timezone },
+      teamId,
+    ).queryKey,
     enabled: compare && !!websiteId && !metadataLoading,
     aggregate: resource !== 'logs',
     endAt: shiftedRange.endAt,
@@ -224,7 +254,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     (query.data.meta.aiCrawlerEnabled !== false) !== displayQuery.data.aiCrawlerEnabled;
   const synchronizedDisplay = useRef('');
   useEffect(() => {
-    const key = `${websiteId}:${query.dataUpdatedAt}:${displayQuery.data?.aiCrawlerEnabled}`;
+    const key = `${reportWebsiteId}:${reading?.page.token || pageIdentity}:${reading?.page.round || 0}`;
     if (
       !displayMismatch ||
       restricted ||
@@ -256,6 +286,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const crawlerHidden =
     displayQuery.data?.aiCrawlerEnabled === false || query.data?.meta.aiCrawlerEnabled === false;
   const refresh = () => {
+    if (reading)
+      return reading.refresh().then(
+        () => true,
+        () => false,
+      );
     if (displayMismatch || displayQuery.error) void displayQuery.refetch();
     if (manualRefresh.current?.key === reportKey) return manualRefresh.current.promise;
     const promise = (async () => {
@@ -293,20 +328,31 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       const failure = results.find(result => result.status === 'rejected');
       if (failure) throw failure.reason;
     };
-    await Promise.all([
-      queryClient.cancelQueries({ queryKey: ['liekan', websiteId] }),
-      queryClient.cancelQueries({ queryKey: ['liekan-feature', userId] }),
-    ]);
     if (!isCurrentPage()) {
-      await invalidate('active');
+      await invalidate('none');
       return;
     }
+    await Promise.all([
+      queryClient.cancelQueries({
+        queryKey: (rawQuery as any).resolvedQueryKey || currentReport.queryKey,
+        exact: true,
+      }),
+      queryClient.cancelQueries({
+        queryKey:
+          (rawPrevious as any).resolvedQueryKey ||
+          pageReportQuery(userId, reportWebsiteId, { resource, ...shiftedRange, timezone }, teamId)
+            .queryKey,
+        exact: true,
+      }),
+    ]);
     await invalidate('none');
     if (!isCurrentPage()) {
-      await invalidate('active');
+      await invalidate('none');
       return;
     }
-    if (liveLogs) {
+    if (reading) {
+      await reading.refresh(reading.page.token);
+    } else if (liveLogs) {
       const nextNow = Date.now();
       setLiveNow(nextNow);
       await queryClient.fetchQuery({
@@ -331,7 +377,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         day: '2-digit',
         timeZone: timezone,
       }).format(value);
-    return `${date(startAt)} – ${date(endAt)}`;
+    return `${date(startAt)} 至 ${date(endAt)}`;
   }, [startAt, endAt, timezone]);
   useEffect(() => {
     if (!shell) return;
@@ -402,7 +448,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     );
   };
   const gotoLogsPage = (page: number) => {
-    const next = page > logPage;
+    const next = page > displayedLogPage;
     const cursor = next ? report?.meta.nextCursor : report?.meta.previousCursor;
     updateView({
       page,
@@ -481,18 +527,10 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     setDisplaySaving(true);
     const site = websiteId;
     try {
-      const result = await api.put(`/liekan/websites/${site}/settings`, {
+      await api.put(`/liekan/websites/${site}/settings`, {
         aiCrawlerEnabled: false,
       });
-      await queryClient.cancelQueries({
-        queryKey: ['liekan-feature', userId, 'website-display-settings', site],
-      });
-      queryClient.setQueryData(
-        ['liekan-feature', userId, 'website-display-settings', site],
-        result,
-      );
-      await queryClient.invalidateQueries({ queryKey: ['liekan', site] });
-      await queryClient.invalidateQueries({ queryKey: ['liekan-feature', userId] });
+      await afterSaved();
       setMessage('已切换为访客统计，可从网站设置重新开启');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '保存失败，请重试');
@@ -546,6 +584,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       >
         {rangeLabel}
       </button>
+      <ManualRefreshControl />
       {page.actions.map(label => (
         <button key={label} type="button" className="chip" onClick={() => onAction(label)}>
           {label === '站点设置'
@@ -598,7 +637,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       <div className={styles.analysisTools}>
         {resource === 'logs' && (
           <span>
-            每 10 秒刷新已导入日志 · 最近导入：
+            最近导入：
             {report?.meta.latestImportAt
               ? new Date(report.meta.latestImportAt).toLocaleString('zh-CN', { timeZone: timezone })
               : query.isPending
@@ -762,64 +801,62 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           }
         />
       ) : null}
-      {action === '蜘蛛归因与控制' || action.startsWith('蜘蛛详情:') ? (
-        crawlerWebsite && (
-          <CrawlerDialog
-            key={`${websiteId}:${action}`}
-            websiteId={crawlerWebsite.id}
-            websiteName={crawlerWebsite.name}
-            botName={action.startsWith('蜘蛛详情:') ? action.slice(5) : undefined}
-            range={report?.range}
-            onClose={close}
-          />
-        )
-      ) : (
-        (action || compare) && (
-          <ManagementDrawer
-            action={compare ? '对比上周' : action}
-            websiteId={websiteId}
-            websiteName={report?.website?.name || website?.name}
-            websiteDomain={report?.website?.domain || website?.domain}
-            canManage={report?.meta.canManage || false}
-            onClose={close}
-            onSaved={afterSaved}
-            onSearch={value =>
-              updateView({
-                search: value.slice(0, 200),
-                page: undefined,
-                cursor: undefined,
-                seek: undefined,
-              })
-            }
-            initialSearch={search}
-            onPage={gotoLogsPage}
-            onLogsFilter={onFilter}
-            logsFilter={filter}
-            report={report}
-            isFetching={query.isFetching}
-            onRange={setRange}
-            comparison={
-              compare
-                ? {
-                    current: report,
-                    previous: previousRestricted || metadataLoading ? undefined : previous.data,
-                    startAt,
-                    endAt,
-                    previousStartAt: shiftedRange.startAt,
-                    previousEndAt: shiftedRange.endAt,
-                    labels:
-                      resource === 'overview' && report?.meta.aiCrawlerEnabled === false
-                        ? ['访客数 UV', '浏览量 PV', '跳出率', '平均访问时长']
-                        : cardLabels[resource] || [],
-                    error: previous.error,
-                    fetching: previous.isFetching,
-                    refetch: () => previous.refetch(),
-                  }
-                : undefined
-            }
-          />
-        )
-      )}
+      {action === '蜘蛛归因与控制' || action.startsWith('蜘蛛详情:')
+        ? crawlerWebsite && (
+            <CrawlerDialog
+              key={`${websiteId}:${action}`}
+              websiteId={crawlerWebsite.id}
+              websiteName={crawlerWebsite.name}
+              botName={action.startsWith('蜘蛛详情:') ? action.slice(5) : undefined}
+              range={report?.range}
+              onClose={close}
+            />
+          )
+        : (action || compare) && (
+            <ManagementDrawer
+              action={compare ? '对比上周' : action}
+              websiteId={websiteId}
+              websiteName={report?.website?.name || website?.name}
+              websiteDomain={report?.website?.domain || website?.domain}
+              canManage={report?.meta.canManage || false}
+              onClose={close}
+              onSaved={afterSaved}
+              onSearch={value =>
+                updateView({
+                  search: value.slice(0, 200),
+                  page: undefined,
+                  cursor: undefined,
+                  seek: undefined,
+                })
+              }
+              initialSearch={search}
+              onPage={gotoLogsPage}
+              onLogsFilter={onFilter}
+              logsFilter={filter}
+              report={report}
+              isFetching={query.isFetching}
+              onRange={setRange}
+              comparison={
+                compare
+                  ? {
+                      current: report,
+                      previous: previousRestricted || metadataLoading ? undefined : previous.data,
+                      startAt,
+                      endAt,
+                      previousStartAt: shiftedRange.startAt,
+                      previousEndAt: shiftedRange.endAt,
+                      labels:
+                        resource === 'overview' && report?.meta.aiCrawlerEnabled === false
+                          ? ['访客数 UV', '浏览量 PV', '跳出率', '平均访问时长']
+                          : cardLabels[resource] || [],
+                      error: previous.error,
+                      fetching: previous.isFetching,
+                      refetch: () => previous.refetch(),
+                    }
+                  : undefined
+              }
+            />
+          )}
     </ReportContext.Provider>
   );
 }

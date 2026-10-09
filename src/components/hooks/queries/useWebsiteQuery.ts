@@ -23,9 +23,9 @@ export function useWebsiteQuery(
     }
     if (modified != null && seen.get(identity) !== modified && options?.queryKey) {
       seen.set(identity, modified);
-      if (options.queryKey[0] !== 'liekan-feature')
-        void client.invalidateQueries({ queryKey: options.queryKey });
-      void invalidateFeatureWebsiteQueries(client, websiteId);
+      void invalidateFeatureWebsiteQueries(client, websiteId).then(() =>
+        client.invalidateQueries({ queryKey: options.queryKey }),
+      );
     }
   }, [modified, identity, client, options?.queryKey]);
 

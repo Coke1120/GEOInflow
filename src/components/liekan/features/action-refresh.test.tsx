@@ -55,7 +55,23 @@ it('shows board save success immediately and keeps editing locked until its meta
 
 it('cancels inactive report prefetches before a successful site edit invalidates them', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const key = ['liekan', 'site', undefined, 'overview', 0, 1, 'UTC', '30d', '', '', 1, '', '', 'user'];
+  const key = [
+    'liekan',
+    'site',
+    undefined,
+    'overview',
+    0,
+    1,
+    'UTC',
+    '30d',
+    '',
+    '',
+    1,
+    '',
+    '',
+    '{}',
+    'user',
+  ];
   client.setQueryData(key, { value: 'before' });
   let finish!: (value: any) => void;
   let oldSignal!: AbortSignal;
@@ -63,7 +79,9 @@ it('cancels inactive report prefetches before a successful site edit invalidates
     queryKey: key,
     queryFn: ({ signal }) => {
       oldSignal = signal;
-      return new Promise(resolve => { finish = resolve; });
+      return new Promise(resolve => {
+        finish = resolve;
+      });
     },
   });
   const notify = vi.fn();
@@ -73,7 +91,16 @@ it('cancels inactive report prefetches before a successful site edit invalidates
   }
   render(
     <QueryClientProvider client={client}>
-      <FeatureProvider value={{ user: { id: 'user' }, siteId: 'site', route: { page: 'website-settings' }, notify } as any}>
+      <FeatureProvider
+        value={
+          {
+            user: { id: 'user' },
+            siteId: 'site',
+            route: { page: 'website-settings' },
+            notify,
+          } as any
+        }
+      >
         <Editor />
       </FeatureProvider>
     </QueryClientProvider>,

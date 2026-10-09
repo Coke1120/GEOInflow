@@ -1,6 +1,7 @@
 'use client';
-import { skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
-import Link from 'next/link';
+import { useManualQuery as useQuery } from '@/lib/liekan/contracts/manual-refresh';
+import { skipToken, useQueryClient } from '@tanstack/react-query';
+import Link from '@/components/liekan/Link';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { FeatureEntity, FeatureRoute, FeatureUser } from '@/lib/liekan/contracts/features';
@@ -195,67 +196,6 @@ export function Navigation({
       document.removeEventListener('keydown', onEscape);
     };
   }, [switching, account]);
-  const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
-  const { dateRange } = useFeatureDateRange(timezone);
-  const warmTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const warming = useRef<{ queryKey: readonly unknown[] }>(undefined);
-  const cancelWarm = () => {
-    clearTimeout(warmTimer.current);
-    const pending = warming.current;
-    warming.current = undefined;
-    if (pending)
-      void client.cancelQueries({ queryKey: pending.queryKey, exact: true, type: 'inactive' });
-  };
-  useEffect(() => cancelWarm, [route.websiteId, route.teamId, user.id]);
-  const warm = (page: string, immediate = false) => {
-    cancelWarm();
-    if (
-      !website ||
-      !route.websiteId ||
-      !(page in geoPaths) ||
-      page === 'geo-logs' ||
-      warming.current
-    )
-      return;
-    warmTimer.current = setTimeout(
-      () => {
-        if (warming.current) return;
-        const path = geoPaths[page];
-        const resource = (
-          page === 'overview'
-            ? 'overview'
-            : page === 'geo-ai'
-              ? 'ai/overview'
-              : page === 'geo-human'
-                ? 'human/overview'
-                : path.slice(1)
-        ) as ReportResource;
-        const range =
-          nav.query.date && nav.query.dateMode !== 'default'
-            ? featureDateRange(dateRange, timezone)
-            : defaultDateRange(Date.now(), timezone);
-        const chartPeriod =
-          ['overview', 'human/overview'].includes(resource) &&
-          ['24h', '7d'].includes(nav.query.chartPeriod)
-            ? nav.query.chartPeriod
-            : '30d';
-        const options = pageReportQuery(
-          user.id,
-          route.websiteId,
-          { resource, startAt: range.startAt, endAt: range.endAt, timezone, chartPeriod },
-          route.teamId,
-          undefined,
-          'prefetch',
-        );
-        const pending = { queryKey: options.queryKey };
-        warming.current = pending;
-        void client.prefetchQuery(options).finally(() => {
-          if (warming.current === pending) warming.current = undefined;
-        });
-      },
-      immediate ? 0 : 200,
-    );
-  };
   const currentSite = websiteMatchesHandle(site, route.websiteId) ? site : undefined;
   useEffect(() => {
     if (
@@ -284,7 +224,6 @@ export function Navigation({
       : {};
   const safeHref = (page: string) => href(page, ownerParams);
   const changeSite = (id: string) => {
-    cancelWarm();
     const next = featureWebsiteSwitchHref(route, id, nav.query);
     if (document.querySelector('form[data-unsaved="true"]')) {
       setSwitching(false);
@@ -378,44 +317,44 @@ export function Navigation({
                   {matchingSites.map(item => {
                     const selected = websiteMatchesHandle(item, route.websiteId);
                     return (
-                    <button
-                      type="button"
-                      key={item.id}
-                      data-site-option
-                      className={`${styles.siteOption} ${selected ? styles.selected : ''}`}
-                      aria-label={`选择网站 ${item.name}`}
-                      aria-current={selected ? 'true' : undefined}
-                      onClick={() => {
-                        if (selected) {
-                          setSwitching(false);
-                          siteButton.current?.focus();
-                        } else changeSite(websiteHandle(item));
-                      }}
-                      onKeyDown={event => {
-                        if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-                        event.preventDefault();
-                        const buttons = [
-                          ...context.current.querySelectorAll<HTMLButtonElement>(
-                            '[data-site-option]',
-                          ),
-                        ];
-                        const index = buttons.indexOf(event.currentTarget);
-                        const next =
-                          event.key === 'Home'
-                            ? 0
-                            : event.key === 'End'
-                              ? buttons.length - 1
-                              : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) %
-                                buttons.length;
-                        buttons[next]?.focus();
-                      }}
-                    >
-                      <span>
-                        <strong>{item.name}</strong>
-                        <small>{item.domain}</small>
-                      </span>
-                      {selected && <Icon name="check" />}
-                    </button>
+                      <button
+                        type="button"
+                        key={item.id}
+                        data-site-option
+                        className={`${styles.siteOption} ${selected ? styles.selected : ''}`}
+                        aria-label={`选择网站 ${item.name}`}
+                        aria-current={selected ? 'true' : undefined}
+                        onClick={() => {
+                          if (selected) {
+                            setSwitching(false);
+                            siteButton.current?.focus();
+                          } else changeSite(websiteHandle(item));
+                        }}
+                        onKeyDown={event => {
+                          if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+                          event.preventDefault();
+                          const buttons = [
+                            ...context.current.querySelectorAll<HTMLButtonElement>(
+                              '[data-site-option]',
+                            ),
+                          ];
+                          const index = buttons.indexOf(event.currentTarget);
+                          const next =
+                            event.key === 'Home'
+                              ? 0
+                              : event.key === 'End'
+                                ? buttons.length - 1
+                                : (index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) %
+                                  buttons.length;
+                          buttons[next]?.focus();
+                        }}
+                      >
+                        <span>
+                          <strong>{item.name}</strong>
+                          <small>{item.domain}</small>
+                        </span>
+                        {selected && <Icon name="check" />}
+                      </button>
                     );
                   })}
                   {!matchingSites.length && (
@@ -490,10 +429,6 @@ export function Navigation({
                     className={`${styles.item} ${activePage === item.page ? styles.selected : ''}`}
                     aria-current={activePage === item.page ? 'page' : undefined}
                     href={safeHref(item.page)}
-                    onMouseEnter={() => warm(item.page)}
-                    onFocus={() => warm(item.page, true)}
-                    onMouseLeave={cancelWarm}
-                    onBlur={cancelWarm}
                   >
                     <Icon
                       name={

@@ -1,5 +1,6 @@
 'use client';
 import { isAggregateRequest } from './cache-policy';
+import { isReportOwnedBy } from '../contracts/query';
 import type { QueryClient } from '@tanstack/react-query';
 import { browserReads as reads } from './request-pool';
 import {
@@ -207,7 +208,10 @@ export async function resumeFeatureLogin(signal?: AbortSignal): Promise<string |
   }
 }
 export async function refreshFeatureIdentity() {
-  const user = await featureApi.post('/auth/verify', {});
+  const token = getClientAuthToken();
+  const user = await featureRequest('POST', '/auth/verify', {}, undefined, undefined, token);
+  if (getClientAuthToken() !== token)
+    throw new FeatureApiError('登录身份已变更，请重新读取。', 409);
   setUser(user);
   return user;
 }
@@ -288,21 +292,24 @@ export async function invalidateFeatureUserQueries(client: QueryClient, userId: 
     predicate: (query: { queryKey: readonly unknown[] }) => {
       const key = query.queryKey;
       return key[0] === 'liekan'
-        ? key[13] === userId
+        ? isReportOwnedBy(key, userId)
         : (key[0] === 'liekan-feature' && key.includes(userId)) ||
             (key[0] === 'liekan-ai' && key[1] === userId);
     },
   };
-  await client.cancelQueries(filters);
-  client.removeQueries({ queryKey: ['liekan-ai', userId] });
-  return client.invalidateQueries(filters);
+  await client.cancelQueries({ ...filters, type: 'inactive' });
+  return client.invalidateQueries({ ...filters, refetchType: 'none' });
 }
 export async function invalidateFeatureWebsiteQueries(client: QueryClient, websiteId: string) {
   const filters = {
     predicate: (query: { queryKey: readonly unknown[] }) => {
       const key = query.queryKey;
       if (key[0] === 'liekan') return key[1] === websiteId;
-      if (key[0] === 'liekan-ai') return key.includes(websiteId) || ['catalog','catalog-selected','context'].includes(String(key[2]));
+      if (key[0] === 'liekan-ai')
+        return (
+          key.includes(websiteId) ||
+          ['catalog', 'catalog-selected', 'context'].includes(String(key[2]))
+        );
       return (
         key[0] === 'liekan-feature' &&
         (key.includes(websiteId) ||
@@ -311,9 +318,8 @@ export async function invalidateFeatureWebsiteQueries(client: QueryClient, websi
       );
     },
   };
-  await client.cancelQueries(filters);
-  client.removeQueries({ predicate: query => query.queryKey[0] === 'liekan-ai' && filters.predicate(query) });
-  return client.invalidateQueries(filters);
+  await client.cancelQueries({ ...filters, type: 'inactive' });
+  return client.invalidateQueries({ ...filters, refetchType: 'none' });
 }
 export async function getFeatureWebsiteSummary(
   ids: string[],
@@ -352,7 +358,7 @@ export async function getFeatureWebsiteSummary(
   };
   for (let start = 0; start < sorted.length; start += 50)
     rows.push(...(await readChunk(sorted.slice(start, start + 50))));
-  if (rows.length && rows.every(row => row.error))
+  if (rows.some(row => row.error))
     rememberAggregateFailure(
       rows,
       Math.max(...rows.map(row => Number(row.error?.retryAfterMs) || 0)),

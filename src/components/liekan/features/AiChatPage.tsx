@@ -1,8 +1,13 @@
 'use client';
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useManualQuery as useQuery,
+  useManualInfiniteQuery as useInfiniteQuery,
+  useManualRefresh,
+} from '@/lib/liekan/contracts/manual-refresh';
+import { useQueryClient } from '@tanstack/react-query';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { CalendarDays, ChevronDown, Sparkles } from 'lucide-react';
-import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { DataState } from '@/lib/liekan/contracts/report';
 import {
   type AiCatalog,
@@ -62,17 +67,22 @@ function sourceLabel(value: string) {
 const conversationKey = (userId: string, siteId: string, conversationId: string) =>
   ['liekan-ai', userId, 'conversation', siteId, conversationId] as const;
 export function AiChatPage() {
-  const c = useFeature(),
-    catalog = useAiCatalog();
+  const c = useFeature();
   const [siteId, setSiteId] = useState(c.query.aiSite || ''),
     [draft, setDraft] = useState(''),
     [selectionHint, setSelectionHint] = useState(false);
+  const catalog = useAiCatalog(siteId);
+  const reading = useManualRefresh();
   const chooseSite = () => {
     setSelectionHint(true);
     document.querySelector<HTMLSelectElement>('select[aria-label="分析网站"]')?.focus();
   };
   useEffect(() => {
-    setSiteId(c.query.aiSite || '');
+    const next = c.query.aiSite || '';
+    if (next !== siteId) {
+      void reading?.refresh(reading.page.token).catch(() => {});
+      setSiteId(next);
+    }
   }, [c.query.aiSite, c.query.aiConversation]);
   if (catalog.isPending)
     return (
@@ -92,6 +102,7 @@ export function AiChatPage() {
   const site = data.websites.find(s => s.id === siteId),
     space = data.spaces.find(s => s.kind === site?.space.kind && s.id === site?.space.id);
   const changeSite = (id: string, conversationId?: string) => {
+    if (id && id !== siteId) void reading?.refresh(reading.page.token).catch(() => {});
     if (site) setDraft('');
     setSelectionHint(false);
     setSiteId(id);
@@ -473,7 +484,12 @@ function SiteConversation({
         setConversationId(id);
         c.navigate('ai-chat', { aiSite: site.id, aiConversation: id });
       }
-      const verified = client.getQueryData<AiConversation>(conversationKey(c.user.id, site.id, id));
+      const verified = client
+        .getQueriesData<AiConversation>({
+          queryKey: conversationKey(c.user.id, site.id, id),
+        })
+        .map(([, value]) => value)
+        .find(value => value?.id === id && value.websiteId === site.id);
       if (verified?.id !== id || verified.websiteId !== site.id) throw { code: 'conflict' };
       if (
         !alive.current ||
@@ -1190,9 +1206,10 @@ function ContextSnapshot({
   contextId: string;
   onClose: () => void;
 }) {
+  const visit = useId();
   const c = useFeature(),
     snapshot = useQuery({
-      queryKey: ['liekan-ai', c.user.id, 'context', conversationId, contextId],
+      queryKey: ['liekan-ai', c.user.id, 'context', conversationId, contextId, visit],
       queryFn: ({ signal }) => aiClient.context(conversationId, contextId, signal),
       retry: false,
     });

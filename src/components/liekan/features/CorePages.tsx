@@ -1,9 +1,10 @@
 'use client';
 
 import { formatInTimeZone } from 'date-fns-tz';
-import Link from 'next/link';
+import Link from '@/components/liekan/Link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { useManualRefresh } from '@/lib/liekan/contracts/manual-refresh';
 import {
   type CoreFunnelStep,
   conversionRate,
@@ -198,19 +199,28 @@ function MetricRows({
   timezone,
   kind,
   labels = true,
+  readAt,
 }: {
   today: number | null;
   yesterday: number | null;
   timezone: string;
   kind: 'count' | 'percent';
   labels?: boolean;
+  readAt: number;
 }) {
-  const estimate = kind === 'count' ? projectToday(today, timezone) : null;
+  const estimate = kind === 'count' ? projectToday(today, timezone, readAt) : null;
   const trend = projectTrend(estimate, yesterday);
   return (
     <div className="site-metrics">
       <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
-        {labels && <span className="site-metric-label">今日</span>}
+        {labels && (
+          <span
+            className="site-metric-label"
+            title={formatInTimeZone(readAt, timezone, 'yyyy-MM-dd')}
+          >
+            今日
+          </span>
+        )}
         <span className="site-metric-value">
           {kind === 'percent' ? percentLabel(today) : today == null ? '—' : numberLabel(today)}
         </span>
@@ -294,6 +304,9 @@ function InstallSteps({ query, websiteId }: { query: any; websiteId: string }) {
 }
 function Websites() {
   const c = useFeature();
+  const reading = useManualRefresh();
+  const enteredAt = useRef(Date.now());
+  const readAt = reading?.page.now ?? enteredAt.current;
   const query = useData(['website-management-stats', c.sites.map(site => site.id)], signal =>
     getFeatureWebsiteSummary(
       c.sites.map(site => site.id),
@@ -303,7 +316,7 @@ function Websites() {
     ),
   );
   // 今日窗口自带 compare=昨日，四个指标列共用一次请求。
-  const todayWindow = websiteDayWindow(c.range.timezone);
+  const todayWindow = websiteDayWindow(c.range.timezone, readAt);
   const todayQuery = useData(
     ['website-management-today', c.sites.map(site => site.id), todayWindow.startAt],
     signal =>
@@ -436,6 +449,7 @@ function Websites() {
                   key="views"
                   kind="count"
                   timezone={c.range.timezone}
+                  readAt={readAt}
                   today={dayRead ? dayRead.views : null}
                   yesterday={yesterday ? yesterday.pageviews : null}
                 />,
@@ -444,6 +458,7 @@ function Websites() {
                   kind="count"
                   labels={false}
                   timezone={c.range.timezone}
+                  readAt={readAt}
                   today={dayRead ? dayRead.visitors : null}
                   yesterday={yesterday ? yesterday.visitors : null}
                 />,
@@ -452,6 +467,7 @@ function Websites() {
                   kind="percent"
                   labels={false}
                   timezone={c.range.timezone}
+                  readAt={readAt}
                   today={dayRead ? bounceRateLabel(dayRead) : null}
                   yesterday={yesterday ? bounceRateLabel(yesterday) : null}
                 />,
@@ -460,6 +476,7 @@ function Websites() {
                   kind="count"
                   labels={false}
                   timezone={c.range.timezone}
+                  readAt={readAt}
                   today={dayRead ? dayRead.aiVisits : null}
                   yesterday={yesterday ? yesterday.aiVisits : null}
                 />,
@@ -477,7 +494,8 @@ function Websites() {
           />
           <p className="metric-note">
             口径：访问次数为页面浏览 PV；访客数与跳出率按会话统计；AI访问次数为 AI
-            搜索引荐会话；预计今日按当天已流逝进度折算，跳出率不提供预计值。
+            搜索引荐会话；预计今日按当天已流逝进度折算，跳出率不提供预计值。 今日与预计今日对应{' '}
+            {formatInTimeZone(readAt, c.range.timezone, 'yyyy-MM-dd')}。
           </p>
         </QueryState>
       </Panel>
@@ -1479,35 +1497,39 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
 function Account() {
   const c = useFeature(),
     action = useAction();
+  const profile = useData(['account-profile'], signal => c.api.get('/me', undefined, signal));
+  const user = profile.data?.user?.id === c.user.id ? profile.data.user : c.user;
   const [drawer, setDrawer] = useState('');
   return (
     <>
       <div className="two">
         <Panel title="账户信息" subtitle="当前身份与角色。">
           <Body>
-            <Definition
-              items={[
-                ['用户名', c.user.username],
-                [
-                  '角色',
-                  <Badge key="badge" tone="blue">
-                    {c.user.isAdmin
-                      ? '系统管理员'
-                      : c.user.role === 'view-only'
-                        ? '只读用户'
-                        : '用户'}
-                  </Badge>,
-                ],
-                ['所属团队', c.teams.map(team => team.name).join('、') || '尚未加入团队'],
-                ['账户来源', '当前实例账户'],
-              ]}
-            />
+            <QueryState query={profile}>
+              <Definition
+                items={[
+                  ['用户名', user.username],
+                  [
+                    '角色',
+                    <Badge key="badge" tone="blue">
+                      {user.isAdmin
+                        ? '系统管理员'
+                        : user.role === 'view-only'
+                          ? '只读用户'
+                          : '用户'}
+                    </Badge>,
+                  ],
+                  ['所属团队', c.teams.map(team => team.name).join('、') || '尚未加入团队'],
+                  ['账户来源', '当前实例账户'],
+                ]}
+              />
+            </QueryState>
             <div className="form-actions">
-              <Button disabled={!c.user.isAdmin} onClick={() => setDrawer('username')}>
+              <Button disabled={!user.isAdmin} onClick={() => setDrawer('username')}>
                 修改用户名
               </Button>
             </div>
-            {!c.user.isAdmin && <p className="field-help">用户名由系统管理员维护。</p>}
+            {!user.isAdmin && <p className="field-help">用户名由系统管理员维护。</p>}
           </Body>
         </Panel>
         <Panel title="登录密码" subtitle="已修改的密码会保留。">
@@ -1536,7 +1558,7 @@ function Account() {
       ) : (
         drawer && (
           <LiekanDialog
-            subtitle={'当前账户：' + c.user.username}
+            subtitle={'当前账户：' + user.username}
             title={drawer === 'username' ? '修改用户名' : '修改密码'}
             onClose={() => setDrawer('')}
           >
@@ -1546,7 +1568,7 @@ function Account() {
               submitLabel={drawer === 'password' ? '保存密码' : '保存用户名'}
               onSubmit={async values => {
                 if (drawer === 'username') {
-                  if (!c.user.isAdmin) throw new Error('用户名由系统管理员维护。');
+                  if (!user.isAdmin) throw new Error('用户名由系统管理员维护。');
                   await action.run(() =>
                     c.api.post(`/users/${c.user.id}`, { username: values.username }),
                   );
@@ -1576,7 +1598,7 @@ function Account() {
                 <Field
                   label="用户名"
                   name="username"
-                  defaultValue={c.user.username}
+                  defaultValue={user.username}
                   required
                   maxLength={255}
                 />
@@ -2189,7 +2211,7 @@ function Goals() {
           }
         }),
       );
-      if (results.length && results.every(row => 'error' in row))
+      if (results.some(row => 'error' in row))
         rememberAggregateFailure(
           results,
           Math.max(...results.map(row => Number(row.error?.retryAfterMs) || 0)),

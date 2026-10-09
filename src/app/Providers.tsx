@@ -2,9 +2,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, ZenProvider } from '@umami/react-zen';
 import { NextIntlClientProvider } from 'next-intl';
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useLocale } from '@/components/hooks';
+import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
 import 'chartjs-adapter-date-fns';
 
 const client = new QueryClient({
@@ -12,6 +13,7 @@ const client = new QueryClient({
     queries: {
       retry: false,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
       staleTime: 1000 * 60,
     },
   },
@@ -38,7 +40,11 @@ export function Providers({ children }) {
       <RouterProvider>
         <MessagesProvider>
           <QueryClientProvider client={client}>
-            <ErrorBoundary>{children}</ErrorBoundary>
+            <Suspense>
+              <ManualRefreshProvider>
+                <ErrorBoundary>{children}</ErrorBoundary>
+              </ManualRefreshProvider>
+            </Suspense>
           </QueryClientProvider>
         </MessagesProvider>
       </RouterProvider>

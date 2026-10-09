@@ -5,6 +5,7 @@ import { authorizeAiWebsite, type AiActor } from './ai-access';
 import { aiTransaction, type AiTx } from './ai-db';
 import { AiError } from '../ai/error';
 import { LiekanError } from './errors';
+import { bindCacheRequest } from './cache-context';
 
 export type CrawlerActor = AiActor;
 export type CrawlerAccessMode = 'read' | 'draft' | 'control';
@@ -33,6 +34,16 @@ export async function authenticateCrawler(request: Request): Promise<CrawlerActo
       if (origin !== expected) throw new LiekanError('写入请求来源无效', 403);
     }
   }
+  if (request.method === 'GET' && new URL(request.url).pathname.endsWith('/crawler-analysis'))
+    bindCacheRequest(request, auth, undefined, async () => {
+      const current = await checkAuth(request);
+      return (
+        current?.authType === 'session' &&
+        !current.shareToken &&
+        !current.user?.deletedAt &&
+        current.user?.id === auth.user.id
+      );
+    });
   return { id: auth.user.id, role: auth.user.role };
 }
 

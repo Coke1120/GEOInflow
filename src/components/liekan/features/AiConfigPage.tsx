@@ -1,5 +1,6 @@
 'use client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useManualQuery as useQuery } from '@/lib/liekan/contracts/manual-refresh';
+import { useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import {
   type AiCatalog,
@@ -65,8 +66,7 @@ export function AiConfigPage() {
     retry: false,
   });
   const rows = list.data?.items || [];
-  const refresh = () =>
-    client.invalidateQueries({ queryKey: ['liekan-ai', c.user.id, 'connections'] });
+  const refresh = () => list.refetch({ throwOnError: true });
   const action = async (fn: () => Promise<unknown>, message: string) => {
     setBusy(true);
     setError('');
@@ -491,6 +491,7 @@ export function ConnectionForm({
         },
   );
   const [errors, setErrors] = useState<Record<string, string>>({}),
+    [dirty, setDirty] = useState(false),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false),
     [advanced, setAdvanced] = useState(!values.baseUrl || !values.model);
@@ -503,6 +504,7 @@ export function ConnectionForm({
   );
   const preset = catalog.templates.find(t => t.provider === values.provider);
   const edit = (field: keyof FormValues, value: string) => {
+    setDirty(true);
     setValues(v => ({ ...v, [field]: value }));
     setErrors(e => ({ ...e, [field]: '' }));
   };
@@ -638,7 +640,12 @@ export function ConnectionForm({
     </label>
   );
   return (
-    <form onSubmit={submit} className={styles.configForm}>
+    <form
+      onSubmit={submit}
+      className={styles.configForm}
+      data-unsaved={dirty || undefined}
+      onChange={() => setDirty(true)}
+    >
       <div className={styles.pageHeading}>
         <div>
           <h2>{existing ? '编辑 API' : embedded ? '连接你的模型' : '新建 API'}</h2>

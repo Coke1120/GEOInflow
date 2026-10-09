@@ -16,7 +16,10 @@ import {
   shareParameters,
 } from '@/lib/liekan/contracts/workspace';
 import { FeatureProvider } from './context';
+import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
+import { ManualRefreshControl } from '../ManualRefreshControl';
 import { freshAggregateFixture } from '@/test/liekan-freshness';
+import { clientRequestOptions } from '@/lib/liekan/upstream/client-freshness';
 import { ResourceAnalytics, ShareFeatureView, WorkspacePages } from './WorkspacePages';
 
 const mocks = vi.hoisted(() => ({
@@ -117,13 +120,22 @@ const nativeBoard = {
   },
 };
 let context: any;
+function expectHiddenText(text: string | RegExp) {
+  const element = screen.queryByText(text);
+  expect(!element || !!element.closest('[hidden]')).toBe(true);
+}
+
 function mount(children: ReactNode, provide = true) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const value = () => (
     <QueryClientProvider client={client}>
-      {provide ? <FeatureProvider value={context}>{children}</FeatureProvider> : children}
+      {provide ? (
+        <FeatureProvider value={context}>{children}</FeatureProvider>
+      ) : (
+        <ManualRefreshProvider>{children}</ManualRefreshProvider>
+      )}
     </QueryClientProvider>
   );
   const view = render(value());
@@ -197,6 +209,50 @@ beforeEach(() => {
   mocks.del.mockResolvedValue({ ok: true });
   mocks.refresh.mockResolvedValue(undefined);
   mocks.request.mockResolvedValue({});
+});
+it('rereads the public overview when explicitly returning from events without renewal reads', async () => {
+  const forces: boolean[] = [];
+  mocks.request.mockImplementation(
+    async (_method: string, path: string, _params: any, signal: AbortSignal) => {
+      if (path.endsWith('/shared-report') || path.endsWith('/events/series'))
+        forces.push(!!clientRequestOptions(signal)?.refresh);
+      if (path === '/share/section-share')
+        return {
+          token: 'section-token',
+          websiteId: 'site-1',
+          parameters: { overview: true, events: true },
+        };
+      if (path === '/liekan/websites/site-1/shared-report')
+        return {
+          website: { id: 'site-1', name: '分区验收站' },
+          states: {},
+          cards: [],
+          charts: {},
+          tables: {},
+          insights: [],
+          meta: {},
+          capabilities: { goals: false },
+        };
+      if (path === '/websites/site-1/events/series') return [];
+      throw new Error(`Unexpected public request ${path}`);
+    },
+  );
+  mount(<ShareFeatureView slug="section-share" />, false);
+  await screen.findByRole('heading', { name: '分区验收站' });
+  const reports = () => mocks.request.mock.calls.filter(call => call[1].endsWith('/shared-report'));
+  expect(reports()).toHaveLength(1);
+  await userEvent.click(screen.getByRole('tab', { name: '事件' }));
+  await screen.findByRole('heading', { name: '事件趋势' });
+  await userEvent.click(screen.getByRole('tab', { name: '总览' }));
+  await screen.findByRole('heading', { name: '分区验收站' });
+  await waitFor(() => expect(reports()).toHaveLength(2));
+  await userEvent.click(screen.getByRole('tab', { name: '事件' }));
+  await screen.findByRole('heading', { name: '事件趋势' });
+  await userEvent.click(screen.getByRole('tab', { name: '总览' }));
+  await screen.findByRole('heading', { name: '分区验收站' });
+  await waitFor(() => expect(reports()).toHaveLength(3));
+  expect(forces).toHaveLength(5);
+  expect(forces.every(force => !force)).toBe(true);
 });
 
 describe('workspace permissions and native board persistence', () => {
@@ -523,6 +579,28 @@ describe('workspace permissions and native board persistence', () => {
       'column-1',
     ]);
     expect(body.parameters.rows[0].columns[1].component.props).toEqual({ retain: 'one' });
+  });
+  it('protects unsaved board layout changes from the page refresh control', async () => {
+    const user = userEvent.setup();
+    context.route = { page: 'board-design', id: 'board-1' };
+    mount(
+      <ManualRefreshProvider>
+        <ManualRefreshControl />
+        <WorkspacePages page="board-design" />
+      </ManualRefreshProvider>,
+    );
+    const up = await screen.findAllByRole('button', { name: '上移' });
+    await user.click(up[1]);
+    const before = mocks.get.mock.calls.length;
+    await user.click(screen.getByRole('button', { name: '刷新' }));
+    expect(screen.getByRole('dialog')).toHaveTextContent('当前有未保存的输入');
+    await user.click(screen.getByRole('button', { name: '继续编辑' }));
+    expect(mocks.get).toHaveBeenCalledTimes(before);
+    await user.click(screen.getByRole('button', { name: '保存编排' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalled());
+    expect(
+      mocks.post.mock.calls[0][1].parameters.rows[0].columns.map((column: any) => column.id),
+    ).toEqual(['column-2', 'column-1']);
   });
   it('fixed-source widget edits inherit the board source and remove legacy resource fields on save', async () => {
     context.route = { page: 'board-design', id: 'board-1' };
@@ -918,7 +996,8 @@ describe('public share restrictions and password lifecycle', () => {
     });
     mocks.request.mockImplementation(async (_method: string, path: string) => {
       if (path === '/share/pending-report') {
-        if (++metadataCalls > 1) throw Object.assign(new Error('Share access revoked'), { status: 403 });
+        if (++metadataCalls > 1)
+          throw Object.assign(new Error('Share access revoked'), { status: 403 });
         return {
           token: 'pending-report-token',
           websiteId: 'site-1',
@@ -979,11 +1058,15 @@ describe('public share restrictions and password lifecycle', () => {
       );
       expect(screen.queryByRole('button', { name: '7 天' })).not.toBeInTheDocument();
       expect(metadataCalls).toBe(2);
-      expect(client.getQueryCache().findAll({ queryKey: ['liekan-shared-report'] })
-        .filter(query => query.state.data !== undefined)).toHaveLength(0);
+      expect(
+        client
+          .getQueryCache()
+          .findAll({ queryKey: ['liekan-shared-report'] })
+          .filter(query => query.state.data !== undefined),
+      ).toHaveLength(0);
       expect(screen.queryByRole('heading', { name: '已撤销网站' })).not.toBeInTheDocument();
-      expect(screen.queryByText('revoked.example')).not.toBeInTheDocument();
-      expect(screen.queryByText(/以下为隔离的示例数据/)).not.toBeInTheDocument();
+      expectHiddenText('revoked.example');
+      expectHiddenText(/以下为隔离的示例数据/);
     },
   );
   it.each([401, 403, 404])(
@@ -1001,9 +1084,9 @@ describe('public share restrictions and password lifecycle', () => {
           };
         }
         if (path === '/liekan/websites/site-1/shared-report') {
-          if (++reportCalls === 3)
+          if (++reportCalls === 4)
             throw Object.assign(new Error('Share access revoked'), { status });
-          if (reportCalls > 3) return new Promise(() => {});
+          if (reportCalls > 4) return new Promise(() => {});
           return {
             website: { id: 'site-1', name: '缓存网站', domain: 'cached.example' },
             states: { human: 'available', logs: 'not_connected' },
@@ -1023,16 +1106,23 @@ describe('public share restrictions and password lifecycle', () => {
       await screen.findByText('17');
       await userEvent.click(screen.getByRole('button', { name: '30 天' }));
       await screen.findByText('91');
-      expect(reportCalls).toBe(2);
-      await act(async () => { await client.invalidateQueries({ queryKey: ['liekan-shared-report'] }); });
+      expect(reportCalls).toBe(3);
+      await act(async () => {
+        await client.invalidateQueries({ queryKey: ['liekan-shared-report'] });
+      });
       await waitFor(() =>
         expect(screen.queryByRole('heading', { name: '缓存网站' })).not.toBeInTheDocument(),
       );
       expect(screen.queryByRole('button', { name: '7 天' })).not.toBeInTheDocument();
-      expect(reportCalls).toBe(3);
-      expect(client.getQueryCache().findAll({ queryKey: ['liekan-shared-report'] })).toHaveLength(0);
+      expect(reportCalls).toBe(4);
+      expect(
+        client
+          .getQueryCache()
+          .findAll({ queryKey: ['liekan-shared-report'] })
+          .filter(query => query.state.data !== undefined),
+      ).toHaveLength(0);
       expect(screen.queryByRole('heading', { name: '缓存网站' })).not.toBeInTheDocument();
-      expect(screen.queryByText('cached.example')).not.toBeInTheDocument();
+      expectHiddenText('cached.example');
       expect(screen.queryByText('17')).not.toBeInTheDocument();
     },
   );

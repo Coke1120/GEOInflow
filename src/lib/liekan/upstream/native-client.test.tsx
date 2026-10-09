@@ -66,28 +66,27 @@ const response = (data: any = { pageviews: 7 }, ttl = 30000) =>
     },
   });
 
-it.each([30000, 300000])('renews the native stats hook at its %s ms server deadline', async ttl => {
-  const fetch = vi.fn(async (_url: string, _options: RequestInit) =>
-    response({ pageviews: 7 }, ttl),
-  );
-  vi.stubGlobal('fetch', fetch);
-  const q = renderHook(() => useWebsiteStatsQuery({ websiteId: 'site' }), { wrapper });
-  await advance(1);
-  expect(q.result.current.data.pageviews).toBe(7);
-  const initial = new URL(fetch.mock.calls[0][0] as string, window.location.origin);
-  expect(initial.pathname).toBe('/api/websites/site/stats');
-  expect(initial.searchParams.get('country')).toBe('eq.CN');
-  expect(initial.searchParams.get('endAt')).toBe('200');
-  await advance(ttl - 2);
-  expect(fetch).toHaveBeenCalledTimes(1);
-  await advance(2);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(
-    new URL(fetch.mock.calls[1][0] as string, window.location.origin).searchParams.has('refresh'),
-  ).toBe(false);
-});
+it.each([30000, 300000])(
+  'keeps native statistics visible after its %s ms server deadline',
+  async ttl => {
+    const fetch = vi.fn(async (_url: string, _options: RequestInit) =>
+      response({ pageviews: 7 }, ttl),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const q = renderHook(() => useWebsiteStatsQuery({ websiteId: 'site' }), { wrapper });
+    await advance(1);
+    expect(q.result.current.data.pageviews).toBe(7);
+    const initial = new URL(fetch.mock.calls[0][0] as string, window.location.origin);
+    expect(initial.pathname).toBe('/api/websites/site/stats');
+    expect(initial.searchParams.get('country')).toBe('eq.CN');
+    expect(initial.searchParams.get('endAt')).toBe('200');
+    await advance(ttl + 600000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(q.result.current.data.pageviews).toBe(7);
+  },
+);
 
-it('keeps unchanged selected event statistics visible through successful renewal rounds', async () => {
+it('keeps selected event statistics visible without renewing the snapshot', async () => {
   const fetch = vi.fn(async () =>
     response({ data: { events: { value: 7 }, visitors: { value: 3 } } }),
   );
@@ -96,17 +95,13 @@ it('keeps unchanged selected event statistics visible through successful renewal
   await advance(1);
   const first = query.result.current.data;
   expect(first).toEqual({ events: { value: 7 }, visitors: { value: 3 } });
-  await advance(30001);
-  expect(fetch).toHaveBeenCalledTimes(2);
+  await advance(600001);
+  expect(fetch).toHaveBeenCalledTimes(1);
   expect(query.result.current.data).toEqual(first);
-  expect(remainingFreshness(query.result.current.data, Date.now())).toBeGreaterThan(29000);
-  await advance(30001);
-  expect(fetch).toHaveBeenCalledTimes(3);
-  expect(query.result.current.data).toEqual(first);
-  expect(remainingFreshness(query.result.current.data, Date.now())).toBeGreaterThan(29000);
+  expect(remainingFreshness(query.result.current.data, Date.now())).toBe(0);
 });
 
-it('pauses native renewal while hidden and checks expiry when visible again', async () => {
+it('does not read again after hidden statistics become visible', async () => {
   const fetch = vi.fn(async () => response());
   vi.stubGlobal('fetch', fetch);
   renderHook(() => useWebsiteStatsQuery({ websiteId: 'site' }), { wrapper });
@@ -118,7 +113,7 @@ it('pauses native renewal while hidden and checks expiry when visible again', as
   visibility = 'visible';
   fireEvent(document, new Event('visibilitychange'));
   await advance(1);
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(1);
 });
 
 it('forces one native aggregate recomputation for overlapping manual refreshes', async () => {
@@ -216,7 +211,7 @@ it('does not present data from the previous site or browser identity', async () 
   );
 });
 
-it('copies freshness through native select functions and bounds failed retained results', async () => {
+it('preserves selected snapshots after explicit refresh fails and does not retry automatically', async () => {
   const fetch = vi
     .fn()
     .mockResolvedValueOnce(response({ data: { value: 7 } }))
@@ -238,16 +233,19 @@ it('copies freshness through native select functions and bounds failed retained 
   );
   await advance(1);
   expect(remainingFreshness(q.result.current.data, Date.now())).toBeGreaterThan(0);
-  await advance(30000);
+  await act(async () => {
+    await q.result.current.refetch();
+  });
+  await advance(1);
+  expect(q.result.current.isError).toBe(true);
   expect(q.result.current.data).toEqual({ value: 7 });
-  await advance(30000);
-  expect(q.result.current.data).toBeUndefined();
   expect(fetch).toHaveBeenCalledTimes(2);
-  await advance(60000);
-  expect(fetch).toHaveBeenCalledTimes(3);
+  await advance(600000);
+  expect(q.result.current.data).toEqual({ value: 7 });
+  expect(fetch).toHaveBeenCalledTimes(2);
 });
 
-it('keeps direct details at zero TTL and configuration options intact', async () => {
+it('keeps detail and configuration snapshots and reads again on reentry', async () => {
   const fetch = vi.fn(async () => response());
   vi.stubGlobal('fetch', fetch);
   const details = renderHook(
@@ -271,11 +269,11 @@ it('keeps direct details at zero TTL and configuration options intact', async ()
   await advance(1);
   const detailQuery = client.getQueryCache().find({ queryKey: ['session'], exact: false });
   const metadataQuery = client.getQueryCache().find({ queryKey: ['website'], exact: false });
-  expect((detailQuery.options as any).staleTime(detailQuery)).toBe(0);
-  expect((metadataQuery.options as any).staleTime(metadataQuery)).toBe(300000);
+  expect((detailQuery.options as any).staleTime).toBe(Infinity);
+  expect((metadataQuery.options as any).staleTime).toBe(Infinity);
   details.unmount();
   await advance(1);
-  expect(client.getQueryCache().find({ queryKey: ['session'], exact: false })).toBeUndefined();
+  expect(client.getQueryCache().find({ queryKey: ['session'], exact: false })).toBeDefined();
   metadata.unmount();
 });
 
@@ -292,7 +290,7 @@ it('rechecks expired mounted cache using monotonic time after the wall clock mov
   expect(fetch).toHaveBeenCalledTimes(2);
 });
 
-it('reuses a product page report prefetch through useApi without adding a native lifecycle', async () => {
+it('reads a product report on entry even when a fresh cache entry exists', async () => {
   const report = { websiteId: 'site', resource: 'content', total: 7 };
   const fetch = vi.fn(async (_url: URL | string) => response(report));
   vi.stubGlobal('fetch', fetch);
@@ -303,7 +301,7 @@ it('reuses a product page report prefetch through useApi without adding a native
   const q = renderHook(() => useApi().useQuery(options), { wrapper });
   await advance(1);
   expect(q.result.current.data).toEqual(report);
-  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
   expect(
     client
       .getQueryCache()
@@ -313,12 +311,12 @@ it('reuses a product page report prefetch through useApi without adding a native
   expect(client.getQueryData(options.queryKey)).toBe(q.result.current.data);
   // Product pages install their own lifecycle; this compatibility call keeps their policy intact.
   await advance(30000);
-  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch).toHaveBeenCalledTimes(2);
   await act(async () => {
     await q.result.current.refetch();
   });
-  expect(fetch).toHaveBeenCalledTimes(2);
-  const url = new URL(String(fetch.mock.calls[1][0]), window.location.origin);
+  expect(fetch).toHaveBeenCalledTimes(3);
+  const url = new URL(String(fetch.mock.calls[2][0]), window.location.origin);
   expect(url.searchParams.has('refresh')).toBe(false);
 });
 
@@ -419,7 +417,7 @@ it('preserves configuration pagination placeholders within the same resource and
   expect(q.result.current.data).toEqual({ rows: ['page-b'] });
 });
 
-it("clears a joined observer's unused manual force before its next automatic renewal", async () => {
+it("clears a joined observer's manual force and keeps its snapshot idle", async () => {
   const fetch = vi.fn(async (_url: string) => response());
   vi.stubGlobal('fetch', fetch);
   const first = renderHook(() => useWebsiteStatsQuery({ websiteId: 'site' }), { wrapper });
@@ -433,10 +431,14 @@ it("clears a joined observer's unused manual force before its next automatic ren
     '1',
   );
   first.unmount();
-  await advance(30000);
+  await advance(600000);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  await act(async () => {
+    await second.result.current.refetch();
+  });
   expect(fetch).toHaveBeenCalledTimes(3);
-  expect(new URL(fetch.mock.calls[2][0], window.location.origin).searchParams.has('refresh')).toBe(
-    false,
+  expect(new URL(fetch.mock.calls[2][0], window.location.origin).searchParams.get('refresh')).toBe(
+    '1',
   );
 });
 
@@ -538,3 +540,27 @@ it.each([
     ).toBe('Asia/Shanghai');
   },
 );
+
+it('keeps ordinary statistics for ten minutes and loads only after manual refresh', async () => {
+  const fetch = vi.fn(async (_url: string, _options: RequestInit) => response({ pageviews: 7 }));
+  vi.stubGlobal('fetch', fetch);
+  const q = renderHook(() => useWebsiteStatsQuery({ websiteId: 'site' }), { wrapper });
+  await advance(1);
+  expect(q.result.current.data.pageviews).toBe(7);
+  await advance(600000);
+  act(() => {
+    window.dispatchEvent(new Event('focus'));
+    window.dispatchEvent(new Event('online'));
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await advance(1);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(q.result.current.data.pageviews).toBe(7);
+  await act(async () => {
+    await q.result.current.refetch();
+  });
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(
+    new URL(fetch.mock.calls[1][0] as string, window.location.origin).searchParams.get('refresh'),
+  ).toBe('1');
+});

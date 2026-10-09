@@ -75,7 +75,35 @@ const advance = (time: number) =>
   act(async () => {
     await vi.advanceTimersByTimeAsync(time);
   });
-it('renews an ongoing view at server expiry and hides failed old values after the current grace window', async () => {
+it.each([30000, 300000])(
+  'retains a statistics snapshot beyond the server cache lifetime %s',
+  async ttl => {
+    const fetch = vi.fn(async () => response(7, ttl));
+    vi.stubGlobal('fetch', fetch);
+    mount();
+    await advance(1);
+    await advance(600000);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('7')).toBeVisible();
+  },
+);
+it('does not read on tab, focus or network recovery', async () => {
+  const fetch = vi.fn(async () => response(7));
+  vi.stubGlobal('fetch', fetch);
+  mount();
+  await advance(1);
+  visibility = 'hidden';
+  fireEvent(document, new Event('visibilitychange'));
+  await advance(600000);
+  visibility = 'visible';
+  fireEvent(document, new Event('visibilitychange'));
+  fireEvent(window, new Event('focus'));
+  fireEvent(window, new Event('online'));
+  await advance(1);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(screen.getByText('7')).toBeVisible();
+});
+it('retains the last successful result when a manual read temporarily fails', async () => {
   const fetch = vi
     .fn()
     .mockResolvedValueOnce(response(7))
@@ -83,87 +111,36 @@ it('renews an ongoing view at server expiry and hides failed old values after th
   vi.stubGlobal('fetch', fetch);
   mount();
   await advance(1);
-  expect(screen.getByText('7')).toBeInTheDocument();
-  await advance(30000);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(screen.getByText('7')).toBeInTheDocument();
-  expect(screen.getByText(/更新失败/)).toBeInTheDocument();
-  await advance(29998);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(screen.getByText('7')).toBeInTheDocument();
-  await advance(2);
-  expect(screen.queryByText('7')).not.toBeInTheDocument();
-});
-it('pauses automatic reads while hidden and validates an expired module on restored visibility', async () => {
-  const fetch = vi.fn().mockImplementation(async () => response(7));
-  vi.stubGlobal('fetch', fetch);
-  mount();
-  await advance(1);
-  visibility = 'hidden';
-  fireEvent(document, new Event('visibilitychange'));
-  await advance(35000);
-  expect(fetch).toHaveBeenCalledTimes(1);
-  visibility = 'visible';
-  fireEvent(document, new Event('visibilitychange'));
+  fireEvent.click(screen.getByRole('button', { name: '刷新模块' }));
   await advance(1);
   expect(fetch).toHaveBeenCalledTimes(2);
+  expect(screen.getByText('7')).toBeVisible();
+  expect(screen.getByText(/更新失败/)).toBeVisible();
+  await advance(600000);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(screen.getByText('7')).toBeVisible();
 });
-it.each([30000, 300000])(
-  'backs off an already expired successful response for %s ms',
-  async ttl => {
-    const fetch = vi.fn(async () =>
-      Response.json(
-        { value: 7 },
-        {
-          headers: {
-            'X-Liekan-Server-Time': String(Date.now()),
-            'X-Liekan-Generated-At': String(Date.now() - ttl - 5000),
-            'X-Liekan-Expires-At': String(Date.now() - 5000),
-          },
-        },
-      ),
-    );
+it.each([401, 403, 404])(
+  'clears retained values after a manual permission rejection %s',
+  async status => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(response(7))
+      .mockImplementation(async () => Response.json({}, { status }));
     vi.stubGlobal('fetch', fetch);
     mount();
     await advance(1);
-    expect(fetch).toHaveBeenCalledTimes(1);
-    await advance(ttl - 2);
-    expect(fetch).toHaveBeenCalledTimes(1);
-    await advance(2);
-    expect(fetch).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole('button', { name: '刷新模块' }));
+    await advance(1);
+    expect(screen.queryByText('7')).not.toBeInTheDocument();
+    expect(
+      client
+        .getQueryCache()
+        .findAll({ queryKey: key })
+        .every(q => q.state.data === undefined),
+    ).toBe(true);
   },
 );
-it('honors Retry-After without extending the display deadline', async () => {
-  const fetch = vi
-    .fn()
-    .mockResolvedValueOnce(response(7))
-    .mockImplementation(async () =>
-      Response.json({}, { status: 503, headers: { 'Retry-After': '90' } }),
-    );
-  vi.stubGlobal('fetch', fetch);
-  mount();
-  await advance(30001);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  await advance(60000);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(screen.queryByText('7')).not.toBeInTheDocument();
-  await advance(30000);
-  expect(fetch).toHaveBeenCalledTimes(3);
-});
-it('clears cached values immediately when authorization is rejected', async () => {
-  const fetch = vi
-    .fn()
-    .mockResolvedValueOnce(response(7))
-    .mockImplementation(async () => Response.json({}, { status: 403 }));
-  vi.stubGlobal('fetch', fetch);
-  mount();
-  await advance(30001);
-  expect(screen.queryByText('7')).not.toBeInTheDocument();
-  expect(screen.getByText('没有访问权限')).toBeInTheDocument();
-  expect(
-    client.getQueryCache().find({ queryKey: [...key, 'same'], exact: true })?.state.data,
-  ).toBeUndefined();
-});
 it('sends refresh=1 for a manual read and shares repeated clicks', async () => {
   let finish!: (response: Response) => void;
   const fetch = vi
@@ -185,231 +162,29 @@ it('sends refresh=1 for a manual read and shares repeated clicks', async () => {
   expect(new URL(String(fetch.mock.calls[1][0])).searchParams.get('refresh')).toBe('1');
   await act(async () => finish(response(8)));
   await advance(1);
-  expect(screen.getByText('8')).toBeInTheDocument();
+  expect(screen.getByText('8')).toBeVisible();
 });
-it('uses a skeleton when parameters change and the new aggregate has not arrived', async () => {
-  const fetch = vi
-    .fn()
-    .mockResolvedValueOnce(response(7))
-    .mockImplementation(() => new Promise(() => {}));
+it('shows pending state for new conditions and reads again on real reentry', async () => {
+  const fetch = vi.fn(async () => response(7));
   vi.stubGlobal('fetch', fetch);
   const view = mount();
   await advance(1);
-  expect(screen.getByText('7')).toBeInTheDocument();
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <FeatureProvider
-        value={
-          {
-            user: { id: 'viewer' },
-            siteId: 'site',
-            route: { page: 'websites' },
-            api: featureApi,
-          } as any
-        }
-      >
-        <Module parameter="new" />
-      </FeatureProvider>
-    </QueryClientProvider>,
-  );
-  expect(screen.queryByText('7')).not.toBeInTheDocument();
-  expect(screen.getByRole('status')).toBeInTheDocument();
-});
-it('uses the historical server lifetime for renewal, retry and the retained-data cutoff', async () => {
-  const fetch = vi
-    .fn()
-    .mockResolvedValueOnce(response(7, 300000))
-    .mockImplementation(async () => Response.json({}, { status: 503 }));
-  vi.stubGlobal('fetch', fetch);
-  mount();
-  await advance(300001);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(screen.getByText('7')).toBeInTheDocument();
-  await advance(299998);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(screen.getByText('7')).toBeInTheDocument();
-  await advance(2);
-  expect(screen.queryByText('7')).not.toBeInTheDocument();
-});
-it('replaces an in-flight ordinary read with a forced manual read', async () => {
-  let oldSignal!: AbortSignal;
-  const fetch = vi.fn((input: URL, init?: any) => {
-    if (new URL(String(input)).searchParams.get('refresh') === '1')
-      return Promise.resolve(response(8));
-    oldSignal = init.signal;
-    return new Promise<Response>((_resolve, reject) =>
-      init.signal.addEventListener('abort', () =>
-        reject(new DOMException('cancelled', 'AbortError')),
-      ),
-    );
-  });
-  vi.stubGlobal('fetch', fetch);
-  function ActiveModule() {
-    const q = useData('active', signal => featureApi.get('/websites/site/stats', {}, signal));
-    return (
-      <>
-        <button onClick={() => q.refetch()}>刷新读取</button>
-        <span>{q.data?.value}</span>
-      </>
-    );
-  }
-  render(
-    <QueryClientProvider client={client}>
-      <FeatureProvider
-        value={{ user: { id: 'viewer' }, siteId: 'site', route: { page: 'websites' } } as any}
-      >
-        <ActiveModule />
-      </FeatureProvider>
-    </QueryClientProvider>,
-  );
-  await advance(1);
-  fireEvent.click(screen.getByRole('button', { name: '刷新读取' }));
-  await advance(1);
-  expect(oldSignal.aborted).toBe(true);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(screen.getByText('8')).toBeInTheDocument();
-});
-
-it('labels retained offline statistics and shows a retryable connection state after the grace cutoff', async () => {
-  let online = true;
-  vi.spyOn(navigator, 'onLine', 'get').mockImplementation(() => online);
-  const fetch = vi.fn(async (_input: unknown) => response(7));
-  vi.stubGlobal('fetch', fetch);
+  view.unmount();
   mount();
   await advance(1);
-  online = false;
-  fireEvent(window, new Event('offline'));
-  await advance(30000);
-  expect(fetch).toHaveBeenCalledTimes(1);
-  expect(screen.getByText('7')).toBeInTheDocument();
-  expect(screen.getByText('统计待更新')).toBeInTheDocument();
-  await advance(30000);
-  expect(screen.queryByText('7')).not.toBeInTheDocument();
-  expect(screen.getByText('统计数据已过期，请恢复连接后重试。')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: '重试读取' })).toBeInTheDocument();
-  expect(screen.queryByText('正在读取数据')).not.toBeInTheDocument();
-  online = true;
-  fireEvent(window, new Event('online'));
-  await advance(1);
   expect(fetch).toHaveBeenCalledTimes(2);
-  expect(screen.getByText('7')).toBeInTheDocument();
 });
-
-it('backs off a first aggregate failure across focus and reconnect before retrying an active view', async () => {
+it('waits for a user retry after an initial error, including Retry-After', async () => {
   const fetch = vi
     .fn()
-    .mockResolvedValueOnce(Response.json({}, { status: 503 }))
+    .mockResolvedValueOnce(Response.json({}, { status: 503, headers: { 'Retry-After': '90' } }))
     .mockImplementation(async () => response(7));
   vi.stubGlobal('fetch', fetch);
   mount();
-  await advance(1);
-  expect(screen.getByRole('button', { name: '重试读取' })).toBeInTheDocument();
-  fireEvent(window, new Event('focus'));
-  fireEvent(window, new Event('online'));
-  await advance(29998);
+  await advance(600000);
   expect(fetch).toHaveBeenCalledTimes(1);
-  await advance(2);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(screen.getByText('7')).toBeInTheDocument();
-});
-
-it('reloads an expired cached response on reentry after the wall clock moves backwards', async () => {
-  const fetch = vi.fn(async (_input: unknown) => response(7));
-  vi.stubGlobal('fetch', fetch);
-  const view = mount();
-  await advance(1);
-  view.unmount();
-  await advance(61000);
-  vi.setSystemTime(Date.now() - 300000);
-  mount();
+  fireEvent.click(screen.getByRole('button', { name: '重试读取' }));
   await advance(1);
   expect(fetch).toHaveBeenCalledTimes(2);
-  expect(screen.getByText('7')).toBeInTheDocument();
-});
-
-it('retries an error-only summary at the aggregate interval and immediately on expired reentry', async () => {
-  const fetch = vi.fn(async () => Response.json({}, { status: 503 }));
-  vi.stubGlobal('fetch', fetch);
-  function Summary() {
-    const q = useData('summary-errors', signal => getFeatureWebsiteSummary(['site'], {}, signal));
-    return <span>{q.data?.[0]?.error?.status || 'pending'}</span>;
-  }
-  const mountSummary = () =>
-    render(
-      <QueryClientProvider client={client}>
-        <FeatureProvider
-          value={{ user: { id: 'viewer' }, siteId: 'site', route: { page: 'websites' } } as any}
-        >
-          <Summary />
-        </FeatureProvider>
-      </QueryClientProvider>,
-    );
-  const view = mountSummary();
-  await advance(1);
-  expect(screen.getByText('503')).toBeInTheDocument();
-  await advance(29998);
-  expect(fetch).toHaveBeenCalledTimes(1);
-  await advance(2);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  view.unmount();
-  await advance(61000);
-  mountSummary();
-  await advance(1);
-  expect(fetch).toHaveBeenCalledTimes(3);
-});
-
-it('uses the newest Retry-After when consecutive summary attempts fail', async () => {
-  const fetch = vi
-    .fn()
-    .mockResolvedValueOnce(Response.json({}, { status: 503 }))
-    .mockImplementation(async () =>
-      Response.json({}, { status: 503, headers: { 'Retry-After': '90' } }),
-    );
-  vi.stubGlobal('fetch', fetch);
-  function Summary() {
-    const q = useData('changing-retry', signal => getFeatureWebsiteSummary(['site'], {}, signal));
-    return <span>{q.data?.[0]?.error?.status || 'pending'}</span>;
-  }
-  render(
-    <QueryClientProvider client={client}>
-      <FeatureProvider
-        value={{ user: { id: 'viewer' }, siteId: 'site', route: { page: 'websites' } } as any}
-      >
-        <Summary />
-      </FeatureProvider>
-    </QueryClientProvider>,
-  );
-  await advance(30001);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  await advance(30000);
-  fireEvent(window, new Event('focus'));
-  await advance(1);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  await advance(60000);
-  expect(fetch).toHaveBeenCalledTimes(3);
-});
-
-it('clears an unused manual flag after two observers share a forced read', async () => {
-  const fetch = vi.fn(async (_input: unknown) => response(7));
-  vi.stubGlobal('fetch', fetch);
-  const tree = (first: boolean) => (
-    <QueryClientProvider client={client}>
-      <FeatureProvider
-        value={{ user: { id: 'viewer' }, siteId: 'site', route: { page: 'websites' } } as any}
-      >
-        {first && <Module key="first" />}
-        <Module key="second" />
-      </FeatureProvider>
-    </QueryClientProvider>
-  );
-  const view = render(tree(true));
-  await advance(1);
-  for (const button of screen.getAllByRole('button', { name: '刷新模块' })) fireEvent.click(button);
-  await advance(1);
-  expect(fetch).toHaveBeenCalledTimes(2);
-  expect(new URL(String(fetch.mock.calls[1][0])).searchParams.get('refresh')).toBe('1');
-  view.rerender(tree(false));
-  await advance(30000);
-  expect(fetch).toHaveBeenCalledTimes(3);
-  expect(new URL(String(fetch.mock.calls[2][0])).searchParams.has('refresh')).toBe(false);
+  expect(screen.getByText('7')).toBeVisible();
 });

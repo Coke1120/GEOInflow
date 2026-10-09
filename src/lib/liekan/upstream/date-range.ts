@@ -7,12 +7,13 @@ export function readFeatureDateRange(
   offset: number,
   timezone: string,
   locale = 'zh-CN',
+  readAt = Date.now(),
 ) {
   try {
     if (unit && !['minute', 'hour', 'day', 'week', 'month', 'year'].includes(unit))
       throw new Error('Invalid unit');
     if (!Number.isSafeInteger(offset)) throw new Error('Invalid offset');
-    const parsed = parseDateRange(value, unit, locale, timezone);
+    const parsed = parseDateRange(value, unit, locale, timezone, readAt);
     const dateRange = value.startsWith('range:') ? parsed : getOffsetDateRange(parsed, offset);
     if (
       !dateRange ||
@@ -25,7 +26,7 @@ export function readFeatureDateRange(
     return { dateRange, invalidDate: false };
   } catch {
     return {
-      dateRange: parseDateRange(DEFAULT_DATE_RANGE_VALUE, undefined, locale, timezone),
+      dateRange: parseDateRange(DEFAULT_DATE_RANGE_VALUE, undefined, locale, timezone, readAt),
       invalidDate: true,
     };
   }

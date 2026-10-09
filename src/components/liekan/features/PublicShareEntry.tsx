@@ -17,6 +17,7 @@ function LegacyGate({
 }) {
   const query = useQuery({
     queryKey: ['liekan-legacy-share-gate', slug],
+    meta: { readPurpose: 'authorization' },
     queryFn: ({ signal }) =>
       featureRequest('GET', `/share/${encodeURIComponent(slug)}`, undefined, signal, undefined, ''),
     retry: false,

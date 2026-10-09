@@ -967,11 +967,11 @@ export function LiveStatus({ report, live }: { report?: LiekanReport; live?: boo
         className="text-[11px] text-faint"
         title={
           live
-            ? '滚动最近 30 天，结束时间每 10 秒推进。'
-            : '所选历史范围每 10 秒刷新，结束时间固定。'
+            ? '最近 30 天窗口固定于本次读取；主动刷新时重新计算。'
+            : '所选历史范围保持固定；主动刷新时重新读取。'
         }
       >
-        {loading ? '正在读取' : connected ? (live ? '10s 刷新' : '历史刷新') : '待接入'}
+        {loading ? '正在读取' : connected ? (live ? '本次快照' : '历史快照') : '待接入'}
       </span>
     </>
   );

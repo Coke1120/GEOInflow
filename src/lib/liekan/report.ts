@@ -44,11 +44,7 @@ function stringifySafe(value: unknown): any {
 // page-report 路径始终下发（缺省第 1 页）：客户端据 meta.tablePages 判定服务端模式并经
 // onTablePage 翻页，不下发则客户端只会本地分页，服务端切片永远无法生效；
 // legacy /report 与 share 路径保持显式请求才切，避免破坏既有全量消费方。
-function capTablePages(
-  report: LiekanReport,
-  tablePages: Record<string, number>,
-  always: boolean,
-) {
+function capTablePages(report: LiekanReport, tablePages: Record<string, number>, always: boolean) {
   for (const table of pagableTables) {
     const requested = tablePages[table];
     if (!always && !requested) continue;
@@ -388,7 +384,7 @@ export async function buildReport(
   r.tables.pipeList = [
     {
       name: '日志导入',
-      detail: l.latest ? '导入完成，10 秒刷新查询' : '支持 combined / JSON 单批导入',
+      detail: l.latest ? '导入完成，主动刷新读取' : '支持 combined / JSON 单批导入',
       state: l.latest ? '已接入' : '待接入',
     },
     { name: '身份验证', detail: '6 类官方 IP 范围核验；历史或过期依据保留未核验', state: '已接入' },

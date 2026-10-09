@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import Link from '@/components/liekan/Link';
 import { useEffect, useRef, useState } from 'react';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
 import {

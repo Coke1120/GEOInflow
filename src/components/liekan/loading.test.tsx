@@ -21,7 +21,7 @@ vi.mock('@tanstack/react-query', async importOriginal => ({
   ...(await importOriginal<typeof import('@tanstack/react-query')>()),
   useQueryClient: () => ({
     getQueryData: vi.fn(),
-    getQueryCache: () => ({ find: () => undefined }),
+    getQueryCache: () => ({ find: () => undefined, findAll: () => [] }),
     setQueryData: mocks.setQueryData,
     invalidateQueries: vi.fn().mockResolvedValue(undefined),
   }),

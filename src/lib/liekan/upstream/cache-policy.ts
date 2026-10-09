@@ -24,7 +24,7 @@ export function isAggregateRequest(path: string, params?: Record<string, any>) {
   )
     return false;
   return (
-    /^\/liekan\/websites\/(?:summary$|[^/]+\/(?:page-report|shared-report|analytics|goals\/[^/]+\/analytics)$)/.test(
+    /^\/liekan\/websites\/(?:summary$|[^/]+\/(?:page-report|shared-report|crawler-analysis|analytics|goals\/[^/]+\/analytics)$)/.test(
       path,
     ) ||
     /^\/(?:liekan\/)?websites\/[^/]+\/(?:stats|pageviews|metrics(?:\/expanded)?|events\/(?:series|stats)|utm\/metrics|goals\/(?:stats|[^/]+\/(?:stats|savedstats))|funnels\/(?:stats|[^/]+\/(?:stats|savedstats))|retention|journeys|attribution|breakdown|heatmaps(?:\/[^/]+)?|(?:performance|revenue)\/(?:stats|chart|metrics))$/.test(

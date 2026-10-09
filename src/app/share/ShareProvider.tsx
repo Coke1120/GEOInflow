@@ -1,5 +1,11 @@
 'use client';
 import { Loading } from '@umami/react-zen';
+import {
+  ManualAuthorizationBoundary,
+  useManualRefresh,
+} from '@/lib/liekan/contracts/manual-refresh';
+import { ManualRefreshControl } from '@/components/liekan/ManualRefreshControl';
+import { nativeShareScope } from '@/lib/liekan/upstream/native-client';
 import { usePathname, useRouter } from 'next/navigation';
 import { createContext, type ReactNode, useCallback, useEffect, useReducer, useRef } from 'react';
 import { useShareTokenQuery } from '@/components/hooks';
@@ -57,6 +63,8 @@ function getSharePath(pathname: string) {
 
 export function ShareProvider({ slug, children }: { slug: string; children: ReactNode }) {
   const query = useShareTokenQuery(slug);
+  const reading = useManualRefresh();
+  const snapshotScope = useRef<{ slug: string; scope: string; changedAt?: string }>(null);
   const { share, isLoading, isFetching } = query;
   const [revision, tick] = useReducer(value => value + 1, 0);
   const initialAuthorization = () => ({
@@ -183,10 +191,21 @@ export function ShareProvider({ slug, children }: { slug: string; children: Reac
     };
   }, [slug]);
 
+  const resourceScope = share?.token ? nativeShareScope(share) : undefined;
+  const round = `${reading?.page.token}:${reading?.page.round}`;
+  if (resourceScope && snapshotScope.current?.scope !== resourceScope) {
+    snapshotScope.current = {
+      slug,
+      scope: resourceScope,
+      changedAt: snapshotScope.current?.slug === slug ? round : undefined,
+    };
+  }
+  const changedScope = snapshotScope.current?.changedAt === round;
   const restricted = [401, 403, 404].includes((query.error as any)?.status);
   const offline = navigator.onLine === false;
   if (
     (!isAuthorized || !isShareReady) &&
+    (!share?.token || restricted) &&
     !isFetching &&
     (query.error || offline || (!share?.token && !isLoading))
   ) {
@@ -212,13 +231,39 @@ export function ShareProvider({ slug, children }: { slug: string; children: Reac
     );
   }
 
-  if ((isFetching && isLoading) || (share && (!isShareReady || !isAuthorized))) {
+  if ((isFetching && isLoading) || (!share?.token && !isAuthorized)) {
     return <Loading placement="absolute" />;
   }
 
-  if (!share || !isShareReady || !isAuthorized || shouldRedirect) {
+  if (!share || shouldRedirect) {
     return null;
   }
 
-  return <ShareContext.Provider value={{ ...share, slug }}>{children}</ShareContext.Provider>;
+  const authorized = isAuthorized && isShareReady && !changedScope;
+  return (
+    <ShareContext.Provider value={{ ...share, slug }}>
+      <ManualRefreshControl beforeRefresh={() => query.refetch({ throwOnError: true })} />
+      {!authorized && (
+        <div role={query.error && !isFetching ? 'alert' : 'status'}>
+          {changedScope
+            ? '分享范围已变更，请刷新读取。'
+            : query.error && !isFetching
+              ? '分享权限验证失败，请重试。'
+              : '正在核验分享权限。'}
+          {query.error && !isFetching && (
+            <button
+              type="button"
+              disabled={authorization.current.serverRetryAt > monotonicNow()}
+              onClick={() => validate(true)}
+            >
+              重试
+            </button>
+          )}
+        </div>
+      )}
+      <ManualAuthorizationBoundary authorized={authorized}>
+        <div hidden={!authorized}>{children}</div>
+      </ManualAuthorizationBoundary>
+    </ShareContext.Provider>
+  );
 }

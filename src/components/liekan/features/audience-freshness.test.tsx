@@ -27,7 +27,7 @@ const advance = (time: number) =>
     await vi.advanceTimersByTimeAsync(time);
   });
 it.each(['segment', 'cohort'])(
-  'renews visible %s row statistics, pauses while hidden and bounds retained failed rows',
+  'retains %s row statistics during idle, visibility and network recovery',
   async type => {
     let rowReads = 0;
     let failing = false;
@@ -83,22 +83,16 @@ it.each(['segment', 'cohort'])(
     );
     await advance(1);
     expect(screen.getByText('7')).toBeInTheDocument();
-    await advance(30000);
-    expect(rowReads).toBe(2);
-    expect(screen.getByText('8')).toBeInTheDocument();
+    await advance(600000);
     visibility = 'hidden';
     fireEvent(document, new Event('visibilitychange'));
     await advance(35000);
-    expect(rowReads).toBe(2);
     failing = true;
     visibility = 'visible';
     fireEvent(document, new Event('visibilitychange'));
+    fireEvent(window, new Event('online'));
     await advance(1);
-    expect(rowReads).toBe(3);
-    expect(screen.getByText('8')).toBeInTheDocument();
-    expect(screen.getByText(/更新失败/)).toBeInTheDocument();
-    await advance(25000);
-    expect(screen.queryByText('8')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '重试读取' })).toBeInTheDocument();
+    expect(rowReads).toBe(1);
+    expect(screen.getByText('7')).toBeVisible();
   },
 );

@@ -87,10 +87,11 @@ cp.spawnSync=(command,args,options={})=>{
   fs.writeSync(options.stdio[1],JSON.stringify({passed:true,sourceHash:'a'.repeat(64),checks:Array.from({length:8},(_,i)=>'fixture '+i),readOnly:true,fixture:'synthetic-relations'})+'\\n');
  }
  if(args.includes('playwright.api.config.ts')){if(options.env.PLAYWRIGHT_BASE_URL!==baseUrl)throw Error('API origin mismatch');const coverage='tests/api/.runtime/'+new URL(baseUrl).host.replace(/[^a-z0-9.-]+/gi,'-')+'/coverage';fs.mkdirSync(coverage,{recursive:true});fs.writeFileSync(coverage+'/summary.json','{}');}
- if(args.some(arg=>['scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-ai-home-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
+ if(args.some(arg=>['scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-manual-refresh.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-ai-home-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:14},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:66*4},()=>({passed:true})),mobile:{head:fault==='mobile-visual-head'?'other':head,passed:fault!=='mobile-visual-failed',checks:fault==='mobile-visual-count'?1:77*4*2}}));}
+ if(args.includes('scripts/liekan-manual-refresh.mjs')){if(fault==='manual-refresh-failed')return {status:1};fs.mkdirSync('test-results/liekan-manual-refresh',{recursive:true});fs.writeFileSync('test-results/liekan-manual-refresh/report.json',JSON.stringify({passed:fault!=='manual-refresh-passed',finalized:fault!=='manual-refresh-finalized',head:fault==='manual-refresh-head'?'other':head,featureIds:Array.from({length:fault==='manual-refresh-count'?1:68},(_,i)=>'feature-'+i),realIdle:Array.from({length:fault==='manual-refresh-idle'?1:4},()=>({idleDelta:0})),cachedHistory:{passed:fault!=='manual-refresh-cached-history'},errors:[]}));}
  if(args.includes('scripts/liekan-ai-visual.mjs')){if(fault==='ai-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai',{recursive:true});fs.writeFileSync('test-results/liekan-ai/report.json',JSON.stringify({passed:true,head:fault==='ai-visual-head'?'other':head,checks:Array.from({length:fault==='ai-visual-count'?1:8},()=>({passed:fault!=='ai-visual-check'})),errors:fault==='ai-visual-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-ai-home-visual.mjs')){if(fault==='ai-home-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai-home-v3',{recursive:true});const widths=fault==='ai-home-empty'?[]:fault==='ai-home-count'?[1440]:fault==='ai-home-extra'?[1440,1280,375,320,500]:[1440,1280,375,320];fs.writeFileSync('test-results/liekan-ai-home-v3/report.json',JSON.stringify({passed:fault!=='ai-home-passed',head:fault==='ai-home-head'?'other':head,checks:widths.map(width=>({width,focus:true,reference:true,keyboard:true,overflow:0})),errors:fault==='ai-home-errors'?['fixture error']:[]}));}
 
@@ -267,6 +268,13 @@ describe('isolated acceptance CLI failure paths', () => {
     'feature-visual-failed',
     'feature-visual-head',
     'feature-visual-count',
+    'manual-refresh-failed',
+    'manual-refresh-passed',
+    'manual-refresh-finalized',
+    'manual-refresh-head',
+    'manual-refresh-count',
+    'manual-refresh-idle',
+    'manual-refresh-cached-history',
     'mobile-visual-head',
     'mobile-visual-count',
     'mobile-visual-failed',

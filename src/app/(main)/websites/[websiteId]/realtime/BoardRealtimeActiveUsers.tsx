@@ -1,12 +1,11 @@
 import { Column, Text } from '@umami/react-zen';
 import { LoadingPanel } from '@/components/common/LoadingPanel';
 import { useActiveUsersQuery, useMessages } from '@/components/hooks';
-import { REALTIME_INTERVAL } from '@/lib/constants';
 
 export function BoardRealtimeActiveUsers({ websiteId }: { websiteId: string }) {
   const { t, labels } = useMessages();
   const { data, isLoading, error } = useActiveUsersQuery(websiteId, {
-    refetchInterval: REALTIME_INTERVAL,
+    refetchInterval: false,
   });
   const count = data?.visitors ?? 0;
 

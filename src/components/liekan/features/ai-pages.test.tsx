@@ -5,6 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AiPages } from './AiPages';
 import { featureHref } from './routes';
 import { AiClientError } from '@/lib/liekan/upstream/ai-client';
+import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
+import { ManualRefreshControl } from '../ManualRefreshControl';
+import { setTestUrl } from '@/test/navigation';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const siteId = '22222222-2222-4222-8222-222222222222';
@@ -1589,26 +1592,199 @@ it('loads a further bounded catalog page and keeps its website and team availabl
   expect(mocks.stream).not.toHaveBeenCalled();
 });
 
-it('keeps an active site task when its delayed URL confirmation arrives', async () => {
+it('keeps an active answer and its next draft while refreshing a selected website from a later catalog batch', async () => {
   const user = userEvent.setup();
-  const ui = twoSiteChat();
-  expect(await screen.findByText('site A conversation')).toBeInTheDocument();
-  await user.selectOptions(screen.getByLabelText('分析网站'), nextSiteId);
-  await waitFor(() => expect(screen.getByLabelText('分析网站')).toHaveValue(nextSiteId));
-  let finish!: (run: any) => void;
-  const pending = new Promise<any>(resolve => {
-    finish = resolve;
+  const teamId = '88888888-8888-4888-8888-888888888888';
+  const teamSiteId = '99999999-9999-4999-8999-999999999999';
+  const first = { ...catalog(), nextOffset: 100 };
+  const second = {
+    ...catalog(),
+    nextOffset: null,
+    spaces: [{ kind: 'team', id: teamId, name: '分页团队', canManage: true, canUse: true }],
+    websites: [
+      {
+        id: teamSiteId,
+        name: '第101个网站',
+        domain: 'page.example',
+        space: { kind: 'team', id: teamId },
+      },
+    ],
+  };
+  let selectedLookup = false;
+  let selectedReads = 0;
+  let resolveSelected!: (value: any) => void;
+  mocks.catalog.mockImplementation((_signal, selection) => {
+    if (selection.websiteId) {
+      if (++selectedReads === 1) return Promise.resolve(second);
+      selectedLookup = true;
+      return new Promise(resolve => {
+        resolveSelected = resolve;
+      });
+    }
+    return Promise.resolve(selection.offset === 100 ? second : first);
   });
-  mocks.stream.mockReturnValue(pending);
-  await user.type(screen.getByLabelText('分析问题'), 'active site B analysis');
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  mocks.createConversation.mockResolvedValue({ id: conversationId, websiteId: teamSiteId });
+  mocks.conversation.mockResolvedValue({ id: conversationId, websiteId: teamSiteId });
+  let signal!: AbortSignal, finish!: (run: any) => void;
+  mocks.stream.mockImplementation((_path, _body, streamSignal, event) => {
+    signal = streamSignal;
+    event({ type: 'started', runId });
+    event({ type: 'stage', runId, data: { stage: 'calling' } });
+    return new Promise(resolve => {
+      finish = resolve;
+    });
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const tree = () => (
+    <QueryClientProvider client={client}>
+      <ManualRefreshProvider>
+        <ManualRefreshControl />
+        <AiPages page="ai-chat" />
+      </ManualRefreshProvider>
+    </QueryClientProvider>
+  );
+  const view = render(tree());
+  await user.click(await screen.findByRole('button', { name: '加载更多网站与空间' }));
+  await screen.findByRole('option', { name: '第101个网站' });
+  await user.selectOptions(screen.getByLabelText('分析网站'), teamSiteId);
+  mocks.context.query = { aiSite: teamSiteId };
+  view.rerender(tree());
+  await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
+  await user.type(await screen.findByLabelText('分析问题'), '分析分页网站');
   await user.click(screen.getByRole('button', { name: '发起分析' }));
-  await waitFor(() => expect(mocks.stream).toHaveBeenCalled());
-  mocks.catalog.mockReturnValue(new Promise(() => {}));
-  ui.route('', nextSiteId);
-  expect(screen.getByLabelText('分析网站')).toHaveValue(nextSiteId);
+  await screen.findByText('正在分析网站数据');
+  await user.type(screen.getByLabelText('分析问题'), '继续核查页面');
+  await user.click(screen.getByRole('button', { name: '刷新' }));
+  await waitFor(() => expect(selectedLookup).toBe(true));
+  expect(signal.aborted).toBe(false);
+  expect(screen.getByLabelText('分析问题')).toHaveValue('继续核查页面');
+  expect(screen.getByText('正在分析网站数据')).toBeInTheDocument();
   expect(mocks.cancel).not.toHaveBeenCalled();
+  await act(async () => resolveSelected(second));
   await act(async () => finish(completed({ result: answer })));
+  expect(screen.getByLabelText('分析问题')).toHaveValue('继续核查页面');
+  expect(mocks.stream).toHaveBeenCalledTimes(1);
+  view.unmount();
+  client.clear();
+});
+
+it('keeps the first answer active when its newly created conversation synchronizes the real URL', async () => {
+  const user = userEvent.setup();
+  mocks.context.query = { aiSite: siteId };
+  setTestUrl(`/liekan/ai-chat?aiSite=${siteId}`);
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  let signal!: AbortSignal, finish!: (run: any) => void;
+  mocks.stream.mockImplementation((_path, _body, streamSignal, event) => {
+    signal = streamSignal;
+    event({ type: 'started', runId });
+    event({ type: 'stage', runId, data: { stage: 'calling' } });
+    return new Promise(resolve => {
+      finish = resolve;
+    });
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const tree = () => (
+    <QueryClientProvider client={client}>
+      <ManualRefreshProvider>
+        <AiPages page="ai-chat" />
+      </ManualRefreshProvider>
+    </QueryClientProvider>
+  );
+  const view = render(tree());
+  mocks.context.navigate.mockImplementation((_page, query) => {
+    mocks.context.query = query;
+    setTestUrl(`/liekan/ai-chat?${new URLSearchParams(query)}`);
+    queueMicrotask(() => view.rerender(tree()));
+  });
+  await user.type(await screen.findByLabelText('分析问题'), '分析首次对话');
+  await user.click(screen.getByRole('button', { name: '发起分析' }));
+  await waitFor(() => expect(mocks.stream).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(mocks.context.query.aiConversation).toBe(conversationId));
+  expect(signal.aborted).toBe(false);
   expect(mocks.cancel).not.toHaveBeenCalled();
+  expect(mocks.catalog).toHaveBeenCalledTimes(1);
+  await user.type(screen.getByLabelText('分析问题'), '下一条草稿');
+  await act(async () => finish(completed({ result: answer })));
+  expect(screen.getByLabelText('分析问题')).toHaveValue('下一条草稿');
+  view.unmount();
+  client.clear();
+  mocks.context.navigate.mockReset();
+});
+
+it('reads A again after a site return and keeps an active B answer through delayed real URL acknowledgment', async () => {
+  const user = userEvent.setup();
+  const data = catalog();
+  data.websites.push({ ...data.websites[0], id: nextSiteId, name: '网站 B' });
+  mocks.catalog.mockResolvedValue(data);
+  mocks.context.query = { aiSite: siteId };
+  setTestUrl(`/liekan/ai-chat?aiSite=${siteId}`);
+  mocks.connections.mockResolvedValue({ items: [connection()] });
+  mocks.createConversation.mockResolvedValue({ id: nextConversationId, websiteId: nextSiteId });
+  mocks.conversation.mockImplementation(async value => ({ id: value, websiteId: nextSiteId }));
+  let signal!: AbortSignal, finish!: (run: any) => void;
+  mocks.stream.mockImplementation((_path, _body, streamSignal, event) => {
+    signal = streamSignal;
+    event({ type: 'started', runId });
+    event({ type: 'stage', runId, data: { stage: 'calling' } });
+    return new Promise(resolve => {
+      finish = resolve;
+    });
+  });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const tree = () => (
+    <QueryClientProvider client={client}>
+      <ManualRefreshProvider>
+        <ManualRefreshControl />
+        <AiPages page="ai-chat" />
+      </ManualRefreshProvider>
+    </QueryClientProvider>
+  );
+  const view = render(tree());
+  const acknowledge = (query: Record<string, string>) => {
+    mocks.context.query = query;
+    setTestUrl(`/liekan/ai-chat?${new URLSearchParams(query)}`);
+    view.rerender(tree());
+  };
+  await screen.findByLabelText('分析问题');
+  await waitFor(() => expect(mocks.conversations).toHaveBeenCalledTimes(1));
+  await user.selectOptions(screen.getByLabelText('分析网站'), nextSiteId);
+  await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
+  await user.type(screen.getByLabelText('分析问题'), '网站 B 的分析');
+  await user.click(screen.getByRole('button', { name: '发起分析' }));
+  await screen.findByText('正在分析网站数据');
+  await user.type(screen.getByLabelText('分析问题'), '下一条草稿');
+  const catalogReads = mocks.catalog.mock.calls.length;
+  acknowledge({ aiSite: nextSiteId, aiConversation: nextConversationId });
+  expect(signal.aborted).toBe(false);
+  expect(mocks.cancel).not.toHaveBeenCalled();
+  expect(mocks.catalog).toHaveBeenCalledTimes(catalogReads);
+  expect(screen.getByLabelText('分析问题')).toHaveValue('下一条草稿');
+  await act(async () => finish(completed({ result: answer })));
+  const histories = mocks.conversations.mock.calls.filter(call => call[0] === siteId).length;
+  const connections = mocks.connections.mock.calls.length;
+  await user.selectOptions(screen.getByLabelText('分析网站'), siteId);
+  acknowledge({ aiSite: siteId });
+  await waitFor(() =>
+    expect(mocks.conversations.mock.calls.filter(call => call[0] === siteId)).toHaveLength(
+      histories + 1,
+    ),
+  );
+  expect(mocks.connections.mock.calls.length).toBeGreaterThan(connections);
+  await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
+  acknowledge({ aiSite: nextSiteId });
+  await waitFor(() => expect(screen.getByLabelText('分析网站')).toHaveValue(nextSiteId));
+  await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
+  const routeReturnReads = mocks.conversations.mock.calls.filter(call => call[0] === siteId).length;
+  acknowledge({ aiSite: siteId });
+  await waitFor(() =>
+    expect(mocks.conversations.mock.calls.filter(call => call[0] === siteId)).toHaveLength(
+      routeReturnReads + 1,
+    ),
+  );
+  expect(screen.getByLabelText('分析网站')).toHaveValue(siteId);
+  view.unmount();
+  client.clear();
 });
 
 it('does not let an old test cancellation close a new space test dialog', async () => {

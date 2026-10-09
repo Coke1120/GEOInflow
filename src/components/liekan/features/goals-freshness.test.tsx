@@ -1,8 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, render, screen, fireEvent } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { featureApi } from '@/lib/liekan/upstream/features-client';
 import { FeatureProvider } from './context';
+import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
+import { ManualRefreshControl } from '../ManualRefreshControl';
 import { CorePages } from './CorePages';
 
 vi.mock('next/link', () => ({
@@ -19,7 +21,7 @@ const advance = (ms: number) =>
     await vi.advanceTimersByTimeAsync(ms);
   });
 
-it('retries failed goal analytics on the aggregate interval and on reentry without rereading definitions', async () => {
+it('waits for a new entry to reload failed goal analytics and definitions', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-05T00:00:00Z'));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -70,15 +72,125 @@ it('retries failed goal analytics on the aggregate interval and on reentry witho
     await advance(29998);
     expect(analytics).toBe(1);
     await advance(2);
-    expect(analytics).toBe(2);
+    expect(analytics).toBe(1);
     view.unmount();
     await advance(31000);
     const next = mount();
     await advance(1);
-    expect(analytics).toBe(3);
-    expect(definitions).toBe(1);
+    expect(analytics).toBe(2);
+    expect(definitions).toBe(2);
     next.unmount();
   } finally {
     client.clear();
   }
+});
+
+it('keeps goal conversions after a failed manual batch and reports partial failure', async () => {
+  vi.useFakeTimers();
+  let fail = false;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: URL) => {
+      if (new URL(String(input)).pathname.endsWith('/goals'))
+        return Response.json({
+          data: [{ id: 'goal', name: '报名', parameters: { type: 'event', value: 'submit' } }],
+          count: 1,
+        });
+      return fail
+        ? Response.json({}, { status: 503 })
+        : Response.json({ conversions: 7, num: 7, total: 10, series: [] });
+    }),
+  );
+  const value = {
+    user: { id: 'viewer' },
+    siteId: 'site',
+    site: { id: 'site', userId: 'owner' },
+    route: { page: 'goals' },
+    api: featureApi,
+    query: {},
+    filters: {},
+    teams: [],
+    range: { startAt: 0, endAt: 1000, timezone: 'UTC' },
+    href: () => '/edit',
+  } as any;
+  render(
+    <QueryClientProvider client={client}>
+      <ManualRefreshProvider>
+        <FeatureProvider value={value}>
+          <ManualRefreshControl />
+          <CorePages page="goals" />
+        </FeatureProvider>
+      </ManualRefreshProvider>
+    </QueryClientProvider>,
+  );
+  await advance(50);
+  expect(screen.getAllByText('7')).toHaveLength(2);
+  fail = true;
+  fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+  await advance(30);
+  await advance(30);
+  await advance(30);
+  expect(screen.getAllByText('7')).toHaveLength(2);
+  expect(screen.getByText(/部分数据读取失败/)).toBeInTheDocument();
+  fail = false;
+  fireEvent.click(screen.getByRole('button', { name: '重试读取' }));
+  await advance(30);
+  await advance(30);
+  expect(screen.queryByText(/部分数据读取失败/)).not.toBeInTheDocument();
+  client.clear();
+});
+it('updates successful goals and retains the failed goal in the same batch', async () => {
+  vi.useFakeTimers();
+  let fail = false;
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: URL) => {
+      const path = new URL(String(input)).pathname;
+      if (path.endsWith('/goals'))
+        return Response.json({
+          data: ['a', 'b'].map(id => ({
+            id,
+            name: id === 'a' ? '成功目标' : '失败目标',
+            parameters: { type: 'event', value: id },
+          })),
+          count: 2,
+        });
+      if (fail && path.includes('/goals/b/')) return Response.json({}, { status: 503 });
+      return Response.json({ conversions: fail ? 11 : 7, num: 7, total: 10, series: [] });
+    }),
+  );
+  const value = {
+    user: { id: 'viewer' },
+    siteId: 'site',
+    site: { id: 'site', userId: 'owner' },
+    route: { page: 'goals' },
+    api: featureApi,
+    query: {},
+    filters: {},
+    teams: [],
+    range: { startAt: 0, endAt: 1000, timezone: 'UTC' },
+    href: () => '/edit',
+  } as any;
+  render(
+    <QueryClientProvider client={client}>
+      <ManualRefreshProvider>
+        <FeatureProvider value={value}>
+          <ManualRefreshControl />
+          <CorePages page="goals" />
+        </FeatureProvider>
+      </ManualRefreshProvider>
+    </QueryClientProvider>,
+  );
+  await advance(50);
+  fail = true;
+  fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+  await advance(30);
+  await advance(30);
+  await advance(30);
+  expect(screen.getByRole('row', { name: /失败目标/ })).toHaveTextContent('7');
+  expect(screen.getByRole('row', { name: /成功目标/ })).toHaveTextContent('11');
+  expect(screen.getByText(/部分数据读取失败/)).toBeInTheDocument();
+  client.clear();
 });

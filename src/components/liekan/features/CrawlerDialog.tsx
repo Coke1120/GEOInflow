@@ -1,7 +1,9 @@
 'use client';
+import { useTaskPolling } from '@/lib/liekan/contracts/manual-refresh';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { CrawlerAnalysisResponse } from '@/lib/liekan/contracts/crawler-analysis';
 import { featureRequest } from '@/lib/liekan/upstream/features-client';
+import { withClientFreshness } from '@/lib/liekan/upstream/client-freshness';
 import { crawlerPathSchema } from '@/lib/liekan/contracts/crawlers';
 import { downloadFile } from '../data';
 import { Badge, Button, Definition, LiekanDialog, Notice, Select, Table, Tabs } from './ui';
@@ -82,6 +84,7 @@ export function CrawlerDialog({
     [status, setStatus] = useState(''),
     [domain, setDomain] = useState<any>(null),
     [checks, setChecks] = useState<any[]>([]),
+    [followingCheck, setFollowingCheck] = useState(''),
     [paths, setPaths] = useState('/'),
     [busy, setBusy] = useState(false),
     [fragment, setFragment] = useState(''),
@@ -107,7 +110,17 @@ export function CrawlerDialog({
       endAt,
       timezone: range?.timezone || 'Asia/Shanghai',
     };
-    featureRequest<CrawlerAnalysisResponse>('GET', `${base}/crawler-analysis`, params, abort.signal)
+    withClientFreshness(
+      abort.signal,
+      () =>
+        featureRequest<CrawlerAnalysisResponse>(
+          'GET',
+          `${base}/crawler-analysis`,
+          params,
+          abort.signal,
+        ),
+      { refresh: version > 0 },
+    )
       .then(result => {
         if (abort.signal.aborted) return;
         setData(result);
@@ -121,14 +134,31 @@ export function CrawlerDialog({
         );
       })
       .catch(error => {
-        if (!abort.signal.aborted) setError(error.message || '归因分析读取失败');
+        if (abort.signal.aborted) return;
+        if ([401, 403, 404].includes(error.status)) {
+          setData(null);
+          setCritical('');
+          setCriticalDirty(false);
+          criticalDirtyRef.current = false;
+          setDomain(null);
+          setChecks([]);
+          setFollowingCheck('');
+          setFragment('');
+        }
+        setError(error.message || '归因分析读取失败');
       })
       .finally(() => {
         if (!abort.signal.aborted) setLoading(false);
       });
     return () => abort.abort();
   }, [websiteId, range?.startAt, range?.endAt, range?.timezone, version]);
-  const reload = () => setVersion(value => value + 1);
+  const reload = () => {
+    if (criticalDirtyRef.current) {
+      setStatus('请先保存关键路径输入，再重新读取。');
+      return;
+    }
+    setVersion(value => value + 1);
+  };
   async function run(work: () => Promise<void>) {
     setBusy(true);
     setStatus('');
@@ -153,6 +183,10 @@ export function CrawlerDialog({
         : {}),
     }));
     setChecks(history);
+    setFollowingCheck(
+      current =>
+        current || history.find(row => ['queued', 'running'].includes(row.state))?.id || '',
+    );
   }
   useEffect(() => {
     if (tab !== 'checks') return;
@@ -163,13 +197,33 @@ export function CrawlerDialog({
         if (live) setStatus(error.message);
       });
     void read();
-    const timer = setInterval(() => void read(), 10000);
     return () => {
       live = false;
       abort.abort();
-      clearInterval(timer);
     };
   }, [tab, websiteId]);
+  const follow = useTaskPolling(
+    `${websiteId}:${followingCheck}`,
+    tab === 'checks' &&
+      !!followingCheck &&
+      checks.some(row => row.id === followingCheck && ['queued', 'running'].includes(row.state)),
+    async signal => {
+      const history = await featureRequest<any[]>(
+        'GET',
+        `${base}/crawler-checks`,
+        undefined,
+        signal,
+      );
+      if (signal.aborted) return;
+      setChecks(history);
+      if (
+        !history.some(row => row.id === followingCheck && ['queued', 'running'].includes(row.state))
+      )
+        setFollowingCheck('');
+    },
+    10000,
+  );
+
   const bot = data?.directory.find(bot => bot.id === botId),
     metrics = data?.bots.filter(row => row.botId === botId) || [],
     pages = data?.pages.filter(row => row.botId === botId) || [],
@@ -199,6 +253,12 @@ export function CrawlerDialog({
           ['control', '访问策略与导出'],
         ]}
       />
+      <div className="row between">
+        <span className="muted">归因与风险按本次读取展示</span>
+        <Button disabled={loading || busy} onClick={reload}>
+          重新读取归因与风险
+        </Button>
+      </div>
       {loading && <Notice>正在读取蜘蛛归因数据</Notice>}
       {error && (
         <Notice tone="red">
@@ -515,15 +575,28 @@ export function CrawlerDialog({
                 disabled={busy || !data.permissions.canDraft || !domain?.verifiedAt}
                 onClick={() =>
                   run(async () => {
-                    await featureRequest('POST', `${base}/crawler-checks`, {
-                      paths: selectors().map(row => row.value),
-                    });
+                    const created = await featureRequest<{ id: string }>(
+                      'POST',
+                      `${base}/crawler-checks`,
+                      {
+                        paths: selectors().map(row => row.value),
+                      },
+                    );
+                    setFollowingCheck(created.id);
                     setStatus('检查已排队，可在下方查看结果。');
                     await diagnostics();
                   })
                 }
               >
                 检查公开页面
+              </Button>
+              <Button
+                onClick={async () => {
+                  await diagnostics();
+                  follow.resume();
+                }}
+              >
+                {follow.expired ? '回查检查结果' : '重新读取检查状态'}
               </Button>
               <Table
                 columns={['创建时间', '状态', '结果']}

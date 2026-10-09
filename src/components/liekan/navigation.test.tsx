@@ -542,7 +542,7 @@ describe('website navigation transitions', () => {
   });
 });
 
-it('prefetches after 200 ms of hover or one immediate focus and tags the read as speculative', async () => {
+it('does not prefetch statistics on hover or keyboard focus', async () => {
   vi.useFakeTimers();
   mocks.prefetch.mockClear();
   mocks.get.mockClear();
@@ -558,48 +558,12 @@ it('prefetches after 200 ms of hover or one immediate focus and tags the read as
     );
     const link = screen.getByRole('link', { name: '访客总览' });
     fireEvent.mouseEnter(link);
-    await act(async () => vi.advanceTimersByTimeAsync(199));
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    fireEvent.focus(link);
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(mocks.prefetch).not.toHaveBeenCalled();
-    await act(async () => vi.advanceTimersByTimeAsync(1));
-    expect(mocks.prefetch).toHaveBeenCalledTimes(1);
-    const options = mocks.prefetch.mock.calls[0][0];
-    const signal = new AbortController().signal;
-    await options.queryFn({ signal });
-    expect(mocks.get.mock.calls[0][3]).toEqual({ priority: 'prefetch' });
-    fireEvent.focus(link);
-    await act(async () => vi.advanceTimersByTimeAsync(0));
-    expect(mocks.prefetch).toHaveBeenCalledTimes(2);
+    expect(mocks.get).not.toHaveBeenCalled();
   } finally {
-    vi.useRealTimers();
-  }
-});
-
-it('cancels begun speculative reads on leaving, blurring and switching websites using inactive queries only', async () => {
-  vi.useFakeTimers();
-  mocks.cancel.mockClear();
-  mocks.prefetch.mockImplementation(() => new Promise(() => {}));
-  const props = { user: { id: 'user', username: 'admin' } as any, width: 228, onWidth: vi.fn() };
-  try {
-    const view = render(
-      <Navigation {...props} route={{ page: 'overview', websiteId: 'site-a' }} />,
-    );
-    const link = screen.getByRole('link', { name: '访客总览' });
-    fireEvent.mouseEnter(link);
-    await act(async () => vi.advanceTimersByTimeAsync(200));
-    fireEvent.mouseLeave(link);
-    expect(mocks.cancel).toHaveBeenCalledWith(
-      expect.objectContaining({ exact: true, type: 'inactive' }),
-    );
-    fireEvent.focus(link);
-    await act(async () => vi.advanceTimersByTimeAsync(0));
-    fireEvent.blur(link);
-    expect(mocks.cancel).toHaveBeenCalledTimes(2);
-    fireEvent.mouseEnter(link);
-    await act(async () => vi.advanceTimersByTimeAsync(200));
-    view.rerender(<Navigation {...props} route={{ page: 'overview', websiteId: 'site-b' }} />);
-    expect(mocks.cancel).toHaveBeenCalledTimes(3);
-  } finally {
-    mocks.prefetch.mockImplementation(() => Promise.resolve());
     vi.useRealTimers();
   }
 });

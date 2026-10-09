@@ -1,5 +1,5 @@
 'use client';
-import Link from 'next/link';
+import Link from '@/components/liekan/Link';
 import { useEffect, useRef, useState } from 'react';
 import { duration, percentage } from '@/lib/liekan/contracts/analysis';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';

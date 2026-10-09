@@ -1428,3 +1428,13 @@ it('reports the username as saved when the subsequent identity refresh fails', a
   expect(mocks.post).toHaveBeenCalledWith('/users/user-1', { username: 'saved-owner' });
   expect(mocks.context.notify).toHaveBeenCalledWith('用户名已保存，页面状态刷新失败，请重新读取。');
 });
+it('displays the current account profile response while keeping another identity out', () => {
+  mocks.query['account-profile'] = {
+    user: { ...mocks.context.user, username: 'updated-account', role: 'view-only' },
+  };
+  const view = render(<CorePages page="account" />);
+  expect(screen.getByText('updated-account')).toBeVisible();
+  mocks.query['account-profile'] = { user: { id: 'other', username: 'another-account' } };
+  view.rerender(<CorePages page="account" />);
+  expect(screen.queryByText('another-account')).not.toBeInTheDocument();
+});

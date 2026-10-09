@@ -6,7 +6,7 @@ import { useActiveUsersQuery, useMessages } from '@/components/hooks';
 export function ActiveUsers({
   websiteId,
   value,
-  refetchInterval = 60000,
+  refetchInterval = 0,
   allowLink = true,
 }: {
   websiteId: string;
@@ -15,7 +15,7 @@ export function ActiveUsers({
   allowLink?: boolean;
 }) {
   const { t, labels } = useMessages();
-  const { data } = useActiveUsersQuery(websiteId, { refetchInterval });
+  const { data } = useActiveUsersQuery(websiteId, { refetchInterval: false });
 
   const count = useMemo(() => {
     if (websiteId) {

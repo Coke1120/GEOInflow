@@ -1,4 +1,9 @@
 'use client';
+import {
+  ManualAuthorizationBoundary,
+  useManualRefresh,
+} from '@/lib/liekan/contracts/manual-refresh';
+import { ManualRefreshControl } from '../ManualRefreshControl';
 import { useListState } from './listState';
 
 import {
@@ -1994,6 +1999,7 @@ function BoardCanvas({
   const allowed = !request && canManageResource(c?.user, board, c?.teams),
     entries = boardColumns(parameters),
     entity = boardEntity(parameters, board.type);
+  const unsaved = editing && JSON.stringify(parameters) !== JSON.stringify(board.parameters || {});
   const add = (component: WorkspaceComponent, full: boolean, column?: any) => {
     if (column) {
       setParameters(current => {
@@ -2018,7 +2024,7 @@ function BoardCanvas({
   };
   return (
     <>
-      <div className="row between">
+      <div className="row between" data-unsaved={unsaved || undefined}>
         <div>
           <h2>{board.name}</h2>
           <p className="muted">{board.description || '图表顺序与布局宽度均可调整。'}</p>
@@ -2764,7 +2770,11 @@ function PublicStats({
       retry: false,
       gcTime: 600000,
     },
-    { aggregate: data => active !== 'overview' && !data?.configurationOnly, endAt: range.endAt, timezone: range.timezone },
+    {
+      aggregate: data => active !== 'overview' && !data?.configurationOnly,
+      endAt: range.endAt,
+      timezone: range.timezone,
+    },
   );
   if (!id && !share.boardId) return <Notice>分享资源尚未提供统计数据。</Notice>;
   if (active === 'overview' && share.websiteId && !share.boardId && !share.linkId && !share.pixelId)
@@ -2893,11 +2903,13 @@ export function ShareFeatureView({
     deadline: number;
   }>();
   const [presetDays, setPresetDays] = useState<number | null>(30);
-  const rangeNow = useDateRangeClock('Asia/Shanghai', presetDays != null);
-  const [range, setRange] = useState(() => sharedDateRange());
-  useEffect(() => {
-    if (presetDays != null) setRange(sharedDateRange(presetDays));
-  }, [rangeNow, presetDays]);
+  const reading = useManualRefresh();
+  const enteredAt = useDateRangeClock('Asia/Shanghai', presetDays != null);
+  const [selectedAt, setSelectedAt] = useState<{ epoch: string; now: number }>(null);
+  const rangeEpoch = `${reading?.page.token}:${reading?.page.round}`;
+  const rangeNow = selectedAt?.epoch === rangeEpoch ? selectedAt.now : enteredAt;
+  const [customRange, setRange] = useState(() => sharedDateRange(30, rangeNow));
+  const range = presetDays != null ? sharedDateRange(presetDays, rangeNow) : customRange;
   const retryAt = useRef(0);
   const clearPublicQueries = () =>
     client.removeQueries({
@@ -2908,7 +2920,13 @@ export function ShareFeatureView({
           ['board-widget', 'resource-analytics'].includes(String(query.queryKey[1])) &&
           query.queryKey[2] === verification.current.cacheKey),
     });
+  const [scopeChangedAt, setScopeChangedAt] = useState<string>(null);
   const previousScope = useRef('');
+  const scopeSlug = useRef(slug);
+  if (scopeSlug.current !== slug) {
+    previousScope.current = '';
+    scopeSlug.current = slug;
+  }
   const acceptAuthorization = (data: any) => {
     const parameters = Object.fromEntries(
       Object.entries(data.parameters || {}).filter(
@@ -2929,8 +2947,11 @@ export function ShareFeatureView({
       parameters,
     ]);
     const cacheKey = hashKey([slug, scope]);
-    if (previousScope.current && previousScope.current !== cacheKey) clearPublicQueries();
-    previousScope.current = cacheKey;
+    if (data.token && previousScope.current && previousScope.current !== cacheKey) {
+      clearPublicQueries();
+      setScopeChangedAt(`${reading?.page.token}:${reading?.page.round}`);
+    }
+    previousScope.current = data.token ? cacheKey : '';
     verification.current.cacheKey = cacheKey;
     verification.current.token = data.token;
     setAuthorization({
@@ -2941,6 +2962,7 @@ export function ShareFeatureView({
   };
   const q = useQuery({
     queryKey: ['liekan-public-share', slug],
+    meta: { readPurpose: 'authorization' },
     queryFn: async ({ signal }) => {
       const generation = verification.current.generation;
       try {
@@ -3037,20 +3059,26 @@ export function ShareFeatureView({
       window.removeEventListener('online', focus);
     };
   }, [slug, client]);
-  const share =
-      authorization?.slug === slug && authorization.deadline > monotonicNow()
-        ? authorization.data
-        : undefined,
-    allowed = allowedShareSections(share?.parameters),
+  const authorizedShare =
+    authorization?.slug === slug && authorization.deadline > monotonicNow()
+      ? authorization.data
+      : undefined;
+  const retainedShare = useRef<{ slug: string; data: any }>(null);
+  if (authorizedShare) retainedShare.current = { slug, data: authorizedShare };
+  if ([401, 403, 404].includes((q.error as any)?.status)) retainedShare.current = null;
+  const share = retainedShare.current?.slug === slug ? retainedShare.current.data : undefined;
+  const allowed = allowedShareSections(share?.parameters),
     selected = allowed.some(([id]) => id === active) ? active : allowed[0]?.[0];
   const authorizationError =
     q.error ||
-    (!share && navigator.onLine === false ? new Error('分享授权已过期，请恢复连接后重试。') : null);
+    (!authorizedShare && navigator.onLine === false
+      ? new Error('分享授权已过期，请恢复连接后重试。')
+      : null);
   const authorizedQuery = {
     ...q,
-    data: share,
+    data: authorizedShare,
     error: authorizationError,
-    isPending: !share && !authorizationError,
+    isPending: !authorizedShare && !authorizationError,
   };
   const websiteOverview =
     selected === 'overview' &&
@@ -3058,7 +3086,7 @@ export function ShareFeatureView({
     !share.boardId &&
     !share.linkId &&
     !share.pixelId;
-  const dateControls = share?.token && share.parameters?.allowFilter !== false && (
+  const dateControls = authorizedShare?.token && share.parameters?.allowFilter !== false && (
     <div className={sharedStyles.filters}>
       <div className="actions" aria-label="快捷日期范围">
         {(
@@ -3073,7 +3101,9 @@ export function ShareFeatureView({
             primary={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
             aria-pressed={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
             onClick={() => {
-              setRange(sharedDateRange(days));
+              const now = Date.now();
+              setSelectedAt({ epoch: rangeEpoch, now });
+              setRange(sharedDateRange(days, now));
               setPresetDays(days);
             }}
           >
@@ -3123,9 +3153,12 @@ export function ShareFeatureView({
           <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
           <div>
             <strong>猎看统计</strong>
-            <small style={{ display: 'block' }}>{share?.name || '公开分享'} · 只读分享</small>
+            <small style={{ display: 'block' }}>
+              {authorizedShare?.name || '公开分享'} · 只读分享
+            </small>
           </div>
         </div>
+        <ManualRefreshControl beforeRefresh={() => q.refetch({ throwOnError: true })} />
         <Badge>公开 · 只读</Badge>
       </header>
       <div className="public-body">
@@ -3150,94 +3183,140 @@ export function ShareFeatureView({
             <p>此链接目前无法查看数据，请联系分享创建者。</p>
           </div>
         ) : (
-          <QueryState query={authorizedQuery}>
-            {share?.requiresPassword && !verified ? (
-              <Panel title="输入分享密码" subtitle="验证后查看允许的统计页面。">
-                <Body>
-                  <Form
-                    busy={busy}
-                    error={passwordError}
-                    submitLabel="验证并查看"
-                    onSubmit={async (values: any, form: HTMLFormElement) => {
-                      const currentSlug = slug;
-                      const controller = new AbortController();
-                      verification.current.controller?.abort();
-                      verification.current.controller = controller;
-                      setBusy(true);
-                      setPasswordError('');
-                      try {
-                        const result = await featureRequest(
-                          'POST',
-                          `/share/${encodeURIComponent(slug)}`,
-                          { password: values.password },
-                          controller.signal,
-                          undefined,
-                          '',
-                        );
-                        if (controller.signal.aborted || verification.current.slug !== currentSlug)
-                          return;
-                        setVerified(result);
-                        acceptAuthorization(result);
-                        form.reset();
-                      } catch (e: any) {
-                        if (controller.signal.aborted || verification.current.slug !== currentSlug)
-                          return;
-                        setPasswordError(e.message);
-                        throw e;
-                      } finally {
-                        if (!controller.signal.aborted && verification.current.slug === currentSlug)
-                          setBusy(false);
-                      }
-                    }}
-                  >
-                    <Field
-                      label="分享密码"
-                      name="password"
-                      type="password"
-                      required
-                      autoComplete="current-password"
-                    />
-                  </Form>
-                </Body>
-              </Panel>
-            ) : share?.token ? (
-              <>
-                {allowed.length > 1 && (
-                  <Tabs items={allowed} active={selected || ''} onChange={setActive} />
-                )}
-                {!websiteOverview && dateControls}
-                {selected ? (
-                  <PublicStats
-                    key={share.cacheKey}
-                    share={share}
-                    active={selected}
-                    range={range}
-                    filters={share.parameters?.allowFilter === false ? {} : filters}
-                    dateControls={dateControls}
-                    onExpired={() => {
-                      setVerified(null);
-                      clearPublicQueries();
-                      verification.current.token = undefined;
-                      setAuthorization(undefined);
-                      void q.refetch();
-                    }}
-                  />
-                ) : (
-                  <Notice>此分享未开放统计页面。</Notice>
-                )}
-                <Button
-                  onClick={async () => {
-                    setVerified(null);
-                    setAuthorization(undefined);
-                    await q.refetch();
-                  }}
-                >
-                  重新验证分享
-                </Button>
-              </>
-            ) : (
-              <Notice>分享数据未提供。</Notice>
+          <QueryState
+            query={{
+              ...authorizedQuery,
+              data: share,
+              isPending: !share && !q.error,
+              error:
+                !share || [401, 403, 404].includes((q.error as any)?.status) ? q.error : undefined,
+            }}
+          >
+            {(!authorizedQuery.data ||
+              scopeChangedAt === `${reading?.page.token}:${reading?.page.round}`) && (
+              <Notice>
+                正在核验分享权限，范围变更后请点击刷新读取。
+                {q.error && '权限暂时无法核验，请主动重试。'}
+              </Notice>
             )}
+            <ManualAuthorizationBoundary
+              authorized={
+                !!authorizedQuery.data &&
+                scopeChangedAt !== `${reading?.page.token}:${reading?.page.round}`
+              }
+            >
+              <div
+                hidden={
+                  !authorizedQuery.data ||
+                  scopeChangedAt === `${reading?.page.token}:${reading?.page.round}`
+                }
+              >
+                {share?.requiresPassword && !verified ? (
+                  <Panel title="输入分享密码" subtitle="验证后查看允许的统计页面。">
+                    <Body>
+                      <Form
+                        busy={busy}
+                        error={passwordError}
+                        submitLabel="验证并查看"
+                        onSubmit={async (values: any, form: HTMLFormElement) => {
+                          const currentSlug = slug;
+                          const controller = new AbortController();
+                          verification.current.controller?.abort();
+                          verification.current.controller = controller;
+                          setBusy(true);
+                          setPasswordError('');
+                          try {
+                            const result = await featureRequest(
+                              'POST',
+                              `/share/${encodeURIComponent(slug)}`,
+                              { password: values.password },
+                              controller.signal,
+                              undefined,
+                              '',
+                            );
+                            if (
+                              controller.signal.aborted ||
+                              verification.current.slug !== currentSlug
+                            )
+                              return;
+                            setVerified(result);
+                            acceptAuthorization(result);
+                            form.reset();
+                          } catch (e: any) {
+                            if (
+                              controller.signal.aborted ||
+                              verification.current.slug !== currentSlug
+                            )
+                              return;
+                            setPasswordError(e.message);
+                            throw e;
+                          } finally {
+                            if (
+                              !controller.signal.aborted &&
+                              verification.current.slug === currentSlug
+                            )
+                              setBusy(false);
+                          }
+                        }}
+                      >
+                        <Field
+                          label="分享密码"
+                          name="password"
+                          type="password"
+                          required
+                          autoComplete="current-password"
+                        />
+                      </Form>
+                    </Body>
+                  </Panel>
+                ) : share?.token ? (
+                  <>
+                    {allowed.length > 1 && (
+                      <Tabs
+                        items={allowed}
+                        active={selected || ''}
+                        onChange={section => {
+                          if (section === selected) return;
+                          setActive(section);
+                          void reading?.refresh(undefined, false).catch(() => {});
+                        }}
+                      />
+                    )}
+                    {!websiteOverview && dateControls}
+                    {selected ? (
+                      <PublicStats
+                        key={share.cacheKey}
+                        share={share}
+                        active={selected}
+                        range={range}
+                        filters={share.parameters?.allowFilter === false ? {} : filters}
+                        dateControls={dateControls}
+                        onExpired={() => {
+                          setVerified(null);
+                          clearPublicQueries();
+                          verification.current.token = undefined;
+                          setAuthorization(undefined);
+                          void q.refetch();
+                        }}
+                      />
+                    ) : (
+                      <Notice>此分享未开放统计页面。</Notice>
+                    )}
+                    <Button
+                      onClick={async () => {
+                        setVerified(null);
+                        setAuthorization(undefined);
+                        await q.refetch();
+                      }}
+                    >
+                      重新验证分享
+                    </Button>
+                  </>
+                ) : (
+                  <Notice>分享数据未提供。</Notice>
+                )}
+              </div>
+            </ManualAuthorizationBoundary>
           </QueryState>
         )}
       </div>

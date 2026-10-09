@@ -4187,6 +4187,94 @@
       "owner": "Liekan navigation maintenance",
       "constraint": "Keep the redirect minimal and preserve any upstream behaviour outside this recorded purpose",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "src/app/(main)/websites/[websiteId]/realtime/BoardRealtimeActiveUsers.tsx",
+      "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan manual refresh and authorization acceptance"
+      ],
+      "owner": "Liekan refresh compatibility",
+      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
+      "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
+    },
+    {
+      "path": "src/app/Providers.tsx",
+      "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan manual refresh and authorization acceptance"
+      ],
+      "owner": "Liekan refresh compatibility",
+      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
+      "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
+    },
+    {
+      "path": "src/components/common/Link.tsx",
+      "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan manual refresh and authorization acceptance"
+      ],
+      "owner": "Liekan refresh compatibility",
+      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
+      "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
+    },
+    {
+      "path": "src/components/hooks/queries/useLoginQuery.ts",
+      "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan manual refresh and authorization acceptance"
+      ],
+      "owner": "Liekan refresh compatibility",
+      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
+      "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
+    },
+    {
+      "path": "src/components/hooks/useDateRange.ts",
+      "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan manual refresh and authorization acceptance"
+      ],
+      "owner": "Liekan refresh compatibility",
+      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
+      "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
+    },
+    {
+      "path": "src/components/metrics/ActiveUsers.tsx",
+      "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan manual refresh and authorization acceptance"
+      ],
+      "owner": "Liekan refresh compatibility",
+      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
+      "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
+    },
+    {
+      "path": "src/lib/client.ts",
+      "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan manual refresh and authorization acceptance"
+      ],
+      "owner": "Liekan refresh compatibility",
+      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
+      "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
+    },
+    {
+      "path": "src/lib/date.ts",
+      "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan manual refresh and authorization acceptance"
+      ],
+      "owner": "Liekan refresh compatibility",
+      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
+      "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
     }
   ]
 }

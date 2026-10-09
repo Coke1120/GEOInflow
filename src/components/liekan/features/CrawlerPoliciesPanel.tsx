@@ -1,4 +1,5 @@
 'use client';
+import { useTaskPolling } from '@/lib/liekan/contracts/manual-refresh';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type {
   CrawlerPolicy,
@@ -136,34 +137,31 @@ export function CrawlerPoliciesPanel({
       abort.abort();
     };
   }, [websiteId]);
-  useEffect(() => {
-    if (!confirmed || !['queued', 'running', 'unknown', 'cleanup'].includes(confirmed.state))
-      return;
-    let current = true;
-    const abort = new AbortController();
-    const timer = setInterval(() => {
-      void featureRequest<CrawlerDeployment>(
+  const follow = useTaskPolling(
+    `${websiteId}:${confirmed?.id || ''}`,
+    !!confirmed && ['queued', 'running', 'unknown', 'cleanup'].includes(confirmed.state),
+    async signal => {
+      const result = await featureRequest<CrawlerDeployment>(
         'GET',
         `${base}/crawler-deployments/${confirmed.id}`,
         undefined,
-        abort.signal,
-      )
-        .then(result => {
-          if (current) {
-            setConfirmed(result);
-            void read(abort.signal).catch(() => {});
-          }
-        })
-        .catch(error => {
-          if (current && !abort.signal.aborted) setError(error.message);
-        });
-    }, 5000);
-    return () => {
-      current = false;
-      abort.abort();
-      clearInterval(timer);
-    };
-  }, [websiteId, confirmed?.id, confirmed?.state]);
+        signal,
+      );
+      if (!signal.aborted && live.current) {
+        setConfirmed(result);
+        setList(previous =>
+          previous
+            ? {
+                ...previous,
+                deployments: previous.deployments.map(row => (row.id === result.id ? result : row)),
+              }
+            : previous,
+        );
+      }
+    },
+    5000,
+  );
+
   async function run(work: () => Promise<void>) {
     if (busy) return;
     setBusy(true);
@@ -672,6 +670,7 @@ export function CrawlerPoliciesPanel({
           }
         >
           操作 {confirmed.id} · {states[confirmed.state]}
+          {follow.expired && <Button onClick={() => follow.resume()}>回查执行结果</Button>}
           {confirmed.errorCode && ` · ${confirmed.errorCode}`}
           {confirmed.state === 'confirmed' && (
             <p>

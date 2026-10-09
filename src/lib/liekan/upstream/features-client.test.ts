@@ -13,6 +13,7 @@ import {
   invalidateFeatureWebsiteQueries,
   invalidateFeatureUserQueries,
   resumeFeatureLogin,
+  refreshFeatureIdentity,
 } from './features-client';
 
 it('isolates a revoked website within a summary batch while retaining accessible statistics', async () => {
@@ -42,7 +43,9 @@ it('cancels pre-save website reads so their late results cannot refresh the cach
     queryKey: key,
     queryFn: ({ signal }) => {
       oldSignal = signal;
-      return new Promise(resolve => { finish = resolve; });
+      return new Promise(resolve => {
+        finish = resolve;
+      });
     },
   });
   await client.prefetchQuery({ queryKey: other, queryFn: async () => ({ value: 'other' }) });
@@ -70,6 +73,7 @@ it('invalidates GEO, metadata and resource queries after a global settings refre
     1,
     '',
     '',
+    '{}',
     user,
   ];
   const keys = [
@@ -84,7 +88,9 @@ it('invalidates GEO, metadata and resource queries after a global settings refre
     queryKey: keys[0],
     queryFn: ({ signal }) => {
       oldSignal = signal;
-      return new Promise(resolve => { finish = resolve; });
+      return new Promise(resolve => {
+        finish = resolve;
+      });
     },
   });
   await invalidateFeatureUserQueries(client, 'user');
@@ -184,6 +190,25 @@ describe('saved login restoration', () => {
       expect(useApp.getState().user.id).toBe('new-user');
     },
   );
+  it.each(['switch', 'logout'])('ignores a late manual identity refresh after %s', async mode => {
+    setClientAuthToken('previous');
+    setUser({ id: 'old-user' } as any);
+    let resolve!: (value: Response) => void;
+    const fetch = vi.fn().mockReturnValue(
+      new Promise<Response>(r => {
+        resolve = r;
+      }),
+    );
+    vi.stubGlobal('fetch', fetch);
+    const pending = refreshFeatureIdentity();
+    void pending.catch(() => {});
+    if (mode === 'switch') acceptFeatureLogin({ token: 'new-session', user: { id: 'new-user' } });
+    else clearFeatureLogin();
+    resolve(Response.json({ id: 'old-user' }));
+    await expect(pending).rejects.toThrow('身份');
+    expect(fetch.mock.calls[0][1].headers.authorization).toBe('Bearer previous');
+    expect(useApp.getState().user?.id ?? null).toBe(mode === 'switch' ? 'new-user' : null);
+  });
   it('aborting restoration prevents late identity changes and leaves return paths intact', async () => {
     setClientAuthToken('saved');
     setReturnUrl('/websites');
@@ -280,6 +305,7 @@ it('retains server retry guidance on automatic read failures', async () => {
 });
 
 it.each([
+  '/liekan/websites/site/crawler-analysis',
   '/liekan/websites/site/goals/goal/analytics',
   '/websites/site/goals/stats',
   '/websites/site/funnels/stats',
@@ -299,25 +325,43 @@ it.each([
   expect(new URL(String(fetch.mock.calls[0][0])).searchParams.get('refresh')).toBe('1');
 });
 
-it('clears private AI data after user lifecycle refresh while preserving another identity', async () => {
+it('marks private AI data for later entry without clearing another identity', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
-  const keys = [ ['liekan-ai','user','catalog'], ['liekan-ai','user','conversation','site','conversation'], ['liekan-ai','user','messages','site','conversation'], ['liekan-ai','user','context','conversation','snapshot'] ];
+  const keys = [
+    ['liekan-ai', 'user', 'catalog'],
+    ['liekan-ai', 'user', 'conversation', 'site', 'conversation'],
+    ['liekan-ai', 'user', 'messages', 'site', 'conversation'],
+    ['liekan-ai', 'user', 'context', 'conversation', 'snapshot'],
+  ];
   for (const key of keys) client.setQueryData(key, { private: 'old data' });
-  const other = ['liekan-ai','other','messages','site','conversation'];
+  const other = ['liekan-ai', 'other', 'messages', 'site', 'conversation'];
   client.setQueryData(other, { private: 'other identity' });
   await invalidateFeatureUserQueries(client, 'user');
-  for (const key of keys) expect(client.getQueryData(key)).toBeUndefined();
+  for (const key of keys) {
+    expect(client.getQueryData(key)).toEqual({ private: 'old data' });
+    expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+  }
   expect(client.getQueryData(other)).toEqual({ private: 'other identity' });
   client.clear();
 });
-it('clears website AI content and snapshot keys after website lifecycle refresh', async () => {
+it('marks website AI content for later entry and retains other websites', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity } } });
-  const keys = [ ['liekan-ai','user','catalog'], ['liekan-ai','user','catalog-selected','site'], ['liekan-ai','user','conversation','site','conversation'], ['liekan-ai','user','messages','site','conversation'], ['liekan-ai','user','history','site'], ['liekan-ai','user','context','conversation','snapshot'] ];
+  const keys = [
+    ['liekan-ai', 'user', 'catalog'],
+    ['liekan-ai', 'user', 'catalog-selected', 'site'],
+    ['liekan-ai', 'user', 'conversation', 'site', 'conversation'],
+    ['liekan-ai', 'user', 'messages', 'site', 'conversation'],
+    ['liekan-ai', 'user', 'history', 'site'],
+    ['liekan-ai', 'user', 'context', 'conversation', 'snapshot'],
+  ];
   for (const key of keys) client.setQueryData(key, { private: 'old data' });
-  const other = ['liekan-ai','user','messages','other-site','conversation'];
+  const other = ['liekan-ai', 'user', 'messages', 'other-site', 'conversation'];
   client.setQueryData(other, { private: 'other website' });
   await invalidateFeatureWebsiteQueries(client, 'site');
-  for (const key of keys) expect(client.getQueryData(key)).toBeUndefined();
+  for (const key of keys) {
+    expect(client.getQueryData(key)).toEqual({ private: 'old data' });
+    expect(client.getQueryState(key)?.isInvalidated).toBe(true);
+  }
   expect(client.getQueryData(other)).toEqual({ private: 'other website' });
   client.clear();
 });

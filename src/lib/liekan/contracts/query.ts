@@ -42,6 +42,14 @@ export const reportQuery = z.object({
   tablePages: z.record(z.string(), z.coerce.number().int().min(1).max(100000)).default({}),
 });
 export type ReportQuery = z.output<typeof reportQuery>;
+export const isReportOwnedBy = (key: readonly unknown[], userId: string) =>
+  key[0] === 'liekan' && key[14] === userId;
+/** Keep a rolling snapshot within its resource and query conditions. */
+export function reportSnapshotOwner(key: readonly unknown[]) {
+  return key[0] === 'liekan' && key.length >= 15
+    ? key.map((value, index) => (index === 4 || index === 5 ? undefined : value))
+    : key;
+}
 
 // URL 查询是扁平键值（Object.fromEntries），tp_<table> 先归并为 tablePages 再解析；
 // 键按字典序排序，保证相同页码集合生成稳定的缓存键与序列化结果。

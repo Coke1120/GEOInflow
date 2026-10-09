@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ManagementDrawer } from './ManagementDrawer';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), post: vi.fn() }));
@@ -17,9 +17,36 @@ const rule = {
   extension: 'retained',
 };
 const settings = { robots: 'User-agent: *\nAllow: /', allowlist: [], rules: [rule] };
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+it.each([401, 403, 404])('clears sensitive settings after reload status %s', async status => {
+  render(<Mount action="robots.txt 编辑" />);
+  const input = await screen.findByLabelText('robots.txt 内容');
+  await waitFor(() => expect(input).toHaveValue(settings.robots));
+  api.get.mockRejectedValueOnce(Object.assign(new Error('权限已变更'), { status }));
+  fireEvent.click(screen.getByRole('button', { name: '重新读取设置' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('权限已变更');
+  expect(input).toHaveValue('');
+  expect(input).toBeDisabled();
+});
 beforeEach(() => {
   vi.resetAllMocks();
   api.get.mockResolvedValue(settings);
+});
+it('protects a draft edited after a temporary reload failure', async () => {
+  render(<Mount action="robots.txt 编辑" />);
+  const input = await screen.findByLabelText('robots.txt 内容');
+  await waitFor(() => expect(input).toHaveValue(settings.robots));
+  api.get.mockRejectedValueOnce(Object.assign(new Error('暂时不可用'), { status: 503 }));
+  fireEvent.click(screen.getByRole('button', { name: '重新读取设置' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('暂时不可用');
+  fireEvent.change(input, { target: { value: 'my recovery draft' } });
+  expect(screen.getByRole('button', { name: '重新读取设置' })).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: '重新读取设置' }));
+  expect(input).toHaveValue('my recovery draft');
+  expect(api.get).toHaveBeenCalledTimes(2);
 });
 function Mount({
   action,
@@ -47,6 +74,31 @@ function Mount({
     )
   );
 }
+it('keeps healthy settings idle, rereads on demand and preserves an editing draft', async () => {
+  vi.useFakeTimers();
+  render(<Mount action="robots.txt 编辑" />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(screen.getByLabelText('robots.txt 内容')).toHaveValue(settings.robots);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(600000);
+  });
+  window.dispatchEvent(new Event('focus'));
+  window.dispatchEvent(new Event('online'));
+  expect(api.get).toHaveBeenCalledTimes(1);
+  api.get.mockResolvedValue({ ...settings, robots: 'User-agent: *\nDisallow: /new' });
+  fireEvent.click(screen.getByRole('button', { name: '重新读取设置' }));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  const input = screen.getByLabelText('robots.txt 内容');
+  expect(input).toHaveValue('User-agent: *\nDisallow: /new');
+  fireEvent.change(input, { target: { value: 'my unsaved draft' } });
+  expect(screen.getByRole('button', { name: '重新读取设置' })).toBeDisabled();
+  expect(input).toHaveValue('my unsaved draft');
+  expect(api.get).toHaveBeenCalledTimes(2);
+});
 it('retries reading settings and keeps a failed save draft for correction', async () => {
   api.get.mockRejectedValueOnce(new Error('读取失败'));
   api.put.mockRejectedValueOnce(new Error('保存失败'));

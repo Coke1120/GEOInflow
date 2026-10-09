@@ -237,3 +237,25 @@ it('keeps a submitting annotation open until its request completes', async () =>
   complete({});
   await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });
+
+it('keeps retention observation cells fixed across midnight until an explicit month selection', () => {
+  vi.useFakeTimers();
+  try {
+    vi.setSystemTime(new Date('2026-10-09T23:59:59Z'));
+    mocks.context.range = { startAt: Date.UTC(2026, 9, 1), endAt: Date.now(), timezone: 'UTC' };
+    mocks.query.retention = [
+      { date: '2026-10-08', day: 0, visitors: 10 },
+      { date: '2026-10-08', day: 1, returnVisitors: 5 },
+    ];
+    const view = render(<AnalyticsPages page="retention" />);
+    expect(screen.queryByRole('button', { name: /第 1 天，留存 50.00%/ })).not.toBeInTheDocument();
+    vi.setSystemTime(new Date('2026-10-10T00:00:01Z'));
+    view.rerender(<AnalyticsPages page="retention" />);
+    expect(screen.queryByRole('button', { name: /第 1 天，留存 50.00%/ })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('月份'), { target: { value: '2026-09' } });
+    fireEvent.change(screen.getByLabelText('月份'), { target: { value: '2026-10' } });
+    expect(screen.getByRole('button', { name: /第 1 天，留存 50.00%/ })).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});

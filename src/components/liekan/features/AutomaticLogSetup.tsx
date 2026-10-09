@@ -1,4 +1,5 @@
 'use client';
+import { useTaskPolling } from '@/lib/liekan/contracts/manual-refresh';
 import { useEffect, useRef, useState } from 'react';
 import {
   logPublicOrigin,
@@ -279,7 +280,9 @@ export function AutomaticLogSetup({
   }, []);
   const available = !!status.capabilities[method];
   const reason = status.availability?.[method]?.reason || '当前实例尚未配置此接入服务。';
-  const sources = (status.sources || []).filter(source => source.kind === method);
+  const [sourceStatus, setSourceStatus] = useState<InstallationStatus['sources']>(null);
+  useEffect(() => setSourceStatus(null), [status.sources, websiteId, method]);
+  const sources = (sourceStatus || status.sources || []).filter(source => source.kind === method);
   const [disconnect, setDisconnect] = useState<{ id: string; domain: string } | null>(null);
   useEffect(() => setDisconnect(null), [websiteId, method]);
   const run = async (work: () => Promise<unknown>) => {
@@ -293,13 +296,19 @@ export function AutomaticLogSetup({
       if (alive.current) setBusy(false);
     }
   };
-  useEffect(() => {
-    if (!sources.some(source => source.state === 'configuring')) return;
-    const timer = setInterval(() => {
-      void refresh();
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [websiteId, method, sources.some(source => source.state === 'configuring')]);
+  const follow = useTaskPolling(
+    `${websiteId}:${method}`,
+    sources.some(source => source.state === 'configuring'),
+    async signal => {
+      const result = await c.api.get<{ sources: InstallationStatus['sources'] }>(
+        `/liekan/websites/${websiteId}/log-sources`,
+        {},
+        signal,
+      );
+      if (!signal.aborted && alive.current) setSourceStatus(result.sources);
+    },
+    5000,
+  );
   const flowId = c.query.flow;
   useEffect(() => {
     if (method !== 'cloudflare' || !flowId || !manage) return;
@@ -328,6 +337,7 @@ export function AutomaticLogSetup({
   }, [flowId, websiteId, method, manage]);
   return (
     <>
+      {follow.expired && <Button onClick={() => follow.resume()}>回查接入结果</Button>}
       <p className="muted">{available ? '按下方引导完成连接，检查可稍后进行。' : reason}</p>
       {!available && (
         <p className="field-help">

@@ -1,5 +1,6 @@
 'use client';
-import Link from 'next/link';
+import { useManualRefresh } from '@/lib/liekan/contracts/manual-refresh';
+import Link from '@/components/liekan/Link';
 import { useEffect, useState } from 'react';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import {
@@ -193,7 +194,9 @@ export function SessionTable({
 }
 function Realtime() {
   const c = useFeature();
-  const [tick, setTick] = useState(Date.now());
+  const reading = useManualRefresh();
+  const [initialTick] = useState(Date.now());
+  const tick = reading?.page.now ?? initialTick;
   const scope = {
     startAt: tick - 30 * 60000,
     endAt: tick,
@@ -218,10 +221,6 @@ function Realtime() {
       ),
     !!c.siteId,
   );
-  useEffect(() => {
-    const id = setInterval(() => setTick(Date.now()), 30000);
-    return () => clearInterval(id);
-  }, []);
   const totals = query.data?.totals;
   const series = timeline.data?.series?.visitors || [];
   return (
@@ -237,8 +236,8 @@ function Realtime() {
       />
       <Panel
         title="过去 30 分钟的访客"
-        subtitle="每 30 秒更新，访客序列以分钟聚合。"
-        actions={<Button onClick={() => setTick(Date.now())}>刷新</Button>}
+        subtitle="本次读取的过去 30 分钟，访客序列以分钟聚合。"
+        actions={<Button onClick={() => c.refresh()}>刷新</Button>}
       >
         <QueryState query={timeline}>
           <Chart
@@ -1160,6 +1159,15 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
 
 function Retention() {
   const c = useFeature();
+  const reading = useManualRefresh();
+  const [enteredAt] = useState(Date.now());
+  const epoch = `${reading?.page.token}:${reading?.page.round}`;
+  const [selectionClock, setSelectionClock] = useState({
+    epoch,
+    at: reading?.page.now ?? enteredAt,
+  });
+  const readAt =
+    selectionClock.epoch === epoch ? selectionClock.at : (reading?.page.now ?? enteredAt);
   const initial = formatInTimeZone(c.range.endAt, c.range.timezone, 'yyyy-MM');
   const audience = c.filters.cohort
     ? `cohort:${c.filters.cohort}`
@@ -1194,7 +1202,7 @@ function Retention() {
   const next = new Date(`${month}-01T00:00:00Z`);
   next.setUTCMonth(next.getUTCMonth() + 1);
   const endAt = Math.min(
-    Date.now(),
+    readAt,
     +fromZonedTime(`${next.toISOString().slice(0, 10)}T00:00:00`, c.range.timezone) - 1,
   );
   const { segment: ignoredSegment, cohort: ignoredCohort, ...rest } = c.filters;
@@ -1216,7 +1224,10 @@ function Retention() {
             label="月份"
             value={month}
             options={months}
-            onChange={e => setMonth(e.target.value)}
+            onChange={e => {
+              setSelectionClock({ epoch, at: Date.now() });
+              setMonth(e.target.value);
+            }}
           />
           <Select
             label="人群"
@@ -1235,6 +1246,7 @@ function Retention() {
               ...(people.data || []).map(r => [`${r.type}:${r.id}`, r.name] as [string, string]),
             ]}
             onChange={e => {
+              setSelectionClock({ epoch, at: Date.now() });
               const [type, id] = e.target.value.split(':');
               c.updateQuery({
                 cohort: type === 'cohort' ? id : undefined,

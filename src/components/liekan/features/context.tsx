@@ -1,5 +1,10 @@
 'use client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  useManualQuery as useQuery,
+  useManualRefresh,
+} from '@/lib/liekan/contracts/manual-refresh';
+import { isReportOwnedBy } from '@/lib/liekan/contracts/query';
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import type {
   FeatureEntity,
@@ -9,8 +14,6 @@ import type {
 } from '@/lib/liekan/contracts/features';
 import { hasDateControl, needsWebsite } from '@/lib/liekan/contracts/navigation';
 import {
-  freshnessStaleTime,
-  remainingFreshness,
   withClientFreshness,
   shareWithFreshness,
   hasClientFreshness,
@@ -83,37 +86,7 @@ export function useFreshQuery<T = any>(
       });
     },
     retry: false,
-    staleTime: policy.direct
-      ? 0
-      : (options.staleTime ??
-        ((query: any) =>
-          freshnessStaleTime(
-            query,
-            aggregateFor(query.state.data) || hasClientFreshness(query.state.data) ? 0 : 300000,
-          ))),
-    gcTime: policy.direct ? 0 : (options.gcTime ?? 600000),
     structuralSharing: shareWithFreshness,
-    refetchOnMount: (query: any) =>
-      hasClientFreshness(query.state.data) &&
-      remainingFreshness(query.state.data, query.state.dataUpdatedAt) <= 0
-        ? 'always'
-        : (options.refetchOnMount ?? true),
-    refetchOnWindowFocus: policy.direct
-      ? true
-      : (query: any) =>
-          !(
-            aggregateFor(query.state.data) ||
-            hasClientFreshness(query.state.data) ||
-            query.state.error?.aggregate
-          ),
-    refetchOnReconnect: policy.direct
-      ? true
-      : (query: any) =>
-          !(
-            aggregateFor(query.state.data) ||
-            hasClientFreshness(query.state.data) ||
-            query.state.error?.aggregate
-          ),
   });
   const visible = useFreshnessLifecycle(result, {
     ...policy,
@@ -124,9 +97,14 @@ export function useFreshQuery<T = any>(
   return {
     ...visible,
     refetch: (settings?: any) => {
+      if (options.enabled === false || typeof options.queryFn !== 'function')
+        return Promise.resolve(result);
       if (manual.current?.key === key) return manual.current.promise;
       const promise = (async () => {
-        await client.cancelQueries({ queryKey: options.queryKey, exact: true });
+        await client.cancelQueries({
+          queryKey: (result as any).resolvedQueryKey || options.queryKey,
+          exact: true,
+        });
         if (currentKey.current !== key) return result;
         force.current = key;
         return result.refetch({ ...settings, cancelRefetch: false });
@@ -180,6 +158,7 @@ export function useData<T = any>(
 export function useAction() {
   const c = useFeature();
   const client = useQueryClient();
+  const reading = useManualRefresh();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function run<T>(action: () => Promise<T>, message = '已保存'): Promise<T> {
@@ -196,7 +175,7 @@ export function useAction() {
         predicate: (query: { queryKey: readonly unknown[] }) => {
           const key = query.queryKey;
           if (key[0] === 'liekan')
-            return key[13] === c?.user?.id && (!websiteId || key[1] === websiteId);
+            return isReportOwnedBy(key, c?.user?.id) && (!websiteId || key[1] === websiteId);
           if (key[0] !== 'liekan-feature' || !key.includes(c?.user?.id)) return false;
           return (
             globalEdit ||
@@ -207,10 +186,12 @@ export function useAction() {
           );
         },
       };
-      await client.cancelQueries(filters);
-      const updating = client.invalidateQueries(filters);
-      if (['board-design', 'board-editor'].includes(c?.route?.page)) await updating;
-      else void updating.catch(() => c?.notify('已保存，部分数据更新失败，请重试读取'));
+      await client.cancelQueries({ ...filters, type: 'inactive' });
+      await client.invalidateQueries({ ...filters, refetchType: 'none' });
+      const updating = reading
+        ? reading.refresh(reading.page.token)
+        : client.invalidateQueries(filters);
+      await updating.catch(() => c?.notify('已保存，部分数据更新失败，请重试读取'));
       return result;
     } catch (e: any) {
       setError(e?.message || '操作失败');

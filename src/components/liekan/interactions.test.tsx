@@ -469,9 +469,9 @@ it('keeps empty connected log ranges refreshing and distinguishes missing input'
   const input = report();
   input.states.logs = 'empty';
   const view = render(<LiveStatus report={input} live />);
-  expect(screen.getByText('10s 刷新')).toBeInTheDocument();
+  expect(screen.getByText('本次快照')).toBeInTheDocument();
   view.rerender(<LiveStatus report={input} />);
-  expect(screen.getByText('历史刷新')).toBeInTheDocument();
+  expect(screen.getByText('历史快照')).toBeInTheDocument();
   input.states.logs = 'not_connected';
   view.rerender(<LiveStatus report={input} />);
   expect(screen.getByText('待接入')).toBeInTheDocument();
