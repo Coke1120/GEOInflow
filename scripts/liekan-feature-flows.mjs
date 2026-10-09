@@ -336,12 +336,13 @@ try {
   const sourceHandle = sourceWebsite.siteNumber ?? sourceWebsite.id;
   const parentPath = new URL(await toolsParent.getAttribute('href'), base).pathname;
   const parentRead = page.waitForResponse(response => {
-    const path = new URL(response.url()).pathname;
+    const url = new URL(response.url());
     return (
       [
-        `/api/websites/${sourceWebsite.id}/sessions`,
-        `/api/websites/${sourceHandle}/sessions`,
-      ].includes(path) &&
+        `/api/liekan/websites/${sourceWebsite.id}/analytics`,
+        `/api/liekan/websites/${sourceHandle}/analytics`,
+      ].includes(url.pathname) &&
+      url.searchParams.get('kind') === 'sessions' &&
       response.request().method() === 'GET' &&
       response.ok()
     );
