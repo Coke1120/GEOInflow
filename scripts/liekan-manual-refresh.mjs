@@ -167,7 +167,8 @@ async function open(url, authenticated = true) {
 }
 async function ready(page) {
   await page.waitForLoadState('networkidle');
-  await page.waitForFunction(() => !!document.querySelector('main,h1,form'));
+  // Legacy public reports use h2 headings and expose the shared refresh control.
+  await page.waitForFunction(() => !!document.querySelector('main,h1,form,[data-manual-refresh]'));
   await page.waitForFunction(
     () => !document.querySelector('[data-manual-refresh]:disabled'),
     null,
