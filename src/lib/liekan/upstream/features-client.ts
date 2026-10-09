@@ -209,11 +209,17 @@ export async function resumeFeatureLogin(signal?: AbortSignal): Promise<string |
 }
 export async function refreshFeatureIdentity() {
   const token = getClientAuthToken();
-  const user = await featureRequest('POST', '/auth/verify', {}, undefined, undefined, token);
-  if (getClientAuthToken() !== token)
-    throw new FeatureApiError('登录身份已变更，请重新读取。', 409);
-  setUser(user);
-  return user;
+  try {
+    const user = await featureRequest('POST', '/auth/verify', {}, undefined, undefined, token);
+    if (getClientAuthToken() !== token)
+      throw new FeatureApiError('登录身份已变更，请重新读取。', 409);
+    setUser(user);
+    return user;
+  } catch (error) {
+    if (getClientAuthToken() === token && error instanceof FeatureApiError && error.status === 401)
+      clearFeatureLogin();
+    throw error;
+  }
 }
 export async function verifyFeatureTwoFactor(body: { token?: string; backupCode?: string }) {
   const token = sessionStorage.getItem('umami.partial-token');

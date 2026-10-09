@@ -1,6 +1,7 @@
 export {
   ManualRefreshProvider,
   ManualAuthorizationBoundary,
+  ManualReadDependencyBoundary,
   useManualRefresh,
   useManualQuery,
   useManualInfiniteQuery,

@@ -307,13 +307,16 @@ function Websites() {
   const reading = useManualRefresh();
   const enteredAt = useRef(Date.now());
   const readAt = reading?.page.now ?? enteredAt.current;
-  const query = useData(['website-management-stats', c.sites.map(site => site.id)], signal =>
-    getFeatureWebsiteSummary(
-      c.sites.map(site => site.id),
-      c.range,
-      signal,
-      c.api.get,
-    ),
+  const query = useData(
+    ['website-management-stats', c.sites.map(site => site.id)],
+    signal =>
+      getFeatureWebsiteSummary(
+        c.sites.map(site => site.id),
+        c.range,
+        signal,
+        c.api.get,
+      ),
+    c.sitesReady !== false,
   );
   // 今日窗口自带 compare=昨日，四个指标列共用一次请求。
   const todayWindow = websiteDayWindow(c.range.timezone, readAt);
@@ -326,6 +329,7 @@ function Websites() {
         signal,
         c.api.get,
       ),
+    c.sitesReady !== false,
   );
   const stats = query.data || [];
   const todayStats = todayQuery.data || [];
@@ -2186,10 +2190,17 @@ function Goals() {
   );
   useEffect(() => {
     const count = Number(query.data?.count);
-    if (query.data?.count == null || !Number.isFinite(count) || count < 0) return;
+    if (
+      query.isPlaceholderData ||
+      query.error ||
+      query.data?.count == null ||
+      !Number.isFinite(count) ||
+      count < 0
+    )
+      return;
     const lastPage = Math.max(1, Math.ceil(count / 20));
-    setPage(current => Math.min(current, lastPage));
-  }, [query.data?.count]);
+    setPage(current => (current > lastPage ? 1 : current));
+  }, [query.data?.count, query.isPlaceholderData, query.error]);
   const goals = rowsOf<FeatureEntity>(query.data);
   const stats = useData(
     ['goal-results', goals.map(goal => goal.id)],
@@ -2218,7 +2229,7 @@ function Goals() {
         );
       return results;
     },
-    goals.length > 0,
+    goals.length > 0 && query.isSuccess && !query.isPlaceholderData,
   );
   const manage = canManageSite(c, c.site);
   if (!c.siteId) return <MissingWebsite />;
@@ -2467,10 +2478,17 @@ function Funnels() {
   );
   useEffect(() => {
     const count = Number(query.data?.count);
-    if (query.data?.count == null || !Number.isFinite(count) || count < 0) return;
+    if (
+      query.isPlaceholderData ||
+      query.error ||
+      query.data?.count == null ||
+      !Number.isFinite(count) ||
+      count < 0
+    )
+      return;
     const lastPage = Math.max(1, Math.ceil(count / 20));
-    setPage(current => Math.min(current, lastPage));
-  }, [query.data?.count]);
+    setPage(current => (current > lastPage ? 1 : current));
+  }, [query.data?.count, query.isPlaceholderData, query.error]);
   const funnels = rowsOf<FeatureEntity>(query.data);
   const funnel = funnels.find(funnel => funnel.id === selected) || funnels[0];
   const stats = useData(
@@ -2481,7 +2499,7 @@ function Funnels() {
         { ...c.range, ...c.filters },
         signal,
       ),
-    !!funnel,
+    !!funnel && query.isSuccess && !query.isPlaceholderData,
   );
   const results = rowsOf<any>(stats.data),
     first = results[0]?.visitors,

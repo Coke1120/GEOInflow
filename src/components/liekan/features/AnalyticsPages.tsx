@@ -1060,7 +1060,7 @@ function Audiences({ cohort = false }: { cohort?: boolean }) {
           ]),
         ),
       ),
-    !!c.siteId && !!query.data?.length,
+    !!c.siteId && !!query.data?.length && query.isSuccess && !query.isPlaceholderData,
   );
   const results = stats.data || {};
   const total = useWebsiteData(['audience-total'], 'stats', useScope());
@@ -1665,7 +1665,7 @@ function UTM() {
       ...scope,
       requireUtm: '1',
     },
-    !!selected,
+    !!selected && goals.isSuccess && !goals.isPlaceholderData,
     true,
   );
   const filterNames: Record<string, string> = {

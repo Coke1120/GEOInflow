@@ -209,6 +209,39 @@ describe('saved login restoration', () => {
     expect(fetch.mock.calls[0][1].headers.authorization).toBe('Bearer previous');
     expect(useApp.getState().user?.id ?? null).toBe(mode === 'switch' ? 'new-user' : null);
   });
+  it('clears the current identity when manual verification rejects its session', async () => {
+    acceptFeatureLogin({ token: 'expired', user: { id: 'old-user' } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({}, { status: 401 })));
+    await expect(refreshFeatureIdentity()).rejects.toMatchObject({ status: 401 });
+    expect(getClientAuthToken()).toBeUndefined();
+    expect(useApp.getState().user).toBeNull();
+  });
+  it.each(['network', 'service'])(
+    'retains the current identity during a transient manual %s failure',
+    async kind => {
+      acceptFeatureLogin({ token: 'saved', user: { id: 'current-user' } });
+      vi.stubGlobal(
+        'fetch',
+        kind === 'network'
+          ? vi.fn().mockRejectedValue(new Error('offline'))
+          : vi.fn().mockResolvedValue(Response.json({}, { status: 503 })),
+      );
+      await expect(refreshFeatureIdentity()).rejects.toThrow();
+      expect(getClientAuthToken()).toBe('saved');
+      expect(useApp.getState().user.id).toBe('current-user');
+    },
+  );
+  it('retains a newer login when an earlier manual verification returns 401', async () => {
+    acceptFeatureLogin({ token: 'previous', user: { id: 'old-user' } });
+    let resolve!: (value: Response) => void;
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise<Response>(r => (resolve = r))));
+    const pending = refreshFeatureIdentity();
+    acceptFeatureLogin({ token: 'new-session', user: { id: 'new-user' } });
+    resolve(Response.json({}, { status: 401 }));
+    await expect(pending).rejects.toMatchObject({ status: 401 });
+    expect(getClientAuthToken()).toBe('new-session');
+    expect(useApp.getState().user.id).toBe('new-user');
+  });
   it('aborting restoration prevents late identity changes and leaves return paths intact', async () => {
     setClientAuthToken('saved');
     setReturnUrl('/websites');

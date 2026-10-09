@@ -1,6 +1,7 @@
 'use client';
 import {
   ManualAuthorizationBoundary,
+  ManualReadDependencyBoundary,
   useManualRefresh,
 } from '@/lib/liekan/contracts/manual-refresh';
 import { ManualRefreshControl } from '../ManualRefreshControl';
@@ -196,6 +197,7 @@ export function useWorkspaceEntities() {
       );
       return { link: links, pixel: pixels, board: boards };
     },
+    !allSources || c.teamsReady !== false,
   );
   return {
     ...query,
@@ -1995,7 +1997,14 @@ function BoardCanvas({
     [drawer, setDrawer] = useState<any>(null),
     [drag, setDrag] = useState(''),
     [confirm, setConfirm] = useState('');
-  useEffect(() => setParameters(board.parameters || {}), [board]);
+  const previousBoard = useRef(board);
+  useEffect(() => {
+    const previous = previousBoard.current;
+    const localChanges = JSON.stringify(parameters) !== JSON.stringify(previous.parameters || {});
+    if (previous.id !== board.id || !editing || !localChanges)
+      setParameters(board.parameters || {});
+    previousBoard.current = board;
+  }, [board, editing]);
   const allowed = !request && canManageResource(c?.user, board, c?.teams),
     entries = boardColumns(parameters),
     entity = boardEntity(parameters, board.type);
@@ -2265,7 +2274,9 @@ function BoardPage({ page }: { page: string }) {
         (page === 'board-editor' ? (
           <BoardEditor key={id} board={q.data} />
         ) : (
-          <BoardCanvas board={q.data} editing={page === 'board-design'} />
+          <ManualReadDependencyBoundary ready={q.isSuccess && !q.isPlaceholderData}>
+            <BoardCanvas key={id} board={q.data} editing={page === 'board-design'} />
+          </ManualReadDependencyBoundary>
         ))}
     </QueryState>
   );
@@ -2804,14 +2815,17 @@ function PublicStats({
     <QueryState query={q}>
       {active === 'overview' ? (
         q.data && (
-          <BoardCanvas
-            board={{
-              ...safeBoard(q.data),
-              _shareGoalsAllowed: hasShareSection(share.parameters, 'goals'),
-            }}
-            request={request}
-            range={{ ...range, ...filters }}
-          />
+          <ManualReadDependencyBoundary ready={q.isSuccess && !q.isPlaceholderData}>
+            <BoardCanvas
+              key={share.boardId}
+              board={{
+                ...safeBoard(q.data),
+                _shareGoalsAllowed: hasShareSection(share.parameters, 'goals'),
+              }}
+              request={request}
+              range={{ ...range, ...filters }}
+            />
+          </ManualReadDependencyBoundary>
         )
       ) : active === 'goals' ? (
         <>

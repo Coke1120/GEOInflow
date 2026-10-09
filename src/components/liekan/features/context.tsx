@@ -28,7 +28,9 @@ export interface FeatureContextValue {
   api: typeof featureApi;
   sites: FeatureEntity[];
   sitesLoading?: boolean;
+  sitesReady?: boolean;
   teams: FeatureEntity[];
+  teamsReady?: boolean;
   siteId: string;
   site: FeatureEntity;
   range: FeatureRange;

@@ -50,7 +50,14 @@ export function ManualRefreshControl({
           setPrepareError('');
           void Promise.resolve()
             .then(() => beforeRefresh?.())
-            .then(() => reading.refresh(pageToken))
+            .then(() => {
+              if (activePage.current !== pageToken) return;
+              if (document.querySelector('[data-unsaved="true"]')) {
+                setDraftNotice(true);
+                return;
+              }
+              return reading.refresh(pageToken);
+            })
             .catch(() => {
               if (activePage.current === pageToken) setPrepareError('本次读取未完成，请重试。');
             })

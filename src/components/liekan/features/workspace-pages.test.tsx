@@ -602,6 +602,37 @@ describe('workspace permissions and native board persistence', () => {
       mocks.post.mock.calls[0][1].parameters.rows[0].columns.map((column: any) => column.id),
     ).toEqual(['column-2', 'column-1']);
   });
+  it('preserves board edits made while a manual board read is pending', async () => {
+    context.route = { page: 'board-design', id: 'board-1' };
+    const originalGet = mocks.get.getMockImplementation();
+    let reads = 0;
+    let finish!: (board: any) => void;
+    mocks.get.mockImplementation((path: string, ...args: any[]) => {
+      if (path !== '/boards/board-1') return originalGet(path, ...args);
+      return ++reads === 1
+        ? structuredClone(nativeBoard)
+        : new Promise(resolve => (finish = resolve));
+    });
+    const { container } = mount(
+      <ManualRefreshProvider>
+        <ManualRefreshControl />
+        <WorkspacePages page="board-design" />
+      </ManualRefreshProvider>,
+    );
+    await screen.findAllByRole('button', { name: '上移' });
+    await userEvent.click(screen.getByRole('button', { name: '刷新' }));
+    await waitFor(() => expect(reads).toBe(2));
+    await userEvent.click(screen.getAllByRole('button', { name: '上移' })[1]);
+    expect(container.querySelector('[data-unsaved="true"]')).not.toBeNull();
+    await act(async () => finish(structuredClone(nativeBoard)));
+    await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
+    expect(container.querySelector('[data-unsaved="true"]')).not.toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: '保存编排' }));
+    await waitFor(() => expect(mocks.post).toHaveBeenCalled());
+    expect(
+      mocks.post.mock.calls[0][1].parameters.rows[0].columns.map((column: any) => column.id),
+    ).toEqual(['column-2', 'column-1']);
+  });
   it('fixed-source widget edits inherit the board source and remove legacy resource fields on save', async () => {
     context.route = { page: 'board-design', id: 'board-1' };
     const board = structuredClone(nativeBoard);

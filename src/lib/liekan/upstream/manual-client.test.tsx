@@ -14,6 +14,8 @@ import {
 } from './manual-client';
 import { useDateRangeClock } from './date-range-clock';
 import { clientRequestOptions } from './client-freshness';
+import { getClientAuthToken, setClientAuthToken, removeClientAuthToken } from '@/lib/client';
+import { AUTH_TOKEN } from '@/lib/constants';
 import definitions from '../contracts/feature-pages.json';
 
 const navigation = vi.hoisted(() => ({ path: '/websites', search: '' }));
@@ -35,6 +37,7 @@ afterEach(() => {
   client.clear();
   vi.useRealTimers();
   vi.restoreAllMocks();
+  removeClientAuthToken();
   onlineManager.setOnline(true);
 });
 const wrapper = ({ children }: any) => (
@@ -593,6 +596,35 @@ it('keeps unsaved input and issues no read when the draft notice is dismissed', 
   expect(screen.getByLabelText('草稿')).toHaveValue('未保存内容');
 });
 
+it('keeps a draft started while identity verification is pending without issuing a new read', async () => {
+  const load = vi.fn(async () => 7);
+  let finish!: () => void;
+  const beforeRefresh = vi.fn(() => new Promise<void>(resolve => (finish = resolve)));
+  function Draft() {
+    useManualQuery({ queryKey: ['pending-draft'], queryFn: load });
+    return (
+      <>
+        <ManualRefreshControl beforeRefresh={beforeRefresh} />
+        <form data-unsaved="false">
+          <input aria-label="草稿" defaultValue="" />
+        </form>
+      </>
+    );
+  }
+  render(<Draft />, { wrapper });
+  await advance();
+  fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+  await advance();
+  const input = screen.getByLabelText('草稿');
+  fireEvent.change(input, { target: { value: '读取期间开始的草稿' } });
+  input.closest('form').setAttribute('data-unsaved', 'true');
+  await act(async () => finish());
+  await advance();
+  expect(load).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole('dialog')).toHaveTextContent('当前有未保存的输入');
+  expect(input).toHaveValue('读取期间开始的草稿');
+});
+
 it('does not display the preceding page read time while the new page is loading', async () => {
   const load = vi.fn(async () => 7);
   const hook = renderHook(
@@ -608,5 +640,137 @@ it('does not display the preceding page read time while the new page is loading'
   navigation.path = '/other';
   hook.rerender();
   expect(hook.result.current.reading.readAt).toBe(0);
+  expect(hook.result.current.reading.error).toBe('');
+});
+
+it.each(['refresh', 'entry'])(
+  'clears cross-tab identity data and waits for an explicit %s before reading again',
+  async action => {
+    setClientAuthToken('first-session');
+    const load = vi.fn(async () => ({ identity: getClientAuthToken() }));
+    const hook = renderHook(
+      () => ({
+        reading: useManualRefresh(),
+        query: useManualQuery({ queryKey: ['identity-read'], queryFn: load }),
+      }),
+      { wrapper },
+    );
+    await advance();
+    expect(hook.result.current.query.data.identity).toBe('first-session');
+    await act(async () => {
+      localStorage.setItem(AUTH_TOKEN, JSON.stringify('second-session'));
+      window.dispatchEvent(new StorageEvent('storage', { key: AUTH_TOKEN }));
+    });
+    await advance(600000);
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(hook.result.current.query.data).toBeUndefined();
+    if (action === 'refresh') {
+      let pending!: Promise<void>;
+      act(() => {
+        pending = hook.result.current.reading.refresh();
+      });
+      await advance();
+      await pending;
+    } else {
+      navigation.path = '/boards';
+      hook.rerender();
+      await advance();
+    }
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(hook.result.current.query.data.identity).toBe('second-session');
+  },
+);
+
+it('uses an ordinary read for a condition changed during an unfinished manual refresh', async () => {
+  const forced: boolean[] = [];
+  const hook = renderHook(
+    ({ condition }) => ({
+      reading: useManualRefresh(),
+      query: useManualQuery({
+        queryKey: ['concurrent-condition', condition],
+        queryFn: ({ signal }) => {
+          forced.push(!!clientRequestOptions(signal)?.refresh);
+          if (forced.length === 2) return new Promise<string>(() => {});
+          return Promise.resolve(condition);
+        },
+      }),
+    }),
+    { initialProps: { condition: 'a' }, wrapper },
+  );
+  await advance();
+  act(() => {
+    void hook.result.current.reading.refresh().catch(() => {});
+  });
+  await advance(1);
+  expect(forced).toEqual([false, true]);
+  expect(hook.result.current.reading.busy).toBe(true);
+  hook.rerender({ condition: 'b' });
+  await advance(1);
+  expect(forced).toEqual([false, true, false]);
+  hook.rerender({ condition: 'a' });
+  await advance();
+  expect(forced).toEqual([false, true, false, false]);
+});
+
+it('keeps cross-tab reads paused when clearing website alias metadata', async () => {
+  setClientAuthToken('first-session');
+  navigation.path = '/websites/17';
+  client.setQueryDefaults(['liekan-feature', 'user', 'site'], { meta: { readPurpose: 'ordinary' } });
+  client.setQueryData(['liekan-feature', 'user', 'site', '17'], {
+    id: 'canonical',
+    siteNumber: 17,
+  });
+  const load = vi.fn(async () => 7);
+  const hook = renderHook(() => useManualQuery({ queryKey: ['alias-identity'], queryFn: load }), {
+    wrapper,
+  });
+  await advance();
+  await act(async () => {
+    localStorage.setItem(AUTH_TOKEN, JSON.stringify('second-session'));
+    window.dispatchEvent(new StorageEvent('storage', { key: AUTH_TOKEN }));
+  });
+  await advance();
+  expect(client.getQueryData(['liekan-feature', 'user', 'site', '17'])).toBeUndefined();
+  expect(load).toHaveBeenCalledTimes(1);
+  expect(hook.result.current.data).toBeUndefined();
+});
+
+it('finishes a failed selection and lets the next manual read recover', async () => {
+  let fail = false;
+  const hook = renderHook(
+    () => ({
+      reading: useManualRefresh(),
+      normal: useManualQuery({ queryKey: ['selected-read'], queryFn: async () => 7 }),
+      query: useManualQuery({
+        queryKey: ['selected-read'],
+        queryFn: async () => 7,
+        select: value => {
+          if (fail) throw new Error('无法显示本次结果');
+          return value;
+        },
+      }),
+    }),
+    { wrapper },
+  );
+  await advance();
+  expect(hook.result.current.query.data).toBe(7);
+  fail = true;
+  let pending!: Promise<void>;
+  act(() => {
+    pending = hook.result.current.reading.refresh();
+    void pending.catch(() => {});
+  });
+  await advance();
+  await expect(pending).rejects.toThrow('读取失败');
+  expect(hook.result.current.reading.busy).toBe(false);
+  expect(hook.result.current.query.error.message).toBe('无法显示本次结果');
+  expect(hook.result.current.normal.data).toBe(7);
+  fail = false;
+  act(() => {
+    pending = hook.result.current.reading.refresh();
+  });
+  await advance();
+  await pending;
+  expect(hook.result.current.query.data).toBe(7);
   expect(hook.result.current.reading.error).toBe('');
 });

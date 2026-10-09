@@ -380,6 +380,45 @@ describe('core form flows', () => {
     },
   );
   it.each(['goals', 'funnels'])(
+    'returns %s directly to page one when refresh removes several final pages',
+    async kind => {
+      let removed = false;
+      const first = {
+        id: 'first',
+        name: '首页定义',
+        parameters: {
+          type: 'path',
+          value: '/',
+          window: 30,
+          steps: [
+            { type: 'path', value: '/' },
+            { type: 'event', value: 'submit' },
+          ],
+        },
+      };
+      mocks.query[kind] = (key: any[]) => ({
+        data: removed && key[1] === 4 ? [] : [first],
+        count: removed ? 40 : 61,
+        page: key[1],
+        pageSize: 20,
+      });
+      const user = userEvent.setup();
+      const view = render(<CorePages page={kind} />);
+      for (let index = 0; index < 3; index++)
+        await user.click(screen.getByRole('button', { name: '下一页' }));
+      const before = mocks.queries.length;
+      removed = true;
+      view.rerender(<CorePages page={kind} />);
+      await waitFor(() => expect(mocks.queries.filter(key => key[0] === kind).at(-1)?.[1]).toBe(1));
+      const recovery = mocks.queries
+        .slice(before)
+        .filter(key => key[0] === kind)
+        .map(key => key[1]);
+      expect(recovery).not.toContain(2);
+      expect(recovery).not.toContain(3);
+    },
+  );
+  it.each(['goals', 'funnels'])(
     'clamps %s to page one when deleting the final remaining definition',
     async kind => {
       let deleted = false;

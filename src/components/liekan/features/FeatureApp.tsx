@@ -297,6 +297,8 @@ export function FeatureApp({
     api: featureApi,
     sites,
     sitesLoading: needsSites && sitesQuery.isPending,
+    sitesReady: sitesQuery.isSuccess && !sitesQuery.isPlaceholderData,
+    teamsReady: teamsQuery.isSuccess && !teamsQuery.isPlaceholderData,
     teams,
     siteId,
     site,

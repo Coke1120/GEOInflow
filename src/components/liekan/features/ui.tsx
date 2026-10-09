@@ -452,7 +452,7 @@ export function Table({
   const loading = useDataLoading();
   const panel = useContext(SearchContext);
   useEffect(() => {
-    if (!loading && pages >= 1 && page > pages) onPage?.(1);
+    if (!loading && pages >= 0 && page > Math.max(1, pages)) onPage?.(1);
   }, [page, pages, onPage, loading]);
   const [text, setText] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());

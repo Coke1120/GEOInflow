@@ -36,13 +36,19 @@ export const ordinaryReadOptions = {
 } as const;
 
 let nextPage = 0;
+interface ReadObservation {
+  status: string;
+  fetchStatus: string;
+  dataUpdatedAt: number;
+  errorUpdatedAt: number;
+}
 interface PageRead {
   scope: string;
   token: number;
   round: number;
   force: boolean;
   now: number;
-  queries: Map<string, { key: readonly unknown[]; count: number }>;
+  queries: Map<string, { key: readonly unknown[]; observations: Map<symbol, ReadObservation> }>;
 }
 interface ManualReading {
   page: PageRead;
@@ -50,11 +56,29 @@ interface ManualReading {
   readAt: number;
   error: string;
   refresh: (expectedPage?: number, force?: boolean) => Promise<void>;
-  register: (key: readonly unknown[]) => () => void;
+  register: (key: readonly unknown[], observation: ReadObservation) => () => void;
   authorized?: boolean;
 }
 const ManualContext = createContext<ManualReading>(null);
 const AuthorizationContext = createContext(true);
+const DependencyContext = createContext(true);
+
+function observationOf(state: any) {
+  return {
+    status: state?.status,
+    fetchStatus: state?.fetchStatus,
+    dataUpdatedAt: state?.dataUpdatedAt,
+    errorUpdatedAt: state?.errorUpdatedAt,
+  };
+}
+function observationCommitted(observation: ReadObservation, state: any) {
+  return (
+    observation.fetchStatus === state.fetchStatus &&
+    observation.dataUpdatedAt === state.dataUpdatedAt &&
+    ((observation.status === state.status && observation.errorUpdatedAt === state.errorUpdatedAt) ||
+      (observation.status === 'error' && state.status === 'success'))
+  );
+}
 
 /** A trusted departure followed by a cached return is a new page visit. */
 export function observeHistoryReturn(target: Window, reenter: () => void) {
@@ -120,12 +144,16 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
     if (conditions.has(name)) resourceConditions.set(name, conditions.get(name));
   }
   resourceConditions.sort();
+  const locationScope = `${pathname || ''}?${resourceConditions}`;
+  const activeLocation = useRef(locationScope);
+  activeLocation.current = locationScope;
   const scope = `${manualPageScope(pathname || '', client)}?${resourceConditions}`;
   const clockConditions = ['date', 'unit', 'offset', 'timezone']
     .map(name => conditions.get(name))
     .join('|');
   const lastClock = useRef(clockConditions);
   const current = useRef<PageRead>(null);
+  const pausedScope = useRef<string>(null);
   const pending = useRef<{
     page: PageRead;
     resolve: () => void;
@@ -133,6 +161,7 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
     promise: Promise<void>;
   }>(null);
   if (!current.current || manualPageScope(current.current.scope, client) !== scope) {
+    if (pausedScope.current !== locationScope) pausedScope.current = null;
     pending.current?.resolve();
     pending.current = null;
     current.current = {
@@ -152,17 +181,20 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
   }
   current.current.scope = scope;
   const page = current.current;
-  const register = useCallback((key: readonly unknown[]) => {
+  const register = useCallback((key: readonly unknown[], observation: ReadObservation) => {
     const owner = current.current;
     const id = hashKey(key);
     const existing = owner.queries.get(id);
-    owner.queries.set(id, { key, count: (existing?.count || 0) + 1 });
-    if (!existing) update();
+    const observer = Symbol();
+    const observations = existing?.observations || new Map<symbol, ReadObservation>();
+    observations.set(observer, observation);
+    owner.queries.set(id, { key, observations });
+    update();
     return () => {
       const registered = owner.queries.get(id);
       if (!registered) return;
-      if (registered.count > 1) registered.count--;
-      else owner.queries.delete(id);
+      registered.observations.delete(observer);
+      if (!registered.observations.size) owner.queries.delete(id);
     };
   }, []);
   const refresh = useCallback(
@@ -180,6 +212,7 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
         return Promise.reject(new Error('网络连接已断开'));
       }
       const previous = current.current;
+      pausedScope.current = null;
       pending.current?.resolve();
       for (const { key } of previous.queries.values())
         void client.cancelQueries({ queryKey: key, exact: true });
@@ -216,11 +249,24 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
       clearTimeout(timer);
       timer = setTimeout(() => {
         const active = current.current;
-        const states = [...active.queries.values()].map(({ key }) => client.getQueryState(key));
+        if (active !== page) return;
+        const entries = [...active.queries.values()];
+        const states = entries.map(({ key }) => client.getQueryState(key));
         if (states.some(state => !state || state.fetchStatus !== 'idle')) return;
+        if (
+          entries.some((entry, index) =>
+            [...entry.observations.values()].some(
+              snapshot => !observationCommitted(snapshot, states[index]),
+            ),
+          )
+        )
+          return;
         const job = pending.current;
         const failures = states.filter(
-          state => state?.status === 'error' || aggregateReadFailure(state?.data),
+          (state, index) =>
+            state?.status === 'error' ||
+            aggregateReadFailure(state?.data) ||
+            [...entries[index].observations.values()].some(snapshot => snapshot.status === 'error'),
         );
         const latest = Math.max(0, ...states.map(state => state?.dataUpdatedAt || 0));
         if (latest && !failures.length)
@@ -257,34 +303,38 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
       clearTimeout(timer);
       unsubscribe();
     };
-  }, [client, revision, page.token]);
+  }, [client, revision, page]);
 
   useEffect(() => {
-    const credentialsChanged = () => {
+    const credentialsChanged = (external = false) => {
       const token = getClientAuthToken();
       if (token === principal.current) return;
       principal.current = token;
+      pausedScope.current = external ? activeLocation.current : null;
       void client.cancelQueries({ predicate: query => query.meta?.readPurpose === 'ordinary' });
       client.removeQueries({ predicate: query => query.meta?.readPurpose === 'ordinary' });
       pending.current?.resolve();
       pending.current = null;
       current.current = null;
+      setBusy(false);
       setUser(null);
       update();
     };
     const storage = (event: StorageEvent) => {
-      if (event.key === AUTH_TOKEN || event.key === null) credentialsChanged();
+      if (event.key === AUTH_TOKEN || event.key === null) credentialsChanged(true);
     };
+    const localCredentialsChanged = () => credentialsChanged();
     window.addEventListener('storage', storage);
-    window.addEventListener('liekan-credentials-change', credentialsChanged);
+    window.addEventListener('liekan-credentials-change', localCredentialsChanged);
     return () => {
       window.removeEventListener('storage', storage);
-      window.removeEventListener('liekan-credentials-change', credentialsChanged);
+      window.removeEventListener('liekan-credentials-change', localCredentialsChanged);
     };
   }, [client]);
   useEffect(
     () =>
       observeHistoryReturn(window, () => {
+        pausedScope.current = null;
         for (const { key } of current.current?.queries.values() || [])
           void client.cancelQueries({ queryKey: key, exact: true });
         pending.current?.resolve();
@@ -295,16 +345,18 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
       }),
     [client],
   );
+  const authorized = pausedScope.current !== locationScope;
   const value = useMemo(
     () => ({
       page,
+      authorized,
       busy: busy && pending.current?.page === page,
       readAt: readState.token === page.token ? readState.at : 0,
       error: readState.token === page.token ? readState.error : '',
       refresh,
       register,
     }),
-    [page, busy, readState, refresh, register],
+    [page, authorized, busy, readState, refresh, register],
   );
   return <ManualContext.Provider value={value}>{children}</ManualContext.Provider>;
 }
@@ -327,10 +379,35 @@ export function ManualAuthorizationBoundary({
   );
 }
 
+/** Retained metadata stays visible while its dependent reads wait for this generation. */
+export function ManualReadDependencyBoundary({
+  ready,
+  children,
+}: {
+  ready: boolean;
+  children: ReactNode;
+}) {
+  const parent = useContext(DependencyContext);
+  return (
+    <DependencyContext.Provider value={ready && parent}>{children}</DependencyContext.Provider>
+  );
+}
+
 /** Each page visit and explicit refresh owns one stable query generation. */
 export function useManualQueryOptions(options: any) {
   const reading = useManualRefresh();
   const authorized = useContext(AuthorizationContext);
+  const dependenciesReady = useContext(DependencyContext);
+  const selection = useRef<{ epoch: string; key: string; ready: boolean; normal: boolean }>(null);
+  const epoch = `${reading?.page.token}:${reading?.page.round}`;
+  const selectionKey = hashKey(options.queryKey);
+  const ready =
+    authorized && dependenciesReady && reading?.authorized !== false && options.enabled !== false;
+  const previous = selection.current;
+  const normalSelection =
+    previous?.epoch === epoch &&
+    (previous.key === selectionKey ? previous.normal : previous.ready && ready);
+  selection.current = { epoch, key: selectionKey, ready, normal: normalSelection };
   const ordinary =
     options.meta?.readPurpose !== 'authorization' && typeof options.queryFn === 'function';
   const key =
@@ -340,6 +417,8 @@ export function useManualQueryOptions(options: any) {
   if (!ordinary) return options;
   const canRead = (query: any) =>
     authorized &&
+    reading?.authorized !== false &&
+    dependenciesReady &&
     (typeof options.enabled === 'function'
       ? options.enabled(query) !== false
       : options.enabled !== false);
@@ -362,7 +441,7 @@ export function useManualQueryOptions(options: any) {
             return withClientFreshness(
               context.signal,
               () => options.queryFn({ ...context, queryKey: options.queryKey }),
-              { refresh: !!reading?.busy && reading.page.force, queryKey: key },
+              { refresh: !!reading?.busy && reading.page.force && !normalSelection, queryKey: key },
             );
           }
         : options.queryFn,
@@ -397,9 +476,18 @@ export function useRetainedRead(
   const id = hashKey(key);
   const registered =
     !!reading && (key.at(-1) as any)?.manualPage === reading.page.token && readable;
+  const observation = observationOf(result);
   useEffect(() => {
-    if (registered) return reading.register(key);
-  }, [id, registered, reading?.register]);
+    if (registered) return reading.register(key, observation);
+  }, [
+    id,
+    registered,
+    observation.status,
+    observation.fetchStatus,
+    observation.dataUpdatedAt,
+    observation.errorUpdatedAt,
+    reading?.register,
+  ]);
   const previousSelection = useRef<{ epoch: string; id: string }>(null);
   const epoch = `${reading?.page.token}:${reading?.page.round}`;
   useEffect(() => {
@@ -420,7 +508,9 @@ export function useRetainedRead(
   if (result.data !== undefined && !result.isPlaceholderData && !partialFailure)
     previous.current = { owner, id, epoch, data: result.data };
   const restricted = [401, 403, 404].includes(result.error?.status);
-  if (restricted) previous.current = null;
+  const principalPaused =
+    reading?.authorized === false && options?.meta?.readPurpose === 'ordinary';
+  if (restricted || principalPaused) previous.current = null;
   const retained =
     previous.current?.owner === owner &&
     (previous.current.id === id || previous.current.epoch !== epoch)
@@ -443,7 +533,7 @@ export function useRetainedRead(
     ...(partialFailure
       ? { error: partialFailure, isError: true, isSuccess: false, status: 'error' }
       : {}),
-    data: restricted ? undefined : data,
+    data: restricted || principalPaused ? undefined : data,
     ...(result.data === undefined && !restricted && retained !== undefined
       ? {
           isPending: false,

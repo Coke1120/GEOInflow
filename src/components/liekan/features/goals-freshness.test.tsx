@@ -194,3 +194,77 @@ it('updates successful goals and retains the failed goal in the same batch', asy
   expect(screen.getByText(/部分数据读取失败/)).toBeInTheDocument();
   client.clear();
 });
+
+it.each(['add', 'remove', 'empty', 'failure'])(
+  'waits for the current definitions before reading goal statistics after %s',
+  async change => {
+    vi.useFakeTimers();
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let definitions = 0;
+    let finish!: (response: Response) => void;
+    const records: { goal: string; forced: boolean }[] = [];
+    const goals = (ids: string[]) => ({
+      data: ids.map(id => ({ id, name: `目标${id}`, parameters: { type: 'event', value: id } })),
+      count: ids.length,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: URL) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith('/goals')) {
+          if (++definitions === 1) return Response.json(goals(['a', 'b']));
+          return new Promise<Response>(resolve => (finish = resolve));
+        }
+        records.push({
+          goal: url.pathname.match(/\/goals\/([^/]+)\/analytics/)[1],
+          forced: url.searchParams.get('refresh') === '1',
+        });
+        return Response.json({ conversions: 7, num: 7, total: 10, series: [] });
+      }),
+    );
+    const value = {
+      user: { id: 'viewer' },
+      siteId: 'site',
+      site: { id: 'site', userId: 'owner' },
+      route: { page: 'goals' },
+      api: featureApi,
+      query: {},
+      filters: {},
+      teams: [],
+      range: { startAt: 0, endAt: 1000, timezone: 'UTC' },
+      href: () => '/edit',
+    } as any;
+    try {
+      render(
+        <QueryClientProvider client={client}>
+          <ManualRefreshProvider>
+            <FeatureProvider value={value}>
+              <ManualRefreshControl />
+              <CorePages page="goals" />
+            </FeatureProvider>
+          </ManualRefreshProvider>
+        </QueryClientProvider>,
+      );
+      await advance(50);
+      expect(records).toHaveLength(2);
+      fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+      await advance(100);
+      expect(definitions).toBe(2);
+      expect(records).toHaveLength(2);
+      const ids = change === 'add' ? ['c', 'a', 'b'] : change === 'remove' ? ['a'] : [];
+      await act(async () =>
+        finish(
+          change === 'failure' ? Response.json({}, { status: 503 }) : Response.json(goals(ids)),
+        ),
+      );
+      await advance(1);
+      await advance(30);
+      await advance(30);
+      expect(records).toHaveLength(2 + ids.length);
+      expect(records.filter(row => row.forced).map(row => row.goal)).toEqual(ids);
+      expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled();
+    } finally {
+      client.clear();
+    }
+  },
+);
