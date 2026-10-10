@@ -1182,6 +1182,47 @@
 :global([data-liekan-features] .dialog-discard) {
   overflow: auto;
 }
+:global([data-liekan-features] .website-delete-result) {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 12px 0;
+}
+:global([data-liekan-features] #main-content:focus) {
+  outline: none;
+}
+:global([data-liekan-features] .website-delete-result-icon) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: #edf7f2;
+  color: var(--green);
+}
+:global([data-liekan-features] .website-delete-result-icon .nav-icon) {
+  width: 28px;
+  height: 28px;
+}
+:global([data-liekan-features] .website-delete-result-content) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+:global([data-liekan-features] h3.website-delete-result-name) {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+:global([data-liekan-features] .website-delete-result-domain),
+:global([data-liekan-features] .website-delete-result-hint) {
+  margin-top: 8px;
+  color: var(--sub);
+}
+:global([data-liekan-features] .website-delete-result-description) {
+  margin-top: 20px;
+}
 :global([data-liekan-features] .dialog-discard h3) {
   font-size: 16px;
   margin-bottom: 8px;
@@ -1193,6 +1234,11 @@
   gap: 0;
 }
 @media (max-width: 767px) {
+  :global([data-liekan-features] .website-delete-result) {
+    flex-direction: column;
+    gap: 16px;
+    padding: 0;
+  }
   :global([data-liekan-features] .zen-layer-modal) {
     padding: 16px;
   }

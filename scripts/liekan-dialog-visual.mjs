@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import { generateSync } from 'otplib';
 import { checkDialog, assertDialogContract, dialogBaseline } from './liekan-dialog-contract.mjs';
 import { verifyDialogChecker } from './liekan-dialog-contract-fixtures.mjs';
@@ -40,6 +40,7 @@ const result = {
   duplicates: [],
   responsive: [],
   supplementalResponsive: [],
+  websiteDeletionSuccess: [],
   errors: [],
   cleanup: { passed: false, checks: [], errors: [] },
   fixtures: ['断开日志连接使用浏览器内的连接状态测试夹具；取消操作不会写入服务。'],
@@ -689,6 +690,107 @@ try {
       }
     }
   }
+  for (const [width, height] of [
+    [1440, 1000],
+    [1920, 1080],
+    [768, 900],
+    [767, 900],
+    [390, 844],
+    [320, 480],
+  ]) {
+    const longContent = width === 320;
+    const credential = width === 1440 ? token : ownToken;
+    const website = await api(
+      'POST',
+      '/websites',
+      {
+        name: longContent ? '删除结果长名称验证'.repeat(10) : `删除结果验证网站 ${width}`,
+        domain: longContent
+          ? [63, 63, 63, 61].map(length => 'a'.repeat(length)).join('.')
+          : 'delete-result.invalid',
+      },
+      credential,
+    );
+    const cleanupPath = '/websites/' + website.id;
+    created.push(cleanupPath);
+    const { page, context } = await at(
+      'website-settings',
+      { websiteId: website.id, section: 'danger', returnTo: '/websites?scope=all' },
+      credential,
+      width,
+      height,
+    );
+    try {
+      let deleted = false;
+      const oldReads = [];
+      page.on('response', response => {
+        if (
+          response.request().method() === 'DELETE' &&
+          new URL(response.url()).pathname === '/api/websites/' + website.id &&
+          response.status() === 200
+        )
+          deleted = true;
+      });
+      page.on('request', request => {
+        if (
+          deleted &&
+          request.method() === 'GET' &&
+          new URL(request.url()).pathname.startsWith('/api/websites/' + website.id)
+        )
+          oldReads.push(new URL(request.url()).pathname);
+      });
+      await page.getByRole('button', { name: '删除网站', exact: true }).click();
+      const confirmation = page.getByRole('dialog', { name: '删除网站', exact: true });
+      await confirmation
+        .getByLabel(`输入 ${website.name} 确认`, { exact: false })
+        .fill(website.name);
+      await confirmation.getByRole('button', { name: '删除网站', exact: true }).click();
+      await expect(page).toHaveURL(/\/websites\?scope=all$/);
+      await expect(page.getByRole('dialog', { name: '网站删除成功', exact: true })).toBeVisible();
+      assert(deleted, 'Deletion result requires a successful DELETE response');
+      created.splice(created.indexOf(cleanupPath), 1);
+      await page.waitForLoadState('networkidle');
+      const success = page.getByRole('dialog', { name: '网站删除成功', exact: true });
+      await expect(page.getByRole('dialog')).toHaveCount(1);
+      await expect(success.getByText(website.name, { exact: true })).toBeVisible();
+      await expect(success.getByText(website.domain, { exact: true })).toBeVisible();
+      await expect(page.locator('.toast')).toHaveCount(0);
+      await expect(page.locator('main')).not.toContainText(website.name);
+      const geometry = await checkDialog(page, 'wide');
+      assert(
+        await page
+          .locator('.dialog-body')
+          .evaluate(element => element.scrollWidth <= element.clientWidth + 1),
+        'Deletion result body must contain long website names and domains',
+      );
+      await page.screenshot({
+        path: `${out}/website-delete-success-${width}.png`,
+        animations: 'disabled',
+      });
+      if (width === 1440) {
+        await page.waitForTimeout(4000);
+        await expect(success).toBeVisible();
+      }
+      if (width === 767) await page.keyboard.press('Escape');
+      else if (width === 768)
+        await success.getByRole('button', { name: '关闭弹窗', exact: true }).click();
+      else await success.getByRole('button', { name: '知道了', exact: true }).click();
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      await expect(page.locator('main')).toBeFocused();
+      assert.deepEqual(oldReads, [], 'Deleted website must receive no further reads');
+      if (credential === ownToken) {
+        const remaining = await api('GET', '/websites', undefined, ownToken);
+        assert.equal(remaining.count, 0, 'Last website returns to the empty website list');
+      }
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+      await expect(page.getByRole('dialog')).toHaveCount(0);
+      result.websiteDeletionSuccess.push({ width, height, geometry, longContent, passed: true });
+    } finally {
+      await context.close();
+    }
+  }
+  assert.equal(result.websiteDeletionSuccess.length, 6);
   assert.deepEqual(
     result.checks.map(check => check.id).sort((a, b) => a - b),
     Array.from({ length: 50 }, (_, i) => i + 1),

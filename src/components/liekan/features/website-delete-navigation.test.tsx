@@ -63,6 +63,8 @@ const record = {
 };
 let client: QueryClient;
 let deleted: boolean;
+let deleteFailure: boolean;
+let actor: { id: string; username: string; role: string; isAdmin: boolean };
 let holdVerify: boolean;
 let releaseVerify: (() => void) | undefined;
 let listFailure: boolean;
@@ -75,6 +77,8 @@ let reads: { path: string; method: string; afterDelete: boolean }[];
 const list = (rows: any[]) => ({ data: rows, count: rows.length, pageSize: 100 });
 beforeEach(() => {
   deleted = false;
+  deleteFailure = false;
+  actor = { id: 'owner', username: 'owner', role: 'admin', isAdmin: true };
   holdVerify = false;
   releaseVerify = undefined;
   listFailure = true;
@@ -104,6 +108,8 @@ beforeEach(() => {
           : verified();
       }
       if (method === 'DELETE') {
+        if (deleteFailure)
+          return Response.json({ error: { message: '删除失败，请重试。' } }, { status: 500 });
         const result = () => {
           deleted = true;
           return Response.json({ ok: true });
@@ -177,10 +183,7 @@ function Harness() {
   return (
     <QueryClientProvider client={client}>
       <ManualRefreshProvider>
-        <FeatureApp
-          user={{ id: 'owner', username: 'owner', role: 'admin', isAdmin: true }}
-          route={matchFeatureRoute(nav.path, nav.query)}
-        />
+        <FeatureApp user={actor} route={matchFeatureRoute(nav.path, nav.query)} />
       </ManualRefreshProvider>
     </QueryClientProvider>
   );
@@ -199,9 +202,88 @@ it('completed website deletion stays absent when the returned all-sites list fai
   await act(async () => {
     await new Promise(resolve => setTimeout(resolve, 100));
   });
-  expect(screen.getByText('「删除回归站」已删除')).toBeInTheDocument();
+  const result = await screen.findByRole('dialog', { name: '网站删除成功' });
+  expect(within(result).getByText(site.name)).toBeInTheDocument();
+  expect(within(result).getByText(site.domain)).toBeInTheDocument();
+  expect(
+    within(result).getByText('该网站及其关联数据和设置已删除，无法恢复。'),
+  ).toBeInTheDocument();
+  expect(document.querySelector('.toast')).not.toBeInTheDocument();
+  await user.click(within(result).getByRole('button', { name: '知道了' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(document.querySelector('main')).toHaveFocus();
   expect(screen.queryByRole('link', { name: site.name })).not.toBeInTheDocument();
 });
+it('keeps the final website result until dismissal and does not replay it on re-entry', async () => {
+  listFailure = false;
+  render(<Harness />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: '删除网站' }));
+  const dialog = within(screen.getByRole('dialog'));
+  await user.type(dialog.getByLabelText(/输入 删除回归站 确认/), site.name);
+  await user.click(dialog.getByRole('button', { name: '删除网站' }));
+  const result = await screen.findByRole('dialog', { name: '网站删除成功' });
+  expect(result.querySelector('section')).toHaveAttribute('data-dialog-size', 'wide');
+  vi.useFakeTimers();
+  try {
+    await act(async () => vi.advanceTimersByTime(5000));
+    expect(screen.getByRole('dialog', { name: '网站删除成功' })).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await act(async () => {
+    nav.pending = '/liekan/help';
+    commit();
+  });
+  await act(async () => {
+    nav.pending = '/websites';
+    commit();
+  });
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+it('retains a failed confirmation for retry and shows the result only after a successful DELETE', async () => {
+  deleteFailure = true;
+  render(<Harness />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: '删除网站' }));
+  const dialog = within(screen.getByRole('dialog'));
+  await user.type(dialog.getByLabelText(/输入 删除回归站 确认/), site.name);
+  await user.click(dialog.getByRole('button', { name: '删除网站' }));
+  await dialog.findByText('删除失败，请重试。');
+  expect(dialog.getByLabelText(/输入 删除回归站 确认/)).toHaveValue(site.name);
+  expect(screen.queryByRole('dialog', { name: '网站删除成功' })).not.toBeInTheDocument();
+  expect(nav.replace).not.toHaveBeenCalled();
+  deleteFailure = false;
+  await user.click(dialog.getByRole('button', { name: '删除网站' }));
+  expect(await screen.findByRole('dialog', { name: '网站删除成功' })).toBeInTheDocument();
+});
+
+it.each(['identity', 'leave'] as const)(
+  'clears a pending deletion result after %s changes before navigation completes',
+  async change => {
+    nav.defer = true;
+    render(<Harness />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: '删除网站' }));
+    const dialog = within(screen.getByRole('dialog'));
+    await user.type(dialog.getByLabelText(/输入 删除回归站 确认/), site.name);
+    await user.click(dialog.getByRole('button', { name: '删除网站' }));
+    await waitFor(() => expect(nav.pending).toBe('/websites?scope=all'));
+    await act(async () => {
+      if (change === 'identity') actor = { ...actor, id: 'another-user' };
+      else nav.pending = '/liekan/help';
+      commit();
+    });
+    await act(async () => {
+      nav.pending = '/websites';
+      commit();
+    });
+    expect(screen.queryByRole('dialog', { name: '网站删除成功' })).not.toBeInTheDocument();
+  },
+);
 it('checks retained team metadata independently of the newly mounted team list', async () => {
   mode = 'team';
   nav.path = '/teams/' + team.id;
@@ -275,9 +357,11 @@ it('seals a deleted page before a delayed identity check and navigation commit f
   await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
   expect(reads.filter(read => read.afterDelete && read.method === 'GET')).toEqual([]);
   expect(nav.replace).toHaveBeenCalledWith('/websites?scope=all');
+  expect(screen.queryByRole('dialog', { name: '网站删除成功' })).not.toBeInTheDocument();
   await act(async () => commit());
   await screen.findByText('删除后列表暂时不可用');
-  expect(screen.getByText('「删除回归站」已删除')).toBeInTheDocument();
+  expect(await screen.findByRole('dialog', { name: '网站删除成功' })).toBeInTheDocument();
+  expect(screen.getAllByRole('dialog')).toHaveLength(1);
 });
 
 it('explains an already deleted website and offers the website list when its API returns null', async () => {
@@ -322,7 +406,7 @@ it.each(['url-alias', 'metadata-alias'])(
     }
     await act(async () => releaseDelete!());
     await waitFor(() => expect(nav.path).toBe('/websites'));
-    expect(screen.getByText('「删除回归站」已删除')).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', { name: '网站删除成功' })).toBeInTheDocument();
     expect(
       reads.filter(read => read.afterDelete && read.path.includes('/websites/' + site.id)),
     ).toEqual([]);

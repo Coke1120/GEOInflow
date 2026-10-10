@@ -1113,7 +1113,16 @@ function WebsiteSettings() {
                         drawer === 'reset'
                           ? `「${site.name}」的访问数据已清空`
                           : `「${site.name}」已删除`,
-                        drawer === 'delete' ? { navigateTo: 'websites' } : undefined,
+                        drawer === 'delete'
+                          ? {
+                              navigateTo: 'websites',
+                              notice: {
+                                kind: 'website-deleted',
+                                name: site.name,
+                                domain: site.domain,
+                              },
+                            }
+                          : undefined,
                       );
                     }
                     setDrawer('');

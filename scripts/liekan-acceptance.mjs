@@ -435,6 +435,8 @@ try {
     report.dialogVisual.duplicates?.length !== 7 ||
     report.dialogVisual.responsive.length !== 15 ||
     report.dialogVisual.supplementalResponsive?.length !== 8 ||
+    report.dialogVisual.websiteDeletionSuccess?.length !== 6 ||
+    report.dialogVisual.websiteDeletionSuccess.some(check => !check.passed) ||
     report.dialogVisual.errors.length ||
     !report.dialogVisual.cleanup?.passed
   )

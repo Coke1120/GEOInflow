@@ -22,6 +22,12 @@ import {
 import type { featureApi } from '@/lib/liekan/upstream/features-client';
 import { useDataLoading } from '../DataLoading';
 
+export interface WebsiteDeletedNotice {
+  kind: 'website-deleted';
+  name: string;
+  domain?: string;
+}
+
 export interface FeatureContextValue {
   user: FeatureUser;
   route: FeatureRoute;
@@ -38,7 +44,7 @@ export interface FeatureContextValue {
   query: Record<string, string>;
   href: (page: string, params?: Record<string, any>) => string;
   navigate: (page: string, params?: Record<string, any>, options?: { replace?: boolean }) => void;
-  notify: (message: string) => void;
+  notify: (message: string, notice?: WebsiteDeletedNotice) => void;
   refresh: () => Promise<void>;
   entity?: FeatureEntity;
   setEntity?: (entity: FeatureEntity) => void;
@@ -183,7 +189,7 @@ export function useAction() {
   async function run<T>(
     action: () => Promise<T>,
     message = '已保存',
-    options: { navigateTo?: string } = {},
+    options: { navigateTo?: string; notice?: WebsiteDeletedNotice } = {},
   ): Promise<T> {
     setBusy(true);
     setError('');
@@ -220,7 +226,8 @@ export function useAction() {
           client.invalidateQueries({ queryKey: ['2fa-status'], refetchType: 'none' }),
         ];
         if (completing) {
-          c?.notify(message);
+          if (options.notice) c?.notify(message, options.notice);
+          else c?.notify(message);
           c?.navigate(options.navigateTo, undefined, { replace: true });
           departing = true;
         }

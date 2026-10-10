@@ -45,12 +45,12 @@ import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
 import { AiPages, aiPages } from './AiPages';
 import { HelpCenter } from './HelpCenter';
-import { FeatureProvider } from './context';
+import { FeatureProvider, type WebsiteDeletedNotice } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
 import { featureHref, featureNavigationHref, featurePages, normalizeFeatureScope } from './routes';
 import { SavedSegments } from './SavedSegments';
-import { Button, LiekanDialog, Field, Form, Icon, Notice, QueryState } from './ui';
+import { Button, DialogActions, LiekanDialog, Field, Form, Icon, Notice, QueryState } from './ui';
 import { WorkspacePages, workspacePages } from './WorkspacePages';
 
 export const coreFeaturePages = new Set([
@@ -115,6 +115,22 @@ export function FeatureApp({
   const client = useQueryClient();
   const reading = useManualRefresh();
   const [toast, setToast] = useState('');
+  const [websiteDeleted, setWebsiteDeleted] = useState<{
+    userId: string;
+    notice: WebsiteDeletedNotice;
+  }>(null);
+  const mainContent = useRef<HTMLElement>(null);
+  const restoreResultFocus = useRef(false);
+  const closeWebsiteDeleted = () => {
+    restoreResultFocus.current = true;
+    setWebsiteDeleted(null);
+  };
+  useEffect(() => {
+    if (!websiteDeleted && restoreResultFocus.current) {
+      restoreResultFocus.current = false;
+      mainContent.current?.focus({ preventScroll: true });
+    }
+  }, [websiteDeleted]);
   const [width, setWidth] = useSidebarWidth();
   const [dateOpen, setDateOpen] = useState(false);
   const meta = navigationFor(route);
@@ -248,7 +264,9 @@ export function FeatureApp({
   );
   const navigate = useCallback(
     (page: string, params: Record<string, any> = {}, options: { replace?: boolean } = {}) =>
-      options.replace ? nav.router.replace(href(page, params)) : nav.router.push(href(page, params)),
+      options.replace
+        ? nav.router.replace(href(page, params))
+        : nav.router.push(href(page, params)),
     [href, nav.router],
   );
   const pendingQuery = useRef<Record<string, any>>(null);
@@ -267,7 +285,15 @@ export function FeatureApp({
     },
     [nav.router, nav.updateParams],
   );
-  const notify = useCallback((message: string) => setToast(message), []);
+  const notify = useCallback(
+    (message: string, notice?: WebsiteDeletedNotice) => {
+      if (notice?.kind === 'website-deleted') {
+        setToast('');
+        setWebsiteDeleted({ userId: user.id, notice });
+      } else setToast(message);
+    },
+    [user.id],
+  );
   const refresh = useCallback(async () => {
     await refreshFeatureIdentity();
     await reading?.refresh(reading.page.token);
@@ -292,6 +318,13 @@ export function FeatureApp({
     const timer = setTimeout(() => setToast(''), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
+  useEffect(() => {
+    if (
+      websiteDeleted &&
+      (websiteDeleted.userId !== user.id || !['website-settings', 'websites'].includes(route.page))
+    )
+      setWebsiteDeleted(null);
+  }, [user.id, route.page, websiteDeleted]);
   const value = {
     user,
     route: current,
@@ -432,7 +465,7 @@ export function FeatureApp({
     return (
       <FeatureProvider value={value}>
         <div data-liekan-features lang="zh-CN" className="identity-flow">
-          <main className="content" id="main-content">
+          <main className="content" id="main-content" ref={mainContent} tabIndex={-1}>
             <h1>{currentTitle}</h1>
             <AnalysisTabs
               route={current}
@@ -564,7 +597,7 @@ export function FeatureApp({
               </div>
             </>
           )}
-          <main className="content" id="main-content">
+          <main className="content" id="main-content" ref={mainContent} tabIndex={-1}>
             {datePage && invalidDate && (
               <Notice tone="amber">
                 日期参数无效，当前使用默认日期范围。
@@ -596,6 +629,38 @@ export function FeatureApp({
           <div className="toast" role="status">
             {toast}
           </div>
+        )}
+        {websiteDeleted?.userId === user.id && current.page === 'websites' && (
+          <LiekanDialog
+            title="网站删除成功"
+            size="wide"
+            className="website-delete-success"
+            protectUnsaved={false}
+            onClose={closeWebsiteDeleted}
+          >
+            <div className="website-delete-result">
+              <div className="website-delete-result-icon" aria-hidden="true">
+                <Icon name="check" />
+              </div>
+              <div className="website-delete-result-content">
+                <h3 className="website-delete-result-name">{websiteDeleted.notice.name}</h3>
+                {websiteDeleted.notice.domain && (
+                  <p className="website-delete-result-domain">{websiteDeleted.notice.domain}</p>
+                )}
+                <p className="website-delete-result-description">
+                  该网站及其关联数据和设置已删除，无法恢复。
+                </p>
+                <p className="website-delete-result-hint">
+                  其他网站的数据和设置保持不变。你可以继续管理网站，或添加新网站。
+                </p>
+              </div>
+            </div>
+            <DialogActions>
+              <button type="button" className="btn primary" autoFocus onClick={closeWebsiteDeleted}>
+                知道了
+              </button>
+            </DialogActions>
+          </LiekanDialog>
         )}
         {segmentsOpen && <SavedSegments onClose={() => setSegmentsOpen(false)} />}
         {dateOpen && (
