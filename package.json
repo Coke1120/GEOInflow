@@ -29,6 +29,8 @@
     "build:prisma:client": "node scripts/build-prisma-client.js",
     "build:languages": "npm-run-all download:countries download:languages",
     "build:geo": "node scripts/build-geo.js",
+    "liekan:deploy": "sh scripts/liekan-deploy.sh",
+    "test:deployment": "node --test tests/liekan/geo-setup.test.mjs tests/liekan/deployment.test.mjs",
     "build:openapi": "npm-run-all openapi:generate generate:api:client",
     "build:db": "npm-run-all generate:db:client build:prisma:client",
     "db:pull": "prisma db pull",
@@ -76,6 +78,7 @@
     "liekan:build-agent": "node scripts/liekan-build-agent.mjs",
     "liekan:worker": "node dist/liekan-worker.mjs",
     "test:log-ingestion": "vitest run -c vitest.log-ingestion.config.ts --maxWorkers=2",
+    "test:agent-docker": "node --test tests/liekan/agent-docker.test.mjs",
     "liekan:analytics-worker": "node dist/liekan-analytics-worker.mjs",
     "liekan:cache-benchmark": "tsx scripts/liekan-cache-benchmark.ts",
     "liekan:ai:maintenance": "node generated/ai-maintenance.mjs"

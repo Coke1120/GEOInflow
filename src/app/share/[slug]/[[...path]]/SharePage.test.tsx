@@ -156,6 +156,7 @@ describe('SharePage', () => {
     expect(screen.getAllByText('share nav')).toHaveLength(2);
     expect(screen.getByText('website header')).toBeInTheDocument();
     expect(screen.getByText('events page')).toBeInTheDocument();
+    expect(screen.getByText('share footer')).toBeInTheDocument();
     expect(initTheme).toHaveBeenCalled();
   });
 });

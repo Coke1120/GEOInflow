@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { AutomaticLogSetup } from './AutomaticLogSetup';
 const mocks = vi.hoisted(() => ({
-  api: { post: vi.fn(), put: vi.fn(), del: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), put: vi.fn(), del: vi.fn() },
   notify: vi.fn(),
   query: {} as any,
   user: { isAdmin: true },
@@ -106,7 +106,7 @@ it('generates the installation command in Strict Mode and guides an unavailable 
   expect(await screen.findByText('signed-install-command')).toBeVisible();
   expect(mocks.api.post).toHaveBeenCalledWith(
     `/liekan/websites/${site}/log-sources/server/pairing`,
-    {},
+    { runtime: 'docker' },
   );
   view.unmount();
   mount('server', {
@@ -117,6 +117,91 @@ it('generates the installation command in Strict Mode and guides an unavailable 
   expect(screen.getByText('请配置公网 HTTPS 地址')).toBeVisible();
   expect(screen.queryByRole('button', { name: '生成一次安装命令' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '开始配置' })).toBeEnabled();
+});
+it('uses Docker by default and retains the supported direct-install path', async () => {
+  mocks.api.post.mockResolvedValue({
+    command: 'docker-command',
+    pairingCode: 'temporary-code',
+    expiresAt: '2026-10-10T12:00:00Z',
+  });
+  mount('server', {
+    ...status,
+    availability: { server: { runtimes: { docker: true, systemd: true } } },
+  });
+  expect(screen.getByRole('combobox', { name: '服务器安装方式' })).toHaveValue('docker');
+  expect(screen.getByRole('button', { name: '下载 Docker 部署包' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: '生成一次安装命令' }));
+  expect(await screen.findByText('docker-command')).toBeVisible();
+  expect(screen.getByText('temporary-code')).toBeVisible();
+  fireEvent.change(screen.getByRole('combobox', { name: '服务器安装方式' }), {
+    target: { value: 'systemd' },
+  });
+  expect(screen.queryByText('temporary-code')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '下载 Docker 部署包' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: '生成一次安装命令' }));
+  await waitFor(() =>
+    expect(mocks.api.post).toHaveBeenLastCalledWith(
+      `/liekan/websites/${site}/log-sources/server/pairing`,
+      { runtime: 'systemd' },
+    ),
+  );
+});
+it('downloads a deployment package without creating a pairing grant', async () => {
+  const create = vi.fn().mockReturnValue('blob:deployment'),
+    revoke = vi.fn();
+  Object.defineProperty(URL, 'createObjectURL', { configurable: true, value: create });
+  Object.defineProperty(URL, 'revokeObjectURL', { configurable: true, value: revoke });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  mocks.api.get.mockResolvedValue({
+    archive: btoa('test-zip'),
+    fileName: 'deployment.zip',
+    command: 'prepare-only',
+  });
+  mount('server');
+  fireEvent.click(screen.getByRole('button', { name: '下载 Docker 部署包' }));
+  expect(await screen.findByText('sh start.sh')).toBeVisible();
+  expect(screen.getByText('prepare-only')).not.toBeVisible();
+  fireEvent.click(screen.getByText('通过命令准备运行环境（可选）'));
+  expect(screen.getByText('prepare-only')).toBeVisible();
+  expect(mocks.api.post).not.toHaveBeenCalled();
+  expect(create).toHaveBeenCalled();
+  expect(click).toHaveBeenCalled();
+  click.mockRestore();
+});
+it('falls back to direct installation when Docker delivery is unavailable', () => {
+  mount('server', {
+    ...status,
+    availability: { server: { runtimes: { docker: false, systemd: true } } },
+  });
+  expect(screen.getByRole('combobox', { name: '服务器安装方式' })).toHaveValue('systemd');
+  expect(screen.queryByRole('button', { name: '下载 Docker 部署包' })).not.toBeInTheDocument();
+});
+it('distinguishes collector connection, reception, processing and no AI matches', () => {
+  mount('server', {
+    ...status,
+    logs: { total: 12, ai: 0 },
+    sources: [
+      {
+        id: 'connected-source',
+        kind: 'server',
+        domain: 'example.com',
+        state: 'active',
+        primary: true,
+        lastHeartbeatAt: new Date().toISOString(),
+        lastReceivedAt: new Date().toISOString(),
+        lastProcessedAt: null,
+        backlog: 1,
+        health: { errorCode: 'format-error' },
+      },
+    ],
+  });
+  expect(screen.getByText(/采集服务：已连接/)).toHaveTextContent(
+    '真实日志：已接收 · 处理：等待处理',
+  );
+  expect(screen.getByText(/本站 AI 蜘蛛匹配/)).toHaveTextContent(
+    '日志已收到，暂未匹配到 AI 蜘蛛请求。',
+  );
+  expect(screen.getByText(/存在无法识别的日志行/)).toBeVisible();
 });
 it('requires domain and fee confirmation before completing Cloudflare authorization', async () => {
   mocks.query = { flow: 'a-flow' };

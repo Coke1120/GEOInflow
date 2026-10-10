@@ -11,6 +11,7 @@ Liekan / 猎看统计 is an MIT derivative of Umami, with a separate GEO statist
 - No fake production analytics. Empty, missing input, estimated and unsupported states are distinct. Demonstration data is explicitly named and isolated.
 - The default bundled example is “猎看官网（示例数据）” at www.liekan.com. Initialize it with pnpm liekan:seed-demo after migrations. Keep the compressed fixture and its SHA-256 manifest together, preserve existing populated/deleted examples and administrator credentials, and verify import in an isolated database. See docs/default-demo.md.
 - Never log/commit credentials or raw visitor IP. Parameterize SQL, validate website permissions and reject partial 2FA and public share identities for new endpoints.
+- One-command Docker deployment uses scripts/liekan-deploy.sh and preserves existing configuration and database credentials. Geography defaults to DB-IP City Lite with visible attribution; valid authorized City MMDB files take precedence. Missing geography never prevents event collection. See docs/local-deployment.md.
 - Verify pnpm frozen install, types, meaningful unit/API tests, generator consistency, original visual reference, production build and Docker migration. Upstream release checks also preserve local device/geography fixes.
 - No rhetorical contrast templates in authored prose. Do not commit process plans, local review reports, temporary outputs, screenshots or database dumps.
 
