@@ -18,7 +18,7 @@ done
 case "$website" in *[!a-f0-9-]*|'') fail '网站标识无效。';; esac
 [ "${#website}" = 36 ] || fail '网站标识无效。'
 [ "$(id -u)" = 0 ] || fail '请在宝塔终端以管理员身份运行，或使用 sudo。'
-for tool in docker curl sha256sum tar readlink stat; do command -v "$tool" >/dev/null || fail "缺少 $tool，请先在宝塔安装 Docker 和基础命令。"; done
+for tool in docker curl sha256sum tar readlink stat flock; do command -v "$tool" >/dev/null || fail "缺少 $tool，请先在宝塔安装 Docker 和基础命令。"; done
 docker info >/dev/null 2>&1 || fail 'Docker 尚未启动或当前账户无法访问。请在宝塔 Docker 页面检查。'
 docker compose version >/dev/null 2>&1 || fail '需要 Docker Compose V2，请在宝塔更新 Docker 编排工具。'
 compose_help=$(docker compose up --help 2>/dev/null) || fail '无法读取 Docker 编排功能，请在宝塔检查 Docker。'
@@ -29,23 +29,31 @@ directory="/opt/liekan-agent-docker/$website"
 compose_file="$directory/docker-compose.yml"
 env_file="$directory/.env"
 compose() { docker compose --project-name "liekan-agent-$website" --project-directory "$directory" --env-file "$env_file" -f "$compose_file" "$@"; }
+temp=''
+old_stty=''
+cleanup() { if [ -n "$old_stty" ]; then stty "$old_stty" </dev/tty 2>/dev/null || true; fi; if [ -n "$temp" ]; then rm -rf "$temp"; fi; }
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+[ ! -L /opt/liekan-agent-docker ] && [ ! -L "$directory" ] || fail '部署目录需要为常规目录。'
 if "$stop"; then
   [ -f "$directory/docker-compose.yml" ] || fail '未找到该网站的 Docker 部署。'
+else
+  case "$url" in *[!a-zA-Z0-9./:_-]*|'') fail '接收地址无效。';; https://*) ;; *) fail '需要 HTTPS 接收地址。';; esac
+  mkdir -p "$directory"
+fi
+[ ! -L "$directory/.env" ] && [ ! -L "$directory/docker-compose.yml" ] && [ ! -L "$directory/.install.lock" ] || fail '部署配置需要为常规文件。'
+[ ! -e "$directory/.install.lock" ] || [ -f "$directory/.install.lock" ] || fail '安装锁需要为常规文件。'
+# Keep the inode in place; the kernel releases this lock after the process exits.
+exec 9> "$directory/.install.lock"
+flock -n 9 || fail '已有安装任务正在执行，请完成后重试。'
+if "$stop"; then
   compose stop
   printf '%s\n' '采集容器已停止，配置和持久卷已保留。后台断开连接可撤销接收权限。'
   exit 0
 fi
-case "$url" in *[!a-zA-Z0-9./:_-]*|'') fail '接收地址无效。';; https://*) ;; *) fail '需要 HTTPS 接收地址。';; esac
 temp=$(mktemp -d)
-locked=false
-old_stty=''
-cleanup() { if [ -n "$old_stty" ]; then stty "$old_stty" </dev/tty 2>/dev/null || true; fi; rm -rf "$temp"; if "$locked"; then rmdir "$directory/.install-lock" 2>/dev/null || true; fi; }
-trap cleanup EXIT HUP INT TERM
-mkdir -p "$directory"
-[ ! -L "$directory" ] || fail '部署目录需要为常规目录。'
-[ ! -L /opt/liekan-agent-docker ] && [ ! -L "$directory/.env" ] && [ ! -L "$directory/docker-compose.yml" ] || fail '部署配置需要为常规文件和目录。'
-mkdir "$directory/.install-lock" 2>/dev/null || fail '已有安装任务正在执行，请完成后重试。'
-locked=true
 if [ ! -f "$directory/.env" ] || [ -n "$log" ]; then
   if [ -z "$log" ]; then
     printf '%s\n' '在宝塔「网站 → 当前网站 → 日志」确认访问日志路径，通常位于 /www/wwwlogs/。' >/dev/tty
@@ -56,6 +64,7 @@ if [ ! -f "$directory/.env" ] || [ -n "$log" ]; then
   case "$log" in *[!a-zA-Z0-9_./-]*) fail '日志路径仅支持字母、数字、点、下划线、短横线和斜线。';; esac
   [ -f "$log" ] && [ ! -L "$log" ] || fail '日志需要为本机常规文件。'
   log=$(readlink -f "$log") || fail '无法解析日志路径。'
+  case "$log" in *[!a-zA-Z0-9_./-]*|'') fail '日志路径仅支持字母、数字、点、下划线、短横线和斜线。';; esac
   case "$log" in /www/wwwroot/*|/home/*|/root/*|/run/*|/tmp/*|/var/tmp/*) fail '请使用网站专用访问日志目录，例如 /www/wwwlogs/ 或 /var/log/；网站根目录和私人目录受到保护。';; esac
   log_directory=$(dirname "$log")
   case "$log_directory" in /|/www|/var|/etc|/opt|/usr|/srv) fail '请使用网站专用日志目录。';; esac

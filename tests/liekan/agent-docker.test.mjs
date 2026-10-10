@@ -31,6 +31,187 @@ async function until(check, message, timeout = 30000) {
   }
   assert.fail(message);
 }
+test('Docker installer rejects unsafe paths and serializes its lifecycle', async t => {
+  const temp = await mkdtemp(join(tmpdir(), 'liekan-installer-lifecycle-'));
+  const website = randomUUID();
+  try {
+    await writeFile(
+      join(temp, 'install.sh'),
+      await readFile('public/liekan-agent/install-docker.sh'),
+    );
+    await writeFile(
+      join(temp, 'context.tar.gz'),
+      await readFile('public/liekan-agent/agent-docker.tar.gz'),
+    );
+    await writeFile(
+      join(temp, 'docker'),
+      `#!/bin/sh
+printf '%s\\n' "$*" >> /tmp/docker-calls
+case "$1" in
+  info) case "$3" in *Architecture*) echo aarch64;; *OSType*) echo linux;; esac;;
+  compose) case "$*" in
+    'compose version') echo 'Docker Compose version v2.39.0';;
+    'compose up --help') echo '--wait-timeout';;
+    *'collector preflight') case "$CASE" in signal) kill -TERM "$PPID";; kill) kill -KILL "$PPID";; esac;;
+  esac;;
+esac
+exit 0
+`,
+      { mode: 0o755 },
+    );
+    await writeFile(
+      join(temp, 'curl'),
+      `#!/bin/sh
+for value do destination="$value"; done
+cp /fixture/context.tar.gz "$destination"
+`,
+      { mode: 0o755 },
+    );
+    const fixture = `
+set -eu
+cp /fixture/docker /fixture/curl /usr/local/bin/
+mkdir -p /var/log/liekan-test /opt/liekan-agent-docker/${website}
+: > /var/log/liekan-test/access.log
+: > /tmp/docker-calls
+directory=/opt/liekan-agent-docker/${website}
+if [ "$CASE" = locked-stop ]; then
+  : > "$directory/docker-compose.yml"
+  mkdir "$directory/.install-lock"
+  exec 8> "$directory/.install.lock"
+  flock -n 8
+fi
+if [ "$CASE" = stale-lock ]; then mkdir "$directory/.install-lock"; fi
+log=/var/log/liekan-test/access.log
+if [ "$CASE" = unsafe-path ]; then
+  target=$(printf '/var/log/liekan-test/actual\\nLIEKAN_PUBLIC_URL=https:/attacker.example\\nLIEKAN_LOG_DIRECTORY=/var/log/liekan-test')
+  mkdir -p "$target"
+  : > "$target/access.log"
+  ln -s "$target" /var/log/liekan-test/linked
+  log=/var/log/liekan-test/linked/access.log
+fi
+if [ "$CASE" = locked-stop ]; then
+  set -- --website ${website} --stop
+else
+  set -- --url https://stats.example.test --website ${website} --log "$log" --code ${'a'.repeat(43)}
+fi
+set +e
+if [ "$CASE" = crash-retry ]; then
+  CASE=kill sh /fixture/install.sh "$@" > /tmp/first-output 2>&1
+  printf 'first-status=%s\\n' "$?"
+  export CASE=normal
+fi
+sh /fixture/install.sh "$@" > /tmp/install-output 2>&1
+status=$?
+set -e
+printf 'installer-status=%s\\n' "$status"
+cat /tmp/docker-calls /tmp/install-output
+`;
+    const run = scenario =>
+      docker(
+        'run',
+        '--rm',
+        '--network',
+        'none',
+        '-e',
+        `CASE=${scenario}`,
+        '--mount',
+        `type=bind,src=${temp},dst=/fixture,readonly`,
+        'node:22.23.3-alpine',
+        'sh',
+        '-c',
+        fixture,
+      );
+    await t.test('a normal installation pairs and starts', () => {
+      const output = run('normal');
+      assert.match(output, /installer-status=0\n/);
+      assert.match(output, /collector pair/);
+      assert.match(output, /compose .* up /);
+    });
+    await t.test('termination exits before pairing', () => {
+      const output = run('signal');
+      assert.match(output, /collector preflight/);
+      assert.match(output, /installer-status=143\n/);
+      assert.doesNotMatch(output, /collector pair|compose .* up /);
+    });
+    await t.test('stop respects an active installation lock', () => {
+      const output = run('locked-stop');
+      assert.match(output, /installer-status=1\n/);
+      assert.match(output, /已有安装任务正在执行/);
+      assert.doesNotMatch(output, /compose .* stop/);
+    });
+    await t.test('installation can resume after the installer is killed', () => {
+      const output = run('crash-retry');
+      assert.match(output, /first-status=137\n/);
+      assert.match(output, /installer-status=0\n/);
+      assert.match(output, /collector pair/);
+    });
+    await t.test(
+      'a directory left by an interrupted legacy installer does not block recovery',
+      () => {
+        const output = run('stale-lock');
+        assert.match(output, /installer-status=0\n/);
+        assert.match(output, /collector pair/);
+        assert.match(output, /Docker 采集器已启动/);
+      },
+    );
+    await t.test(
+      'a parent symlink cannot inject environment entries after canonicalization',
+      () => {
+        const output = run('unsafe-path');
+        assert.match(output, /installer-status=1\n/);
+        assert.match(output, /日志路径仅支持/);
+        assert.doesNotMatch(output, /build --tag|collector preflight|collector pair/);
+      },
+    );
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
+test('direct installer exits on termination before downloading further assets', async () => {
+  const temp = await mkdtemp(join(tmpdir(), 'liekan-installer-direct-'));
+  const source = randomUUID();
+  try {
+    await writeFile(join(temp, 'install.sh'), await readFile('public/liekan-agent/install.sh'));
+    const output = docker(
+      'run',
+      '--rm',
+      '--network',
+      'none',
+      '--mount',
+      `type=bind,src=${temp},dst=/fixture,readonly`,
+      'node:22.23.3-alpine',
+      'sh',
+      '-c',
+      `
+set -eu
+printf 'ID=debian\\nVERSION_ID=12\\n' > /etc/os-release
+mkdir -p /etc/liekan-agent
+printf '{}' > /etc/liekan-agent/${source}.json
+for command in systemctl openssl getent setpriv runuser useradd usermod; do
+  printf '#!/bin/sh\\nexit 0\\n' > /usr/local/bin/"$command"
+  chmod 755 /usr/local/bin/"$command"
+done
+cat > /usr/local/bin/curl <<'CURL'
+#!/bin/sh
+printf 'fetch\\n' >> /tmp/fetches
+kill -TERM "$PPID"
+exit 0
+CURL
+chmod 755 /usr/local/bin/curl
+set +e
+sh /fixture/install.sh --url https://stats.example.test --upgrade ${source} > /tmp/result 2>&1
+status=$?
+set -e
+printf 'installer-status=%s\\n' "$status"
+cat /tmp/fetches
+`,
+    );
+    assert.match(output, /installer-status=143\n/);
+    assert.equal(output.split('\n').filter(line => line === 'fetch').length, 1);
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
+});
 test('packaged Docker collector validates, pairs, persists, rotates and recovers offline batches', {
   timeout: 240000,
 }, async () => {
@@ -210,18 +391,30 @@ https.createServer({key:fs.readFileSync('/fixture/key.pem'),cert:fs.readFileSync
     assert.match(help, /猎看 Docker 采集器/);
     const legacyBin = join(context, 'legacy-bin');
     await mkdir(legacyBin);
-    await writeFile(join(legacyBin, 'docker'), `#!/bin/sh
+    await writeFile(
+      join(legacyBin, 'docker'),
+      `#!/bin/sh
 case "$1" in
   info) case "$3" in *Architecture*) echo aarch64;; *OSType*) echo linux;; esac; exit 0;;
   compose) case "$2" in version) echo 'Docker Compose version v2.0.1'; exit 0;; up) echo '--detach --force-recreate'; exit 0;; esac;;
 esac
 exit 1
-`, { mode: 0o755 });
-    await writeFile(join(legacyBin, 'curl'), '#!/bin/sh\ntouch /tmp/download-attempt\nexit 1\n', { mode: 0o755 });
+`,
+      { mode: 0o755 },
+    );
+    await writeFile(join(legacyBin, 'curl'), '#!/bin/sh\ntouch /tmp/download-attempt\nexit 1\n', {
+      mode: 0o755,
+    });
     const legacy = docker(
-      'run', '--rm', '--network', 'none', '--mount',
+      'run',
+      '--rm',
+      '--network',
+      'none',
+      '--mount',
       `type=bind,src=${context},dst=/context,readonly`,
-      'node:22.23.3-alpine', 'sh', '-c',
+      'node:22.23.3-alpine',
+      'sh',
+      '-c',
       `export PATH="/context/legacy-bin:$PATH"; sh /context/install.sh --url https://stats.example.test --website ${id} > /tmp/result 2>&1; result=$?; cat /tmp/result; [ "$result" -eq 1 ] && [ ! -e /opt/liekan-agent-docker ] && [ ! -e /tmp/download-attempt ]`,
     );
     assert.match(legacy, /Docker Compose.*配对码未使用/);
