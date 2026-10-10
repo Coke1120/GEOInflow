@@ -352,6 +352,17 @@ export async function processBatch(batchId: string) {
     }
   });
 }
+export async function collectorConnection(sourceId: string, token: string) {
+  return transaction(async tx => {
+    const live = await validateSource(tx, sourceId, token, true);
+    return {
+      version: 1,
+      websiteId: live.source.website_id,
+      state: live.source.state,
+      epoch: live.epoch,
+    };
+  });
+}
 export async function heartbeat(sourceId: string, token: string, input: unknown) {
   const health = healthSchema.safeParse(input);
   if (!health.success) throw new LiekanError('健康状态无效');

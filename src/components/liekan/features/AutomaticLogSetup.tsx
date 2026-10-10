@@ -15,7 +15,7 @@ const setupLabels: Record<LogSetupCheckId, string> = {
   'public-url': '公网 HTTPS 地址',
   queue: '日志队列',
   worker: '日志处理服务',
-  'agent-package': '签名安装包',
+  'agent-package': '采集器部署包',
   'cloudflare-oauth': 'Cloudflare 授权应用',
   'credentials-key': '凭据加密密钥',
 };
@@ -183,7 +183,7 @@ function ReceiverSetupGuide({
         )}
         {method === 'server' && missing('agent-package') && (
           <details>
-            <summary>准备签名安装包</summary>
+            <summary>准备采集器部署包</summary>
             <p className="field-help">
               在受控构建环境设置 LIEKAN_AGENT_SIGNING_KEY_FILE，执行下方命令，再重新构建并部署包含
               public/liekan-agent 的应用镜像。
@@ -262,7 +262,23 @@ export function AutomaticLogSetup({
   const c = useFeature();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
-  const [command, setCommand] = useState<{ command: string; expiresAt: string } | null>(null);
+  const runtimes = status.availability?.server?.runtimes;
+  const [runtimeChoice, setRuntimeChoice] = useState<'docker' | 'systemd' | null>(null);
+  const runtime = runtimeChoice ?? (runtimes?.docker === false ? 'systemd' : 'docker');
+  const runtimeAvailable = !runtimes || runtimes[runtime];
+  const [command, setCommand] = useState<{
+    command: string;
+    expiresAt: string;
+    runtime?: 'docker' | 'systemd';
+    pairingCode?: string;
+  } | null>(null);
+  const [deploymentCommand, setDeploymentCommand] = useState('');
+  const scope = useRef('');
+  scope.current = `${websiteId}:${method}:${runtime}`;
+  useEffect(() => {
+    setCommand(null);
+    setDeploymentCommand('');
+  }, [websiteId, method, runtime]);
   const [authorization, setAuthorization] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [zones, setZones] = useState<{
@@ -344,6 +360,30 @@ export function AutomaticLogSetup({
           先完成实例配置，再为当前网站连接日志来源。下方引导可直接查看待配置项和操作步骤。
         </p>
       )}
+      {method === 'server' && available && (
+        <div className="stack">
+          <label>
+            服务器安装方式
+            <select
+              aria-label="服务器安装方式"
+              value={runtime}
+              onChange={event => setRuntimeChoice(event.target.value as 'docker' | 'systemd')}
+            >
+              <option value="docker" disabled={runtimes?.docker === false}>
+                Docker / 宝塔（推荐）
+              </option>
+              <option value="systemd" disabled={runtimes?.systemd === false}>
+                直接安装到系统
+              </option>
+            </select>
+          </label>
+          <p className="field-help">
+            {runtime === 'docker'
+              ? '在目标网站服务器运行一个采集容器。需要可用的 Docker 和 Compose V2；安装会检查日志读取权限、格式及 HTTPS 连接。'
+              : '支持 Ubuntu 22.04/24.04、Debian 12 和 systemd，读取 Nginx / Apache Combined 访问日志。'}
+          </p>
+        </div>
+      )}
       <div className="form-actions">
         {!available ? (
           <Button primary aria-expanded={setupOpen} onClick={() => setSetupOpen(!setupOpen)}>
@@ -353,14 +393,15 @@ export function AutomaticLogSetup({
           <>
             <Button
               primary
-              disabled={!available || !manage || busy}
+              disabled={!available || !manage || busy || (method === 'server' && !runtimeAvailable)}
               onClick={() =>
                 run(async () => {
+                  const requestedScope = scope.current;
                   const data: any = await c.api.post(
                     `/liekan/websites/${websiteId}/log-sources/${method === 'server' ? 'server/pairing' : 'cloudflare/start'}`,
-                    {},
+                    method === 'server' ? { runtime } : {},
                   );
-                  if (!alive.current) return;
+                  if (!alive.current || scope.current !== requestedScope) return;
                   if (method === 'server') setCommand(data);
                   else setAuthorization(data.authorizationUrl);
                 })
@@ -368,6 +409,37 @@ export function AutomaticLogSetup({
             >
               {busy ? '正在处理…' : method === 'server' ? '生成一次安装命令' : '生成授权链接'}
             </Button>
+            {method === 'server' && runtime === 'docker' && (
+              <Button
+                disabled={!manage || busy || !runtimeAvailable}
+                onClick={() =>
+                  run(async () => {
+                    const requestedScope = scope.current;
+                    const data = await c.api.get<{
+                      archive: string;
+                      fileName: string;
+                      command: string;
+                    }>(`/liekan/websites/${websiteId}/log-sources/server/deployment`, {});
+                    if (!alive.current || scope.current !== requestedScope) return;
+                    const bytes = Uint8Array.from(atob(data.archive), character =>
+                      character.charCodeAt(0),
+                    );
+                    const address = URL.createObjectURL(
+                      new Blob([bytes], { type: 'application/zip' }),
+                    );
+                    const anchor = document.createElement('a');
+                    anchor.href = address;
+                    anchor.download = data.fileName;
+                    anchor.click();
+                    setTimeout(() => URL.revokeObjectURL(address), 1000);
+                    setDeploymentCommand(data.command);
+                    c.notify('部署包已下载，包内说明包含宝塔安装步骤');
+                  })
+                }
+              >
+                下载 Docker 部署包
+              </Button>
+            )}
             <Button aria-expanded={setupOpen} onClick={() => setSetupOpen(!setupOpen)}>
               {setupOpen ? '收起配置引导' : '查看接收服务配置'}
             </Button>
@@ -384,11 +456,17 @@ export function AutomaticLogSetup({
       )}
       {command && (
         <div className="stack">
-          <p>在网站服务器执行。安装会询问当前网站的日志路径，并在本机校验读取权限。</p>
+          <p>
+            {runtime === 'docker'
+              ? '在宝塔终端或网站服务器执行。按提示填写该网站的访问日志路径，检查通过后自动配对并启动容器。'
+              : '在网站服务器执行。安装会询问当前网站的日志路径，并在本机校验读取权限。'}
+          </p>
           <Code>{command.command}</Code>
           <p className="field-help">
-            命令仅可配对一次，失效时间：{new Date(command.expiresAt).toLocaleTimeString('zh-CN')}
-            。支持 Ubuntu 22.04/24.04、Debian 12，Nginx / Apache Combined 日志。
+            命令仅可配对一次，失效时间：{new Date(command.expiresAt).toLocaleTimeString('zh-CN')}。
+            {runtime === 'docker'
+              ? 'Linux x64 / arm64，Docker Compose V2，Nginx / Apache Combined 日志。'
+              : '支持 Ubuntu 22.04/24.04、Debian 12，Nginx / Apache Combined 日志。'}
           </p>
           <Button
             onClick={async () => {
@@ -398,6 +476,56 @@ export function AutomaticLogSetup({
           >
             复制安装命令
           </Button>
+          {runtime === 'docker' && command.pairingCode && (
+            <div className="stack">
+              <span className="field-help">
+                通过部署包安装时，环境检查完成后输入此一次性配对码：
+              </span>
+              <Code>{command.pairingCode}</Code>
+              <Button
+                onClick={async () => {
+                  await navigator.clipboard.writeText(command.pairingCode!);
+                  c.notify('配对码已复制');
+                }}
+              >
+                复制配对码
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+      {method === 'server' && runtime === 'docker' && (
+        <div className="stack">
+          <p className="field-help">
+            宝塔访问日志通常位于
+            /www/wwwlogs/，请在当前网站的日志设置中确认。部署包上传并解压到公开访问目录之外，在宝塔终端执行包内
+            start.sh；文件上传后还需要启动采集容器。
+          </p>
+          <p className="field-help">
+            先准备运行环境，再生成配对码。配对码过期时可重新生成；重复安装保留已有配对、缓存和采集进度。首次采集从启动后的新增日志开始，历史日志可手动导入。
+          </p>
+          {deploymentCommand && (
+            <>
+              <ol className="field-help">
+                <li>上传并解压到非公开目录，例如 /opt/liekan-agent-package。</li>
+                <li>在宝塔管理员终端进入解压目录，执行下方启动命令。</li>
+                <li>环境检查通过后，点击“生成一次安装命令”，复制配对码并输入终端。</li>
+              </ol>
+              <Code>sh start.sh</Code>
+              <details>
+                <summary>通过命令准备运行环境（可选）</summary>
+                <Code>{deploymentCommand}</Code>
+                <Button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(deploymentCommand);
+                    c.notify('准备命令已复制');
+                  }}
+                >
+                  复制准备命令
+                </Button>
+              </details>
+            </>
+          )}
         </div>
       )}
       {authorization && (
@@ -469,15 +597,41 @@ export function AutomaticLogSetup({
                   }[source.state] || source.state}
             </Badge>
             <p className="muted">
-              连接：
+              {method === 'server' ? '采集服务：' : '连接：'}
               {source.lastHeartbeatAt
                 ? Date.now() - new Date(source.lastHeartbeatAt).getTime() > 180000
                   ? '连接状态已过期'
-                  : '已报告状态'
+                  : '已连接'
                 : '等待连接'}{' '}
               · 真实日志：{source.lastReceivedAt ? '已接收' : '等待接收'} · 处理：
               {source.lastProcessedAt ? '已处理' : '等待处理'} · 积压 {source.backlog} 批
             </p>
+            {method === 'server' &&
+              source.health?.errorCode &&
+              source.health.errorCode !== 'none' && (
+                <p role="alert">
+                  {{
+                    unreadable: '访问日志无法读取，请检查文件及轮转目录权限。',
+                    'format-error': '存在无法识别的日志行，请检查 Combined 日志格式。',
+                    'buffer-full': '本地缓存已满，请检查连接并等待积压处理。',
+                    'rotation-gap': '日志轮转出现缺口，请检查日志保留时间与读取权限。',
+                    offline: '采集器曾报告连接异常，请检查容器网络与统计服务地址。',
+                  }[String(source.health.errorCode)] ||
+                    '采集器需要检查，请查看目标服务器的容器日志。'}
+                </p>
+              )}
+            {method === 'server' && (
+              <p className="field-help">
+                本站 AI 蜘蛛匹配：
+                {status.logs?.total
+                  ? status.logs.ai
+                    ? `${status.logs.ai.toLocaleString()} 次`
+                    : '日志已收到，暂未匹配到 AI 蜘蛛请求。'
+                  : source.lastReceivedAt
+                    ? '日志已接收，等待处理后的匹配结果。'
+                    : '等待真实访问日志。'}
+              </p>
+            )}
             {!!source.failed && (
               <p role="alert">
                 有 {source.failed}{' '}

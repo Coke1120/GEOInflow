@@ -11,13 +11,19 @@ async function main() {
     const url = option('--url'),
       code = option('--code'),
       logPath = option('--log'),
-      directory = option('--directory');
+      directory = option('--directory'),
+      websiteId = args.includes('--website') ? option('--website') : undefined,
+      hostLogDirectory = args.includes('--host-log-directory')
+        ? option('--host-log-directory')
+        : undefined;
     if (
       !args.includes('--url') ||
       !args.includes('--code') ||
       !args.includes('--log') ||
       !args.includes('--directory')
     )
+      throw new Error();
+    if (websiteId && (!/^[a-f0-9-]{36}$/.test(websiteId) || !hostLogDirectory?.startsWith('/')))
       throw new Error();
     const address = new URL(url);
     if (
@@ -31,7 +37,7 @@ async function main() {
     const response = await fetch(`${url}/api/liekan/collectors/pair`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify({ code, ...(websiteId ? { websiteId } : {}) }),
       redirect: 'error',
       signal: AbortSignal.timeout(30000),
     });
@@ -40,7 +46,8 @@ async function main() {
     if (
       !/^[a-f0-9-]{36}$/.test(paired.sourceId) ||
       !/^[A-Za-z0-9_-]{43}$/.test(paired.token) ||
-      !Number.isSafeInteger(paired.epoch)
+      !Number.isSafeInteger(paired.epoch) ||
+      (websiteId && paired.websiteId !== websiteId)
     )
       throw new Error();
     const stateDir = resolve(directory, paired.sourceId);
@@ -54,6 +61,7 @@ async function main() {
       logPath,
       stateDir,
       key: randomBytes(32).toString('base64'),
+      ...(websiteId ? { websiteId, hostLogDirectory } : {}),
     };
     await atomicWrite(join(stateDir, 'config.json'), JSON.stringify(config));
     console.log(paired.sourceId);

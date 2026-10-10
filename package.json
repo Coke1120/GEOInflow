@@ -78,6 +78,7 @@
     "liekan:build-agent": "node scripts/liekan-build-agent.mjs",
     "liekan:worker": "node dist/liekan-worker.mjs",
     "test:log-ingestion": "vitest run -c vitest.log-ingestion.config.ts --maxWorkers=2",
+    "test:agent-docker": "node --test tests/liekan/agent-docker.test.mjs",
     "liekan:analytics-worker": "node dist/liekan-analytics-worker.mjs",
     "liekan:cache-benchmark": "tsx scripts/liekan-cache-benchmark.ts",
     "liekan:ai:maintenance": "node generated/ai-maintenance.mjs"

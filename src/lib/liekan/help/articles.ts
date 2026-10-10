@@ -273,7 +273,7 @@ export const helpGuides: HelpArticle[] = [
       {
         title: '先使用接入页面的逐项检查',
         paragraphs: [
-          '在目标网站的“数据接入”中选择服务器或 Cloudflare，打开配置说明。页面按接入方式显示公网 HTTPS 地址、日志队列、日志处理服务、签名安装包、Cloudflare 授权应用与凭据加密密钥的检查结果。将待配置项交给部署管理员，完成后重新检查。',
+          '在目标网站的“数据接入”中选择服务器或 Cloudflare，打开配置说明。页面按接入方式显示公网 HTTPS 地址、日志队列、日志处理服务、采集器部署包、Cloudflare 授权应用与凭据加密密钥的检查结果。将待配置项交给部署管理员，完成后重新检查。',
         ],
       },
       {
@@ -286,7 +286,7 @@ export const helpGuides: HelpArticle[] = [
       {
         title: '服务器方式的额外准备',
         paragraphs: [
-          '平台需要提供已签名的 Linux x64/arm64 安装资产；部署管理员使用受控签名密钥生成并发布安装包。网站服务器需符合服务器采集文档中的系统与日志要求。检查通过后，在接入页生成十分钟有效、仅可配对一次的命令，并在本站服务器执行。',
+          '平台需要提供已签名的 Docker 部署包或 Linux x64/arm64 直接安装资产。部署管理员使用受控签名密钥生成安装资产并部署应用镜像。宝塔用户优先使用 Docker；检查通过后在网站服务器运行安装命令。配对码有效期十分钟且仅可使用一次。',
         ],
       },
       {
@@ -344,12 +344,12 @@ export const helpGuides: HelpArticle[] = [
     'config',
     '服务器自动日志采集',
     '按接入向导生成本站专属安装命令，检查服务与处理状态。',
-    ['Nginx', 'Apache', 'systemd', 'Ubuntu', 'Debian', 'collector', '采集器'],
+    ['Nginx', 'Apache', 'Docker', '宝塔', 'systemd', 'Ubuntu', 'Debian', 'collector', '采集器'],
     [
       {
         title: '适用环境',
         paragraphs: [
-          '支持 Ubuntu 22/24、Debian 12、systemd、x64/arm64，采集 Nginx/Apache combined 格式的访问日志。日志必须包含 UA。先确认日志路径与当前网站对应，避免混入其他站点。',
+          '推荐 Docker / 宝塔方式：Linux x64/arm64、可用的 Docker 和 Compose V2；运行环境随部署包封装。直接安装支持 Ubuntu 22.04/24.04、Debian 12 和 systemd。采集 Nginx / Apache Combined 日志，需包含 User-Agent 并对应当前网站。',
         ],
       },
       {
@@ -367,7 +367,7 @@ export const helpGuides: HelpArticle[] = [
       {
         title: '安装与配对',
         paragraphs: [
-          '在网站数据接入页选择“服务器”，生成一次性配对命令。配对有效期 10 分钟，每次仅可使用一次；安装账户只读取所选日志目录。命令包含本站专属凭据，应通过安全渠道操作并避免保存到公开文档。',
+          '在网站数据接入页选择“服务器”，默认使用 Docker。可生成安装命令在宝塔终端执行，或下载部署包并上传到公开访问目录之外，解压后运行 start.sh。安装先检查日志、容器和网络，再使用十分钟有效的一次性配对码。下载包不含配对码或长期凭据；配对完成后只读采集所选网站日志。宝塔访问日志通常位于 /www/wwwlogs/，具体路径请在网站日志设置中核对。',
         ],
       },
       {

@@ -13,7 +13,10 @@ export const healthSchema = z.strictObject({
     .enum(['none', 'offline', 'buffer-full', 'rotation-gap', 'unreadable', 'format-error'])
     .default('none'),
 });
-export const pairingSchema = z.strictObject({ code: z.string().regex(/^[A-Za-z0-9_-]{43}$/) });
+export const pairingSchema = z.strictObject({
+  code: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  websiteId: z.uuid().optional(),
+});
 export const finalizeSchema = z.strictObject({
   flowId: z.uuid(),
   zoneId: z

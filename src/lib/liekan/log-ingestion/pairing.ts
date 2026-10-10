@@ -4,14 +4,25 @@ import { LiekanError, sourceWebsite, transaction, type WriteIdentity } from '../
 import { createSource, ensureState, publicUrl } from './service';
 import { hostname } from './protocol';
 import { newToken, tokenHash } from './secrets';
-import { readAgentManifest } from './assets';
+import { readAgentManifest, readDockerManifest } from './assets';
 import { getLogCapabilities } from './capabilities';
+import { dockerInstallCommand } from './docker-deployment';
+import { serverPairingSchema } from '../contracts/installation';
 
-export async function createPairing(websiteId: string, identity: WriteIdentity) {
+export async function createPairing(
+  websiteId: string,
+  identity: WriteIdentity,
+  input: unknown = {},
+) {
+  const parsed = serverPairingSchema.safeParse(input);
+  if (!parsed.success) throw new LiekanError('安装方式无效');
+  const runtime = parsed.data.runtime || 'systemd';
   const capabilities = await getLogCapabilities();
   if (!capabilities.server.available) throw new LiekanError(capabilities.server.reason, 503);
+  if (!capabilities.server.runtimes?.[runtime])
+    throw new LiekanError('所选安装方式的部署包尚未准备完成', 503);
   const url = publicUrl(),
-    manifest = await readAgentManifest(),
+    manifest = await (runtime === 'docker' ? readDockerManifest() : readAgentManifest()),
     code = newToken();
   await transaction(async tx => {
     const website = await sourceWebsite(tx, websiteId, identity),
@@ -35,13 +46,20 @@ export async function createPairing(websiteId: string, identity: WriteIdentity) 
   });
   const command = `d=$(mktemp -d) && curl -fsSL --proto '=https' --tlsv1.2 '${url}/liekan-agent/install.sh' -o "$d/install.sh" && printf '%s  %s\\n' '${manifest.installerSha256}' "$d/install.sh" | sha256sum -c - && sudo sh "$d/install.sh" --url '${url}' --code '${code}'`;
   return {
-    command,
+    command:
+      runtime === 'docker'
+        ? dockerInstallCommand(url, websiteId, manifest.docker!.installerSha256, code)
+        : command,
+    runtime,
+    ...(runtime === 'docker' ? { pairingCode: code } : {}),
     expiresAt: new Date(Date.now() + 600000).toISOString(),
     version: manifest.version,
   };
 }
 export async function exchangePairing(input: unknown) {
-  const parsed = z.strictObject({ code: z.string().regex(/^[A-Za-z0-9_-]{43}$/) }).safeParse(input);
+  const parsed = z
+    .strictObject({ code: z.string().regex(/^[A-Za-z0-9_-]{43}$/), websiteId: z.uuid().optional() })
+    .safeParse(input);
   if (!parsed.success) throw new LiekanError('配对码格式无效');
   return transaction(async tx => {
     const first = (
@@ -51,6 +69,8 @@ export async function exchangePairing(input: unknown) {
       )
     )[0];
     if (!first) throw new LiekanError('安装命令无效或已过期', 401);
+    if (parsed.data.websiteId && first.website_id !== parsed.data.websiteId)
+      throw new LiekanError('配对码与当前部署的网站不一致', 409);
     const website = await sourceWebsite(tx, first.website_id, { userId: first.created_by });
     const grant = (
       await tx.$queryRawUnsafe(
@@ -74,6 +94,13 @@ export async function exchangePairing(input: unknown) {
       grant.id,
       source.id,
     );
-    return { version: 1, sourceId: source.id, token, epoch: state.epoch, domain: source.domain };
+    return {
+      version: 1,
+      sourceId: source.id,
+      token,
+      epoch: state.epoch,
+      domain: source.domain,
+      websiteId: grant.website_id,
+    };
   });
 }

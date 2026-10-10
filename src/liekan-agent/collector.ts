@@ -15,6 +15,8 @@ export interface AgentConfig {
   stateDir: string;
   key: string;
   epoch: number;
+  websiteId?: string;
+  hostLogDirectory?: string;
 }
 interface Cursor {
   generation: string;

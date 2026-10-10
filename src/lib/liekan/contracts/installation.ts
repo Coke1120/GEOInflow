@@ -34,7 +34,10 @@ export interface LogCapability {
   version: string;
   publicUrl?: string | null;
   checks?: LogSetupCheck[];
+  runtimes?: { docker: boolean; systemd: boolean };
 }
+export const serverRuntimeSchema = z.enum(['docker', 'systemd']);
+export const serverPairingSchema = z.strictObject({ runtime: serverRuntimeSchema.optional() });
 export function logPublicOrigin(value: string): string | null {
   try {
     const url = new URL(value);
