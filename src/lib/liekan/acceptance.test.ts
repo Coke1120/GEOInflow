@@ -95,7 +95,7 @@ cp.spawnSync=(command,args,options={})=>{
  if(args.includes('scripts/liekan-ai-visual.mjs')){if(fault==='ai-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai',{recursive:true});fs.writeFileSync('test-results/liekan-ai/report.json',JSON.stringify({passed:true,head:fault==='ai-visual-head'?'other':head,checks:Array.from({length:fault==='ai-visual-count'?1:8},()=>({passed:fault!=='ai-visual-check'})),errors:fault==='ai-visual-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-ai-home-visual.mjs')){if(fault==='ai-home-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai-home-v3',{recursive:true});const widths=fault==='ai-home-empty'?[]:fault==='ai-home-count'?[1440]:fault==='ai-home-extra'?[1440,1280,375,320,500]:[1440,1280,375,320];fs.writeFileSync('test-results/liekan-ai-home-v3/report.json',JSON.stringify({passed:fault!=='ai-home-passed',head:fault==='ai-home-head'?'other':head,checks:widths.map(width=>({width,focus:true,reference:true,keyboard:true,overflow:0})),errors:fault==='ai-home-errors'?['fixture error']:[]}));}
 
- if(args.includes('scripts/liekan-dialog-visual.mjs')){if(fault==='dialog-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-dialogs',{recursive:true});fs.writeFileSync('test-results/liekan-dialogs/report.json',JSON.stringify({passed:fault!=='dialog-visual-passed',head:fault==='dialog-visual-head'?'other':head,checks:Array.from({length:fault==='dialog-visual-count'?1:50},()=>({})),duplicates:fault==='dialog-visual-duplicates-missing'?undefined:(fault==='dialog-visual-duplicates-count'?[1]:[1,1,2,3,4,5,16]).map(id=>({id})),responsive:Array.from({length:fault==='dialog-visual-responsive'?1:15},()=>({})),supplementalResponsive:fault==='dialog-visual-supplemental-missing'?undefined:Array.from({length:fault==='dialog-visual-supplemental-count'?1:8},()=>({})),errors:fault==='dialog-visual-errors'?['fixture error']:[],cleanup:{passed:fault!=='dialog-visual-cleanup'}}));}
+ if(args.includes('scripts/liekan-dialog-visual.mjs')){if(fault==='dialog-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-dialogs',{recursive:true});fs.writeFileSync('test-results/liekan-dialogs/report.json',JSON.stringify({passed:fault!=='dialog-visual-passed',head:fault==='dialog-visual-head'?'other':head,checks:Array.from({length:fault==='dialog-visual-count'?1:50},()=>({})),duplicates:fault==='dialog-visual-duplicates-missing'?undefined:(fault==='dialog-visual-duplicates-count'?[1]:[1,1,2,3,4,5,16]).map(id=>({id})),responsive:Array.from({length:fault==='dialog-visual-responsive'?1:15},()=>({})),supplementalResponsive:fault==='dialog-visual-supplemental-missing'?undefined:Array.from({length:fault==='dialog-visual-supplemental-count'?1:8},()=>({})),websiteDeletionSuccess:fault==='dialog-visual-delete-missing'?undefined:Array.from({length:fault==='dialog-visual-delete-count'?1:6},()=>({passed:fault!=='dialog-visual-delete-check'})),errors:fault==='dialog-visual-errors'?['fixture error']:[],cleanup:{passed:fault!=='dialog-visual-cleanup'}}));}
  if(args.includes('scripts/liekan-help-visual.mjs')){if(fault==='help-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-help',{recursive:true});fs.writeFileSync('test-results/liekan-help/report.json',JSON.stringify({passed:fault!=='help-visual-passed',head:fault==='help-visual-head'?'other':head,checks:Array.from({length:fault==='help-visual-count'?9:12},()=>({passed:fault!=='help-visual-check'})),errors:fault==='help-visual-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-visual.mjs')){fs.mkdirSync('test-results/liekan-visual',{recursive:true});fs.writeFileSync('test-results/liekan-visual/geometry.json',JSON.stringify({passed:true,head}));}
  return {status:0};
@@ -163,6 +163,7 @@ describe('isolated acceptance CLI failure paths', () => {
         expect(report.aiHomeVisual.checks.map((check: { width: number }) => check.width)).toEqual([
           1440, 1280, 375, 320,
         ]);
+        expect(report.dialogVisual.websiteDeletionSuccess).toHaveLength(6);
       } finally {
         fs.rmSync(setup.cwd, { recursive: true, force: true });
       }
@@ -263,6 +264,9 @@ describe('isolated acceptance CLI failure paths', () => {
     'dialog-visual-responsive',
     'dialog-visual-supplemental-missing',
     'dialog-visual-supplemental-count',
+    'dialog-visual-delete-missing',
+    'dialog-visual-delete-count',
+    'dialog-visual-delete-check',
     'dialog-visual-errors',
     'dialog-visual-cleanup',
     'feature-visual-failed',
