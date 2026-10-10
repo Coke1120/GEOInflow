@@ -8,7 +8,15 @@ Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 R
 
 首次安装复制 env.example 到 .env，替换随机密码与密钥，文件权限设为 0600。迁移已有 Umami 数据时沿用原 APP_SECRET 与 TWO_FACTOR_ENCRYPTION_KEY，避免既有会话、身份标识和 2FA 加密数据失配。DATABASE_URL 指向新的副本，所有备份与配置都不纳入 Git。
 
-开发时安装冻结依赖、生成 Prisma 客户端、生成 OpenAPI/SDK 并构建工作区包。先执行上游 `pnpm db:migrate`，再运行 `pnpm liekan:migrate`。`pnpm liekan:seed-demo` 创建单独的“Liekan 演示站（示例数据）”，保持已有管理员密码。
+开发时安装冻结依赖、生成 Prisma 客户端、生成 OpenAPI/SDK 并构建工作区包。先执行上游 `pnpm db:migrate`，再运行 `pnpm liekan:migrate`。`pnpm liekan:seed-demo` 从仓库内的示例数据包创建“猎看官网（示例数据）”，保持已有管理员密码。数据包可离线导入，详情见 [默认示例说明](default-demo.md)。
+
+首次安装并完成容器启动后，可在应用容器内初始化默认示例：
+
+```sh
+docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-demo.mjs
+```
+
+默认示例仅在显式运行初始化命令时创建。重启和升级保留现有网站与示例删除状态。
 
 构建前准备 geo/GeoLite2-City.mmdb。现有部署可复制已获授权的地理库，公开部署请使用符合 MaxMind 数据条款的来源。首次安装先运行独立数据库并完成迁移和演示站接入，再将已审查代码提交。完整验收会生成带候选 SHA 的镜像，验收通过后给该镜像固定版本标签并启动体验服务：
 

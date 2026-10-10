@@ -4,6 +4,8 @@
 
 主项目采用 MIT 许可，完整版权与许可声明见 [LICENSE](LICENSE)。第三方组件和地理数据许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
+企业私有仓库：[liekan/liekan-statistics](https://gitee.com/liekan/liekan-statistics)。访问需要对应企业仓库权限。
+
 当前版本为 0.2.4，本地体验默认地址为 **http://localhost:3002**。新增数据库和容器与原 Umami 独立。
 
 - 保留 11 个 GEO 统计页面与 22 个图表，接入已确认的 68 个补充 UI 场景。
@@ -26,12 +28,13 @@ pnpm install --frozen-lockfile
 pnpm build:db
 pnpm db:migrate
 pnpm liekan:migrate
+pnpm liekan:seed-demo
 pnpm build:openapi
 pnpm build:packages
 pnpm dev
 ```
 
-Docker 部署、备份与恢复步骤见 [本地部署说明](docs/local-deployment.md)。首次使用可运行 `pnpm liekan:seed-demo`，创建单独的演示站。
+Docker 部署、备份与恢复步骤见 [本地部署说明](docs/local-deployment.md)。默认示例为 **“猎看官网（示例数据）”**，域名为 `www.liekan.com`。`pnpm liekan:seed-demo` 从随代码分发的数据包初始化该网站，包含浏览访问、AI 抓取日志、内容目录、转化目标和漏斗。首次导入会将访问时间平移到当前日期范围，重复运行保留已有数据。数据范围及安全约束见 [默认示例说明](docs/default-demo.md)。
 
 首次安装的默认用户名为 `admin`，密码为 `liekan`。Liekan 迁移会更新仍使用上游初始密码的默认管理员，保留已自行设置的密码。
 
@@ -47,4 +50,4 @@ pnpm liekan:verify
 
 更新工具从官方 upstream 获取稳定版本，在隔离候选中保留历史并合并。Liekan 自有 UI、数据契约、适配层与独立 SQL 迁移共同保护产品行为。验证通过后再更新本地 main 和发布标签。
 
-完整说明见 [上游更新流程](docs/upstream-upgrade.md)、[统计口径](docs/data-definitions.md)、[页面覆盖与下一阶段缺口](docs/ui-coverage.md)、[设计约束](DESIGN.md)。本机构建阶段尚未配置远端仓库和镜像发布渠道。
+系统组成与源码入口见 [系统说明](docs/system-overview.md)。维护规则见 [上游更新流程](docs/upstream-upgrade.md)、[统计口径](docs/data-definitions.md)、[页面覆盖与下一阶段缺口](docs/ui-coverage.md)、[设计约束](DESIGN.md)。镜像发布渠道需按部署环境配置。

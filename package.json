@@ -70,7 +70,7 @@
     "liekan:upstream:report": "node scripts/liekan-upstream.mjs report",
     "liekan:upstream:prepare": "node scripts/liekan-upstream.mjs prepare",
     "liekan:verify": "node scripts/liekan-verify.mjs",
-    "liekan:seed-demo": "tsx scripts/liekan-seed-demo.ts",
+    "liekan:seed-demo": "node scripts/liekan-seed-demo.mjs",
     "liekan:queue-bootstrap": "node scripts/liekan-queue-bootstrap.mjs",
     "liekan:build-worker": "node scripts/liekan-build-worker.mjs",
     "liekan:build-agent": "node scripts/liekan-build-agent.mjs",

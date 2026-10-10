@@ -1,0 +1,118 @@
+{
+  "formatVersion": 1,
+  "websiteId": "b880cb21-e65a-4fdf-9c0e-3da5aed4e0fa",
+  "name": "猎看官网（示例数据）",
+  "domain": "www.liekan.com",
+  "isDemo": true,
+  "sourceAnchor": "2026-10-08T07:07:55.81+00:00",
+  "rules": [
+    {
+      "name": "GPTBot",
+      "type": "训练",
+      "vendor": "OpenAI",
+      "pattern": "GPTBot"
+    },
+    {
+      "name": "OAI-SearchBot",
+      "type": "搜索",
+      "vendor": "OpenAI",
+      "pattern": "OAI-SearchBot"
+    },
+    {
+      "name": "ChatGPT-User",
+      "type": "用户触发",
+      "vendor": "OpenAI",
+      "pattern": "ChatGPT-User"
+    },
+    {
+      "name": "ClaudeBot",
+      "type": "训练",
+      "vendor": "Anthropic",
+      "pattern": "ClaudeBot"
+    },
+    {
+      "name": "Claude-SearchBot",
+      "type": "搜索",
+      "vendor": "Anthropic",
+      "pattern": "Claude-SearchBot"
+    },
+    {
+      "name": "Claude-User",
+      "type": "用户触发",
+      "vendor": "Anthropic",
+      "pattern": "Claude-User"
+    },
+    {
+      "name": "PerplexityBot",
+      "type": "搜索",
+      "vendor": "Perplexity",
+      "pattern": "PerplexityBot"
+    },
+    {
+      "name": "Perplexity-User",
+      "type": "用户触发",
+      "vendor": "Perplexity",
+      "pattern": "Perplexity-User"
+    },
+    {
+      "name": "Bytespider",
+      "type": "训练",
+      "vendor": "字节跳动",
+      "pattern": "Bytespider"
+    },
+    {
+      "name": "Googlebot",
+      "type": "传统搜索",
+      "vendor": "Google",
+      "pattern": "Googlebot"
+    },
+    {
+      "name": "Baiduspider",
+      "type": "传统搜索",
+      "vendor": "百度",
+      "pattern": "Baiduspider"
+    },
+    {
+      "name": "bingbot",
+      "type": "传统搜索",
+      "vendor": "Microsoft",
+      "pattern": "bingbot"
+    },
+    {
+      "name": "Applebot",
+      "type": "传统搜索",
+      "vendor": "Apple",
+      "pattern": "Applebot"
+    }
+  ],
+  "file": "official.ndjson.gz",
+  "sha256": "8602a6544bdbe73d09157ccb05ad4dfff77e903343330f2d268d0630baea1910",
+  "counts": {
+    "session": 150876,
+    "event": 599478,
+    "log": 80005,
+    "catalog": 18,
+    "report": 4
+  },
+  "pageviews": 577408,
+  "conversionEvents": 22070,
+  "visits": 196598,
+  "capturedAt": "2026-10-10T03:38:28.546152+00:00",
+  "privacy": {
+    "identifiers": "Replaced with sequential sample references; fresh installations generate deterministic UUIDs",
+    "excluded": [
+      "accounts",
+      "credentials",
+      "visitor IPs",
+      "IP hashes",
+      "distinct IDs",
+      "URL queries",
+      "referrer paths and queries",
+      "advertising click IDs",
+      "automatic log connections",
+      "AI conversations"
+    ],
+    "trafficLabels": "Campaign labels and unfamiliar referrers use explicit demonstration values",
+    "crawlerIdentity": "Synthetic identities remain unverified"
+  }
+}
