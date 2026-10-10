@@ -47,7 +47,10 @@ if [ "$mode" = install ];then
   setpriv --reuid nobody --regid "$log_gid" --clear-groups test -r "$(dirname "$log")" || fail '日志用户组无法读取轮转目录，请先配置目录权限。'
 fi
 temp=$(mktemp -d)
-trap 'rm -rf "$temp"' EXIT HUP INT TERM
+trap 'rm -rf "$temp"' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 fetch() { curl -fsS --proto '=https' --tlsv1.2 --max-time 120 "$url/liekan-agent/$1" -o "$temp/$1"; }
 fetch manifest.json;fetch manifest.sig
 cat > "$temp/trusted.pub" <<'PUBLIC_KEY'
