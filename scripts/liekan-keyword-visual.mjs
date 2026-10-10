@@ -162,11 +162,13 @@ try {
     await page.bringToFront();
     await page.waitForTimeout(1200);
     assert.equal(reads.length, baselineReads, 'Focus triggered an automatic keyword read');
+    // Each viewport shares the same user and aggregation base, including its refresh cooldown.
+    await page.waitForTimeout(5100);
     const unchangedRead = page.waitForResponse(
-      response => response.url().includes('/page-report?') && response.ok(),
+      response => response.url().includes('/page-report?') && response.url().includes('refresh=1'),
     );
     await page.getByRole('button', { name: '刷新', exact: true }).click();
-    await unchangedRead;
+    assert.equal((await unchangedRead).status(), 200, 'Unchanged snapshot refresh failed');
     await page.waitForFunction(() =>
       document.querySelector('main')?.textContent.includes('第 2 / 3 页'),
     );
@@ -185,7 +187,11 @@ try {
       },
     });
     visitCount++;
+    const changedRead = page.waitForResponse(
+      response => response.url().includes('/page-report?') && response.url().includes('refresh=1'),
+    );
     await page.getByRole('button', { name: '刷新', exact: true }).click();
+    assert.equal((await changedRead).status(), 200, 'Changed snapshot refresh failed');
     await page.waitForFunction(() =>
       document.querySelector('main')?.textContent.includes('第 1 / 3 页'),
     );
