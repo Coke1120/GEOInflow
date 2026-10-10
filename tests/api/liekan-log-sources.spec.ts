@@ -55,7 +55,10 @@ test.describe('Liekan automatic log access boundaries', () => {
     const downloaded = await admin.get(path);
     const installation = await admin.get(`/api/liekan/websites/${seed.website.id}/installation`);
     expect(downloaded.status).toBe(
-      installation.body.availability?.server?.runtimes?.docker ? 200 : 503,
+      installation.body.availability?.server?.runtimes?.docker &&
+        installation.body.availability?.server?.publicUrl
+        ? 200
+        : 503,
     );
     if (downloaded.status === 200) {
       expect(downloaded.body.fileName).toMatch(/\.zip$/);
