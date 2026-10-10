@@ -1248,7 +1248,7 @@ export interface paths {
     put?: never;
     /**
      * 导出当前网站真实统计文件
-     * @description 返回 NDJSON：progress 为实际文件生成/传输进度，file 为文件元数据与字段清单，chunk 为顺序 Base64 数据，complete 为完成。CSV/JSON 使用 summary；ZIP 使用勾选范围。取消请求终止传输。查询阶段超过 100000 明细行或 50 MiB 返回 413；传输阶段错误为 error 帧。
+     * @description 返回 NDJSON：progress 为实际文件生成/传输进度，file 为文件元数据与字段清单，chunk 为顺序 Base64 数据，complete 为完成。普通 CSV/JSON 使用 summary；ZIP 使用勾选范围；kind=source-keywords 的 CSV 导出全部筛选关键词及搜索引擎，包含读取时间与条件。取消请求终止传输。查询阶段超过 100000 明细行或 50 MiB 返回 413；传输阶段错误为 error 帧。
      */
     post: operations['createLiekanExport'];
     delete?: never;
@@ -16515,27 +16515,90 @@ export interface operations {
     };
     requestBody: {
       content: {
-        'application/json': {
-          /** @description End of the date range as a Unix timestamp in milliseconds. */
-          endAt: number;
-          /**
-           * @description Filters applied to the analytics data.
-           * @default {}
-           */
-          filters?: {
-            [key: string]: string;
-          };
-          /** @enum {string} */
-          format: 'zip' | 'csv' | 'json';
-          sections: ('summary' | 'dimensions' | 'events' | 'sessions' | 'config')[];
-          /** @description Start of the date range as a Unix timestamp in milliseconds. */
-          startAt: number;
-          /**
-           * @description IANA time zone used to interpret dates and group results, for example America/New_York.
-           * @default Asia/Shanghai
-           */
-          timezone?: string;
-        };
+        'application/json':
+          | {
+              /**
+               * @default desc
+               * @enum {string}
+               */
+              direction?: 'asc' | 'desc';
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /**
+               * @default
+               * @enum {string}
+               */
+              engine?: '360' | '' | 'Google' | 'Bing' | '百度' | '搜狗' | 'DuckDuckGo' | 'Yahoo';
+              /**
+               * @default
+               * @enum {string}
+               */
+              evidence?: '' | 'referrer' | 'utm' | 'none';
+              /** @constant */
+              format: 'csv';
+              /** @constant */
+              kind: 'source-keywords';
+              /**
+               * @description Search text used to filter results.
+               * @default
+               */
+              search?: string;
+              /**
+               * @default sessions
+               * @enum {string}
+               */
+              sort?:
+                | 'sessions'
+                | 'keyword'
+                | 'engine'
+                | 'evidence'
+                | 'status'
+                | 'share'
+                | 'bounceRate'
+                | 'conversionRate';
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /**
+               * @default
+               * @enum {string}
+               */
+              status?:
+                | ''
+                | 'available'
+                | 'missing'
+                | 'invalid'
+                | 'unsupported'
+                | 'conflict'
+                | 'incomplete'
+                | 'redacted';
+              /**
+               * @description IANA time zone used to interpret dates and group results, for example America/New_York.
+               * @default Asia/Shanghai
+               */
+              timezone?: string;
+            }
+          | {
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /**
+               * @description Filters applied to the analytics data.
+               * @default {}
+               */
+              filters?: {
+                [key: string]: string;
+              };
+              /** @enum {string} */
+              format: 'zip' | 'csv' | 'json';
+              kind?: never;
+              sections: ('summary' | 'dimensions' | 'events' | 'sessions' | 'config')[];
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /**
+               * @description IANA time zone used to interpret dates and group results, for example America/New_York.
+               * @default Asia/Shanghai
+               */
+              timezone?: string;
+            };
       };
     };
     responses: {
@@ -18278,9 +18341,13 @@ export interface operations {
       query: {
         chartPeriod?: '30d' | '7d' | '24h';
         cursor?: string;
+        direction?: 'asc' | 'desc';
         /** @description End of the date range as a Unix timestamp in milliseconds. */
         endAt: number;
+        engine?: '360' | '' | 'Google' | 'Bing' | '百度' | '搜狗' | 'DuckDuckGo' | 'Yahoo';
+        evidence?: '' | 'referrer' | 'utm' | 'none';
         filter?: '' | 'ai' | 'abnormal' | 'other';
+        keywordSnapshot?: string;
         /** @description Page number, starting at 1. */
         page?: number;
         refresh?: '0' | '1';
@@ -18293,14 +18360,33 @@ export interface operations {
           | 'human/overview'
           | 'human/geo'
           | 'human/sources'
+          | 'human/keywords'
           | 'content'
           | 'conversions'
           | 'logs';
         /** @description Search text used to filter results. */
         search?: string;
         seek?: 'after' | 'before';
+        sort?:
+          | 'sessions'
+          | 'keyword'
+          | 'engine'
+          | 'evidence'
+          | 'status'
+          | 'share'
+          | 'bounceRate'
+          | 'conversionRate';
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt: number;
+        status?:
+          | ''
+          | 'available'
+          | 'missing'
+          | 'invalid'
+          | 'unsupported'
+          | 'conflict'
+          | 'incomplete'
+          | 'redacted';
         tablePages?: {
           [key: string]: number;
         };
@@ -18358,6 +18444,11 @@ export interface operations {
               /** @description Date and time the credential expires. */
               expiresAt: number;
               generatedAt: number;
+              keywordEngines?: string[];
+              keywordHasGoals?: boolean;
+              keywordReadAt?: number;
+              keywordReset?: boolean;
+              keywordSnapshot?: string;
               latestImportAt: string | null;
               logsConfigured?: boolean;
               nextCursor?: string;
@@ -18396,6 +18487,7 @@ export interface operations {
               | 'human/overview'
               | 'human/geo'
               | 'human/sources'
+              | 'human/keywords'
               | 'content'
               | 'conversions'
               | 'logs';
@@ -18490,9 +18582,13 @@ export interface operations {
       query: {
         chartPeriod?: '30d' | '7d' | '24h';
         cursor?: string;
+        direction?: 'asc' | 'desc';
         /** @description End of the date range as a Unix timestamp in milliseconds. */
         endAt: number;
+        engine?: '360' | '' | 'Google' | 'Bing' | '百度' | '搜狗' | 'DuckDuckGo' | 'Yahoo';
+        evidence?: '' | 'referrer' | 'utm' | 'none';
         filter?: '' | 'ai' | 'abnormal' | 'other';
+        keywordSnapshot?: string;
         /** @description Page number, starting at 1. */
         page?: number;
         refresh?: '1';
@@ -18511,8 +18607,26 @@ export interface operations {
         /** @description Search text used to filter results. */
         search?: string;
         seek?: 'after' | 'before';
+        sort?:
+          | 'sessions'
+          | 'keyword'
+          | 'engine'
+          | 'evidence'
+          | 'status'
+          | 'share'
+          | 'bounceRate'
+          | 'conversionRate';
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt: number;
+        status?:
+          | ''
+          | 'available'
+          | 'missing'
+          | 'invalid'
+          | 'unsupported'
+          | 'conflict'
+          | 'incomplete'
+          | 'redacted';
         tablePages?: {
           [key: string]: number;
         };
@@ -18840,6 +18954,11 @@ export interface operations {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
+              keywordEngines?: string[];
+              keywordHasGoals?: boolean;
+              keywordReadAt?: number;
+              keywordReset?: boolean;
+              keywordSnapshot?: string;
               latestImportAt: string | null;
               logsConfigured?: boolean;
               nextCursor?: string;
@@ -19282,6 +19401,11 @@ export interface operations {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
+              keywordEngines?: string[];
+              keywordHasGoals?: boolean;
+              keywordReadAt?: number;
+              keywordReset?: boolean;
+              keywordSnapshot?: string;
               latestImportAt: string | null;
               logsConfigured?: boolean;
               nextCursor?: string;

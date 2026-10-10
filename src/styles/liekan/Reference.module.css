@@ -917,3 +917,17 @@
     min-height: 44px;
   }
 }
+
+/* Source keyword detail uses the established report surface and bounded text cells. */
+.root :global(.keyword-controls) { align-items: flex-end; }
+.root :global(.keyword-search) { width: 200px; max-width: 100%; }
+.root :global(.keyword-table) { min-width: 800px; }
+.root :global(.keyword-term) { max-width: 320px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.root :global(.keyword-number) { font-variant-numeric: tabular-nums; }
+.root :global(.keyword-controls) label > :is(input, select) { display: block; margin-top: 4px; }
+.root :global(.keyword-controls) button { flex-shrink: 0; }
+
+.root :global(.keyword-controls), .root :global(.keyword-heading), .root :global(.keyword-export) { flex-wrap: wrap; }
+.root :global(.keyword-detail-header) > * + * { margin-top: 12px; }
+.root :global(.keyword-query) { display: flex; align-items: flex-end; gap: 8px; }
+.root :global(.keyword-table) button:disabled, .root :global(.keyword-controls) :disabled, .root :global(.keyword-export) button:disabled { opacity: .5; cursor: default; }

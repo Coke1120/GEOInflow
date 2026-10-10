@@ -4,7 +4,8 @@ import JSZip from 'jszip';
 import Papa from 'papaparse';
 import prisma, { getRawQueryClient } from '@/lib/prisma';
 import type { PrismaClient } from '@/generated/prisma/client';
-import { withinQuerySnapshot } from './query-snapshot';
+import { getQuerySnapshot, withinQuerySnapshot } from './query-snapshot';
+import { timedAnalyticsClient } from './analytics-deadline';
 import { getQueryFilters } from '@/lib/request';
 import { getWebsiteStats } from '@/queries/sql';
 import { getWebsiteSegment } from '@/queries/prisma';
@@ -16,7 +17,16 @@ import {
   sanitizeExportValue,
   type ExportFrame,
 } from '../contracts/exports';
-import { LiekanError } from './server';
+import { LiekanError, reportSnapshot } from './server';
+import { analyticsGate } from './analytics-budget';
+import { readKeywordFacts, validateKeywordRange } from './keywords';
+import {
+  selectKeywords,
+  keywordConditionsSchema,
+  keywordStatusLabels,
+  keywordEvidenceLabels,
+  redactKeywordTerm,
+} from '../contracts/keywords';
 
 export async function prepareFeatureExport(
   website: { id: string; name: string; domain: string },
@@ -26,6 +36,19 @@ export async function prepareFeatureExport(
   const parsed = exportRequestSchema.safeParse(input);
   if (!parsed.success) throw new LiekanError('导出参数无效');
   const p = parsed.data;
+  if (p.kind === 'source-keywords') {
+    const deadline = Date.now() + 65000;
+    return analyticsGate.run(
+      () =>
+        reportSnapshot(() =>
+          withinQuerySnapshot(
+            timedAnalyticsClient(getQuerySnapshot(), Math.min(deadline, Date.now() + 60000)),
+            () => prepareKeywordSnapshot(website, p, signal),
+          ),
+        ),
+      deadline,
+    );
+  }
   if (process.env.CLICKHOUSE_URL)
     throw new LiekanError('完整导出当前支持 PostgreSQL，可使用兼容导出功能。', 501);
   const primary = getRawQueryClient(prisma.client, { write: true }) as PrismaClient;
@@ -36,7 +59,7 @@ export async function prepareFeatureExport(
 }
 async function prepareSnapshot(
   website: { id: string; name: string; domain: string },
-  p: ReturnType<typeof exportRequestSchema.parse>,
+  p: Exclude<ReturnType<typeof exportRequestSchema.parse>, { kind: string }>,
   signal: AbortSignal,
 ) {
   try {
@@ -219,6 +242,17 @@ async function prepareSnapshot(
   bytes += Buffer.byteLength(manifestContent);
   if (bytes > EXPORT_MAX_BYTES) throw new LiekanError('字段清单与数据超过 50 MiB，请缩小范围', 413);
   const name = `liekan-export-${new Date().toISOString().replace(/[:.]/g, '-')}.${p.format}`;
+  return exportFilesResponse(files, p.format, summary, manifest, name, manifestContent, signal);
+}
+function exportFilesResponse(
+  files: { content: string; name: string }[],
+  format: 'csv' | 'json' | 'zip',
+  summary: unknown,
+  manifest: unknown,
+  name: string,
+  manifestContent: string,
+  signal: AbortSignal,
+) {
   let canceled = false;
   return new Response(
     new ReadableStream<Uint8Array>({
@@ -234,7 +268,7 @@ async function prepareSnapshot(
         try {
           emit({ type: 'progress', stage: '已完成数据查询与范围校验', percent: 0 });
           let file: Buffer;
-          if (p.format === 'zip') {
+          if (format === 'zip') {
             const zip = new JSZip();
             files.forEach(f => zip.file(f.name, f.content));
             zip.file('manifest.json', manifestContent);
@@ -247,7 +281,7 @@ async function prepareSnapshot(
             );
           } else
             file = Buffer.from(
-              p.format === 'csv' ? files[0].content : JSON.stringify({ summary, manifest }),
+              format === 'csv' ? files[0].content : JSON.stringify({ summary, manifest }),
             );
           if (file.length > EXPORT_MAX_BYTES)
             throw new LiekanError('下载文件超过 50 MiB，请缩小范围', 413);
@@ -255,9 +289,9 @@ async function prepareSnapshot(
             type: 'file',
             name,
             mime:
-              p.format === 'zip'
+              format === 'zip'
                 ? 'application/zip'
-                : p.format === 'csv'
+                : format === 'csv'
                   ? 'text/csv;charset=utf-8'
                   : 'application/json',
             size: file.length,
@@ -304,5 +338,76 @@ async function prepareSnapshot(
         'X-Content-Type-Options': 'nosniff',
       },
     },
+  );
+}
+
+async function prepareKeywordSnapshot(
+  website: { id: string; name: string; domain: string },
+  p: Extract<ReturnType<typeof exportRequestSchema.parse>, { kind: string }>,
+  signal: AbortSignal,
+) {
+  validateKeywordRange(p);
+  const facts = await readKeywordFacts(website.id, p, signal);
+  const conditions = keywordConditionsSchema.parse(p);
+  const selected = selectKeywords(facts.rows, conditions, facts.hasGoals);
+  if (selected.rows.length > EXPORT_MAX_ROWS)
+    throw new LiekanError('关键词导出超过 100,000 行，请缩小范围', 413);
+  const createdAt = new Date(facts.readAt).toISOString();
+  const safeConditions = sanitizeExportValue({
+    ...conditions,
+    search: redactKeywordTerm(conditions.search),
+  });
+  const metadata = [
+    ['统计读取时间', createdAt],
+    ['开始时间', new Date(p.startAt).toISOString()],
+    ['结束时间', new Date(p.endAt).toISOString()],
+    ['时区', p.timezone],
+    ['筛选条件', JSON.stringify(safeConditions)],
+    ['一致性', 'repeatable-read'],
+  ];
+  const fields = [
+    '关键词/状态',
+    '搜索引擎',
+    '识别依据',
+    '会话数',
+    '搜索渠道占比(%)',
+    '跳出率(%)',
+    '转化率(%)',
+  ];
+  const data = selected.rows.map(row => [
+    row.keyword || keywordStatusLabels[row.status],
+    row.engine,
+    keywordEvidenceLabels[row.evidence],
+    row.sessions,
+    row.share,
+    row.bounceRate,
+    row.conversionRate,
+  ]);
+  const content =
+    '\ufeff' +
+    Papa.unparse(metadata.map(row => row.map(safeCsvCell))) +
+    '\r\n\r\n' +
+    Papa.unparse({ fields: fields.map(safeCsvCell), data: data.map(row => row.map(safeCsvCell)) });
+  if (Buffer.byteLength(content) > EXPORT_MAX_BYTES)
+    throw new LiekanError('关键词导出超过 50 MiB，请缩小范围', 413);
+  const manifest = {
+    kind: p.kind,
+    createdAt,
+    website: { name: website.name, domain: website.domain },
+    range: { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
+    conditions: safeConditions,
+    rows: selected.rows.length,
+    fields,
+    consistency: 'repeatable-read',
+    limits: { rows: EXPORT_MAX_ROWS, bytes: EXPORT_MAX_BYTES },
+  };
+  return exportFilesResponse(
+    [{ name: 'source-keywords.csv', content }],
+    'csv',
+    undefined,
+    manifest,
+    `liekan-source-keywords-${createdAt.replace(/[:.]/g, '-')}.csv`,
+    JSON.stringify(manifest),
+    signal,
   );
 }

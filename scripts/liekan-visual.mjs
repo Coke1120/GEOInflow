@@ -4,8 +4,9 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { chromium } from '@playwright/test';
-import { columns, pages } from '../src/components/liekan/data.ts';
+import { columns, pages as allPages } from '../src/components/liekan/data.ts';
 
+const pages = allPages.filter(page => page.resource !== 'human/keywords');
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3002';
 if (!['127.0.0.1', 'localhost'].includes(new URL(base).hostname))
   throw new Error('Use an isolated local candidate');

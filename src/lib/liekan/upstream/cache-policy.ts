@@ -101,6 +101,7 @@ for (const page of [
   'geo-human',
   'geo-geography',
   'geo-sources',
+  'geo-keywords',
   'geo-content',
   'geo-conversions',
   'utm',

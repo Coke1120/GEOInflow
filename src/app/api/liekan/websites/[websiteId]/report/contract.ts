@@ -13,7 +13,12 @@ export const operations = [
       operationId: 'getLiekanReport',
       summary: 'get Liekan report',
       tags: ['Liekan'],
-      requestParams: { path: z.object({ websiteId: z.uuid() }), query: reportQuery },
+      requestParams: {
+        path: z.object({ websiteId: z.uuid() }),
+        query: reportQuery.extend({
+          resource: reportQuery.shape.resource.exclude(['human/keywords']),
+        }),
+      },
       responses: {
         '200': {
           description: 'Liekan contract v1 response',

@@ -2,6 +2,7 @@ import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { type LiekanPageReport, pageReportParts, pageReportSchema } from '../contracts/page-report';
 import { parseReportQuery } from '../contracts/query';
 import { buildReport } from '../report';
+import { readKeywordPage } from './keywords';
 import { withoutQueryCache } from './cache-context';
 import { LiekanError } from './errors';
 import {
@@ -35,6 +36,26 @@ export async function readPageReport(
       : p.endAt < today && !pageReportParts[p.resource].today
         ? 300000
         : 30000;
+  if (p.resource === 'human/keywords') {
+    const result = await readKeywordPage(
+      website,
+      { ...p, refresh: requestedRefresh },
+      ttl,
+      refresh || requestedRefresh === '1',
+    );
+    return {
+      ...result,
+      value: pageReportSchema.parse({
+        ...result.value,
+        resource: p.resource,
+        meta: {
+          ...result.value.meta,
+          generatedAt: result.generatedAt,
+          expiresAt: result.expiresAt,
+        },
+      }) as LiekanPageReport,
+    };
+  }
   const load = async () => {
     const report = await reportSnapshot(() =>
       withoutQueryCache(() => buildReport(website, false, p, true)),
