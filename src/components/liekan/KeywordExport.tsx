@@ -25,13 +25,17 @@ export function KeywordExport({
   useEffect(() => {
     setWorking(false);
     setMessage('');
-    return () => controller.current?.abort();
+    return () => {
+      controller.current?.abort();
+      controller.current = null;
+    };
   }, [identity]);
   async function download() {
-    if (!report || working) return;
+    if (!report || working || controller.current) return;
     const owner = identity;
     const run = new AbortController();
     controller.current = run;
+    const ownsRun = () => owner === current.current && controller.current === run;
     setWorking(true);
     setMessage('正在查询全部筛选结果');
     const chunks: Uint8Array[] = [];
@@ -43,7 +47,7 @@ export function KeywordExport({
         { kind: 'source-keywords', format: 'csv', ...report.range, ...conditions },
         run.signal,
         frame => {
-          if (owner !== current.current || run.signal.aborted) return;
+          if (!ownsRun() || run.signal.aborted) return;
           if (frame.type === 'progress') setMessage(frame.stage);
           if (frame.type === 'file') {
             if (frame.size > EXPORT_MAX_BYTES) throw new Error('下载文件超过 50 MiB');
@@ -57,7 +61,7 @@ export function KeywordExport({
           }
         },
       );
-      if (owner !== current.current || run.signal.aborted) return;
+      if (!ownsRun() || run.signal.aborted) return;
       if (!file || file.size !== bytes) throw new Error('文件传输未完成，请重新生成');
       const url = URL.createObjectURL(new Blob(chunks as BlobPart[], { type: file.mime }));
       const link = document.createElement('a');
@@ -67,12 +71,15 @@ export function KeywordExport({
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setMessage('已导出全部筛选结果，文件包含统计读取时间');
     } catch (error) {
-      if (owner === current.current)
+      if (ownsRun())
         setMessage(
           run.signal.aborted ? '导出已取消' : error instanceof Error ? error.message : '导出失败',
         );
     } finally {
-      if (owner === current.current) setWorking(false);
+      if (ownsRun()) {
+        controller.current = null;
+        setWorking(false);
+      }
     }
   }
   return (

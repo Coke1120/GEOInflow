@@ -4,7 +4,8 @@ import JSZip from 'jszip';
 import Papa from 'papaparse';
 import prisma, { getRawQueryClient } from '@/lib/prisma';
 import type { PrismaClient } from '@/generated/prisma/client';
-import { withinQuerySnapshot } from './query-snapshot';
+import { getQuerySnapshot, withinQuerySnapshot } from './query-snapshot';
+import { timedAnalyticsClient } from './analytics-deadline';
 import { getQueryFilters } from '@/lib/request';
 import { getWebsiteStats } from '@/queries/sql';
 import { getWebsiteSegment } from '@/queries/prisma';
@@ -35,10 +36,19 @@ export async function prepareFeatureExport(
   const parsed = exportRequestSchema.safeParse(input);
   if (!parsed.success) throw new LiekanError('导出参数无效');
   const p = parsed.data;
-  if (p.kind === 'source-keywords')
-    return analyticsGate.run(() =>
-      reportSnapshot(() => prepareKeywordSnapshot(website, p, signal)),
+  if (p.kind === 'source-keywords') {
+    const deadline = Date.now() + 65000;
+    return analyticsGate.run(
+      () =>
+        reportSnapshot(() =>
+          withinQuerySnapshot(
+            timedAnalyticsClient(getQuerySnapshot(), Math.min(deadline, Date.now() + 60000)),
+            () => prepareKeywordSnapshot(website, p, signal),
+          ),
+        ),
+      deadline,
     );
+  }
   if (process.env.CLICKHOUSE_URL)
     throw new LiekanError('完整导出当前支持 PostgreSQL，可使用兼容导出功能。', 501);
   const primary = getRawQueryClient(prisma.client, { write: true }) as PrismaClient;

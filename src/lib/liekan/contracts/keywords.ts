@@ -129,25 +129,28 @@ function normalize(term: string) {
   return term.normalize('NFC').trim();
 }
 // Percent bytes are decoded strictly; '+' represents a space only in URL query evidence.
-function decodeQueryTerm(raw: string, gbk: boolean) {
+function decodeQueryTerm(raw: string, encoding: 'utf-8' | 'gb18030' | 'auto') {
   const plus = raw.replaceAll('+', ' ');
-  try {
-    return decodeURIComponent(plus);
-  } catch {
-    if (!gbk || /%(?![\da-f]{2})/i.test(plus)) throw new Error('invalid query');
-    const bytes: number[] = [];
-    for (let i = 0; i < plus.length; ) {
-      if (plus[i] === '%') {
-        bytes.push(parseInt(plus.slice(i + 1, i + 3), 16));
-        i += 3;
-      } else {
-        const point = String.fromCodePoint(plus.codePointAt(i)!);
-        bytes.push(...new TextEncoder().encode(point));
-        i += point.length;
-      }
+  if (encoding !== 'gb18030') {
+    try {
+      return decodeURIComponent(plus);
+    } catch {
+      if (encoding === 'utf-8') throw new Error('invalid query');
     }
-    return new TextDecoder('gb18030', { fatal: true }).decode(new Uint8Array(bytes));
   }
+  if (/%(?![\da-f]{2})/i.test(plus)) throw new Error('invalid query');
+  const bytes: number[] = [];
+  for (let i = 0; i < plus.length; ) {
+    if (plus[i] === '%') {
+      bytes.push(parseInt(plus.slice(i + 1, i + 3), 16));
+      i += 3;
+    } else {
+      const point = String.fromCodePoint(plus.codePointAt(i)!);
+      bytes.push(...new TextEncoder().encode(point));
+      i += point.length;
+    }
+  }
+  return new TextDecoder('gb18030', { fatal: true }).decode(new Uint8Array(bytes));
 }
 export function identifyKeyword(entry: KeywordEntry): KeywordIdentification | null {
   const attribution = classifyEntrySource(entry);
@@ -180,27 +183,50 @@ export function identifyKeyword(entry: KeywordEntry): KeywordIdentification | nu
     else if (!path || !actual) failure = 'unsupported';
     else {
       try {
-        const values: string[] = [];
+        const params: [string, string][] = [];
         for (const part of rawQuery.replace(/^\?/, '').split('&')) {
           const split = part.indexOf('=');
-          let key: string;
           try {
-            key = decodeURIComponent(split < 0 ? part : part.slice(0, split));
+            params.push([
+              decodeURIComponent(split < 0 ? part : part.slice(0, split)),
+              split < 0 ? '' : part.slice(split + 1),
+            ]);
           } catch {
-            continue;
+            // Malformed unrelated parameter names do not invalidate keyword evidence.
           }
-          if (!(actual.keys as readonly string[]).includes(key)) continue;
-          const raw = split < 0 ? '' : part.slice(split + 1);
-          values.push(
-            normalize(decodeQueryTerm(raw, ['百度', '搜狗', '360'].includes(actual.engine))),
-          );
+        }
+        const terms = params.filter(([key]) => (actual.keys as readonly string[]).includes(key));
+        const legacy = ['百度', '搜狗', '360'].includes(actual.engine);
+        const encodings = [
+          ...new Set(
+            legacy && terms.length
+              ? params
+                  .filter(([key]) => key === 'ie')
+                  .map(([, raw]) => {
+                    const label = decodeURIComponent(raw.replaceAll('+', ' ')).trim().toLowerCase();
+                    if (/^utf-?8$/.test(label)) return 'utf-8';
+                    if (/^(?:gbk|gb2312|gb18030)$/.test(label)) return 'gb18030';
+                    return 'unsupported';
+                  })
+              : [],
+          ),
+        ];
+        const encoding = encodings[0] || (legacy ? 'auto' : 'utf-8');
+        const values: string[] = [];
+        if (encodings.length > 1) failure = 'conflict';
+        else if (encoding !== 'utf-8' && encoding !== 'gb18030' && encoding !== 'auto')
+          failure = 'unsupported';
+        else {
+          for (const [, raw] of terms) {
+            values.push(normalize(decodeQueryTerm(raw, encoding)));
+          }
         }
         const unique = [...new Set(values)];
         if (unique.length > 1) failure = 'conflict';
         const term = unique.length === 1 ? unique[0] : undefined;
         if (term) {
           if (/[\u0000-\u001f\u007f\ufffd]/.test(term)) failure = 'invalid';
-          else if (redactKeywordTerm(term) !== term) return result('redacted');
+          else if (redactKeywordTerm(term) !== term) failure = 'redacted';
           else return result('available', term, 'referrer');
         }
       } catch {
