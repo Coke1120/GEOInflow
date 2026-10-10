@@ -285,7 +285,7 @@ const ast = await openapiTS(document as never, {
   exportType: false,
   transform(schema) {
     // An empty negation schema accepts no JSON value.
-    if (schema.not && Object.keys(schema.not).length === 0)
+    if ('not' in schema && schema.not && Object.keys(schema.not).length === 0)
       return ts.factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword);
   },
 });
