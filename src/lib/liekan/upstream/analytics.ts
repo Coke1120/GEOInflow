@@ -46,7 +46,8 @@ function sourceFacts(rows: any[]) {
 }
 
 // All knowledge of upstream storage and metric semantics is confined here.
-const cte = `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country,s.region,s.city,s.browser,s.os,s.device FROM website_event e
+export function humanVisitsSql(keywords = false) {
+  return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country,s.region,s.city,s.browser,s.os,s.device FROM website_event e
   JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
   WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz AND e.event_type != 5 AND $4::text IS NOT NULL),
 visit_totals AS (SELECT visit_id,session_id,count(*) FILTER(WHERE event_type NOT IN(2,5))::int AS pv,
@@ -54,9 +55,9 @@ visit_totals AS (SELECT visit_id,session_id,count(*) FILTER(WHERE event_type NOT
   extract(epoch FROM max(created_at) FILTER(WHERE event_type NOT IN(2,5))-min(created_at) FILTER(WHERE event_type NOT IN(2,5)))::float AS duration,
   max(country) AS country,max(region) AS region,max(city) AS city,max(browser) AS browser,max(os) AS os,max(device) AS device
   FROM events GROUP BY visit_id,session_id HAVING count(*) FILTER(WHERE event_type NOT IN(2,5))>0),
-visits AS (SELECT v.*,entry.referrer_domain AS referrer,entry.utm_source AS "utmSource",entry.utm_medium AS "utmMedium",entry.utm_campaign AS "utmCampaign"
+visits AS (SELECT v.*,entry.referrer_domain AS referrer,entry.utm_source AS "utmSource",entry.utm_medium AS "utmMedium",entry.utm_campaign AS "utmCampaign"${keywords ? ' ,entry.referrer_path AS "referrerPath",entry.referrer_query AS "referrerQuery",entry.utm_term AS "utmTerm"' : ''}
   FROM visit_totals v LEFT JOIN LATERAL (
-    SELECT e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign FROM website_event e
+    SELECT e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign${keywords ? ',e.referrer_path,e.referrer_query,e.utm_term' : ''} FROM website_event e
     WHERE e.website_id=$1::uuid AND e.visit_id=v.visit_id AND e.session_id=v.session_id
       AND e.created_at<=$3::timestamptz AND e.event_type NOT IN(2,5)
     ORDER BY e.created_at,e.event_id LIMIT 1
@@ -66,11 +67,13 @@ matches AS (SELECT DISTINCT d.report_id,e.event_id,e.created_at,e.visit_id,e.ses
   ((d.parameters->>'type'='path' AND e.event_type=1 AND CASE WHEN (left(d.parameters->>'value',1)='*' OR right(d.parameters->>'value',1)='*') THEN e.url_path LIKE regexp_replace(regexp_replace(d.parameters->>'value','^[*]','%'),'[*]$','%') ELSE e.url_path=d.parameters->>'value' END) OR
    (d.parameters->>'type'!='path' AND e.event_type=2 AND CASE WHEN (left(d.parameters->>'value',1)='*' OR right(d.parameters->>'value',1)='*') THEN e.event_name LIKE regexp_replace(regexp_replace(d.parameters->>'value','^[*]','%'),'[*]$','%') ELSE e.event_name=d.parameters->>'value' END))),
 converted AS (SELECT DISTINCT visit_id,session_id FROM matches)`;
+}
+const cte = humanVisitsSql();
 
-const visitMetrics = `count(*)::int AS sessions, sum(v.pv)::int AS pv,
+export const visitMetrics = `count(*)::int AS sessions, sum(v.pv)::int AS pv,
   avg(v.duration)::float AS duration, count(*) FILTER(WHERE v.pv=1 AND v.custom=0)::int AS bounces,
   count(*) FILTER(WHERE cv.visit_id IS NOT NULL)::int AS conversions`;
-const convertedJoin =
+export const convertedJoin =
   'LEFT JOIN converted cv ON cv.visit_id=v.visit_id AND cv.session_id=v.session_id';
 export async function crawlerReferralRows(
   tx: { query<T = any>(sql: string, ...params: unknown[]): Promise<T[]> },

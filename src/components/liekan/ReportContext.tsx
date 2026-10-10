@@ -1,6 +1,13 @@
 'use client';
+import type { KeywordConditions } from '@/lib/liekan/contracts/keywords';
 import { createContext, useContext } from 'react';
 export type ReportActions = {
+  keywords?: {
+    conditions: KeywordConditions;
+    busy: boolean;
+    onChange: (next: Partial<KeywordConditions>) => void;
+    onPage: (page: number) => void;
+  };
   filter: string;
   query: string;
   sort: { label: string; direction: number };

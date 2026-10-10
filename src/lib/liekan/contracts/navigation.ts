@@ -101,6 +101,7 @@ export const websiteNavigation: NavigationGroup[] = [
 export const websiteAnalysisTabs: Record<string, NavigationItem[]> = {
   'geo-sources': [
     { page: 'geo-sources', label: '来源渠道' },
+    { page: 'geo-keywords', label: '来源关键词' },
     { page: 'utm', label: 'UTM 活动' },
   ],
   'geo-content': [
@@ -186,6 +187,7 @@ export const geoPaths: Record<string, string> = {
   'geo-human': '/human',
   'geo-geography': '/human/geo',
   'geo-sources': '/human/sources',
+  'geo-keywords': '/human/keywords',
   'geo-content': '/content',
   'geo-conversions': '/conversions',
   'geo-logs': '/logs',
@@ -225,7 +227,7 @@ const pageDefinitions: Array<[PageScope, string, string | undefined, string[]]> 
   ['website', 'explore', 'segments', ['segment-editor']],
   ['website', 'explore', 'cohorts', ['cohort-editor']],
   ['website', 'explore', 'journeys', ['path-detail']],
-  ['website', 'visitors', undefined, ['utm']],
+  ['website', 'visitors', undefined, ['utm', 'geo-keywords']],
   ['global', 'teams', undefined, ['teams']],
   ['global', 'teams', 'teams', ['team-detail', 'team-join']],
   ['admin', 'admin-users', undefined, ['admin-users']],
@@ -275,6 +277,7 @@ const titles: Record<string, string> = {
   segments: '已保存分群',
   cohorts: '行为人群',
   'cohort-editor': '创建行为人群',
+  'geo-keywords': '来源关键词',
   utm: 'UTM 活动',
   teams: '团队管理',
   boards: '数据看板',

@@ -77,6 +77,15 @@ export const pageReportParts = {
     today: false,
     insights: false,
   },
+  'human/keywords': {
+    cards: ['搜索渠道会话', '来源搜索词会话', 'UTM 关键词会话', '关键词可用率'],
+    charts: [],
+    tables: ['keywordBody'],
+    human: [],
+    logs: [],
+    today: false,
+    insights: false,
+  },
   content: {
     cards: ['有流量页面', '入口页 TOP1', '退出页 TOP1', '内容页平均停留'],
     charts: ['c1'],

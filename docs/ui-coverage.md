@@ -39,3 +39,6 @@ pnpm liekan:verify 检查冻结依赖、生成契约、SDK、类型、回归、�
 ## 导航与文案基准
 
 全局管理采用 7 个平铺的一级入口，网站分析保留 7 个模块，账户、系统管理、认证与公开分享保持独立上下文。增量基准见 `config/liekan/navigation-ui.json`，维护规则见 [导航与页面层级](navigation.md)。原型 HTML 及其指纹继续冻结，主体图表、表格字段、面板颜色和圆角仍使用原基准校验。视觉验证仅对获批侧栏、页头与工具条区域单独验收，并校正其带来的主体纵向位置变化。
+
+
+来源关键词使用独立增量基准 `config/liekan/keyword-ui.json` 与 `design/reference/source-keywords-v1/keywords.html`。原 GEO 页面与既有功能页的指纹继续独立校验。关键词验收覆盖桌面和移动宽度、长文本换行、表格横向滚动、筛选、跨页排序、完整导出与手动刷新。

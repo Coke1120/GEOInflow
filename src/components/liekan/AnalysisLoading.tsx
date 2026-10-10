@@ -8,6 +8,7 @@ import { Content } from './pages/Content';
 import { Conversions } from './pages/Conversions';
 import { HumanGeo } from './pages/HumanGeo';
 import { HumanOverview } from './pages/HumanOverview';
+import { HumanKeywords } from './pages/HumanKeywords';
 import { HumanSources } from './pages/HumanSources';
 import { Logs } from './pages/Logs';
 import { Overview } from './pages/Overview';
@@ -22,6 +23,7 @@ export const reportViews = {
   'human/overview': HumanOverview,
   'human/geo': HumanGeo,
   'human/sources': HumanSources,
+  'human/keywords': HumanKeywords,
   content: Content,
   conversions: Conversions,
   logs: Logs,

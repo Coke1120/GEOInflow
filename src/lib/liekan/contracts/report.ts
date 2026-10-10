@@ -33,6 +33,11 @@ export interface LiekanReport {
   tables: Record<string, Row[]>;
   insights: string[];
   meta: {
+    keywordSnapshot?: string;
+    keywordReset?: boolean;
+    keywordEngines?: string[];
+    keywordHasGoals?: boolean;
+    keywordReadAt?: number;
     demo: boolean;
     canManage: boolean;
     latestImportAt: string | null;
@@ -117,6 +122,11 @@ export const liekanReportSchema = z.object({
   ),
   insights: z.array(z.string()),
   meta: z.object({
+    keywordSnapshot: z.string().optional(),
+    keywordReset: z.boolean().optional(),
+    keywordEngines: z.array(z.string()).optional(),
+    keywordHasGoals: z.boolean().optional(),
+    keywordReadAt: z.number().optional(),
     demo: z.boolean(),
     canManage: z.boolean(),
     latestImportAt: z.string().nullable(),
