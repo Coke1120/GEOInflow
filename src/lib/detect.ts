@@ -8,6 +8,15 @@ import { getIpAddress, stripPort } from '@/lib/ip';
 import { safeDecodeURIComponent } from '@/lib/url';
 
 const MAXMIND = 'maxmind';
+let locationRetryAt = 0;
+let locationDatabaseLoading: Promise<void> | undefined;
+
+function unavailableLocation() {
+  delete globalThis[MAXMIND];
+  locationRetryAt = Date.now() + 60_000;
+  // eslint-disable-next-line no-console
+  console.warn('City geography unavailable; collection continues with missing location fields.');
+}
 
 const PROVIDER_HEADERS = [
   // Umami custom headers (cloud mode only)
@@ -146,26 +155,43 @@ export async function getLocation(ip: string = '', headers: Headers, skipHeaders
 
   // Database lookup
   if (!globalThis[MAXMIND]) {
+    if (Date.now() < locationRetryAt) return null;
     const dir = path.join(process.cwd(), 'geo');
-
-    globalThis[MAXMIND] = await maxmind.open(
-      process.env.GEOLITE_DB_PATH || path.resolve(dir, 'GeoLite2-City.mmdb'),
-    );
+    locationDatabaseLoading ??= maxmind
+      .open(process.env.GEOLITE_DB_PATH || path.resolve(dir, 'GeoLite2-City.mmdb'))
+      .then(reader => {
+        globalThis[MAXMIND] = reader;
+      })
+      .catch(() => {
+        // Missing geography must not prevent collecting an otherwise valid event.
+        unavailableLocation();
+      })
+      .finally(() => {
+        locationDatabaseLoading = undefined;
+      });
+    await locationDatabaseLoading;
+    if (!globalThis[MAXMIND]) return null;
   }
 
-  const result = globalThis[MAXMIND]?.get(cleanIp);
-
-  if (result) {
-    const sourceCountry = result.country?.iso_code ?? result?.registered_country?.iso_code;
-    const country = normalizeCountryCode(sourceCountry);
-    const region = result.subdivisions?.[0]?.iso_code;
-    const city = result.city?.names?.en;
-
-    return {
-      country,
-      region: getRegionCode(sourceCountry, region),
-      city,
-    };
+  try {
+    const result = globalThis[MAXMIND]?.get(cleanIp);
+    if (result) {
+      const sourceCountry = result.country?.iso_code ?? result?.registered_country?.iso_code;
+      const region = result.subdivisions?.[0]?.iso_code;
+      const city = result.city?.names?.en;
+      if ([sourceCountry, region, city].some(value => value != null && typeof value !== 'string')) {
+        throw new Error('invalid-geography-fields');
+      }
+      return {
+        country: normalizeCountryCode(sourceCountry),
+        region: getRegionCode(sourceCountry, region),
+        city,
+      };
+    }
+  } catch {
+    // A readable database can still contain a corrupt tree or invalid field types.
+    unavailableLocation();
+    return null;
   }
 }
 

@@ -6,10 +6,6 @@ import { ShareBranding } from './ShareBranding';
 export function ShareFooter() {
   const share = useShare();
 
-  if (!share?.whiteLabel) {
-    return null;
-  }
-
   return (
     <Column
       paddingX={{ base: '3', md: '6' }}
@@ -17,8 +13,11 @@ export function ShareFooter() {
       maxWidth="1320px"
       style={{ margin: '0 auto' }}
     >
-      <Row border="top" justifyContent="flex-end" paddingY="4">
-        <ShareBranding size="sm" />
+      <Row border="top" justifyContent="flex-end" paddingY="4" gap wrap="wrap">
+        <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">
+          IP Geolocation by DB-IP
+        </a>
+        {share?.whiteLabel && <ShareBranding size="sm" />}
       </Row>
     </Column>
   );

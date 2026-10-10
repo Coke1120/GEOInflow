@@ -1230,6 +1230,9 @@ describe('public share restrictions and password lifecycle', () => {
     });
     const view = mount(<ShareFeatureView slug="website-report" />, false);
     await screen.findByRole('heading', { name: '测试网站' });
+    const attribution = screen.getByRole('link', { name: 'IP Geolocation by DB-IP' });
+    expect(attribution).toHaveAttribute('href', 'https://db-ip.com');
+    expect(attribution).toHaveAttribute('rel', 'noopener noreferrer');
     for (const title of [
       '访客趋势（UV / PV / 跳出率）',
       '访问时段热力',

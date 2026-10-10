@@ -21,6 +21,7 @@ export const liekanFooterLinks = [
   { label: '作者 X', href: liekanProduct.links.author },
   { label: '帮助文档', href: liekanProduct.links.help },
   { label: '项目说明', href: liekanProduct.links.about },
+  { label: 'IP Geolocation by DB-IP', href: 'https://db-ip.com' },
 ] as const;
 
 export const projectArticles: HelpArticle[] = [

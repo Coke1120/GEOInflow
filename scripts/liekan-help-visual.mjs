@@ -251,7 +251,11 @@ try {
       const footer = page.locator('[data-liekan-product-footer]');
       await footer.waitFor();
       assert.equal(await footer.count(), 1, path);
-      assert.equal(await footer.getByRole('link').count(), 6, path);
+      assert.equal(await footer.getByRole('link').count(), 7, path);
+      assert.equal(
+        await footer.getByRole('link', { name: 'IP Geolocation by DB-IP' }).getAttribute('href'),
+        'https://db-ip.com',
+      );
       const placement = await footer.evaluate(node => ({
         position: getComputedStyle(node).position,
         width: node.getBoundingClientRect().width,

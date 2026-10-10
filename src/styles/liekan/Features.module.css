@@ -1689,6 +1689,17 @@
   display: grid;
   gap: 16px;
 }
+:global([data-liekan-features] .public-footer) {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  color: var(--sub);
+  font-size: 11.5px;
+  text-align: right;
+}
+:global([data-liekan-features] .public-footer a) {
+  color: inherit;
+}
 :global([data-liekan-features] .route-summary) {
   font-size: 11.5px;
   overflow-wrap: anywhere;

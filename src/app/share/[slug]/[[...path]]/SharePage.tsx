@@ -135,6 +135,7 @@ export function SharePage() {
           <Column>
             <WebsiteHeader showActions={false} allowLink={false} />
             <PageComponent websiteId={websiteId} />
+            <ShareFooter />
           </Column>
         </WebsiteProvider>
       </PageBody>

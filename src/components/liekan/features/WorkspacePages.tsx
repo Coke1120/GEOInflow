@@ -3347,6 +3347,11 @@ export function ShareFeatureView({
           </QueryState>
         )}
       </div>
+      <footer className="public-footer">
+        <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">
+          IP Geolocation by DB-IP
+        </a>
+      </footer>
     </main>
   );
 }
