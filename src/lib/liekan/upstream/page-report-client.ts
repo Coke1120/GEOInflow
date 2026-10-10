@@ -1,4 +1,5 @@
 'use client';
+import type { KeywordConditions } from '../contracts/keywords';
 import type { LiekanPageReport, ReportResource } from '../contracts/page-report';
 import {
   freshnessStaleTime,
@@ -12,7 +13,7 @@ import { featureApi } from './features-client';
 export function pageReportQuery(
   userId: string,
   websiteId: string,
-  input: {
+  input: Partial<KeywordConditions> & {
     resource: ReportResource;
     startAt: number;
     endAt: number;
@@ -22,6 +23,7 @@ export function pageReportQuery(
     search?: string;
     page?: number;
     cursor?: string;
+    keywordSnapshot?: string;
     seek?: string;
     tablePages?: Record<string, number>;
   },
@@ -54,6 +56,17 @@ export function pageReportQuery(
     JSON.stringify(tpParams),
     userId,
   ];
+  if (p.resource === 'human/keywords')
+    queryKey.push(
+      JSON.stringify([
+        p.engine || '',
+        p.evidence || '',
+        p.status || '',
+        p.sort || 'sessions',
+        p.direction || 'desc',
+        p.keywordSnapshot || '',
+      ]),
+    );
   return {
     queryKey,
     queryFn: ({ signal }: { signal: AbortSignal }) =>

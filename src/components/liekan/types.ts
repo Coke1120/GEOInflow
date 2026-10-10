@@ -18,6 +18,7 @@ export type Resource =
   | 'human/overview'
   | 'human/geo'
   | 'human/sources'
+  | 'human/keywords'
   | 'content'
   | 'conversions'
   | 'logs';

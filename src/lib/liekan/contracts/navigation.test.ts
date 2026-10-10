@@ -250,7 +250,7 @@ describe('navigation task boundaries', () => {
   });
   it('assigns every supplemental and GEO page to a scope and an accessible parent', () => {
     expect(featurePages).toHaveLength(69);
-    expect(Object.keys(geoPaths)).toHaveLength(11);
+    expect(Object.keys(geoPaths)).toHaveLength(12);
     for (const page of [...featurePages.map(page => page.id), ...Object.keys(geoPaths)]) {
       expect(pageNavigation[page], page).toBeDefined();
       const parent = pageNavigation[page].parent;

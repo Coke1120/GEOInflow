@@ -69,6 +69,9 @@ export async function buildReport(
   const parsed = parseReportQuery(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
   const p = parsed.data;
+  if (p.resource === 'human/keywords') {
+    throw new LiekanError('来源关键词请使用分页统计接口');
+  }
   const parts =
     pageOnly === 'share' ? sharedReportParts : pageOnly ? pageReportParts[p.resource] : undefined;
   const needed = (...resources: string[]) =>

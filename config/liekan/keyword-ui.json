@@ -1,0 +1,19 @@
+{
+  "approval": "2026-10-10 用户确认按修订方案实施来源关键词统计，沿用来源渠道的指标卡、表格、间距与蓝色样式",
+  "directory": "design/reference/source-keywords-v1",
+  "files": {
+    "keywords.html": "1a53d44b9dd29a7bd86b337392541aa6a5de5f53c5279d6f133ed74e1151dd06"
+  },
+  "scope": [
+    "human/keywords"
+  ],
+  "columns": [
+    "关键词 / 状态",
+    "搜索引擎",
+    "识别依据",
+    "会话数",
+    "搜索渠道占比",
+    "跳出率",
+    "转化率"
+  ]
+}

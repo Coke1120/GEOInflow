@@ -34,6 +34,14 @@ import { sharedReportParts } from './contracts/shared-report';
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
 
+it('keeps keywords on the dedicated page contract and rejects the full report path before reading', async () => {
+  await expect(
+    buildReport(website, false, { ...params, resource: 'human/keywords' }),
+  ).rejects.toThrow('分页统计接口');
+  expect(mocks.human).not.toHaveBeenCalled();
+  expect(mocks.logs).not.toHaveBeenCalled();
+});
+
 it('builds the share profile without log rows or unrelated statistics and bounds trends to the selected dates', async () => {
   const startAt = 3 * 86400000;
   const report = await buildReport(
@@ -144,7 +152,9 @@ describe('report evidence states', () => {
     const full = await buildReport(website, false, params);
     expect(full.insights).toContain('目录 1 个 URL，0 个在所选范围没有 AI 抓取。');
     expect(full.insights).toContain('已保存的漏斗配置无效，请检查目标配置');
-    for (const resource of Object.keys(pageReportParts) as ReportResource[]) {
+    for (const resource of Object.keys(pageReportParts).filter(
+      resource => resource !== 'human/keywords',
+    ) as ReportResource[]) {
       const page = await buildReport(website, false, { ...params, resource }, true);
       expect(page.insights).toEqual(
         resource === 'overview' || resource === 'ai/preference' ? full.insights : [],

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import Link from '@/components/liekan/Link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { keywordConditionsSchema } from '@/lib/liekan/contracts/keywords';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 import { managementLabels } from '@/lib/liekan/contracts/management';
 import {
@@ -75,6 +76,16 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const liveNow = reading?.page.now ?? savedNow;
   const { filter, search, logPage, cursor, seek, chartPeriod, sort, compare, tablePages } =
     readViewState(params, resource);
+  const keywordParsed = keywordConditionsSchema.safeParse(params);
+  const keywordConditions = keywordParsed.success
+    ? keywordParsed.data
+    : keywordConditionsSchema.parse({});
+  const keywordPage =
+    Number.isSafeInteger(Number(params.page)) &&
+    Number(params.page) > 0 &&
+    Number(params.page) <= 100000
+      ? Number(params.page)
+      : 1;
   const pageIdentity = JSON.stringify([
     userId,
     websiteId,
@@ -164,6 +175,15 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     timezone,
     chartPeriod,
     ...(Object.keys(tablePages).length ? { tablePages } : {}),
+    ...(resource === 'human/keywords'
+      ? {
+          ...keywordConditions,
+          page: keywordPage,
+          keywordSnapshot: /^[a-f0-9-]{36}$/.test(params.keywordSnapshot || '')
+            ? params.keywordSnapshot
+            : '',
+        }
+      : {}),
     ...(resource === 'logs'
       ? {
           page: displayedLogPage,
@@ -278,6 +298,20 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     displayQuery.error,
   ]);
   const report = restricted || metadataLoading || displayMismatch ? undefined : query.data;
+  const keywordResetSeen = useRef('');
+  useEffect(() => {
+    if (
+      resource !== 'human/keywords' ||
+      !report?.meta.keywordReset ||
+      keywordResetSeen.current === report.meta.keywordSnapshot
+    )
+      return;
+    keywordResetSeen.current = report.meta.keywordSnapshot;
+    setMessage('统计数据已更新，关键词列表已回到第 1 页。');
+    router.replace(updateParams({ page: undefined, keywordSnapshot: undefined }), {
+      scroll: false,
+    });
+  }, [resource, report?.meta.keywordSnapshot, report?.meta.keywordReset, router, updateParams]);
   const crawlerWebsite = websiteMatchesHandle(report?.website, websiteId)
     ? report.website
     : websiteMatchesHandle(website, websiteId)
@@ -599,6 +633,20 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   return (
     <ReportContext.Provider
       value={{
+        keywords:
+          resource === 'human/keywords'
+            ? {
+                conditions: keywordConditions,
+                busy: query.isFetching || !report,
+                onChange: next =>
+                  updateView({ ...next, page: undefined, keywordSnapshot: undefined }),
+                onPage: page =>
+                  updateView({
+                    page: page > 1 ? page : undefined,
+                    keywordSnapshot: report?.meta.keywordSnapshot,
+                  }),
+              }
+            : undefined,
         filter,
         query: search,
         sort,
@@ -647,10 +695,16 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                   : '尚未导入'}
           </span>
         )}
-        <Link href={href('filters')}>高级筛选</Link>
-        <Link href={href('annotations')}>图表注释</Link>
-        <Link href={href('exports')}>导出数据</Link>
-        <Link href={href('sharing', { context: 'website' })}>分享当前网站</Link>
+        {resource === 'human/keywords' ? (
+          <span>按搜索引擎查看关键词，支持完整筛选导出</span>
+        ) : (
+          <>
+            <Link href={href('filters')}>高级筛选</Link>
+            <Link href={href('annotations')}>图表注释</Link>
+            <Link href={href('exports')}>导出数据</Link>
+            <Link href={href('sharing', { context: 'website' })}>分享当前网站</Link>
+          </>
+        )}
       </div>
       {invalidDate && (
         <div className={styles.tools} role="status">
@@ -676,7 +730,9 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               ? '更新失败，当前显示上次读取的数据'
               : query.isStaleAggregate && !restricted
                 ? query.error?.message || '统计数据已过期，请重试读取。'
-                : '无法读取此范围的数据'
+                : resource === 'human/keywords'
+                  ? query.error?.message || '来源关键词读取失败'
+                  : '无法读取此范围的数据'
             : message || `查询：${search}`}
           {query.isError && (
             <button type="button" onClick={() => refresh()}>
@@ -791,7 +847,10 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         query.isPending ||
         displayMismatch ||
         // 过期聚合是连接问题而非加载中，保留纯提示态；其余无数据的错误中间态用占位避免空白。
-        (query.isError && !restricted && !query.isStaleAggregate) ? (
+        (query.isError &&
+          !restricted &&
+          !query.isStaleAggregate &&
+          resource !== 'human/keywords') ? (
         <AnalysisLoading
           resource={resource}
           aiCrawlerEnabled={!crawlerHidden}

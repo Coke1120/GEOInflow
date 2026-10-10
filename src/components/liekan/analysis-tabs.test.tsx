@@ -59,7 +59,8 @@ describe('website analysis families', () => {
         .map(item => item.page),
       'segments',
     ]);
-    expect(views.size).toBe(28);
+    expect(views.size).toBe(29);
+    expect(views.has('geo-keywords')).toBe(true);
   });
   it('keeps the current tracking date when switching back from a different resource tab', () => {
     const route = { page: 'pixels', teamId: 'team-a' };

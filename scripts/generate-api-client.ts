@@ -12,6 +12,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import openapiTS, { astToString } from 'openapi-typescript';
+import ts from 'typescript';
 
 const execFileAsync = promisify(execFile);
 const projectRoot = process.cwd();
@@ -282,6 +283,11 @@ const operations = collectOperations(document);
 const ast = await openapiTS(document as never, {
   alphabetize: true,
   exportType: false,
+  transform(schema) {
+    // An empty negation schema accepts no JSON value.
+    if (schema.not && Object.keys(schema.not).length === 0)
+      return ts.factory.createKeywordTypeNode(ts.SyntaxKind.NeverKeyword);
+  },
 });
 
 const files: Record<string, string> = {

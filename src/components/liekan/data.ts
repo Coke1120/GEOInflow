@@ -72,6 +72,14 @@ export const pages: Array<{
     icon: 8,
   },
   {
+    path: '/human/keywords',
+    resource: 'human/keywords',
+    title: '来源关键词',
+    actions: [],
+    group: '人类访问',
+    icon: 8,
+  },
+  {
     path: '/content',
     resource: 'content',
     title: '页面与内容',

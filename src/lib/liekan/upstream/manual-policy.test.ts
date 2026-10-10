@@ -11,7 +11,7 @@ it('accepts the complete classified page inventory and closed ordinary read poli
   const inventory = assertManualReadPolicy();
   expect(inventory.features).toHaveLength(68);
   expect(inventory.routes).toHaveLength(58);
-  expect(inventory.files).toHaveLength(72);
+  expect(inventory.files).toHaveLength(73);
 });
 
 it.each(['refetchOnWindowFocus', 'refetchOnReconnect', 'refetchInterval', 'retry'])(

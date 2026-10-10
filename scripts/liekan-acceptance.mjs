@@ -408,6 +408,19 @@ try {
       'utf8',
     ),
   );
+  await run(process.execPath, ['scripts/liekan-keyword-visual.mjs'], 'keyword-visual', {
+    env: { ...process.env, LIEKAN_URL: baseUrl },
+  });
+  report.keywordVisual = JSON.parse(
+    fs.readFileSync('test-results/liekan-keywords/report.json', 'utf8'),
+  );
+  if (
+    !report.keywordVisual.passed ||
+    !report.keywordVisual.cleanup ||
+    report.keywordVisual.head !== head ||
+    report.keywordVisual.checks.length !== 3
+  )
+    throw new Error('Source keyword visual and interaction acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-feature-flows.mjs'], 'feature-flows', {
     env: { ...process.env, LIEKAN_URL: baseUrl },
   });

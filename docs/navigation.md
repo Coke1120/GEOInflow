@@ -94,3 +94,6 @@ AI 页面地址仅携带经过格式校验的网站、对话与任务标识。�
 网站删除成功后，在网站列表中央使用共享宽屏弹窗展示网站名称、域名、删除范围和后续说明。弹窗由用户通过“知道了”、关闭按钮或 Escape 关闭，列表读取失败仍保留删除结果。结果只属于当前登录身份，离开网站管理流程后清除，重新加载页面不会重复展示。
 
 浏览器缓存历史返回通过可信的 `pagehide` 离开和 `pageshow` 恢复配对确定新的访问；当前页面冻结恢复保持本轮结果。事件含义见 [MDN pagehide](https://developer.mozilla.org/en-US/docs/Web/API/Window/pagehide_event) 和 [pageshow](https://developer.mozilla.org/en-US/docs/Web/API/Window/pageshow_event)。公开分享切换分析分区属于主动读取，授权续期保持当前分区快照。
+
+
+来源分析的标签顺序为“来源渠道 / 来源关键词 / UTM 活动”。来源关键词地址为 `/websites/[websiteId]/geo/human/keywords`，属于网站私有分析，侧栏仍高亮来源渠道。切换网站或分析标签时清除关键词引擎、依据、状态、排序、页码和统计快照，保留日期范围。

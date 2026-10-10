@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { keywordConditionsSchema } from './keywords';
 // 可分页明细表白名单：请求以扁平参数 tp_<table>=<page> 携带页码。
 // 其余明细表行数有界或已由独立协议（logBody keyset）分页，不在白名单内。
 // reportQuery 保持纯对象 schema（下游有 pick/extend/shape 派生），白名单校验收口在 parseReportQuery。
@@ -26,6 +27,7 @@ export const reportQuery = z.object({
     'human/overview',
     'human/geo',
     'human/sources',
+    'human/keywords',
     'content',
     'conversions',
     'logs',
@@ -38,6 +40,15 @@ export const reportQuery = z.object({
   seek: z.enum(['after', 'before']).default('after'),
   filter: z.enum(['', 'ai', 'abnormal', 'other']).default(''),
   search: z.string().max(200).default(''),
+  engine: keywordConditionsSchema.shape.engine,
+  evidence: keywordConditionsSchema.shape.evidence,
+  status: keywordConditionsSchema.shape.status,
+  sort: keywordConditionsSchema.shape.sort,
+  direction: keywordConditionsSchema.shape.direction,
+  keywordSnapshot: z
+    .string()
+    .regex(/^$|^[a-f0-9-]{36}$/)
+    .default(''),
   chartPeriod: z.enum(['30d', '7d', '24h']).default('30d'),
   tablePages: z.record(z.string(), z.coerce.number().int().min(1).max(100000)).default({}),
 });

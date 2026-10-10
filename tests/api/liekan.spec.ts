@@ -2,6 +2,190 @@ import { expect, test } from './fixtures';
 import { createWebsite, deleteWebsite } from './helpers/entities';
 import { pageReportParts } from '../../src/lib/liekan/contracts/page-report';
 
+test('identifies source keywords through real collection, scopes access, pages and exports the complete population', async ({
+  admin,
+  user,
+  api,
+  share,
+}) => {
+  const website = await createWebsite(admin, {
+    name: '隔离关键词验收',
+    domain: 'keyword-fixture.test',
+  });
+  const base = `/api/liekan/websites/${website.id}`;
+  const midnight = Math.floor((Date.now() - 86400000) / 86400000) * 86400000;
+  const params = {
+    resource: 'human/keywords',
+    startAt: midnight,
+    endAt: midnight + 3600000,
+    timezone: 'UTC',
+    sort: 'keyword',
+    direction: 'asc',
+  };
+  const send = async (
+    id: string,
+    referrer: string,
+    timestamp: number,
+    url = '/',
+    cache?: string,
+    name?: string,
+  ) => {
+    const response = await api.post(
+      '/api/send',
+      {
+        type: 'event',
+        payload: {
+          website: website.id,
+          hostname: website.domain,
+          url,
+          referrer,
+          timestamp: Math.floor(timestamp / 1000),
+          id,
+          ip: '10.90.0.1',
+          userAgent: 'Mozilla/5.0 Chrome/124.0.0.0',
+          screen: '1440x900',
+          language: 'zh-CN',
+          ...(name ? { name } : {}),
+        },
+      },
+      { headers: cache ? { 'x-umami-cache': cache } : {} },
+    );
+    expect(response.status).toBe(200);
+    expect(response.body.cache).toBeTruthy();
+    return response.body.cache as string;
+  };
+  try {
+    for (let i = 0; i < 25; i++)
+      await send(
+        `keyword-${i}`,
+        `https://www.google.com/search?q=word${String(i).padStart(2, '0')}`,
+        midnight + 60000 + i * 1000,
+      );
+    // The first browser entry predates the window; later pages and repeated goals keep that entry.
+    const first = await send(
+      'cross-midnight',
+      'https://www.baidu.com/s?wd=%E7%8C%8E%E7%9C%8B',
+      midnight - 1000,
+    );
+    const second = await send(
+      'cross-midnight',
+      'https://www.bing.com/search?q=later',
+      midnight + 1000,
+      '/',
+      first,
+    );
+    await send('cross-midnight', '', midnight + 2000, '/', second, 'keyword-goal');
+    await send('cross-midnight', '', midnight + 3000, '/', second, 'keyword-goal');
+    await send(
+      'manual',
+      'https://www.google.com/search?q=real',
+      midnight + 4000,
+      '/?utm_source=google&utm_term=manual',
+    );
+    await send(
+      'conflict',
+      'https://www.google.com/search?q=real',
+      midnight + 5000,
+      '/?utm_source=bing',
+    );
+    await send(
+      'utm',
+      'https://www.bing.com/',
+      midnight + 6000,
+      '/?utm_source=bing&utm_term=C%2B%2B%2520guide',
+    );
+    await send('missing', 'https://www.baidu.com/', midnight + 7000);
+    await send('private', 'https://www.google.com/search?q=person%40example.test', midnight + 8000);
+    await send(
+      'nonsearch',
+      'https://www.google.com/search?q=ignore',
+      midnight + 9000,
+      '/?utm_source=google&utm_medium=email',
+    );
+    const before = await admin.get(`${base}/page-report`, { params });
+    expect(before.status, before.text).toBe(200);
+    expect((await admin.get(`${base}/report`, { params })).status).toBe(400);
+    expect(before.body.meta.tablePages.keywordBody.total).toBe(31);
+    expect(before.body.cards.map(c => c.value)).toEqual([31, 27, 1, 90.32]);
+    expect(before.body.tables.keywordBody).toHaveLength(20);
+    expect(before.body.tables.keywordBody.every(r => r.conversionRate === null)).toBe(true);
+    const page2 = await admin.get(`${base}/page-report`, {
+      params: { ...params, page: 2, keywordSnapshot: before.body.meta.keywordSnapshot },
+    });
+    expect(page2.status).toBe(200);
+    expect(page2.body.tables.keywordBody).toHaveLength(11);
+    const ids = [...before.body.tables.keywordBody, ...page2.body.tables.keywordBody].map(
+      r => r.id,
+    );
+    expect(new Set(ids).size).toBe(31);
+    const matched = await admin.get(`${base}/page-report`, {
+      params: { ...params, search: 'word24', page: 2 },
+    });
+    expect(matched.body.tables.keywordBody[0].keyword).toBe('word24');
+    const source = await admin.get(`${base}/page-report`, {
+      params: { ...params, resource: 'human/sources' },
+    });
+    expect(
+      source.body.tables.srcBody
+        .filter(r => r.channel === '传统搜索')
+        .reduce((n, r) => n + r.sessions, 0),
+    ).toBe(31);
+    expect((await api.get(`${base}/page-report`, { params })).status).toBe(401);
+    expect((await user.get(`${base}/page-report`, { params })).status).toBe(403);
+    expect((await (await share()).get(`${base}/page-report`, { params })).status).toBe(401);
+    expect(
+      (await api.post(`${base}/exports`, { kind: 'source-keywords', format: 'csv', ...params }))
+        .status,
+    ).toBe(401);
+    const goal = await admin.post(`/api/websites/${website.id}/goals`, {
+      name: '关键词验收目标',
+      parameters: { type: 'event', value: 'keyword-goal' },
+    });
+    expect(goal.status).toBe(200);
+    const converted = await admin.get(`${base}/page-report`, {
+      params: { ...params, engine: '百度', refresh: '1' },
+    });
+    const baidu = converted.body.tables.keywordBody.find(r => r.keyword === '猎看');
+    expect(baidu).toMatchObject({
+      sessions: 1,
+      conversions: 1,
+      bounceRate: 0,
+      conversionRate: 100,
+    });
+    const reset = await admin.get(`${base}/page-report`, {
+      params: { ...params, page: 2, keywordSnapshot: before.body.meta.keywordSnapshot },
+    });
+    expect(reset.body.meta.keywordReset).toBe(true);
+    expect(reset.body.meta.tablePages.keywordBody.page).toBe(1);
+    const exported = await admin.post(`${base}/exports`, {
+      kind: 'source-keywords',
+      format: 'csv',
+      startAt: params.startAt,
+      endAt: params.endAt,
+      timezone: 'UTC',
+      search: 'word',
+      sort: 'keyword',
+      direction: 'asc',
+    });
+    expect(exported.status, exported.text).toBe(200);
+    const frames = exported.text
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line));
+    expect(frames.at(-1).type).toBe('complete');
+    expect(frames.find(frame => frame.type === 'file').manifest.rows).toBe(25);
+    const csv = Buffer.concat(
+      frames.filter(f => f.type === 'chunk').map(f => Buffer.from(f.data, 'base64')),
+    ).toString();
+    expect(csv).toContain('word00');
+    expect(csv).toContain('word24');
+    expect(csv).toContain('统计读取时间');
+    expect(csv).not.toContain('person@example.test');
+  } finally {
+    await deleteWebsite(admin, website.id);
+  }
+});
+
 test('keeps the deployed shared overview scoped and aggregate-only', async ({
   admin,
   user,
@@ -342,7 +526,9 @@ test.describe('Liekan statistics cache', () => {
     const params = { ...seed.range, timezone: 'Asia/Shanghai' };
     const full = await admin.get(`${path}/report`, { params: { ...params, resource: 'overview' } });
     expect(full.status).toBe(200);
-    for (const [resource, parts] of Object.entries(pageReportParts)) {
+    for (const [resource, parts] of Object.entries(pageReportParts).filter(
+      ([resource]) => resource !== 'human/keywords',
+    )) {
       const page = await admin.get(`${path}/page-report`, { params: { ...params, resource } });
       expect(page.status, resource).toBe(200);
       expect(page.body.cards).toEqual(
