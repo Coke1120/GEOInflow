@@ -1,12 +1,30 @@
 # 本地安装、体验与恢复
 
-Alpine 包下载显式使用构建代理的小写变量，保留官方 HTTPS 地址及证书校验。运行镜像的系统包安装层位于产品版本参数之前，可在不同候选之间复用；代理仅传入下载步骤，不保存为应用环境变量。
+## 一键部署
+
+安装并启动 Docker 与 Docker Compose 后，在项目根目录运行 `sh scripts/liekan-deploy.sh`。服务器无需安装 Node.js 或 pnpm，镜像内使用固定版本完成构建。首次运行生成权限为 0600 的 `.env`，分别创建独立随机数据库密码、应用密钥和 2FA 密钥；配置与密钥不会打印。随后构建镜像、启动服务并等待健康检查。应用默认绑定 `127.0.0.1:3002`，公网通过反向代理配置域名与 HTTPS。
+
+重复执行保留 `.env` 和已有数据库、账号与自定义密码。检测到既有数据库卷却没有 `.env` 时停止，要求恢复原配置，避免替换旧应用与 2FA 密钥。部署失败保留已生成配置供重试。构建依赖 Docker 镜像源与依赖下载源可达；脚本不会安装或调整宿主机的 Docker、反向代理与网络。
+
+## 地理数据自动准备
+
+首次构建默认自动下载 [DB-IP City Lite](https://db-ip.com/db/download/ip-to-city-lite) MMDB，无需注册账号或提供下载密钥。该免费库每月更新，覆盖和精度有限，采用 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 许可；产品与分享页面保留 DB-IP 署名链接。文件保存为兼容的 `geo/GeoLite2-City.mmdb`，镜像中包含该文件。没有本月发布包时尝试上个月的版本。
+
+已有有效城市库优先复用，构建不会自动覆盖。下载与解压使用临时目录，完整文件通过 MMDB 类型校验后原子替换。下载失败会停止构建，避免缺库结果进入成功镜像缓存；网络恢复后重跑同一部署命令即可。运行时文件缺失、损坏或显式跳过准备时，应用继续采集浏览事件，无法确定的国家、省份和城市保持缺失；代理提供的地域信息继续正常使用。缺库重试最多每分钟一次，并共享并发打开请求，避免逐个访问产生错误日志。
+
+需要 MaxMind 时，可直接将按其条款取得的 City MMDB 放到 `geo/GeoLite2-City.mmdb`。自动准备也支持在私有环境中配置 `MAXMIND_ACCOUNT_ID` 与 `MAXMIND_LICENSE_KEY` 后执行 `pnpm build:geo`，使用官方认证地址和重定向下载。只配置 License Key 会失败并提示检查配置；自定义授权 HTTPS 地址通过 `GEO_DATABASE_URL` 指定。自定义下载失败返回非零状态，保留原文件，凭据不会输出。Docker 构建不接收或保存 MaxMind 密钥；预先准备的文件随构建上下文进入镜像。MaxMind 数据更新和分发遵循 [官方条款](https://www.maxmind.com/en/geolite/eula)。
+
+库版本随构建镜像固定。需要更新时替换源文件并重建镜像；自动下载的镜像在重新执行地理准备的构建层时取得当月版本。`SKIP_BUILD_GEO=1` 可用于离线验收，跳过准备仍会创建 `geo/`，不会阻断镜像文件复制。
+
+Alpine 包下载显式使用构建代理的小写变量，Node.js 构建步骤启用环境代理支持，保留官方 HTTPS 地址及证书校验。城市库下载每个版本最多等待十五分钟，以容纳较慢网络。运行镜像的系统包安装层位于产品版本参数之前，可在不同候选之间复用；代理仅传入下载步骤，不保存为应用环境变量。
 
 Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 Rayon 线程数为 2、Node 堆为 2048 MiB，降低多服务环境中的构建资源峰值；这些 Docker 构建环境变量不传入运行容器。线程设置依据 [Rayon 官方说明](https://docs.rs/rayon/latest/rayon/struct.ThreadPoolBuilder.html)。资源检查需结合 Docker 虚拟机总量，逐个容器的使用率不等于虚拟机整体占用。
 
-要求 Docker Desktop、Node.js 22.23.3、pnpm 12.3.4。应用 http://127.0.0.1:3002，专用 PostgreSQL 在本机 15435，新卷 liekan_liekan-data。原 Umami 的 3001 入口和 umami_umami-db-data 卷保持独立。
+## 手动开发与本地验收
 
-首次安装复制 env.example 到 .env，替换随机密码与密钥，文件权限设为 0600。迁移已有 Umami 数据时沿用原 APP_SECRET 与 TWO_FACTOR_ENCRYPTION_KEY，避免既有会话、身份标识和 2FA 加密数据失配。DATABASE_URL 指向新的副本，所有备份与配置都不纳入 Git。
+手动开发与验收要求 Docker Desktop、Node.js 22.23.3、pnpm 12.3.4。应用 http://127.0.0.1:3002，专用 PostgreSQL 在本机 15435，新卷 liekan_liekan-data。原 Umami 的 3001 入口和 umami_umami-db-data 卷保持独立。
+
+手动安装时复制 env.example 到 .env，替换随机密码与密钥，文件权限设为 0600。迁移已有 Umami 数据时沿用原 APP_SECRET 与 TWO_FACTOR_ENCRYPTION_KEY，避免既有会话、身份标识和 2FA 加密数据失配。DATABASE_URL 指向新的副本，所有备份与配置都不纳入 Git。
 
 开发时安装冻结依赖、生成 Prisma 客户端、生成 OpenAPI/SDK 并构建工作区包。先执行上游 `pnpm db:migrate`，再运行 `pnpm liekan:migrate`。`pnpm liekan:seed-demo` 从仓库内的示例数据包创建“猎看官网（示例数据）”，保持已有管理员密码。数据包可离线导入，详情见 [默认示例说明](default-demo.md)。
 
@@ -18,7 +36,7 @@ docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-de
 
 默认示例仅在显式运行初始化命令时创建。重启和升级保留现有网站与示例删除状态。
 
-构建前准备 geo/GeoLite2-City.mmdb。现有部署可复制已获授权的地理库，公开部署请使用符合 MaxMind 数据条款的来源。首次安装先运行独立数据库并完成迁移和演示站接入，再将已审查代码提交。完整验收会生成带候选 SHA 的镜像，验收通过后给该镜像固定版本标签并启动体验服务：
+构建自动准备地理库，也可优先使用已获授权的本地 City MMDB。首次安装先运行独立数据库并完成迁移和演示站接入，再将已审查代码提交。完整验收会生成带候选 SHA 的镜像，验收通过后给该镜像固定版本标签并启动体验服务：
 
 ```sh
 pnpm liekan:verify

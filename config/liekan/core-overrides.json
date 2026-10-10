@@ -127,7 +127,8 @@
       "purpose": "Isolate local Liekan runtime, database and immutable image revision; carry the website site number migration revision; carry crawler analysis/control migration revision",
       "tests": [
         "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
+        "Liekan Docker and visual acceptance",
+        "pnpm test:deployment"
       ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Isolate local Liekan runtime, database and immutable image revision; carry the website site number migration revision",
@@ -178,7 +179,8 @@
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "AI backend integration and lifecycle tests",
-        "pnpm liekan:verify"
+        "pnpm liekan:verify",
+        "pnpm test:deployment"
       ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Pin reproducible toolchain, offline prototype charts and license-compatible browser detection Preserve upstream behavior and protocols outside this recorded purpose: Pin reproducible toolchain, offline prototype charts and license-compatible browser detection; Preserve upstream behavior and protocols outside this recorded purpose: Pin reproducible toolchain, offline prototype charts and license-compatible browser detection",
@@ -3001,11 +3003,13 @@
     },
     {
       "path": "src/lib/detect.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; Continue collection when optional geography is missing, sharing concurrent opens and bounding retries",
       "tests": [
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "pnpm test:deployment",
+        "src/lib/liekan/upstream/geolocation-availability.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -4283,6 +4287,50 @@
       "owner": "Liekan crawler compatibility",
       "constraint": "Use disposable website resources and preserve provider write authority",
       "removalCondition": "Remove when upstream covers the same crawler read and authorization contracts"
+    },
+    {
+      "path": "scripts/build-geo.js",
+      "purpose": "Prepare account-free geography, preserve authorized local databases and fail safely without losing analytics",
+      "tests": [
+        "pnpm test:deployment",
+        "src/lib/liekan/upstream/geolocation-availability.test.ts"
+      ],
+      "owner": "Liekan deployment maintenance",
+      "constraint": "Preserve tracker protocol, missing-data semantics and third-party attribution",
+      "removalCondition": "Remove when upstream provides automatic licensed geography and missing-database collection continuity"
+    },
+    {
+      "path": "src/app/share/[slug]/[[...path]]/ShareFooter.tsx",
+      "purpose": "Retain geography attribution on public shares independently of optional product branding",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance"
+      ],
+      "owner": "Liekan deployment maintenance",
+      "constraint": "Preserve tracker protocol, missing-data semantics and third-party attribution",
+      "removalCondition": "Remove when upstream provides automatic licensed geography and missing-database collection continuity"
+    },
+    {
+      "path": "src/app/share/[slug]/[[...path]]/SharePage.tsx",
+      "purpose": "Include geography attribution in all public website share routes",
+      "tests": [
+        "src/app/share/[slug]/[[...path]]/SharePage.test.tsx",
+        "src/lib/liekan/upstream/share-geography-attribution.test.tsx"
+      ],
+      "owner": "Liekan geography maintenance",
+      "constraint": "Preserve public-share permissions, navigation and optional product branding",
+      "removalCondition": "Remove when upstream public-share pages retain supported geography provider attribution"
+    },
+    {
+      "path": "src/app/share/[slug]/[[...path]]/SharePage.test.tsx",
+      "purpose": "Include geography attribution in all public website share routes",
+      "tests": [
+        "src/app/share/[slug]/[[...path]]/SharePage.test.tsx",
+        "src/lib/liekan/upstream/share-geography-attribution.test.tsx"
+      ],
+      "owner": "Liekan geography maintenance",
+      "constraint": "Preserve public-share permissions, navigation and optional product branding",
+      "removalCondition": "Remove when upstream public-share pages retain supported geography provider attribution"
     }
   ]
 }

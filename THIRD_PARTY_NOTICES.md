@@ -8,6 +8,8 @@ Liekan application source is distributed under the MIT license. The complete app
 | Inter | SIL Open Font License 1.1; public/liekan/licenses/Inter-OFL-1.1.txt | Locally served font |
 | detect-browser | MIT; bundled dependency license | Browser recognition |
 | GeoLite2 City | MaxMind GeoLite2 data terms; https://www.maxmind.com/en/geolite2/eula | Optional external geography database, inherited local data copy |
+| DB-IP City Lite | CC BY 4.0; https://creativecommons.org/licenses/by/4.0/; data by https://db-ip.com | Default account-free geography database, downloaded from https://db-ip.com/db/download/ip-to-city-lite; product and share pages retain attribution |
+| MaxMind-DB City test fixture | MIT option; tests/liekan/fixtures/LICENSE-MIT; copyright MaxMind, Inc. | Synthetic deployment test data from https://github.com/maxmind/MaxMind-DB; excluded from the application image |
 | pg-boss 12.36.0 | MIT, retained package LICENSE | Durable PostgreSQL queue and controlled queue bootstrap |
 | node-postgres (pg) 8.23.1 | MIT, retained package LICENSE | Queue initialization and isolated integration verification |
 | Node.js 22.23.3 | Node.js and bundled third-party licenses, LICENSE retained inside each collector archive | Linux collector runtime |
