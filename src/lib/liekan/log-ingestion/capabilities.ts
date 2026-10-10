@@ -1,5 +1,5 @@
 import { query } from '../upstream/server';
-import { readAgentManifest } from './assets';
+import { readAgentManifest, readDockerManifest } from './assets';
 import { publicUrl } from './service';
 import type { LogCapability, LogSetupCheck, LogSetupCheckId } from '../contracts/installation';
 export type Capability = LogCapability;
@@ -21,17 +21,22 @@ export async function getLogCapabilities(): Promise<Record<'server' | 'cloudflar
   } catch {
     shared.push({ id: 'queue', state: 'unverified' }, { id: 'worker', state: 'unverified' });
   }
-  let agentReady = false;
-  try {
-    await readAgentManifest();
-    agentReady = true;
-  } catch {}
+  const [systemd, docker] = await Promise.all([
+    readAgentManifest().then(
+      () => true,
+      () => false,
+    ),
+    readDockerManifest().then(
+      () => true,
+      () => false,
+    ),
+  ]);
   const key = Buffer.from(process.env.LIEKAN_LOG_CREDENTIALS_KEY || '', 'base64');
   const reasons: Record<LogSetupCheckId, string> = {
     'public-url': '管理员尚未配置公网 HTTPS 接收地址',
     queue: '日志队列尚未初始化',
     worker: '日志处理服务暂未就绪',
-    'agent-package': '签名安装包尚未准备完成',
+    'agent-package': '采集器部署包尚未准备完成',
     'cloudflare-oauth': '管理员尚未配置 Cloudflare 授权服务',
     'credentials-key': '管理员尚未配置日志凭据加密密钥',
   };
@@ -50,10 +55,13 @@ export async function getLogCapabilities(): Promise<Record<'server' | 'cloudflar
     };
   };
   return {
-    server: capability([
-      ...shared,
-      { id: 'agent-package', state: agentReady ? 'ready' : 'missing' },
-    ]),
+    server: {
+      ...capability([
+        ...shared,
+        { id: 'agent-package', state: systemd || docker ? 'ready' : 'missing' },
+      ]),
+      runtimes: { docker, systemd },
+    },
     cloudflare: capability([
       ...shared,
       {

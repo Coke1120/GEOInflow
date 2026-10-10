@@ -42,11 +42,35 @@ test.describe('Liekan automatic log access boundaries', () => {
     const response = await api.post('/api/liekan/collectors/pair', {});
     expect(response.status).toBe(400);
   });
+  test('protects Docker deployment packages with website management permission', async ({
+    api,
+    user,
+    admin,
+    seed,
+  }) => {
+    const path = `/api/liekan/websites/${seed.website.id}/log-sources/server/deployment`;
+    expect((await api.get(path)).status).toBe(401);
+    expect((await user.get(path)).status).toBe(403);
+    const before = await admin.get(`/api/liekan/websites/${seed.website.id}/log-sources`);
+    const downloaded = await admin.get(path);
+    const installation = await admin.get(`/api/liekan/websites/${seed.website.id}/installation`);
+    expect(downloaded.status).toBe(
+      installation.body.availability?.server?.runtimes?.docker ? 200 : 503,
+    );
+    if (downloaded.status === 200) {
+      expect(downloaded.body.fileName).toMatch(/\.zip$/);
+      expect(downloaded.body.command).not.toContain('--code');
+    }
+    expect((await admin.get(`/api/liekan/websites/${seed.website.id}/log-sources`)).body).toEqual(
+      before.body,
+    );
+  });
 
   test('rejects batches and heartbeats without a source credential', async ({ api }) => {
     const base = `/api/liekan/log-sources/${missingSource}`;
     expect((await api.post(`${base}/batches`, {})).status).toBe(401);
     expect((await api.post(`${base}/heartbeat`, {})).status).toBe(401);
+    expect((await api.get(`${base}/heartbeat`)).status).toBe(401);
   });
 
   test('rejects incomplete Cloudflare callback parameters', async ({ api }) => {

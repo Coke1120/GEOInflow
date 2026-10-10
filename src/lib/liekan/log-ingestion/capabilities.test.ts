@@ -1,18 +1,37 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { getLogCapabilities } from './capabilities';
 import { logPublicOrigin } from '../contracts/installation';
-const mocks = vi.hoisted(() => ({ query: vi.fn(), manifest: vi.fn(), publicUrl: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  query: vi.fn(),
+  manifest: vi.fn(),
+  docker: vi.fn(),
+  publicUrl: vi.fn(),
+}));
 vi.mock('../upstream/server', () => ({ query: mocks.query }));
-vi.mock('./assets', () => ({ readAgentManifest: mocks.manifest }));
+vi.mock('./assets', () => ({
+  readAgentManifest: mocks.manifest,
+  readDockerManifest: mocks.docker,
+}));
 vi.mock('./service', () => ({ publicUrl: mocks.publicUrl }));
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.query.mockResolvedValue([{ queue: true, worker: true }]);
   mocks.manifest.mockResolvedValue({});
+  mocks.docker.mockResolvedValue({});
   mocks.publicUrl.mockReturnValue('https://stats.example.com');
   vi.stubEnv('CLOUDFLARE_OAUTH_CLIENT_ID', 'private-client');
   vi.stubEnv('CLOUDFLARE_OAUTH_CLIENT_SECRET', 'private-secret');
   vi.stubEnv('LIEKAN_LOG_CREDENTIALS_KEY', Buffer.alloc(32, 7).toString('base64'));
+});
+it('allows Docker installation independently of systemd archives', async () => {
+  mocks.manifest.mockRejectedValue(new Error('missing Linux archive'));
+  const result = await getLogCapabilities();
+  expect(result.server).toMatchObject({
+    available: true,
+    runtimes: { docker: true, systemd: false },
+  });
+  mocks.docker.mockRejectedValue(new Error('invalid Docker archive'));
+  expect((await getLogCapabilities()).server.available).toBe(false);
 });
 afterEach(() => vi.unstubAllEnvs());
 it('reports all prerequisites even when the public address is missing and never exposes secrets', async () => {
