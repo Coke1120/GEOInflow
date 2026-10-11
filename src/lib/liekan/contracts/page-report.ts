@@ -77,6 +77,15 @@ export const pageReportParts = {
     today: false,
     insights: false,
   },
+  'human/search-engines': {
+    cards: ['搜索总会话', '传统搜索会话', 'AI 搜索引荐会话', 'AI 搜索占比'],
+    charts: ['se1', 'se2'],
+    tables: ['searchEngineBody'],
+    human: ['sources'],
+    logs: [],
+    today: false,
+    insights: false,
+  },
   'human/keywords': {
     cards: ['搜索渠道会话', '来源搜索词会话', 'UTM 关键词会话', '关键词可用率'],
     charts: [],

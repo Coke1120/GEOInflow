@@ -18360,6 +18360,7 @@ export interface operations {
           | 'human/overview'
           | 'human/geo'
           | 'human/sources'
+          | 'human/search-engines'
           | 'human/keywords'
           | 'content'
           | 'conversions'
@@ -18487,6 +18488,7 @@ export interface operations {
               | 'human/overview'
               | 'human/geo'
               | 'human/sources'
+              | 'human/search-engines'
               | 'human/keywords'
               | 'content'
               | 'conversions'
@@ -18601,6 +18603,7 @@ export interface operations {
           | 'human/overview'
           | 'human/geo'
           | 'human/sources'
+          | 'human/search-engines'
           | 'content'
           | 'conversions'
           | 'logs';
@@ -18934,6 +18937,32 @@ export interface operations {
                 state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
               };
               s2: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              se1: {
+                labels: string[];
+                rows?: {
+                  [key: string]: unknown;
+                }[];
+                series: {
+                  /** @description Display name of the resource. */
+                  name: string;
+                  values: (number | null)[];
+                }[];
+                /** @enum {string} */
+                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              };
+              se2: {
                 labels: string[];
                 rows?: {
                   [key: string]: unknown;

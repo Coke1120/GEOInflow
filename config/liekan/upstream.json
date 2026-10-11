@@ -13,5 +13,6 @@
   "featureUiManifestSha256": "e0d8650251be7eb48baef8aec902c3cd6952c162ee6a5f81add5eb9ea89d6835",
   "aiUiManifestSha256": "a28373e8cb9c6b8be13d2210297765b1bbafe1884f02d0e91a311c2442bbe702",
   "aiChatHomeUiManifestSha256": "ac894cbae92a0e26753d82548e6b2695f4fa403a5cba0cf21f19b6c089a79305",
-  "keywordUiManifestSha256": "016afeb21948e822c814cf4f5fe196e377dedf6093e7205aa4432ab3e138034d"
+  "keywordUiManifestSha256": "016afeb21948e822c814cf4f5fe196e377dedf6093e7205aa4432ab3e138034d",
+  "searchEngineUiManifestSha256": "502450a58c0f1d5737876a57bf271e72fa5d622416b823990503119d633ecb96"
 }

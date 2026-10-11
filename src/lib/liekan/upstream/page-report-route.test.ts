@@ -83,3 +83,14 @@ it('checks final page authorization after reading a cached result', async () => 
   expect(response.status).toBe(403);
   expect(authorizeAgain).toHaveBeenCalledTimes(1);
 });
+
+it('keeps search engine reports behind the same private authorization gate', async () => {
+  const request = new Request(
+    `http://localhost/api/liekan/websites/${id}/page-report?resource=human/search-engines&startAt=0&endAt=1000`,
+  );
+  mocks.authorize.mockRejectedValueOnce(new LiekanError('无法访问', 401));
+  expect((await GET(request, params)).status).toBe(401);
+  expect(mocks.read).not.toHaveBeenCalled();
+  expect((await GET(request, params)).status).toBe(200);
+  expect(mocks.read.mock.calls[0][1].resource).toBe('human/search-engines');
+});

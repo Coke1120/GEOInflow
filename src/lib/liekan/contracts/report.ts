@@ -80,6 +80,8 @@ export const chartIds = [
   'g2',
   's1',
   's2',
+  'se1',
+  'se2',
   'c1',
   'f1',
   'f2',

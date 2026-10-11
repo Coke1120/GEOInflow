@@ -913,6 +913,19 @@ const validators: Record<string, (b: any) => boolean> = {
     rows(b, 'srcBody', r => r.channel === 'AI 搜索引荐' && Number(r.conversionRate) > 0) &&
     positiveSeries(b, 's1') &&
     positiveSeries(b, 's2'),
+  'human/search-engines': b =>
+    ['搜索总会话', '传统搜索会话', 'AI 搜索引荐会话', 'AI 搜索占比'].every(label =>
+      positiveCard(b, label),
+    ) &&
+    positiveSeries(b, 'se1') &&
+    positiveSeries(b, 'se2') &&
+    ['传统搜索', 'AI 搜索引荐'].every(type =>
+      rows(
+        b,
+        'searchEngineBody',
+        r => r.type === type && Number(r.sessions) > 0 && Number(r.categoryShare) > 0,
+      ),
+    ),
   content: b =>
     rows(b, 'pgBody', r => Number(r.pv) > 0) &&
     rows(b, 'journeyList', r => Number(r.count) > 0) &&
@@ -932,12 +945,12 @@ const validators: Record<string, (b: any) => boolean> = {
     b.charts.f1.series[0].values[1] === 80,
 };
 
-/** Nine independent page-report branches. Keep existing human/overview and logs-direct scenarios. */
+/** Regular page-report branches; keywords have dedicated snapshot acceptance. */
 export function geoCacheMatrix(seeded: GeoCacheSeed): CacheMatrixEntry[] {
   const resources = Object.keys(pageReportParts).filter(
-    r => r !== 'human/overview' && r !== 'logs',
+    r => !['human/overview', 'logs', 'human/keywords'].includes(r),
   );
-  assert.equal(resources.length, 9);
+  assert.equal(resources.length, 10);
   return resources.map(resource => ({
     label: `GEO-${resource.replaceAll('/', '-')}`,
     site: seeded.geoSite,

@@ -7,6 +7,7 @@ import {
   liekanReportSchema,
   type Row,
 } from './contracts/report';
+import { summarizeSearchEngines, searchChannels } from './contracts/search-engines';
 import { sharedReportParts } from './contracts/shared-report';
 import { getSettings } from './store';
 import {
@@ -337,6 +338,25 @@ export async function buildReport(
     conversionRate: h.goals.length ? pct(g.conversions, g.sessions) : null,
   }));
   r.tables.srcBody = src;
+  const searchEngines = summarizeSearchEngines(
+    h.sources.map(source => ({ ...source, channel: channel(source) })),
+    h.goals.length > 0,
+  );
+  r.tables.searchEngineBody = searchEngines.rows;
+  const searchState = searchEngines.sessions ? 'available' : 'empty';
+  card('搜索总会话', searchEngines.sessions, searchState, '', '传统搜索与 AI 搜索引荐');
+  card('传统搜索会话', searchEngines.totals['传统搜索'], searchState);
+  card('AI 搜索引荐会话', searchEngines.totals['AI 搜索引荐'], searchState);
+  card('AI 搜索占比', searchEngines.aiShare, searchState, '%', '占搜索总会话');
+  searchChannels.forEach((type, index) => {
+    const rows = searchEngines.rows.filter(row => row.type === type);
+    chart(
+      `se${index + 1}`,
+      rows.map(row => String(row.engine)),
+      [{ name: '会话', values: rows.map(row => Number(row.sessions)) }],
+      rows.length ? 'available' : 'empty',
+    );
+  });
   r.tables.sourceEvidence = h.sourceEvidence ?? [];
   r.tables.pgBody = h.pages.map(page => ({
     path: page.path,

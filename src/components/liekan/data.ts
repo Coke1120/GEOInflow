@@ -72,6 +72,14 @@ export const pages: Array<{
     icon: 8,
   },
   {
+    path: '/human/search-engines',
+    resource: 'human/search-engines',
+    title: '搜索引擎',
+    actions: [],
+    group: '人类访问',
+    icon: 8,
+  },
+  {
     path: '/human/keywords',
     resource: 'human/keywords',
     title: '来源关键词',
@@ -158,6 +166,16 @@ export const columns: Record<string, Array<[string, string, boolean?]>> = {
     ['bounceRate', '跳出率', true],
     ['conversionRate', '转化率', true],
   ],
+  searchEngineBody: [
+    ['engine', '搜索引擎 / 平台'],
+    ['type', '搜索类型'],
+    ['sessions', '会话数', true],
+    ['pv', '浏览量 PV', true],
+    ['share', '搜索总占比', true],
+    ['categoryShare', '同类占比', true],
+    ['bounceRate', '跳出率', true],
+    ['conversionRate', '转化率', true],
+  ],
   srcBody: [
     ['source', '来源'],
     ['channel', '渠道归类'],
@@ -206,6 +224,7 @@ export const primaryTables: Partial<Record<Resource, string>> = {
   'ai/pages': 'apBody',
   'human/geo': 'cityBody',
   'human/sources': 'srcBody',
+  'human/search-engines': 'searchEngineBody',
   content: 'pgBody',
   conversions: 'goalBody',
   logs: 'logBody',
@@ -259,7 +278,7 @@ export function formatCellValue(row: Row, field: string, table: string) {
   if (table === 'logBody' && field === 'path') return `${row.method || '–'} ${formatValue(value)}`;
   if (field === 'type')
     return value === '训练' ? 'AI 训练' : value === '搜索' ? 'AI 搜索' : formatValue(value);
-  if (['share', 'bounceRate', 'conversionRate', 'rate'].includes(field))
+  if (['share', 'categoryShare', 'bounceRate', 'conversionRate', 'rate'].includes(field))
     return formatPercentage(value);
   if (field === 'trend' && typeof value === 'number')
     return `${value > 0 ? '+' : ''}${formatValue(value)}%`;

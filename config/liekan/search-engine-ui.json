@@ -1,0 +1,24 @@
+{
+  "approval": "2026-10-11 用户要求新增搜索引擎标签、传统搜索与 AI 搜索占比饼图及平台明细，沿用现有来源分析样式",
+  "directory": "design/reference/search-engines-v1",
+  "files": {
+    "engines.html": "75e798e7de5ce4dc593d67f1d33f08e3e30e23794f991cb372fa390d43e91c09"
+  },
+  "scope": [
+    "human/search-engines"
+  ],
+  "columns": [
+    "搜索引擎 / 平台",
+    "搜索类型",
+    "会话数",
+    "浏览量 PV",
+    "搜索总占比",
+    "同类占比",
+    "跳出率",
+    "转化率"
+  ],
+  "charts": [
+    "se1",
+    "se2"
+  ]
+}

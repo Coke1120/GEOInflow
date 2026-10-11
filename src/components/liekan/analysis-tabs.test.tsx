@@ -59,7 +59,8 @@ describe('website analysis families', () => {
         .map(item => item.page),
       'segments',
     ]);
-    expect(views.size).toBe(29);
+    expect(views.size).toBe(30);
+    expect(views.has('geo-search-engines')).toBe(true);
     expect(views.has('geo-keywords')).toBe(true);
   });
   it('keeps the current tracking date when switching back from a different resource tab', () => {
@@ -116,4 +117,29 @@ describe('website analysis families', () => {
     fireEvent.keyDown(document.activeElement, { key: 'ArrowRight' });
     expect(screen.getByRole('tab', { name: '热力图' })).toHaveFocus();
   });
+});
+
+it('places search engines before keywords and clears site-owned detail conditions across tabs', () => {
+  const route = { page: 'geo-keywords', websiteId: 'site-a' };
+  const query = {
+    date: '24hour',
+    engine: 'Bing',
+    status: 'available',
+    keywordSnapshot: 'old',
+    page: '3',
+    sort: 'sessions',
+    filter: '传统搜索',
+  };
+  render(<AnalysisTabs route={route} href={page => featureNavigationHref(route, query, page)} />);
+  expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual([
+    '来源渠道',
+    '搜索引擎',
+    '来源关键词',
+    'UTM 活动',
+  ]);
+  const tab = screen.getByRole('tab', { name: '搜索引擎' });
+  expect(tab).toHaveAttribute('href', '/websites/site-a/geo/human/search-engines?date=24hour');
+  expect(activeNavigationPage({ page: 'geo-search-engines', websiteId: 'site-a' })).toBe(
+    'geo-sources',
+  );
 });
