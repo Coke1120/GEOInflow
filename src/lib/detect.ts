@@ -1,3 +1,4 @@
+import { geographyRegion } from './liekan/contracts/geography';
 import path from 'node:path';
 import { browserName, detectOS } from 'detect-browser';
 import ipaddr from 'ipaddr.js';
@@ -144,10 +145,29 @@ export async function getLocation(ip: string = '', headers: Headers, skipHeaders
         const region = decodeHeader(headers.get(provider.regionHeader));
         const city = decodeHeader(headers.get(provider.cityHeader));
 
+        const header = { country, region: getRegionCode(sourceCountry, region), city };
+        if (header.region && header.city) return header;
+        const database = await getLocation(cleanIp, headers, true);
+        if (
+          !database ||
+          database.country !== header.country ||
+          (header.region &&
+            geographyRegion(header.region, header.country) !==
+              geographyRegion(database.region, database.country))
+        )
+          return header;
+        // A city-bearing header without a province supplies no evidence that the two cities agree.
+        if (
+          header.city &&
+          (!database.city ||
+            header.city.normalize('NFC').trim().toLowerCase() !==
+              database.city.normalize('NFC').trim().toLowerCase())
+        )
+          return header;
         return {
-          country,
-          region: getRegionCode(sourceCountry, region),
-          city,
+          country: header.country,
+          region: header.region || database.region,
+          city: header.city || database.city,
         };
       }
     }

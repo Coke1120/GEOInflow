@@ -35,7 +35,7 @@ test('expands China country filters to include legacy records', () => {
 
 test('uses one province filter for canonical and historical Taiwan subdivisions', () => {
   expect(getRegionFilterValues(['CN-71', 'CN-TPE', 'TW-KHH', 'TWN-HSZ'])).toEqual(['CN-71']);
-  expect(getRegionFilterValues(['CN-SH'])).toEqual(['CN-SH']);
+  expect(getRegionFilterValues(['CN-SH'])).toEqual(['CN-31']);
 });
 
 test.each([

@@ -19,6 +19,7 @@ export const featureSession = z
     urlPath: z.string().nullable(),
     country: z.string().nullable(),
     city: z.string().nullable(),
+    region: z.string().nullable().optional(),
     browser: z.string().nullable(),
     device: z.string().nullable(),
   })

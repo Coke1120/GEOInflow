@@ -1,9 +1,19 @@
 import { normalizeCountryCode, normalizeRegionCode } from '@/lib/country';
+import { provinceDefinitions } from '@/lib/liekan/contracts/geography';
 import regions from '../../../public/iso-3166-2.json';
 import { useCountryNames } from './useCountryNames';
 
 export function useRegionNames(locale: string) {
   const { countryNames } = useCountryNames(locale);
+  const regionNames = { ...regions };
+  for (const province of provinceDefinitions) {
+    const name =
+      locale === 'zh-CN' ? province.name : regions[province.alias] || regions[province.code];
+    if (name) {
+      regionNames[province.code] = name;
+      regionNames[province.alias] = name;
+    }
+  }
 
   const getRegionName = (regionCode: string, countryCode?: string) => {
     if (!regionCode) {
@@ -14,7 +24,7 @@ export function useRegionNames(locale: string) {
       const [country] = regionCode.split('-');
       const normalizedCountry = normalizeCountryCode(country);
       const region = normalizeRegionCode(regionCode, normalizedCountry);
-      const regionName = regions[region];
+      const regionName = regionNames[region];
 
       return regionName && normalizedCountry
         ? `${regionName}, ${countryNames[normalizedCountry]}`
@@ -23,10 +33,10 @@ export function useRegionNames(locale: string) {
 
     const country = normalizeCountryCode(countryCode);
     const region = normalizeRegionCode(regionCode, country);
-    const regionName = regions[region];
+    const regionName = regionNames[region];
 
     return regionName ? `${regionName}, ${countryNames[country]}` : region;
   };
 
-  return { regionNames: regions, getRegionName };
+  return { regionNames, getRegionName };
 }

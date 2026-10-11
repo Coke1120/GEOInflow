@@ -15,6 +15,7 @@ import {
   type AnalysisCondition,
   type JourneyData,
 } from '@/lib/liekan/contracts/analysis';
+import { visitorGeographyLabel } from '@/lib/liekan/contracts/geography';
 import { classifyEntrySource } from '@/lib/liekan/contracts/sources';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import { getAllFeatureRows } from '@/lib/liekan/upstream/features-client';
@@ -178,7 +179,7 @@ export function SessionTable({
           rows={(data?.rows || []).map((r: any) => [
             visitor(r.id),
             date(r.lastAt, c.range.timezone),
-            [r.city, r.country].filter(Boolean).join('，') || '未提供',
+            visitorGeographyLabel(r),
             classifyEntrySource({ referrer: r.referrerDomain }).source,
             r.urlPath || '未提供',
             n(r.views),
@@ -604,7 +605,7 @@ function SessionDetail() {
             <QueryState query={record}>
               <Definition
                 items={[
-                  ['地域', [r?.city, r?.country].filter(Boolean).join('，') || '未提供'],
+                  ['地域', visitorGeographyLabel(r || {})],
                   ['设备', r?.device || '未提供'],
                   ['浏览器', r?.browser || '未提供'],
                   ['操作系统', r?.os || '未提供'],
@@ -1514,7 +1515,7 @@ function Journeys({ detail = false }: { detail?: boolean }) {
               rows={(d?.sessions || []).map(r => [
                 visitor(r.id),
                 date(r.lastAt, c.range.timezone),
-                [r.city, r.country].filter(Boolean).join('，') || '未提供',
+                visitorGeographyLabel(r),
                 classifyEntrySource({ referrer: r.referrerDomain }).source,
                 r.urlPath || '未提供',
                 n(r.views),

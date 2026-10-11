@@ -26,6 +26,7 @@ export function pageReportQuery(
     keywordSnapshot?: string;
     seek?: string;
     tablePages?: Record<string, number>;
+    geoSort?: 'city' | 'sessions' | 'share' | 'duration' | 'bounceRate' | 'conversionRate';
   },
   teamId?: string,
   fresh?: () => boolean,
@@ -56,6 +57,8 @@ export function pageReportQuery(
     JSON.stringify(tpParams),
     userId,
   ];
+  if (p.resource === 'human/geo')
+    queryKey.push(JSON.stringify([p.geoSort || 'sessions', p.direction || 'desc']));
   if (p.resource === 'human/keywords')
     queryKey.push(
       JSON.stringify([

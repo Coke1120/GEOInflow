@@ -22,6 +22,11 @@ export const liekanFooterLinks = [
   { label: '帮助文档', href: liekanProduct.links.help },
   { label: '项目说明', href: liekanProduct.links.about },
   { label: 'IP Geolocation by DB-IP', href: 'https://db-ip.com' },
+  {
+    label: '地名数据：GeoNames（已整理）',
+    href: 'https://www.geonames.org/',
+  },
+  { label: '地名数据许可：CC BY 4.0', href: 'https://creativecommons.org/licenses/by/4.0/' },
 ] as const;
 
 export const projectArticles: HelpArticle[] = [

@@ -73,8 +73,8 @@ assert.deepEqual(
     `SELECT ${country} AS country, ${region} AS region, count() AS visits FROM website_event GROUP BY country,region ORDER BY country,region`,
   ),
   [
+    { country: 'CN', region: 'CN-11', visits: 1 },
     { country: 'CN', region: 'CN-71', visits: 8 },
-    { country: 'CN', region: 'CN-BJ', visits: 1 },
     { country: 'JP', region: 'JP-13', visits: 1 },
     { country: null, region: null, visits: 1 },
   ],

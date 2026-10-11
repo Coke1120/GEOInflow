@@ -1,0 +1,34 @@
+{
+  "name": "GeoNames geographical names",
+  "license": "CC-BY-4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "sourceUrl": "https://www.geonames.org/",
+  "version": "2026-10-11.1",
+  "changes": "筛选国内地域、审核简体中文名称、整理省份编码和城市别名",
+  "sources": [
+    {
+      "url": "https://download.geonames.org/export/dump/CN.zip",
+      "sha256": "09dd67aaac8f6f9920a08eb8f2a61d8203aec96160053be9c658a4ed329a1916"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/TW.zip",
+      "sha256": "f72dcf2985ed61e0963e496745ee0475b8426ff39597b30cb3c700ab992ce87f"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/HK.zip",
+      "sha256": "4f7088d3275880a36ef6959fcbb4a528e88c52d5b75a665e1273034622fd5090"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/MO.zip",
+      "sha256": "02e9541fc26bc48f301e2c5c8bbd6b3cbd0abc437395625cffe65341219a4188"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/alternateNamesV2.zip",
+      "sha256": "436a8231d14aaf4b27d1e5d69b88837eb2563fb7b14553d8845091cb642a4d65"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/admin1CodesASCII.txt",
+      "sha256": "1da92a6323a5fec3176f3f743bf4cf4040fd56a876da55e46fbca23c863aa60a"
+    }
+  ]
+}

@@ -4,10 +4,7 @@
     {
       "path": ".dockerignore",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -15,10 +12,7 @@
     {
       "path": ".github/workflows/cd-cloud.yml",
       "purpose": "Independent Liekan verification and disable inherited official publishing targets",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Independent Liekan verification and disable inherited official publishing targets",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -26,10 +20,7 @@
     {
       "path": ".github/workflows/cd.yml",
       "purpose": "Independent Liekan verification and disable inherited official publishing targets",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Independent Liekan verification and disable inherited official publishing targets",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -37,10 +28,7 @@
     {
       "path": ".github/workflows/liekan-ci.yml",
       "purpose": "Independent Liekan verification and disable inherited official publishing targets",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Independent Liekan verification and disable inherited official publishing targets",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -48,10 +36,7 @@
     {
       "path": ".gitignore",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -59,10 +44,7 @@
     {
       "path": ".nvmrc",
       "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Pin reproducible toolchain, offline prototype charts and license-compatible browser detection",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -70,10 +52,7 @@
     {
       "path": "AGENTS.md",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -81,10 +60,7 @@
     {
       "path": "CHANGELOG.md",
       "purpose": "Liekan branding, contributor attribution and third-party license documentation",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan branding, contributor attribution and third-party license documentation",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -92,10 +68,7 @@
     {
       "path": "DESIGN.md",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -103,10 +76,7 @@
     {
       "path": "docker-compose.liekan.yml",
       "purpose": "Isolate local Liekan runtime, database and immutable image revision Isolate local Liekan runtime, database and immutable image revision; Isolate local Liekan runtime, database and immutable image revision Pass optional AI runtime settings to the isolated Liekan service.",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Isolate local Liekan runtime, database and immutable image revision Preserve upstream behavior and protocols outside this recorded purpose: Isolate local Liekan runtime, database and immutable image revision; Preserve upstream behavior and protocols outside this recorded purpose: Isolate local Liekan runtime, database and immutable image revision",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -151,10 +121,7 @@
     {
       "path": "LICENSE",
       "purpose": "Liekan branding, contributor attribution and third-party license documentation",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan branding, contributor attribution and third-party license documentation",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -189,10 +156,7 @@
     {
       "path": "packages/api-client/src/generated/operations.ts",
       "purpose": "Deterministically generated API client from explicit upstream and Liekan contracts",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan API compatibility",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Deterministically generated API client from explicit upstream and Liekan contracts",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -200,10 +164,7 @@
     {
       "path": "packages/api-client/src/generated/types.ts",
       "purpose": "Deterministically generated API client from explicit upstream and Liekan contracts",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan API compatibility",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Deterministically generated API client from explicit upstream and Liekan contracts",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -233,10 +194,7 @@
     {
       "path": "packages/mcp/package.json",
       "purpose": "Liekan version, original chart dependency and single workspace SDK dependency graph",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan API compatibility",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan version, original chart dependency and single workspace SDK dependency graph",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -257,10 +215,7 @@
     {
       "path": "pnpm-workspace.yaml",
       "purpose": "Exclude disposable source copies and output directories from workspace dependency resolution",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan release acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan release acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Exclude disposable source copies and output directories from workspace dependency resolution",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -268,10 +223,7 @@
     {
       "path": "public/datamaps.world.json",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -279,10 +231,7 @@
     {
       "path": "public/demo/harbor-sport/cart.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -290,10 +239,7 @@
     {
       "path": "public/demo/harbor-sport/checkout-complete.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -301,10 +247,7 @@
     {
       "path": "public/demo/harbor-sport/checkout.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -312,10 +255,7 @@
     {
       "path": "public/demo/harbor-sport/index.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -323,10 +263,7 @@
     {
       "path": "public/demo/harbor-sport/product/aero-runner-elite.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -334,10 +271,7 @@
     {
       "path": "public/demo/harbor-sport/product/coreflex-trainer.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -345,10 +279,7 @@
     {
       "path": "public/demo/harbor-sport/running.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -356,10 +287,7 @@
     {
       "path": "public/demo/harbor-sport/sale.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -367,10 +295,7 @@
     {
       "path": "public/demo/harbor-sport/shop.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -378,10 +303,7 @@
     {
       "path": "public/demo/harbor-sport/styles.css",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -389,10 +311,7 @@
     {
       "path": "public/demo/harbor-sport/training.html",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -400,10 +319,7 @@
     {
       "path": "public/images/country/tw.png",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -411,10 +327,7 @@
     {
       "path": "public/intl/country/am-ET.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -422,10 +335,7 @@
     {
       "path": "public/intl/country/ar-SA.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -433,10 +343,7 @@
     {
       "path": "public/intl/country/be-BY.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -444,10 +351,7 @@
     {
       "path": "public/intl/country/bg-BG.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -455,10 +359,7 @@
     {
       "path": "public/intl/country/bn-BD.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -466,10 +367,7 @@
     {
       "path": "public/intl/country/bs-BA.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -477,10 +375,7 @@
     {
       "path": "public/intl/country/ca-ES.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -488,10 +383,7 @@
     {
       "path": "public/intl/country/cs-CZ.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -499,10 +391,7 @@
     {
       "path": "public/intl/country/da-DK.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -510,10 +399,7 @@
     {
       "path": "public/intl/country/de-CH.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -521,10 +407,7 @@
     {
       "path": "public/intl/country/de-DE.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -532,10 +415,7 @@
     {
       "path": "public/intl/country/el-GR.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -543,10 +423,7 @@
     {
       "path": "public/intl/country/en-GB.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -554,10 +431,7 @@
     {
       "path": "public/intl/country/en-US.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -565,10 +439,7 @@
     {
       "path": "public/intl/country/es-ES.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -576,10 +447,7 @@
     {
       "path": "public/intl/country/es-MX.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -587,10 +455,7 @@
     {
       "path": "public/intl/country/fa-IR.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -598,10 +463,7 @@
     {
       "path": "public/intl/country/fi-FI.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -609,10 +471,7 @@
     {
       "path": "public/intl/country/fo-FO.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -620,10 +479,7 @@
     {
       "path": "public/intl/country/fr-FR.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -631,10 +487,7 @@
     {
       "path": "public/intl/country/he-IL.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -642,10 +495,7 @@
     {
       "path": "public/intl/country/hi-IN.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -653,10 +503,7 @@
     {
       "path": "public/intl/country/hr-HR.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -664,10 +511,7 @@
     {
       "path": "public/intl/country/hu-HU.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -675,10 +519,7 @@
     {
       "path": "public/intl/country/id-ID.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -686,10 +527,7 @@
     {
       "path": "public/intl/country/it-IT.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -697,10 +535,7 @@
     {
       "path": "public/intl/country/ja-JP.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -708,10 +543,7 @@
     {
       "path": "public/intl/country/km-KH.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -719,10 +551,7 @@
     {
       "path": "public/intl/country/ko-KR.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -730,10 +559,7 @@
     {
       "path": "public/intl/country/lt-LT.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -741,10 +567,7 @@
     {
       "path": "public/intl/country/mn-MN.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -752,10 +575,7 @@
     {
       "path": "public/intl/country/ms-MY.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -763,10 +583,7 @@
     {
       "path": "public/intl/country/my-MM.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -774,10 +591,7 @@
     {
       "path": "public/intl/country/nb-NO.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -785,10 +599,7 @@
     {
       "path": "public/intl/country/nl-NL.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -796,10 +607,7 @@
     {
       "path": "public/intl/country/pl-PL.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -807,10 +615,7 @@
     {
       "path": "public/intl/country/pt-BR.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -818,10 +623,7 @@
     {
       "path": "public/intl/country/pt-PT.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -829,10 +631,7 @@
     {
       "path": "public/intl/country/ro-RO.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -840,10 +639,7 @@
     {
       "path": "public/intl/country/ru-RU.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -851,10 +647,7 @@
     {
       "path": "public/intl/country/si-LK.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -862,10 +655,7 @@
     {
       "path": "public/intl/country/sk-SK.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -873,10 +663,7 @@
     {
       "path": "public/intl/country/sl-SI.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -884,10 +671,7 @@
     {
       "path": "public/intl/country/sv-SE.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -895,10 +679,7 @@
     {
       "path": "public/intl/country/ta-IN.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -906,10 +687,7 @@
     {
       "path": "public/intl/country/th-TH.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -917,10 +695,7 @@
     {
       "path": "public/intl/country/tr-TR.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -928,10 +703,7 @@
     {
       "path": "public/intl/country/uk-UA.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -939,10 +711,7 @@
     {
       "path": "public/intl/country/ur-PK.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -950,10 +719,7 @@
     {
       "path": "public/intl/country/uz-UZ.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -961,10 +727,7 @@
     {
       "path": "public/intl/country/vi-VN.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -972,10 +735,7 @@
     {
       "path": "public/intl/country/zh-CN.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -983,10 +743,7 @@
     {
       "path": "public/intl/country/zh-TW.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -994,10 +751,7 @@
     {
       "path": "public/intl/language/zh-TW.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1005,10 +759,7 @@
     {
       "path": "public/intl/messages/zh-TW.json",
       "purpose": "Preserved geography and localized display compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1028,10 +779,7 @@
     {
       "path": "public/site.webmanifest",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1039,10 +787,7 @@
     {
       "path": "README.md",
       "purpose": "Liekan branding, contributor attribution and third-party license documentation",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan branding, contributor attribution and third-party license documentation",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1062,10 +807,7 @@
     {
       "path": "scripts/seed-harbor-sport.ts",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1088,17 +830,12 @@
       "constraint": "Change display metadata only; preserve layout and authorization",
       "verification": "Production build and browser title readback",
       "removalCondition": "Upstream supports an external product title",
-      "tests": [
-        "Production build and browser title readback"
-      ]
+      "tests": ["Production build and browser title readback"]
     },
     {
       "path": "src/app/(main)/App.tsx",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1106,10 +843,7 @@
     {
       "path": "src/app/(main)/layout.tsx",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1132,17 +866,12 @@
       "constraint": "Change display metadata only; preserve layout and authorization",
       "verification": "Production build and browser title readback",
       "removalCondition": "Upstream supports an external product title",
-      "tests": [
-        "Production build and browser title readback"
-      ]
+      "tests": ["Production build and browser title readback"]
     },
     {
       "path": "src/app/(main)/SideNav.tsx",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1150,10 +879,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/events/EventsTable.tsx",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1165,17 +891,12 @@
       "constraint": "Change display metadata only; preserve layout, parallel modal slots and authorization; title.default must stay suffix-free because (main) reapplies its template",
       "verification": "Production build and browser title readback",
       "removalCondition": "Upstream supports an external product title",
-      "tests": [
-        "Production build and browser title readback"
-      ]
+      "tests": ["Production build and browser title readback"]
     },
     {
       "path": "src/app/(main)/websites/[websiteId]/realtime/RealtimeCountries.tsx",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1183,10 +904,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/realtime/RealtimeLog.tsx",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1194,10 +912,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/realtime/RealtimePage.tsx",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1205,10 +920,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/sessions/SessionDeleteButton.tsx",
       "purpose": "Invalidate shared Liekan statistics after deleting a visitor session",
-      "tests": [
-        "src/lib/liekan/upstream/session-invalidation.test.ts",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["src/lib/liekan/upstream/session-invalidation.test.ts", "pnpm liekan:verify"],
       "owner": "Liekan statistics maintenance",
       "constraint": "Preserve the native deletion confirmation, permissions and session lifecycle",
       "removalCondition": "Remove when upstream provides equivalent shared query invalidation"
@@ -1216,10 +928,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteDeleteForm.tsx",
       "purpose": "Invalidate shared Liekan statistics and ownership metadata after native website lifecycle changes",
-      "tests": [
-        "src/lib/liekan/upstream/website-lifecycle-client.test.tsx",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["src/lib/liekan/upstream/website-lifecycle-client.test.tsx", "pnpm liekan:verify"],
       "owner": "Liekan statistics maintenance",
       "constraint": "Preserve native confirmation, ownership permissions and lifecycle callbacks",
       "removalCondition": "Remove when upstream provides equivalent shared query invalidation"
@@ -1227,10 +936,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteResetForm.tsx",
       "purpose": "Invalidate shared Liekan statistics and ownership metadata after native website lifecycle changes",
-      "tests": [
-        "src/lib/liekan/upstream/website-lifecycle-client.test.tsx",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["src/lib/liekan/upstream/website-lifecycle-client.test.tsx", "pnpm liekan:verify"],
       "owner": "Liekan statistics maintenance",
       "constraint": "Preserve native confirmation, ownership permissions and lifecycle callbacks",
       "removalCondition": "Remove when upstream provides equivalent shared query invalidation"
@@ -1238,10 +944,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteTransferForm.tsx",
       "purpose": "Invalidate shared Liekan statistics and ownership metadata after native website lifecycle changes",
-      "tests": [
-        "src/lib/liekan/upstream/website-lifecycle-client.test.tsx",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["src/lib/liekan/upstream/website-lifecycle-client.test.tsx", "pnpm liekan:verify"],
       "owner": "Liekan statistics maintenance",
       "constraint": "Preserve native confirmation, ownership permissions and lifecycle callbacks",
       "removalCondition": "Remove when upstream provides equivalent shared query invalidation"
@@ -1249,10 +952,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/WebsiteLayout.tsx",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1425,10 +1125,7 @@
     {
       "path": "src/app/api/share/[slug]/route.test.ts",
       "purpose": "Verify public share challenges, bounded password checks and retry responses with actual route handlers",
-      "tests": [
-        "src/app/api/share/[slug]/route.test.ts",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["src/app/api/share/[slug]/route.test.ts", "pnpm liekan:verify"],
       "owner": "Liekan integration security maintenance",
       "constraint": "Preserve upstream unprotected sharing and live authorization; use only isolated synthetic resources",
       "removalCondition": "Remove when upstream provides equivalent protected share request bounds and regression checks"
@@ -1621,10 +1318,7 @@
     {
       "path": "src/app/api/websites/[websiteId]/heatmaps/route.ts",
       "purpose": "Native heatmap request cache boundary and shared preheat integration",
-      "tests": [
-        "src/lib/liekan/upstream/cache-coverage.test.ts",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["src/lib/liekan/upstream/cache-coverage.test.ts", "pnpm liekan:verify"],
       "owner": "Liekan analytics maintenance",
       "constraint": "Preserve authenticated website authorization, heatmap fields and tracker protocols",
       "removalCondition": "Remove when an upstream extension point provides the request cache boundary"
@@ -1714,10 +1408,7 @@
     {
       "path": "src/app/api/websites/[websiteId]/reset/route.ts",
       "purpose": "Carry live user identity into reset transaction and return permission revocation errors",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan release acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan release acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Carry live user identity into reset transaction and return permission revocation errors",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1830,10 +1521,7 @@
     {
       "path": "src/app/layout.tsx",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1841,10 +1529,7 @@
     {
       "path": "src/app/login/LoginForm.tsx",
       "purpose": "Liekan release, branding or compatibility integration",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -1930,10 +1615,7 @@
     {
       "path": "src/components/common/TypeIcon.tsx",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -2743,10 +2425,11 @@
     },
     {
       "path": "src/components/hooks/queries/useWebsiteValuesQuery.ts",
-      "purpose": "Preserve native API compatibility while integrating analytics cache deadlines, primary authorization and request cancellation",
+      "purpose": "Preserve native API compatibility while integrating analytics cache deadlines, primary authorization and request cancellation; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "tests": [
         "pnpm liekan:verify --working-tree",
-        "Cache lifecycle, permission and isolated Docker acceptance"
+        "Cache lifecycle, permission and isolated Docker acceptance",
+        "src/lib/liekan/contracts/geography.test.ts"
       ],
       "owner": "Liekan cache maintenance",
       "constraint": "Keep tracker protocols, schemas, credentials and approved original UI compatible",
@@ -2777,10 +2460,7 @@
     {
       "path": "src/components/hooks/useFormat.ts",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -2788,9 +2468,7 @@
     {
       "path": "src/components/hooks/useNavigation.test.tsx",
       "purpose": "Guard valid entity navigation, creation routes and malformed UUID path segments",
-      "tests": [
-        "src/components/hooks/useNavigation.test.tsx"
-      ],
+      "tests": ["src/components/hooks/useNavigation.test.tsx"],
       "owner": "Liekan upstream compatibility",
       "constraint": "Exercise the production navigation hook for all five entity kinds",
       "removalCondition": "Remove with the associated navigation override after upstream supplies the regression coverage"
@@ -2798,10 +2476,7 @@
     {
       "path": "src/components/hooks/useNavigation.ts",
       "purpose": "Recognize complete UUID path segments and the short website site number; keep creation routes out of entity queries",
-      "tests": [
-        "src/components/hooks/useNavigation.test.tsx",
-        "Local create-board browser smoke"
-      ],
+      "tests": ["src/components/hooks/useNavigation.test.tsx", "Local create-board browser smoke"],
       "owner": "Liekan upstream compatibility",
       "constraint": "Preserve team context and query rendering; website segments accept a UUID or the short site number while teams, links, pixels and boards remain UUID-only",
       "removalCondition": "Remove when upstream entity navigation validates complete UUID segments or adopts the site number handle"
@@ -2819,10 +2494,11 @@
     },
     {
       "path": "src/components/hooks/useRegionNames.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "src/lib/liekan/contracts/geography.test.ts"
       ],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -2831,10 +2507,7 @@
     {
       "path": "src/components/metrics/MetricLabel.tsx",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -2842,10 +2515,7 @@
     {
       "path": "src/components/metrics/MetricsTable.tsx",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -2853,10 +2523,7 @@
     {
       "path": "src/components/metrics/WorldMap.tsx",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan interface integration",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -2928,23 +2595,25 @@
     },
     {
       "path": "src/lib/clickhouse.test.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
         "pnpm liekan:verify",
         "Supplemental UI/API regression and isolated Docker acceptance",
-        "scripts/liekan-geography-clickhouse.mjs"
+        "scripts/liekan-geography-clickhouse.mjs",
+        "src/lib/liekan/contracts/geography.test.ts"
       ]
     },
     {
       "path": "src/lib/clickhouse.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "tests": [
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
-        "scripts/liekan-geography-clickhouse.mjs"
+        "scripts/liekan-geography-clickhouse.mjs",
+        "src/lib/liekan/contracts/geography.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -2967,11 +2636,12 @@
     },
     {
       "path": "src/lib/country.test.ts",
-      "purpose": "Liekan release, branding or compatibility integration; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Liekan release, branding or compatibility integration; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "src/lib/liekan/contracts/geography.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
@@ -2979,11 +2649,12 @@
     },
     {
       "path": "src/lib/country.ts",
-      "purpose": "Preserved geography and localized display compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Preserved geography and localized display compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "src/lib/liekan/contracts/geography.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",
@@ -3003,13 +2674,14 @@
     },
     {
       "path": "src/lib/detect.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; Continue collection when optional geography is missing, sharing concurrent opens and bounding retries",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; Continue collection when optional geography is missing, sharing concurrent opens and bounding retries; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "tests": [
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "scripts/liekan-data-regression.mjs",
         "pnpm test:deployment",
-        "src/lib/liekan/upstream/geolocation-availability.test.ts"
+        "src/lib/liekan/upstream/geolocation-availability.test.ts",
+        "src/lib/liekan/contracts/geography.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3018,10 +2690,7 @@
     {
       "path": "src/lib/filters.test.ts",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -3029,10 +2698,7 @@
     {
       "path": "src/lib/filters.ts",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -3040,10 +2706,7 @@
     {
       "path": "src/lib/lang.ts",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -3061,19 +2724,20 @@
     },
     {
       "path": "src/lib/prisma.test.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
         "pnpm liekan:verify",
         "Supplemental UI/API regression and isolated Docker acceptance",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "src/lib/liekan/contracts/geography.test.ts"
       ]
     },
     {
       "path": "src/lib/prisma.ts",
-      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "tests": [
         "pnpm test:log-ingestion",
         "node scripts/liekan-log-integration.mjs",
@@ -3085,7 +2749,8 @@
         "tests/api/liekan-features.spec.ts",
         "AI backend integration and lifecycle tests",
         "pnpm exec vitest run src/lib/liekan/upstream/query-cache.test.ts src/lib/liekan/upstream/page-report-route.test.ts",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "src/lib/liekan/contracts/geography.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation; Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation",
@@ -3347,10 +3012,7 @@
     {
       "path": "src/queries/sql/events/getWebsiteEvents.ts",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -3382,10 +3044,7 @@
     {
       "path": "src/queries/sql/getRealtimeActivity.ts",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -3393,20 +3052,18 @@
     {
       "path": "src/queries/sql/getRealtimeData.ts",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
       "path": "src/queries/sql/getValues.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "src/lib/liekan/contracts/geography.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3498,10 +3155,7 @@
     {
       "path": "src/queries/sql/replays/getSessionReplays.ts",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -3653,10 +3307,7 @@
     {
       "path": "src/queries/sql/sessions/getWebsiteSessionStats.ts",
       "purpose": "Inherited device/geography compatibility",
-      "tests": [
-        "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
-      ],
+      "tests": ["src/lib/country.test.ts", "src/lib/detect.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -3710,10 +3361,7 @@
     {
       "path": "tests/api/liekan-board-binding.spec.ts",
       "purpose": "Verify fixed-board rebinding narrows public scope and remains editable after former resource ownership changes",
-      "tests": [
-        "tests/api/liekan-board-binding.spec.ts",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["tests/api/liekan-board-binding.spec.ts", "pnpm liekan:verify"],
       "owner": "Liekan integration maintenance",
       "constraint": "Use isolated disposable shares and resources, preserve seeded entities and upstream API compatibility",
       "removalCondition": "Remove when equivalent upstream regression checks cover the integrated behavior"
@@ -3721,9 +3369,7 @@
     {
       "path": "tests/api/liekan-features.spec.ts",
       "purpose": "Real API contract, complete export and live share revocation regression coverage for Liekan UI integration",
-      "tests": [
-        "pnpm liekan:verify"
-      ],
+      "tests": ["pnpm liekan:verify"],
       "owner": "Liekan integration maintenance",
       "constraint": "Run against isolated synthetic data; preserve upstream API compatibility",
       "removalCondition": "Remove when equivalent upstream contract coverage protects all integrated scenes"
@@ -3731,10 +3377,7 @@
     {
       "path": "tests/api/liekan-share-concurrency.spec.ts",
       "purpose": "Verify concurrent managed-share metadata edits preserve password rotation, removal and stale token revocation",
-      "tests": [
-        "tests/api/liekan-share-concurrency.spec.ts",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["tests/api/liekan-share-concurrency.spec.ts", "pnpm liekan:verify"],
       "owner": "Liekan integration maintenance",
       "constraint": "Use isolated disposable shares and resources, preserve seeded entities and upstream API compatibility",
       "removalCondition": "Remove when equivalent upstream regression checks cover the integrated behavior"
@@ -3742,10 +3385,7 @@
     {
       "path": "tests/api/liekan-share-throttling.spec.ts",
       "purpose": "Verify public share password limits and retry headers against isolated real API requests",
-      "tests": [
-        "tests/api/liekan-share-throttling.spec.ts",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["tests/api/liekan-share-throttling.spec.ts", "pnpm liekan:verify"],
       "owner": "Liekan integration security maintenance",
       "constraint": "Preserve upstream unprotected sharing and live authorization; use only isolated synthetic resources",
       "removalCondition": "Remove when upstream provides equivalent protected share request bounds and regression checks"
@@ -3753,9 +3393,7 @@
     {
       "path": "tests/api/report-migration.spec.ts",
       "purpose": "Verify native saved goal aggregates remain identical with optional Liekan conversion series",
-      "tests": [
-        "pnpm liekan:verify"
-      ],
+      "tests": ["pnpm liekan:verify"],
       "owner": "Liekan integration maintenance",
       "constraint": "Preserve all native aggregate and resource scope assertions",
       "removalCondition": "Remove when upstream native goal contracts include equivalent series coverage"
@@ -3763,10 +3401,7 @@
     {
       "path": "tests/api/revenue.spec.ts",
       "purpose": "Compute seeded revenue session expectations across the default monthly anonymous salt boundaries",
-      "tests": [
-        "tests/api/revenue.spec.ts",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["tests/api/revenue.spec.ts", "pnpm liekan:verify"],
       "owner": "Liekan upstream compatibility",
       "constraint": "Only correct date-dependent test expectations; preserve upstream revenue queries, default monthly identity rotation and exact purchase amount assertions",
       "removalCondition": "Remove when upstream revenue tests derive their expected session count from deterministic purchase dates across salt periods"
@@ -3810,10 +3445,7 @@
     {
       "path": "tsconfig.json",
       "purpose": "Exclude isolated rehearsal copies from the production type boundary",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan release acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan release acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Exclude isolated rehearsal copies from the production type boundary",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -3821,9 +3453,7 @@
     {
       "path": "vitest.log-ingestion.config.ts",
       "purpose": "Run filesystem collector and ingestion protocol tests in a separate Node environment",
-      "tests": [
-        "pnpm test:log-ingestion"
-      ],
+      "tests": ["pnpm test:log-ingestion"],
       "owner": "Liekan automatic logs maintenance",
       "constraint": "Keep the existing browser test environment unchanged",
       "removalCondition": "Remove when the primary test configuration supports explicit multi-environment projects"
@@ -3831,9 +3461,7 @@
     {
       "path": "tests/e2e/liekan-read-region-spacing.spec.ts",
       "purpose": "Prevent read-only loading containers from collapsing the original section gaps",
-      "tests": [
-        "pnpm test:e2e tests/e2e/liekan-read-region-spacing.spec.ts"
-      ],
+      "tests": ["pnpm test:e2e tests/e2e/liekan-read-region-spacing.spec.ts"],
       "owner": "Liekan UI maintenance",
       "constraint": "Read-only browser checks preserve data and verify the original 16px gap through loading, ready and cached navigation states",
       "removalCondition": "Remove when an equivalent upstream layout regression check covers these loading states"
@@ -3841,10 +3469,7 @@
     {
       "path": "tests/api/liekan-log-sources.spec.ts",
       "purpose": "Verify automatic log source access boundaries in the disposable API acceptance environment",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan isolated API acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan isolated API acceptance"],
       "owner": "Liekan release maintenance",
       "constraint": "Exercise existing authorization and invalid input paths without changing product endpoints or contacting external providers",
       "removalCondition": "Remove when equivalent upstream log source API boundary coverage is available"
@@ -3852,10 +3477,7 @@
     {
       "path": "src/app/api/websites/[websiteId]/transfer/route.ts",
       "purpose": "AI 加密配置、实时测试、授权分析与生命周期事务集成",
-      "tests": [
-        "AI backend integration and lifecycle tests",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["AI backend integration and lifecycle tests", "pnpm liekan:verify"],
       "owner": "Liekan AI integration",
       "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
       "removalCondition": "上游提供可验证的扩展点后移除"
@@ -3863,10 +3485,7 @@
     {
       "path": "src/test/setup.ts",
       "purpose": "AI 加密配置、实时测试、授权分析与生命周期事务集成",
-      "tests": [
-        "AI backend integration and lifecycle tests",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["AI backend integration and lifecycle tests", "pnpm liekan:verify"],
       "owner": "Liekan AI integration",
       "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
       "removalCondition": "上游提供可验证的扩展点后移除"
@@ -3898,9 +3517,7 @@
     {
       "path": "scripts/liekan-static-check.mjs",
       "purpose": "Preserve approved AI UI reference fingerprints",
-      "tests": [
-        "pnpm liekan:verify"
-      ],
+      "tests": ["pnpm liekan:verify"],
       "owner": "Liekan AI integration",
       "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
       "removalCondition": "上游提供可验证的扩展点后移除"
@@ -3908,10 +3525,7 @@
     {
       "path": "tests/api/two-factor.spec.ts",
       "purpose": "Verify that real partial two-factor tokens cannot access any private AI endpoint",
-      "tests": [
-        "pnpm liekan:verify",
-        "tests/api/two-factor.spec.ts"
-      ],
+      "tests": ["pnpm liekan:verify", "tests/api/two-factor.spec.ts"],
       "owner": "Liekan AI maintenance",
       "constraint": "Preserve the original two-factor lifecycle and exercise only its disposable test user",
       "removalCondition": "Remove when upstream has an equivalent extension-point test for private AI endpoints"
@@ -3919,9 +3533,7 @@
     {
       "path": "tests/api/helpers/ai-endpoints.ts",
       "purpose": "Derive private AI identity acceptance from the verified server operation registry",
-      "tests": [
-        "pnpm liekan:verify"
-      ],
+      "tests": ["pnpm liekan:verify"],
       "owner": "Liekan AI maintenance",
       "constraint": "Preserve original API scenarios and use only disposable acceptance identities",
       "removalCondition": "Remove when upstream exposes equivalent private AI identity checks"
@@ -3929,9 +3541,7 @@
     {
       "path": "tests/api/liekan-ai.spec.ts",
       "purpose": "Exercise complete-session catalog and reject public share, anonymous and account API Key identities at private AI endpoints",
-      "tests": [
-        "pnpm liekan:verify"
-      ],
+      "tests": ["pnpm liekan:verify"],
       "owner": "Liekan AI maintenance",
       "constraint": "Preserve original API scenarios and use only disposable acceptance identities",
       "removalCondition": "Remove when upstream exposes equivalent private AI identity checks"
@@ -3963,10 +3573,7 @@
     {
       "path": "prisma/schema.prisma",
       "purpose": "Expose the short website site number (site_number) on the Website model for handle resolution",
-      "tests": [
-        "pnpm liekan:verify",
-        "src/queries/prisma/website.test.ts"
-      ],
+      "tests": ["pnpm liekan:verify", "src/queries/prisma/website.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Keep the Prisma field mapping aligned with db/liekan/migrations/014_website_site_number.sql; the real column default and unique index live in the migration, never in prisma db push",
       "removalCondition": "Remove when upstream websites carry a short numeric identifier natively"
@@ -3974,11 +3581,7 @@
     {
       "path": "src/proxy.ts",
       "purpose": "Local development proxy: rewrite short numeric website handles to owner UUIDs on upstream analytics API paths, delegating to the shared liekan website-handle-proxy module",
-      "tests": [
-        "src/proxy.test.ts",
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["src/proxy.test.ts", "pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "The Docker build replaces this file with docker/proxy.ts; only the API paths in config.matcher are affected and page routes pass through untouched",
       "removalCondition": "Remove when upstream analytics routes accept the site number handle natively"
@@ -3986,9 +3589,7 @@
     {
       "path": "src/proxy.test.ts",
       "purpose": "Cover the website handle rewrite behavior shared by the local and Docker middleware pipelines",
-      "tests": [
-        "pnpm exec vitest run src/proxy.test.ts"
-      ],
+      "tests": ["pnpm exec vitest run src/proxy.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Cases cover numeric rewrite, realtime/compat paths, UUID passthrough and unknown site numbers against the shared module",
       "removalCondition": "Remove together with src/proxy.ts"
@@ -3996,10 +3597,7 @@
     {
       "path": "src/app/(main)/admin/websites/AdminWebsitesTable.tsx",
       "purpose": "Open admin website edit navigation through the short site number",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Only navigation uses the handle; deletion keeps operating on the row UUID",
       "removalCondition": "Remove when upstream navigation adopts the site number handle"
@@ -4007,10 +3605,7 @@
     {
       "path": "src/app/(main)/teams/[teamId]/TeamWebsitesTable.tsx",
       "purpose": "Open team workspace website rows through the short site number",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Only navigation uses the handle; row actions keep operating on the row UUID",
       "removalCondition": "Remove when upstream navigation adopts the site number handle"
@@ -4018,10 +3613,7 @@
     {
       "path": "src/app/(main)/websites/WebsitesDataTable.tsx",
       "purpose": "Open website rows in the data table through the short site number",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Rows without an assigned site number fall back to the UUID",
       "removalCondition": "Remove when upstream navigation adopts the site number handle"
@@ -4029,10 +3621,7 @@
     {
       "path": "src/app/(main)/websites/WebsitesTable.tsx",
       "purpose": "Open website rows in the sites table through the short site number",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Rows without an assigned site number fall back to the UUID",
       "removalCondition": "Remove when upstream navigation adopts the site number handle"
@@ -4040,10 +3629,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/WebsiteHeader.tsx",
       "purpose": "Emit website title, active-users and settings links with the short site number",
-      "tests": [
-        "src/lib/liekan/website-handle.test.ts",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["src/lib/liekan/website-handle.test.ts", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Links use websiteHandle(); tracking and install code keep exposing the UUID",
       "removalCondition": "Remove when upstream navigation adopts the site number handle"
@@ -4051,10 +3637,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/WebsiteTabs.tsx",
       "purpose": "Emit website tab links with the short site number",
-      "tests": [
-        "src/lib/liekan/website-handle.test.ts",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["src/lib/liekan/website-handle.test.ts", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Links use websiteHandle(); share and install surfaces keep exposing the UUID",
       "removalCondition": "Remove when upstream navigation adopts the site number handle"
@@ -4062,10 +3645,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteSettingsHeader.tsx",
       "purpose": "Emit website settings navigation links with the short site number",
-      "tests": [
-        "src/lib/liekan/website-handle.test.ts",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["src/lib/liekan/website-handle.test.ts", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Links use websiteHandle(); mutating settings actions keep addressing the UUID",
       "removalCondition": "Remove when upstream navigation adopts the site number handle"
@@ -4073,11 +3653,7 @@
     {
       "path": "docker/proxy.ts",
       "purpose": "Chain the website handle rewrite into the Docker middleware pipeline alongside upstream CSP, collect-endpoint and tracker-script handling",
-      "tests": [
-        "src/proxy.test.ts",
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["src/proxy.test.ts", "pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "The rewrite runs first and only rewrites numeric website handles on /api/websites, /api/realtime and compat paths; all other upstream middleware behavior is preserved",
       "removalCondition": "Remove when upstream analytics routes accept the site number handle natively"
@@ -4085,10 +3661,7 @@
     {
       "path": "src/lib/mcp/dispatch.ts",
       "purpose": "Resolve numeric site-number handles in the MCP in-process fetch, which bypasses the middleware rewrite",
-      "tests": [
-        "src/lib/mcp/dispatch.test.ts",
-        "pnpm liekan:verify"
-      ],
+      "tests": ["src/lib/mcp/dispatch.test.ts", "pnpm liekan:verify"],
       "owner": "Liekan compatibility adapters",
       "constraint": "Only the URL pathname is normalized through the shared rewriteHandlePathname helper before route matching; dispatch routing, authentication and permission checks are unchanged",
       "removalCondition": "Remove when upstream analytics routes accept the site number handle natively"
@@ -4096,9 +3669,7 @@
     {
       "path": "src/lib/mcp/dispatch.test.ts",
       "purpose": "Cover short site number resolution composed with dispatch route matching",
-      "tests": [
-        "pnpm exec vitest run src/lib/mcp/dispatch.test.ts"
-      ],
+      "tests": ["pnpm exec vitest run src/lib/mcp/dispatch.test.ts"],
       "owner": "Liekan compatibility adapters",
       "constraint": "The composition case asserts the rewritten pathname matches the dispatch table with the UUID parameter; no handler modules are loaded",
       "removalCondition": "Remove together with the site number handle support"
@@ -4127,10 +3698,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/settings/WebsiteReplaySettings.tsx",
       "purpose": "Render the recorder snippet with the canonical website UUID even when the settings URL carries a short site number",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "The embedded data-website-id must be the website UUID; only the surrounding navigation uses the site number handle",
       "removalCondition": "Remove when upstream settings pages stop carrying website identifiers in URLs"
@@ -4138,10 +3706,7 @@
     {
       "path": "src/app/(main)/console/[websiteId]/TestConsolePage.tsx",
       "purpose": "Tag the console self-tracking scripts with the canonical website UUID when the console URL carries a short site number",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan compatibility adapters",
       "constraint": "data-website-id comes from the loaded website row; chart and event queries keep addressing the URL handle through the middleware rewrite",
       "removalCondition": "Remove when upstream console pages stop carrying website identifiers in URLs"
@@ -4173,10 +3738,7 @@
     {
       "path": "src/app/(main)/dashboard/page.tsx",
       "purpose": "Redirect the retired Liekan global dashboard route to the website management list",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan navigation maintenance",
       "constraint": "Keep the redirect minimal and preserve any upstream behaviour outside this recorded purpose",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -4184,10 +3746,7 @@
     {
       "path": "src/app/(main)/dashboard/edit/page.tsx",
       "purpose": "Redirect the retired Liekan global dashboard route to the website management list",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
       "owner": "Liekan navigation maintenance",
       "constraint": "Keep the redirect minimal and preserve any upstream behaviour outside this recorded purpose",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
@@ -4195,10 +3754,7 @@
     {
       "path": "src/app/(main)/websites/[websiteId]/realtime/BoardRealtimeActiveUsers.tsx",
       "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan manual refresh and authorization acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan manual refresh and authorization acceptance"],
       "owner": "Liekan refresh compatibility",
       "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
       "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
@@ -4206,10 +3762,7 @@
     {
       "path": "src/app/Providers.tsx",
       "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan manual refresh and authorization acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan manual refresh and authorization acceptance"],
       "owner": "Liekan refresh compatibility",
       "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
       "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
@@ -4217,10 +3770,7 @@
     {
       "path": "src/components/common/Link.tsx",
       "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan manual refresh and authorization acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan manual refresh and authorization acceptance"],
       "owner": "Liekan refresh compatibility",
       "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
       "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
@@ -4228,10 +3778,7 @@
     {
       "path": "src/components/hooks/queries/useLoginQuery.ts",
       "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan manual refresh and authorization acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan manual refresh and authorization acceptance"],
       "owner": "Liekan refresh compatibility",
       "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
       "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
@@ -4239,10 +3786,7 @@
     {
       "path": "src/components/hooks/useDateRange.ts",
       "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan manual refresh and authorization acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan manual refresh and authorization acceptance"],
       "owner": "Liekan refresh compatibility",
       "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
       "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
@@ -4250,10 +3794,7 @@
     {
       "path": "src/components/metrics/ActiveUsers.tsx",
       "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan manual refresh and authorization acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan manual refresh and authorization acceptance"],
       "owner": "Liekan refresh compatibility",
       "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
       "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
@@ -4261,10 +3802,7 @@
     {
       "path": "src/lib/client.ts",
       "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan manual refresh and authorization acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan manual refresh and authorization acceptance"],
       "owner": "Liekan refresh compatibility",
       "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
       "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
@@ -4272,10 +3810,7 @@
     {
       "path": "src/lib/date.ts",
       "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
-      "tests": [
-        "pnpm liekan:verify",
-        "Liekan manual refresh and authorization acceptance"
-      ],
+      "tests": ["pnpm liekan:verify", "Liekan manual refresh and authorization acceptance"],
       "owner": "Liekan refresh compatibility",
       "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
       "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
@@ -4291,20 +3826,18 @@
     {
       "path": "scripts/build-geo.js",
       "purpose": "Prepare account-free geography, preserve authorized local databases and fail safely without losing analytics",
-      "tests": [
-        "pnpm test:deployment",
-        "src/lib/liekan/upstream/geolocation-availability.test.ts"
-      ],
+      "tests": ["pnpm test:deployment", "src/lib/liekan/upstream/geolocation-availability.test.ts"],
       "owner": "Liekan deployment maintenance",
       "constraint": "Preserve tracker protocol, missing-data semantics and third-party attribution",
       "removalCondition": "Remove when upstream provides automatic licensed geography and missing-database collection continuity"
     },
     {
       "path": "src/app/share/[slug]/[[...path]]/ShareFooter.tsx",
-      "purpose": "Retain geography attribution on public shares independently of optional product branding",
+      "purpose": "Retain geography attribution on public shares independently of optional product branding; normalize reviewed geography aliases at query/display boundaries while preserving stored source values",
       "tests": [
         "pnpm liekan:verify",
-        "Liekan Docker and visual acceptance"
+        "Liekan Docker and visual acceptance",
+        "src/lib/liekan/contracts/geography.test.ts"
       ],
       "owner": "Liekan deployment maintenance",
       "constraint": "Preserve tracker protocol, missing-data semantics and third-party attribution",
@@ -4331,6 +3864,50 @@
       "owner": "Liekan geography maintenance",
       "constraint": "Preserve public-share permissions, navigation and optional product branding",
       "removalCondition": "Remove when upstream public-share pages retain supported geography provider attribution"
+    },
+    {
+      "path": "src/components/common/FilterRecord.tsx",
+      "purpose": "Preserve raw geography values while supporting contextual Chinese labels and historical alias searches",
+      "tests": ["src/lib/liekan/contracts/geography.test.ts", "pnpm liekan:verify"],
+      "owner": "Liekan geography maintenance",
+      "constraint": "Keep stored geography, tracker protocol, website permissions and other locales compatible",
+      "removalCondition": "Remove when upstream supports reviewed contextual geography aliases and these regression checks pass"
+    },
+    {
+      "path": "src/components/input/WebsiteValueComboBox.tsx",
+      "purpose": "Preserve raw geography values while supporting contextual Chinese labels and historical alias searches",
+      "tests": [
+        "src/components/input/GeographyValueComboBox.test.tsx",
+        "src/lib/liekan/contracts/geography.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan geography maintenance",
+      "constraint": "Keep stored geography, tracker protocol, website permissions and other locales compatible",
+      "removalCondition": "Remove when upstream supports reviewed contextual geography aliases and these regression checks pass"
+    },
+    {
+      "path": "src/components/input/LookupField.tsx",
+      "purpose": "Preserve raw geography values while supporting contextual Chinese labels and historical alias searches",
+      "tests": [
+        "src/components/input/GeographyValueComboBox.test.tsx",
+        "src/lib/liekan/contracts/geography.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan geography maintenance",
+      "constraint": "Keep stored geography, tracker protocol, website permissions and other locales compatible",
+      "removalCondition": "Remove when upstream supports reviewed contextual geography aliases and these regression checks pass"
+    },
+    {
+      "path": "src/components/input/GeographyValueComboBox.test.tsx",
+      "purpose": "Verify Chinese city labels, raw filter values and editing lifecycle with the actual upstream ComboBox",
+      "tests": [
+        "src/components/input/GeographyValueComboBox.test.tsx",
+        "src/components/input/LookupField.test.tsx",
+        "src/components/input/WebsiteValueComboBox.test.tsx"
+      ],
+      "owner": "Liekan geography maintenance",
+      "constraint": "Keep stored geography values and non-city input behavior compatible",
+      "removalCondition": "Remove when upstream supports contextual city labels and equivalent component integration coverage"
     }
   ]
 }

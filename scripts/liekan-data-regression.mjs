@@ -25,6 +25,11 @@ export function createDataAdapters(query, { sourceRef } = {}) {
       ? execFileSync('git', ['show', `${sourceRef}:${relative}`], { cwd: root, encoding: 'utf8' })
       : fs.readFileSync(path.join(root, relative), 'utf8');
     sources.set(relative, source);
+    if (relative.endsWith('.json')) {
+      const parsed = JSON.parse(source);
+      cache.set(relative, parsed);
+      return parsed;
+    }
     const module = { exports: {} };
     cache.set(relative, module.exports);
     const code = ts.transpileModule(source, {
@@ -65,7 +70,9 @@ export function createDataAdapters(query, { sourceRef } = {}) {
       if (id === '@/lib/url') return load('src/lib/url.ts');
       if (id.startsWith('.'))
         return load(
-          path.posix.normalize(path.posix.join(path.posix.dirname(relative), `${id}.ts`)),
+          path.posix.normalize(
+            path.posix.join(path.posix.dirname(relative), id.endsWith('.json') ? id : `${id}.ts`),
+          ),
         );
       return require(id);
     };
@@ -249,6 +256,16 @@ export async function runDataRegression(query, options = {}) {
     'Asia/Shanghai',
     orderedFacts,
   );
+  for (const limit of [
+    { rows: 0, bytes: 50 * 1024 * 1024 },
+    { rows: 100000, bytes: 1 },
+  ]) {
+    await assert.rejects(
+      () => analytics.getHumanFacts(websiteId, start, end, 'Asia/Shanghai', ['geo'], limit),
+      /地域处理数据超过/,
+    );
+    checks.push(`geography export read budget rows=${limit.rows},bytes=${limit.bytes}`);
+  }
   check(
     'tied rankings remain consistent between full and page-specific facts',
     Object.fromEntries(orderedFacts.map(field => [field, projected[field]])),
@@ -279,8 +296,8 @@ export async function runDataRegression(query, options = {}) {
       websiteId,
     ),
     [
+      { region: 'CN-11', visits: 1 },
       { region: 'CN-71', visits: 8 },
-      { region: 'CN-BJ', visits: 1 },
       { region: 'JP-13', visits: 1 },
       { region: null, visits: 1 },
     ],

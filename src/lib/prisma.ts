@@ -1,3 +1,9 @@
+import {
+  cityNameSQL,
+  cityFilterValues,
+  citySearchSQL,
+  regionSearchSQL,
+} from './liekan/upstream/geography-query';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { readReplicas } from '@prisma/extension-read-replicas';
 import debug from 'debug';
@@ -9,7 +15,12 @@ import {
   OPERATORS,
   SESSION_COLUMNS,
 } from './constants';
-import { getCountryFilterValues, getRegionFilterValues, getPostgresRegionSQL, getPostgresCountrySQL } from './country';
+import {
+  getCountryFilterValues,
+  getRegionFilterValues,
+  getPostgresRegionSQL,
+  getPostgresCountrySQL,
+} from './country';
 import { filtersObjectToArray } from './params';
 import type { Operator, PropertyFilter, QueryFilters, QueryOptions } from './types';
 import { channelFilterColumn } from './liekan/upstream/filter-extension';
@@ -166,6 +177,7 @@ function mapFilter(
   type: string = '',
   paramName?: string,
   expression = false,
+  filterValue?: unknown,
 ) {
   const param = paramName ?? name;
   const value = `{{${param}${type ? `::${type}` : ''}}}`;
@@ -180,17 +192,48 @@ function mapFilter(
   const qualified =
     name === 'region'
       ? getPostgresRegionSQL(rawColumn.replace(/region$/, 'country'), rawColumn)
-      : name === 'country' ? getPostgresCountrySQL(rawColumn) : rawColumn;
+      : name === 'country'
+        ? getPostgresCountrySQL(rawColumn)
+        : name === 'city'
+          ? cityNameSQL(
+              rawColumn.replace(/city$/, 'country'),
+              rawColumn.replace(/city$/, 'region'),
+              rawColumn,
+              'postgres',
+              filterValue,
+            )
+          : rawColumn;
+  if (name === 'region' && ['c', 'dnc', 're', 'nre'].includes(operator))
+    return regionSearchSQL(
+      rawColumn.replace(/region$/, 'country'),
+      rawColumn,
+      'postgres',
+      operator,
+      value,
+    );
+  if (name === 'city' && ['c', 'dnc', 're', 'nre'].includes(operator))
+    return citySearchSQL(
+      rawColumn.replace(/city$/, 'country'),
+      rawColumn.replace(/city$/, 'region'),
+      rawColumn,
+      'postgres',
+      operator,
+      value,
+    );
   const searchGeography = (comparison: string, join: 'or' | 'and') =>
-    name === 'region' || name === 'country'
+    name === 'region' || name === 'country' || name === 'city'
       ? `(${qualified} ${comparison} ${join} coalesce(${rawColumn}, ${qualified}) ${comparison})`
       : `${qualified} ${comparison}`;
 
   switch (operator) {
     case OPERATORS.equals:
-      return `${qualified} = ANY(${value})`;
+      return name === 'city'
+        ? searchGeography(`= ANY(${value})`, 'or')
+        : `${qualified} = ANY(${value})`;
     case OPERATORS.notEquals:
-      return `${qualified} != ALL(${value})`;
+      return name === 'city'
+        ? searchGeography(`!= ALL(${value})`, 'and')
+        : `${qualified} != ALL(${value})`;
     case OPERATORS.contains:
       return searchGeography(`ilike ${value}`, 'or');
     case OPERATORS.doesNotContain:
@@ -211,7 +254,7 @@ function getFilterQuery(filters: Record<string, any>, options: QueryOptions = {}
   const andClauses: string[] = [];
 
   filtersObjectToArray(filters, options).forEach(
-    ({ name, column, operator, prefix = '', paramName }) => {
+    ({ name, column, operator, prefix = '', paramName, value }) => {
       if (isCohort) {
         column = FILTER_COLUMNS[name.slice('cohort_'.length)];
       }
@@ -240,6 +283,7 @@ function getFilterQuery(filters: Record<string, any>, options: QueryOptions = {}
           '',
           paramName,
           column === 'liekan_channel',
+          value,
         );
         const isAlwaysAnd =
           name === 'eventType' ||
@@ -356,9 +400,16 @@ function getQueryParams(filters: Record<string, any>) {
             ? getCountryFilterValues(value)
             : filterName === 'region'
               ? getRegionFilterValues(value)
-              : Array.isArray(value)
-                ? value
-                : [value];
+              : filterName === 'city'
+                ? [
+                    ...new Set([
+                      ...cityFilterValues(value),
+                      ...(Array.isArray(value) ? value : [value]),
+                    ]),
+                  ]
+                : Array.isArray(value)
+                  ? value
+                  : [value];
       } else {
         obj[key] = value;
       }

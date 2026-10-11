@@ -35,7 +35,11 @@ export function WebsiteValueComboBox({
 }: WebsiteValueComboBoxProps) {
   const { t, messages } = useMessages();
   const [search, setSearch] = useState(value);
+  const [editingValue, setEditingValue] = useState<string | null>(null);
   const searchValue = useDebounce(search, 300);
+  useEffect(() => {
+    if (editingValue !== null && editingValue !== value) setEditingValue(null);
+  }, [editingValue, value]);
   const primaryQuery = useWebsiteValuesQuery({
     websiteId,
     type,
@@ -53,17 +57,19 @@ export function WebsiteValueComboBox({
 
   useEffect(() => {
     setSearch('');
+    setEditingValue(null);
   }, [type, additionalType]);
 
   const items = useMemo(() => {
+    const rows = [...(primaryQuery.data || []), ...(additionalQuery.data || [])];
     const values = [
-      value,
+      type === 'city' && rows.some(row => row.label === value) ? '' : value,
       ...(primaryQuery.data || []).map(({ value }) => value),
       ...(additionalQuery.data || []).map(({ value }) => value),
     ].filter(Boolean);
 
     return [...new Set<string>(values)];
-  }, [value, primaryQuery.data, additionalQuery.data]);
+  }, [type, value, primaryQuery.data, additionalQuery.data]);
 
   return (
     <div className={cn('flex flex-col gap-1', className)}>
@@ -71,10 +77,36 @@ export function WebsiteValueComboBox({
       <ComboBox
         {...props}
         aria-label={props['aria-label'] ?? label}
-        items={items}
-        inputValue={value}
+        items={
+          type === 'city'
+            ? items.map(value => ({
+                value,
+                label:
+                  [...(primaryQuery.data || []), ...(additionalQuery.data || [])].find(
+                    row => row.value === value,
+                  )?.label || value,
+              }))
+            : items
+        }
+        filter={type === 'city' ? null : props.filter}
+        inputValue={
+          type === 'city' && editingValue !== value
+            ? [...(primaryQuery.data || []), ...(additionalQuery.data || [])].find(
+                row => row.value === value,
+              )?.label || value
+            : value
+        }
         placeholder={placeholder}
-        onInputValueChange={value => {
+        onValueChange={(next, details) => {
+          props.onValueChange?.(next, details);
+          if (type !== 'city' || !['item-press', 'clear-press'].includes(details.reason)) return;
+          setEditingValue(null);
+          setSearch(next || '');
+          onChange(next || '');
+        }}
+        onInputValueChange={(value, details) => {
+          if (type === 'city' && !['input-change', 'input-clear'].includes(details.reason)) return;
+          if (type === 'city') setEditingValue(value);
           setSearch(value);
           onChange(value);
         }}
@@ -88,7 +120,9 @@ export function WebsiteValueComboBox({
       >
         {items.map(item => (
           <ListItem key={item} id={item}>
-            {item}
+            {[...(primaryQuery.data || []), ...(additionalQuery.data || [])].find(
+              row => row.value === item,
+            )?.label || item}
           </ListItem>
         ))}
       </ComboBox>

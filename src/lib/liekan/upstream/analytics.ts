@@ -2,7 +2,7 @@ import { funnelParametersSchema } from '@/lib/analytics-schema';
 import { getPostgresCountrySQL, getPostgresRegionSQL } from '@/lib/country';
 import { getFunnel } from '@/queries/sql';
 import { classifyEntrySource } from '../contracts/sources';
-import { humanTotals, query } from './server';
+import { humanTotals, query, LiekanError } from './server';
 
 export { classifyEntrySource } from '../contracts/sources';
 
@@ -152,13 +152,14 @@ export async function getHumanFacts(
   end: Date,
   timezone: string,
   fields?: readonly HumanFact[],
+  geographyReadLimit?: { rows: number; bytes: number },
 ) {
-  const args = [id, start, end, timezone];
+  const args: unknown[] = [id, start, end, timezone];
   const selected = new Set(fields);
   const needs = (field: HumanFact) => !fields || selected.has(field);
   const statements: Record<string, string> = {
     daily: humanBinsSql(),
-    geo: ` SELECT ${getPostgresCountrySQL('v.country')} AS country,${getPostgresRegionSQL('v.country', 'v.region')} AS region,v.city,${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3 ORDER BY sessions DESC,1,2,3`,
+    geo: ` SELECT ${getPostgresCountrySQL('v.country')} AS country,${getPostgresRegionSQL('v.country', 'v.region')} AS region,v.city,sum(v.duration)::float AS "durationTotal",count(v.duration)::int AS "durationSamples",${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3 ORDER BY sessions DESC,1,2,3`,
     sources: ` SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",${visitMetrics} FROM visits v ${convertedJoin} GROUP BY 1,2,3,4 ORDER BY sessions DESC,1,2,3,4`,
     environment: ` SELECT device,browser,os,count(*)::int AS sessions FROM visits GROUP BY 1,2,3 ORDER BY sessions DESC,1,2,3`,
     pages: `, ordered AS (SELECT *,row_number() OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id) AS ordinal,extract(epoch FROM lead(created_at) OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id)-created_at)::float AS dwell FROM events WHERE event_type NOT IN(2,5))
@@ -177,8 +178,12 @@ export async function getHumanFacts(
     .filter(([key]) => needs(key as HumanFact))
     .map(([key, tail]) => {
       const select = tail.trimStart().startsWith(',') ? 'WITH ' + tail.trimStart().slice(1) : tail;
+      if (key === 'geo' && geographyReadLimit) {
+        return `'geo',(SELECT CASE WHEN count(*) > $5::int OR coalesce(sum(octet_length(to_jsonb(fact)::text)),0) > $6::bigint THEN '{"limitExceeded":true}'::jsonb ELSE coalesce(jsonb_agg(to_jsonb(fact)), '[]'::jsonb) END FROM (${select} LIMIT ($5::int + 1)) fact)`;
+      }
       return `'${key}',(SELECT coalesce(jsonb_agg(to_jsonb(fact)), '[]'::jsonb) FROM (${select}) fact)`;
     });
+  if (geographyReadLimit) args.push(geographyReadLimit.rows, geographyReadLimit.bytes);
   const [totals, definitions, current, previousSources, previousGoals] = await Promise.all([
     humanTotals(id, start, end),
     query(
@@ -210,6 +215,8 @@ export async function getHumanFacts(
       : Promise.resolve([]),
   ]);
   const facts = current[0]?.facts ?? {};
+  if (geographyReadLimit && facts.geo?.limitExceeded)
+    throw new LiekanError('地域处理数据超过 100,000 组或 50 MiB，请缩小日期范围', 413);
   const {
     daily = [],
     geo = [],

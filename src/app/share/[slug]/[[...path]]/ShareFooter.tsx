@@ -17,6 +17,9 @@ export function ShareFooter() {
         <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">
           IP Geolocation by DB-IP
         </a>
+        <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">
+          地名数据：GeoNames（已整理）
+        </a>
         {share?.whiteLabel && <ShareBranding size="sm" />}
       </Row>
     </Column>
