@@ -3909,6 +3909,14 @@
       "owner": "Liekan geography maintenance",
       "constraint": "Keep stored geography values and non-city input behavior compatible",
       "removalCondition": "Remove when upstream supports contextual city labels and equivalent component integration coverage"
+    },
+    {
+      "path": "tests/api/coverage/collection.test.ts",
+      "purpose": "Detect shared contract import failures before API acceptance by collecting the real Playwright suite",
+      "tests": ["pnpm exec vitest run tests/api/coverage/collection.test.ts", "pnpm liekan:verify"],
+      "owner": "Liekan compatibility adapters",
+      "constraint": "Collect tests without running global setup, fixtures or database mutations",
+      "removalCondition": "Remove when upstream source verification includes equivalent API collection coverage"
     }
   ]
 }
