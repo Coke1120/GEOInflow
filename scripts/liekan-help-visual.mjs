@@ -251,11 +251,18 @@ try {
       const footer = page.locator('[data-liekan-product-footer]');
       await footer.waitFor();
       assert.equal(await footer.count(), 1, path);
-      assert.equal(await footer.getByRole('link').count(), 7, path);
-      assert.equal(
-        await footer.getByRole('link', { name: 'IP Geolocation by DB-IP' }).getAttribute('href'),
-        'https://db-ip.com',
-      );
+      assert.equal(await footer.getByRole('link').count(), 9, path);
+      for (const [label, href] of [
+        ['IP Geolocation by DB-IP', 'https://db-ip.com'],
+        ['地名数据：GeoNames（已整理）', 'https://www.geonames.org/'],
+        ['地名数据许可：CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/'],
+      ]) {
+        const attribution = footer.getByRole('link', { name: label, exact: true });
+        assert.equal(await attribution.count(), 1, path);
+        assert.equal(await attribution.getAttribute('href'), href, path);
+        assert.equal(await attribution.getAttribute('target'), '_blank', path);
+        assert.equal(await attribution.getAttribute('rel'), 'noopener noreferrer', path);
+      }
       const placement = await footer.evaluate(node => ({
         position: getComputedStyle(node).position,
         width: node.getBoundingClientRect().width,
