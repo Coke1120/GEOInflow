@@ -385,6 +385,52 @@
   min-width: 0;
 }
 
+.pageLink {
+  color: inherit;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-decoration: none;
+}
+
+.pageLink:hover {
+  color: #0f62fe;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.pageLink:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+.shell main p.pageMetric {
+  font-size: 12px !important;
+  line-height: 1.6 !important;
+  overflow-wrap: anywhere;
+}
+
+.pageSequence {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.pageArrow {
+  color: #9aa3b2;
+}
+
+@media (max-width: 540px) {
+  .journeyRow {
+    flex-wrap: wrap;
+  }
+  .shell .journeyRow .journeyPath {
+    flex: 1 0 calc(100% - 32px);
+  }
+  .journeyDepth {
+    margin-left: 32px;
+  }
+}
+
 .breadcrumbs {
   display: flex;
   gap: 6px;

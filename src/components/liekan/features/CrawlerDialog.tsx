@@ -6,6 +6,7 @@ import { featureRequest } from '@/lib/liekan/upstream/features-client';
 import { withClientFreshness } from '@/lib/liekan/upstream/client-freshness';
 import { crawlerPathSchema } from '@/lib/liekan/contracts/crawlers';
 import { downloadFile } from '../data';
+import { pageLink } from '../PageLink';
 import { Badge, Button, Definition, LiekanDialog, Notice, Select, Table, Tabs } from './ui';
 import { CrawlerPoliciesPanel } from './CrawlerPoliciesPanel';
 
@@ -62,6 +63,7 @@ const date = (value: string | number | undefined, timezone: string) =>
 export function CrawlerDialog({
   websiteId,
   websiteName,
+  websiteDomain,
   botName,
   onClose,
   range,
@@ -69,6 +71,7 @@ export function CrawlerDialog({
 }: {
   websiteId: string;
   websiteName?: string;
+  websiteDomain?: string;
   botName?: string;
   onClose: () => void;
   range?: { startAt: number; endAt: number; timezone: string };
@@ -381,7 +384,7 @@ export function CrawlerDialog({
                       row.mergedPaths?.length > 1 ? '多个编码路径映射到同一浏览器路径' : undefined
                     }
                   >
-                    {row.path}
+                    {pageLink(row.path, websiteDomain)}
                   </span>,
                   num(row.successfulGets),
                   num(row.denied403429),
@@ -397,7 +400,7 @@ export function CrawlerDialog({
               <Table
                 columns={['平台落地页', '引荐会话', '转化会话 / 目标事件']}
                 rows={(platform?.landingPages || []).map(row => [
-                  row.path,
+                  pageLink(row.path, websiteDomain),
                   num(row.visits),
                   `${num(row.conversions)} / ${num(row.goalEvents)}`,
                 ])}

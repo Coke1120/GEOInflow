@@ -1,4 +1,5 @@
 'use client';
+import { pageSearch, pageUrl } from '@/lib/liekan/contracts/page-url';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from '@/components/liekan/Link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -195,7 +196,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                 : filter === '仅人类'
                   ? 'other'
                   : '',
-          search: search.slice(0, 200),
+          search: pageSearch(search, website?.domain).slice(0, 200),
           ...(!resetLogBatch && cursor ? { cursor, seek } : {}),
         }
       : {}),
@@ -510,7 +511,9 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         return;
       }
       const content = table
-        ? tableCsv(table, report.tables[table] || [], filter, sort, search)
+        ? tableCsv(table, report.tables[table] || [], filter, sort, search, value =>
+            pageUrl(value, report.website.domain),
+          )
         : csvMatrix(
             ['指标', '数值', '状态'],
             report.cards
@@ -866,6 +869,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               key={`${websiteId}:${action}`}
               websiteId={crawlerWebsite.id}
               websiteName={crawlerWebsite.name}
+              websiteDomain={crawlerWebsite.domain}
               botName={action.startsWith('蜘蛛详情:') ? action.slice(5) : undefined}
               range={report?.range}
               onClose={close}

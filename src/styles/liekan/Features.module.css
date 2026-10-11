@@ -679,6 +679,26 @@
   padding: 8px 0;
   min-height: 40px;
 }
+:global([data-liekan-features] .session-records-table) {
+  min-width: 980px;
+}
+:global([data-liekan-features] .session-records-table :is(th, td)) {
+  white-space: nowrap;
+}
+:global([data-liekan-features] .stats-table .session-records-table :is(th, td):first-child) {
+  width: 128px;
+  min-width: 128px;
+  white-space: nowrap;
+}
+:global([data-liekan-features] .session-records-table :is(th, td):last-child) {
+  width: 88px;
+  min-width: 88px;
+}
+:global([data-liekan-features] .session-records-table :is(th, td):nth-child(5)) {
+  width: 24%;
+  max-width: 260px;
+  white-space: normal;
+}
 :global([data-liekan-features] .form) {
   display: grid;
   gap: 16px;

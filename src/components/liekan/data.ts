@@ -285,6 +285,7 @@ export function selectRows(
   sort: { label: string; direction: number },
   table: string,
   query = '',
+  displayPath?: (value: unknown) => string | null,
 ) {
   const filtered = rows.filter(row => {
     const category = String(row.type ?? row.classification ?? '');
@@ -304,7 +305,7 @@ export function selectRows(
     return (
       matches &&
       (!query ||
-        Object.values(row).some(value =>
+        [...Object.values(row), displayPath?.(row.path)].some(value =>
           String(value ?? '')
             .toLowerCase()
             .includes(query.toLowerCase()),
@@ -359,9 +360,10 @@ export function tableCsv(
   filter: string,
   sort: { label: string; direction: number },
   search = '',
+  displayPath?: (value: unknown) => string | null,
 ) {
   const fields = columns[table] || [];
-  const selected = selectRows(rows, filter, sort, table, search);
+  const selected = selectRows(rows, filter, sort, table, search, displayPath);
   return csvMatrix(
     fields.map(([, label]) => label),
     selected.map(row => fields.map(([field]) => formatCellValue(row, field, table))),

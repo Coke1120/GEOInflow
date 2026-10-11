@@ -17,6 +17,8 @@ import {
 import { Button } from './features/ui';
 import { observeChartLayout } from './mobileChart';
 import { useReportActions } from './ReportContext';
+import { pageLink, pageSequence } from './PageLink';
+import { pageUrl } from '@/lib/liekan/contracts/page-url';
 import type { DataState, LiekanReport, Row } from './types';
 
 function reportState(report: LiekanReport, table?: string): DataState {
@@ -46,11 +48,18 @@ export function MetricCard({
   const loading = useDataLoading();
   const card = report?.cards.find(card => card.label === label);
   const display = formatMetricValue(card || { value: null, label });
+  const pageMetric = ['入口页 TOP1', '退出页 TOP1'].includes(label);
   return (
     <div className={className} aria-busy={loading || undefined}>
       <p className="text-[11.5px] text-sub">{label}</p>
-      <p className={`${valueClass} ${styles.metricValue}`}>
-        {loading ? <Skeleton width="3.5em" /> : display}
+      <p className={`${valueClass} ${styles.metricValue} ${pageMetric ? styles.pageMetric : ''}`}>
+        {loading ? (
+          <Skeleton width="3.5em" />
+        ) : pageMetric ? (
+          pageLink(card?.value, report?.website.domain, display)
+        ) : (
+          display
+        )}
       </p>
       <p className="text-[10.5px] text-faint mt-1">
         {loading ? (
@@ -348,11 +357,13 @@ function Cell({
   field,
   table,
   onCrawler,
+  domain,
 }: {
   row: Row;
   field: string;
   table: string;
   onCrawler?: (name: string) => void;
+  domain?: string;
 }) {
   const value = row[field];
   if (table === 'botBody' && field === 'name' && onCrawler)
@@ -388,9 +399,10 @@ function Cell({
   if (table === 'logBody' && field === 'path')
     return (
       <>
-        {row.method || '–'} {formatValue(value)}
+        {row.method || '–'} {pageLink(value, domain, formatValue(value))}
       </>
     );
+  if (field === 'path') return pageLink(value, domain, formatValue(value));
   if (['type', 'channel', 'evaluation', 'classification', 'freshness'].includes(field))
     return <Badge value={value} field={field} />;
   if (field === 'heat' || field === 'share') {
@@ -439,7 +451,14 @@ export function ReportRows({
   // 服务端分页模式：meta.tablePages 有键 = 该表已是服务端切片，页码/总数/页宽全部来自
   // meta；本地筛选/排序/搜索仅作用于当前页（页脚提示），翻页经 onTablePage 重新请求。
   const serverPage = meta?.tablePages?.[table];
-  const selected = selectRows(report?.tables[table] || [], a.filter, a.sort, table, a.query);
+  const selected = selectRows(
+    report?.tables[table] || [],
+    a.filter,
+    a.sort,
+    table,
+    a.query,
+    value => pageUrl(value, report?.website.domain),
+  );
   const perPage = typeof pageSize === 'number' && pageSize > 0 ? pageSize : 0;
   const paged = perPage > 0 || !!serverPage;
   const [page, setPage] = useState(1);
@@ -539,7 +558,13 @@ export function ReportRows({
                       : undefined
                   }
                 >
-                  <Cell row={row} field={field} table={table} onCrawler={onCrawler} />
+                  <Cell
+                    row={row}
+                    field={field}
+                    table={table}
+                    onCrawler={onCrawler}
+                    domain={report?.website.domain}
+                  />
                 </td>
               ))}
             </tr>
@@ -785,11 +810,8 @@ export function ReportList({
                           }).format(new Date(String(row.time)))
                         : formatValue(row.time)}
                     </span>
-                    <span
-                      className="num text-[11.5px] text-ink flex-1 truncate"
-                      title={formatValue(row.path)}
-                    >
-                      {formatValue(row.path)}
+                    <span className="num text-[11.5px] text-ink flex-1 min-w-0">
+                      {pageLink(row.path, report?.website.domain, formatValue(row.path))}
                     </span>
                     <span className="text-[10.5px] text-faint shrink-0">
                       {formatValue(row.status)}
@@ -799,11 +821,8 @@ export function ReportList({
               if (id === 'blindList')
                 return (
                   <div key={i} className="px-6 py-3 hover:bg-[#FAFBFD] transition-colors">
-                    <p
-                      className="num text-[12px] font-medium text-ink truncate"
-                      title={formatValue(row.path)}
-                    >
-                      {formatValue(row.path)}
+                    <p className="num text-[12px] font-medium text-ink">
+                      {pageLink(row.path, report?.website.domain, formatValue(row.path))}
                     </p>
                     <p className="text-[11px] text-faint mt-1">{formatValue(row.reason)}</p>
                     <p className="text-[11px] text-brand mt-0.5">{formatValue(row.suggestion)}</p>
@@ -817,15 +836,14 @@ export function ReportList({
                   journeyShareTotal > 0 ? (Number(row.count) || 0) / journeyShareTotal : 0;
                 return (
                   <div key={i} className="rounded-lg bg-wash px-3 py-2.5">
-                    <div className="flex items-center gap-3">
+                    <div className={`flex items-center gap-3 ${styles.journeyRow}`}>
                       {step(i)}
                       <span
-                        className="num text-[11.5px] text-ink truncate flex-1"
-                        title={formatValue(row.path)}
+                        className={`num text-[11.5px] text-ink min-w-0 flex-1 ${styles.journeyPath}`}
                       >
-                        {formatValue(row.path)}
+                        {pageSequence(String(row.path ?? '').split(' → '), report?.website.domain)}
                       </span>
-                      <span className="text-[10.5px] text-faint shrink-0">
+                      <span className={`text-[10.5px] text-faint shrink-0 ${styles.journeyDepth}`}>
                         {depth > 1 ? `${depth} 页` : '单页'}
                       </span>
                       <span className="w-[120px] h-1.5 rounded-full bg-brand/10 overflow-hidden shrink-0">

@@ -1,4 +1,5 @@
 'use client';
+import { pageLink } from '../PageLink';
 import {
   ManualAuthorizationBoundary,
   ManualReadDependencyBoundary,
@@ -1817,6 +1818,8 @@ function NativeWidget({
     conversion = ['Goal', 'Funnel'].includes(component?.type),
     eventMetrics = component?.type === 'EventsMetricsBar',
     reportId = component?.props?.reportId;
+  const pageDomain =
+    kind === 'website' ? c?.sites?.find(site => site.id === id)?.domain : undefined;
   const q = useFreshQuery(
     {
       queryKey: [
@@ -1976,7 +1979,9 @@ function NativeWidget({
               '访客',
             ]}
             rows={rowsOf<any>(q.data).map(row => [
-              row.utm ?? row.x ?? '直接访问',
+              component.type === 'MetricsTable' && dimension === 'path'
+                ? pageLink(row.x, pageDomain)
+                : (row.utm ?? row.x ?? '直接访问'),
               readable(row.views ?? row.y),
             ])}
             numeric={[1]}
