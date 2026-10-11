@@ -87,9 +87,10 @@ cp.spawnSync=(command,args,options={})=>{
   fs.writeSync(options.stdio[1],JSON.stringify({passed:true,sourceHash:'a'.repeat(64),checks:Array.from({length:8},(_,i)=>'fixture '+i),readOnly:true,fixture:'synthetic-relations'})+'\\n');
  }
  if(args.includes('playwright.api.config.ts')){if(options.env.PLAYWRIGHT_BASE_URL!==baseUrl)throw Error('API origin mismatch');const coverage='tests/api/.runtime/'+new URL(baseUrl).host.replace(/[^a-z0-9.-]+/gi,'-')+'/coverage';fs.mkdirSync(coverage,{recursive:true});fs.writeFileSync(coverage+'/summary.json','{}');}
- if(args.some(arg=>['scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-manual-refresh.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-ai-home-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
+ if(args.some(arg=>['scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-manual-refresh.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-ai-home-visual.mjs','scripts/liekan-keyword-visual.mjs','scripts/liekan-search-engine-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
  if(args.includes('scripts/liekan-keyword-visual.mjs')){if(fault==='keyword-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-keywords',{recursive:true});fs.writeFileSync('test-results/liekan-keywords/report.json',JSON.stringify({passed:fault!=='keyword-visual-passed',head:fault==='keyword-visual-head'?'other':head,checks:Array.from({length:fault==='keyword-visual-count'?1:3},()=>({})),cleanup:fault!=='keyword-visual-cleanup'}));}
+ if(args.includes('scripts/liekan-search-engine-visual.mjs')){if(fault==='search-engine-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-search-engines',{recursive:true});fs.writeFileSync('test-results/liekan-search-engines/report.json',JSON.stringify({passed:fault!=='search-engine-visual-passed',head:fault==='search-engine-visual-head'?'other':head,checks:Array.from({length:fault==='search-engine-visual-count'?1:3},()=>({})),cleanup:fault!=='search-engine-visual-cleanup'}));}
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:14},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:66*4},()=>({passed:true})),mobile:{head:fault==='mobile-visual-head'?'other':head,passed:fault!=='mobile-visual-failed',checks:fault==='mobile-visual-count'?1:77*4*2}}));}
  if(args.includes('scripts/liekan-manual-refresh.mjs')){if(fault==='manual-refresh-failed')return {status:1};fs.mkdirSync('test-results/liekan-manual-refresh',{recursive:true});fs.writeFileSync('test-results/liekan-manual-refresh/report.json',JSON.stringify({passed:fault!=='manual-refresh-passed',finalized:fault!=='manual-refresh-finalized',head:fault==='manual-refresh-head'?'other':head,featureIds:Array.from({length:fault==='manual-refresh-count'?1:68},(_,i)=>'feature-'+i),realIdle:Array.from({length:fault==='manual-refresh-idle'?1:4},()=>({idleDelta:0})),cachedHistory:{passed:fault!=='manual-refresh-cached-history'},errors:[]}));}
@@ -161,6 +162,8 @@ describe('isolated acceptance CLI failure paths', () => {
         );
         expect(report.dataRegression.readOnly).toBe(true);
         expect(report.dataRegression.checks).toHaveLength(8);
+        expect(report.searchEngineVisual.checks).toHaveLength(3);
+        expect(report.searchEngineVisual.cleanup).toBe(true);
         expect(report.aiHomeVisual.checks.map((check: { width: number }) => check.width)).toEqual([
           1440, 1280, 375, 320,
         ]);
@@ -256,6 +259,11 @@ describe('isolated acceptance CLI failure paths', () => {
     'keyword-visual-head',
     'keyword-visual-count',
     'keyword-visual-cleanup',
+    'search-engine-visual-failed',
+    'search-engine-visual-passed',
+    'search-engine-visual-head',
+    'search-engine-visual-count',
+    'search-engine-visual-cleanup',
     'feature-flows-failed',
     'feature-flows-head',
     'feature-flows-count',

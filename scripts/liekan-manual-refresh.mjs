@@ -93,6 +93,7 @@ const report = {
   checks: [],
   realIdle: [],
   errors: [],
+  httpReads: [],
 };
 const save = () => fs.writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 2));
 const describeRead = request => {
@@ -117,6 +118,17 @@ const ordinary = request => {
   );
 };
 let lastForcedRead = 0;
+const forcedInFlight = new Set();
+async function waitForForcedReadCooldown() {
+  await expect(() => assert.equal(forcedInFlight.size, 0, 'Forced reads still in flight')).toPass({
+    timeout: 30000,
+    intervals: [100, 250, 500],
+  });
+  // The server starts its cooldown after authentication and permission checks.
+  // Wait after HTTP termination across sequential pages sharing one actor.
+  while (Date.now() - lastForcedRead < 5100)
+    await new Promise(resolve => setTimeout(resolve, 5100 - (Date.now() - lastForcedRead)));
+}
 async function open(url, authenticated = true) {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
@@ -140,14 +152,28 @@ async function open(url, authenticated = true) {
   const reads = [],
     successes = [],
     logouts = [];
+  const requestDetails = new WeakMap();
+  const successfulResponses = new WeakSet();
   page.on('request', request => {
     if (ordinary(request)) {
       const url = new URL(request.url());
       reads.push(url.pathname);
-      if (url.searchParams.get('refresh') === '1') lastForcedRead = Date.now();
+      const detail = {
+        ...describeRead(request),
+        refresh: url.searchParams.get('refresh') === '1',
+        startedAt: Date.now(),
+      };
+      requestDetails.set(request, detail);
+      report.httpReads.push(detail);
+      if (detail.refresh) forcedInFlight.add(request);
     }
   });
   page.on('response', response => {
+    const detail = requestDetails.get(response.request());
+    if (detail) {
+      detail.status = response.status();
+      detail.retryAfter = response.headers()['retry-after'] ?? null;
+    }
     if (
       response.request().method() === 'POST' &&
       new URL(response.url()).pathname === '/api/auth/logout'
@@ -158,7 +184,23 @@ async function open(url, authenticated = true) {
       new URL(response.url()).pathname.startsWith('/api/') &&
       response.ok()
     )
-      successes.push(describeRead(response.request()));
+      successfulResponses.add(response.request());
+  });
+  page.on('requestfinished', request => {
+    const detail = requestDetails.get(request);
+    if (detail) detail.finishedAt = Date.now();
+    // Only completed response bodies satisfy the endpoint contract. Superseded
+    // requests remain in diagnostics; their successful replacements must finish.
+    if (successfulResponses.has(request)) successes.push(describeRead(request));
+    if (forcedInFlight.delete(request)) lastForcedRead = Date.now();
+  });
+  page.on('requestfailed', request => {
+    const detail = requestDetails.get(request);
+    if (detail) {
+      detail.finishedAt = Date.now();
+      detail.failure = request.failure()?.errorText ?? 'Request failed';
+    }
+    if (forcedInFlight.delete(request)) lastForcedRead = Date.now();
   });
   page.on('pageerror', error => report.errors.push(error.message));
   await page.goto(base + url);
@@ -423,8 +465,7 @@ try {
       if (policy.endpoints.length) {
         assert(await control.isVisible(), `${item.id}: missing refresh control`);
         // Sequential page checks share one actor and respect the existing forced-read limit.
-        while (Date.now() - lastForcedRead < 5100)
-          await new Promise(resolve => setTimeout(resolve, 5100 - (Date.now() - lastForcedRead)));
+        await waitForForcedReadCooldown();
         const prior = successes.length;
         await control.click();
         await ready(page);
@@ -573,6 +614,7 @@ try {
     ),
   );
   assert.equal(report.errors.length, 0, 'Browser runtime errors');
+  assert.equal(forcedInFlight.size, 0, 'Forced reads still in flight at completion');
   report.passed = true;
   report.finalized = true;
   save();

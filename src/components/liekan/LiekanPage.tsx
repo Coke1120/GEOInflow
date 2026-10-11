@@ -781,7 +781,9 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                   : '尚未导入'}
           </span>
         )}
-        {resource === 'human/keywords' ? (
+        {resource === 'human/search-engines' ? (
+          <span>分别查看传统搜索与 AI 搜索引荐的平台占比和明细</span>
+        ) : resource === 'human/keywords' ? (
           <span>按搜索引擎查看关键词，支持完整筛选导出</span>
         ) : (
           <>

@@ -1,0 +1,45 @@
+.charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 24px 16px;
+}
+.filters button[aria-pressed="true"] {
+  background: #edf2ff;
+  color: #0f62fe;
+  border-color: #0f62fe;
+}
+.table {
+  overflow-x: auto;
+}
+.table table {
+  min-width: 880px;
+}
+.note {
+  padding: 12px 24px;
+  border-top: 1px solid #e9ecf1;
+  color: #9aa3b2;
+  font-size: 11.5px;
+  line-height: 1.75;
+}
+@media (max-width: 650px) {
+  .charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}

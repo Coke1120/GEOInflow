@@ -98,3 +98,23 @@ describe('the 22 supplied ECharts definitions', () => {
     expect(chartOptions('d3', data).legend.type).toBeUndefined();
   });
 });
+
+describe('search engine pie charts', () => {
+  it('keeps all platforms and fixes the denominator while preserving stable platform colors', () => {
+    const input = {
+      labels: ['Google', 'Bing', '百度', '搜狗', '360', 'DuckDuckGo', 'Yahoo'],
+      series: [{ name: '会话', values: [7, 6, 5, 4, 3, 2, 1] }],
+    };
+    const option = chartOptions('se1', input);
+    expect(option.series[0].data).toHaveLength(7);
+    expect(option.legend).toMatchObject({ type: 'scroll', selectedMode: false });
+    expect(option.legend.formatter('Google')).toBe('Google 25%');
+    expect(option.tooltip.formatter({ name: '<script>', value: 7 })).toBe(
+      '&lt;script&gt;<br>7 会话（25%）',
+    );
+    const reordered = chartOptions('se1', { ...input, labels: [...input.labels].reverse() });
+    expect(option.series[0].data[0].itemStyle.color).toBe(
+      reordered.series[0].data.at(-1).itemStyle.color,
+    );
+  });
+});

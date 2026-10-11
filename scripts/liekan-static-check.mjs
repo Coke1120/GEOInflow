@@ -35,6 +35,12 @@ if (hash(JSON.stringify(keywordUI.files)) !== baseline.keywordUiManifestSha256)
 for (const [file, digest] of Object.entries(keywordUI.files))
   if (hash(readFileSync(`${keywordUI.directory}/${file}`)) !== digest)
     throw new Error(`Keyword UI reference drift: ${file}`);
+const searchEngineUI = JSON.parse(readFileSync('config/liekan/search-engine-ui.json', 'utf8'));
+if (hash(JSON.stringify(searchEngineUI.files)) !== baseline.searchEngineUiManifestSha256)
+  throw new Error('Search engine UI fingerprint changed');
+for (const [file, digest] of Object.entries(searchEngineUI.files))
+  if (hash(readFileSync(`${searchEngineUI.directory}/${file}`)) !== digest)
+    throw new Error(`Search engine UI reference drift: ${file}`);
 const aiUI = JSON.parse(readFileSync('config/liekan/ai-ui.json', 'utf8'));
 if (hash(JSON.stringify(aiUI.sha256)) !== baseline.aiUiManifestSha256)
   throw new Error('Approved AI UI fingerprint changed');

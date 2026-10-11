@@ -29,6 +29,7 @@ function reportState(report: LiekanReport, table?: string): DataState {
     table === 'visitorPgBody' ||
     table === 'cityBody' ||
     table === 'srcBody' ||
+    table === 'searchEngineBody' ||
     table === 'pgBody'
   )
     return report.states.human;
@@ -271,6 +272,12 @@ const cellClasses: Record<string, string[]> = {
     'px-4 py-3 num text-right text-sub text-[12px]',
     'px-4 py-3 num text-right pr-6 text-down font-semibold',
   ],
+  searchEngineBody: [
+    'pl-6 pr-4 py-3 font-medium text-[12px] text-ink',
+    'px-4 py-3',
+    ...Array(5).fill('px-4 py-3 num text-right'),
+    'px-4 py-3 num text-right pr-6',
+  ],
   srcBody: [
     'pl-6 pr-4 py-3 num text-[12px] font-medium text-ink',
     'px-4 py-3',
@@ -405,6 +412,7 @@ function Cell({
   if (field === 'path') return pageLink(value, domain, formatValue(value));
   if (['type', 'channel', 'evaluation', 'classification', 'freshness'].includes(field))
     return <Badge value={value} field={field} />;
+  if (table === 'searchEngineBody' && field === 'share') return <>{percentage(value)}</>;
   if (field === 'heat' || field === 'share') {
     if (value == null) return <>–</>;
     const amount = Number.parseFloat(String(value));

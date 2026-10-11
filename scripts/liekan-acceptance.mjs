@@ -421,6 +421,19 @@ try {
     report.keywordVisual.checks.length !== 3
   )
     throw new Error('Source keyword visual and interaction acceptance incomplete');
+  await run(process.execPath, ['scripts/liekan-search-engine-visual.mjs'], 'search-engine-visual', {
+    env: { ...process.env, LIEKAN_URL: baseUrl },
+  });
+  report.searchEngineVisual = JSON.parse(
+    fs.readFileSync('test-results/liekan-search-engines/report.json', 'utf8'),
+  );
+  if (
+    !report.searchEngineVisual.passed ||
+    !report.searchEngineVisual.cleanup ||
+    report.searchEngineVisual.head !== head ||
+    report.searchEngineVisual.checks.length !== 3
+  )
+    throw new Error('Search engine visual and interaction acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-feature-flows.mjs'], 'feature-flows', {
     env: { ...process.env, LIEKAN_URL: baseUrl },
   });

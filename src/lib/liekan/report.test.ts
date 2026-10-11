@@ -579,3 +579,84 @@ it('projects visitor-only overview while preserving crawler analytics and re-ena
     'AI 蜘蛛请求',
   );
 });
+
+it('builds platform shares from the same sources and only requests human source facts', async () => {
+  const human = await mocks.human();
+  mocks.human.mockResolvedValue({
+    ...human,
+    totals: { ...human.totals, visits: 10 },
+    sources: [
+      {
+        source: 'www.google.com',
+        channel: '传统搜索',
+        sessions: 2,
+        pv: 3,
+        bounces: 1,
+        conversions: 1,
+      },
+      {
+        source: 'google.com.hk',
+        channel: '传统搜索',
+        sessions: 1,
+        pv: 1,
+        bounces: 1,
+        conversions: 0,
+      },
+      {
+        source: 'chatgpt.com',
+        channel: 'AI 搜索引荐',
+        sessions: 1,
+        pv: 2,
+        bounces: 0,
+        conversions: 1,
+      },
+      { source: '直接访问', channel: '直接访问', sessions: 6, pv: 6, bounces: 6, conversions: 0 },
+    ],
+    goals: [{ id: 'goal', count: 2, convertedSessions: 2 }],
+  });
+  const page = await buildReport(
+    website,
+    false,
+    { ...params, resource: 'human/search-engines' },
+    true,
+  );
+  expect(mocks.human.mock.calls[1][4]).toEqual(['sources']);
+  expect(mocks.logs.mock.calls[0][9]).toEqual([]);
+  expect(page.cards.map(card => card.value)).toEqual([4, 3, 1, 25]);
+  expect(page.charts.se1).toMatchObject({
+    labels: ['Google'],
+    series: [{ name: '会话', values: [3] }],
+  });
+  expect(page.charts.se2.labels).toEqual(['ChatGPT']);
+  expect(page.tables.searchEngineBody[0]).toMatchObject({
+    share: 75,
+    categoryShare: 100,
+    bounceRate: 66.67,
+    conversionRate: 33.33,
+  });
+  expect(Object.keys(page.tables)).toEqual(['searchEngineBody']);
+});
+
+it('shows empty category charts and unavailable conversion rates without excluding missing keywords', async () => {
+  const human = await mocks.human();
+  mocks.human.mockResolvedValue({
+    ...human,
+    totals: { ...human.totals, visits: 1 },
+    sources: [
+      { source: 'baidu.com', channel: '传统搜索', sessions: 1, pv: 1, bounces: 1, conversions: 0 },
+    ],
+  });
+  const page = await buildReport(
+    website,
+    false,
+    { ...params, resource: 'human/search-engines' },
+    true,
+  );
+  expect(page.tables.searchEngineBody[0].conversionRate).toBeNull();
+  expect(page.cards.map(card => card.value)).toEqual([1, 1, 0, 0]);
+  expect(page.charts.se2).toMatchObject({
+    state: 'empty',
+    labels: [],
+    series: [{ name: '会话', values: [] }],
+  });
+});

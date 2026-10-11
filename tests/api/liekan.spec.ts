@@ -152,6 +152,18 @@ test('identifies source keywords through real collection, scopes access, pages a
         .filter(r => r.channel === '传统搜索')
         .reduce((n, r) => n + r.sessions, 0),
     ).toBe(35);
+    const engineParams = { ...params, resource: 'human/search-engines' };
+    const engines = await admin.get(`${base}/page-report`, { params: engineParams });
+    expect(engines.status, engines.text).toBe(200);
+    expect(engines.body.tables.searchEngineBody.reduce((sum, row) => sum + row.sessions, 0)).toBe(
+      35,
+    );
+    expect(engines.body.charts.se2.state).toBe('empty');
+    expect((await api.get(`${base}/page-report`, { params: engineParams })).status).toBe(401);
+    expect((await user.get(`${base}/page-report`, { params: engineParams })).status).toBe(403);
+    expect(
+      (await (await share()).get(`${base}/page-report`, { params: engineParams })).status,
+    ).toBe(401);
     expect((await api.get(`${base}/page-report`, { params })).status).toBe(401);
     expect((await user.get(`${base}/page-report`, { params })).status).toBe(403);
     expect((await (await share()).get(`${base}/page-report`, { params })).status).toBe(401);

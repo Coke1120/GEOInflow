@@ -1,3 +1,4 @@
+import { searchPlatforms } from '@/lib/liekan/contracts/search-engines';
 import type { ChartData } from './types';
 
 const INK = '#16181D',
@@ -592,6 +593,52 @@ function referenceChartOptions(id: string, chart: ChartData): any {
           },
         ],
       };
+    case 'se1':
+    case 'se2': {
+      const total =
+        chart.series[0]?.values.reduce<number>((sum, value) => sum + (value ?? 0), 0) || 0;
+      const share = (value: number) => (total ? Math.round((value / total) * 10000) / 100 : 0);
+      const platforms = searchPlatforms.filter(
+        platform => platform.channel === (id === 'se1' ? '传统搜索' : 'AI 搜索引荐'),
+      );
+      const palette = [B, PUR, TEAL, AMBER, B2, GREEN, RED, GRAY, '#7FA8FF'];
+      return {
+        tooltip: {
+          ...TTi,
+          formatter: (item: any) =>
+            `${escapeChart(item.name)}<br>${item.value} 会话（${share(item.value)}%）`,
+        },
+        legend: {
+          type: 'scroll',
+          selectedMode: false,
+          left: 16,
+          right: 16,
+          bottom: 4,
+          pageIconSize: 10,
+          itemWidth: 10,
+          itemHeight: 10,
+          textStyle: { fontSize: 10.5, color: SUB },
+          formatter: (name: string) =>
+            `${name} ${share(chart.series[0]?.values[chart.labels.indexOf(name)] || 0)}%`,
+        },
+        series: [
+          {
+            type: 'pie',
+            radius: ['48%', '70%'],
+            center: ['50%', '42%'],
+            label: { show: false },
+            itemStyle: { borderColor: '#fff', borderWidth: 2 },
+            data: chart.labels.map((name, index) => ({
+              name,
+              value: chart.series[0]?.values[index],
+              itemStyle: {
+                color: palette[platforms.findIndex(platform => platform.name === name)] || GRAY,
+              },
+            })),
+          },
+        ],
+      };
+    }
     case 's2':
       return {
         tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 会话（{d}%）' }),
