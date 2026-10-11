@@ -612,6 +612,8 @@ try {
     ),
   );
   assert.equal(report.errors.length, 0, 'Browser runtime errors');
+  assert.equal(forcedFailures.length, 0, 'Forced read was cancelled before completion');
+  assert.equal(forcedInFlight.size, 0, 'Forced reads still in flight at completion');
   report.passed = true;
   report.finalized = true;
   save();
