@@ -11,6 +11,7 @@ const state = vi.hoisted(() => ({
   compare: false,
   date: '30day' as string | undefined,
   dateMode: undefined as string | undefined,
+  invalidDate: false,
   push: vi.fn(),
   replace: vi.fn(),
   updateParams: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock('./AnalysisLoading', async () => {
     },
     reportViews: {
       'human/overview': ({ report }: any) => <span>{report?.value}</span>,
+      'human/geo': ({ report }: any) => <span>{report?.value}</span>,
       logs: ({ report }: any) => <span>{report?.value}</span>,
       content: ({ report }: any) => {
         const actions = useReportActions();
@@ -79,6 +81,7 @@ vi.mock('@/lib/liekan/upstream/client', async () => {
     useWebsite: () => ({ id: 'site-a', name: '当前网站' }),
     useFeatureDateRange: () => ({
       dateRange: { startDate: new Date('2026-09-01'), endDate: new Date('2026-10-01') },
+      invalidDate: state.invalidDate,
     }),
     useNavigation: () => ({
       pathname: '/websites/site-a/geo/content',
@@ -119,6 +122,7 @@ beforeEach(() => {
   state.extraQuery = {};
   state.date = '30day';
   state.dateMode = undefined;
+  state.invalidDate = false;
   state.updateParams.mockReset().mockReturnValue('/next-range');
   state.push.mockReset();
   state.replace.mockReset();
@@ -534,4 +538,25 @@ it('clears dateMode, live and log pagination when an empty-state range shortcut 
     seek: undefined,
   });
   expect(state.push).toHaveBeenCalledWith('/next-range', { scroll: false });
+});
+
+it.each([
+  ['7 天', false, '7day'],
+  ['重置日期', true, '30day'],
+] as const)('returns geography to the first page through %s', async (button, invalid, date) => {
+  state.invalidDate = invalid;
+  state.extraQuery = { tp_cityBody: '2' };
+  state.get.mockResolvedValue(report('geography'));
+  render(
+    <QueryClientProvider client={client}>
+      <LiekanPage resource="human/geo" />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(await screen.findByRole('button', { name: button }));
+  expect(state.updateParams).toHaveBeenCalledWith(
+    expect.objectContaining({ date, tp_cityBody: undefined }),
+  );
+  expect(invalid ? state.replace : state.push).toHaveBeenCalledWith('/next-range', {
+    scroll: false,
+  });
 });

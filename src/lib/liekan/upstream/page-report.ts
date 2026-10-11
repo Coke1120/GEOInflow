@@ -1,3 +1,4 @@
+import { geographyVersion } from '../contracts/geography';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { type LiekanPageReport, pageReportParts, pageReportSchema } from '../contracts/page-report';
 import { parseReportQuery } from '../contracts/query';
@@ -84,7 +85,7 @@ export async function readPageReport(
           website.id,
         )
       )[0] || { data: '0', policy: '0' };
-  const key = analyticsCacheKey('page-report-v4-table-pages', [
+  const key = analyticsCacheKey(`page-report-v5-${geographyVersion}`, [
     process.env.DATABASE_URL,
     website.id,
     p,

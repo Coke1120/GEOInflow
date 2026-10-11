@@ -1,4 +1,5 @@
 'use client';
+import { EXPORT_MAX_BYTES, type ExportFrame } from '@/lib/liekan/contracts/exports';
 import { pageSearch, pageUrl } from '@/lib/liekan/contracts/page-url';
 import { useQueryClient } from '@tanstack/react-query';
 import Link from '@/components/liekan/Link';
@@ -22,7 +23,11 @@ import {
 } from '@/lib/liekan/upstream/client';
 import { useFreshnessLifecycle } from '@/lib/liekan/upstream/client-freshness';
 import { useDateRangeClock } from '@/lib/liekan/upstream/date-range-clock';
-import { featureApi, getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
+import {
+  featureApi,
+  getFeaturePreferences,
+  streamFeatureExport,
+} from '@/lib/liekan/upstream/features-client';
 import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
 import styles from '@/styles/liekan/Shell.module.css';
 import { AnalysisLoading, reportViews } from './AnalysisLoading';
@@ -105,6 +110,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   }, []);
   const [action, setAction] = useState('');
   const [message, setMessage] = useState('');
+  const geographyExport = useRef<AbortController>(null);
+  useEffect(() => () => geographyExport.current?.abort(), [pageIdentity]);
   const liveLogs = isLiveLogView(params, resource);
   const logEpoch = `${reading?.page.token}:${reading?.page.round}`;
   const logConditions = JSON.stringify([logPage, cursor, seek]);
@@ -176,6 +183,25 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     timezone,
     chartPeriod,
     ...(Object.keys(tablePages).length ? { tablePages } : {}),
+    ...(resource === 'human/geo'
+      ? {
+          search: search.slice(0, 200),
+          geoSort:
+            (
+              {
+                城市: 'city',
+                会话: 'sessions',
+                占比: 'share',
+                平均时长: 'duration',
+                跳出率: 'bounceRate',
+                转化率: 'conversionRate',
+                按时长: 'duration',
+              } as const
+            )[filter === '按时长' ? filter : sort.label] || 'sessions',
+          direction:
+            filter === '按时长' || sort.direction === -1 ? ('desc' as const) : ('asc' as const),
+        }
+      : {}),
     ...(resource === 'human/keywords'
       ? {
           ...keywordConditions,
@@ -453,6 +479,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const setRange = (start: number, end: number) =>
     router.push(
       updateParams({
+        ...(resource === 'human/geo' ? clearTablePages(tablePages) : {}),
         date: `range:${start}:${end}`,
         dateMode: undefined,
         live: undefined,
@@ -491,10 +518,65 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       seek: cursor ? (next ? 'after' : 'before') : undefined,
     });
   };
+  const exportGeography = async () => {
+    if (!report || geographyExport.current) return;
+    const controller = new AbortController(),
+      owner = pageIdentity;
+    geographyExport.current = controller;
+    let file: Extract<ExportFrame, { type: 'file' }> | undefined,
+      bytes = 0;
+    const chunks: Uint8Array[] = [];
+    setMessage('正在生成全部地域统计');
+    try {
+      await streamFeatureExport(
+        report.website.id,
+        {
+          kind: 'geography',
+          format: 'csv',
+          ...report.range,
+          search: reportInput.search || '',
+          geoSort: reportInput.geoSort || 'sessions',
+          direction: reportInput.direction || 'desc',
+        },
+        controller.signal,
+        frame => {
+          if (owner !== currentPage.current.identity || controller.signal.aborted) return;
+          if (frame.type === 'file') {
+            if (frame.size > EXPORT_MAX_BYTES) throw new Error('导出文件超过 50 MiB');
+            file = frame;
+          }
+          if (frame.type === 'chunk') {
+            const chunk = Uint8Array.from(atob(frame.data), char => char.charCodeAt(0));
+            bytes += chunk.length;
+            if (bytes > EXPORT_MAX_BYTES) throw new Error('导出文件超过 50 MiB');
+            chunks.push(chunk);
+          }
+        },
+      );
+      if (owner !== currentPage.current.identity || controller.signal.aborted) return;
+      if (!file || file.size !== bytes) throw new Error('导出传输未完成');
+      const url = URL.createObjectURL(new Blob(chunks as BlobPart[], { type: file.mime }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setMessage('已导出全部地域统计');
+    } catch (error) {
+      if (owner === currentPage.current.identity && !controller.signal.aborted)
+        setMessage(error instanceof Error ? error.message : '导出失败');
+    } finally {
+      if (geographyExport.current === controller) geographyExport.current = null;
+    }
+  };
   const onAction = (label: string) => {
     if (label.startsWith('导出')) {
       if (!report || query.isFetching) {
         setMessage('数据仍在读取，请稍后重试');
+        return;
+      }
+      if (resource === 'human/geo') {
+        void exportGeography();
         return;
       }
       const table =
@@ -601,6 +683,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         activeToken={activeQuickDateRange(params, '30day')}
         onSelect={token =>
           updateView({
+            ...(resource === 'human/geo' ? clearTablePages(tablePages) : {}),
             date: token,
             unit: undefined,
             offset: undefined,
@@ -716,9 +799,20 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           日期参数无效，当前使用默认日期范围。
           <button
             onClick={() =>
-              router.replace(updateParams({ date: '30day', unit: undefined, offset: undefined }), {
-                scroll: false,
-              })
+              router.replace(
+                updateParams({
+                  ...(resource === 'human/geo' ? clearTablePages(tablePages) : {}),
+                  date: '30day',
+                  unit: undefined,
+                  offset: undefined,
+                  dateMode: undefined,
+                  live: undefined,
+                  page: undefined,
+                  cursor: undefined,
+                  seek: undefined,
+                }),
+                { scroll: false },
+              )
             }
           >
             重置日期
@@ -760,6 +854,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                   // dateMode 必须一并清除：残留 default 会让 dynamicDefault 忽略新 token 并回写 range:。
                   onClick={() =>
                     updateView({
+                      ...(resource === 'human/geo' ? clearTablePages(tablePages) : {}),
                       date: value,
                       unit: undefined,
                       offset: undefined,
@@ -781,6 +876,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               type="button"
               onClick={() =>
                 updateView({
+                  ...clearTablePages(tablePages),
                   search: undefined,
                   page: undefined,
                   cursor: undefined,
@@ -888,6 +984,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               onSaved={afterSaved}
               onSearch={value =>
                 updateView({
+                  ...clearTablePages(tablePages),
                   search: value.slice(0, 200),
                   page: undefined,
                   cursor: undefined,

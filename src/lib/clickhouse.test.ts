@@ -41,6 +41,30 @@ describe('getDateSQL bucket formatting', () => {
 });
 
 describe('Liekan breakdown drill filters', () => {
+  test('keeps repeated city filters bounded before the ClickHouse parser', () => {
+    const parsed = clickhouse.parseFilters(
+      Object.fromEntries(Array.from({ length: 58 }, (_, i) => [i ? `city${i}` : 'city', 'c.an'])),
+    );
+    expect(Buffer.byteLength(parsed.filterQuery)).toBeLessThan(40 * 1024);
+  });
+  test('fits compound city conditions inside the default ClickHouse query size', () => {
+    const parsed = clickhouse.parseFilters({
+      city: 're.^Xian$',
+      city1: 'nre.^Suzhou$',
+      city2: 'c.西安',
+      drill_city: 'eq.西安',
+      cohort_city: 'eq.Chengdu',
+    });
+    expect(Buffer.byteLength(parsed.filterQuery + parsed.cohortQuery)).toBeLessThan(240 * 1024);
+  });
+  test('expands saved city aliases in equality, exclusion and drill parameters', () => {
+    for (const key of ['city', 'drill_city']) {
+      for (const operator of ['eq', 'neq']) {
+        const parsed = clickhouse.parseFilters({ [key]: `${operator}.Xian,Chengdu` });
+        expect(parsed.queryParams[key]).toEqual(['西安', '成都', 'Xian', 'Chengdu']);
+      }
+    }
+  });
   test('matches null and empty dimensions as a mandatory drill condition', () => {
     const parsed = clickhouse.parseFilters({
       country: 'eq.CN',
@@ -55,7 +79,9 @@ describe('Liekan breakdown drill filters', () => {
   });
   test('retains normal literal filtering and normalized country drill values', () => {
     const literal = clickhouse.parseFilters({ country: 'empty.' });
-    expect(literal.filterQuery).toContain('upper(website_event.country)) IN {country:Array(String)}');
+    expect(literal.filterQuery).toContain(
+      'upper(website_event.country)) IN {country:Array(String)}',
+    );
     expect(literal.queryParams).toMatchObject({ country: ['EMPTY.'] });
     const drill = clickhouse.parseFilters({ drill_country: 'eq.CN' });
     expect(drill.queryParams).toMatchObject({ drill_country: ['CN', 'TW', 'TWN'] });
@@ -64,25 +90,25 @@ describe('Liekan breakdown drill filters', () => {
     const parsed = clickhouse.parseFilters({ region: `${operator}.CN-71` });
     expect(parsed.queryParams).toMatchObject({ region: ['CN-71'] });
     expect(parsed.filterQuery).toContain("upper(website_event.country) in ('TW', 'TWN')");
-    expect(parsed.filterQuery).toContain("'CN-71', website_event.region)");
+    expect(parsed.filterQuery).toContain("'CN-71', if(");
     expect(parsed.filterQuery).toContain(
       operator === 'eq' ? 'IN {region:Array(String)}' : 'NOT IN {region:Array(String)}',
     );
   });
   test('normalizes legacy province drills and keeps mainland filters separate', () => {
     const parsed = clickhouse.parseFilters({ drill_region: 'eq.TWN-KHH', region: 'eq.CN-SH' });
-    expect(parsed.queryParams).toMatchObject({ drill_region: ['CN-71'], region: ['CN-SH'] });
+    expect(parsed.queryParams).toMatchObject({ drill_region: ['CN-71'], region: ['CN-31'] });
     expect(parsed.filterQuery).toContain('IN {drill_region:Array(String)}');
   });
   test.each(['c', 'dnc', 're', 'nre'])('keeps saved province %s filters compatible', operator => {
     const parsed = clickhouse.parseFilters({ region: `${operator}.CN-TPE` });
     const join = ['c', 're'].includes(operator) ? 'or' : 'and';
-    expect(parsed.filterQuery).toContain(` ${join} `);
-    expect(parsed.filterQuery).toContain("'CN-71', website_event.region)");
     expect(parsed.filterQuery).toContain(
-      operator.includes('re')
-        ? "match(coalesce(website_event.region, "
-        : 'positionCaseInsensitive(coalesce(website_event.region, ',
+      operator === 'dnc' || operator === 'nre' ? 'not arrayExists' : 'and arrayExists',
+    );
+    expect(parsed.filterQuery).toContain("'CN-71', if(");
+    expect(parsed.filterQuery).toContain(
+      operator.includes('re') ? 'match(alias, ' : 'positionCaseInsensitiveUTF8(alias, ',
     );
   });
 });

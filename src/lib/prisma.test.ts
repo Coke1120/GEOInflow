@@ -121,15 +121,13 @@ test('native aggregates use the request timezone when SQL parameters omit it', a
 });
 
 test('equivalent native SQL bindings share a key across worker and HTTP metadata', async () => {
-  const read = vi
-    .spyOn(analyticsCache, 'read')
-    .mockResolvedValue({
-      value: [{ count: 1 }],
-      generatedAt: Date.now(),
-      expiresAt: Date.now() + 30000,
-      status: 'hit',
-      tier: 'memory',
-    });
+  const read = vi.spyOn(analyticsCache, 'read').mockResolvedValue({
+    value: [{ count: 1 }],
+    generatedAt: Date.now(),
+    expiresAt: Date.now() + 30000,
+    status: 'hit',
+    tier: 'memory',
+  });
   try {
     await withQueryCacheHeaders(async () => {
       bindCacheRequest(
@@ -283,14 +281,14 @@ describe('Liekan breakdown drill filters', () => {
     const parsed = prisma.parseFilters({ region: `${operator}.CN-71` });
     expect(parsed.queryParams).toMatchObject({ region: ['CN-71'] });
     expect(parsed.filterQuery).toContain("upper(session.country) in ('TW', 'TWN')");
-    expect(parsed.filterQuery).toContain("then 'CN-71' else session.region end");
+    expect(parsed.filterQuery).toContain("then 'CN-71' when");
     expect(parsed.filterQuery).toContain(
       operator === 'eq' ? '= ANY({{region}})' : '!= ALL({{region}})',
     );
   });
   test('normalizes legacy province drills and keeps mainland filters separate', () => {
     const parsed = prisma.parseFilters({ drill_region: 'eq.TW-TPE', region: 'eq.CN-SH' });
-    expect(parsed.queryParams).toMatchObject({ drill_region: ['CN-71'], region: ['CN-SH'] });
+    expect(parsed.queryParams).toMatchObject({ drill_region: ['CN-71'], region: ['CN-31'] });
     expect(parsed.filterQuery).toContain('= ANY({{drill_region}})');
   });
   test.each([
@@ -300,8 +298,11 @@ describe('Liekan breakdown drill filters', () => {
     ['nre', '^CN-TPE$', 'and', '!~*'],
   ])('keeps saved province %s filters compatible', (operator, value, join, comparison) => {
     const parsed = prisma.parseFilters({ region: `${operator}.${value}` });
-    expect(parsed.filterQuery).toContain(` ${join} coalesce(session.region, `);
-    expect(parsed.filterQuery).toContain(` ${comparison} {{region}})`);
+    expect(parsed.filterQuery).toContain(
+      operator === 'dnc' || operator === 'nre' ? 'not exists' : 'and exists',
+    );
+    expect(parsed.filterQuery).toContain('or session.region');
+    expect(parsed.filterQuery).toContain(` ${operator.includes('re') ? '~*' : 'ilike'} {{region}}`);
     expect(parsed.filterQuery).toContain("then 'CN-71'");
   });
 });

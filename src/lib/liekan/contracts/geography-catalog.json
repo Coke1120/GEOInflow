@@ -1,0 +1,4748 @@
+{
+  "version": "2026-10-11.1",
+  "license": "CC-BY-4.0",
+  "attribution": "GeoNames",
+  "sources": [
+    {
+      "url": "https://download.geonames.org/export/dump/CN.zip",
+      "sha256": "09dd67aaac8f6f9920a08eb8f2a61d8203aec96160053be9c658a4ed329a1916"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/TW.zip",
+      "sha256": "f72dcf2985ed61e0963e496745ee0475b8426ff39597b30cb3c700ab992ce87f"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/HK.zip",
+      "sha256": "4f7088d3275880a36ef6959fcbb4a528e88c52d5b75a665e1273034622fd5090"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/MO.zip",
+      "sha256": "02e9541fc26bc48f301e2c5c8bbd6b3cbd0abc437395625cffe65341219a4188"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/alternateNamesV2.zip",
+      "sha256": "436a8231d14aaf4b27d1e5d69b88837eb2563fb7b14553d8845091cb642a4d65"
+    },
+    {
+      "url": "https://download.geonames.org/export/dump/admin1CodesASCII.txt",
+      "sha256": "1da92a6323a5fec3176f3f743bf4cf4040fd56a876da55e46fbca23c863aa60a"
+    }
+  ],
+  "provinces": [
+    {
+      "code": "CN-11",
+      "alias": "CN-BJ",
+      "name": "北京",
+      "geonamesAdmin1": "22"
+    },
+    {
+      "code": "CN-12",
+      "alias": "CN-TJ",
+      "name": "天津",
+      "geonamesAdmin1": "28"
+    },
+    {
+      "code": "CN-13",
+      "alias": "CN-HE",
+      "name": "河北",
+      "geonamesAdmin1": "10"
+    },
+    {
+      "code": "CN-14",
+      "alias": "CN-SX",
+      "name": "山西",
+      "geonamesAdmin1": "24"
+    },
+    {
+      "code": "CN-15",
+      "alias": "CN-NM",
+      "name": "内蒙古",
+      "geonamesAdmin1": "20"
+    },
+    {
+      "code": "CN-21",
+      "alias": "CN-LN",
+      "name": "辽宁",
+      "geonamesAdmin1": "19"
+    },
+    {
+      "code": "CN-22",
+      "alias": "CN-JL",
+      "name": "吉林",
+      "geonamesAdmin1": "05"
+    },
+    {
+      "code": "CN-23",
+      "alias": "CN-HL",
+      "name": "黑龙江",
+      "geonamesAdmin1": "08"
+    },
+    {
+      "code": "CN-31",
+      "alias": "CN-SH",
+      "name": "上海",
+      "geonamesAdmin1": "23"
+    },
+    {
+      "code": "CN-32",
+      "alias": "CN-JS",
+      "name": "江苏",
+      "geonamesAdmin1": "04"
+    },
+    {
+      "code": "CN-33",
+      "alias": "CN-ZJ",
+      "name": "浙江",
+      "geonamesAdmin1": "02"
+    },
+    {
+      "code": "CN-34",
+      "alias": "CN-AH",
+      "name": "安徽",
+      "geonamesAdmin1": "01"
+    },
+    {
+      "code": "CN-35",
+      "alias": "CN-FJ",
+      "name": "福建",
+      "geonamesAdmin1": "07"
+    },
+    {
+      "code": "CN-36",
+      "alias": "CN-JX",
+      "name": "江西",
+      "geonamesAdmin1": "03"
+    },
+    {
+      "code": "CN-37",
+      "alias": "CN-SD",
+      "name": "山东",
+      "geonamesAdmin1": "25"
+    },
+    {
+      "code": "CN-41",
+      "alias": "CN-HA",
+      "name": "河南",
+      "geonamesAdmin1": "09"
+    },
+    {
+      "code": "CN-42",
+      "alias": "CN-HB",
+      "name": "湖北",
+      "geonamesAdmin1": "12"
+    },
+    {
+      "code": "CN-43",
+      "alias": "CN-HN",
+      "name": "湖南",
+      "geonamesAdmin1": "11"
+    },
+    {
+      "code": "CN-44",
+      "alias": "CN-GD",
+      "name": "广东",
+      "geonamesAdmin1": "30"
+    },
+    {
+      "code": "CN-45",
+      "alias": "CN-GX",
+      "name": "广西",
+      "geonamesAdmin1": "16"
+    },
+    {
+      "code": "CN-46",
+      "alias": "CN-HI",
+      "name": "海南",
+      "geonamesAdmin1": "31"
+    },
+    {
+      "code": "CN-50",
+      "alias": "CN-CQ",
+      "name": "重庆",
+      "geonamesAdmin1": "33"
+    },
+    {
+      "code": "CN-51",
+      "alias": "CN-SC",
+      "name": "四川",
+      "geonamesAdmin1": "32"
+    },
+    {
+      "code": "CN-52",
+      "alias": "CN-GZ",
+      "name": "贵州",
+      "geonamesAdmin1": "18"
+    },
+    {
+      "code": "CN-53",
+      "alias": "CN-YN",
+      "name": "云南",
+      "geonamesAdmin1": "29"
+    },
+    {
+      "code": "CN-54",
+      "alias": "CN-XZ",
+      "name": "西藏",
+      "geonamesAdmin1": "14"
+    },
+    {
+      "code": "CN-61",
+      "alias": "CN-SN",
+      "name": "陕西",
+      "geonamesAdmin1": "26"
+    },
+    {
+      "code": "CN-62",
+      "alias": "CN-GS",
+      "name": "甘肃",
+      "geonamesAdmin1": "15"
+    },
+    {
+      "code": "CN-63",
+      "alias": "CN-QH",
+      "name": "青海",
+      "geonamesAdmin1": "06"
+    },
+    {
+      "code": "CN-64",
+      "alias": "CN-NX",
+      "name": "宁夏",
+      "geonamesAdmin1": "21"
+    },
+    {
+      "code": "CN-65",
+      "alias": "CN-XJ",
+      "name": "新疆",
+      "geonamesAdmin1": "13"
+    },
+    {
+      "code": "CN-71",
+      "alias": "CN-TW",
+      "name": "台湾",
+      "geonamesAdmin1": null
+    },
+    {
+      "code": "CN-91",
+      "alias": "CN-HK",
+      "name": "香港",
+      "geonamesAdmin1": null
+    },
+    {
+      "code": "CN-92",
+      "alias": "CN-MO",
+      "name": "澳门",
+      "geonamesAdmin1": null
+    }
+  ],
+  "cities": [
+    {
+      "id": 1279681,
+      "country": "CN",
+      "region": "CN-54",
+      "name": "曲水",
+      "aliases": [
+        "Quxu",
+        "曲水"
+      ]
+    },
+    {
+      "id": 1279715,
+      "country": "CN",
+      "region": "CN-54",
+      "name": "日喀则",
+      "aliases": [
+        "Rikaze",
+        "日喀则",
+        "日喀则市"
+      ]
+    },
+    {
+      "id": 1279945,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "酒泉",
+      "aliases": [
+        "Jiuquan",
+        "酒泉",
+        "酒泉市"
+      ]
+    },
+    {
+      "id": 1280003,
+      "country": "CN",
+      "region": "CN-54",
+      "name": "噶尔县",
+      "aliases": [
+        "Gar",
+        "噶尔县"
+      ]
+    },
+    {
+      "id": 1280281,
+      "country": "CN",
+      "region": "CN-54",
+      "name": "昌都",
+      "aliases": [
+        "Qamdo",
+        "昌都",
+        "昌都市"
+      ]
+    },
+    {
+      "id": 1280517,
+      "country": "CN",
+      "region": "CN-54",
+      "name": "那曲",
+      "aliases": [
+        "Nagqu",
+        "那曲",
+        "那曲市"
+      ]
+    },
+    {
+      "id": 1280623,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "芒市",
+      "aliases": [
+        "Mangshi",
+        "芒市",
+        "芒市市"
+      ]
+    },
+    {
+      "id": 1280737,
+      "country": "CN",
+      "region": "CN-54",
+      "name": "拉萨",
+      "aliases": [
+        "Lhasa",
+        "拉萨",
+        "拉萨市"
+      ]
+    },
+    {
+      "id": 1280849,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "喀什",
+      "aliases": [
+        "Kashgar",
+        "喀什",
+        "喀什市"
+      ]
+    },
+    {
+      "id": 1280957,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "嘉峪关",
+      "aliases": [
+        "Jiayuguan",
+        "嘉峪关",
+        "嘉峪关市"
+      ]
+    },
+    {
+      "id": 1281018,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "和田",
+      "aliases": [
+        "Hotan",
+        "和田",
+        "和田市",
+        "Hetian"
+      ]
+    },
+    {
+      "id": 1281105,
+      "country": "CN",
+      "region": "CN-63",
+      "name": "玉树",
+      "aliases": [
+        "Yushu",
+        "玉树",
+        "玉树市"
+      ]
+    },
+    {
+      "id": 1281184,
+      "country": "CN",
+      "region": "CN-63",
+      "name": "格尔木",
+      "aliases": [
+        "Golmud",
+        "Ge'ermu",
+        "格尔木",
+        "格尔木市"
+      ]
+    },
+    {
+      "id": 1281378,
+      "country": "CN",
+      "region": "CN-63",
+      "name": "德令哈",
+      "aliases": [
+        "Delingha",
+        "德令哈",
+        "德令哈市"
+      ]
+    },
+    {
+      "id": 1281673,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "保山",
+      "aliases": [
+        "Baoshan",
+        "保山",
+        "保山市"
+      ]
+    },
+    {
+      "id": 1281743,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "阿图什",
+      "aliases": [
+        "Artux",
+        "阿图什",
+        "阿图什市"
+      ]
+    },
+    {
+      "id": 1529102,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "乌鲁木齐",
+      "aliases": [
+        "UEruemqi",
+        "Urumqi",
+        "Ürümqi",
+        "乌鲁木齐",
+        "乌鲁木齐市"
+      ]
+    },
+    {
+      "id": 1529114,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "吐鲁番",
+      "aliases": [
+        "Turpan",
+        "吐鲁番",
+        "吐鲁番市"
+      ]
+    },
+    {
+      "id": 1529167,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "塔城",
+      "aliases": [
+        "Tacheng",
+        "塔城",
+        "塔城市"
+      ]
+    },
+    {
+      "id": 1529195,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "石河子",
+      "aliases": [
+        "Shihezi",
+        "石河子",
+        "石河子市"
+      ]
+    },
+    {
+      "id": 1529376,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "库尔勒",
+      "aliases": [
+        "Korla",
+        "库尔勒",
+        "库尔勒市"
+      ]
+    },
+    {
+      "id": 1529401,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "克拉玛依",
+      "aliases": [
+        "Karamay",
+        "克拉玛依",
+        "克拉玛依市"
+      ]
+    },
+    {
+      "id": 1529435,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "伊宁",
+      "aliases": [
+        "Ghulja",
+        "伊宁",
+        "伊宁市",
+        "Yining"
+      ]
+    },
+    {
+      "id": 1529484,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "哈密",
+      "aliases": [
+        "Hami",
+        "哈密",
+        "哈密市"
+      ]
+    },
+    {
+      "id": 1529569,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "昌吉",
+      "aliases": [
+        "Changji",
+        "昌吉",
+        "昌吉市"
+      ]
+    },
+    {
+      "id": 1529650,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "阿勒泰",
+      "aliases": [
+        "Altay",
+        "阿勒泰",
+        "阿勒泰市",
+        "Aletai"
+      ]
+    },
+    {
+      "id": 1529660,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "阿克苏",
+      "aliases": [
+        "Aqsu",
+        "阿克苏",
+        "阿克苏市"
+      ]
+    },
+    {
+      "id": 1665196,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "斗六",
+      "aliases": [
+        "Douliu",
+        "斗六",
+        "斗六市"
+      ]
+    },
+    {
+      "id": 1668295,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "台东",
+      "aliases": [
+        "Taitung",
+        "台东",
+        "台東",
+        "臺東"
+      ]
+    },
+    {
+      "id": 1668341,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "台北",
+      "aliases": [
+        "Taipei",
+        "台北",
+        "台北市",
+        "臺北",
+        "臺北市"
+      ]
+    },
+    {
+      "id": 1668347,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "太保",
+      "aliases": [
+        "Taibao",
+        "太保",
+        "太保市"
+      ]
+    },
+    {
+      "id": 1668353,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "新营",
+      "aliases": [
+        "Xinying",
+        "新营",
+        "新營"
+      ]
+    },
+    {
+      "id": 1668355,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "台南",
+      "aliases": [
+        "Tainan",
+        "台南",
+        "台南市",
+        "臺南",
+        "臺南市"
+      ]
+    },
+    {
+      "id": 1668396,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "丰原",
+      "aliases": [
+        "Fengyuan",
+        "丰原",
+        "豐原"
+      ]
+    },
+    {
+      "id": 1668399,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "台中",
+      "aliases": [
+        "Taichung",
+        "台中",
+        "台中市",
+        "臺中市",
+        "臺中"
+      ]
+    },
+    {
+      "id": 1670029,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "板桥",
+      "aliases": [
+        "Banqiao",
+        "板桥",
+        "板橋"
+      ]
+    },
+    {
+      "id": 1670481,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "屏东",
+      "aliases": [
+        "Pingtung",
+        "屏东",
+        "屏東",
+        "屏東市"
+      ]
+    },
+    {
+      "id": 1671566,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "南投",
+      "aliases": [
+        "Nantou",
+        "南投",
+        "南投市"
+      ]
+    },
+    {
+      "id": 1671971,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "苗栗",
+      "aliases": [
+        "Miaoli",
+        "苗栗"
+      ]
+    },
+    {
+      "id": 1672228,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "马公",
+      "aliases": [
+        "Magong",
+        "马公",
+        "馬公"
+      ]
+    },
+    {
+      "id": 1673816,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "凤山",
+      "aliases": [
+        "Fengshan",
+        "凤山",
+        "鳳山"
+      ]
+    },
+    {
+      "id": 1673820,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "高雄",
+      "aliases": [
+        "Kaohsiung",
+        "高雄",
+        "高雄市"
+      ]
+    },
+    {
+      "id": 1674199,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "宜兰",
+      "aliases": [
+        "Yilan",
+        "宜兰"
+      ]
+    },
+    {
+      "id": 1674504,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "花莲",
+      "aliases": [
+        "Hualien City",
+        "花莲",
+        "花蓮市",
+        "花蓮"
+      ]
+    },
+    {
+      "id": 1675151,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "新竹",
+      "aliases": [
+        "Hsinchu",
+        "新竹",
+        "新竹市"
+      ]
+    },
+    {
+      "id": 1677112,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "竹北",
+      "aliases": [
+        "Zhubei",
+        "竹北",
+        "竹北市"
+      ]
+    },
+    {
+      "id": 1678008,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "金城",
+      "aliases": [
+        "Jincheng",
+        "金城"
+      ]
+    },
+    {
+      "id": 1678228,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "基隆",
+      "aliases": [
+        "Keelung",
+        "基隆",
+        "基隆市"
+      ]
+    },
+    {
+      "id": 1678836,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "嘉义",
+      "aliases": [
+        "Chiayi City",
+        "嘉义",
+        "嘉義市",
+        "嘉義"
+      ]
+    },
+    {
+      "id": 1679136,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "彰化",
+      "aliases": [
+        "Chang-hua",
+        "彰化"
+      ]
+    },
+    {
+      "id": 1783621,
+      "country": "CN",
+      "region": "CN-52",
+      "name": "遵义",
+      "aliases": [
+        "Zunyi",
+        "遵义",
+        "遵义市",
+        "遵義",
+        "遵義市"
+      ]
+    },
+    {
+      "id": 1783633,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "邹城",
+      "aliases": [
+        "Zoucheng",
+        "邹城",
+        "邹城市"
+      ]
+    },
+    {
+      "id": 1783683,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "资阳",
+      "aliases": [
+        "Ziyang",
+        "资阳",
+        "资阳市"
+      ]
+    },
+    {
+      "id": 1783745,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "自贡",
+      "aliases": [
+        "Zigong",
+        "自贡",
+        "自贡市"
+      ]
+    },
+    {
+      "id": 1783763,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "株洲",
+      "aliases": [
+        "Zhuzhou",
+        "株洲",
+        "株洲市"
+      ]
+    },
+    {
+      "id": 1783873,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "驻马店",
+      "aliases": [
+        "Zhumadian",
+        "驻马店",
+        "驻马店市"
+      ]
+    },
+    {
+      "id": 1784130,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "周口",
+      "aliases": [
+        "Zhoukou",
+        "周口",
+        "周口市"
+      ]
+    },
+    {
+      "id": 1784185,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "玉溪",
+      "aliases": [
+        "Yuxi",
+        "玉溪",
+        "玉溪市"
+      ]
+    },
+    {
+      "id": 1784285,
+      "country": "CN",
+      "region": "CN-64",
+      "name": "中卫",
+      "aliases": [
+        "Zhongwei",
+        "中卫",
+        "中卫市"
+      ]
+    },
+    {
+      "id": 1784642,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "镇江",
+      "aliases": [
+        "Zhenjiang",
+        "镇江",
+        "镇江市"
+      ]
+    },
+    {
+      "id": 1784658,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "郑州",
+      "aliases": [
+        "Zhengzhou",
+        "郑州",
+        "郑州市"
+      ]
+    },
+    {
+      "id": 1784841,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "昭通",
+      "aliases": [
+        "Zhaotong",
+        "昭通",
+        "昭通市"
+      ]
+    },
+    {
+      "id": 1784853,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "肇庆",
+      "aliases": [
+        "Zhaoqing",
+        "肇庆",
+        "肇庆市"
+      ]
+    },
+    {
+      "id": 1784990,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "湛江",
+      "aliases": [
+        "Zhanjiang",
+        "湛江",
+        "湛江市"
+      ]
+    },
+    {
+      "id": 1785018,
+      "country": "CN",
+      "region": "CN-35",
+      "name": "漳州",
+      "aliases": [
+        "Zhangzhou",
+        "漳州",
+        "漳州市"
+      ]
+    },
+    {
+      "id": 1785036,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "张掖",
+      "aliases": [
+        "Zhangye",
+        "张掖",
+        "张掖市"
+      ]
+    },
+    {
+      "id": 1785286,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "淄博",
+      "aliases": [
+        "Zibo",
+        "淄博",
+        "淄博市"
+      ]
+    },
+    {
+      "id": 1785294,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "安阳",
+      "aliases": [
+        "Anyang",
+        "安阳",
+        "安阳市"
+      ]
+    },
+    {
+      "id": 1785453,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "枣庄",
+      "aliases": [
+        "Zaozhuang",
+        "枣庄",
+        "枣庄市"
+      ]
+    },
+    {
+      "id": 1785710,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "景洪",
+      "aliases": [
+        "Jinghong",
+        "景洪",
+        "景洪市"
+      ]
+    },
+    {
+      "id": 1785725,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "云浮",
+      "aliases": [
+        "Yunfu",
+        "云浮",
+        "云浮市"
+      ]
+    },
+    {
+      "id": 1785738,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "运城",
+      "aliases": [
+        "Yuncheng",
+        "运城",
+        "运城市"
+      ]
+    },
+    {
+      "id": 1785777,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "榆林",
+      "aliases": [
+        "Yulinshi",
+        "榆林",
+        "榆林市",
+        "Yulin"
+      ]
+    },
+    {
+      "id": 1786112,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "河源",
+      "aliases": [
+        "Heyuan",
+        "河源",
+        "河源市"
+      ]
+    },
+    {
+      "id": 1786217,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "永州",
+      "aliases": [
+        "Yongzhou",
+        "永州",
+        "永州市"
+      ]
+    },
+    {
+      "id": 1786419,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "益阳",
+      "aliases": [
+        "Yiyang",
+        "益阳",
+        "益阳市"
+      ]
+    },
+    {
+      "id": 1786577,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "鹰潭",
+      "aliases": [
+        "Yingtan",
+        "鹰潭",
+        "鹰潭市"
+      ]
+    },
+    {
+      "id": 1786657,
+      "country": "CN",
+      "region": "CN-64",
+      "name": "银川",
+      "aliases": [
+        "Yinchuan",
+        "银川",
+        "银川市"
+      ]
+    },
+    {
+      "id": 1786746,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "宜春",
+      "aliases": [
+        "Yichun",
+        "宜春",
+        "宜春市"
+      ]
+    },
+    {
+      "id": 1786764,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "宜昌",
+      "aliases": [
+        "Yichang",
+        "宜昌",
+        "宜昌市"
+      ]
+    },
+    {
+      "id": 1786770,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "宜宾",
+      "aliases": [
+        "Yibin",
+        "宜宾",
+        "宜宾市",
+        "宜賓",
+        "宜賓市"
+      ]
+    },
+    {
+      "id": 1787093,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "烟台",
+      "aliases": [
+        "Yantai",
+        "烟台",
+        "烟台市"
+      ]
+    },
+    {
+      "id": 1787227,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "扬州",
+      "aliases": [
+        "Yangzhou",
+        "扬州",
+        "扬州市"
+      ]
+    },
+    {
+      "id": 1787351,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "阳泉",
+      "aliases": [
+        "Yangquan",
+        "阳泉",
+        "阳泉市"
+      ]
+    },
+    {
+      "id": 1787746,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "盐城",
+      "aliases": [
+        "Yancheng",
+        "盐城",
+        "盐城市"
+      ]
+    },
+    {
+      "id": 1787765,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "延安",
+      "aliases": [
+        "Yan'an",
+        "Yan’an",
+        "延安",
+        "延安市"
+      ]
+    },
+    {
+      "id": 1787816,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "雅安",
+      "aliases": [
+        "Ya'an",
+        "雅安",
+        "雅安市"
+      ]
+    },
+    {
+      "id": 1787858,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "上饶",
+      "aliases": [
+        "Shangrao",
+        "上饶",
+        "上饶市"
+      ]
+    },
+    {
+      "id": 1788046,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "许昌",
+      "aliases": [
+        "Xuchang",
+        "许昌",
+        "许昌市"
+      ]
+    },
+    {
+      "id": 1788081,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "宣城",
+      "aliases": [
+        "Xuancheng",
+        "宣城",
+        "宣城市"
+      ]
+    },
+    {
+      "id": 1788450,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "忻州",
+      "aliases": [
+        "Xinzhou",
+        "忻州",
+        "忻州市"
+      ]
+    },
+    {
+      "id": 1788508,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "新余",
+      "aliases": [
+        "Xinyu",
+        "新余",
+        "新余市"
+      ]
+    },
+    {
+      "id": 1788534,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "信阳",
+      "aliases": [
+        "Xinyang",
+        "信阳",
+        "信阳市"
+      ]
+    },
+    {
+      "id": 1788572,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "新乡",
+      "aliases": [
+        "Xinxiang",
+        "新乡",
+        "新乡市"
+      ]
+    },
+    {
+      "id": 1788852,
+      "country": "CN",
+      "region": "CN-63",
+      "name": "西宁",
+      "aliases": [
+        "Xining",
+        "西宁",
+        "西宁市"
+      ]
+    },
+    {
+      "id": 1788927,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "邢台",
+      "aliases": [
+        "Xingtai",
+        "邢台",
+        "邢台市"
+      ]
+    },
+    {
+      "id": 1789065,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "安康",
+      "aliases": [
+        "Ankang",
+        "安康",
+        "安康市"
+      ]
+    },
+    {
+      "id": 1789647,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "西昌",
+      "aliases": [
+        "Xichang",
+        "西昌",
+        "西昌市"
+      ]
+    },
+    {
+      "id": 1790254,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "孝感",
+      "aliases": [
+        "Xiaogan",
+        "孝感",
+        "孝感市"
+      ]
+    },
+    {
+      "id": 1790353,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "咸阳",
+      "aliases": [
+        "Xianyang",
+        "咸阳",
+        "咸阳市"
+      ]
+    },
+    {
+      "id": 1790396,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "咸宁",
+      "aliases": [
+        "Xianning",
+        "咸宁",
+        "咸宁市"
+      ]
+    },
+    {
+      "id": 1790437,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "珠海",
+      "aliases": [
+        "Zhuhai",
+        "珠海",
+        "珠海市"
+      ]
+    },
+    {
+      "id": 1790492,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "湘潭",
+      "aliases": [
+        "Xiangtan",
+        "湘潭",
+        "湘潭市"
+      ]
+    },
+    {
+      "id": 1790587,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "襄阳",
+      "aliases": [
+        "Xiangyang",
+        "襄阳",
+        "襄阳市"
+      ]
+    },
+    {
+      "id": 1790630,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "西安",
+      "aliases": [
+        "Xi'an",
+        "Xian",
+        "Xi’an",
+        "西安",
+        "西安市"
+      ]
+    },
+    {
+      "id": 1790645,
+      "country": "CN",
+      "region": "CN-35",
+      "name": "厦门",
+      "aliases": [
+        "Xiamen",
+        "厦门",
+        "厦门市"
+      ]
+    },
+    {
+      "id": 1790840,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "梧州",
+      "aliases": [
+        "Wuzhou",
+        "梧州",
+        "梧州市"
+      ]
+    },
+    {
+      "id": 1790842,
+      "country": "CN",
+      "region": "CN-64",
+      "name": "吴忠",
+      "aliases": [
+        "Wuzhong",
+        "吴忠",
+        "吴忠市"
+      ]
+    },
+    {
+      "id": 1790923,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "无锡",
+      "aliases": [
+        "Wuxi",
+        "无锡",
+        "无锡市"
+      ]
+    },
+    {
+      "id": 1791121,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "常德",
+      "aliases": [
+        "Changde",
+        "常德",
+        "常德市"
+      ]
+    },
+    {
+      "id": 1791236,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "芜湖",
+      "aliases": [
+        "Wuhu",
+        "芜湖",
+        "芜湖市"
+      ]
+    },
+    {
+      "id": 1791247,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "武汉",
+      "aliases": [
+        "Wuhan",
+        "武汉",
+        "武汉市"
+      ]
+    },
+    {
+      "id": 1791249,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "乌海",
+      "aliases": [
+        "Wuhai",
+        "乌海",
+        "乌海市"
+      ]
+    },
+    {
+      "id": 1791388,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "温州",
+      "aliases": [
+        "Wenzhou",
+        "温州",
+        "温州市"
+      ]
+    },
+    {
+      "id": 1791636,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "渭南",
+      "aliases": [
+        "Weinan",
+        "渭南",
+        "渭南市"
+      ]
+    },
+    {
+      "id": 1791673,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "威海",
+      "aliases": [
+        "Weihai",
+        "威海",
+        "威海市"
+      ]
+    },
+    {
+      "id": 1791681,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "潍坊",
+      "aliases": [
+        "Weifang",
+        "潍坊",
+        "潍坊市"
+      ]
+    },
+    {
+      "id": 1791779,
+      "country": "CN",
+      "region": "CN-46",
+      "name": "万宁",
+      "aliases": [
+        "Wanning",
+        "万宁",
+        "万宁市"
+      ]
+    },
+    {
+      "id": 1792359,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "黄山",
+      "aliases": [
+        "Huangshan",
+        "黄山",
+        "黄山市"
+      ]
+    },
+    {
+      "id": 1792592,
+      "country": "CN",
+      "region": "CN-52",
+      "name": "铜仁",
+      "aliases": [
+        "Tongren",
+        "铜仁",
+        "铜仁市"
+      ]
+    },
+    {
+      "id": 1792621,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "铜陵",
+      "aliases": [
+        "Tongling",
+        "铜陵",
+        "铜陵市"
+      ]
+    },
+    {
+      "id": 1792892,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "天水",
+      "aliases": [
+        "Tianshui",
+        "天水",
+        "天水市"
+      ]
+    },
+    {
+      "id": 1792947,
+      "country": "CN",
+      "region": "CN-12",
+      "name": "天津",
+      "aliases": [
+        "Tianjin",
+        "天津",
+        "天津市"
+      ]
+    },
+    {
+      "id": 1793036,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "滕州",
+      "aliases": [
+        "Chengtangcun",
+        "滕州",
+        "滕州市"
+      ]
+    },
+    {
+      "id": 1793346,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "唐山",
+      "aliases": [
+        "Tangshan",
+        "唐山",
+        "唐山市"
+      ]
+    },
+    {
+      "id": 1793424,
+      "country": "CN",
+      "region": "CN-12",
+      "name": "塘沽",
+      "aliases": [
+        "Tanggu",
+        "塘沽"
+      ]
+    },
+    {
+      "id": 1793505,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "泰州",
+      "aliases": [
+        "Taizhou",
+        "泰州",
+        "泰州市"
+      ]
+    },
+    {
+      "id": 1793511,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "太原",
+      "aliases": [
+        "Taiyuan",
+        "太原",
+        "太原市"
+      ]
+    },
+    {
+      "id": 1793724,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "泰安",
+      "aliases": [
+        "Tai'an",
+        "Tai’an",
+        "泰安",
+        "泰安市"
+      ]
+    },
+    {
+      "id": 1793743,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "宿州",
+      "aliases": [
+        "Suzhou",
+        "宿州",
+        "宿州市"
+      ]
+    },
+    {
+      "id": 1793771,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "宿迁",
+      "aliases": [
+        "Suqian",
+        "宿迁",
+        "宿迁市"
+      ]
+    },
+    {
+      "id": 1793879,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "随州",
+      "aliases": [
+        "Suizhou",
+        "随州",
+        "随州市"
+      ]
+    },
+    {
+      "id": 1793900,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "遂宁",
+      "aliases": [
+        "Suining",
+        "遂宁",
+        "遂宁市"
+      ]
+    },
+    {
+      "id": 1794209,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "普洱",
+      "aliases": [
+        "Pu'er",
+        "普洱",
+        "普洱市",
+        "Puer",
+        "Pu’er"
+      ]
+    },
+    {
+      "id": 1794328,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "朔州",
+      "aliases": [
+        "Shuozhou",
+        "朔州",
+        "朔州市"
+      ]
+    },
+    {
+      "id": 1794903,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "十堰",
+      "aliases": [
+        "Shiyan",
+        "十堰",
+        "十堰市"
+      ]
+    },
+    {
+      "id": 1795270,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "石家庄",
+      "aliases": [
+        "Shijiazhuang",
+        "石家庄",
+        "石家庄市"
+      ]
+    },
+    {
+      "id": 1795565,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "深圳",
+      "aliases": [
+        "Shenzhen",
+        "深圳",
+        "深圳市"
+      ]
+    },
+    {
+      "id": 1795855,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "绍兴",
+      "aliases": [
+        "Shaoxing",
+        "绍兴",
+        "绍兴市"
+      ]
+    },
+    {
+      "id": 1795874,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "韶关",
+      "aliases": [
+        "Shaoguan",
+        "韶关",
+        "韶关市"
+      ]
+    },
+    {
+      "id": 1795928,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "汕尾",
+      "aliases": [
+        "Shanwei",
+        "汕尾",
+        "汕尾市"
+      ]
+    },
+    {
+      "id": 1795940,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "汕头",
+      "aliases": [
+        "Shantou",
+        "汕头",
+        "汕头市",
+        "汕頭",
+        "汕頭市"
+      ]
+    },
+    {
+      "id": 1796068,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "商洛",
+      "aliases": [
+        "Shangluo",
+        "商洛",
+        "商洛市"
+      ]
+    },
+    {
+      "id": 1796134,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "商丘",
+      "aliases": [
+        "Shangqiu",
+        "商丘",
+        "商丘市"
+      ]
+    },
+    {
+      "id": 1796236,
+      "country": "CN",
+      "region": "CN-31",
+      "name": "上海",
+      "aliases": [
+        "Shanghai",
+        "上海",
+        "上海市"
+      ]
+    },
+    {
+      "id": 1796556,
+      "country": "CN",
+      "region": "CN-46",
+      "name": "三亚",
+      "aliases": [
+        "Sanya",
+        "三亚",
+        "三亚市"
+      ]
+    },
+    {
+      "id": 1796663,
+      "country": "CN",
+      "region": "CN-35",
+      "name": "三明",
+      "aliases": [
+        "Sanming",
+        "三明",
+        "三明市"
+      ]
+    },
+    {
+      "id": 1796669,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "三门峡",
+      "aliases": [
+        "Sanmenxia",
+        "三门峡",
+        "三门峡市",
+        "三門峡市",
+        "三門峡"
+      ]
+    },
+    {
+      "id": 1797063,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "瑞安",
+      "aliases": [
+        "Rui'an",
+        "Rui’an",
+        "瑞安"
+      ]
+    },
+    {
+      "id": 1797091,
+      "country": "CN",
+      "region": "CN-63",
+      "name": "同仁",
+      "aliases": [
+        "Tongren",
+        "同仁",
+        "同仁市"
+      ]
+    },
+    {
+      "id": 1797121,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "揭阳",
+      "aliases": [
+        "Jieyang",
+        "揭阳",
+        "揭阳市"
+      ]
+    },
+    {
+      "id": 1797264,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "衢州",
+      "aliases": [
+        "Quzhou",
+        "衢州",
+        "衢州市"
+      ]
+    },
+    {
+      "id": 1797318,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "曲靖",
+      "aliases": [
+        "Qujing",
+        "曲靖",
+        "曲靖市"
+      ]
+    },
+    {
+      "id": 1797353,
+      "country": "CN",
+      "region": "CN-35",
+      "name": "泉州",
+      "aliases": [
+        "Quanzhou",
+        "泉州",
+        "泉州市"
+      ]
+    },
+    {
+      "id": 1797551,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "钦州",
+      "aliases": [
+        "Qinzhou",
+        "钦州",
+        "钦州市"
+      ]
+    },
+    {
+      "id": 1797595,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "秦皇岛",
+      "aliases": [
+        "Qinhuangdao",
+        "秦皇岛",
+        "秦皇岛市"
+      ]
+    },
+    {
+      "id": 1797873,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "淮安",
+      "aliases": [
+        "Huai'an",
+        "淮安",
+        "淮安市"
+      ]
+    },
+    {
+      "id": 1797929,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "青岛",
+      "aliases": [
+        "Qingdao",
+        "青岛",
+        "青岛市"
+      ]
+    },
+    {
+      "id": 1797945,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "清远",
+      "aliases": [
+        "Qingyuan",
+        "清远",
+        "清远市"
+      ]
+    },
+    {
+      "id": 1798403,
+      "country": "CN",
+      "region": "CN-63",
+      "name": "恰卜恰",
+      "aliases": [
+        "Qabqa",
+        "恰卜恰"
+      ]
+    },
+    {
+      "id": 1798449,
+      "country": "CN",
+      "region": "CN-35",
+      "name": "莆田",
+      "aliases": [
+        "Putian",
+        "莆田",
+        "莆田市"
+      ]
+    },
+    {
+      "id": 1798654,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "萍乡",
+      "aliases": [
+        "Pingxiang",
+        "萍乡",
+        "萍乡市",
+        "萍鄉"
+      ]
+    },
+    {
+      "id": 1798760,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "平凉",
+      "aliases": [
+        "Pingliang",
+        "平凉",
+        "平凉市"
+      ]
+    },
+    {
+      "id": 1798827,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "平顶山",
+      "aliases": [
+        "Pingdingshan",
+        "平顶山",
+        "平顶山市"
+      ]
+    },
+    {
+      "id": 1799194,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "广安",
+      "aliases": [
+        "Guang'an",
+        "Guang’an",
+        "广安",
+        "广安市"
+      ]
+    },
+    {
+      "id": 1799397,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "宁波",
+      "aliases": [
+        "Ningbo",
+        "宁波",
+        "宁波市"
+      ]
+    },
+    {
+      "id": 1799491,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "内江",
+      "aliases": [
+        "Neijiang",
+        "内江",
+        "内江市"
+      ]
+    },
+    {
+      "id": 1799629,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "南阳",
+      "aliases": [
+        "Nanyang",
+        "南阳",
+        "南阳市"
+      ]
+    },
+    {
+      "id": 1799722,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "南通",
+      "aliases": [
+        "Nantong",
+        "南通",
+        "南通市"
+      ]
+    },
+    {
+      "id": 1799846,
+      "country": "CN",
+      "region": "CN-35",
+      "name": "南平",
+      "aliases": [
+        "Nanping",
+        "南平",
+        "南平市"
+      ]
+    },
+    {
+      "id": 1799869,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "南宁",
+      "aliases": [
+        "Nanning",
+        "南宁",
+        "南宁市"
+      ]
+    },
+    {
+      "id": 1799962,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "南京",
+      "aliases": [
+        "Nanjing",
+        "南京",
+        "南京市"
+      ]
+    },
+    {
+      "id": 1800146,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "南充",
+      "aliases": [
+        "Nanchong",
+        "南充",
+        "南充市"
+      ]
+    },
+    {
+      "id": 1800163,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "南昌",
+      "aliases": [
+        "Nanchang",
+        "南昌",
+        "南昌市"
+      ]
+    },
+    {
+      "id": 1800627,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "绵阳",
+      "aliases": [
+        "Mianyang",
+        "绵阳",
+        "绵阳市"
+      ]
+    },
+    {
+      "id": 1800779,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "梅州",
+      "aliases": [
+        "Meizhou",
+        "梅州",
+        "梅州市"
+      ]
+    },
+    {
+      "id": 1800818,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "眉山",
+      "aliases": [
+        "Meishan",
+        "眉山",
+        "眉山市"
+      ]
+    },
+    {
+      "id": 1800829,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "吴川",
+      "aliases": [
+        "Wuchuan",
+        "吴川"
+      ]
+    },
+    {
+      "id": 1801180,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "茂名",
+      "aliases": [
+        "Maoming",
+        "茂名",
+        "茂名市"
+      ]
+    },
+    {
+      "id": 1801582,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "麻城",
+      "aliases": [
+        "Macheng",
+        "麻城",
+        "麻城市"
+      ]
+    },
+    {
+      "id": 1801620,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "马鞍山",
+      "aliases": [
+        "Ma'anshan",
+        "Ma’anshan",
+        "马鞍山",
+        "马鞍山市"
+      ]
+    },
+    {
+      "id": 1801640,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "泸州",
+      "aliases": [
+        "Luzhou",
+        "泸州",
+        "泸州市"
+      ]
+    },
+    {
+      "id": 1801792,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "洛阳",
+      "aliases": [
+        "Luoyang",
+        "洛阳",
+        "洛阳市"
+      ]
+    },
+    {
+      "id": 1801934,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "漯河",
+      "aliases": [
+        "Luohe",
+        "漯河",
+        "漯河市"
+      ]
+    },
+    {
+      "id": 1802171,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "康定",
+      "aliases": [
+        "Kangding",
+        "康定",
+        "康定市"
+      ]
+    },
+    {
+      "id": 1802206,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "六安",
+      "aliases": [
+        "Lu'an",
+        "Lu’an",
+        "六安",
+        "六安市"
+      ]
+    },
+    {
+      "id": 1802238,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "娄底",
+      "aliases": [
+        "Loudi",
+        "娄底",
+        "娄底市"
+      ]
+    },
+    {
+      "id": 1802276,
+      "country": "CN",
+      "region": "CN-35",
+      "name": "龙岩",
+      "aliases": [
+        "Longyan",
+        "龙岩",
+        "龙岩市",
+        "龍岩",
+        "龍岩市"
+      ]
+    },
+    {
+      "id": 1802940,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "普宁",
+      "aliases": [
+        "Puning",
+        "普宁",
+        "普宁市"
+      ]
+    },
+    {
+      "id": 1803245,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "丽水",
+      "aliases": [
+        "Lishui",
+        "丽水",
+        "丽水市"
+      ]
+    },
+    {
+      "id": 1803300,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "柳州",
+      "aliases": [
+        "Liuzhou",
+        "柳州",
+        "柳州市"
+      ]
+    },
+    {
+      "id": 1803318,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "临沂",
+      "aliases": [
+        "Linyi",
+        "临沂",
+        "临沂市"
+      ]
+    },
+    {
+      "id": 1803331,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "临夏",
+      "aliases": [
+        "Linxia",
+        "临夏",
+        "临夏市"
+      ]
+    },
+    {
+      "id": 1803567,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "临汾",
+      "aliases": [
+        "Linfen",
+        "临汾",
+        "临汾市"
+      ]
+    },
+    {
+      "id": 1803590,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "临沧",
+      "aliases": [
+        "Lincang",
+        "临沧",
+        "临沧市"
+      ]
+    },
+    {
+      "id": 1803834,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "聊城",
+      "aliases": [
+        "Liaocheng",
+        "聊城",
+        "聊城市"
+      ]
+    },
+    {
+      "id": 1803936,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "武威",
+      "aliases": [
+        "Wuwei",
+        "武威",
+        "武威市"
+      ]
+    },
+    {
+      "id": 1804120,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "廉江",
+      "aliases": [
+        "Lianjiang",
+        "廉江"
+      ]
+    },
+    {
+      "id": 1804153,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "乐山",
+      "aliases": [
+        "Leshan",
+        "乐山",
+        "乐山市"
+      ]
+    },
+    {
+      "id": 1804430,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "兰州",
+      "aliases": [
+        "Lanzhou",
+        "兰州",
+        "兰州市"
+      ]
+    },
+    {
+      "id": 1804540,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "廊坊",
+      "aliases": [
+        "Langfang",
+        "廊坊",
+        "廊坊市"
+      ]
+    },
+    {
+      "id": 1804609,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "来宾",
+      "aliases": [
+        "Laibin",
+        "来宾",
+        "来宾市"
+      ]
+    },
+    {
+      "id": 1804651,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "昆明",
+      "aliases": [
+        "Kunming",
+        "昆明",
+        "昆明市"
+      ]
+    },
+    {
+      "id": 1804866,
+      "country": "CN",
+      "region": "CN-52",
+      "name": "凯里",
+      "aliases": [
+        "Kaili",
+        "凯里",
+        "凯里市"
+      ]
+    },
+    {
+      "id": 1804879,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "开封",
+      "aliases": [
+        "Kaifeng",
+        "开封",
+        "开封市"
+      ]
+    },
+    {
+      "id": 1805012,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "济源",
+      "aliases": [
+        "Jiyuan",
+        "济源",
+        "济源市"
+      ]
+    },
+    {
+      "id": 1805179,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "九江",
+      "aliases": [
+        "Jiujiang",
+        "九江",
+        "九江市"
+      ]
+    },
+    {
+      "id": 1805270,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "吉首",
+      "aliases": [
+        "Jishou",
+        "吉首",
+        "吉首市"
+      ]
+    },
+    {
+      "id": 1805518,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "济宁",
+      "aliases": [
+        "Jining",
+        "济宁",
+        "济宁市"
+      ]
+    },
+    {
+      "id": 1805528,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "金华",
+      "aliases": [
+        "Jinhua",
+        "金华",
+        "金华市"
+      ]
+    },
+    {
+      "id": 1805540,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "荆州",
+      "aliases": [
+        "Jingzhou",
+        "荆州",
+        "荆州市"
+      ]
+    },
+    {
+      "id": 1805611,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "荆门",
+      "aliases": [
+        "Jingmen",
+        "荆门",
+        "荆门市"
+      ]
+    },
+    {
+      "id": 1805680,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "景德镇",
+      "aliases": [
+        "Jingdezhen",
+        "景德镇",
+        "景德镇市"
+      ]
+    },
+    {
+      "id": 1805733,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "金昌",
+      "aliases": [
+        "Jinchang",
+        "金昌",
+        "金昌市"
+      ]
+    },
+    {
+      "id": 1805741,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "晋城",
+      "aliases": [
+        "Jincheng",
+        "晋城",
+        "晋城市"
+      ]
+    },
+    {
+      "id": 1805753,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "济南",
+      "aliases": [
+        "Jinan",
+        "济南",
+        "济南市"
+      ]
+    },
+    {
+      "id": 1805953,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "嘉兴",
+      "aliases": [
+        "Jiaxing",
+        "嘉兴",
+        "嘉兴市",
+        "嘉興",
+        "嘉興市"
+      ]
+    },
+    {
+      "id": 1805987,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "焦作",
+      "aliases": [
+        "Jiaozuo",
+        "焦作",
+        "焦作市"
+      ]
+    },
+    {
+      "id": 1806097,
+      "country": "CN",
+      "region": "CN-35",
+      "name": "宁德",
+      "aliases": [
+        "Ningde",
+        "宁德",
+        "宁德市"
+      ]
+    },
+    {
+      "id": 1806299,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "江门",
+      "aliases": [
+        "Jiangmen",
+        "江门",
+        "江门市",
+        "江門",
+        "江門市"
+      ]
+    },
+    {
+      "id": 1806408,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "阳江",
+      "aliases": [
+        "Yangjiang",
+        "阳江",
+        "阳江市"
+      ]
+    },
+    {
+      "id": 1806445,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "吉安",
+      "aliases": [
+        "Ji'an",
+        "Ji’an",
+        "吉安",
+        "吉安市"
+      ]
+    },
+    {
+      "id": 1806466,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "广元",
+      "aliases": [
+        "Guangyuan",
+        "广元",
+        "广元市"
+      ]
+    },
+    {
+      "id": 1806488,
+      "country": "CN",
+      "region": "CN-46",
+      "name": "琼海",
+      "aliases": [
+        "Qionghai",
+        "琼海",
+        "琼海市"
+      ]
+    },
+    {
+      "id": 1806535,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "湖州",
+      "aliases": [
+        "Huzhou",
+        "湖州",
+        "湖州市"
+      ]
+    },
+    {
+      "id": 1806776,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "惠州",
+      "aliases": [
+        "Huizhou",
+        "惠州",
+        "惠州市"
+      ]
+    },
+    {
+      "id": 1807234,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "黄石",
+      "aliases": [
+        "Huangshi",
+        "黄石",
+        "黄石市"
+      ]
+    },
+    {
+      "id": 1807566,
+      "country": "CN",
+      "region": "CN-52",
+      "name": "兴义",
+      "aliases": [
+        "Xingyi",
+        "兴义",
+        "兴义市"
+      ]
+    },
+    {
+      "id": 1807681,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "淮南",
+      "aliases": [
+        "Huainan",
+        "淮南",
+        "淮南市"
+      ]
+    },
+    {
+      "id": 1807689,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "怀化",
+      "aliases": [
+        "Huaihua",
+        "怀化",
+        "怀化市"
+      ]
+    },
+    {
+      "id": 1807700,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "淮北",
+      "aliases": [
+        "Huaibei",
+        "淮北",
+        "淮北市"
+      ]
+    },
+    {
+      "id": 1808181,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "合作",
+      "aliases": [
+        "Hezuo",
+        "合作",
+        "合作市"
+      ]
+    },
+    {
+      "id": 1808198,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "菏泽",
+      "aliases": [
+        "Heze",
+        "菏泽",
+        "菏泽市"
+      ]
+    },
+    {
+      "id": 1808212,
+      "country": "CN",
+      "region": "CN-50",
+      "name": "合川",
+      "aliases": [
+        "Hechuan",
+        "合川"
+      ]
+    },
+    {
+      "id": 1808316,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "赫山",
+      "aliases": [
+        "Heshan",
+        "赫山"
+      ]
+    },
+    {
+      "id": 1808370,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "衡阳",
+      "aliases": [
+        "Hengyang",
+        "衡阳",
+        "衡阳市"
+      ]
+    },
+    {
+      "id": 1808392,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "衡水",
+      "aliases": [
+        "Hengshui",
+        "衡水",
+        "衡水市"
+      ]
+    },
+    {
+      "id": 1808722,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "合肥",
+      "aliases": [
+        "Hefei",
+        "合肥",
+        "合肥市"
+      ]
+    },
+    {
+      "id": 1808770,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "鹤壁",
+      "aliases": [
+        "Hebi",
+        "鹤壁",
+        "鹤壁市"
+      ]
+    },
+    {
+      "id": 1808857,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "汉中",
+      "aliases": [
+        "Hanzhong",
+        "汉中",
+        "汉中市"
+      ]
+    },
+    {
+      "id": 1808926,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "杭州",
+      "aliases": [
+        "Hangzhou",
+        "杭州",
+        "杭州市"
+      ]
+    },
+    {
+      "id": 1808956,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "长治",
+      "aliases": [
+        "Changzhi",
+        "长治",
+        "长治市"
+      ]
+    },
+    {
+      "id": 1808963,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "邯郸",
+      "aliases": [
+        "Handan",
+        "邯郸",
+        "邯郸市"
+      ]
+    },
+    {
+      "id": 1809078,
+      "country": "CN",
+      "region": "CN-46",
+      "name": "海口",
+      "aliases": [
+        "Haikou",
+        "海口",
+        "海口市"
+      ]
+    },
+    {
+      "id": 1809101,
+      "country": "CN",
+      "region": "CN-63",
+      "name": "海东",
+      "aliases": [
+        "Haidong",
+        "海东",
+        "海东市"
+      ]
+    },
+    {
+      "id": 1809152,
+      "country": "CN",
+      "region": "CN-64",
+      "name": "固原",
+      "aliases": [
+        "Guyuan",
+        "固原",
+        "固原市"
+      ]
+    },
+    {
+      "id": 1809461,
+      "country": "CN",
+      "region": "CN-52",
+      "name": "贵阳",
+      "aliases": [
+        "Guiyang",
+        "贵阳",
+        "贵阳市"
+      ]
+    },
+    {
+      "id": 1809498,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "桂林",
+      "aliases": [
+        "Guilin",
+        "桂林",
+        "桂林市"
+      ]
+    },
+    {
+      "id": 1809532,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "贵港",
+      "aliases": [
+        "Guigang",
+        "贵港",
+        "贵港市"
+      ]
+    },
+    {
+      "id": 1809858,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "广州",
+      "aliases": [
+        "Guangzhou",
+        "广州",
+        "广州市"
+      ]
+    },
+    {
+      "id": 1810638,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "赣州",
+      "aliases": [
+        "Ganzhou",
+        "赣州",
+        "赣州市"
+      ]
+    },
+    {
+      "id": 1810820,
+      "country": "CN",
+      "region": "CN-36",
+      "name": "抚州",
+      "aliases": [
+        "Fuzhou",
+        "抚州",
+        "抚州市"
+      ]
+    },
+    {
+      "id": 1810821,
+      "country": "CN",
+      "region": "CN-35",
+      "name": "福州",
+      "aliases": [
+        "Fuzhou",
+        "福州",
+        "福州市"
+      ]
+    },
+    {
+      "id": 1810845,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "阜阳",
+      "aliases": [
+        "Fuyang",
+        "阜阳",
+        "阜阳市"
+      ]
+    },
+    {
+      "id": 1811103,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "佛山",
+      "aliases": [
+        "Foshan",
+        "佛山",
+        "佛山市"
+      ]
+    },
+    {
+      "id": 1811720,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "恩施",
+      "aliases": [
+        "Enshi",
+        "恩施",
+        "恩施市"
+      ]
+    },
+    {
+      "id": 1811764,
+      "country": "CN",
+      "region": "CN-52",
+      "name": "都匀",
+      "aliases": [
+        "Duyun",
+        "都匀",
+        "都匀市"
+      ]
+    },
+    {
+      "id": 1812057,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "信宜",
+      "aliases": [
+        "Xinyi",
+        "信宜"
+      ]
+    },
+    {
+      "id": 1812101,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "东营",
+      "aliases": [
+        "Dongying",
+        "东营",
+        "东营市",
+        "東營"
+      ]
+    },
+    {
+      "id": 1812545,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "东莞",
+      "aliases": [
+        "Dongguan",
+        "东莞",
+        "东莞市",
+        "東莞",
+        "東莞市"
+      ]
+    },
+    {
+      "id": 1812749,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "定西",
+      "aliases": [
+        "Dingxi",
+        "定西",
+        "定西市"
+      ]
+    },
+    {
+      "id": 1812955,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "德州",
+      "aliases": [
+        "Dezhou",
+        "德州",
+        "德州市"
+      ]
+    },
+    {
+      "id": 1812961,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "德阳",
+      "aliases": [
+        "Deyang",
+        "德阳",
+        "德阳市"
+      ]
+    },
+    {
+      "id": 1813171,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "张家界",
+      "aliases": [
+        "Zhangjiajie",
+        "张家界",
+        "张家界市"
+      ]
+    },
+    {
+      "id": 1813253,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "丽江",
+      "aliases": [
+        "Lijiang",
+        "丽江",
+        "丽江市"
+      ]
+    },
+    {
+      "id": 1813325,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "达州",
+      "aliases": [
+        "Dazhou",
+        "达州",
+        "达州市"
+      ]
+    },
+    {
+      "id": 1813805,
+      "country": "CN",
+      "region": "CN-46",
+      "name": "儋州",
+      "aliases": [
+        "Danzhou",
+        "儋州",
+        "儋州市"
+      ]
+    },
+    {
+      "id": 1814087,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "大连",
+      "aliases": [
+        "Dalian",
+        "大连",
+        "大连市",
+        "大連",
+        "大連市"
+      ]
+    },
+    {
+      "id": 1814093,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "大理",
+      "aliases": [
+        "Dali",
+        "大理",
+        "大理市"
+      ]
+    },
+    {
+      "id": 1814757,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "滁州",
+      "aliases": [
+        "Chuzhou",
+        "滁州",
+        "滁州市"
+      ]
+    },
+    {
+      "id": 1814760,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "楚雄",
+      "aliases": [
+        "Chuxiong",
+        "楚雄",
+        "楚雄市"
+      ]
+    },
+    {
+      "id": 1814906,
+      "country": "CN",
+      "region": "CN-50",
+      "name": "重庆",
+      "aliases": [
+        "Chongqing",
+        "重庆",
+        "重庆市"
+      ]
+    },
+    {
+      "id": 1814934,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "池州",
+      "aliases": [
+        "Chizhou",
+        "池州",
+        "池州市"
+      ]
+    },
+    {
+      "id": 1815059,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "郴州",
+      "aliases": [
+        "Chenzhou",
+        "郴州"
+      ]
+    },
+    {
+      "id": 1815286,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "成都",
+      "aliases": [
+        "Chengdu",
+        "成都",
+        "成都市"
+      ]
+    },
+    {
+      "id": 1815395,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "潮州",
+      "aliases": [
+        "Chaozhou",
+        "潮州",
+        "潮州市"
+      ]
+    },
+    {
+      "id": 1815456,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "常州",
+      "aliases": [
+        "Changzhou",
+        "常州",
+        "常州市"
+      ]
+    },
+    {
+      "id": 1815577,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "长沙",
+      "aliases": [
+        "Changsha",
+        "长沙",
+        "长沙市"
+      ]
+    },
+    {
+      "id": 1816080,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "沧州",
+      "aliases": [
+        "Cangzhou",
+        "沧州",
+        "沧州市"
+      ]
+    },
+    {
+      "id": 1816234,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "亳州",
+      "aliases": [
+        "Bozhou",
+        "亳州",
+        "亳州市"
+      ]
+    },
+    {
+      "id": 1816269,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "百色",
+      "aliases": [
+        "Baise",
+        "百色",
+        "百色市"
+      ]
+    },
+    {
+      "id": 1816336,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "滨州",
+      "aliases": [
+        "Binzhou",
+        "滨州",
+        "滨州市"
+      ]
+    },
+    {
+      "id": 1816373,
+      "country": "CN",
+      "region": "CN-52",
+      "name": "毕节",
+      "aliases": [
+        "Bijie",
+        "毕节",
+        "毕节市"
+      ]
+    },
+    {
+      "id": 1816440,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "蚌埠",
+      "aliases": [
+        "Bengbu",
+        "蚌埠",
+        "蚌埠市"
+      ]
+    },
+    {
+      "id": 1816670,
+      "country": "CN",
+      "region": "CN-11",
+      "name": "北京",
+      "aliases": [
+        "Beijing",
+        "北京",
+        "北京市"
+      ]
+    },
+    {
+      "id": 1816705,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "北海",
+      "aliases": [
+        "Beihai",
+        "北海",
+        "北海市"
+      ]
+    },
+    {
+      "id": 1816821,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "巴彦浩特",
+      "aliases": [
+        "Bayan Hot",
+        "巴彦浩特"
+      ]
+    },
+    {
+      "id": 1816868,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "马尔康",
+      "aliases": [
+        "Barkam",
+        "马尔康",
+        "马尔康市"
+      ]
+    },
+    {
+      "id": 1816920,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "邵阳",
+      "aliases": [
+        "Shaoyang",
+        "邵阳",
+        "邵阳市"
+      ]
+    },
+    {
+      "id": 1816971,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "保定",
+      "aliases": [
+        "Baoding",
+        "保定",
+        "保定市"
+      ]
+    },
+    {
+      "id": 1817240,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "白银",
+      "aliases": [
+        "Baiyin",
+        "白银",
+        "白银市"
+      ]
+    },
+    {
+      "id": 1817720,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "上虞",
+      "aliases": [
+        "Shangyu",
+        "上虞",
+        "上虞市"
+      ]
+    },
+    {
+      "id": 1817968,
+      "country": "CN",
+      "region": "CN-52",
+      "name": "安顺",
+      "aliases": [
+        "Anshun",
+        "安顺",
+        "安顺市"
+      ]
+    },
+    {
+      "id": 1817993,
+      "country": "CN",
+      "region": "CN-34",
+      "name": "安庆",
+      "aliases": [
+        "Anqing",
+        "安庆",
+        "安庆市"
+      ]
+    },
+    {
+      "id": 1818209,
+      "country": "HK",
+      "region": null,
+      "name": "荃湾",
+      "aliases": [
+        "Tsuen Wan",
+        "荃湾",
+        "荃灣"
+      ]
+    },
+    {
+      "id": 1818225,
+      "country": "HK",
+      "region": null,
+      "name": "元朗",
+      "aliases": [
+        "Yuen Long",
+        "元朗"
+      ]
+    },
+    {
+      "id": 1818304,
+      "country": "HK",
+      "region": null,
+      "name": "黄大仙",
+      "aliases": [
+        "Wong Tai Sin",
+        "黄大仙"
+      ]
+    },
+    {
+      "id": 1818379,
+      "country": "HK",
+      "region": null,
+      "name": "湾仔",
+      "aliases": [
+        "Wan Chai",
+        "湾仔",
+        "灣仔"
+      ]
+    },
+    {
+      "id": 1818446,
+      "country": "HK",
+      "region": null,
+      "name": "屯门",
+      "aliases": [
+        "Tuen Mun",
+        "屯门",
+        "屯門"
+      ]
+    },
+    {
+      "id": 1818506,
+      "country": "HK",
+      "region": null,
+      "name": "将军澳",
+      "aliases": [
+        "Tseung Kwan O",
+        "将军澳"
+      ]
+    },
+    {
+      "id": 1818673,
+      "country": "HK",
+      "region": null,
+      "name": "大埔墟",
+      "aliases": [
+        "Tai Po",
+        "大埔墟"
+      ]
+    },
+    {
+      "id": 1818920,
+      "country": "HK",
+      "region": null,
+      "name": "沙田",
+      "aliases": [
+        "Sha Tin",
+        "沙田"
+      ]
+    },
+    {
+      "id": 1818953,
+      "country": "HK",
+      "region": null,
+      "name": "深水埗",
+      "aliases": [
+        "Sham Shui Po",
+        "深水埗"
+      ]
+    },
+    {
+      "id": 1819050,
+      "country": "HK",
+      "region": null,
+      "name": "西贡",
+      "aliases": [
+        "Sai Kung",
+        "西贡"
+      ]
+    },
+    {
+      "id": 1819353,
+      "country": "HK",
+      "region": null,
+      "name": "旺角",
+      "aliases": [
+        "Mong Kok",
+        "旺角"
+      ]
+    },
+    {
+      "id": 1819577,
+      "country": "HK",
+      "region": null,
+      "name": "观塘",
+      "aliases": [
+        "Kwun Tong",
+        "观塘"
+      ]
+    },
+    {
+      "id": 1819595,
+      "country": "HK",
+      "region": null,
+      "name": "葵涌",
+      "aliases": [
+        "Kwai Chung",
+        "葵涌"
+      ]
+    },
+    {
+      "id": 1819607,
+      "country": "HK",
+      "region": null,
+      "name": "九龙城",
+      "aliases": [
+        "Kowloon City",
+        "九龙城",
+        "九龍城"
+      ]
+    },
+    {
+      "id": 1819729,
+      "country": "HK",
+      "region": null,
+      "name": "香港",
+      "aliases": [
+        "Hong Kong",
+        "香港"
+      ]
+    },
+    {
+      "id": 1821274,
+      "country": "MO",
+      "region": null,
+      "name": "澳门",
+      "aliases": [
+        "Macau",
+        "澳门",
+        "Macao",
+        "澳門"
+      ]
+    },
+    {
+      "id": 1886760,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "苏州",
+      "aliases": [
+        "Suzhou",
+        "苏州",
+        "苏州市"
+      ]
+    },
+    {
+      "id": 1886762,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "舟山",
+      "aliases": [
+        "Zhoushan",
+        "舟山",
+        "舟山市"
+      ]
+    },
+    {
+      "id": 1916012,
+      "country": "CN",
+      "region": "CN-46",
+      "name": "五指山",
+      "aliases": [
+        "Wuzhishan",
+        "五指山",
+        "五指山市"
+      ]
+    },
+    {
+      "id": 1931681,
+      "country": "HK",
+      "region": null,
+      "name": "维多利亚",
+      "aliases": [
+        "Victoria",
+        "维多利亚"
+      ]
+    },
+    {
+      "id": 2033196,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "张家口",
+      "aliases": [
+        "Zhangjiakou",
+        "张家口",
+        "张家口市"
+      ]
+    },
+    {
+      "id": 2033370,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "营口",
+      "aliases": [
+        "Yingkou",
+        "营口",
+        "营口市",
+        "營口"
+      ]
+    },
+    {
+      "id": 2033413,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "伊春",
+      "aliases": [
+        "Yichun",
+        "伊春",
+        "伊春市"
+      ]
+    },
+    {
+      "id": 2033467,
+      "country": "CN",
+      "region": "CN-22",
+      "name": "延吉",
+      "aliases": [
+        "Yanji",
+        "延吉",
+        "延吉市"
+      ]
+    },
+    {
+      "id": 2034312,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "乌兰浩特",
+      "aliases": [
+        "Ulanhot",
+        "乌兰浩特",
+        "乌兰浩特市"
+      ]
+    },
+    {
+      "id": 2034400,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "通辽",
+      "aliases": [
+        "Tongliao",
+        "通辽",
+        "通辽市"
+      ]
+    },
+    {
+      "id": 2034414,
+      "country": "CN",
+      "region": "CN-22",
+      "name": "通化",
+      "aliases": [
+        "Tonghua",
+        "通化",
+        "通化市"
+      ]
+    },
+    {
+      "id": 2034439,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "铁岭",
+      "aliases": [
+        "Tieling",
+        "铁岭",
+        "铁岭市"
+      ]
+    },
+    {
+      "id": 2034655,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "绥化",
+      "aliases": [
+        "Suihua",
+        "绥化",
+        "绥化市"
+      ]
+    },
+    {
+      "id": 2034714,
+      "country": "CN",
+      "region": "CN-22",
+      "name": "四平",
+      "aliases": [
+        "Siping",
+        "四平",
+        "四平市"
+      ]
+    },
+    {
+      "id": 2034786,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "双鸭山",
+      "aliases": [
+        "Shuangyashan",
+        "双鸭山",
+        "双鸭山市"
+      ]
+    },
+    {
+      "id": 2034937,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "沈阳",
+      "aliases": [
+        "Shenyang",
+        "沈阳",
+        "沈阳市"
+      ]
+    },
+    {
+      "id": 2035261,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "七台河",
+      "aliases": [
+        "Qitaihe",
+        "七台河",
+        "七台河市"
+      ]
+    },
+    {
+      "id": 2035265,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "齐齐哈尔",
+      "aliases": [
+        "Qiqihar",
+        "齐齐哈尔",
+        "齐齐哈尔市"
+      ]
+    },
+    {
+      "id": 2035399,
+      "country": "CN",
+      "region": "CN-22",
+      "name": "松原",
+      "aliases": [
+        "Songyuan",
+        "松原",
+        "松原市"
+      ]
+    },
+    {
+      "id": 2035715,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "牡丹江",
+      "aliases": [
+        "Mudanjiang",
+        "牡丹江",
+        "牡丹江市"
+      ]
+    },
+    {
+      "id": 2036109,
+      "country": "CN",
+      "region": "CN-22",
+      "name": "辽源",
+      "aliases": [
+        "Longshan",
+        "辽源",
+        "辽源市",
+        "Liaoyuan"
+      ]
+    },
+    {
+      "id": 2036113,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "辽阳",
+      "aliases": [
+        "Liaoyang",
+        "辽阳",
+        "辽阳市"
+      ]
+    },
+    {
+      "id": 2036389,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "鸡西",
+      "aliases": [
+        "Jixi",
+        "鸡西",
+        "鸡西市"
+      ]
+    },
+    {
+      "id": 2036427,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "锦州",
+      "aliases": [
+        "Jinzhou",
+        "锦州",
+        "锦州市"
+      ]
+    },
+    {
+      "id": 2036502,
+      "country": "CN",
+      "region": "CN-22",
+      "name": "吉林",
+      "aliases": [
+        "Jilin",
+        "吉林",
+        "吉林市"
+      ]
+    },
+    {
+      "id": 2036581,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "佳木斯",
+      "aliases": [
+        "Jiamusi",
+        "佳木斯",
+        "佳木斯市"
+      ]
+    },
+    {
+      "id": 2036662,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "葫芦岛",
+      "aliases": [
+        "Huludao",
+        "葫芦岛",
+        "葫芦岛市"
+      ]
+    },
+    {
+      "id": 2036892,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "呼和浩特",
+      "aliases": [
+        "Hohhot",
+        "呼和浩特",
+        "呼和浩特市"
+      ]
+    },
+    {
+      "id": 2036973,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "黑河",
+      "aliases": [
+        "Heihe",
+        "黑河",
+        "黑河市"
+      ]
+    },
+    {
+      "id": 2036986,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "鹤岗",
+      "aliases": [
+        "Hegang",
+        "鹤岗",
+        "鹤岗市"
+      ]
+    },
+    {
+      "id": 2037013,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "哈尔滨",
+      "aliases": [
+        "Harbin",
+        "哈尔滨",
+        "哈尔滨市"
+      ]
+    },
+    {
+      "id": 2037346,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "阜新",
+      "aliases": [
+        "Fuxin",
+        "阜新",
+        "阜新市"
+      ]
+    },
+    {
+      "id": 2037355,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "抚顺",
+      "aliases": [
+        "Fushun",
+        "抚顺",
+        "抚顺市"
+      ]
+    },
+    {
+      "id": 2037799,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "大同",
+      "aliases": [
+        "Datong",
+        "大同",
+        "大同市"
+      ]
+    },
+    {
+      "id": 2037860,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "大庆",
+      "aliases": [
+        "Daqing",
+        "大庆",
+        "大庆市"
+      ]
+    },
+    {
+      "id": 2037886,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "丹东",
+      "aliases": [
+        "Dandong",
+        "丹东",
+        "丹东市",
+        "丹東",
+        "丹東市"
+      ]
+    },
+    {
+      "id": 2038067,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "赤峰",
+      "aliases": [
+        "Chifeng",
+        "赤峰",
+        "赤峰市"
+      ]
+    },
+    {
+      "id": 2038087,
+      "country": "CN",
+      "region": "CN-13",
+      "name": "承德",
+      "aliases": [
+        "Chengde",
+        "承德",
+        "承德市"
+      ]
+    },
+    {
+      "id": 2038120,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "朝阳",
+      "aliases": [
+        "Chaoyang",
+        "朝阳",
+        "朝阳市"
+      ]
+    },
+    {
+      "id": 2038180,
+      "country": "CN",
+      "region": "CN-22",
+      "name": "长春",
+      "aliases": [
+        "Changchun",
+        "长春",
+        "长春市"
+      ]
+    },
+    {
+      "id": 2038300,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "本溪",
+      "aliases": [
+        "Benxi",
+        "本溪",
+        "本溪市"
+      ]
+    },
+    {
+      "id": 2038432,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "包头",
+      "aliases": [
+        "Baotou",
+        "包头",
+        "包头市",
+        "包頭",
+        "包頭市"
+      ]
+    },
+    {
+      "id": 2038569,
+      "country": "CN",
+      "region": "CN-22",
+      "name": "白城",
+      "aliases": [
+        "Baicheng",
+        "白城",
+        "白城市"
+      ]
+    },
+    {
+      "id": 2038584,
+      "country": "CN",
+      "region": "CN-22",
+      "name": "白山",
+      "aliases": [
+        "Baishan",
+        "白山",
+        "白山市"
+      ]
+    },
+    {
+      "id": 2038632,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "鞍山",
+      "aliases": [
+        "Anshan",
+        "鞍山",
+        "鞍山市"
+      ]
+    },
+    {
+      "id": 6642286,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "鄂州",
+      "aliases": [
+        "E'zhou",
+        "E’zhou",
+        "鄂州",
+        "鄂州市"
+      ]
+    },
+    {
+      "id": 6696918,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "桃园",
+      "aliases": [
+        "Taoyuan",
+        "桃园",
+        "桃園市",
+        "桃園"
+      ]
+    },
+    {
+      "id": 6929460,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "攀枝花",
+      "aliases": [
+        "Panzhihua",
+        "攀枝花",
+        "攀枝花市"
+      ]
+    },
+    {
+      "id": 6958518,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "潭头",
+      "aliases": [
+        "Tantou",
+        "潭头"
+      ]
+    },
+    {
+      "id": 6986104,
+      "country": "CN",
+      "region": "CN-44",
+      "name": "中山",
+      "aliases": [
+        "Zhongshan",
+        "中山",
+        "中山市"
+      ]
+    },
+    {
+      "id": 7064006,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "铜川",
+      "aliases": [
+        "Tongchuan",
+        "铜川",
+        "铜川市"
+      ]
+    },
+    {
+      "id": 7552914,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "南竿",
+      "aliases": [
+        "Nangan",
+        "南竿"
+      ]
+    },
+    {
+      "id": 7576887,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "贺州",
+      "aliases": [
+        "Hezhou",
+        "贺州",
+        "贺州市"
+      ]
+    },
+    {
+      "id": 7601921,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "中兴新村",
+      "aliases": [
+        "Zhongxing New Village",
+        "中兴新村",
+        "中興新村"
+      ]
+    },
+    {
+      "id": 7910932,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "香格里拉",
+      "aliases": [
+        "Shangri-La",
+        "香格里拉",
+        "香格里拉市"
+      ]
+    },
+    {
+      "id": 7931312,
+      "country": "CN",
+      "region": "CN-63",
+      "name": "玛沁县",
+      "aliases": [
+        "Maqin County",
+        "玛沁县"
+      ]
+    },
+    {
+      "id": 8054802,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "锡林浩特",
+      "aliases": [
+        "Xilinhot",
+        "锡林浩特",
+        "锡林浩特市"
+      ]
+    },
+    {
+      "id": 8067345,
+      "country": "CN",
+      "region": "CN-54",
+      "name": "山南",
+      "aliases": [
+        "Lhoka",
+        "山南",
+        "山南市"
+      ]
+    },
+    {
+      "id": 8223932,
+      "country": "HK",
+      "region": null,
+      "name": "中环",
+      "aliases": [
+        "Central",
+        "中环"
+      ]
+    },
+    {
+      "id": 8307452,
+      "country": "CN",
+      "region": "CN-31",
+      "name": "黄浦",
+      "aliases": [
+        "Huangpu",
+        "黄浦"
+      ]
+    },
+    {
+      "id": 8335361,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "乌兰察布",
+      "aliases": [
+        "Ulanqab",
+        "乌兰察布",
+        "乌兰察布市"
+      ]
+    },
+    {
+      "id": 8347664,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "鄂尔多斯",
+      "aliases": [
+        "Ordos",
+        "鄂尔多斯",
+        "鄂尔多斯市"
+      ]
+    },
+    {
+      "id": 8400694,
+      "country": "CN",
+      "region": "CN-33",
+      "name": "台州",
+      "aliases": [
+        "Taizhou",
+        "台州",
+        "台州市"
+      ]
+    },
+    {
+      "id": 8505006,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "文山",
+      "aliases": [
+        "Wenshan City",
+        "文山",
+        "文山市"
+      ]
+    },
+    {
+      "id": 8521718,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "博乐",
+      "aliases": [
+        "Bole",
+        "博乐",
+        "博乐市"
+      ]
+    },
+    {
+      "id": 8533133,
+      "country": "CN",
+      "region": "CN-52",
+      "name": "六盘水",
+      "aliases": [
+        "Liupanshui",
+        "六盘水",
+        "六盘水市"
+      ]
+    },
+    {
+      "id": 8537264,
+      "country": "CN",
+      "region": "CN-42",
+      "name": "黄冈",
+      "aliases": [
+        "Huanggang",
+        "黄冈",
+        "黄冈市"
+      ]
+    },
+    {
+      "id": 9072919,
+      "country": "CN",
+      "region": "CN-37",
+      "name": "日照",
+      "aliases": [
+        "Rizhao",
+        "日照",
+        "日照市"
+      ]
+    },
+    {
+      "id": 9181182,
+      "country": "CN",
+      "region": "CN-41",
+      "name": "濮阳",
+      "aliases": [
+        "Puyang",
+        "濮阳",
+        "濮阳市"
+      ]
+    },
+    {
+      "id": 9931406,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "建水",
+      "aliases": [
+        "Jianshui",
+        "建水"
+      ]
+    },
+    {
+      "id": 10630003,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "徐州",
+      "aliases": [
+        "Xuzhou",
+        "徐州",
+        "徐州市"
+      ]
+    },
+    {
+      "id": 10794003,
+      "country": "CN",
+      "region": "CN-21",
+      "name": "盘锦",
+      "aliases": [
+        "Panjin",
+        "盘锦",
+        "盘锦市"
+      ]
+    },
+    {
+      "id": 10859300,
+      "country": "CN",
+      "region": "CN-32",
+      "name": "连云港",
+      "aliases": [
+        "Lianyungang",
+        "连云港",
+        "连云港市"
+      ]
+    },
+    {
+      "id": 10942283,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "晋中",
+      "aliases": [
+        "Jinzhong",
+        "晋中",
+        "晋中市"
+      ]
+    },
+    {
+      "id": 10942359,
+      "country": "CN",
+      "region": "CN-61",
+      "name": "宝鸡",
+      "aliases": [
+        "Baoji",
+        "宝鸡",
+        "宝鸡市"
+      ]
+    },
+    {
+      "id": 11778484,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "陇南",
+      "aliases": [
+        "Longnan",
+        "陇南",
+        "陇南市"
+      ]
+    },
+    {
+      "id": 11838258,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "巴彦淖尔",
+      "aliases": [
+        "Bayan Nur",
+        "巴彦淖尔",
+        "巴彦淖尔市"
+      ]
+    },
+    {
+      "id": 11995100,
+      "country": "CN",
+      "region": "CN-51",
+      "name": "巴中",
+      "aliases": [
+        "Bazhong",
+        "巴中",
+        "巴中市"
+      ]
+    },
+    {
+      "id": 12022102,
+      "country": "CN",
+      "region": "CN-65",
+      "name": "图木舒克",
+      "aliases": [
+        "Tumxuk",
+        "图木舒克",
+        "图木舒克市"
+      ]
+    },
+    {
+      "id": 12159964,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "崇左",
+      "aliases": [
+        "Chongzuo",
+        "崇左"
+      ]
+    },
+    {
+      "id": 12256566,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "玉林",
+      "aliases": [
+        "Yulin",
+        "玉林"
+      ]
+    },
+    {
+      "id": 12269572,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "防城港",
+      "aliases": [
+        "Fangchenggang",
+        "防城港",
+        "防城港市"
+      ]
+    },
+    {
+      "id": 12324556,
+      "country": "CN",
+      "region": "CN-64",
+      "name": "石嘴山",
+      "aliases": [
+        "Shizuishan",
+        "石嘴山",
+        "石嘴山市"
+      ]
+    },
+    {
+      "id": 12358476,
+      "country": "CN",
+      "region": "CN-45",
+      "name": "河池",
+      "aliases": [
+        "Hechi",
+        "河池",
+        "河池市"
+      ]
+    },
+    {
+      "id": 12359313,
+      "country": "CN",
+      "region": "CN-62",
+      "name": "庆阳",
+      "aliases": [
+        "Qingyang",
+        "庆阳",
+        "庆阳市"
+      ]
+    },
+    {
+      "id": 12382279,
+      "country": "CN",
+      "region": "CN-46",
+      "name": "三沙",
+      "aliases": [
+        "Sansha",
+        "三沙",
+        "三沙市"
+      ]
+    },
+    {
+      "id": 12446699,
+      "country": "CN",
+      "region": "CN-23",
+      "name": "大兴安岭",
+      "aliases": [
+        "Daxing'anling",
+        "Daxing’anling",
+        "大兴安岭"
+      ]
+    },
+    {
+      "id": 12548253,
+      "country": "CN",
+      "region": "CN-15",
+      "name": "呼伦贝尔",
+      "aliases": [
+        "Hulunbuir",
+        "呼伦贝尔",
+        "呼伦贝尔市"
+      ]
+    },
+    {
+      "id": 12908892,
+      "country": "CN",
+      "region": "CN-71",
+      "name": "新北",
+      "aliases": [
+        "New Taipei City",
+        "新北",
+        "新北市"
+      ]
+    },
+    {
+      "id": 13457912,
+      "country": "CN",
+      "region": "CN-43",
+      "name": "岳阳",
+      "aliases": [
+        "Yueyang",
+        "岳阳",
+        "岳阳市"
+      ]
+    },
+    {
+      "id": 13512502,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "蒙自",
+      "aliases": [
+        "Mengzi",
+        "蒙自",
+        "蒙自市"
+      ]
+    },
+    {
+      "id": 13512503,
+      "country": "CN",
+      "region": "CN-53",
+      "name": "泸水",
+      "aliases": [
+        "Lushui",
+        "泸水",
+        "泸水市"
+      ]
+    },
+    {
+      "id": 13512504,
+      "country": "CN",
+      "region": "CN-63",
+      "name": "西海镇",
+      "aliases": [
+        "Xihai Town",
+        "西海镇"
+      ]
+    },
+    {
+      "id": 13512505,
+      "country": "CN",
+      "region": "CN-14",
+      "name": "吕梁",
+      "aliases": [
+        "Lueliang",
+        "Lüliang",
+        "吕梁",
+        "吕梁市",
+        "Luliang"
+      ]
+    },
+    {
+      "id": 13512708,
+      "country": "CN",
+      "region": "CN-54",
+      "name": "林芝",
+      "aliases": [
+        "Nyingchi",
+        "林芝",
+        "Linzhi"
+      ]
+    },
+    {
+      "id": 13527314,
+      "country": "MO",
+      "region": null,
+      "name": "路氹城",
+      "aliases": [
+        "Cotai",
+        "路氹城"
+      ]
+    },
+    {
+      "id": 13527317,
+      "country": "MO",
+      "region": null,
+      "name": "大堂区",
+      "aliases": [
+        "Se",
+        "Sé",
+        "大堂区",
+        "大堂區"
+      ]
+    },
+    {
+      "id": 13608002,
+      "country": "CN",
+      "region": "CN-31",
+      "name": "奉贤",
+      "aliases": [
+        "Fengxiang",
+        "奉贤"
+      ]
+    }
+  ]
+}

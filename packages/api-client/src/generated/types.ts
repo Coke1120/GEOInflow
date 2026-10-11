@@ -11648,6 +11648,8 @@ export interface operations {
                   lastAt: string | null;
                   /** @description Domain of the referring page. */
                   referrerDomain: string | null;
+                  /** @description Region or subdivision of the visitor. */
+                  region?: string | null;
                   seconds: number | null;
                   /** @description Path portion of the page URL. */
                   urlPath: string | null;
@@ -16524,6 +16526,42 @@ export interface operations {
               direction?: 'asc' | 'desc';
               /** @description End of the date range as a Unix timestamp in milliseconds. */
               endAt: number;
+              /** @constant */
+              format: 'csv';
+              /**
+               * @default sessions
+               * @enum {string}
+               */
+              geoSort?:
+                | 'city'
+                | 'sessions'
+                | 'share'
+                | 'duration'
+                | 'bounceRate'
+                | 'conversionRate';
+              /** @constant */
+              kind: 'geography';
+              /**
+               * @description Search text used to filter results.
+               * @default
+               */
+              search?: string;
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /**
+               * @description IANA time zone used to interpret dates and group results, for example America/New_York.
+               * @default Asia/Shanghai
+               */
+              timezone?: string;
+            }
+          | {
+              /**
+               * @default desc
+               * @enum {string}
+               */
+              direction?: 'asc' | 'desc';
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
               /**
                * @default
                * @enum {string}
@@ -17150,6 +17188,8 @@ export interface operations {
               lastAt: string | null;
               /** @description Domain of the referring page. */
               referrerDomain: string | null;
+              /** @description Region or subdivision of the visitor. */
+              region?: string | null;
               seconds: number | null;
               /** @description Path portion of the page URL. */
               urlPath: string | null;
@@ -17308,6 +17348,8 @@ export interface operations {
               lastAt: string | null;
               /** @description Domain of the referring page. */
               referrerDomain: string | null;
+              /** @description Region or subdivision of the visitor. */
+              region?: string | null;
               seconds: number | null;
               /** @description Path portion of the page URL. */
               urlPath: string | null;
@@ -18347,6 +18389,7 @@ export interface operations {
         engine?: '360' | '' | 'Google' | 'Bing' | '百度' | '搜狗' | 'DuckDuckGo' | 'Yahoo';
         evidence?: '' | 'referrer' | 'utm' | 'none';
         filter?: '' | 'ai' | 'abnormal' | 'other';
+        geoSort?: 'city' | 'sessions' | 'share' | 'duration' | 'bounceRate' | 'conversionRate';
         keywordSnapshot?: string;
         /** @description Page number, starting at 1. */
         page?: number;
@@ -18590,6 +18633,7 @@ export interface operations {
         engine?: '360' | '' | 'Google' | 'Bing' | '百度' | '搜狗' | 'DuckDuckGo' | 'Yahoo';
         evidence?: '' | 'referrer' | 'utm' | 'none';
         filter?: '' | 'ai' | 'abnormal' | 'other';
+        geoSort?: 'city' | 'sessions' | 'share' | 'duration' | 'bounceRate' | 'conversionRate';
         keywordSnapshot?: string;
         /** @description Page number, starting at 1. */
         page?: number;

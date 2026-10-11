@@ -1,3 +1,4 @@
+import { cityValueOptions } from '@/lib/liekan/contracts/geography';
 import { useCountryNames } from '@/components/hooks/useCountryNames';
 import { useRegionNames } from '@/components/hooks/useRegionNames';
 import { useApi } from '../useApi';
@@ -49,9 +50,9 @@ export function useWebsiteValuesQuery({
   };
 
   return useQuery({
-    queryKey: ['websites:values', { websiteId, type, startDate, endDate, search }],
-    queryFn: ({ signal }: { signal?: AbortSignal } = {}) =>
-      get(
+    queryKey: ['websites:values', { websiteId, type, startDate, endDate, search, locale }],
+    queryFn: async ({ signal }: { signal?: AbortSignal } = {}) => {
+      const rows = await get(
         `/websites/${websiteId}/values`,
         {
           type,
@@ -61,7 +62,9 @@ export function useWebsiteValuesQuery({
         },
         {},
         signal,
-      ),
+      );
+      return type === 'city' ? cityValueOptions(rows, locale === 'zh-CN') : rows;
+    },
     enabled: !!(websiteId && type && startDate && endDate),
   });
 }

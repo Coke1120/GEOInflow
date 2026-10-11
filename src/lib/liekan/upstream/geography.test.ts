@@ -12,3 +12,11 @@ test('labels Taiwan records as China and the Taiwan province', () => {
   expect(countryName('JP')).toBe('日本');
   expect(regionName('CN-31')).toBe('上海');
 });
+
+test('shows the same simplified province label for historic letter and numeric codes', () => {
+  expect(regionName('CN-SD')).toBe('山东');
+  expect(regionName('CN-37')).toBe('山东');
+  expect(regionName('CN-SN')).toBe('陕西');
+  expect(regionName('CN-SX')).toBe('山西');
+  expect(regionName('CN-GX')).toBe('广西');
+});

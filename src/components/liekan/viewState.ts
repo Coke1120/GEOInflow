@@ -48,7 +48,7 @@ export function readViewState(params: Record<string, string>, resource: Resource
       : '';
   return {
     filter: filters[resource]?.includes(params.filter) ? params.filter : '',
-    search: resource === 'logs' ? (params.search || '').slice(0, 200) : '',
+    search: ['logs', 'human/geo'].includes(resource) ? (params.search || '').slice(0, 200) : '',
     logPage:
       resource === 'logs' && Number.isSafeInteger(page) && page > 0 && page <= 100000 ? page : 1,
     cursor,

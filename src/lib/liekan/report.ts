@@ -17,7 +17,13 @@ import {
   getHumanFacts,
   type HumanFact,
 } from './upstream/analytics';
-import { countryName, regionName } from './upstream/geography';
+import {
+  countryName,
+  regionName,
+  mergeGeography,
+  geographyTable,
+  geographyLabel,
+} from './contracts/geography';
 import {
   getContentImpact,
   getLogFacts,
@@ -51,7 +57,10 @@ function capTablePages(report: LiekanReport, tablePages: Record<string, number>,
     if (!always && !requested) continue;
     const rows = report.tables[table];
     if (!rows) continue;
-    const page = requested ?? 1;
+    const page =
+      table === 'cityBody'
+        ? Math.min(requested ?? 1, Math.max(1, Math.ceil(rows.length / tablePageSize)))
+        : (requested ?? 1);
     const start = (page - 1) * tablePageSize;
     report.tables[table] = rows.slice(start, start + tablePageSize);
     report.meta.tablePages = {
@@ -145,6 +154,7 @@ export async function buildReport(
   const h = stringifySafe(rawHuman),
     l = stringifySafe(rawLogs),
     days = Math.max(1, Math.ceil((p.endAt - p.startAt + 1) / 86400000));
+  h.geo = mergeGeography(h.geo);
   const t = h.totals;
   const humanState: DataState = t.visits ? 'available' : 'empty',
     logState: DataState =
@@ -329,14 +339,12 @@ export async function buildReport(
       ? `${Math.max(0, Math.floor((p.endAt - new Date(catalog.get(page.path).updatedAt).getTime()) / 86400000))} 天`
       : null,
   }));
-  r.tables.cityBody = h.geo.map(g => ({
-    city: g.city || g.region || g.country || '未知',
-    sessions: g.sessions,
-    share: pct(g.sessions, t.visits),
-    duration: g.duration,
-    bounceRate: pct(g.bounces, g.sessions),
-    conversionRate: h.goals.length ? pct(g.conversions, g.sessions) : null,
-  }));
+  r.tables.cityBody = geographyTable(
+    h.geo,
+    t.visits,
+    !!h.goals.length,
+    p.resource === 'human/geo' ? p : {},
+  );
   r.tables.srcBody = src;
   const searchEngines = summarizeSearchEngines(
     h.sources.map(source => ({ ...source, channel: channel(source) })),
@@ -812,7 +820,7 @@ export async function buildReport(
   );
   card('覆盖省份', regions.filter(g => g.name !== '未知').length);
   card('海外国家/地区', countries.length);
-  card('TOP1 城市', h.geo[0]?.city ?? null);
+  card('TOP1 城市', h.geo.find(g => g.city) ? geographyLabel(h.geo.find(g => g.city)) : null);
   card('海外 TOP1', countries[0] ? countryName(countries[0].name) : null);
   for (const label of ['直接访问', '传统搜索', 'AI 搜索引荐'])
     card(

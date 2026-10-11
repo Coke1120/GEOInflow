@@ -1,6 +1,6 @@
 import { BROWSERS, OS_NAMES } from '@/lib/constants';
 import { normalizeCountryCode, normalizeRegionCode } from '@/lib/country';
-import regions from '../../../public/iso-3166-2.json';
+import { useRegionNames } from './useRegionNames';
 import { useCountryNames } from './useCountryNames';
 import { useLanguageNames } from './useLanguageNames';
 import { useLocale } from './useLocale';
@@ -11,6 +11,7 @@ export function useFormat() {
   const { locale } = useLocale();
   const { countryNames } = useCountryNames(locale);
   const { languageNames } = useLanguageNames(locale);
+  const { getRegionName } = useRegionNames(locale);
 
   const formatOS = (value: string): string => {
     return OS_NAMES[value] || value;
@@ -34,9 +35,7 @@ export function useFormat() {
     const [country] = value?.split('-') || [];
     const normalizedCountry = normalizeCountryCode(country);
     const region = normalizeRegionCode(value, normalizedCountry);
-    const regionName = regions[region];
-
-    return regionName ? `${regionName}, ${countryNames[normalizedCountry]}` : region;
+    return getRegionName(region, normalizedCountry) || region;
   };
 
   const formatCity = (value: string, country?: string): string => {

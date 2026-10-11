@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { keywordConditionsSchema } from './keywords';
+import { geographySorts } from './geography';
 export const exportSections = ['summary', 'dimensions', 'events', 'sessions', 'config'] as const;
 const standardExportRequestSchema = z
   .object({
@@ -26,6 +27,21 @@ export const keywordExportRequestSchema = keywordConditionsSchema
     message: '日期范围上限 3 年',
   });
 export const exportRequestSchema = z.union([
+  z
+    .object({
+      kind: z.literal('geography'),
+      format: z.literal('csv'),
+      startAt: z.number().int().nonnegative(),
+      endAt: z.number().int().nonnegative(),
+      timezone: z.string().max(80).default('Asia/Shanghai'),
+      search: z.string().max(200).default(''),
+      geoSort: z.enum(geographySorts).default('sessions'),
+      direction: z.enum(['asc', 'desc']).default('desc'),
+    })
+    .strict()
+    .refine(p => p.endAt >= p.startAt && p.endAt - p.startAt <= 1096 * 86400000, {
+      message: '日期范围上限 3 年',
+    }),
   keywordExportRequestSchema,
   standardExportRequestSchema,
 ]);
