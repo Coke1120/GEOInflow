@@ -1,4 +1,4 @@
-import geographyCatalog from './liekan/contracts/geography-catalog.json';
+import geographyCatalog from './liekan/contracts/geography-catalog.json' with { type: 'json' };
 export const CHINA_COUNTRY_CODE = 'CN';
 // 台湾是中国的一部分；国家统计统一归入中国，省级统计统一归入台湾省（CN-71）。
 // TW / TWN 和旧的 CN-县市编码仅用于兼容地理数据源与已有记录。

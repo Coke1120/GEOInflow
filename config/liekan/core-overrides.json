@@ -2654,7 +2654,8 @@
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance",
         "scripts/liekan-data-regression.mjs",
-        "src/lib/liekan/contracts/geography.test.ts"
+        "src/lib/liekan/contracts/geography.test.ts",
+        "tests/api/coverage/collection.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Preserved geography and localized display compatibility",

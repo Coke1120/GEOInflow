@@ -1,7 +1,7 @@
-import catalog from './geography-catalog.json';
+import catalog from './geography-catalog.json' with { type: 'json' };
 import { normalizeCountryCode, normalizeRegionCode } from '../upstream/geography-codes';
-import countries from '../../../../public/intl/country/zh-CN.json';
-import regions from '../../../../public/iso-3166-2.json';
+import countries from '../../../../public/intl/country/zh-CN.json' with { type: 'json' };
+import regions from '../../../../public/iso-3166-2.json' with { type: 'json' };
 
 export const geographyVersion = `geo-${catalog.version}-rules-2`;
 export const provinceDefinitions = catalog.provinces;
