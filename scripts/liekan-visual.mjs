@@ -661,7 +661,7 @@ try {
       fullPage: true,
       style: screenshotStyle,
     });
-    const textExemptions = [
+    const originalTextExemptions = [
       ...(await exemptions(reference)),
       ...(await exemptions(actual)).map(rect => ({ ...rect, y: rect.y - verticalOffset })),
     ];
@@ -686,8 +686,56 @@ try {
         height: refGeometry.body.y,
       },
     ];
-    const { diff, ...fullPagePixels } = await pixelDiff(
+    const { diff: originalDiff, ...originalFullPagePixels } = await pixelDiff(
       `${out}/${name}-reference.png`,
+      `${out}/${name}-actual.png`,
+      [...originalTextExemptions, ...approvedNavigationRegions],
+      verticalOffset,
+    );
+    fs.writeFileSync(`${out}/${name}-original-diff.png`, Buffer.from(originalDiff, 'base64'));
+    // User-approved URL completion (2026-10-11): account for longer table values.
+    // Original hashes, geometry, charts and the original pixel comparison stay above.
+    const pageUrlChecks = [];
+    for (const [table, fields] of Object.entries(columns)) {
+      const pathIndex = fields.findIndex(([field]) => field === 'path');
+      if (pathIndex < 0) continue;
+      for (const [rowIndex, row] of (payload.tables[table] || []).entries()) {
+        if (typeof row.path !== 'string' || !row.path.startsWith('/') || row.path.startsWith('//'))
+          continue;
+        const href = new URL(row.path, `https://${payload.website.domain}`).href;
+        const cell = actual.locator(`#${table}>tr`).nth(rowIndex).locator('td').nth(pathIndex);
+        const link = cell.locator('a');
+        assert.equal(await link.count(), 1, `${name} ${table} page link missing`);
+        assert.equal(await link.textContent(), href, `${name} ${table} page URL text`);
+        assert.equal(
+          await link.getAttribute('href'),
+          href,
+          `${name} ${table} page URL destination`,
+        );
+        assert.equal(await link.getAttribute('target'), '_blank');
+        assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
+        await reference
+          .locator(`#${table}>tr`)
+          .nth(rowIndex)
+          .locator('td')
+          .nth(pathIndex)
+          .evaluate(
+            (el, { href, method }) => {
+              el.textContent = method ? `${method} ${href}` : href;
+            },
+            { href, method: table === 'logBody' ? row.method : undefined },
+          );
+        pageUrlChecks.push({ table, rowIndex, href });
+      }
+    }
+    const expectedReference = `${out}/${name}-page-urls-reference.png`;
+    await reference.screenshot({ path: expectedReference, fullPage: true, style: screenshotStyle });
+    const textExemptions = [
+      ...(await exemptions(reference)),
+      ...(await exemptions(actual)).map(rect => ({ ...rect, y: rect.y - verticalOffset })),
+    ];
+    const { diff, ...fullPagePixels } = await pixelDiff(
+      expectedReference,
       `${out}/${name}-actual.png`,
       [...textExemptions, ...approvedNavigationRegions],
       verticalOffset,
@@ -727,6 +775,8 @@ try {
       metricGeometry: differences,
       chartGeometry: chartSizes,
       chartPixels,
+      pageUrlChecks,
+      originalFullPagePixels,
       fullPagePixels,
       textExemptions,
       approvedNavigationRegions,

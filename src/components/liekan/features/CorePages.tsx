@@ -1036,6 +1036,7 @@ function WebsiteSettings() {
               key={site.id}
               websiteId={site.id}
               websiteName={site.name}
+              websiteDomain={site.domain}
               onClose={() => setDrawer('')}
             />
           ) : collectionActions.includes(drawer) ? (

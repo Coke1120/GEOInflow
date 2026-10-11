@@ -65,9 +65,9 @@ describe('server-paged detail tables', () => {
     renderTable('topBody', data, { ...baseActions, onTablePage });
     expect(screen.getByText('共 45 条')).toBeInTheDocument();
     expect(screen.getByText('第 2 / 3 页')).toBeInTheDocument();
-    expect(screen.getByText('/page-21')).toBeInTheDocument();
-    expect(screen.getByText('/page-40')).toBeInTheDocument();
-    expect(screen.queryByText('/page-1')).not.toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-21')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-40')).toBeInTheDocument();
+    expect(screen.queryByText('https://example.test/page-1')).not.toBeInTheDocument();
     await click(screen.getByRole('button', { name: '下一页' }));
     expect(onTablePage).toHaveBeenCalledTimes(1);
     expect(onTablePage).toHaveBeenCalledWith('topBody', 3);
@@ -81,7 +81,7 @@ describe('server-paged detail tables', () => {
     data.meta.tablePages = { topBody: { page: 1, pageSize: 20, total: 12 } };
     renderTable('topBody', data);
     expect(screen.queryByText(/共 \d+ 条/)).not.toBeInTheDocument();
-    expect(screen.getByText('/page-12')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-12')).toBeInTheDocument();
   });
 
   it('labels current-page-only filtering when local filters act on a slice', () => {
@@ -109,8 +109,8 @@ describe('server-paged detail tables', () => {
     renderTable('topBody', data);
     expect(screen.getByText('共 25 条')).toBeInTheDocument();
     expect(screen.getByText('第 1 / 2 页')).toBeInTheDocument();
-    expect(screen.queryByText('/page-21')).not.toBeInTheDocument();
+    expect(screen.queryByText('https://example.test/page-21')).not.toBeInTheDocument();
     await click(screen.getByRole('button', { name: '下一页' }));
-    expect(screen.getByText('/page-21')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-21')).toBeInTheDocument();
   });
 });
