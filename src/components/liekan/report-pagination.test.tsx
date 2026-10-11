@@ -64,13 +64,13 @@ describe('report detail table pagination', () => {
     renderTable('topBody', data);
     expect(screen.getByText('共 25 条')).toBeInTheDocument();
     expect(screen.getByText('第 1 / 2 页')).toBeInTheDocument();
-    expect(screen.getByText('/page-1')).toBeInTheDocument();
-    expect(screen.getByText('/page-20')).toBeInTheDocument();
-    expect(screen.queryByText('/page-21')).not.toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-1')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-20')).toBeInTheDocument();
+    expect(screen.queryByText('https://example.test/page-21')).not.toBeInTheDocument();
     await click(screen.getByRole('button', { name: '下一页' }));
     expect(screen.getByText('第 2 / 2 页')).toBeInTheDocument();
-    expect(screen.getByText('/page-25')).toBeInTheDocument();
-    expect(screen.queryByText('/page-20')).not.toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-25')).toBeInTheDocument();
+    expect(screen.queryByText('https://example.test/page-20')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '下一页' })).toBeDisabled();
     await click(screen.getByRole('button', { name: '上一页' }));
     expect(screen.getByText('第 1 / 2 页')).toBeInTheDocument();
@@ -82,7 +82,7 @@ describe('report detail table pagination', () => {
     data.tables.topBody = rows(20, '/page');
     renderTable('topBody', data);
     expect(screen.queryByText(/共 \d+ 条/)).not.toBeInTheDocument();
-    expect(screen.getByText('/page-20')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-20')).toBeInTheDocument();
   });
 
   it('returns to the first page when filter or query changes', async () => {
@@ -90,7 +90,7 @@ describe('report detail table pagination', () => {
     data.tables.topBody = rows(25, '/page');
     const view = renderTable('topBody', data);
     await click(screen.getByRole('button', { name: '下一页' }));
-    expect(screen.getByText('/page-21')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-21')).toBeInTheDocument();
     view.rerender(
       <ReportContext.Provider value={{ ...baseActions, filter: '按 PV' }}>
         <table>
@@ -99,9 +99,9 @@ describe('report detail table pagination', () => {
       </ReportContext.Provider>,
     );
     expect(screen.getByText('第 1 / 2 页')).toBeInTheDocument();
-    expect(screen.queryByText('/page-21')).not.toBeInTheDocument();
+    expect(screen.queryByText('https://example.test/page-21')).not.toBeInTheDocument();
     await click(screen.getByRole('button', { name: '下一页' }));
-    expect(screen.getByText('/page-21')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-21')).toBeInTheDocument();
     view.rerender(
       <ReportContext.Provider value={{ ...baseActions, query: 'page-1' }}>
         <table>
@@ -110,7 +110,7 @@ describe('report detail table pagination', () => {
       </ReportContext.Provider>,
     );
     expect(screen.queryByText(/共 \d+ 条/)).not.toBeInTheDocument();
-    expect(screen.getByText('/page-1')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/page-1')).toBeInTheDocument();
   });
 
   it('pages the AI blind-spot list the same way', async () => {
@@ -124,8 +124,8 @@ describe('report detail table pagination', () => {
     expect(screen.getByText('共 45 条')).toBeInTheDocument();
     expect(screen.getByText('第 1 / 3 页')).toBeInTheDocument();
     await click(screen.getByRole('button', { name: '下一页' }));
-    expect(screen.getByText('/blind-21')).toBeInTheDocument();
-    expect(screen.queryByText('/blind-20')).not.toBeInTheDocument();
+    expect(screen.getByText('https://example.test/blind-21')).toBeInTheDocument();
+    expect(screen.queryByText('https://example.test/blind-20')).not.toBeInTheDocument();
   });
 
   it('pages the spider preference list six entries at a time', async () => {
@@ -205,10 +205,10 @@ describe('log page windowed pagination', () => {
     const view = renderLogs(data, onLogsPage);
     expect(screen.getByText('共 220 条')).toBeInTheDocument();
     expect(screen.getByText('第 1 / 11 页')).toBeInTheDocument();
-    expect(screen.queryByText('GET /log-21')).not.toBeInTheDocument();
+    expect(screen.queryByText('https://example.test/log-21')).not.toBeInTheDocument();
     await click(screen.getByRole('button', { name: '下一页' }));
     expect(screen.getByText('第 2 / 11 页')).toBeInTheDocument();
-    expect(screen.getByText('GET /log-21')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/log-21')).toBeInTheDocument();
     expect(onLogsPage).not.toHaveBeenCalled();
     const refreshed = logsReport({ totalLogs: 220, page: 1, pageSize: 100, nextCursor: 'c2' });
     view.rerender(
@@ -273,6 +273,6 @@ describe('log page windowed pagination', () => {
     const data = logsReport({ totalLogs: 15, page: 1, pageSize: 100 });
     renderLogs(data, vi.fn());
     expect(screen.queryByText(/共 \d+ 条/)).not.toBeInTheDocument();
-    expect(screen.getByText('GET /log-15')).toBeInTheDocument();
+    expect(screen.getByText('https://example.test/log-15')).toBeInTheDocument();
   });
 });
