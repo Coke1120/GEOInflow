@@ -6,6 +6,7 @@ import { assertProductImports } from './liekan-boundaries.mjs';
 import { assertDialogContract } from './liekan-dialog-contract.mjs';
 import { assertManualReadPolicy } from './liekan-manual-read-contract.mjs';
 
+execFileSync(process.execPath, ['scripts/liekan-geography-catalog.mjs'], { stdio: 'inherit' });
 assertDialogContract();
 assertManualReadPolicy();
 

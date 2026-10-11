@@ -111,14 +111,18 @@ export function FilterRecord({
               searchValue={search}
               onSearch={handleSearch}
               renderValue={values =>
-                values.length > 0 ? values.map(v => formatValue(v, type)).join(', ') : undefined
+                values.length > 0
+                  ? values
+                      .map(v => items.find(item => item.value === v)?.label || formatValue(v, type))
+                      .join(', ')
+                  : undefined
               }
               renderEmptyState={() => (isLoading ? <Loading icon="dots" /> : <Empty />)}
               allowSearch
             >
-              {items.map(({ value }) => (
+              {items.map(({ value, label }) => (
                 <MultiSelectItem key={value} value={value}>
-                  {formatValue(value, type)}
+                  {label || formatValue(value, type)}
                 </MultiSelectItem>
               ))}
             </MultiSelect>

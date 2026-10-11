@@ -451,14 +451,17 @@ export function ReportRows({
   // 服务端分页模式：meta.tablePages 有键 = 该表已是服务端切片，页码/总数/页宽全部来自
   // meta；本地筛选/排序/搜索仅作用于当前页（页脚提示），翻页经 onTablePage 重新请求。
   const serverPage = meta?.tablePages?.[table];
-  const selected = selectRows(
-    report?.tables[table] || [],
-    a.filter,
-    a.sort,
-    table,
-    a.query,
-    value => pageUrl(value, report?.website.domain),
-  );
+  const selected =
+    serverPage && table === 'cityBody'
+      ? report?.tables[table] || []
+      : selectRows(
+          report?.tables[table] || [],
+          a.filter,
+          a.sort,
+          table,
+          a.query,
+          value => pageUrl(value, report?.website.domain),
+        );
   const perPage = typeof pageSize === 'number' && pageSize > 0 ? pageSize : 0;
   const paged = perPage > 0 || !!serverPage;
   const [page, setPage] = useState(1);
@@ -605,7 +608,9 @@ export function ReportRows({
                         : pages
                   }
                   label={
-                    serverPage && (a.filter || a.sort.label || a.query) ? '当前页内筛选' : undefined
+                    serverPage && table !== 'cityBody' && (a.filter || a.sort.label || a.query)
+                      ? '当前页内筛选'
+                      : undefined
                   }
                   onPrev={
                     serverPage

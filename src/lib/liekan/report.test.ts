@@ -111,6 +111,63 @@ beforeEach(() => {
   mocks.months.mockResolvedValue([]);
 });
 describe('report evidence states', () => {
+  it('merges historical geography before ranking, search and server pagination', async () => {
+    const human = await mocks.human();
+    human.totals.visits = 39;
+    const fact = (city, sessions, region = 'CN-SN') => ({
+      country: 'CN',
+      region,
+      city,
+      sessions,
+      duration: 10,
+      pv: sessions,
+      bounces: 0,
+      conversions: 0,
+    });
+    human.geo = [
+      fact(null, 8),
+      fact("Xi'an", 3),
+      fact('西安', 3, 'CN-61'),
+      ...Array.from({ length: 25 }, (_, i) => fact(`Unlisted City ${i}`, 1)),
+    ];
+    mocks.human.mockResolvedValue(human);
+    const report = await buildReport(website, false, { ...params, resource: 'human/geo' }, true);
+    expect(report.cards.find(row => row.label === 'TOP1 城市').value).toBe('西安');
+    expect(report.charts.g1.labels).toEqual(['陕西']);
+    expect(report.charts.g1.series[0].values).toEqual([39]);
+    expect(report.meta.tablePages.cityBody).toMatchObject({ total: 27, page: 1 });
+    expect(report.tables.cityBody).toHaveLength(20);
+    const searched = await buildReport(
+      website,
+      false,
+      { ...params, resource: 'human/geo', search: 'Xian' },
+      true,
+    );
+    expect(searched.meta.tablePages.cityBody.total).toBe(1);
+    expect(searched.tables.cityBody[0]).toMatchObject({ city: '西安', sessions: 6, share: 15.38 });
+    const narrowed = await buildReport(
+      website,
+      false,
+      { ...params, resource: 'human/geo', search: 'Xian', tp_cityBody: 2 },
+      true,
+    );
+    expect(narrowed.meta.tablePages.cityBody).toMatchObject({ total: 1, page: 1 });
+    expect(narrowed.tables.cityBody[0]).toMatchObject({ city: '西安', sessions: 6 });
+    const empty = await buildReport(
+      website,
+      false,
+      { ...params, resource: 'human/geo', search: 'no such city', tp_cityBody: 2 },
+      true,
+    );
+    expect(empty.meta.tablePages.cityBody).toMatchObject({ total: 0, page: 1 });
+    const last = await buildReport(
+      website,
+      false,
+      { ...params, resource: 'human/geo', tp_cityBody: 2 },
+      true,
+    );
+    expect(last.tables.cityBody).toHaveLength(7);
+  });
   it('excludes private funnel configuration diagnostics from the public share profile', async () => {
     const human = await mocks.human();
     const funnelError = '已保存的漏斗配置无效，请检查目标配置';

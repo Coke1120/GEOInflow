@@ -1,3 +1,4 @@
+import { geographyVersion } from '../contracts/geography';
 import { checkAuth } from '@/lib/auth';
 import { ENTITY_TYPE } from '@/lib/constants';
 import { canViewWebsiteSection } from '@/permissions/share';
@@ -82,7 +83,7 @@ export async function warmSharedReport(
         )
       )[0] || { data: '0', policy: '0' };
   const cached = await analyticsCache.read(
-    analyticsCacheKey('shared-report-v3-taiwan-province', [
+    analyticsCacheKey(`shared-report-v4-${geographyVersion}`, [
       process.env.DATABASE_URL,
       website.id,
       parametersForReport,

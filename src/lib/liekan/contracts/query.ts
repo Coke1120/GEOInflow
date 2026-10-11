@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { keywordConditionsSchema } from './keywords';
+import { geographySorts } from './geography';
 // 可分页明细表白名单：请求以扁平参数 tp_<table>=<page> 携带页码。
 // 其余明细表行数有界或已由独立协议（logBody keyset）分页，不在白名单内。
 // reportQuery 保持纯对象 schema（下游有 pick/extend/shape 派生），白名单校验收口在 parseReportQuery。
@@ -40,6 +41,7 @@ export const reportQuery = z.object({
   seek: z.enum(['after', 'before']).default('after'),
   filter: z.enum(['', 'ai', 'abnormal', 'other']).default(''),
   search: z.string().max(200).default(''),
+  geoSort: z.enum(geographySorts).default('sessions'),
   engine: keywordConditionsSchema.shape.engine,
   evidence: keywordConditionsSchema.shape.evidence,
   status: keywordConditionsSchema.shape.status,

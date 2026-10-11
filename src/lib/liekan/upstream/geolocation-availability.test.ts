@@ -70,6 +70,74 @@ test('provider geography headers continue to work when the local database is una
   expect(open).not.toHaveBeenCalled();
 });
 
+test('fills partial provider geography only from a consistent local city result', async () => {
+  open.mockResolvedValue({
+    get: () => ({
+      country: { iso_code: 'CN' },
+      subdivisions: [{ iso_code: '37' }],
+      city: { names: { en: 'Jinan' } },
+    }),
+  });
+  const { getLocation } = await import('@/lib/detect');
+  expect(
+    await getLocation(
+      '192.0.2.1',
+      new Headers({ 'cf-ipcountry': 'CN', 'cf-region-code': 'SD' }),
+      false,
+    ),
+  ).toEqual({ country: 'CN', region: 'CN-SD', city: 'Jinan' });
+});
+
+test.each([
+  ['CN', '61', 'Jinan'],
+  ['US', '37', 'Jinan'],
+])(
+  'keeps partial headers when the database returns conflicting country or province',
+  async (country, region, city) => {
+    open.mockResolvedValue({
+      get: () => ({
+        country: { iso_code: country },
+        subdivisions: [{ iso_code: region }],
+        city: { names: { en: city } },
+      }),
+    });
+    const { getLocation } = await import('@/lib/detect');
+    expect(
+      await getLocation(
+        '192.0.2.1',
+        new Headers({ 'cf-ipcountry': 'CN', 'cf-region-code': 'SD' }),
+        false,
+      ),
+    ).toEqual({ country: 'CN', region: 'CN-SD', city: null });
+  },
+);
+
+test('retains a country-only header when the city database is unavailable', async () => {
+  open.mockRejectedValue(new Error('missing'));
+  const { getLocation } = await import('@/lib/detect');
+  expect(await getLocation('192.0.2.1', new Headers({ 'cf-ipcountry': 'CN' }), false)).toEqual({
+    country: 'CN',
+    region: null,
+    city: null,
+  });
+});
+
+test('fills a country-only header without changing the supplied country or raw city language', async () => {
+  open.mockResolvedValue({
+    get: () => ({
+      country: { iso_code: 'CN' },
+      subdivisions: [{ iso_code: '37' }],
+      city: { names: { en: 'Jinan', 'zh-CN': '济南' } },
+    }),
+  });
+  const { getLocation } = await import('@/lib/detect');
+  expect(await getLocation('192.0.2.1', new Headers({ 'cf-ipcountry': 'CN' }), false)).toEqual({
+    country: 'CN',
+    region: 'CN-37',
+    city: 'Jinan',
+  });
+});
+
 test('a damaged lookup tree also preserves collection and enters the bounded retry interval', async () => {
   open.mockResolvedValue({
     get: () => {

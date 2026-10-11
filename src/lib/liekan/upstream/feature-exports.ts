@@ -20,6 +20,8 @@ import {
 import { LiekanError, reportSnapshot } from './server';
 import { analyticsGate } from './analytics-budget';
 import { readKeywordFacts, validateKeywordRange } from './keywords';
+import { getHumanFacts } from './analytics';
+import { geographyTable, geographyVersion } from '../contracts/geography';
 import {
   selectKeywords,
   keywordConditionsSchema,
@@ -36,6 +38,12 @@ export async function prepareFeatureExport(
   const parsed = exportRequestSchema.safeParse(input);
   if (!parsed.success) throw new LiekanError('导出参数无效');
   const p = parsed.data;
+  if (p.kind === 'geography') {
+    if (process.env.CLICKHOUSE_URL) throw new LiekanError('地域完整导出当前支持 PostgreSQL', 501);
+    return analyticsGate.run(() =>
+      reportSnapshot(() => prepareGeographySnapshot(website, p, signal)),
+    );
+  }
   if (p.kind === 'source-keywords') {
     const deadline = Date.now() + 65000;
     return analyticsGate.run(
@@ -343,7 +351,7 @@ function exportFilesResponse(
 
 async function prepareKeywordSnapshot(
   website: { id: string; name: string; domain: string },
-  p: Extract<ReturnType<typeof exportRequestSchema.parse>, { kind: string }>,
+  p: Extract<ReturnType<typeof exportRequestSchema.parse>, { kind: 'source-keywords' }>,
   signal: AbortSignal,
 ) {
   validateKeywordRange(p);
@@ -407,6 +415,79 @@ async function prepareKeywordSnapshot(
     undefined,
     manifest,
     `liekan-source-keywords-${createdAt.replace(/[:.]/g, '-')}.csv`,
+    JSON.stringify(manifest),
+    signal,
+  );
+}
+
+async function prepareGeographySnapshot(
+  website: { id: string; name: string; domain: string },
+  p: Extract<ReturnType<typeof exportRequestSchema.parse>, { kind: 'geography' }>,
+  signal: AbortSignal,
+) {
+  const aborted = () => {
+    if (signal.aborted) throw new LiekanError('导出已取消', 499);
+  };
+  aborted();
+  if (p.endAt > Date.now() + 86400000) throw new LiekanError('日期范围无效');
+  try {
+    new Intl.DateTimeFormat('zh-CN', { timeZone: p.timezone }).format();
+  } catch {
+    throw new LiekanError('时区无效');
+  }
+  const facts = await getHumanFacts(
+    website.id,
+    new Date(p.startAt),
+    new Date(p.endAt),
+    p.timezone,
+    ['geo', 'goals'],
+    { rows: EXPORT_MAX_ROWS, bytes: EXPORT_MAX_BYTES },
+  );
+  aborted();
+  const rows = geographyTable(facts.geo, facts.totals.visits, !!facts.goals.length, p);
+  if (rows.length > EXPORT_MAX_ROWS)
+    throw new LiekanError('地域导出超过 100,000 行，请缩小范围', 413);
+  const fields = ['城市', '会话', '占比(%)', '平均时长(秒)', '跳出率(%)', '转化率(%)'];
+  const safeRows = sanitizeExportValue(rows) as typeof rows;
+  const content =
+    '\ufeff' +
+    Papa.unparse({
+      fields,
+      data: safeRows.map(row =>
+        [
+          redactKeywordTerm(row.city),
+          row.sessions,
+          row.share,
+          row.duration,
+          row.bounceRate,
+          row.conversionRate,
+        ].map(safeCsvCell),
+      ),
+    });
+  if (Buffer.byteLength(content) > EXPORT_MAX_BYTES)
+    throw new LiekanError('地域导出超过 50 MiB，请缩小范围', 413);
+  aborted();
+  const createdAt = new Date().toISOString();
+  const manifest = {
+    kind: p.kind,
+    createdAt,
+    geographyVersion,
+    rows: rows.length,
+    fields,
+    range: { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
+    selection: sanitizeExportValue({
+      search: redactKeywordTerm(p.search),
+      geoSort: p.geoSort,
+      direction: p.direction,
+    }),
+    consistency: 'repeatable-read',
+  };
+  return exportFilesResponse(
+    [{ name: 'geography.csv', content }],
+    'csv',
+    undefined,
+    manifest,
+    `liekan-geography-${createdAt.replace(/[:.]/g, '-')}.csv`,
     JSON.stringify(manifest),
     signal,
   );

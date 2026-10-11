@@ -802,7 +802,9 @@ function TeamDetail() {
               title={drawer.type === 'delete' ? '删除团队' : '退出团队'}
               word={drawer.type === 'delete' ? 'DELETE' : 'LEAVE'}
               onClose={() => setDrawer(null)}
-              message={drawer.type === 'delete' ? `「${team.name}」已删除` : `已退出「${team.name}」`}
+              message={
+                drawer.type === 'delete' ? `「${team.name}」已删除` : `已退出「${team.name}」`
+              }
               navigateTo="teams"
               onConfirm={async () => {
                 await c.api.del(
@@ -3355,6 +3357,9 @@ export function ShareFeatureView({
       <footer className="public-footer">
         <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer">
           IP Geolocation by DB-IP
+        </a>
+        <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">
+          地名数据：GeoNames（已整理）
         </a>
       </footer>
     </main>
