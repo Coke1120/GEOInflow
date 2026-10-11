@@ -19,6 +19,7 @@ import { visitorGeographyLabel } from '@/lib/liekan/contracts/geography';
 import { classifyEntrySource } from '@/lib/liekan/contracts/sources';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import { getAllFeatureRows } from '@/lib/liekan/upstream/features-client';
+import { pageLink, pageSequence } from '../PageLink';
 import { useFeature, useData, useAction } from './context';
 import { Chart } from './Chart';
 import {
@@ -170,6 +171,7 @@ export function SessionTable({
     >
       <QueryState query={query}>
         <Table
+          className="session-records-table"
           search
           columns={['访客', '访问时间', '地域', '来源', '当前页面', '页面数', '时长', '操作']}
           numeric={[5, 6]}
@@ -181,7 +183,7 @@ export function SessionTable({
             date(r.lastAt, c.range.timezone),
             visitorGeographyLabel(r),
             classifyEntrySource({ referrer: r.referrerDomain }).source,
-            r.urlPath || '未提供',
+            pageLink(r.urlPath, c.site?.domain),
             n(r.views),
             duration(r.seconds),
             <ActionLink page="session-detail" params={{ id: r.id }} key={r.id}>
@@ -253,7 +255,10 @@ function Realtime() {
           <QueryState query={query}>
             <Table
               columns={['页面', '活跃访客']}
-              rows={(query.data?.pages || []).map((r: any) => [r.name, n(r.value)])}
+              rows={(query.data?.pages || []).map((r: any) => [
+                pageLink(r.name, c.site?.domain),
+                n(r.value),
+              ])}
               numeric={[1]}
             />
           </QueryState>
@@ -507,7 +512,7 @@ function Sessions() {
                       visitor(r.id),
                       date(r.lastAt, c.range.timezone),
                       n(r.visits),
-                      r.urlPath || '未提供',
+                      pageLink(r.urlPath, c.site?.domain),
                       <ActionLink page="session-detail" params={{ id: r.id }} key={r.id}>
                         详情
                       </ActionLink>,
@@ -611,8 +616,8 @@ function SessionDetail() {
                   ['操作系统', r?.os || '未提供'],
                   ['语言', r?.language || '未提供'],
                   ['引荐来源', first?.referrerDomain || '直接访问'],
-                  ['入口页面', first?.urlPath || '未提供'],
-                  ['出口页面', last?.urlPath || '未提供'],
+                  ['入口页面', pageLink(first?.urlPath, c.site?.domain)],
+                  ['出口页面', pageLink(last?.urlPath, c.site?.domain)],
                 ]}
               />
             </QueryState>
@@ -638,15 +643,29 @@ function SessionDetail() {
                 {rows.map((e: any) => (
                   <li key={e.eventId}>
                     <time className="timeline-time">{date(e.createdAt, c.range.timezone)}</time>
-                    <strong>{e.eventName || e.urlPath}</strong>
+                    <strong>
+                      {e.eventName ||
+                        pageLink(e.urlPath, c.site?.domain, '未提供', {
+                          query: e.urlQuery,
+                          hostname: e.hostname,
+                        })}
+                    </strong>
                     <p>
                       {e.eventName ? '事件触发' : '页面访问'}
                       {e.urlQuery ? ` · ${e.urlQuery}` : ''}
                     </p>
                     {e.eventName && (
-                      <ActionLink page="event-detail" params={{ eventName: e.eventName }}>
-                        查看事件属性
-                      </ActionLink>
+                      <>
+                        <p>
+                          {pageLink(e.urlPath, c.site?.domain, '未提供', {
+                            query: e.urlQuery,
+                            hostname: e.hostname,
+                          })}
+                        </p>
+                        <ActionLink page="event-detail" params={{ eventName: e.eventName }}>
+                          查看事件属性
+                        </ActionLink>
+                      </>
                     )}
                   </li>
                 ))}
@@ -1468,7 +1487,13 @@ function Journeys({ detail = false }: { detail?: boolean }) {
     return (
       <>
         <div className="row between">
-          <h2>{row?.nodes.join(' → ') || '所选访问路径'}</h2>
+          <h2>
+            {row
+              ? conditions.type === 'pages'
+                ? pageSequence(row.nodes, c.site?.domain)
+                : row.nodes.join(' → ')
+              : '所选访问路径'}
+          </h2>
           <LinkButton page="journeys" params={conditions}>
             返回访问旅程
           </LinkButton>
@@ -1492,7 +1517,9 @@ function Journeys({ detail = false }: { detail?: boolean }) {
               <ol className="timeline">
                 {row?.nodes.map((node, i) => (
                   <li key={`${i}:${node}`}>
-                    <strong>{node}</strong>
+                    <strong>
+                      {conditions.type === 'pages' ? pageLink(node, c.site?.domain) : node}
+                    </strong>
                     <p>
                       {i === 0
                         ? '所选路径入口'
@@ -1511,13 +1538,14 @@ function Journeys({ detail = false }: { detail?: boolean }) {
             subtitle="与所选节点序列、类型、步数、日期及筛选条件一致。"
           >
             <Table
+              className="session-records-table"
               columns={['访客', '访问时间', '地域', '来源', '当前页面', '页面数', '时长', '操作']}
               rows={(d?.sessions || []).map(r => [
                 visitor(r.id),
                 date(r.lastAt, c.range.timezone),
                 visitorGeographyLabel(r),
                 classifyEntrySource({ referrer: r.referrerDomain }).source,
-                r.urlPath || '未提供',
+                pageLink(r.urlPath, c.site?.domain),
                 n(r.views),
                 duration(r.seconds),
                 <ActionLink page="session-detail" params={{ id: r.id }} key={r.id}>
@@ -1618,7 +1646,9 @@ function Journeys({ detail = false }: { detail?: boolean }) {
             search
             columns={['路径', '访客', '完成比例', '操作']}
             rows={rows.map(row => [
-              row.nodes.join(' → '),
+              conditions.type === 'pages'
+                ? pageSequence(row.nodes, c.site?.domain)
+                : row.nodes.join(' → '),
               n(row.visitors),
               percentage(row.visitors, d.visitors),
               <ActionLink
@@ -1871,6 +1901,7 @@ function Attribution() {
   );
 }
 function Breakdown() {
+  const c = useFeature();
   const [fields, setFields] = useState(['path', 'country']),
     [draftFields, setDraftFields] = useState(fields),
     [open, setOpen] = useState(false);
@@ -1919,7 +1950,9 @@ function Breakdown() {
             search
             columns={[...labels, '访问次数', '访客', '操作']}
             rows={rows.map((r, i) => [
-              ...fields.map(f => r[f] || '未提供'),
+              ...fields.map(f =>
+                f === 'path' ? pageLink(r[f], c.site?.domain) : r[f] || '未提供',
+              ),
               n(r.views),
               n(r.visitors),
               <ActionLink

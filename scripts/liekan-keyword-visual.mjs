@@ -200,6 +200,9 @@ try {
     await page.waitForFunction(() =>
       document.querySelector('main')?.textContent.includes('共 47 行'),
     );
+    await page.getByLabel('关键词查询', { exact: true }).fill('未提交的查询');
+    await page.getByRole('button', { name: '重置筛选', exact: true }).click();
+    assert.equal(await page.getByLabel('关键词查询', { exact: true }).inputValue(), '');
     await page.getByLabel('关键词查询', { exact: true }).fill('超长关键词');
     await page.getByRole('button', { name: '查询', exact: true }).click();
     await page.waitForFunction(
@@ -225,6 +228,7 @@ try {
       manualRefresh: true,
       serverSearch: true,
       pagination: true,
+      resetDraft: true,
     });
     await context.close();
   }

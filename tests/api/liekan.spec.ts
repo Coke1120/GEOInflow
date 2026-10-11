@@ -96,6 +96,18 @@ test('identifies source keywords through real collection, scopes access, pages a
     );
     await send('missing', 'https://www.baidu.com/', midnight + 7000);
     await send('private', 'https://www.google.com/search?q=person%40example.test', midnight + 8000);
+    for (const [index, referrer, url] of [
+      [0, 'https://www.baidu.com/s?ie=gbk&wd=%C2%A9', '/'],
+      [1, 'https://www.baidu.com/s?ie=utf-8&wd=%E7%8C', '/'],
+      [2, 'https://www.baidu.com/s?ie=utf-8&ie=gbk&wd=%C2%A9', '/'],
+      [
+        3,
+        'https://www.google.com/search?q=person%40example.test',
+        '/?utm_source=google&utm_term=safe-manual',
+      ],
+    ] as const) {
+      await send(`keyword-review-${index}`, referrer, midnight + 10000 + index * 1000, url);
+    }
     await send(
       'nonsearch',
       'https://www.google.com/search?q=ignore',
@@ -105,19 +117,29 @@ test('identifies source keywords through real collection, scopes access, pages a
     const before = await admin.get(`${base}/page-report`, { params });
     expect(before.status, before.text).toBe(200);
     expect((await admin.get(`${base}/report`, { params })).status).toBe(400);
-    expect(before.body.meta.tablePages.keywordBody.total).toBe(31);
-    expect(before.body.cards.map(c => c.value)).toEqual([31, 27, 1, 90.32]);
+    expect(before.body.meta.tablePages.keywordBody.total).toBe(35);
+    expect(before.body.cards.map(c => c.value)).toEqual([35, 28, 2, 85.71]);
     expect(before.body.tables.keywordBody).toHaveLength(20);
     expect(before.body.tables.keywordBody.every(r => r.conversionRate === null)).toBe(true);
     const page2 = await admin.get(`${base}/page-report`, {
       params: { ...params, page: 2, keywordSnapshot: before.body.meta.keywordSnapshot },
     });
     expect(page2.status).toBe(200);
-    expect(page2.body.tables.keywordBody).toHaveLength(11);
-    const ids = [...before.body.tables.keywordBody, ...page2.body.tables.keywordBody].map(
-      r => r.id,
+    expect(page2.body.tables.keywordBody).toHaveLength(15);
+    const rows = [...before.body.tables.keywordBody, ...page2.body.tables.keywordBody];
+    expect(new Set(rows.map(r => r.id)).size).toBe(35);
+    expect(rows).toContainEqual(
+      expect.objectContaining({ engine: '百度', keyword: '漏', evidence: 'referrer' }),
     );
-    expect(new Set(ids).size).toBe(31);
+    expect(rows).toContainEqual(
+      expect.objectContaining({ engine: '百度', keyword: null, status: 'invalid' }),
+    );
+    expect(rows).toContainEqual(
+      expect.objectContaining({ engine: '百度', keyword: null, status: 'conflict' }),
+    );
+    expect(rows).toContainEqual(
+      expect.objectContaining({ engine: 'Google', keyword: 'safe-manual', evidence: 'utm' }),
+    );
     const matched = await admin.get(`${base}/page-report`, {
       params: { ...params, search: 'word24', page: 2 },
     });
@@ -129,7 +151,7 @@ test('identifies source keywords through real collection, scopes access, pages a
       source.body.tables.srcBody
         .filter(r => r.channel === '传统搜索')
         .reduce((n, r) => n + r.sessions, 0),
-    ).toBe(31);
+    ).toBe(35);
     expect((await api.get(`${base}/page-report`, { params })).status).toBe(401);
     expect((await user.get(`${base}/page-report`, { params })).status).toBe(403);
     expect((await (await share()).get(`${base}/page-report`, { params })).status).toBe(401);

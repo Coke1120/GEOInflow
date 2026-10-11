@@ -12,6 +12,8 @@ import { Chart } from './Chart';
 import { useAction, useData, useFeature } from './context';
 import 'rrweb-player/dist/style.css';
 import { Exports } from './Exports';
+import { pageLink } from '../PageLink';
+import { pageUrl } from '@/lib/liekan/contracts/page-url';
 import {
   Badge,
   Body,
@@ -74,6 +76,7 @@ const perfValue = (value: number | null, metric: string) =>
         ? `${(value / 1000).toFixed(2)} s`
         : `${Math.round(value)} ms`;
 function Performance() {
+  const c = useFeature();
   const [metric, setMetric] = useState('lcp'),
     [percentile, setPercentile] = useState('p75'),
     [environment, setEnvironment] = useState('device');
@@ -166,7 +169,7 @@ function Performance() {
             <Table
               columns={['页面', `${metric.toUpperCase()} · ${percentile}`, '采样数']}
               rows={(pages.data || []).map((r: any) => [
-                r.name || '未提供',
+                pageLink(r.name, c.site?.domain),
                 perfValue(r[percentile] == null ? null : Number(r[percentile]), metric),
                 n(r.count),
               ])}
@@ -389,7 +392,10 @@ function Heatmaps() {
         <div className="row">
           <Select
             label="页面"
-            options={pages.map((p: any) => p.urlPath)}
+            options={pages.map((p: any) => [
+              p.urlPath,
+              pageUrl(p.urlPath, c.site?.domain) || p.urlPath,
+            ])}
             value={path}
             onChange={e => setPath(e.target.value)}
           />
@@ -473,7 +479,9 @@ function Heatmaps() {
                 ref={stage}
                 style={{ maxHeight: 720, overflow: 'auto' }}
               >
-                <div className="browser-bar">{snapshot?.url || path || '选择已采集页面'}</div>
+                <div className="browser-bar">
+                  {pageLink(snapshot?.url || path, c.site?.domain, '选择已采集页面')}
+                </div>
                 {snapshot ? (
                   <div style={{ position: 'relative', height, overflow: 'hidden' }}>
                     <iframe
@@ -539,7 +547,7 @@ function Heatmaps() {
           <Body>
             <Definition
               items={[
-                ['页面', path || '未选择'],
+                ['页面', pageLink(path, c.site?.domain, '未选择')],
                 ['设备', device === 'phone' ? '移动' : '桌面'],
                 ['采集范围', '聚合行为坐标'],
                 ['热度颜色', '蓝：低；橙：中；红：高'],

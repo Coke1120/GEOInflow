@@ -183,7 +183,7 @@ export async function readKeywordPage(
   refresh: boolean,
 ): Promise<CachedResult<LiekanReport>> {
   validateKeywordRange(p);
-  const key = analyticsCacheKey('source-keywords-v1', [
+  const key = analyticsCacheKey('source-keywords-v2', [
     process.env.DATABASE_URL,
     website.id,
     p.startAt,

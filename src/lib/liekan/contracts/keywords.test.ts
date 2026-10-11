@@ -89,6 +89,72 @@ describe('source keyword evidence', () => {
     );
     expect(identifyKeyword({ ...google, referrerQuery: '?q=e%CC%81' })?.keyword).toBe('é');
   });
+  it.each([
+    ['baidu.com', '/s', 'wd'],
+    ['sogou.com', '/web', 'query'],
+    ['so.com', '/s', 'q'],
+  ])('honors the declared query encoding for %s', (referrer, referrerPath, key) => {
+    const entry = { referrer, referrerPath };
+    expect(identifyKeyword({ ...entry, referrerQuery: `ie=gbk&${key}=%C2%A9` })).toMatchObject({
+      keyword: '漏',
+      evidence: 'referrer',
+      status: 'available',
+    });
+    expect(identifyKeyword({ ...entry, referrerQuery: `${key}=%C2%A9&ie=UTF-8` })?.keyword).toBe(
+      '©',
+    );
+    expect(identifyKeyword({ ...entry, referrerQuery: `ie=utf-8&${key}=%E7%8C` })).toMatchObject({
+      keyword: null,
+      status: 'invalid',
+    });
+    expect(
+      identifyKeyword({ ...entry, referrerQuery: `ie=utf-8&${key}=%E7%8C`, utmTerm: 'manual' }),
+    ).toMatchObject({ keyword: 'manual', evidence: 'utm', status: 'available' });
+  });
+  it('preserves unsupported and conflicting encoding declarations without inventing a term', () => {
+    const entry = { referrer: 'baidu.com', referrerPath: '/s' };
+    expect(identifyKeyword({ ...entry, referrerQuery: 'ie=utf-8&ie=gbk&wd=%C2%A9' })).toMatchObject(
+      { keyword: null, status: 'conflict' },
+    );
+    expect(identifyKeyword({ ...entry, referrerQuery: 'ie=utf-16&wd=%C2%A9' })).toMatchObject({
+      keyword: null,
+      status: 'unsupported',
+    });
+    expect(identifyKeyword({ ...entry, referrerQuery: 'ie=%ZZ&wd=%C2%A9' })).toMatchObject({
+      keyword: null,
+      status: 'invalid',
+    });
+    expect(
+      identifyKeyword({ ...entry, referrerQuery: 'ie=gbk&ie=GB2312&wd=%C2%A9' })?.keyword,
+    ).toBe('漏');
+  });
+  it('uses a safe UTM fallback when source evidence is redacted while preserving session totals', () => {
+    const entry = { ...google, referrerQuery: '?q=person%40example.test', utmTerm: 'manual' };
+    expect(identifyKeyword(entry)).toMatchObject({
+      keyword: 'manual',
+      evidence: 'utm',
+      status: 'available',
+    });
+    const rows = new Map<string, KeywordRow>();
+    addKeywordCandidate(rows, { ...entry, sessions: 2, bounces: 1, conversions: 1 });
+    const selected = selectKeywords([...rows.values()], keywordConditionsSchema.parse({}), true);
+    expect(selected).toMatchObject({ total: 2, referrer: 0, utm: 2, availability: 100 });
+    expect(selected.rows).toHaveLength(1);
+    expect(selected.rows[0]).toMatchObject({
+      keyword: 'manual',
+      sessions: 2,
+      bounceRate: 50,
+      conversionRate: 50,
+    });
+    expect(identifyKeyword({ ...entry, utmTerm: '' })).toMatchObject({
+      keyword: null,
+      status: 'redacted',
+    });
+    expect(identifyKeyword({ ...entry, utmTerm: 'token=synthetic-secret' })).toMatchObject({
+      keyword: null,
+      status: 'redacted',
+    });
+  });
   it('detects conflicting duplicates, incomplete storage and absent evidence', () => {
     expect(identifyKeyword({ ...google, referrerQuery: '?q=x&q=y' })?.status).toBe('conflict');
     expect(identifyKeyword({ ...google, referrerQuery: '?q=x&q=x' })?.keyword).toBe('x');

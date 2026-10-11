@@ -139,7 +139,10 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
               type="button"
               disabled={busy}
               className="text-[12px] text-brand pb-2"
-              onClick={() => change(keywordConditionsSchema.parse({}))}
+              onClick={() => {
+                setSearch('');
+                change(keywordConditionsSchema.parse({}));
+              }}
             >
               重置筛选
             </button>

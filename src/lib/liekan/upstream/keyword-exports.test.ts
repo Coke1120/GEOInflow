@@ -1,5 +1,11 @@
 import { beforeEach, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ facts: vi.fn(), snapshot: vi.fn((fn: () => unknown) => fn()) }));
+import { getQuerySnapshot, withinQuerySnapshot } from './query-snapshot';
+const mocks = vi.hoisted(() => ({
+  facts: vi.fn(),
+  snapshot: vi.fn(),
+  execute: vi.fn(),
+  query: vi.fn(),
+}));
 vi.mock('./server', () => ({ reportSnapshot: mocks.snapshot, LiekanError: Error }));
 vi.mock('./keywords', () => ({ readKeywordFacts: mocks.facts, validateKeywordRange: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({ default: {}, getRawQueryClient: vi.fn() }));
@@ -9,6 +15,11 @@ vi.mock('@/queries/prisma', () => ({ getWebsiteSegment: vi.fn() }));
 import { prepareFeatureExport } from './feature-exports';
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.execute.mockResolvedValue(0);
+  mocks.query.mockResolvedValue([]);
+  mocks.snapshot.mockImplementation((fn: () => Promise<unknown>) =>
+    withinQuerySnapshot({ $executeRawUnsafe: mocks.execute, $queryRawUnsafe: mocks.query }, fn),
+  );
   mocks.facts.mockResolvedValue({
     hasGoals: true,
     snapshot: 'fixture',
@@ -27,6 +38,25 @@ beforeEach(() => {
       conversionRate: null,
     })),
   });
+});
+it('applies a database statement deadline before reading uncached keyword export evidence', async () => {
+  mocks.facts.mockImplementationOnce(async () => {
+    await getQuerySnapshot()!.$queryRawUnsafe('FETCH FORWARD 500 FROM fixture_cursor');
+    return { rows: [], hasGoals: false, readAt: 1000 };
+  });
+  const response = await prepareFeatureExport(
+    { id: 'site', name: 'fixture', domain: 'fixture.test' },
+    { kind: 'source-keywords', format: 'csv', startAt: 0, endAt: 1000 },
+    new AbortController().signal,
+  );
+  await response.text();
+  expect(mocks.query).toHaveBeenCalledWith('FETCH FORWARD 500 FROM fixture_cursor');
+  expect(mocks.execute).toHaveBeenCalledWith(
+    expect.stringMatching(/^SET LOCAL statement_timeout = \d+$/),
+  );
+  const budget = Number(mocks.execute.mock.calls[0][0].split(' = ')[1]);
+  expect(budget).toBeGreaterThan(0);
+  expect(budget).toBeLessThanOrEqual(60000);
 });
 it('uses the keyword population for full CSV instead of the legacy summary path', async () => {
   const response = await prepareFeatureExport(

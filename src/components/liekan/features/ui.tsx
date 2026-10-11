@@ -421,6 +421,7 @@ export const Code = ({ children }: { children: ReactNode }) => (
   </pre>
 );
 export function Table({
+  className,
   columns,
   rows,
   numeric = [],
@@ -435,6 +436,7 @@ export function Table({
   static: staticColumns = [],
   onRowClick,
 }: {
+  className?: string;
   columns: string[];
   rows: ReactNode[][];
   numeric?: number[];
@@ -469,15 +471,20 @@ export function Table({
     panel.register(true);
     return () => panel.register(false);
   }, [panel?.register, search]);
-  const flatten = (node: any): string =>
+  const flatten = (node: any, searchable = false): string =>
     node == null
       ? ''
       : typeof node === 'string' || typeof node === 'number'
         ? String(node)
         : Array.isArray(node)
-          ? node.map(flatten).join('')
+          ? node.map(child => flatten(child, searchable)).join('')
           : isValidElement(node)
-            ? flatten((node.props as any).children)
+            ? [
+                flatten((node.props as any).children, searchable),
+                searchable ? (node.props as any)['data-search-value'] : '',
+              ]
+                .filter(Boolean)
+                .join('\n')
             : '';
   useEffect(() => {
     if (!c?.query) return;
@@ -487,7 +494,13 @@ export function Table({
   const term = panel?.search ?? text;
   let filtered =
     search && term
-      ? rows.filter(row => row.some(v => flatten(v).toLowerCase().includes(term.toLowerCase())))
+      ? rows.filter(row =>
+          row.some(
+            v =>
+              flatten(v).toLowerCase().includes(term.toLowerCase()) ||
+              flatten(v, true).toLowerCase().includes(term.toLowerCase()),
+          ),
+        )
       : rows;
   if (sort)
     filtered = [...filtered].sort((a, b) => {
@@ -521,6 +534,7 @@ export function Table({
         aria-busy={loading || undefined}
       >
         <table
+          className={className}
           style={
             {
               '--table-min': `${columns.length <= 4 ? 40 + columns.length * 100 : columns.length * 110}px`,
