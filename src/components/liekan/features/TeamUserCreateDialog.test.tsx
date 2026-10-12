@@ -93,7 +93,7 @@ it('recovers a lost response through a read without another write', async () => 
     expect.any(AbortSignal),
   );
 });
-it('keeps an absent result unconfirmed and reuses the same attempt for an explicit retry', async () => {
+it('keeps absent or hard-deleted results read only and never replays the original creation', async () => {
   mount();
   post
     .mockRejectedValueOnce(new Error('connection lost'))
@@ -101,9 +101,10 @@ it('keeps an absent result unconfirmed and reuses the same attempt for an explic
   get.mockResolvedValue({ state: 'unconfirmed' });
   const user = await fill();
   await user.click(screen.getByRole('button', { name: '创建并加入团队' }));
-  await user.click(await screen.findByRole('button', { name: '重试本次创建' }));
-  await waitFor(() => expect(created).toHaveBeenCalledTimes(1));
-  expect(post.mock.calls[1][1]).toEqual(post.mock.calls[0][1]);
+  await user.click(await screen.findByRole('button', { name: '核对创建结果' }));
+  expect(screen.queryByRole('button', { name: '重试本次创建' })).not.toBeInTheDocument();
+  expect(post).toHaveBeenCalledTimes(1);
+  expect(created).not.toHaveBeenCalled();
 });
 it('prevents replay when an existing account has changed membership', async () => {
   mount();
@@ -161,7 +162,7 @@ it('bounds a hanging creation request and enables outcome reconciliation', async
     vi.useRealTimers();
   }
 });
-it('shows a definite retry rejection while retaining the unresolved original attempt', async () => {
+it('retains the unresolved result after permission revocation without another write', async () => {
   mount();
   post
     .mockRejectedValueOnce(new Error('connection lost'))
@@ -169,9 +170,10 @@ it('shows a definite retry rejection while retaining the unresolved original att
   get.mockResolvedValue({ state: 'unconfirmed' });
   const user = await fill();
   await user.click(screen.getByRole('button', { name: '创建并加入团队' }));
-  await user.click(await screen.findByRole('button', { name: '重试本次创建' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('系统管理权限已变更');
+  get.mockRejectedValue(Object.assign(new Error('系统管理权限已变更'), { status: 403 }));
+  await user.click(await screen.findByRole('button', { name: '核对创建结果' }));
+  expect(await screen.findByText('结果核对失败，请重新读取。')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '核对创建结果' })).toBeEnabled();
-  expect(post.mock.calls[1][1]).toEqual(post.mock.calls[0][1]);
+  expect(post).toHaveBeenCalledTimes(1);
   expect(created).not.toHaveBeenCalled();
 });

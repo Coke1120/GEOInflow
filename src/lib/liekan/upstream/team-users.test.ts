@@ -5,6 +5,7 @@ vi.mock('@/lib/auth', () => ({ checkAuth: h.auth }));
 vi.mock('@/lib/prisma', () => ({ default: { transaction: h.transaction } }));
 vi.mock('./ai-lifecycle', () => ({ invalidateAiActorRunsInTransaction: vi.fn() }));
 import { checkPassword } from '@/lib/password';
+import { SHARE_CONTEXT_HEADER, SHARE_TOKEN_HEADER } from '@/lib/constants';
 import { createTeamUserAccount, readTeamUserCreation } from './team-users';
 const actorId = '11111111-1111-4111-8111-111111111111';
 const userId = '22222222-2222-4222-8222-222222222222';
@@ -60,6 +61,20 @@ it('rejects nonadministrator sessions and elevated payloads', async () => {
   ).rejects.toMatchObject({ status: 400 });
   expect(h.tx.user.create).not.toHaveBeenCalled();
 });
+it.each([SHARE_CONTEXT_HEADER, SHARE_TOKEN_HEADER])(
+  'rejects mixed session and %s headers before authentication queries',
+  async header => {
+    const mixed = new Request(request.url, { headers: { [header]: 'revoked-share-context' } });
+    await expect(createTeamUserAccount(mixed, teamId, input)).rejects.toMatchObject({
+      status: 401,
+    });
+    await expect(readTeamUserCreation(mixed, teamId, { userId })).rejects.toMatchObject({
+      status: 401,
+    });
+    expect(h.auth).not.toHaveBeenCalled();
+    expect(h.transaction).not.toHaveBeenCalled();
+  },
+);
 it('hashes the password, forces a regular account and locates page two in the same transaction', async () => {
   const result = await createTeamUserAccount(request, teamId, input);
   expect(result).toMatchObject({
@@ -73,6 +88,7 @@ it('hashes the password, forces a regular account and locates page two in the sa
   expect(checkPassword(input.password, data.password)).toBe(true);
   expect(JSON.stringify(result)).not.toContain(data.password);
   expect(h.tx.$executeRawUnsafe).toHaveBeenCalledWith('SET LOCAL search_path TO "team_test"');
+  expect(h.auth.mock.calls[1][1]).toBeTypeOf('function');
 });
 it('rechecks administrator revocation and missing teams before account insertion', async () => {
   h.tx.$queryRawUnsafe.mockResolvedValue([{ user_id: actorId, role: 'user' }]);

@@ -221,6 +221,28 @@ describe('checkAuth 2FA partial token', () => {
 });
 
 describe('checkAuth password fingerprint', () => {
+  test.each(['stateless', 'redis'])(
+    'uses the supplied transaction reader for %s password revocation',
+    async mode => {
+      const loadUser = vi
+        .fn()
+        .mockResolvedValue({ id: 'user-1', role: 'admin', password: PASSWORD_HASH });
+      if (mode === 'redis') {
+        redisMock.enabled = true;
+        parseSecureTokenMock.mockReturnValue({ authKey: 'auth:session-key' } as any);
+        redisMock.client.get.mockResolvedValue({ userId: 'user-1', pwd: hash(PASSWORD_HASH) });
+      } else
+        parseSecureTokenMock.mockReturnValue({ userId: 'user-1', pwd: hash(PASSWORD_HASH) } as any);
+      const result = await Reflect.apply(checkAuth, undefined, [authedRequest(), loadUser]);
+      expect(result?.user?.isAdmin).toBe(true);
+      expect(result?.user).not.toHaveProperty('password');
+      expect(loadUser).toHaveBeenCalledWith('user-1', { includePassword: true });
+      expect(getUserMock).not.toHaveBeenCalled();
+      loadUser.mockResolvedValue({ id: 'user-1', role: 'admin', password: 'changed-hash' });
+      expect(await Reflect.apply(checkAuth, undefined, [authedRequest(), loadUser])).toBeNull();
+      expect(getUserMock).not.toHaveBeenCalled();
+    },
+  );
   test('authorizes a stateless token whose fingerprint matches the current password', async () => {
     parseSecureTokenMock.mockReturnValue({ userId: 'user-1', pwd: hash(PASSWORD_HASH) } as any);
     mockUser();

@@ -2555,7 +2555,7 @@
     },
     {
       "path": "src/lib/auth.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; 90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; 90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions; transaction-aware session reads preserve password revocation without a second pool connection",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
@@ -3950,6 +3950,18 @@
       "owner": "Liekan account management",
       "constraint": "Keep existing public response shapes and tracker compatibility; authorize membership writes with current permissions",
       "removalCondition": "Remove when upstream provides the same account and membership guarantees"
+    },
+    {
+      "path": "src/lib/auth.test.ts",
+      "purpose": "Verify transaction-scoped stateless and Redis session readers retain password revocation without using another primary connection",
+      "tests": [
+        "src/lib/auth.test.ts",
+        "src/lib/liekan/upstream/team-users.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan account management",
+      "constraint": "Preserve existing session, API key, share and partial 2FA authentication behavior",
+      "removalCondition": "Remove when upstream includes equivalent transaction-scoped authentication regression coverage"
     }
   ]
 }

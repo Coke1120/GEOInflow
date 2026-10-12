@@ -18,7 +18,7 @@ export function canAssignTeamUserRole(isAdmin: boolean, actorRole: string, nextR
 export const teamUserCreateSchema = z
   .object({
     userId: z.uuid().toLowerCase(),
-    username: z.string().trim().min(1).max(255).toLowerCase(),
+    username: z.string().trim().toLowerCase().min(1).max(255),
     password: z
       .string()
       .min(8)
@@ -48,7 +48,7 @@ export type TeamUserCreated = Extract<TeamUserResult, { state: 'created' }>;
 export function matchesTeamUserAttempt(
   result: TeamUserResult,
   teamId: string,
-  attempt: TeamUserCreate,
+  attempt: Omit<TeamUserCreate, 'password'>,
 ): result is TeamUserCreated {
   return (
     result.state === 'created' &&

@@ -418,8 +418,10 @@ try {
     !report.teamUsers.passed ||
     !report.teamUsers.cleanup ||
     report.teamUsers.head !== head ||
-    report.teamUsers.checks.length !== 2 ||
+    report.teamUsers.checks.length !== 3 ||
+    report.teamUsers.checks.some(check => !check.passed) ||
     report.teamUsers.responsive.length !== 3 ||
+    report.teamUsers.responsive.some(check => !check.passed) ||
     report.teamUsers.errors.length
   )
     throw new Error('Team user creation, rollback and responsive acceptance incomplete');

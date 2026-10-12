@@ -25,6 +25,14 @@ it.each([
 it('accepts the exact multibyte password boundary', () => {
   expect(teamUserCreateSchema.safeParse({ ...body, password: '中'.repeat(24) }).success).toBe(true);
 });
+it('checks username length after lowercase expands Unicode characters', () => {
+  expect(teamUserCreateSchema.safeParse({ ...body, username: '\u0130'.repeat(128) }).success).toBe(
+    false,
+  );
+  expect(
+    teamUserCreateSchema.parse({ ...body, username: '\u0130'.repeat(127) }).username,
+  ).toHaveLength(254);
+});
 it.each(['team-manager', 'team-member', 'team-view-only'])(
   'keeps role assignment hierarchy for %s',
   role => {

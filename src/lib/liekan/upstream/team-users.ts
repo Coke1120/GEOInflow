@@ -1,4 +1,5 @@
 import { checkAuth } from '@/lib/auth';
+import { SHARE_CONTEXT_HEADER, SHARE_TOKEN_HEADER } from '@/lib/constants';
 import { uuid } from '@/lib/crypto';
 import { hashPassword } from '@/lib/password';
 import prisma from '@/lib/prisma';
@@ -10,8 +11,10 @@ import {
 import { LiekanError } from './errors';
 import { lockMembershipUsers, lockTeamMembership } from './team-member-access';
 
-async function administrator(request: Request) {
-  const auth = await checkAuth(request);
+async function administrator(request: Request, loadUser?: Parameters<typeof checkAuth>[1]) {
+  if (request.headers.has(SHARE_TOKEN_HEADER) || request.headers.has(SHARE_CONTEXT_HEADER))
+    throw new LiekanError('新建用户需要独立的管理员登录会话', 401);
+  const auth = await checkAuth(request, loadUser);
   if (auth?.authType !== 'session' || !auth.user || auth.user.deletedAt || auth.shareToken)
     throw new LiekanError('请完成登录后新建用户', 401);
   if (auth.user.role !== 'admin') throw new LiekanError('新建用户需要系统管理员权限', 403);
@@ -25,7 +28,20 @@ function teamId(value: string) {
 async function recheckAdministrator(tx: any, request: Request, actorId: string) {
   const rows = await lockMembershipUsers(tx, actorId);
   if (rows[0]?.role !== 'admin') throw new LiekanError('系统管理权限已变更', 403);
-  if ((await administrator(request)) !== actorId) throw new LiekanError('登录身份已变更', 401);
+  const identity = await administrator(request, id =>
+    tx.user.findFirst({
+      where: { id, deletedAt: null },
+      select: {
+        id: true,
+        username: true,
+        password: true,
+        role: true,
+        createdAt: true,
+        twoFactorRequired: true,
+      },
+    }),
+  );
+  if (identity !== actorId) throw new LiekanError('登录身份已变更', 401);
 }
 async function resultFor(tx: any, id: string, userId: string): Promise<TeamUserResult> {
   const user = await tx.user.findFirst({

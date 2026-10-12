@@ -119,6 +119,16 @@ try {
 
   const concurrent = body(),
     other = { ...concurrent, userId: randomUUID() };
+  const reads = await Promise.all(
+    Array.from({ length: 12 }, () =>
+      request('GET', `${endpoint(team.id)}?userId=${rollback.userId}`),
+    ),
+  );
+  assert(reads.every(result => result.status === 200 && result.body.state === 'created'));
+  report.checks.push({
+    name: 'parallel reconciliation uses transaction authentication without another pool connection',
+    passed: true,
+  });
   users.add(concurrent.userId);
   users.add(other.userId);
   const race = await Promise.all([

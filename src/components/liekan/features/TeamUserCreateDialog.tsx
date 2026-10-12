@@ -39,7 +39,7 @@ export function TeamUserCreateDialog({
   const [changedUser, setChangedUser] = useState<string>();
   const [message, setMessage] = useState('');
   const id = useRef(crypto.randomUUID());
-  const attempt = useRef<TeamUserCreate>(null);
+  const attempt = useRef<Omit<TeamUserCreate, 'password'>>(null);
   const pending = useRef(false);
   const requests = useRef(new Set<AbortController>());
   const scope = `${c.user.id}:${c.user.role}:${c.route.page}:${team.id}`;
@@ -82,7 +82,7 @@ export function TeamUserCreateDialog({
     attempt.current = null;
     onCreated(result);
   };
-  async function reconcile(body: TeamUserCreate, started: string) {
+  async function reconcile(body: Omit<TeamUserCreate, 'password'>, started: string) {
     const result = teamUserResultSchema.parse(
       await deadline(signal => c.api.get(path, { userId: body.userId }, signal), 10_000),
     );
@@ -97,7 +97,9 @@ export function TeamUserCreateDialog({
         '账户已存在，当前角色或团队归属已有变化。请查看账户并重新读取团队，核对过程不会修改密码或权限。',
       );
     } else
-      setMessage('暂未查到完整创建结果。原请求可能仍在处理，请重新核对；重试会沿用本次账户 ID。');
+      setMessage(
+        '暂未查到完整创建结果。原请求可能仍在处理，或账户之后已被删除。请核对团队与用户列表，确认前仅提供只读核对。',
+      );
     return result.state === 'unconfirmed' ? 'unconfirmed' : 'changed';
   }
   async function submit(body: TeamUserCreate) {
@@ -156,11 +158,7 @@ export function TeamUserCreateDialog({
               <LinkButton page="admin-user" params={{ id: changedUser }}>
                 查看用户
               </LinkButton>
-            ) : (
-              <Button disabled={busy} onClick={() => submit(attempt.current)}>
-                重试本次创建
-              </Button>
-            )}
+            ) : null}
             <Button
               primary
               disabled={busy}
@@ -198,7 +196,11 @@ export function TeamUserCreateDialog({
               teamRole: values.teamRole,
             });
             if (!parsed.success) throw new Error(parsed.error.issues[0].message);
-            attempt.current = parsed.data;
+            attempt.current = {
+              userId: parsed.data.userId,
+              username: parsed.data.username,
+              teamRole: parsed.data.teamRole,
+            };
             await submit(parsed.data);
           }}
         >
