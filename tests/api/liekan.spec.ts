@@ -61,6 +61,16 @@ test('creates team accounts atomically, scopes roles and rejects duplicate and n
       expect((await admin.post(endpoint, input)).status).toBe(409);
     }
     const concurrent = makeBody();
+    for (const username of ['Ω', '%', '_', '\\']) {
+      const input = { ...makeBody(), username };
+      const literal = await admin.post(endpoint, input);
+      expect(literal.status, literal.text).toBe(200);
+      createdIds.push(input.userId);
+      expect(literal.body.user.username).toBe(username.toLowerCase());
+      expect(
+        (await api.post('/api/auth/login', { username, password: input.password })).status,
+      ).toBe(200);
+    }
     const other = { ...concurrent, userId: crypto.randomUUID() };
     const responses = await Promise.all([
       admin.post(endpoint, concurrent),

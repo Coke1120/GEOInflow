@@ -93,7 +93,11 @@ export async function createTeamUserAccount(request: Request, rawTeamId: string,
       await lockTeamMembership(tx, id);
       const existing = await tx.user.findFirst({
         where: {
-          OR: [{ id: body.userId }, { username: { equals: body.username, mode: 'insensitive' } }],
+          OR: [
+            { id: body.userId },
+            // Escape ILIKE pattern characters for a literal case-insensitive name lookup.
+            { username: { equals: body.username.replace(/[\\%_]/g, '\\$&'), mode: 'insensitive' } },
+          ],
         },
         select: { id: true },
       });
