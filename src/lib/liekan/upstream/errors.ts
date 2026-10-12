@@ -7,6 +7,7 @@ export const LiekanError = processSingleton(
       constructor(
         message: string,
         public status = 400,
+        public code = 'liekan-error',
       ) {
         super(message);
       }

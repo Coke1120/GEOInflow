@@ -2,6 +2,8 @@ import { Prisma, type TeamUser } from '@/generated/prisma/client';
 import { uuid } from '@/lib/crypto';
 import prisma from '@/lib/prisma';
 import { invalidateAiActorRunsInTransaction } from '@/lib/liekan/upstream/ai-lifecycle';
+import { lockMembershipUsers, lockTeamMembership } from '@/lib/liekan/upstream/team-member-access';
+import { LiekanError } from '@/lib/liekan/upstream/errors';
 import type { PageResult, QueryFilters } from '@/lib/types';
 
 import TeamUserFindManyArgs = Prisma.TeamUserFindManyArgs;
@@ -49,13 +51,11 @@ export async function getTeamUsers(
 }
 
 export async function createTeamUser(userId: string, teamId: string, role: string) {
-  return prisma.client.teamUser.create({
-    data: {
-      id: uuid(),
-      userId,
-      teamId,
-      role,
-    },
+  return prisma.transaction(async tx => {
+    if (!(await lockMembershipUsers(tx, userId)).length) throw new LiekanError('用户不存在或已删除', 404);
+    await lockTeamMembership(tx, teamId);
+    if (await tx.teamUser.findFirst({where: {teamId, userId}})) throw new LiekanError('用户已加入当前团队', 409);
+    return tx.teamUser.create({data: {id: uuid(), userId, teamId, role}});
   });
 }
 

@@ -176,6 +176,8 @@ export async function deleteTeam(teamId: string) {
       ...boards.map(board => board.id),
     ];
     await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiTeamInTransaction(tx, teamId);
+    // Membership creation and deletion share this lock even without AI tables.
+    await tx.$queryRawUnsafe('SELECT team_id FROM team WHERE team_id=$1::uuid FOR UPDATE', teamId);
     const result: any[] = [];
     if (cloudMode) {
       result.push(

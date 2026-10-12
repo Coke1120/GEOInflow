@@ -3,7 +3,9 @@ import { getQueryFilters, parseRequest } from '@/lib/request';
 import { badRequest, json, unauthorized } from '@/lib/response';
 import { pagingParams, searchParams, teamRoleParam } from '@/lib/schema';
 import { canUpdateTeam, canViewTeam } from '@/permissions';
-import { createTeamUser, getTeamUser, getTeamUsers } from '@/queries/prisma';
+import { getTeamUser, getTeamUsers } from '@/queries/prisma';
+import { canAssignTeamUserRole } from '@/lib/liekan/contracts/team-users';
+import { memberWriteError, mutateTeamMember } from '@/lib/liekan/upstream/team-member-access';
 
 export async function GET(request: Request, { params }: { params: Promise<{ teamId: string }> }) {
   const schema = z.object({
@@ -41,9 +43,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ team
           },
         },
       },
-      orderBy: {
-        createdAt: 'asc',
-      },
+      orderBy: [{createdAt: 'asc'}, {id: 'asc'}],
     },
     filters,
   );
@@ -71,13 +71,20 @@ export async function POST(request: Request, { params }: { params: Promise<{ tea
 
   const { userId, role } = body;
 
+  if (!auth.user.isAdmin) {
+    const actor = await getTeamUser(teamId, auth.user.id);
+    if (!canAssignTeamUserRole(false, actor?.role, role)) return unauthorized();
+  }
+
   const teamUser = await getTeamUser(teamId, userId);
 
   if (teamUser) {
     return badRequest({ message: 'User is already a member of the Team.' });
   }
 
-  const users = await createTeamUser(userId, teamId, role);
-
-  return json(users);
+  try {
+    return json(await mutateTeamMember(auth.user.id, teamId, userId, 'add', role));
+  } catch (error) {
+    return memberWriteError(error);
+  }
 }
