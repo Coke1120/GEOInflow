@@ -1,4 +1,5 @@
 import type { FeatureEntity, FeatureUser } from './features';
+export { teamUserRoleChoices as teamRoleOptions } from './team-users';
 
 export const workspaceRoleLabels: Record<string, string> = {
   admin: '系统管理员',
@@ -9,11 +10,6 @@ export const workspaceRoleLabels: Record<string, string> = {
   'team-member': '团队成员',
   'team-view-only': '团队只读',
 };
-export const teamRoleOptions: [string, string][] = [
-  ['team-manager', '团队管理员'],
-  ['team-member', '团队成员'],
-  ['team-view-only', '团队只读'],
-];
 export const userRoleOptions: [string, string][] = [
   ['user', '用户'],
   ['view-only', '只读'],

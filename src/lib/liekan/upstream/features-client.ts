@@ -169,8 +169,8 @@ export const featureApi = {
     signal?: AbortSignal,
     options?: { priority?: 'foreground' | 'prefetch' },
   ) => featureRequest<T>('GET', path, params, signal, undefined, undefined, options),
-  post: <T = any>(path: string, body?: Record<string, any>) =>
-    featureRequest<T>('POST', path, body),
+  post: <T = any>(path: string, body?: Record<string, any>, signal?: AbortSignal) =>
+    featureRequest<T>('POST', path, body, signal),
   put: <T = any>(path: string, body?: Record<string, any>) => featureRequest<T>('PUT', path, body),
   del: <T = any>(path: string, body?: Record<string, any>) =>
     featureRequest<T>('DELETE', path, body),

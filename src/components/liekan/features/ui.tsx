@@ -432,6 +432,7 @@ export function Table({
   search = false,
   mobile = false,
   rowKeys,
+  highlightRowKey,
   identity = 0,
   static: staticColumns = [],
   onRowClick,
@@ -447,6 +448,7 @@ export function Table({
   search?: boolean;
   mobile?: boolean;
   rowKeys?: string[];
+  highlightRowKey?: string;
   identity?: number;
   /** Column indexes without a sort button (composite metric cells). */
   static?: number[];
@@ -618,6 +620,7 @@ export function Table({
                 return (
                   <tr
                     key={rowKey}
+                    data-highlighted={rowKey === highlightRowKey || undefined}
                     data-expanded={open || undefined}
                     className={onRowClick ? 'row-click' : undefined}
                     onClick={

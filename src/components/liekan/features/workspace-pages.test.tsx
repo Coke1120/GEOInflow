@@ -210,6 +210,63 @@ beforeEach(() => {
   mocks.refresh.mockResolvedValue(undefined);
   mocks.request.mockResolvedValue({});
 });
+it('keeps team account creation exclusive to system administrators', async () => {
+  context.route = { page: 'team-detail', teamId: team.id };
+  mount(<WorkspacePages page="team-detail" />);
+  await screen.findByRole('button', { name: '添加已有用户' });
+  expect(screen.queryByRole('button', { name: '新建用户' })).not.toBeInTheDocument();
+});
+it('keeps the creation result when refresh fails and highlights a member on page two', async () => {
+  const id = '33333333-3333-4333-8333-333333333333';
+  context.user = { ...owner, isAdmin: true };
+  context.route = { page: 'team-detail', teamId: id };
+  context.siteId = undefined;
+  let result: any;
+  mocks.get.mockImplementation(async path => {
+    if (path === `/teams/${id}`) return { ...team, id };
+    if (path === `/teams/${id}/users`)
+      return {
+        data: result ? [{ ...result.member, user: result.user }] : [],
+        count: 21,
+        pageSize: 20,
+      };
+    return {};
+  });
+  mocks.post.mockImplementation(async (_path, body) => {
+    result = {
+      state: 'created',
+      user: { id: body.userId, username: body.username, role: 'user' },
+      member: {
+        id: body.userId,
+        userId: body.userId,
+        teamId: id,
+        role: body.teamRole,
+        createdAt: new Date(0).toISOString(),
+      },
+      page: 2,
+    };
+    return result;
+  });
+  mocks.refresh.mockRejectedValue(new Error('read failed'));
+  mount(<WorkspacePages page="team-detail" />);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: '新建用户' }));
+  await user.type(screen.getByLabelText(/^用户名/), 'created-user');
+  await user.type(screen.getByLabelText(/^初始密码/), 'test-pass-1');
+  await user.type(screen.getByLabelText(/^确认密码/), 'test-pass-1');
+  await user.click(screen.getByRole('button', { name: '创建并加入团队' }));
+  expect(await screen.findByText(/用户“created-user”已创建并加入团队/)).toBeInTheDocument();
+  expect(await screen.findByText(/创建已完成，成员列表读取失败/)).toBeInTheDocument();
+  await waitFor(() =>
+    expect(document.querySelector('tr[data-highlighted="true"]')).toHaveTextContent('created-user'),
+  );
+  expect(mocks.get).toHaveBeenCalledWith(
+    `/teams/${id}/users`,
+    expect.objectContaining({ page: 2 }),
+    expect.any(AbortSignal),
+  );
+  expect(mocks.post).toHaveBeenCalledTimes(1);
+});
 it('rereads the public overview when explicitly returning from events without renewal reads', async () => {
   const forces: boolean[] = [];
   mocks.request.mockImplementation(

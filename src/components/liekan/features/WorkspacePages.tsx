@@ -1,5 +1,7 @@
 'use client';
 import { pageLink } from '../PageLink';
+import { TeamUserCreateDialog } from './TeamUserCreateDialog';
+import { canAssignTeamUserRole, type TeamUserCreated } from '@/lib/liekan/contracts/team-users';
 import {
   ManualAuthorizationBoundary,
   ManualReadDependencyBoundary,
@@ -410,8 +412,8 @@ function MemberDrawer({
     !member && !!c.user.isAdmin,
   );
   const selfRole = workspaceTeamRole(c.user, team),
-    choices = teamRoleOptions.filter(
-      ([value]) => c.user.isAdmin || selfRole === 'team-owner' || value !== 'team-manager',
+    choices = teamRoleOptions.filter(([value]) =>
+      canAssignTeamUserRole(!!c.user.isAdmin, selfRole, value),
     );
   return (
     <LiekanDialog
@@ -516,7 +518,38 @@ function TeamDetail() {
     [page, setPage] = useListState('page', 1),
     [search, setSearch] = useListState('search', ''),
     [drawer, setDrawer] = useState<any>(null),
+    [created, setCreated] = useState<{ owner: string; team: string; result: TeamUserCreated }>(
+      null,
+    ),
+    [refreshError, setRefreshError] = useState(false),
     action = useAction();
+  const client = useQueryClient();
+  const scope = `${c.user.id}:${id}`;
+  const lifecycle = useRef({ scope, alive: true });
+  lifecycle.current.scope = scope;
+  useEffect(() => {
+    lifecycle.current.alive = true;
+    return () => {
+      lifecycle.current.alive = false;
+    };
+  }, []);
+  const activeCreated =
+    created?.owner === c.user.id && created?.team === id ? created.result : null;
+  async function refreshCreated() {
+    const started = scope;
+    setRefreshError(false);
+    await client.invalidateQueries({
+      predicate: query =>
+        query.queryKey[0] === 'liekan-feature' && query.queryKey.includes(c.user.id),
+      refetchType: 'none',
+    });
+    if (!lifecycle.current.alive || lifecycle.current.scope !== started) return;
+    try {
+      await c.refresh();
+    } catch {
+      if (lifecycle.current.alive && lifecycle.current.scope === started) setRefreshError(true);
+    }
+  }
   const q = useData(
     ['team-record', id],
     signal => c.api.get<FeatureEntity>(`/teams/${id}`, undefined, signal),
@@ -574,65 +607,89 @@ function TeamDetail() {
             }}
           />
           {tab === 'members' ? (
-            <Panel
-              title="团队成员"
-              subtitle="所有者、管理员、成员与只读角色分别保留。"
-              actions={
-                <>
-                  <Search
-                    value={search}
-                    onChange={value => {
-                      setSearch(value);
-                      setPage(1);
-                    }}
-                  />
-                  <Button
-                    primary
-                    disabled={!management}
-                    onClick={() => setDrawer({ type: 'member' })}
-                  >
-                    添加已有用户
-                  </Button>
-                </>
-              }
-            >
-              <QueryState query={members}>
-                <Table
-                  mobile
-                  rowKeys={rowsOf<any>(members.data).map(member => member.id || member.userId)}
-                  columns={['成员', '用户名', '角色', '双重验证', '加入时间', '操作']}
-                  rows={rowsOf<any>(members.data).map(member => [
-                    member.user?.username || member.userId,
-                    member.user?.username || '未提供',
-                    <Badge key="cell-badge-3" tone={member.role === 'team-owner' ? 'blue' : 'gray'}>
-                      {role(member.role)}
-                    </Badge>,
-                    c.user.isAdmin ? (
-                      <TwoFactorBadge key="cell-twofactorbadge-4" userId={member.userId} />
-                    ) : (
-                      '未提供'
-                    ),
-                    date(member.createdAt),
-                    member.role === 'team-owner' ? (
-                      <span key="cell-span-5" className="muted">
-                        所有者
-                      </span>
-                    ) : (
+            <>
+              {activeCreated && (
+                <Notice tone="blue">
+                  用户“{activeCreated.user.username}”已创建并加入团队，角色为
+                  {role(activeCreated.member.role)}。
+                  {refreshError && <p>创建已完成，成员列表读取失败，请重新读取。</p>}
+                  <div className="form-actions">
+                    <Button onClick={refreshCreated}>重新读取</Button>
+                    <LinkButton page="admin-user" params={{ id: activeCreated.user.id }}>
+                      查看用户
+                    </LinkButton>
+                  </div>
+                </Notice>
+              )}
+              <Panel
+                title="团队成员"
+                subtitle="所有者、管理员、成员与只读角色分别保留。"
+                actions={
+                  <>
+                    <Search
+                      value={search}
+                      onChange={value => {
+                        setSearch(value);
+                        setPage(1);
+                      }}
+                    />
+                    <Button disabled={!management} onClick={() => setDrawer({ type: 'member' })}>
+                      添加已有用户
+                    </Button>
+                    {c.user.isAdmin && (
                       <Button
-                        key="cell-button-6"
-                        disabled={!canManageMember(c.user, team, member)}
-                        onClick={() => setDrawer({ type: 'member', member })}
+                        primary
+                        onClick={() => setDrawer({ type: 'new-user', owner: c.user.id, team: id })}
                       >
-                        编辑角色
+                        <Icon name="plus" />
+                        新建用户
                       </Button>
-                    ),
-                  ])}
-                  page={page}
-                  pages={pagesOf(members.data)}
-                  onPage={setPage}
-                />
-              </QueryState>
-            </Panel>
+                    )}
+                  </>
+                }
+              >
+                <QueryState query={members}>
+                  <Table
+                    mobile
+                    highlightRowKey={activeCreated?.member.id}
+                    rowKeys={rowsOf<any>(members.data).map(member => member.id || member.userId)}
+                    columns={['成员', '用户名', '角色', '双重验证', '加入时间', '操作']}
+                    rows={rowsOf<any>(members.data).map(member => [
+                      member.user?.username || member.userId,
+                      member.user?.username || '未提供',
+                      <Badge
+                        key="cell-badge-3"
+                        tone={member.role === 'team-owner' ? 'blue' : 'gray'}
+                      >
+                        {role(member.role)}
+                      </Badge>,
+                      c.user.isAdmin ? (
+                        <TwoFactorBadge key="cell-twofactorbadge-4" userId={member.userId} />
+                      ) : (
+                        '未提供'
+                      ),
+                      date(member.createdAt),
+                      member.role === 'team-owner' ? (
+                        <span key="cell-span-5" className="muted">
+                          所有者
+                        </span>
+                      ) : (
+                        <Button
+                          key="cell-button-6"
+                          disabled={!canManageMember(c.user, team, member)}
+                          onClick={() => setDrawer({ type: 'member', member })}
+                        >
+                          编辑角色
+                        </Button>
+                      ),
+                    ])}
+                    page={page}
+                    pages={pagesOf(members.data)}
+                    onPage={setPage}
+                  />
+                </QueryState>
+              </Panel>
+            </>
           ) : tab === 'resources' ? (
             <Panel
               title="团队资源"
@@ -797,6 +854,24 @@ function TeamDetail() {
           {drawer?.type === 'member' && (
             <MemberDrawer team={team} member={drawer.member} onClose={() => setDrawer(null)} />
           )}
+          {drawer?.type === 'new-user' &&
+            c.user.isAdmin &&
+            drawer.owner === c.user.id &&
+            drawer.team === id && (
+              <TeamUserCreateDialog
+                key={scope}
+                team={team}
+                onClose={() => setDrawer(null)}
+                onCreated={result => {
+                  setCreated({ owner: c.user.id, team: id, result });
+                  setDrawer(null);
+                  setSearch('');
+                  setPage(result.page);
+                  c.notify('用户已创建并加入团队');
+                  void refreshCreated();
+                }}
+              />
+            )}
           {['delete', 'leave'].includes(drawer?.type) && (
             <Confirm
               title={drawer.type === 'delete' ? '删除团队' : '退出团队'}
