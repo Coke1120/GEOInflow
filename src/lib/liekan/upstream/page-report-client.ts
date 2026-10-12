@@ -1,5 +1,5 @@
 'use client';
-import type { KeywordConditions } from '../contracts/keywords';
+import { keywordStatusVersion, type KeywordConditions } from '../contracts/keywords';
 import type { LiekanPageReport, ReportResource } from '../contracts/page-report';
 import {
   freshnessStaleTime,
@@ -68,6 +68,7 @@ export function pageReportQuery(
         p.sort || 'sessions',
         p.direction || 'desc',
         p.keywordSnapshot || '',
+        keywordStatusVersion,
       ]),
     );
   return {
@@ -78,7 +79,13 @@ export function pageReportQuery(
         () =>
           featureApi.get<LiekanPageReport>(
             `/liekan/websites/${websiteId}/page-report`,
-            { ...p, tablePages: undefined, ...tpParams, ...(fresh?.() ? { refresh: '1' } : {}) },
+            {
+              ...p,
+              tablePages: undefined,
+              ...tpParams,
+              ...(p.resource === 'human/keywords' ? { keywordStatusVersion } : {}),
+              ...(fresh?.() ? { refresh: '1' } : {}),
+            },
             signal,
             { priority },
           ),

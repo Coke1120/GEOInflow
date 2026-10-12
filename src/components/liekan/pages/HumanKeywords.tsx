@@ -263,10 +263,12 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
       </section>
       <section className="rounded-xl bg-wash p-4 text-[12px] text-sub leading-relaxed space-y-1">
         <p>
-          搜索引擎与浏览器可能只提供来源域名。未提供的关键词会保留在统计中，后续无法从现有记录恢复。
+          来源未携带搜索词表示搜索词参数缺失或为空；跳转链接无可用搜索词表示来源为已识别的跳转链接，且没有非空的搜索词参数。
+          这些会话仍计入搜索流量，现有记录中缺失的搜索词无法恢复。
         </p>
         <p>
-          来源搜索词优先识别；UTM 关键词为手动标记。完整性无法确认、解析失败和脱敏状态分别显示。
+          来源搜索词优先识别；UTM 关键词为手动标记，可通过推广链接的 utm_term 参数提供。
+          来源格式不支持、完整性无法确认、解析失败和脱敏状态分别显示。
           {report?.meta.keywordHasGoals === false ? '尚未配置转化目标，转化率显示为空。' : ''}
         </p>
         <p>完整导出会读取新的统计快照；文件注明读取时间和筛选条件。</p>

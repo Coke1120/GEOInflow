@@ -3,6 +3,7 @@ import {
   addKeywordCandidate,
   identifyKeyword,
   keywordConditionsSchema,
+  keywordStatusLabels,
   selectKeywords,
   type KeywordEntry,
   type KeywordRow,
@@ -14,6 +15,65 @@ const google: KeywordEntry = {
   referrerQuery: '?q=%E7%8C%8E%E7%9C%8B',
 };
 describe('source keyword evidence', () => {
+  it.each([
+    ['baidu.com', '/link', 'url=opaque&wd=&eqid=example'],
+    ['www.baidu.com', '/link/', 'wd=%20&url=opaque'],
+    ['so.com', '/link', 'm=opaque'],
+    ['sogou.com', '/link', 'url=opaque'],
+    ['m.sogou.com', '/link', 'keyword='],
+  ])(
+    'distinguishes a known redirect without a readable term: %s%s',
+    (referrer, referrerPath, referrerQuery) => {
+      expect(identifyKeyword({ referrer, referrerPath, referrerQuery })).toMatchObject({
+        keyword: null,
+        evidence: 'none',
+        status: 'redirect',
+      });
+      expect(
+        identifyKeyword({ referrer, referrerPath, referrerQuery, utmTerm: '手动标记（示例）' }),
+      ).toMatchObject({
+        keyword: '手动标记（示例）',
+        evidence: 'utm',
+        status: 'available',
+      });
+    },
+  );
+  it('keeps missing, unsupported and incomplete evidence separate from empty redirects', () => {
+    expect(identifyKeyword({ referrer: 'cn.bing.com', referrerPath: '/' })?.status).toBe('missing');
+    expect(
+      identifyKeyword({ referrer: 'baidu.com', referrerPath: '/s', referrerQuery: 'wd=' })?.status,
+    ).toBe('missing');
+    for (const entry of [
+      { referrer: 'tieba.baidu.com', referrerPath: '/link', referrerQuery: 'url=opaque' },
+      { referrer: 'baidu.com', referrerPath: '/unknown', referrerQuery: 'wd=' },
+      { referrer: 'baidu.com', referrerPath: '/link', referrerQuery: 'wd=readable' },
+      { referrer: 'baidu.com', referrerPath: '/link', referrerQuery: 'wd=%ZZ' },
+    ])
+      expect(identifyKeyword(entry)?.status).toBe('unsupported');
+    expect(
+      identifyKeyword({
+        referrer: 'baidu.com',
+        referrerPath: '/link',
+        referrerQuery: 'url=' + 'x'.repeat(496),
+      })?.status,
+    ).toBe('incomplete');
+    expect(keywordStatusLabels.missing).toBe('来源未携带搜索词');
+  });
+  it.each([
+    ['wd=%C2%A0&ie=gbk', 'unsupported'],
+    ['wd=%A1%A1&ie=gbk', 'redirect'],
+    ['wd=%C2%A0&ie=utf-8', 'redirect'],
+    ['wd=%A1%A1&ie=utf-8', 'unsupported'],
+    ['wd=%20&ie=utf-16', 'unsupported'],
+    ['wd=&wd=readable', 'unsupported'],
+  ])(
+    'uses strict declared encoding to establish an empty redirect term: %s',
+    (referrerQuery, status) => {
+      expect(
+        identifyKeyword({ referrer: 'baidu.com', referrerPath: '/link', referrerQuery }),
+      ).toMatchObject({ status, keyword: null });
+    },
+  );
   it.each([
     ['www.baidu.com', '/s', '?wd=%E7%8C%8E%E7%9C%8B', '百度'],
     ['m.baidu.com', '/s', '?word=%E7%8C%8E%E7%9C%8B', '百度'],
@@ -203,6 +263,55 @@ describe('source keyword evidence', () => {
   });
 });
 describe('keyword aggregation and full-population projection', () => {
+  it.each([true, false])(
+    'keeps saved status-text queries usable after an upgrade (new states: %s)',
+    supportsRedirect => {
+      const groups = new Map<string, KeywordRow>();
+      for (const entry of [
+        { referrer: 'cn.bing.com', referrerPath: '/' },
+        { referrer: 'baidu.com', referrerPath: '/link', referrerQuery: 'url=opaque&wd=' },
+        { referrer: 'tieba.baidu.com', referrerPath: '/s', referrerQuery: 'wd=forum' },
+      ])
+        addKeywordCandidate(groups, { ...entry, sessions: 1, bounces: 1, conversions: 0 });
+      for (const [search, expected] of [
+        ['未提供', 1],
+        ['来源不支持', 2],
+      ] as const) {
+        const selected = selectKeywords(
+          [...groups.values()],
+          keywordConditionsSchema.parse({ search }),
+          false,
+          supportsRedirect,
+        );
+        expect(selected.rows.reduce((n, row) => n + row.sessions, 0)).toBe(expected);
+        expect(selected.total).toBe(3);
+      }
+    },
+  );
+  it('filters the new statuses without changing traffic totals or inventing keywords', () => {
+    const groups = new Map<string, KeywordRow>();
+    for (const entry of [
+      { referrer: 'cn.bing.com', referrerPath: '/' },
+      { referrer: 'baidu.com', referrerPath: '/link', referrerQuery: 'url=opaque&wd=' },
+      { referrer: 'tieba.baidu.com', referrerPath: '/s', referrerQuery: 'wd=forum' },
+    ])
+      addKeywordCandidate(groups, { ...entry, sessions: 2, bounces: 1, conversions: 0 });
+    const rows = [...groups.values()];
+    for (const status of ['missing', 'redirect', 'unsupported']) {
+      const selected = selectKeywords(rows, keywordConditionsSchema.parse({ status }), false);
+      expect(selected).toMatchObject({ total: 6, referrer: 0, utm: 0, availability: 0 });
+      expect(selected.rows).toHaveLength(1);
+      expect(selected.rows[0]).toMatchObject({ keyword: null, status, sessions: 2, share: 33.33 });
+    }
+    expect(
+      selectKeywords(rows, keywordConditionsSchema.parse({ search: '跳转链接' }), false).rows[0]
+        ?.status,
+    ).toBe('redirect');
+    expect(
+      selectKeywords(rows, keywordConditionsSchema.parse({ search: '来源未携带' }), false).rows[0]
+        ?.status,
+    ).toBe('missing');
+  });
   function rows() {
     const map = new Map<string, KeywordRow>();
     for (let i = 0; i < 45; i++)

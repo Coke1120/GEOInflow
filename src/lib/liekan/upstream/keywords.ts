@@ -3,6 +3,7 @@ import {
   addKeywordCandidate,
   keywordConditionsSchema,
   selectKeywords,
+  supportsKeywordRedirect,
   type KeywordCandidate,
   type KeywordRow,
 } from '../contracts/keywords';
@@ -118,7 +119,12 @@ export function keywordReport(
   settings: Awaited<ReturnType<typeof getSettings>>,
   canManage = false,
 ): LiekanReport {
-  const selected = selectKeywords(facts.rows, keywordConditionsSchema.parse(p), facts.hasGoals);
+  const selected = selectKeywords(
+    facts.rows,
+    keywordConditionsSchema.parse(p),
+    facts.hasGoals,
+    supportsKeywordRedirect(p),
+  );
   const changed = Boolean(p.keywordSnapshot && p.keywordSnapshot !== facts.snapshot && p.page > 1);
   const page = changed ? 1 : Math.min(p.page, Math.max(1, Math.ceil(selected.rows.length / 20)));
   const state = selected.total ? 'available' : 'empty';
@@ -183,7 +189,7 @@ export async function readKeywordPage(
   refresh: boolean,
 ): Promise<CachedResult<LiekanReport>> {
   validateKeywordRange(p);
-  const key = analyticsCacheKey('source-keywords-v2', [
+  const key = analyticsCacheKey('source-keywords-v3', [
     process.env.DATABASE_URL,
     website.id,
     p.startAt,

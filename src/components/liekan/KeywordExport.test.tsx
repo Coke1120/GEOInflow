@@ -54,6 +54,7 @@ it.each(['resolve', 'reject'] as const)(
     const latest = pendingExport();
     const view = render(<KeywordExport report={report} conditions={google} disabled={false} />);
     fireEvent.click(screen.getByRole('button', { name: '导出全部筛选结果' }));
+    expect(stream.mock.calls[0][1]).toMatchObject({ keywordStatusVersion: '2' });
     view.rerender(<KeywordExport report={report} conditions={bing} disabled={false} />);
     expect(old.signal.aborted).toBe(true);
     view.rerender(<KeywordExport report={report} conditions={google} disabled={false} />);

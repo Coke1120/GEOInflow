@@ -14,6 +14,7 @@ export const keywordEngines = [
 export const keywordStatuses = [
   'available',
   'missing',
+  'redirect',
   'invalid',
   'unsupported',
   'conflict',
@@ -22,9 +23,10 @@ export const keywordStatuses = [
 ] as const;
 export const keywordStatusLabels: Record<(typeof keywordStatuses)[number], string> = {
   available: '已识别',
-  missing: '未提供',
+  missing: '来源未携带搜索词',
+  redirect: '跳转链接无可用搜索词',
   invalid: '无法解析',
-  unsupported: '来源不支持',
+  unsupported: '来源格式不支持',
   conflict: '证据冲突',
   incomplete: '完整性无法确认',
   redacted: '已脱敏',
@@ -34,6 +36,10 @@ export const keywordEvidenceLabels = {
   utm: 'UTM 手动标记',
   none: '无可用关键词',
 };
+export const keywordStatusVersion = '2' as const;
+export function supportsKeywordRedirect(input: { keywordStatusVersion?: string; status?: string }) {
+  return input.keywordStatusVersion === keywordStatusVersion || input.status === 'redirect';
+}
 export const keywordConditionsSchema = z.object({
   engine: z.enum(['', ...keywordEngines]).default(''),
   evidence: z.enum(['', 'referrer', 'utm', 'none']).default(''),
@@ -85,6 +91,7 @@ const rules = [
     domains: ['baidu.com'],
     hosts: ['', 'www', 'm'],
     path: /^\/(?:s|baidu|from[^/]*\/s)\/?$/,
+    redirectPath: /^\/link\/?$/,
     keys: ['wd', 'word'],
   },
   {
@@ -92,9 +99,17 @@ const rules = [
     domains: ['sogou.com'],
     hosts: ['', 'www', 'm', 'wap'],
     path: /^\/(?:web|websearch|sogou|s)\/?$/,
+    redirectPath: /^\/link\/?$/,
     keys: ['query', 'keyword'],
   },
-  { engine: '360', domains: ['so.com'], hosts: ['', 'www', 'm'], path: /^\/s\/?$/, keys: ['q'] },
+  {
+    engine: '360',
+    domains: ['so.com'],
+    hosts: ['', 'www', 'm'],
+    path: /^\/s\/?$/,
+    redirectPath: /^\/link\/?$/,
+    keys: ['q'],
+  },
   {
     engine: 'DuckDuckGo',
     domains: ['duckduckgo.com'],
@@ -152,6 +167,50 @@ function decodeQueryTerm(raw: string, encoding: 'utf-8' | 'gb18030' | 'auto') {
   }
   return new TextDecoder('gb18030', { fatal: true }).decode(new Uint8Array(bytes));
 }
+function parseQueryTerm(
+  rawQuery: string,
+  rule: (typeof rules)[number],
+): { term?: string; status?: 'conflict' | 'unsupported' | 'invalid' } {
+  try {
+    const params: [string, string][] = [];
+    for (const part of rawQuery.replace(/^\?/, '').split('&')) {
+      const split = part.indexOf('=');
+      try {
+        params.push([
+          decodeURIComponent(split < 0 ? part : part.slice(0, split)),
+          split < 0 ? '' : part.slice(split + 1),
+        ]);
+      } catch {
+        // Malformed unrelated parameter names do not invalidate keyword evidence.
+      }
+    }
+    const terms = params.filter(([key]) => (rule.keys as readonly string[]).includes(key));
+    const legacy = ['百度', '搜狗', '360'].includes(rule.engine);
+    const encodings = [
+      ...new Set(
+        legacy && terms.length
+          ? params
+              .filter(([key]) => key === 'ie')
+              .map(([, raw]) => {
+                const label = decodeURIComponent(raw.replaceAll('+', ' ')).trim().toLowerCase();
+                if (/^utf-?8$/.test(label)) return 'utf-8';
+                if (/^(?:gbk|gb2312|gb18030)$/.test(label)) return 'gb18030';
+                return 'unsupported';
+              })
+          : [],
+      ),
+    ];
+    if (encodings.length > 1) return { status: 'conflict' };
+    const encoding = encodings[0] || (legacy ? 'auto' : 'utf-8');
+    if (encoding !== 'utf-8' && encoding !== 'gb18030' && encoding !== 'auto')
+      return { status: 'unsupported' };
+    const unique = [...new Set(terms.map(([, raw]) => normalize(decodeQueryTerm(raw, encoding))))];
+    if (unique.length > 1) return { status: 'conflict' };
+    return { term: unique[0] };
+  } catch {
+    return { status: 'invalid' };
+  }
+}
 export function identifyKeyword(entry: KeywordEntry): KeywordIdentification | null {
   const attribution = classifyEntrySource(entry);
   if (attribution.channel !== '传统搜索') return null;
@@ -169,9 +228,18 @@ export function identifyKeyword(entry: KeywordEntry): KeywordIdentification | nu
   const path = entry.referrerPath || '';
   if ((entry.utmSource || '').length >= 255 || (entry.utmMedium || '').length >= 255)
     return result('incomplete');
-  if (host.length >= 500 || path.length >= 500) failure = 'incomplete';
+  if (host.length >= 500 || path.length >= 500 || rawQuery.length >= 500) failure = 'incomplete';
   else if (host && actual?.engine !== rule.engine) failure = 'conflict';
   else if (
+    host &&
+    actual &&
+    isSearchHost(host, actual) &&
+    'redirectPath' in actual &&
+    actual.redirectPath.test(path)
+  ) {
+    const parsed = parseQueryTerm(rawQuery, actual);
+    failure = !parsed.status && !parsed.term ? 'redirect' : 'unsupported';
+  } else if (
     host &&
     (!actual ||
       !isSearchHost(host, actual) ||
@@ -179,58 +247,15 @@ export function identifyKeyword(entry: KeywordEntry): KeywordIdentification | nu
   )
     failure = 'unsupported';
   else if (rawQuery) {
-    if (rawQuery.length >= 500 || path.length >= 500) failure = 'incomplete';
-    else if (!path || !actual) failure = 'unsupported';
+    if (!path || !actual) failure = 'unsupported';
     else {
-      try {
-        const params: [string, string][] = [];
-        for (const part of rawQuery.replace(/^\?/, '').split('&')) {
-          const split = part.indexOf('=');
-          try {
-            params.push([
-              decodeURIComponent(split < 0 ? part : part.slice(0, split)),
-              split < 0 ? '' : part.slice(split + 1),
-            ]);
-          } catch {
-            // Malformed unrelated parameter names do not invalidate keyword evidence.
-          }
-        }
-        const terms = params.filter(([key]) => (actual.keys as readonly string[]).includes(key));
-        const legacy = ['百度', '搜狗', '360'].includes(actual.engine);
-        const encodings = [
-          ...new Set(
-            legacy && terms.length
-              ? params
-                  .filter(([key]) => key === 'ie')
-                  .map(([, raw]) => {
-                    const label = decodeURIComponent(raw.replaceAll('+', ' ')).trim().toLowerCase();
-                    if (/^utf-?8$/.test(label)) return 'utf-8';
-                    if (/^(?:gbk|gb2312|gb18030)$/.test(label)) return 'gb18030';
-                    return 'unsupported';
-                  })
-              : [],
-          ),
-        ];
-        const encoding = encodings[0] || (legacy ? 'auto' : 'utf-8');
-        const values: string[] = [];
-        if (encodings.length > 1) failure = 'conflict';
-        else if (encoding !== 'utf-8' && encoding !== 'gb18030' && encoding !== 'auto')
-          failure = 'unsupported';
-        else {
-          for (const [, raw] of terms) {
-            values.push(normalize(decodeQueryTerm(raw, encoding)));
-          }
-        }
-        const unique = [...new Set(values)];
-        if (unique.length > 1) failure = 'conflict';
-        const term = unique.length === 1 ? unique[0] : undefined;
-        if (term) {
-          if (/[\u0000-\u001f\u007f\ufffd]/.test(term)) failure = 'invalid';
-          else if (redactKeywordTerm(term) !== term) failure = 'redacted';
-          else return result('available', term, 'referrer');
-        }
-      } catch {
-        failure = 'invalid';
+      const parsed = parseQueryTerm(rawQuery, actual);
+      failure = parsed.status || 'missing';
+      const term = parsed.term;
+      if (term) {
+        if (/[\u0000-\u001f\u007f\ufffd]/.test(term)) failure = 'invalid';
+        else if (redactKeywordTerm(term) !== term) failure = 'redacted';
+        else return result('available', term, 'referrer');
       }
     }
   }
@@ -285,12 +310,34 @@ export function addKeywordCandidate(groups: Map<string, KeywordRow>, row: Keywor
   return true;
 }
 const percent = (n: number, d: number) => (d ? Math.round((n / d) * 10000) / 100 : null);
+const keywordStatusSearchAliases: Partial<Record<KeywordIdentification['status'], string>> = {
+  missing: '未提供',
+  redirect: '来源不支持',
+  unsupported: '来源不支持',
+};
+function legacyKeywordRows(rows: KeywordRow[]) {
+  const groups = new Map<string, KeywordRow>();
+  for (const row of rows) {
+    const status = row.status === 'redirect' ? 'unsupported' : row.status;
+    const id = JSON.stringify([row.engine, row.keyword, row.evidence, status]);
+    const group = groups.get(id);
+    if (group) {
+      group.sessions += row.sessions;
+      group.bounces += row.bounces;
+      group.conversions += row.conversions;
+    } else groups.set(id, { ...row, status, id });
+  }
+  return [...groups.values()];
+}
 export function selectKeywords(
   rows: KeywordRow[],
   conditions: KeywordConditions,
   hasGoals: boolean,
+  supportsRedirect = true,
 ) {
-  const population = rows.filter(row => !conditions.engine || row.engine === conditions.engine);
+  const population = (supportsRedirect ? rows : legacyKeywordRows(rows)).filter(
+    row => !conditions.engine || row.engine === conditions.engine,
+  );
   const total = population.reduce((n, row) => n + row.sessions, 0);
   const referrer = population
     .filter(row => row.evidence === 'referrer')
@@ -304,9 +351,11 @@ export function selectKeywords(
         (!conditions.evidence || row.evidence === conditions.evidence) &&
         (!conditions.status || row.status === conditions.status) &&
         (!conditions.search ||
-          (row.keyword || keywordStatusLabels[row.status])
-            .toLocaleLowerCase()
-            .includes(conditions.search.toLocaleLowerCase())),
+          (row.keyword
+            ? row.keyword.toLocaleLowerCase().includes(conditions.search.toLocaleLowerCase())
+            : [keywordStatusLabels[row.status], keywordStatusSearchAliases[row.status]].some(
+                label => label?.toLocaleLowerCase().includes(conditions.search.toLocaleLowerCase()),
+              ))),
     )
     .map(row => ({
       ...row,

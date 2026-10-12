@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { keywordConditionsSchema } from './keywords';
+import { keywordConditionsSchema, keywordStatusVersion } from './keywords';
 import { geographySorts } from './geography';
 // 可分页明细表白名单：请求以扁平参数 tp_<table>=<page> 携带页码。
 // 其余明细表行数有界或已由独立协议（logBody keyset）分页，不在白名单内。
@@ -46,6 +46,7 @@ export const reportQuery = z.object({
   engine: keywordConditionsSchema.shape.engine,
   evidence: keywordConditionsSchema.shape.evidence,
   status: keywordConditionsSchema.shape.status,
+  keywordStatusVersion: z.literal(keywordStatusVersion).optional(),
   sort: keywordConditionsSchema.shape.sort,
   direction: keywordConditionsSchema.shape.direction,
   keywordSnapshot: z

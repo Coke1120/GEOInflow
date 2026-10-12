@@ -679,3 +679,131 @@ test.describe('Liekan statistics cache', () => {
     }
   });
 });
+
+test('keeps empty search redirects in traffic totals and exposes their status in filters and exports', async ({
+  admin,
+  api,
+}) => {
+  const website = await createWebsite(admin, {
+    name: '来源缺词状态（隔离验收）',
+    domain: 'keyword-status-fixture.test',
+  });
+  const base = `/api/liekan/websites/${website.id}`;
+  const now = Date.now();
+  const params = {
+    resource: 'human/keywords',
+    keywordStatusVersion: '2',
+    startAt: now - 60000,
+    endAt: now + 60000,
+    timezone: 'UTC',
+  };
+  try {
+    const sources = [
+      ['https://cn.bing.com/', '/'],
+      ['https://www.baidu.com/link?url=opaque&wd=&eqid=example', '/'],
+      ['https://www.so.com/link?m=opaque', '/'],
+      ['https://www.sogou.com/link?url=opaque', '/'],
+      ['https://tieba.baidu.com/s?wd=forum', '/'],
+      ['https://www.baidu.com/link?url=opaque&wd=', '/?utm_term=manual-example'],
+    ];
+    for (const [i, [referrer, url]] of sources.entries()) {
+      const response = await api.post('/api/send', {
+        type: 'event',
+        payload: {
+          website: website.id,
+          hostname: website.domain,
+          referrer,
+          url,
+          id: `keyword-status-${i}`,
+          timestamp: Math.floor(now / 1000),
+          ip: '10.90.0.1',
+          userAgent: 'Mozilla/5.0 Chrome/124.0.0.0',
+        },
+      });
+      expect(response.status).toBe(200);
+    }
+    const report = await admin.get(`${base}/page-report`, { params });
+    expect(report.status, report.text).toBe(200);
+    expect(report.body.cards.map(card => card.value)).toEqual([6, 0, 1, 16.67]);
+    expect(report.body.tables.keywordBody.filter(row => row.status === 'redirect')).toHaveLength(3);
+    expect(report.body.tables.keywordBody).toContainEqual(
+      expect.objectContaining({ engine: 'Bing', status: 'missing', keyword: null }),
+    );
+    expect(report.body.tables.keywordBody).toContainEqual(
+      expect.objectContaining({ engine: '百度', status: 'unsupported', keyword: null }),
+    );
+    expect(report.body.tables.keywordBody).toContainEqual(
+      expect.objectContaining({ engine: '百度', evidence: 'utm', keyword: 'manual-example' }),
+    );
+    const legacy = await admin.get(`${base}/page-report`, {
+      params: { ...params, keywordStatusVersion: undefined, status: 'unsupported' },
+    });
+    expect(legacy.status, legacy.text).toBe(200);
+    expect(legacy.body.cards.map(card => card.value)).toEqual([6, 0, 1, 16.67]);
+    expect(legacy.body.tables.keywordBody).toHaveLength(3);
+    expect(
+      legacy.body.tables.keywordBody.every(
+        row => row.status === 'unsupported' && row.keyword === null,
+      ),
+    ).toBe(true);
+    expect(legacy.body.tables.keywordBody.find(row => row.engine === '百度').sessions).toBe(2);
+    expect(new Set(legacy.body.tables.keywordBody.map(row => row.id)).size).toBe(3);
+    const oldText = await admin.get(`${base}/page-report`, {
+      params: { ...params, keywordStatusVersion: undefined, search: '来源不支持' },
+    });
+    expect(oldText.status, oldText.text).toBe(200);
+    expect(oldText.body.tables.keywordBody.reduce((total, row) => total + row.sessions, 0)).toBe(4);
+    const oldExport = await admin.post(`${base}/exports`, {
+      ...params,
+      keywordStatusVersion: undefined,
+      kind: 'source-keywords',
+      format: 'csv',
+      search: '来源不支持',
+    });
+    expect(oldExport.status, oldExport.text).toBe(200);
+    const oldFrames = oldExport.text
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line));
+    expect(oldFrames.find(frame => frame.type === 'file').manifest.rows).toBe(3);
+    const oldCsv = Buffer.concat(
+      oldFrames
+        .filter(frame => frame.type === 'chunk')
+        .map(frame => Buffer.from(frame.data, 'base64')),
+    ).toString();
+    expect(oldCsv).toContain('来源格式不支持,百度,无可用关键词,2,33.33,100,');
+    expect(oldCsv).not.toContain('跳转链接无可用搜索词');
+    for (const filter of [{ status: 'redirect' }, { search: '跳转链接' }]) {
+      const selected = await admin.get(`${base}/page-report`, { params: { ...params, ...filter } });
+      expect(selected.status, selected.text).toBe(200);
+      expect(selected.body.tables.keywordBody).toHaveLength(3);
+      expect(selected.body.cards.map(card => card.value)).toEqual([6, 0, 1, 16.67]);
+      expect(selected.body.tables.keywordBody.every(row => row.keyword === null)).toBe(true);
+    }
+    const exported = await admin.post(`${base}/exports`, {
+      kind: 'source-keywords',
+      format: 'csv',
+      ...params,
+      status: 'redirect',
+    });
+    expect(exported.status, exported.text).toBe(200);
+    const frames = exported.text
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line));
+    expect(frames.at(-1).type).toBe('complete');
+    expect(frames.find(frame => frame.type === 'file').manifest.rows).toBe(3);
+    const csv = Buffer.concat(
+      frames
+        .filter(frame => frame.type === 'chunk')
+        .map(frame => Buffer.from(frame.data, 'base64')),
+    ).toString();
+    expect(csv).toContain('跳转链接无可用搜索词');
+    expect(csv).toContain('百度');
+    expect(csv).toContain('360');
+    expect(csv).toContain('搜狗');
+    expect(csv).not.toContain('opaque');
+  } finally {
+    await deleteWebsite(admin, website.id);
+  }
+});
