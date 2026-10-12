@@ -69,7 +69,7 @@ export async function checkApiKeyAuth(request: Request, token: string) {
   };
 }
 
-export async function checkAuth(request: Request) {
+export async function checkAuth(request: Request, loadUser = getUser) {
   const token = getBearerToken(request);
 
   if (isApiKeyEnabled() && isApiKey(token)) {
@@ -98,7 +98,7 @@ export async function checkAuth(request: Request) {
   const { userId, authKey } = (expiredByAge ? null : payload) || {};
 
   if (userId) {
-    user = await getUser(userId, { includePassword: true });
+    user = await loadUser(userId, { includePassword: true });
 
     // Reject tokens issued before the current password.
     // Allow legacy stateless tokens that were minted without a password fingerprint.
@@ -109,7 +109,7 @@ export async function checkAuth(request: Request) {
     const key = await redis.client.get(authKey);
 
     if (key?.userId) {
-      user = await getUser(key.userId, { includePassword: true });
+      user = await loadUser(key.userId, { includePassword: true });
 
       // Only enforce password-change invalidation for sessions that include a password fingerprint.
       if (user && key.pwd && hash(user.password) !== key.pwd) {

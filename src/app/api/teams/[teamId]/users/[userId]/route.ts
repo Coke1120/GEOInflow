@@ -4,7 +4,8 @@ import { parseRequest } from '@/lib/request';
 import { badRequest, json, ok, unauthorized } from '@/lib/response';
 import { teamRoleParam } from '@/lib/schema';
 import { canDeleteTeamUser, canUpdateTeam } from '@/permissions';
-import { deleteTeamUser, getTeamUser, updateTeamUser } from '@/queries/prisma';
+import { getTeamUser } from '@/queries/prisma';
+import { memberWriteError, mutateTeamMember } from '@/lib/liekan/upstream/team-member-access';
 
 export async function GET(
   request: Request,
@@ -59,14 +60,16 @@ export async function POST(
     const actorRank = TEAM_ROLE_RANK[actorTeamUser?.role] ?? -1;
     const targetRank = TEAM_ROLE_RANK[teamUser.role] ?? -1;
 
-    if (actorRank <= targetRank) {
+    if (actorRank <= targetRank || actorRank <= (TEAM_ROLE_RANK[body.role] ?? Infinity)) {
       return unauthorized({ message: 'You do not have permission to modify this user.' });
     }
   }
 
-  const user = await updateTeamUser(teamUser.id, body);
-
-  return json(user);
+  try {
+    return json(await mutateTeamMember(auth.user.id, teamId, userId, 'edit', body.role));
+  } catch (error) {
+    return memberWriteError(error);
+  }
 }
 
 export async function DELETE(
@@ -106,7 +109,10 @@ export async function DELETE(
     }
   }
 
-  await deleteTeamUser(teamId, userId);
-
-  return ok();
+  try {
+    await mutateTeamMember(auth.user.id, teamId, userId, 'remove');
+    return ok();
+  } catch (error) {
+    return memberWriteError(error);
+  }
 }

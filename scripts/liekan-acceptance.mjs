@@ -408,6 +408,23 @@ try {
       'utf8',
     ),
   );
+  await run(process.execPath, ['scripts/liekan-team-user-acceptance.mjs'], 'team-user-acceptance', {
+    env: { ...process.env, LIEKAN_URL: baseUrl, LIEKAN_TEAM_TEST_DB_CONTAINER: db },
+  });
+  report.teamUsers = JSON.parse(
+    fs.readFileSync('test-results/liekan-team-users/report.json', 'utf8'),
+  );
+  if (
+    !report.teamUsers.passed ||
+    !report.teamUsers.cleanup ||
+    report.teamUsers.head !== head ||
+    report.teamUsers.checks.length !== 3 ||
+    report.teamUsers.checks.some(check => !check.passed) ||
+    report.teamUsers.responsive.length !== 3 ||
+    report.teamUsers.responsive.some(check => !check.passed) ||
+    report.teamUsers.errors.length
+  )
+    throw new Error('Team user creation, rollback and responsive acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-keyword-visual.mjs'], 'keyword-visual', {
     env: { ...process.env, LIEKAN_URL: baseUrl },
   });

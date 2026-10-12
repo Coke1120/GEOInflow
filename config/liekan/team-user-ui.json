@@ -1,0 +1,15 @@
+{
+  "approval": "2026-10-12 用户确认团队新建用户最终方案并授权实施",
+  "referencePolicy": "冻结原团队详情 HTML 与指纹，新增入口、弹窗及创建结果独立验收",
+  "entry": "团队详情的成员卡片右上角",
+  "button": "新建用户",
+  "dialogTitle": "新建用户并加入团队",
+  "submitLabel": "创建并加入团队",
+  "dialogSize": "standard",
+  "systemRole": "user",
+  "defaultTeamRole": "team-view-only",
+  "teamRoles": ["team-manager", "team-member", "team-view-only"],
+  "creator": "complete-admin-session",
+  "result": "independent-of-list-refresh-with-member-page-location",
+  "unknownOutcome": "read-only-reconciliation-before-confirmation"
+}

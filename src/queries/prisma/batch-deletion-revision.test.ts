@@ -84,6 +84,7 @@ describe('batch deletion analytics revision transaction', () => {
     state.tx.website.findMany = vi.fn(async ({ where }) =>
       where.userId ? [{ id: owned }] : [{ id: teamWebsite }],
     );
+    state.tx.$queryRawUnsafe = vi.fn().mockResolvedValue([]);
     state.tx.team.findMany = vi.fn(async () => [{ id: teamId }]);
     state.tx.link.findMany = vi.fn(async () => [
       { id: linkId, slug: 'live', deletedAt: null },

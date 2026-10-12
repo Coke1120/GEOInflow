@@ -890,6 +890,30 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/teams/{teamId}/users/create': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Reconcile a team account creation through read-only metadata
+     * @description Requires a complete administrator login session. This operation never creates an account, changes a password or restores membership.
+     */
+    get: operations['readLiekanTeamUserCreation'];
+    put?: never;
+    /**
+     * Create a regular account and join the team atomically
+     * @description Requires a complete administrator login session. API keys and share identities are rejected. The system role is fixed to user.
+     */
+    post: operations['createLiekanTeamUser'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/websites/{websiteId}/analytics': {
     parameters: {
       query?: never;
@@ -11489,6 +11513,324 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  readLiekanTeamUserCreation: {
+    parameters: {
+      query: {
+        /** @description ID of the associated user. */
+        userId: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the associated team. */
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Confirmed account and membership, or an unresolved creation outcome */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            | {
+                member: {
+                  /** @description Date and time the record was created. */
+                  createdAt: string;
+                  /**
+                   * Format: uuid
+                   * @description Unique identifier of the resource.
+                   */
+                  id: string;
+                  /**
+                   * @description Permission role assigned to the user.
+                   * @enum {string}
+                   */
+                  role: 'team-manager' | 'team-member' | 'team-view-only';
+                  /**
+                   * Format: uuid
+                   * @description ID of the associated team.
+                   */
+                  teamId: string;
+                  /**
+                   * Format: uuid
+                   * @description ID of the associated user.
+                   */
+                  userId: string;
+                };
+                /** @description Page number, starting at 1. */
+                page: number;
+                /** @constant */
+                state: 'created';
+                /** @description User associated with the resource. */
+                user: {
+                  /**
+                   * Format: uuid
+                   * @description Unique identifier of the resource.
+                   */
+                  id: string;
+                  /** @description Permission role assigned to the user. */
+                  role: string;
+                  /** @description Username of the account. */
+                  username: string;
+                };
+              }
+            | {
+                /** @constant */
+                state: 'unconfirmed';
+              }
+            | {
+                /** @constant */
+                state: 'changed';
+                /** @description User associated with the resource. */
+                user: {
+                  /**
+                   * Format: uuid
+                   * @description Unique identifier of the resource.
+                   */
+                  id: string;
+                  /** @description Permission role assigned to the user. */
+                  role: string;
+                  /** @description Username of the account. */
+                  username: string;
+                };
+              };
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  createLiekanTeamUser: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the associated team. */
+        teamId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Password used to authenticate the account. */
+          password: string;
+          /**
+           * @default team-view-only
+           * @enum {string}
+           */
+          teamRole?: 'team-manager' | 'team-member' | 'team-view-only';
+          /**
+           * Format: uuid
+           * @description ID of the associated user.
+           */
+          userId: string;
+          /** @description Username of the account. */
+          username: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Confirmed account and membership, or an unresolved creation outcome */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json':
+            | {
+                member: {
+                  /** @description Date and time the record was created. */
+                  createdAt: string;
+                  /**
+                   * Format: uuid
+                   * @description Unique identifier of the resource.
+                   */
+                  id: string;
+                  /**
+                   * @description Permission role assigned to the user.
+                   * @enum {string}
+                   */
+                  role: 'team-manager' | 'team-member' | 'team-view-only';
+                  /**
+                   * Format: uuid
+                   * @description ID of the associated team.
+                   */
+                  teamId: string;
+                  /**
+                   * Format: uuid
+                   * @description ID of the associated user.
+                   */
+                  userId: string;
+                };
+                /** @description Page number, starting at 1. */
+                page: number;
+                /** @constant */
+                state: 'created';
+                /** @description User associated with the resource. */
+                user: {
+                  /**
+                   * Format: uuid
+                   * @description Unique identifier of the resource.
+                   */
+                  id: string;
+                  /** @description Permission role assigned to the user. */
+                  role: string;
+                  /** @description Username of the account. */
+                  username: string;
+                };
+              }
+            | {
+                /** @constant */
+                state: 'unconfirmed';
+              }
+            | {
+                /** @constant */
+                state: 'changed';
+                /** @description User associated with the resource. */
+                user: {
+                  /**
+                   * Format: uuid
+                   * @description Unique identifier of the resource.
+                   */
+                  id: string;
+                  /** @description Permission role assigned to the user. */
+                  role: string;
+                  /** @description Username of the account. */
+                  username: string;
+                };
+              };
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
       };
     };
   };

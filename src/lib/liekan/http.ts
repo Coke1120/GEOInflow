@@ -43,7 +43,7 @@ export async function api(
         error: {
           message: error instanceof LiekanError ? error.message : '数据查询失败，请检查服务状态',
           status,
-          code: 'liekan-error',
+          code: error instanceof LiekanError ? error.code : 'liekan-error',
         },
       },
       { status, headers: {'Cache-Control':'private, no-store', ...([429,503].includes(status)?{'Retry-After':String(error instanceof AnalyticsUnavailable ? error.retryAfter : 60)}:{}) } },

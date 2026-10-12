@@ -3,6 +3,7 @@ import { ROLES } from '@/lib/constants';
 import { parseRequest } from '@/lib/request';
 import { badRequest, json, notFound } from '@/lib/response';
 import { createTeamUser, findTeam, getTeamUser } from '@/queries/prisma';
+import { memberWriteError } from '@/lib/liekan/upstream/team-member-access';
 
 export async function POST(request: Request) {
   const schema = z.object({
@@ -34,7 +35,9 @@ export async function POST(request: Request) {
     return badRequest({ message: 'User is already a team member.' });
   }
 
-  const user = await createTeamUser(auth.user.id, team.id, ROLES.teamMember);
-
-  return json(user);
+  try {
+    return json(await createTeamUser(auth.user.id, team.id, ROLES.teamMember));
+  } catch (error) {
+    return memberWriteError(error);
+  }
 }

@@ -9,6 +9,12 @@ import { assertManualReadPolicy } from './liekan-manual-read-contract.mjs';
 execFileSync(process.execPath, ['scripts/liekan-geography-catalog.mjs'], { stdio: 'inherit' });
 assertDialogContract();
 assertManualReadPolicy();
+const teamUserUI = JSON.parse(readFileSync('config/liekan/team-user-ui.json', 'utf8'));
+if (teamUserUI.systemRole !== 'user' || teamUserUI.defaultTeamRole !== 'team-view-only' || teamUserUI.dialogSize !== 'standard')
+  throw new Error('Approved team user role and dialog rules changed');
+const teamUserDialog = readFileSync('src/components/liekan/features/TeamUserCreateDialog.tsx', 'utf8');
+for (const text of [teamUserUI.dialogTitle, teamUserUI.submitLabel])
+  if (!teamUserDialog.includes(text)) throw new Error(`Team user dialog contract missing: ${text}`);
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const manifest = JSON.parse(readFileSync('design/reference/geo-stats-v3/manifest.json', 'utf8'));

@@ -98,6 +98,14 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  createLiekanTeamUser: {
+    operationId: 'createLiekanTeamUser',
+    method: 'post',
+    path: '/api/liekan/teams/{teamId}/users/create',
+    pathParams: ['teamId'],
+    queryParams: [],
+    hasBody: true,
+  },
   createLink: {
     operationId: 'createLink',
     method: 'post',
@@ -3293,6 +3301,14 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  readLiekanTeamUserCreation: {
+    operationId: 'readLiekanTeamUserCreation',
+    method: 'get',
+    path: '/api/liekan/teams/{teamId}/users/create',
+    pathParams: ['teamId'],
+    queryParams: ['userId'],
+    hasBody: false,
+  },
   record: {
     operationId: 'record',
     method: 'post',
@@ -3645,6 +3661,18 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'createLiekanExport'>> {
     return this.execute('createLiekanExport', input, options);
+  }
+
+  /**
+   * Create a regular account and join the team atomically
+   * Requires a complete administrator login session. API keys and share identities are rejected. The system role is fixed to user.
+   * `POST /api/liekan/teams/{teamId}/users/create`
+   */
+  createLiekanTeamUser(
+    input: OperationInput<'createLiekanTeamUser'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'createLiekanTeamUser'>> {
+    return this.execute('createLiekanTeamUser', input, options);
   }
 
   /**
@@ -5567,6 +5595,18 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'putLiekanSettings'>> {
     return this.execute('putLiekanSettings', input, options);
+  }
+
+  /**
+   * Reconcile a team account creation through read-only metadata
+   * Requires a complete administrator login session. This operation never creates an account, changes a password or restores membership.
+   * `GET /api/liekan/teams/{teamId}/users/create`
+   */
+  readLiekanTeamUserCreation(
+    input: OperationInput<'readLiekanTeamUserCreation'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'readLiekanTeamUserCreation'>> {
+    return this.execute('readLiekanTeamUserCreation', input, options);
   }
 
   /**

@@ -165,6 +165,9 @@ export async function deleteUser(userId: string) {
       ]),
     ];
     await (await import('@/lib/liekan/upstream/ai-lifecycle')).clearAiUserInTransaction(tx, userId, !cloudMode);
+    await tx.$queryRawUnsafe('SELECT user_id FROM "user" WHERE user_id=$1::uuid FOR UPDATE', userId);
+    if (!cloudMode && teamIds.length)
+      await tx.$queryRawUnsafe('SELECT team_id FROM team WHERE team_id=ANY($1::uuid[]) ORDER BY team_id FOR UPDATE', [...teamIds].sort());
     const result: any[] = [];
     const deletedAt = new Date();
     if (cloudMode) {

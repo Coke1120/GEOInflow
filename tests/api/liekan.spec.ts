@@ -2,6 +2,120 @@ import { expect, test } from './fixtures';
 import { createWebsite, deleteWebsite } from './helpers/entities';
 import { pageReportParts } from '../../src/lib/liekan/contracts/page-report';
 
+test('creates team accounts atomically, scopes roles and rejects duplicate and non-session writes', async ({
+  admin,
+  user,
+  api,
+  apiKey,
+  share,
+}) => {
+  const teamResponse = await admin.post('/api/teams', { name: `team-user-${crypto.randomUUID()}` });
+  expect(teamResponse.status).toBe(200);
+  const teamId = teamResponse.body[0].id;
+  const endpoint = `/api/liekan/teams/${teamId}/users/create`;
+  const createdIds: string[] = [];
+  const makeBody = (teamRole = 'team-view-only') => ({
+    userId: crypto.randomUUID(),
+    username: `team-account-${crypto.randomUUID()}`,
+    password: 'test-team-password-1',
+    teamRole,
+  });
+  try {
+    const body = makeBody();
+    for (const client of [api, apiKey, await share()])
+      expect((await client.post(endpoint, body)).status).toBe(401);
+    expect((await user.post(endpoint, body)).status).toBe(403);
+    expect((await admin.post(endpoint, { ...body, role: 'admin' })).status).toBe(400);
+    expect((await admin.post(endpoint, { ...body, password: '中'.repeat(25) })).status).toBe(400);
+    for (const role of ['team-manager', 'team-member', 'team-view-only']) {
+      const input = makeBody(role);
+      const response = await admin.post(endpoint, input);
+      expect(response.status, response.text).toBe(200);
+      createdIds.push(input.userId);
+      expect(response.body).toMatchObject({
+        state: 'created',
+        user: { id: input.userId, role: 'user' },
+        member: { teamId, role },
+      });
+      expect(response.body.user).not.toHaveProperty('password');
+      const login = await api.post('/api/auth/login', {
+        username: input.username,
+        password: input.password,
+      });
+      expect(login.status).toBe(200);
+      const memberClient = api.bearer(login.body.token);
+      const site = await memberClient.post('/api/websites', {
+        name: 'team account permission',
+        domain: 'team-user.test',
+        teamId,
+      });
+      if (role === 'team-view-only') expect(site.status).toBe(401);
+      else {
+        expect(site.status, site.text).toBe(200);
+        expect((await memberClient.del(`/api/websites/${site.body.id}`)).status).toBe(200);
+      }
+      expect((await admin.get(endpoint, { params: { userId: input.userId } })).body).toMatchObject({
+        state: 'created',
+        member: { role },
+      });
+      expect((await admin.post(endpoint, input)).status).toBe(409);
+    }
+    const concurrent = makeBody();
+    for (const username of ['Ω', '%', '_', '\\']) {
+      const input = { ...makeBody(), username };
+      const literal = await admin.post(endpoint, input);
+      expect(literal.status, literal.text).toBe(200);
+      createdIds.push(input.userId);
+      expect(literal.body.user.username).toBe(username.toLowerCase());
+      expect(
+        (await api.post('/api/auth/login', { username, password: input.password })).status,
+      ).toBe(200);
+    }
+    const other = { ...concurrent, userId: crypto.randomUUID() };
+    const responses = await Promise.all([
+      admin.post(endpoint, concurrent),
+      admin.post(endpoint, other),
+    ]);
+    expect(responses.map(response => response.status).sort()).toEqual([200, 409]);
+    const winner = responses.find(response => response.status === 200).body;
+    createdIds.push(winner.user.id);
+    const loserId = winner.user.id === concurrent.userId ? other.userId : concurrent.userId;
+    expect((await admin.get(endpoint, { params: { userId: loserId } })).body).toEqual({
+      state: 'unconfirmed',
+    });
+    const manager = (await admin.get(`/api/teams/${teamId}/users`)).body.data.find(
+      member => member.role === 'team-manager',
+    );
+    const managerUser = (await admin.get(`/api/users/${manager.userId}`)).body;
+    const managerLogin = await api.post('/api/auth/login', {
+      username: managerUser.username,
+      password: 'test-team-password-1',
+    });
+    const managerClient = api.bearer(managerLogin.body.token);
+    expect(
+      (
+        await managerClient.post(`/api/teams/${teamId}/users/${winner.user.id}`, {
+          role: 'team-manager',
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await managerClient.post(`/api/teams/${teamId}/users/${winner.user.id}`, {
+          role: 'team-member',
+        })
+      ).status,
+    ).toBe(200);
+    await admin.del(`/api/teams/${teamId}/users/${winner.user.id}`);
+    expect((await admin.get(endpoint, { params: { userId: winner.user.id } })).body.state).toBe(
+      'changed',
+    );
+  } finally {
+    await admin.del(`/api/teams/${teamId}`);
+    for (const id of createdIds) await admin.del(`/api/users/${id}`);
+  }
+});
+
 test('identifies source keywords through real collection, scopes access, pages and exports the complete population', async ({
   admin,
   user,

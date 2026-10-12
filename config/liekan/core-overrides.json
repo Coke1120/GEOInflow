@@ -2555,7 +2555,7 @@
     },
     {
       "path": "src/lib/auth.ts",
-      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; 90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions",
+      "purpose": "Connect approved supplementary UI, exact filtered statistics, live share authorization or typed API responses; 90-day complete sessions with matching atomic Redis TTL and issue-time limits for existing sessions; transaction-aware session reads preserve password revocation without a second pool connection",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
@@ -2920,7 +2920,7 @@
     },
     {
       "path": "src/queries/prisma/team.ts",
-      "purpose": "Bounded analytics Redis caching, current primary authorization, transactional revision invalidation and response freshness propagation AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "purpose": "Bounded analytics Redis caching, current primary authorization, transactional revision invalidation and response freshness propagation AI 加密配置、实时测试、授权分析与生命周期事务集成; serialize team membership writes and cleanup and enforce live role assignment boundaries",
       "tests": [
         "pnpm liekan:verify --working-tree",
         "src/lib/liekan/upstream/analytics-runtime.test.ts",
@@ -2946,7 +2946,7 @@
     },
     {
       "path": "src/queries/prisma/user.ts",
-      "purpose": "Bounded analytics Redis caching, current primary authorization, transactional revision invalidation and response freshness propagation AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "purpose": "Bounded analytics Redis caching, current primary authorization, transactional revision invalidation and response freshness propagation AI 加密配置、实时测试、授权分析与生命周期事务集成; serialize team membership writes and cleanup and enforce live role assignment boundaries",
       "tests": [
         "pnpm liekan:verify --working-tree",
         "src/lib/liekan/upstream/analytics-runtime.test.ts",
@@ -3493,7 +3493,7 @@
     },
     {
       "path": "src/queries/prisma/teamUser.ts",
-      "purpose": "Invalidate active AI execution in the transaction that revokes account or team membership permissions",
+      "purpose": "Invalidate active AI execution in the transaction that revokes account or team membership permissions; serialize team membership writes and cleanup and enforce live role assignment boundaries",
       "tests": [
         "src/queries/prisma/ai-revocation.test.ts",
         "tests/liekan/ai/lifecycle.integration.ts",
@@ -3917,6 +3917,51 @@
       "owner": "Liekan compatibility adapters",
       "constraint": "Collect tests without running global setup, fixtures or database mutations",
       "removalCondition": "Remove when upstream source verification includes equivalent API collection coverage"
+    },
+    {
+      "path": "src/app/api/teams/[teamId]/users/[userId]/route.ts",
+      "purpose": "Preserve team account creation safety, role assignment boundaries and generated client compatibility; serialize team membership writes and cleanup and enforce live role assignment boundaries",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:api"
+      ],
+      "owner": "Liekan account management",
+      "constraint": "Keep existing public response shapes and tracker compatibility; authorize membership writes with current permissions",
+      "removalCondition": "Remove when upstream provides the same account and membership guarantees"
+    },
+    {
+      "path": "src/app/api/teams/[teamId]/users/route.ts",
+      "purpose": "Preserve team account creation safety, role assignment boundaries and generated client compatibility; serialize team membership writes and cleanup and enforce live role assignment boundaries",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:api"
+      ],
+      "owner": "Liekan account management",
+      "constraint": "Keep existing public response shapes and tracker compatibility; authorize membership writes with current permissions",
+      "removalCondition": "Remove when upstream provides the same account and membership guarantees"
+    },
+    {
+      "path": "src/app/api/teams/join/route.ts",
+      "purpose": "Preserve team account creation safety, role assignment boundaries and generated client compatibility; serialize team membership writes and cleanup and enforce live role assignment boundaries",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:api"
+      ],
+      "owner": "Liekan account management",
+      "constraint": "Keep existing public response shapes and tracker compatibility; authorize membership writes with current permissions",
+      "removalCondition": "Remove when upstream provides the same account and membership guarantees"
+    },
+    {
+      "path": "src/lib/auth.test.ts",
+      "purpose": "Verify transaction-scoped stateless and Redis session readers retain password revocation without using another primary connection",
+      "tests": [
+        "src/lib/auth.test.ts",
+        "src/lib/liekan/upstream/team-users.test.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan account management",
+      "constraint": "Preserve existing session, API key, share and partial 2FA authentication behavior",
+      "removalCondition": "Remove when upstream includes equivalent transaction-scoped authentication regression coverage"
     }
   ]
 }
