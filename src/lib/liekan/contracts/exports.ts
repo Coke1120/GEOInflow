@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { keywordConditionsSchema } from './keywords';
+import { keywordConditionsSchema, keywordStatusVersion } from './keywords';
 import { geographySorts } from './geography';
 export const exportSections = ['summary', 'dimensions', 'events', 'sessions', 'config'] as const;
 const standardExportRequestSchema = z
@@ -18,6 +18,7 @@ const standardExportRequestSchema = z
 export const keywordExportRequestSchema = keywordConditionsSchema
   .extend({
     kind: z.literal('source-keywords'),
+    keywordStatusVersion: z.literal(keywordStatusVersion).optional(),
     format: z.literal('csv'),
     startAt: z.number().int().nonnegative(),
     endAt: z.number().int().nonnegative(),

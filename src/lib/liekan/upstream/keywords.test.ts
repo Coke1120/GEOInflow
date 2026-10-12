@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   execute: vi.fn(),
   cache: vi.fn(),
   settings: vi.fn(),
+  key: vi.fn(),
 }));
 vi.mock('./server', async () => ({
   query: mocks.query,
@@ -14,7 +15,7 @@ vi.mock('./query-snapshot', () => ({
 }));
 vi.mock('./query-cache', () => ({
   analyticsCache: { read: mocks.cache },
-  analyticsCacheKey: (_key: string, p: unknown) => JSON.stringify(p),
+  analyticsCacheKey: mocks.key,
   websiteCacheTag: (id: string) => id,
 }));
 vi.mock('../store', () => ({ getSettings: mocks.settings }));
@@ -43,6 +44,7 @@ const raw = {
 const settings = { isDemo: false, aiCrawlerEnabled: false } as any;
 beforeEach(() => {
   vi.resetAllMocks();
+  mocks.key.mockImplementation((_key: string, p: unknown) => JSON.stringify(p));
   delete process.env.CLICKHOUSE_URL;
   mocks.execute.mockResolvedValue(undefined);
   mocks.query.mockImplementation(async (sql: string) =>
@@ -106,6 +108,38 @@ it('excludes nonsearch evidence from the keyword capacity budget', async () => {
   mocks.query.mockResolvedValueOnce([raw]).mockResolvedValueOnce([{ present: true }]);
   expect((await readKeywordFacts(website.id, p())).rows).toHaveLength(1);
 });
+it('projects new statuses for legacy pages before filtering and pagination without inventing a term', () => {
+  const rows = ['redirect', 'unsupported'].map((status, i) => ({
+    id: JSON.stringify(['百度', null, 'none', status]),
+    engine: '百度' as const,
+    keyword: null,
+    evidence: 'none' as const,
+    status: status as 'redirect' | 'unsupported',
+    sessions: i + 2,
+    bounces: 1,
+    conversions: 1,
+    share: null,
+    bounceRate: null,
+    conversionRate: null,
+  }));
+  const facts = { rows, hasGoals: true, snapshot: 'fixture', readAt: 1 };
+  const legacy = keywordReport(website, p({ status: 'unsupported' }), facts, settings);
+  expect(legacy.tables.keywordBody).toHaveLength(1);
+  expect(legacy.tables.keywordBody[0]).toMatchObject({
+    keyword: null,
+    status: 'unsupported',
+    sessions: 5,
+    share: 100,
+    bounceRate: 40,
+    conversionRate: 40,
+  });
+  expect(legacy.meta.tablePages.keywordBody.total).toBe(1);
+  const modern = keywordReport(website, p({ keywordStatusVersion: '2' }), facts, settings);
+  expect(modern.tables.keywordBody).toHaveLength(2);
+  expect(modern.tables.keywordBody.some(row => row.status === 'redirect')).toBe(true);
+  expect(modern.cards.map(card => card.value)).toEqual(legacy.cards.map(card => card.value));
+  expect(facts.rows[0].status).toBe('redirect');
+});
 it('filters and sorts before slicing, resets a changed snapshot and reuses the base cache across filters/pages', async () => {
   const rows = Array.from({ length: 45 }, (_, i) => ({
     id: String(i).padStart(2, '0'),
@@ -154,4 +188,5 @@ it('filters and sorts before slicing, resets a changed snapshot and reuses the b
   await readKeywordPage(website, p(), 30000, false);
   await readKeywordPage(website, p({ page: 2, engine: 'Google', search: 'word' }), 30000, false);
   expect(mocks.cache.mock.calls[0][0]).toBe(mocks.cache.mock.calls[1][0]);
+  expect(mocks.key).toHaveBeenCalledWith('source-keywords-v3', expect.any(Array));
 });

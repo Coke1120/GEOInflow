@@ -76,5 +76,36 @@ it('renders keyword evidence as text and distinguishes unavailable conversion me
   expect(container.querySelectorAll('thead th')).toHaveLength(7);
   expect(container.querySelector('tbody td:last-child')).toHaveTextContent('–');
   expect(html).toContain('尚未配置转化目标');
-  expect(html).toContain('未提供的关键词会保留在统计中');
+  expect(html).toContain('现有记录中缺失的搜索词无法恢复');
+});
+it('shows distinct explanations and filter options for absent terms and redirects', () => {
+  const report = {
+    cards: [],
+    tables: {
+      keywordBody: ['missing', 'redirect', 'unsupported'].map((status, i) => ({
+        id: String(i),
+        keyword: null,
+        engine: '百度',
+        evidence: 'none',
+        status,
+        sessions: 1,
+        share: 33.33,
+        bounceRate: 100,
+        conversionRate: null,
+      })),
+    },
+    meta: { keywordHasGoals: false },
+  } as unknown as LiekanReport;
+  const container = document.createElement('div');
+  container.innerHTML = renderToStaticMarkup(
+    <HumanKeywords report={report} rangeLabel="示例范围" />,
+  );
+  expect(
+    [...container.querySelectorAll('tbody tr td:first-child')].map(cell => cell.textContent),
+  ).toEqual(['来源未携带搜索词', '跳转链接无可用搜索词', '来源格式不支持']);
+  expect(container.querySelector('option[value="redirect"]')).toHaveTextContent(
+    '跳转链接无可用搜索词',
+  );
+  expect(container.textContent).toContain('这些会话仍计入搜索流量');
+  expect(container.textContent).toContain('utm_term');
 });

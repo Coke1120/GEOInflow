@@ -105,6 +105,71 @@ it('applies the complete same-engine filter before export', async () => {
     .map(line => JSON.parse(line));
   expect(frames.find(f => f.type === 'file').manifest.rows).toBe(1);
 });
+it('exports the same missing, redirect and unsupported explanations as the page', async () => {
+  mocks.facts.mockResolvedValueOnce({
+    hasGoals: false,
+    snapshot: 'fixture',
+    readAt: 1000,
+    rows: ['missing', 'redirect', 'unsupported'].map((status, i) => ({
+      id: String(i),
+      engine: '百度',
+      keyword: null,
+      evidence: 'none',
+      status,
+      sessions: 1,
+      bounces: 1,
+      conversions: 0,
+    })),
+  });
+  const response = await prepareFeatureExport(
+    { id: 'site', name: 'fixture', domain: 'fixture.test' },
+    { kind: 'source-keywords', format: 'csv', startAt: 0, endAt: 1000, keywordStatusVersion: '2' },
+    new AbortController().signal,
+  );
+  const frames = (await response.text())
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line));
+  const csv = Buffer.concat(
+    frames.filter(f => f.type === 'chunk').map(f => Buffer.from(f.data, 'base64')),
+  ).toString();
+  expect(frames.find(f => f.type === 'file').manifest.rows).toBe(3);
+  expect(csv).toContain('来源未携带搜索词');
+  expect(csv).toContain('跳转链接无可用搜索词');
+  expect(csv).toContain('来源格式不支持');
+});
+it('keeps legacy unsupported filters and exports consistent after a status upgrade', async () => {
+  mocks.facts.mockResolvedValueOnce({
+    hasGoals: false,
+    snapshot: 'fixture',
+    readAt: 1000,
+    rows: ['redirect', 'unsupported'].map((status, i) => ({
+      id: String(i),
+      engine: '百度',
+      keyword: null,
+      evidence: 'none',
+      status,
+      sessions: i + 2,
+      bounces: 1,
+      conversions: 0,
+    })),
+  });
+  const response = await prepareFeatureExport(
+    { id: 'site', name: 'fixture', domain: 'fixture.test' },
+    { kind: 'source-keywords', format: 'csv', startAt: 0, endAt: 1000, status: 'unsupported' },
+    new AbortController().signal,
+  );
+  const frames = (await response.text())
+    .trim()
+    .split('\n')
+    .map(line => JSON.parse(line));
+  const csv = Buffer.concat(
+    frames.filter(f => f.type === 'chunk').map(f => Buffer.from(f.data, 'base64')),
+  ).toString();
+  expect(frames.find(f => f.type === 'file').manifest.rows).toBe(1);
+  expect(csv).toContain('来源格式不支持,百度,无可用关键词,5,100,40,');
+  expect(csv).not.toContain('跳转链接无可用搜索词');
+});
 it('redacts credential-shaped filters in both CSV metadata and the manifest', async () => {
   const response = await prepareFeatureExport(
     { id: 'site', name: 'fixture', domain: 'fixture.test' },

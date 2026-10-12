@@ -16917,6 +16917,8 @@ export interface operations {
               /** @constant */
               format: 'csv';
               /** @constant */
+              keywordStatusVersion?: '2';
+              /** @constant */
               kind: 'source-keywords';
               /**
                * @description Search text used to filter results.
@@ -16946,6 +16948,7 @@ export interface operations {
                 | ''
                 | 'available'
                 | 'missing'
+                | 'redirect'
                 | 'invalid'
                 | 'unsupported'
                 | 'conflict'
@@ -18733,6 +18736,7 @@ export interface operations {
         filter?: '' | 'ai' | 'abnormal' | 'other';
         geoSort?: 'city' | 'sessions' | 'share' | 'duration' | 'bounceRate' | 'conversionRate';
         keywordSnapshot?: string;
+        keywordStatusVersion?: '2';
         /** @description Page number, starting at 1. */
         page?: number;
         refresh?: '0' | '1';
@@ -18768,6 +18772,7 @@ export interface operations {
           | ''
           | 'available'
           | 'missing'
+          | 'redirect'
           | 'invalid'
           | 'unsupported'
           | 'conflict'
@@ -18977,6 +18982,7 @@ export interface operations {
         filter?: '' | 'ai' | 'abnormal' | 'other';
         geoSort?: 'city' | 'sessions' | 'share' | 'duration' | 'bounceRate' | 'conversionRate';
         keywordSnapshot?: string;
+        keywordStatusVersion?: '2';
         /** @description Page number, starting at 1. */
         page?: number;
         refresh?: '1';
@@ -19011,6 +19017,7 @@ export interface operations {
           | ''
           | 'available'
           | 'missing'
+          | 'redirect'
           | 'invalid'
           | 'unsupported'
           | 'conflict'
