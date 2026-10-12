@@ -24,6 +24,7 @@ import { getHumanFacts } from './analytics';
 import { geographyTable, geographyVersion } from '../contracts/geography';
 import {
   selectKeywords,
+  supportsKeywordRedirect,
   keywordConditionsSchema,
   keywordStatusLabels,
   keywordEvidenceLabels,
@@ -357,7 +358,12 @@ async function prepareKeywordSnapshot(
   validateKeywordRange(p);
   const facts = await readKeywordFacts(website.id, p, signal);
   const conditions = keywordConditionsSchema.parse(p);
-  const selected = selectKeywords(facts.rows, conditions, facts.hasGoals);
+  const selected = selectKeywords(
+    facts.rows,
+    conditions,
+    facts.hasGoals,
+    supportsKeywordRedirect(p),
+  );
   if (selected.rows.length > EXPORT_MAX_ROWS)
     throw new LiekanError('关键词导出超过 100,000 行，请缩小范围', 413);
   const createdAt = new Date(facts.readAt).toISOString();

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { EXPORT_MAX_BYTES, type ExportFrame } from '@/lib/liekan/contracts/exports';
-import type { KeywordConditions } from '@/lib/liekan/contracts/keywords';
+import { keywordStatusVersion, type KeywordConditions } from '@/lib/liekan/contracts/keywords';
 import { streamFeatureExport } from '@/lib/liekan/upstream/features-client';
 import { useFeatureAppState } from '@/lib/liekan/upstream/client';
 import type { LiekanReport } from './types';
@@ -44,7 +44,13 @@ export function KeywordExport({
     try {
       await streamFeatureExport(
         report.website.id,
-        { kind: 'source-keywords', format: 'csv', ...report.range, ...conditions },
+        {
+          kind: 'source-keywords',
+          format: 'csv',
+          ...report.range,
+          ...conditions,
+          keywordStatusVersion,
+        },
         run.signal,
         frame => {
           if (!ownsRun() || run.signal.aborted) return;

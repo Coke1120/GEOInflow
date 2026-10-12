@@ -42,7 +42,7 @@ const report = {
   cleanup: false,
 };
 let browser;
-let visitCount = 47;
+let visitCount = 51;
 try {
   const values = [
     ...Array.from({ length: 45 }, (_, i) => `word${String(i).padStart(2, '0')}`),
@@ -62,6 +62,25 @@ try {
           ? 'https://www.google.com/'
           : 'https://www.google.com/search?q=' + encodeURIComponent(term),
         id: `keyword-visual-${i}`,
+        ip: '10.89.0.1',
+        userAgent: 'Mozilla/5.0 Chrome/124.0.0.0',
+        timestamp: Math.floor(now / 1000),
+      },
+    });
+  for (const [i, referrer] of [
+    'https://cn.bing.com/',
+    'https://www.baidu.com/link?url=opaque&wd=',
+    'https://www.so.com/link?m=opaque',
+    'https://www.sogou.com/link?url=opaque',
+  ].entries())
+    await api('POST', '/send', {
+      type: 'event',
+      payload: {
+        website: website.id,
+        hostname: website.domain,
+        url: '/',
+        referrer,
+        id: `keyword-status-visual-${i}`,
         ip: '10.89.0.1',
         userAgent: 'Mozilla/5.0 Chrome/124.0.0.0',
         timestamp: Math.floor(now / 1000),
@@ -198,7 +217,37 @@ try {
     assert(reads.length > baselineReads);
     await page.getByRole('button', { name: '重置筛选', exact: true }).click();
     await page.waitForFunction(() =>
-      document.querySelector('main')?.textContent.includes('共 47 行'),
+      document.querySelector('main')?.textContent.includes('共 51 行'),
+    );
+    for (const [status, label] of Object.entries(reference.statusLabels))
+      assert.equal(await page.locator(`option[value="${status}"]`).textContent(), label);
+    await page.getByLabel('关键词状态', { exact: true }).selectOption('redirect');
+    await page.waitForFunction(
+      () =>
+        document.querySelectorAll('main tbody tr').length === 3 &&
+        [...document.querySelectorAll('main tbody tr td:first-child')].every(cell =>
+          cell.textContent.includes('跳转链接无可用搜索词'),
+        ),
+    );
+    assert(
+      (await page.locator('main > section:first-child').textContent()).includes(String(visitCount)),
+    );
+    const statusDownloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: '导出全部筛选结果', exact: true }).click();
+    const statusCsv = fs.readFileSync(await (await statusDownloadPromise).path(), 'utf8');
+    assert(statusCsv.includes(reference.statusLabels.redirect));
+    assert(statusCsv.includes('百度') && statusCsv.includes('360') && statusCsv.includes('搜狗'));
+    assert(!statusCsv.includes('opaque'));
+    await page.screenshot({ path: `${out}/keyword-statuses-${width}.png`, fullPage: true });
+    await page.getByLabel('关键词状态', { exact: true }).selectOption('missing');
+    await page.waitForFunction(
+      () =>
+        document.querySelectorAll('main tbody tr').length === 1 &&
+        document.querySelector('main tbody')?.textContent.includes('来源未携带搜索词'),
+    );
+    await page.getByRole('button', { name: '重置筛选', exact: true }).click();
+    await page.waitForFunction(() =>
+      document.querySelector('main')?.textContent.includes('共 51 行'),
     );
     await page.getByLabel('关键词查询', { exact: true }).fill('未提交的查询');
     await page.getByRole('button', { name: '重置筛选', exact: true }).click();
@@ -229,6 +278,8 @@ try {
       serverSearch: true,
       pagination: true,
       resetDraft: true,
+      keywordStatusFilters: true,
+      keywordStatusExport: true,
     });
     await context.close();
   }
