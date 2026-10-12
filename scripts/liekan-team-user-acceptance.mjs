@@ -40,7 +40,8 @@ async function request(method, path, body, credential = token) {
     body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(30_000),
   });
-  return { status: response.status, body: await response.json() };
+  const text = await response.text();
+  return { status: response.status, body: text ? JSON.parse(text) : null };
 }
 async function api(method, path, body) {
   const result = await request(method, path, body);
@@ -81,7 +82,6 @@ try {
     teams.push((await api('POST', '/teams', { name: `新建用户（隔离验收 ${i + 1}）` }))[0]);
   const team = teams[0];
   const rollback = body();
-  users.add(rollback.userId);
   // The trigger matches one synthetic ID across connections, with psql quoting the literal.
   sql(
     `CREATE FUNCTION liekan_team_user_test_failure() RETURNS trigger LANGUAGE plpgsql AS
@@ -111,6 +111,7 @@ try {
   );
   trigger = false;
   const retry = await api('POST', endpoint(team.id), rollback);
+  users.add(rollback.userId);
   assert.equal(retry.state, 'created');
   report.checks.push({
     name: 'membership failure rolls back account and same attempt can retry',
@@ -129,14 +130,13 @@ try {
     name: 'parallel reconciliation uses transaction authentication without another pool connection',
     passed: true,
   });
-  users.add(concurrent.userId);
-  users.add(other.userId);
   const race = await Promise.all([
     request('POST', endpoint(team.id), concurrent),
     request('POST', endpoint(teams[1].id), other),
   ]);
   assert.deepEqual(race.map(result => result.status).sort(), [200, 409]);
   assert.equal(race.find(result => result.status === 409).body.error.code, 'username-conflict');
+  users.add(race.find(result => result.status === 200).body.user.id);
   report.checks.push({
     name: 'different teams classify real database username conflicts',
     passed: true,
@@ -148,8 +148,8 @@ try {
     ) < 20
   ) {
     const input = body();
-    users.add(input.userId);
     await api('POST', endpoint(team.id), input);
+    users.add(input.userId);
   }
   browser = await chromium.launch({
     headless: true,
@@ -181,7 +181,6 @@ try {
       const geometry = await checkDialog(page);
       await page.screenshot({ path: `${out}/create-${width}.png`, fullPage: true });
       const input = body();
-      users.add(input.userId);
       // The browser owns its request ID; capture it for fixture cleanup and metadata checks.
       const response = page.waitForResponse(
         value => value.url().endsWith(endpoint(team.id)) && value.request().method() === 'POST',
@@ -200,7 +199,7 @@ try {
       await dialog.waitFor({ state: 'hidden' });
       await page.locator('tr[data-highlighted=true]').filter({ hasText: input.username }).waitFor();
       await page
-        .getByText(`用户“${input.username}”已创建并加入团队，角色为团队只读。`, { exact: true })
+        .getByText(new RegExp(`用户“${input.username}”已创建并加入团队，角色为\\s*团队只读。`))
         .waitFor();
       const login = await request(
         'POST',
@@ -226,6 +225,9 @@ try {
   }
   assert.deepEqual(report.errors, []);
   report.passed = true;
+} catch (error) {
+  report.failure = error.message;
+  throw error;
 } finally {
   try {
     if (trigger)
