@@ -35,6 +35,7 @@ import {
   projectTrend,
   websiteDayWindow,
 } from '@/lib/liekan/upstream/website-day-metrics';
+import { TrafficQuality } from './TrafficQuality';
 import { ManagementDrawer } from '../ManagementDrawer';
 import { CrawlerHandoffs } from './CrawlerHandoffs';
 import { CrawlerDialog } from './CrawlerDialog';
@@ -129,7 +130,7 @@ function useInstall(id: string, createdAt?: string) {
   return useData(
     ['install', id, createdAt],
     async signal => {
-      const status = await c.api.get(`/liekan/websites/${id}/installation`,undefined,signal);
+      const status = await c.api.get(`/liekan/websites/${id}/installation`, undefined, signal);
       if (status?.browser?.pageviews == null || !Number.isFinite(countOf(status.browser.pageviews)))
         throw new Error('统计响应缺少有效的访问次数。');
       return {
@@ -984,6 +985,7 @@ function WebsiteSettings() {
                         </Button>
                       ))}
                       <Button onClick={() => setDrawer('crawler')}>归因、风险与访问控制</Button>
+                      <Button onClick={() => setDrawer('traffic-quality')}>浏览流量质量</Button>
                     </div>
                   </Body>
                 </Panel>
@@ -1035,6 +1037,8 @@ function WebsiteSettings() {
               websiteDomain={site.domain}
               onClose={() => setDrawer('')}
             />
+          ) : drawer === 'traffic-quality' ? (
+            <TrafficQuality key={site.id} canManage={manage} onClose={() => setDrawer('')} />
           ) : collectionActions.includes(drawer) ? (
             <ManagementDrawer
               key={`${site.id}:${drawer}`}

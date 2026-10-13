@@ -232,6 +232,34 @@ try {
     ],
     { section: 'collection' },
   );
+  result.trafficQuality = [];
+  for (const width of [1440, 390]) {
+    const { page, context } = await at(
+      'website-settings',
+      { section: 'collection' },
+      token,
+      width,
+      1000,
+    );
+    try {
+      await page.getByRole('button', { name: '浏览流量质量', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: '浏览流量质量', exact: true });
+      await dialog.getByLabel('统计模式').waitFor();
+      const geometry = await checkDialog(page, 'wide');
+      await expect(dialog.getByRole('button', { name: '确认保存', exact: true })).toBeDisabled();
+      await dialog.getByRole('button', { name: '预览影响', exact: true }).click();
+      await expect(dialog.getByRole('button', { name: '确认保存', exact: true })).toBeEnabled();
+      await dialog.getByLabel('统计模式').selectOption('strict');
+      await expect(dialog.getByRole('button', { name: '确认保存', exact: true })).toBeDisabled();
+      await page.screenshot({
+        path: `${out}/traffic-quality-${width}.png`,
+        animations: 'disabled',
+      });
+      result.trafficQuality.push({ width, geometry, previewInvalidation: true });
+    } finally {
+      await context.close();
+    }
+  }
   await buttons(
     'website-settings',
     [

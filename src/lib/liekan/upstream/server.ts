@@ -16,7 +16,8 @@ import {
 import { primaryMetadataClient } from './analytics-deadline';
 import { withTrafficPolicy } from './traffic-query';
 export { LiekanError } from './errors';
-const WEBSITE_ID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+const WEBSITE_ID_PATTERN =
+  /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const SITE_NUMBER_PATTERN = /^\d{1,9}$/;
 export async function authorize(request: Request, websiteId: string, write = false) {
   const byId = WEBSITE_ID_PATTERN.test(websiteId);
@@ -79,9 +80,14 @@ export async function authorize(request: Request, websiteId: string, write = fal
   };
 }
 export type WriteIdentity = { userId: string };
-export async function lockWritableWebsite(tx: any, id: string, identity?: WriteIdentity) {
+export async function lockWritableWebsite(
+  tx: any,
+  id: string,
+  identity?: WriteIdentity,
+  lock: 'update' | 'share' = 'update',
+) {
   const rows = await tx.$queryRawUnsafe(
-    'SELECT user_id,team_id FROM website WHERE website_id=$1::uuid AND deleted_at IS NULL FOR UPDATE',
+    `SELECT user_id,team_id FROM website WHERE website_id=$1::uuid AND deleted_at IS NULL FOR ${lock === 'share' ? 'SHARE' : 'UPDATE'}`,
     id,
   );
   if (!rows.length) throw new LiekanError('站点不存在', 404);

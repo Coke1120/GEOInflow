@@ -7,6 +7,10 @@ export async function resetLiekanStatistics(tx: any, websiteId: string, identity
   await lockWritableWebsite(tx, websiteId, identity);
   await clearAiWebsiteInTransaction(tx, websiteId);
   for (const table of [
+    'liekan_collection_diagnostic',
+    'liekan_collection_diagnostic_state',
+    'liekan_browser_risk_window',
+    'liekan_browser_risk_state',
     'liekan_collection_receipt',
     'liekan_event_quality',
     'liekan_collection_hostname',
@@ -97,5 +101,14 @@ export async function stopWebsiteSources(tx: any, websiteId: string, deleted = f
     'UPDATE liekan_log_state SET policy_revision=policy_revision+1 WHERE website_id=$1::uuid',
     websiteId,
   );
+  if (deleted) {
+    for (const table of [
+      'liekan_browser_risk_window',
+      'liekan_browser_risk_state',
+      'liekan_collection_diagnostic',
+      'liekan_collection_diagnostic_state',
+    ])
+      await tx.$executeRawUnsafe(`DELETE FROM ${table} WHERE website_id=$1::uuid`, websiteId);
+  }
   // Provider cleanup is reconciled from these durable source rows by the worker.
 }

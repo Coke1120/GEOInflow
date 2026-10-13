@@ -1,4 +1,6 @@
-import { execFileSync, spawnSync } from 'node:child_process';
+import { measureTrafficQuality } from './liekan-traffic-benchmark';
+import { promisify } from 'node:util';
+import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -40,7 +42,10 @@ const baselineImage = args.includes('--baseline-image')
   : undefined;
 const extended = args.includes('--extended');
 const samples = smoke ? 20 : 200;
-const rows = smoke ? 10000 : extended ? 5000000 : 1000000;
+const scale = args.includes('--rows') ? Number(args[args.indexOf('--rows') + 1]) : undefined;
+if (scale !== undefined && ![1000000, 5000000, 10000000].includes(scale))
+  throw new Error('--rows must be 1000000, 5000000 or 10000000');
+const rows = smoke ? 10000 : (scale ?? (extended ? 5000000 : 1000000));
 const stamp = `liekan-cache-${Date.now()}-${randomBytes(6).toString('hex')}`;
 const network = `${stamp}-net`,
   volume = `${stamp}-data`,
@@ -2250,6 +2255,25 @@ try {
     countsPreserved: true,
     customLogin: customLogin.status,
   });
+  stage = 'traffic-quality-collection-and-background-observation';
+  report.trafficQuality = await measureTrafficQuality({
+    base: first,
+    baseline: oldBase,
+    headers,
+    database,
+    ownerId: authentication.user.id,
+    smoke,
+    volumeSites: sites,
+    observe: async () => {
+      await promisify(execFile)(
+        'docker',
+        ['exec', `${stamp}-app1`, 'node', 'dist/liekan-worker.mjs', '--observe-browser-risk-once'],
+        { timeout: 180000 },
+      );
+    },
+  });
+  save();
+  assert(report.trafficQuality.passed, 'collector throughput or latency regression');
   stage = 'post-timing-heavy-query-execution-plans';
   const { collectHeavyExplains } = await import('./liekan-cache-explain');
   report.heavyExplain = await collectHeavyExplains({
@@ -2362,6 +2386,7 @@ try {
   }
   report.passed =
     report.correctnessPassed &&
+    report.trafficQuality.passed &&
     report.faultsPassed &&
     report.browser.passed &&
     report.performance.every((entry: any) => entry.passed) &&

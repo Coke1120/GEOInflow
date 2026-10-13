@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import prisma, { getRawQueryClient, getSchema } from '@/lib/prisma';
 import type { CollectionQuality } from './collection-quality';
@@ -74,6 +75,26 @@ export async function recordEventQuality(
   }
 }
 
+async function recordDiagnostic(tx: any, input: CollectionWriteInput, duplicate: boolean) {
+  await tx.$executeRawUnsafe(
+    `INSERT INTO liekan_collection_diagnostic_state(website_id) VALUES($1::uuid) ON CONFLICT DO NOTHING`,
+    input.websiteId,
+  );
+  await tx.$executeRawUnsafe(
+    `INSERT INTO liekan_collection_diagnostic(website_id,bucket,shard,written,with_uuid,duplicate)
+     VALUES($1::uuid,date_trunc('minute',clock_timestamp()),$2,$3,$4,$5)
+     ON CONFLICT(website_id,bucket,shard) DO UPDATE SET
+       written=liekan_collection_diagnostic.written+EXCLUDED.written,
+       with_uuid=liekan_collection_diagnostic.with_uuid+EXCLUDED.with_uuid,
+       duplicate=liekan_collection_diagnostic.duplicate+EXCLUDED.duplicate,last_at=clock_timestamp()`,
+    input.websiteId,
+    randomInt(32),
+    duplicate ? 0 : 1,
+    !duplicate && input.eventId ? 1 : 0,
+    duplicate ? 1 : 0,
+  );
+}
+
 export async function withCollectionWrite<T>(
   input: CollectionWriteInput,
   work: () => Promise<T>,
@@ -114,6 +135,7 @@ export async function withCollectionWrite<T>(
           if (receipt[0].payload_hash !== input.fingerprint) throw new CollectionConflictError();
           if (!receipt[0].session_id || !receipt[0].visit_id)
             throw new Error('Collection receipt is unavailable');
+          await recordDiagnostic(tx, input, true);
           return {
             status: 'duplicate',
             sessionId: receipt[0].session_id,
@@ -128,6 +150,7 @@ export async function withCollectionWrite<T>(
         { ...input, quality, client: tx as typeof prisma.client },
         work,
       );
+      await recordDiagnostic(tx, input, false);
       return { status: 'written', value };
     },
     { isolationLevel: 'ReadCommitted', maxWait: 10000, timeout: 30000 },
