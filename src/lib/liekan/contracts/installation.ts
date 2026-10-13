@@ -67,6 +67,7 @@ export interface InstallationProgress {
 export interface InstallationStatus {
   progress: InstallationProgress;
   canManage: boolean;
+  browser?: { pageviews: number; firstAt: string | null; lastAt: string | null };
   logs: {
     total: number;
     ai: number;

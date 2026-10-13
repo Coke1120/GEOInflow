@@ -37,7 +37,8 @@ export async function readAnalyticsVersions(tx: any, tags: string[]): Promise<An
     ids,
   );
   return {
-    strong: JSON.stringify([ids, revisions, logs.map(({ id, policy }: any) => ({ id, policy }))]),
+    strong: JSON.stringify([TRAFFIC_POLICY_VERSION,ids, revisions, logs.map(({ id, policy }: any) => ({ id, policy }))]),
     data: JSON.stringify(logs.map(({ id, data }: any) => ({ id, data }))),
   };
 }
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';

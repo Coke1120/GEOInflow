@@ -35,6 +35,8 @@ function normalizeIp(ip?: string | null) {
 
 function resolveIp(ip?: string | null) {
   if (!ip) return ip;
+  const bracketed = ip.match(/^\[([0-9a-f:.]+)\](?::\d+)?$/i);
+  if (bracketed) ip = bracketed[1];
 
   // First, try as-is
   const normalized = normalizeIp(ip);
@@ -64,9 +66,9 @@ function parseHeaderValue(header: string, value: string) {
   }
 
   if (header === 'forwarded') {
-    const match = value.match(/for=(\[?[0-9a-fA-F:.]+]?)/);
-
-    return match ? resolveIp(match[1]) : undefined;
+    const first = value.split(',')[0];
+    const match = first.match(/(?:^|;)\s*for=(?:"([^"]+)"|([^;\s]+))/i);
+    return match ? resolveIp(match[1] || match[2]) : undefined;
   }
 
   return resolveIp(value);

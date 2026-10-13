@@ -225,7 +225,7 @@ export async function crawlerAnalysis(
             timezone,
           );
           const [browser] = await tx.query(
-            'SELECT EXISTS(SELECT 1 FROM website_event WHERE website_id=$1::uuid LIMIT 1) AS connected',
+            'SELECT EXISTS(SELECT 1 FROM liekan_raw_website_event WHERE website_id=$1::uuid LIMIT 1) AS connected',
             websiteId,
           );
           const [goals] = await tx.query(

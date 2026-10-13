@@ -22,6 +22,30 @@ import {
 import { POST } from './route';
 
 vi.mock('@/lib/clickhouse', () => ({ default: { enabled: false } }));
+vi.mock('@/lib/liekan/upstream/collection-snapshots', () => ({
+  collectionSnapshots: async () => ({}),
+}));
+vi.mock('@/lib/liekan/upstream/collection-quality', () => ({
+  classifyCollection: () => ({
+    classification: 'browser',
+    source: 'browser',
+    reasons: [],
+    ruleVersion: 'traffic-quality-v1',
+    rangeVersion: null,
+    rangeStatus: 'missing',
+    hostname: null,
+  }),
+}));
+vi.mock('@/lib/liekan/upstream/collection-auth', () => ({
+  isAuthenticatedCollection: () => false,
+}));
+vi.mock('@/lib/liekan/upstream/collection-write', () => ({
+  CollectionConflictError: class extends Error {},
+  withCollectionWrite: async (_input: any, work: () => Promise<any>) => ({
+    status: 'written',
+    value: await work(),
+  }),
+}));
 
 vi.mock('@/lib/detect', () => ({
   getClientInfo: vi.fn(),
@@ -101,7 +125,13 @@ function makeComputedSessionId(
   const createdAt = new Date(timestamp * 1000);
   const sessionSalt = getSalt(process.env.SALT_ROTATION || 'month', createdAt);
 
-  return uuid(sourceId, defaultClientInfo.ip, defaultClientInfo.userAgent, sessionSalt, distinctId ?? '');
+  return uuid(
+    sourceId,
+    defaultClientInfo.ip,
+    defaultClientInfo.userAgent,
+    sessionSalt,
+    distinctId ?? '',
+  );
 }
 
 beforeEach(() => {
@@ -232,7 +262,8 @@ describe('schema validation', () => {
 });
 
 describe('bot detection gate', () => {
-  test('returns a 200 no-op response for bots and skips persistence', async () => {
+  test('legacy ClickHouse collection returns a 200 no-op response for bots and skips persistence', async () => {
+    (clickhouse as any).enabled = true;
     isbotMock.mockReturnValue(true);
 
     const response = await callPOST({

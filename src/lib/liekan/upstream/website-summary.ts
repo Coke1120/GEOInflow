@@ -127,8 +127,8 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
       ) SELECT w.website_id AS id,
         COALESCE((SELECT row_to_json(t) FROM totals t WHERE t.website_id=w.website_id AND label='current'),'{}') AS current,
         COALESCE((SELECT row_to_json(t) FROM totals t WHERE t.website_id=w.website_id AND label='previous'),'{}') AS previous,
-        EXISTS(SELECT 1 FROM website_event e WHERE e.website_id=w.website_id AND e.event_type NOT IN (2,5) AND e.created_at BETWEEN w.created_at AND $6::timestamptz) AS received,
-        (SELECT MAX(e.created_at) FROM website_event e WHERE e.website_id=w.website_id AND e.created_at >= $7::timestamptz) AS last_at
+        EXISTS(SELECT 1 FROM liekan_raw_website_event e WHERE e.website_id=w.website_id AND e.event_type NOT IN (2,5) AND e.created_at BETWEEN w.created_at AND $6::timestamptz) AS received,
+        (SELECT MAX(e.created_at) FROM liekan_raw_website_event e WHERE e.website_id=w.website_id AND e.created_at >= $7::timestamptz) AS last_at
         FROM website w WHERE w.website_id=ANY($1::uuid[]) ORDER BY w.website_id`,
         p.ids,
         current.startDate,

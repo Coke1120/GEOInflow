@@ -12,6 +12,13 @@ export type TrackedProperties = {
   id?: string;
 
   /**
+   * Identity of one logical collection event. A refresh, a new navigation, and
+   * every manual track call receive a new UUID when browser crypto is available.
+   * Custom payloads may supply their own valid UUID.
+   */
+  eventId?: string;
+
+  /**
    * Browser language
    *
    * @description extracted from `window.navigator.language`
@@ -197,6 +204,7 @@ type TrackerWindow = Window &
     navigator: Navigator & {
       msDoNotTrack?: string | number | null;
     };
+    __umamiTrackerInstances?: Record<string, UmamiTracker>;
   };
 type TrackerDocument = Document & {
   currentScript: HTMLScriptElement | null;
@@ -256,12 +264,55 @@ type MetricEntry = PerformanceEntry & {
   const host =
     hostUrl || '__COLLECT_API_HOST__' || currentScript.src.split('/').slice(0, -1).join('/');
   const endpoint = `${host.replace(/\/$/, '')}__COLLECT_API_ENDPOINT__`;
+  // Keep request routing and instance identity stable across later SPA or base URL changes.
+  let collectUrl = endpoint;
+  try {
+    collectUrl = new URL(endpoint, document.baseURI || href).href;
+  } catch {
+    /* Keep custom collect URLs compatible with the fetch boundary. */
+  }
+  // Duplicate scripts reuse the first eligible instance for this page only.
+  const trackerKey = JSON.stringify([website?.toLowerCase(), collectUrl]);
+  const existingTracker = window.__umamiTrackerInstances?.[trackerKey];
+  if (existingTracker) {
+    if (!window.umami) window.umami = existingTracker;
+    return;
+  }
   const screen = `${width}x${height}`;
   const eventRegex = /data-umami-event-([\w-_]+)/;
   const eventNameAttribute = `${_data}umami-event`;
   const delayDuration = 300;
+  // Match the collector's UUID versions, variant and nil/max exceptions.
+  const uuidRegex =
+    /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
 
   /* Helper functions */
+
+  const validEventId = (value: unknown): value is string =>
+    typeof value === 'string' && uuidRegex.test(value);
+
+  const createEventId = (): string | undefined => {
+    const crypto = window.crypto;
+    if (typeof crypto?.randomUUID === 'function') {
+      try {
+        return crypto.randomUUID();
+      } catch {
+        /* Try the random bytes fallback when randomUUID is unavailable. */
+      }
+    }
+    if (typeof crypto?.getRandomValues === 'function') {
+      try {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+      } catch {
+        /* Collection remains available without browser crypto. */
+      }
+    }
+    return undefined;
+  };
 
   const normalize = (raw: string | URL): string => {
     if (!raw) return raw as string;
@@ -307,10 +358,15 @@ type MetricEntry = PerformanceEntry & {
     }
 
     currentRef = currentUrl;
-    currentUrl = normalize(url);
+    currentUrl = normalize(location.href);
 
     if (currentUrl !== currentRef && autoPageview) {
-      setTimeout(track, delayDuration);
+      // Titles may update during the delay; URL and referrer belong to this navigation.
+      const navigationUrl = currentUrl;
+      const navigationRef = stripOrigin(currentRef);
+      setTimeout(() => {
+        send({ ...getPayload(), url: navigationUrl, referrer: navigationRef });
+      }, delayDuration);
     }
   };
 
@@ -384,6 +440,8 @@ type MetricEntry = PerformanceEntry & {
   const send = async (payload: Payload | null | undefined, type = 'event'): Promise<void> => {
     if (trackingDisabled()) return;
 
+    const eventId = validEventId(payload?.eventId) ? payload.eventId : createEventId();
+
     const callback = (window as unknown as Record<string, unknown>)[beforeSend as string] as
       | BeforeSend
       | undefined;
@@ -394,8 +452,12 @@ type MetricEntry = PerformanceEntry & {
 
     if (!payload) return;
 
+    if (!validEventId(payload.eventId)) {
+      payload = { ...payload, eventId };
+    }
+
     try {
-      const res = await fetch(endpoint, {
+      const res = await fetch(collectUrl, {
         keepalive: true,
         method: 'POST',
         body: JSON.stringify({ type, payload }),
@@ -628,13 +690,12 @@ type MetricEntry = PerformanceEntry & {
 
   /* Start */
 
-  if (!window.umami) {
-    window.umami = {
-      track,
-      identify,
-      getSession: () => ({ cache, website }),
-    } as UmamiTracker;
-  }
+  const tracker = {
+    track,
+    identify,
+    getSession: () => ({ cache, website }),
+  } as UmamiTracker;
+  if (!window.umami) window.umami = tracker;
 
   let currentUrl = normalize(href);
   let currentRef = normalize(referrer);
@@ -644,6 +705,12 @@ type MetricEntry = PerformanceEntry & {
   let cache: string | undefined;
   let identity = distinctId;
   let flushPerformance: (() => void) | undefined;
+
+  if (!trackingDisabled()) {
+    const instances = window.__umamiTrackerInstances || Object.create(null);
+    window.__umamiTrackerInstances = instances;
+    instances[trackerKey] = tracker;
+  }
 
   if (distinctId) {
     void identify(distinctId);

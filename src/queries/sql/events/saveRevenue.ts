@@ -2,7 +2,7 @@ import { FIELD_LENGTH } from '@/lib/constants';
 import { uuid } from '@/lib/crypto';
 import { PRISMA, runQuery } from '@/lib/db';
 import { truncateString } from '@/lib/format';
-import prisma from '@/lib/prisma';
+import { collectionWriteClient } from '@/lib/liekan/upstream/collection-write';
 
 export interface SaveRevenueArgs {
   websiteId: string;
@@ -23,7 +23,7 @@ export async function saveRevenue(data: SaveRevenueArgs) {
 async function relationalQuery(data: SaveRevenueArgs) {
   const { websiteId, sessionId, eventId, eventName, currency, revenue, createdAt } = data;
 
-  await prisma.client.revenue.create({
+  await collectionWriteClient().revenue.create({
     data: {
       id: uuid(),
       websiteId,

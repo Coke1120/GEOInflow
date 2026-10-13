@@ -10,6 +10,12 @@ export type TrackedProperties = {
   /** Distinct ID associated with the current visitor. */
   id?: string;
   /**
+   * Identity of one logical collection event. A refresh, a new navigation, and
+   * every manual track call receive a new UUID when browser crypto is available.
+   * Custom payloads may supply their own valid UUID.
+   */
+  eventId?: string;
+  /**
    * Browser language
    *
    * @description extracted from `window.navigator.language`

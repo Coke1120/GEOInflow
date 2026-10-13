@@ -59,3 +59,21 @@ it('classifies every feature and requires its own successful data endpoint', () 
     ),
   ).toThrow();
 });
+
+it.each(['tracking', 'install-check', 'website-settings'])(
+  '%s requires original collection presence independently of filtered analytics',
+  page => {
+    const policy = manualPageReads(page, { websiteId: 'site' });
+    const metadata = { path: '/api/websites/site' };
+    const presence = { path: '/api/liekan/websites/site/installation' };
+    expect(() => assertManualPageReads(policy, [metadata, presence], page)).not.toThrow();
+    expect(() =>
+      assertManualPageReads(
+        policy,
+        [metadata, { path: '/api/websites/site/stats' }, { path: '/api/websites/site/daterange' }],
+        page,
+      ),
+    ).toThrow('installation');
+    expect(() => assertManualPageReads(policy, [presence], page)).toThrow('/api/websites/site');
+  },
+);

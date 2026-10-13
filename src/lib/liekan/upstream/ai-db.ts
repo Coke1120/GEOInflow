@@ -1,12 +1,14 @@
 import prisma, { getRawQueryClient } from '@/lib/prisma';
 import { AiError } from '../ai/error';
+import { withTrafficPolicy } from './traffic-query';
 export interface AiTx {
   query<T = Record<string, any>>(sql: string, ...params: unknown[]): Promise<T[]>;
   execute(sql: string, ...params: unknown[]): Promise<number>;
 }
 export function aiExecutor(raw: any): AiTx {
   return {
-    query: (sql, ...params) => raw.$queryRawUnsafe('/* liekan_ai */ ' + sql, ...params),
+    query: (sql, ...params) =>
+      raw.$queryRawUnsafe('/* liekan_ai */ ' + withTrafficPolicy(sql), ...params),
     execute: (sql, ...params) => raw.$executeRawUnsafe('/* liekan_ai */ ' + sql, ...params),
   };
 }

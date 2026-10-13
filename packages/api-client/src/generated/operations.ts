@@ -50,6 +50,14 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  collectLiekanServerEvent: {
+    operationId: 'collectLiekanServerEvent',
+    method: 'post',
+    path: '/api/liekan/collect',
+    pathParams: [],
+    queryParams: [],
+    hasBody: true,
+  },
   confirmTwoFactorSetup: {
     operationId: 'confirmTwoFactorSetup',
     method: 'post',
@@ -1151,6 +1159,14 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/shared-report',
     pathParams: ['websiteId'],
     queryParams: ['startAt', 'endAt', 'timezone', 'chartPeriod', 'refresh'],
+    hasBody: false,
+  },
+  getLiekanTrafficQuality: {
+    operationId: 'getLiekanTrafficQuality',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/traffic-quality',
+    pathParams: ['websiteId'],
+    queryParams: ['startAt', 'endAt', 'classification', 'page'],
     hasBody: false,
   },
   getLiekanWebsiteSummary: {
@@ -3301,6 +3317,14 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  putLiekanTrafficQuality: {
+    operationId: 'putLiekanTrafficQuality',
+    method: 'put',
+    path: '/api/liekan/websites/{websiteId}/traffic-quality',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
   readLiekanTeamUserCreation: {
     operationId: 'readLiekanTeamUserCreation',
     method: 'get',
@@ -3589,6 +3613,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'cloneBoard'>> {
     return this.execute('cloneBoard', input, options);
+  }
+
+  /**
+   * Collect an authorized server event with Umami payload fields
+   * `POST /api/liekan/collect`
+   */
+  collectLiekanServerEvent(
+    input: OperationInput<'collectLiekanServerEvent'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'collectLiekanServerEvent'>> {
+    return this.execute('collectLiekanServerEvent', input, options);
   }
 
   /**
@@ -4452,6 +4487,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getLiekanSharedReport'>> {
     return this.execute('getLiekanSharedReport', input, options);
+  }
+
+  /**
+   * Audit browser traffic quality
+   * `GET /api/liekan/websites/{websiteId}/traffic-quality`
+   */
+  getLiekanTrafficQuality(
+    input: OperationInput<'getLiekanTrafficQuality'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanTrafficQuality'>> {
+    return this.execute('getLiekanTrafficQuality', input, options);
   }
 
   /**
@@ -5595,6 +5641,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'putLiekanSettings'>> {
     return this.execute('putLiekanSettings', input, options);
+  }
+
+  /**
+   * Set one site traffic policy
+   * `PUT /api/liekan/websites/{websiteId}/traffic-quality`
+   */
+  putLiekanTrafficQuality(
+    input: OperationInput<'putLiekanTrafficQuality'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'putLiekanTrafficQuality'>> {
+    return this.execute('putLiekanTrafficQuality', input, options);
   }
 
   /**

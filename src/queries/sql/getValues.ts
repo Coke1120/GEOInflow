@@ -71,6 +71,12 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
       from session
       where website_id = {{websiteId::uuid}}
         and created_at between {{startDate}} and {{endDate}}
+        and exists (
+          select 1 from website_event e
+          where e.website_id = session.website_id
+            and e.session_id = session.session_id
+            and e.created_at between {{startDate}} and {{endDate}}
+        )
         ${searchQuery}
       group by 1${column === 'city' ? ',2,3' : ''}
       order by "count" desc, "value"

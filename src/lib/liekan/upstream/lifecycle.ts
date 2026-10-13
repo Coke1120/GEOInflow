@@ -7,6 +7,9 @@ export async function resetLiekanStatistics(tx: any, websiteId: string, identity
   await lockWritableWebsite(tx, websiteId, identity);
   await clearAiWebsiteInTransaction(tx, websiteId);
   for (const table of [
+    'liekan_collection_receipt',
+    'liekan_event_quality',
+    'liekan_collection_hostname',
     'liekan_crawler_finding_window',
     'liekan_crawler_finding',
     'liekan_crawler_quality',

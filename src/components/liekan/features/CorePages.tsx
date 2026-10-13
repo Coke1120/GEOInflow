@@ -129,17 +129,13 @@ function useInstall(id: string, createdAt?: string) {
   return useData(
     ['install', id, createdAt],
     async signal => {
-      const range = { startAt: createdAt ? new Date(createdAt).getTime() : 0, endAt: Date.now() };
-      const [stats, dates] = await Promise.all([
-        c.api.get(`${sitePath(id)}/stats`, range, signal),
-        c.api.get(`${sitePath(id)}/daterange`, undefined, signal),
-      ]);
-      if (stats?.pageviews == null || !Number.isFinite(countOf(stats.pageviews)))
+      const status = await c.api.get(`/liekan/websites/${id}/installation`,undefined,signal);
+      if (status?.browser?.pageviews == null || !Number.isFinite(countOf(status.browser.pageviews)))
         throw new Error('统计响应缺少有效的访问次数。');
       return {
-        pageviews: countOf(stats.pageviews),
-        lastAt: dates.endDate,
-        firstAt: dates.startDate,
+        pageviews: countOf(status.browser.pageviews),
+        lastAt: status.browser.lastAt,
+        firstAt: status.browser.firstAt,
       };
     },
     !!id,
