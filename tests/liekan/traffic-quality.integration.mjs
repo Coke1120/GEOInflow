@@ -451,7 +451,6 @@ try {
   await docker([
     'network',
     'create',
-    '--internal',
     '--label',
     `${ownerLabel}=${runId}`,
     names.network,
