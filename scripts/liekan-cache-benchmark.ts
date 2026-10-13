@@ -2250,6 +2250,10 @@ try {
     body: JSON.stringify({ username: 'custom-benchmark-admin', password: memberPassword }),
   });
   assert(customLogin.ok);
+  const restoredAuthentication = (await customLogin.json()) as any;
+  assert.equal(typeof restoredAuthentication.token, 'string');
+  // The restore fixture changes the password in both copies, invalidating the previous session.
+  headers.authorization = `Bearer ${restoredAuthentication.token}`;
   report.checks.push({
     name: 'migration-11-to-12-and-restored-data-custom-credentials',
     countsPreserved: true,
