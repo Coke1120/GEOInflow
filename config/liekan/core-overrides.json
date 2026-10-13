@@ -4053,6 +4053,14 @@
       "owner": "Liekan client metadata",
       "constraint": "Preserve existing header precedence, defaults and anonymous fingerprint formula",
       "removalCondition": "Remove when upstream supports quoted and bracketed Forwarded values"
+    },
+    {
+      "path": "tests/api/liekan-traffic-quality.spec.ts",
+      "purpose": "Exercise private server intake and traffic policy contracts in the complete upstream API coverage gate",
+      "tests": ["pnpm liekan:verify", "Isolated traffic quality database integration"],
+      "owner": "Liekan API compatibility",
+      "constraint": "Preserve complete private authentication, cookieless collection and per-website fixture cleanup",
+      "removalCondition": "Remove when upstream provides equivalent traffic quality API contracts"
     }
   ]
 }
