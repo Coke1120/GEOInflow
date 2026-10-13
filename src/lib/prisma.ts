@@ -873,7 +873,7 @@ async function executeRawQuery(
     await queryClient.$executeRawUnsafe(`SET search_path TO "${schema}";`);
   }
 
-  return queryClient.$queryRawUnsafe(query, ...params);
+  return queryClient.$queryRawUnsafe(write ? query : withTrafficPolicy(query), ...params);
 }
 
 async function rawQuery(sql: string, data: Record<string, any>, name?: string): Promise<any> {
@@ -916,7 +916,7 @@ async function rawQuery(sql: string, data: Record<string, any>, name?: string): 
     const cacheBindings = Object.fromEntries(
       [...sql.matchAll(/\{\{\s*(\w+)(?:::\w+)?\s*}}/g)].map(match => [match[1], data[match[1]]]),
     );
-    const inputKey = analyticsCacheKey('native-statistics-v1', [
+    const inputKey = analyticsCacheKey(`native-statistics-${TRAFFIC_POLICY_VERSION}`, [
       process.env.DATABASE_URL,
       process.env.DATABASE_REPLICA_URL,
       sql,
@@ -1122,3 +1122,4 @@ export default {
   rawQuery,
   writeRawQuery,
 };
+import { TRAFFIC_POLICY_VERSION, withTrafficPolicy } from './liekan/upstream/traffic-query';

@@ -20,7 +20,7 @@ vi.mock('./query-cache', () => ({
 }));
 vi.mock('../store', () => ({ getSettings: mocks.settings }));
 vi.mock('./analytics', () => ({
-  humanVisitsSql: () => 'WITH visits AS (SELECT 1), converted AS (SELECT 1)',
+  humanVisitsSql: () => 'WITH visits AS (SELECT * FROM website_event), converted AS (SELECT 1)',
   visitMetrics: 'count(*) AS sessions',
   convertedJoin: '',
 }));
@@ -69,6 +69,9 @@ it('batches raw evidence in one snapshot and closes the cursor after completion'
     'UTC',
   ]);
   expect(mocks.execute.mock.calls.at(-1)[0]).toMatch(/^CLOSE keyword_/);
+  expect(mocks.execute.mock.calls[0][0]).toContain(
+    'website_event AS (SELECT * FROM liekan_effective_website_event)',
+  );
 });
 it('closes on cancellation and rejects unsupported storage before database work', async () => {
   const signal = new AbortController();

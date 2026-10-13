@@ -14,6 +14,7 @@ import {
 
 import { getLogCapabilities } from './log-ingestion/capabilities';
 import { listSources } from './log-ingestion/service';
+import { collectionPresence } from './upstream/collection-presence';
 const progressQuery = `SELECT method,last_step AS "lastStep",browser_check_deferred AS "browserCheckDeferred",
   log_check_deferred AS "logCheckDeferred",completed_at AS "completedAt"
   FROM liekan_installation WHERE website_id=$1::uuid`;
@@ -27,7 +28,7 @@ function progressFromRow(row?: InstallationProgress): InstallationProgress {
     : initialInstallationProgress();
 }
 export async function getInstallation(id: string, canManage: boolean): Promise<InstallationStatus> {
-  const [rows, logs] = await Promise.all([
+  const [rows, logs, browser] = await Promise.all([
     query<InstallationProgress>(progressQuery, id),
     query<InstallationStatus['logs']>(
       `SELECT
@@ -38,12 +39,14 @@ export async function getInstallation(id: string, canManage: boolean): Promise<I
       COALESCE((SELECT is_demo FROM liekan_setting WHERE website_id=$1::uuid),false) AS demo`,
       id,
     ),
+    collectionPresence(id),
   ]);
   const availability = await getLogCapabilities();
   const sources = await listSources(id);
   return {
     progress: progressFromRow(rows[0]),
     canManage,
+    browser,
     logs: logs[0],
     capabilities: {
       cloudflare: availability.cloudflare.available,

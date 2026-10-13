@@ -1,0 +1,144 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  saveEvent: vi.fn(),
+  createSession: vi.fn(),
+  fetchWebsite: vi.fn(),
+  parseToken: vi.fn(),
+  write: vi.fn(),
+  classify: vi.fn(),
+  authenticated: vi.fn(),
+}));
+vi.mock('@/lib/clickhouse', () => ({ default: { enabled: false } }));
+vi.mock('@/lib/crypto', () => ({
+  getSalt: () => 'salt',
+  hash: () => 'hash',
+  secret: () => 'fixture-secret',
+  uuid: () => 'd13978f8-b685-4a57-940c-3a54c1c85879',
+}));
+vi.mock('@/lib/detect', () => ({
+  getClientInfo: async (_request: Request, payload: any) => ({
+    ip: payload.ip || '192.0.2.1',
+    userAgent: payload.userAgent || 'Mozilla/5.0 Chrome/130.0.0.0 Safari/537.36',
+    browser: 'chrome',
+  }),
+  hasBlockedIp: () => false,
+}));
+vi.mock('@/lib/load', () => ({ fetchWebsite: mocks.fetchWebsite }));
+vi.mock('@/lib/jwt', () => ({ createToken: () => 'fixture-cache', parseToken: mocks.parseToken }));
+vi.mock('@/lib/request', () => ({
+  parseRequest: async (request: Request, schema: any) => {
+    const parsed = schema.safeParse(await request.json());
+    return parsed.success
+      ? { body: parsed.data }
+      : { error: () => Response.json({ error: 'invalid' }, { status: 400 }) };
+  },
+}));
+vi.mock('@/queries/sql', () => ({
+  saveEvent: mocks.saveEvent,
+  createSession: mocks.createSession,
+  saveSessionData: vi.fn(),
+  saveSessionLink: vi.fn(),
+  updateSession: vi.fn(),
+}));
+vi.mock('@/lib/liekan/upstream/collection-snapshots', () => ({
+  collectionSnapshots: async () => ({}),
+}));
+vi.mock('@/lib/liekan/upstream/collection-quality', () => ({ classifyCollection: mocks.classify }));
+vi.mock('@/lib/liekan/upstream/collection-auth', () => ({
+  isAuthenticatedCollection: mocks.authenticated,
+}));
+vi.mock('@/lib/liekan/upstream/collection-write', () => ({
+  CollectionConflictError: class extends Error {},
+  withCollectionWrite: mocks.write,
+}));
+import { POST } from './route';
+import { CACHE_TOKEN_TYPE } from '@/lib/constants';
+
+const website = '89be6d70-22a5-4433-8bfe-f5b9bd4f08f1';
+const eventId = 'd614f956-5fda-40c9-a378-0e8a07d93e54';
+const call = (payload: any = {}, headers: Record<string, string> = {}) =>
+  POST(
+    new Request('http://localhost/api/send', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        type: 'event',
+        payload: { website, url: '/', hostname: 'example.com', ...payload },
+      }),
+    }),
+  );
+
+describe('compatible collection quality intake', () => {
+  it('verifies ranges against the actual accepted event time including legacy timestamp zero', async () => {
+    const before = Date.now() / 1000;
+    await call({ timestamp: 0 });
+    const accepted = mocks.classify.mock.calls[0][0].payload.timestamp;
+    expect(accepted).toBeGreaterThanOrEqual(before);
+    expect(accepted).toBeLessThanOrEqual(Date.now() / 1000);
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.fetchWebsite.mockResolvedValue({ id: website });
+    mocks.parseToken.mockResolvedValue(null);
+    mocks.classify.mockReturnValue({
+      classification: 'browser',
+      source: 'browser',
+      reasons: [],
+      ruleVersion: 'traffic-quality-v1',
+      rangeVersion: null,
+      rangeStatus: 'missing',
+      hostname: 'example.com',
+    });
+    mocks.authenticated.mockReturnValue(false);
+    mocks.write.mockImplementation(async (_input: any, work: () => Promise<any>) => ({
+      status: 'written',
+      value: await work(),
+    }));
+    delete process.env.DISABLE_BOT_CHECK;
+  });
+  it('old scripts collect without an ID and preserve the exact Umami response shape', async () => {
+    const response = await call();
+    expect(response.status).toBe(200);
+    expect(Object.keys(await response.json()).sort()).toEqual(['cache', 'sessionId', 'visitId']);
+    expect(mocks.write.mock.calls[0][0].eventId).toBeUndefined();
+    expect(mocks.saveEvent).toHaveBeenCalledTimes(1);
+  });
+  it('carries one valid logical event ID and rejects malformed IDs', async () => {
+    expect((await call({ eventId })).status).toBe(200);
+    expect(mocks.write.mock.calls[0][0].eventId).toBe(eventId);
+    expect((await call({ eventId: 'not-a-uuid' })).status).toBe(400);
+    expect(mocks.saveEvent).toHaveBeenCalledTimes(1);
+  });
+  it('returns a compatible acknowledgement for an exact duplicate without another event', async () => {
+    mocks.write.mockResolvedValue({ status: 'duplicate' });
+    expect((await call({ eventId })).status).toBe(200);
+    expect(mocks.saveEvent).not.toHaveBeenCalled();
+  });
+  it('retains bot verdict evidence before the read policy excludes its event', async () => {
+    mocks.classify.mockReturnValue({ classification: 'automated' });
+    expect((await call({ userAgent: 'GPTBot/1.0' })).status).toBe(200);
+    expect(mocks.write.mock.calls[0][0].quality.classification).toBe('automated');
+    expect(mocks.saveEvent).toHaveBeenCalledTimes(1);
+  });
+  it('rejects a cache from another website as proof of the requested site', async () => {
+    mocks.parseToken.mockResolvedValue({
+      type: CACHE_TOKEN_TYPE,
+      websiteId: '443b0081-8236-449d-82a8-695aa0477dcd',
+      sessionId: 'other-session',
+      visitId: 'other-visit',
+    });
+    mocks.fetchWebsite.mockResolvedValue(null);
+    expect((await call({}, { 'x-umami-cache': 'wrong-site-cache' })).status).toBe(400);
+    expect(mocks.fetchWebsite).toHaveBeenCalledWith(website);
+    expect(mocks.saveEvent).not.toHaveBeenCalled();
+  });
+  it('keeps legacy producer overrides and records their provenance', async () => {
+    await call({ ip: '192.0.2.40', userAgent: 'Producer/1.0' });
+    expect(mocks.classify.mock.calls[0][0]).toMatchObject({
+      authenticated: false,
+      ip: '192.0.2.40',
+      userAgent: 'Producer/1.0',
+    });
+  });
+});

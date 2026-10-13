@@ -88,4 +88,9 @@ if (sourceOnly) {
     env: process.env,
   });
   if (acceptance.status !== 0) process.exit(acceptance.status || 1);
+  const trafficQuality = spawnSync(process.execPath, ['tests/liekan/traffic-quality.integration.mjs'], {
+    stdio: 'inherit',
+    env: process.env,
+  });
+  if (trafficQuality.status !== 0) process.exit(trafficQuality.status || 1);
 }

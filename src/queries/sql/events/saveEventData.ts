@@ -5,7 +5,7 @@ import { flattenJSON, getStoredStringValue } from '@/lib/data';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import { truncateString } from '@/lib/format';
 import kafka from '@/lib/kafka';
-import prisma from '@/lib/prisma';
+import { collectionWriteClient } from '@/lib/liekan/upstream/collection-write';
 import type { DynamicData } from '@/lib/types';
 
 export interface SaveEventDataArgs {
@@ -43,7 +43,7 @@ async function relationalQuery(data: SaveEventDataArgs) {
     createdAt,
   }));
 
-  await prisma.client.eventData.createMany({
+  await collectionWriteClient().eventData.createMany({
     data: flattenedData,
   });
 }

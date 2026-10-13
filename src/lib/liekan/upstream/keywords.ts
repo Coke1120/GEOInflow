@@ -22,6 +22,7 @@ import {
   type CachedResult,
 } from './query-cache';
 import { withoutQueryCache } from './cache-context';
+import { withTrafficPolicy } from './traffic-query';
 
 type Website = LiekanReport['website'];
 export type KeywordFacts = {
@@ -66,7 +67,7 @@ export async function readKeywordFacts(
   };
   aborted();
   await tx.$executeRawUnsafe(
-    `DECLARE ${cursor} NO SCROLL CURSOR FOR ${sql}`,
+    `DECLARE ${cursor} NO SCROLL CURSOR FOR ${withTrafficPolicy(sql)}`,
     websiteId,
     new Date(p.startAt),
     new Date(p.endAt),

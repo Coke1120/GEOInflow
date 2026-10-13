@@ -5,6 +5,14 @@ import clickhouse from '@/lib/clickhouse';
 import { CACHE_TOKEN_TYPE, COLLECTION_TYPE, EVENT_TYPE, FIELD_LENGTH } from '@/lib/constants';
 import { getSalt, hash, secret, uuid } from '@/lib/crypto';
 import { getClientInfo, hasBlockedIp } from '@/lib/detect';
+import { isAuthenticatedCollection } from '@/lib/liekan/upstream/collection-auth';
+import { classifyCollection } from '@/lib/liekan/upstream/collection-quality';
+import { collectionFingerprint } from '@/lib/liekan/upstream/collection-fingerprint';
+import { collectionSnapshots } from '@/lib/liekan/upstream/collection-snapshots';
+import {
+  CollectionConflictError,
+  withCollectionWrite,
+} from '@/lib/liekan/upstream/collection-write';
 import { truncateString } from '@/lib/format';
 import { createToken, parseToken } from '@/lib/jwt';
 import { fetchWebsite } from '@/lib/load';
@@ -12,7 +20,13 @@ import { parseRequest } from '@/lib/request';
 import { badRequest, forbidden, json, serverError } from '@/lib/response';
 import { anyObjectParam, urlOrPathParam } from '@/lib/schema';
 import { safeDecodeURI, safeDecodeURIComponent } from '@/lib/url';
-import { createSession, saveEvent, saveSessionData, saveSessionLink, updateSession } from '@/queries/sql';
+import {
+  createSession,
+  saveEvent,
+  saveSessionData,
+  saveSessionLink,
+  updateSession,
+} from '@/queries/sql';
 
 interface Cache {
   websiteId: string;
@@ -37,6 +51,7 @@ const schema = z.object({
       website: z.uuid().optional(),
       link: z.uuid().optional(),
       pixel: z.uuid().optional(),
+      eventId: z.uuid().optional(),
       data: anyObjectParam.optional(),
       hostname: z.string().optional(),
       language: z.string().optional(),
@@ -115,7 +130,10 @@ export async function POST(request: Request) {
       if (cacheHeader) {
         const result = await parseToken(cacheHeader, secret());
 
-        if (result?.type === CACHE_TOKEN_TYPE) {
+        if (
+          result?.type === CACHE_TOKEN_TYPE &&
+          result.websiteId?.toLowerCase() === websiteId.toLowerCase()
+        ) {
           cache = result;
         }
       }
@@ -139,8 +157,9 @@ export async function POST(request: Request) {
       payload,
     );
 
-    // Bot check
-    if (!process.env.DISABLE_BOT_CHECK && isbot(userAgent)) {
+    const qualityEnabled = Boolean(websiteId && !clickhouse.enabled);
+    // Liekan keeps evidence with raw website events; the shared read policy filters automation.
+    if (!qualityEnabled && !process.env.DISABLE_BOT_CHECK && isbot(userAgent)) {
       return json({ beep: 'boop' });
     }
 
@@ -197,182 +216,205 @@ export async function POST(request: Request) {
       iat = now;
     }
 
-    if (type === COLLECTION_TYPE.event) {
-      const base = hostname ? `https://${hostname}` : 'https://localhost';
-      const currentUrl = new URL(url, base);
+    const collect = async () => {
+      if (type === COLLECTION_TYPE.event) {
+        const base = hostname ? `https://${hostname}` : 'https://localhost';
+        const currentUrl = new URL(url, base);
 
-      let urlPath =
-        currentUrl.pathname === '/undefined' ? '' : currentUrl.pathname + currentUrl.hash;
-      const urlQuery = currentUrl.search.substring(1);
-      const urlDomain = currentUrl.hostname.replace(/^www\./, '');
+        let urlPath =
+          currentUrl.pathname === '/undefined' ? '' : currentUrl.pathname + currentUrl.hash;
+        const urlQuery = currentUrl.search.substring(1);
+        const urlDomain = currentUrl.hostname.replace(/^www\./, '');
 
-      let referrerPath: string;
-      let referrerQuery: string;
-      let referrerDomain: string;
+        let referrerPath: string;
+        let referrerQuery: string;
+        let referrerDomain: string;
 
-      // UTM Params
-      const utmSource = currentUrl.searchParams.get('utm_source');
-      const utmMedium = currentUrl.searchParams.get('utm_medium');
-      const utmCampaign = currentUrl.searchParams.get('utm_campaign');
-      const utmContent = currentUrl.searchParams.get('utm_content');
-      const utmTerm = currentUrl.searchParams.get('utm_term');
-
-      // Click IDs
-      const gclid = currentUrl.searchParams.get('gclid');
-      const fbclid = currentUrl.searchParams.get('fbclid');
-      const msclkid = currentUrl.searchParams.get('msclkid');
-      const ttclid = currentUrl.searchParams.get('ttclid');
-      const lifatid = currentUrl.searchParams.get('li_fat_id');
-      const twclid = currentUrl.searchParams.get('twclid');
-
-      if (process.env.REMOVE_TRAILING_SLASH) {
-        // Never strip the root slash, otherwise the home page is saved with an empty path
-        urlPath = urlPath.replace(/(?!^)\/(?=(#.*)?$)/, '');
-      }
-
-      if (referrer) {
-        // Canonicalize the event domain (lowercase, punycode, no port) so it
-        // compares correctly against the parsed referrer hostname
-        let eventDomain = urlDomain;
-        if (hostname) {
-          try {
-            eventDomain = new URL(`https://${hostname}`).hostname.replace(/^www\./, '');
-          } catch {
-            eventDomain = hostname.replace(/^www\./, '');
-          }
-        }
-        // Resolve path-only referrers against the event's domain, not the localhost fallback
-        const referrerUrl = new URL(referrer, eventDomain ? `https://${eventDomain}` : base);
-
-        referrerPath = referrerUrl.pathname;
-        referrerQuery = referrerUrl.search.substring(1);
-        referrerDomain = referrerUrl.hostname.replace(/^www\./, '');
-
-        // Never save the referrer domain for self-referrals
-        if (referrerDomain === eventDomain) {
-          referrerDomain = undefined;
-        }
-      }
-
-      const eventType = linkId
-        ? EVENT_TYPE.linkEvent
-        : pixelId
-          ? EVENT_TYPE.pixelEvent
-          : name
-            ? EVENT_TYPE.customEvent
-            : EVENT_TYPE.pageView;
-
-      await saveEvent({
-        websiteId: sourceId,
-        sessionId,
-        visitId,
-        eventType,
-        createdAt,
-
-        // Page
-        pageTitle: safeDecodeURIComponent(title),
-        hostname: hostname || urlDomain,
-        urlPath: safeDecodeURI(urlPath),
-        urlQuery,
-        referrerPath: safeDecodeURI(referrerPath),
-        referrerQuery,
-        referrerDomain,
-
-        // Session
-        distinctId,
-        browser,
-        os,
-        device,
-        screen,
-        language,
-        country,
-        region,
-        city,
-
-        // Events
-        eventName: name,
-        eventData: data,
-        tag,
-
-        // UTM
-        utmSource,
-        utmMedium,
-        utmCampaign,
-        utmContent,
-        utmTerm,
+        // UTM Params
+        const utmSource = currentUrl.searchParams.get('utm_source');
+        const utmMedium = currentUrl.searchParams.get('utm_medium');
+        const utmCampaign = currentUrl.searchParams.get('utm_campaign');
+        const utmContent = currentUrl.searchParams.get('utm_content');
+        const utmTerm = currentUrl.searchParams.get('utm_term');
 
         // Click IDs
-        gclid,
-        fbclid,
-        msclkid,
-        ttclid,
-        lifatid,
-        twclid,
-      });
-    } else if (type === COLLECTION_TYPE.identify) {
-      if (websiteId && distinctId) {
-        const newLinkId = hash(sessionId, distinctId);
+        const gclid = currentUrl.searchParams.get('gclid');
+        const fbclid = currentUrl.searchParams.get('fbclid');
+        const msclkid = currentUrl.searchParams.get('msclkid');
+        const ttclid = currentUrl.searchParams.get('ttclid');
+        const lifatid = currentUrl.searchParams.get('li_fat_id');
+        const twclid = currentUrl.searchParams.get('twclid');
 
-        if (sessionLinkId !== newLinkId) {
-          // Best-effort: identity link failures must not block the session data write below.
-          try {
-            await Promise.all([
-              saveSessionLink({
-                websiteId,
-                sessionId,
-                distinctId,
-                createdAt,
-              }),
-              updateSession({
-                websiteId,
-                sessionId,
-                distinctId,
-              }),
-            ]);
-            sessionLinkId = newLinkId;
-          } catch (e) {
-            // eslint-disable-next-line no-console
-            console.error('Failed to save session link:', e);
+        if (process.env.REMOVE_TRAILING_SLASH) {
+          // Never strip the root slash, otherwise the home page is saved with an empty path
+          urlPath = urlPath.replace(/(?!^)\/(?=(#.*)?$)/, '');
+        }
+
+        if (referrer) {
+          // Canonicalize the event domain (lowercase, punycode, no port) so it
+          // compares correctly against the parsed referrer hostname
+          let eventDomain = urlDomain;
+          if (hostname) {
+            try {
+              eventDomain = new URL(`https://${hostname}`).hostname.replace(/^www\./, '');
+            } catch {
+              eventDomain = hostname.replace(/^www\./, '');
+            }
+          }
+          // Resolve path-only referrers against the event's domain, not the localhost fallback
+          const referrerUrl = new URL(referrer, eventDomain ? `https://${eventDomain}` : base);
+
+          referrerPath = referrerUrl.pathname;
+          referrerQuery = referrerUrl.search.substring(1);
+          referrerDomain = referrerUrl.hostname.replace(/^www\./, '');
+
+          // Never save the referrer domain for self-referrals
+          if (referrerDomain === eventDomain) {
+            referrerDomain = undefined;
           }
         }
-      }
 
-      if (data) {
-        await saveSessionData({
-          websiteId,
+        const eventType = linkId
+          ? EVENT_TYPE.linkEvent
+          : pixelId
+            ? EVENT_TYPE.pixelEvent
+            : name
+              ? EVENT_TYPE.customEvent
+              : EVENT_TYPE.pageView;
+
+        await saveEvent({
+          websiteId: sourceId,
           sessionId,
-          sessionData: data,
+          visitId,
+          eventType,
+          createdAt,
+
+          // Page
+          pageTitle: safeDecodeURIComponent(title),
+          hostname: hostname || urlDomain,
+          urlPath: safeDecodeURI(urlPath),
+          urlQuery,
+          referrerPath: safeDecodeURI(referrerPath),
+          referrerQuery,
+          referrerDomain,
+
+          // Session
           distinctId,
+          browser,
+          os,
+          device,
+          screen,
+          language,
+          country,
+          region,
+          city,
+
+          // Events
+          eventName: name,
+          eventData: data,
+          tag,
+
+          // UTM
+          utmSource,
+          utmMedium,
+          utmCampaign,
+          utmContent,
+          utmTerm,
+
+          // Click IDs
+          gclid,
+          fbclid,
+          msclkid,
+          ttclid,
+          lifatid,
+          twclid,
+        });
+      } else if (type === COLLECTION_TYPE.identify) {
+        if (websiteId && distinctId) {
+          const newLinkId = hash(sessionId, distinctId);
+
+          if (sessionLinkId !== newLinkId) {
+            // Best-effort: identity link failures must not block the session data write below.
+            try {
+              await Promise.all([
+                saveSessionLink({
+                  websiteId,
+                  sessionId,
+                  distinctId,
+                  createdAt,
+                }),
+                updateSession({
+                  websiteId,
+                  sessionId,
+                  distinctId,
+                }),
+              ]);
+              sessionLinkId = newLinkId;
+            } catch (e) {
+              // eslint-disable-next-line no-console
+              console.error('Failed to save session link:', e);
+            }
+          }
+        }
+
+        if (data) {
+          await saveSessionData({
+            websiteId,
+            sessionId,
+            sessionData: data,
+            distinctId,
+            createdAt,
+          });
+        }
+      } else if (type === COLLECTION_TYPE.performance) {
+        const base = hostname ? `https://${hostname}` : 'https://localhost';
+        const currentUrl = new URL(url, base);
+        const urlPath = currentUrl.pathname === '/undefined' ? '' : currentUrl.pathname;
+
+        await saveEvent({
+          websiteId: sourceId,
+          sessionId,
+          visitId,
+          urlPath,
+          pageTitle: safeDecodeURIComponent(title),
+          eventType: EVENT_TYPE.performance,
+          browser,
+          os,
+          device,
+          screen,
+          language,
+          country,
+          region,
+          city,
+          lcp,
+          inp,
+          cls,
+          fcp,
+          ttfb,
           createdAt,
         });
       }
-    } else if (type === COLLECTION_TYPE.performance) {
-      const base = hostname ? `https://${hostname}` : 'https://localhost';
-      const currentUrl = new URL(url, base);
-      const urlPath = currentUrl.pathname === '/undefined' ? '' : currentUrl.pathname;
-
-      await saveEvent({
-        websiteId: sourceId,
-        sessionId,
-        visitId,
-        urlPath,
-        pageTitle: safeDecodeURIComponent(title),
-        eventType: EVENT_TYPE.performance,
-        browser,
-        os,
-        device,
-        screen,
-        language,
-        country,
-        region,
-        city,
-        lcp,
-        inp,
-        cls,
-        fcp,
-        ttfb,
-        createdAt,
+    };
+    if (qualityEnabled && type !== COLLECTION_TYPE.identify) {
+      const quality = classifyCollection({
+        request,
+        payload: {...payload,timestamp:createdAt.getTime()/1000},
+        authenticated: isAuthenticatedCollection(request),
+        ip,
+        userAgent,
+        snapshots: await collectionSnapshots(),
       });
+      await withCollectionWrite(
+        {
+          websiteId,
+          eventId: payload.eventId,
+          fingerprint: collectionFingerprint(type, payload),
+          quality,
+        },
+        collect,
+      );
+    } else {
+      await collect();
     }
 
     const token = createToken(
@@ -382,6 +424,17 @@ export async function POST(request: Request) {
 
     return json({ cache: token, sessionId, visitId });
   } catch (e) {
+    if (e instanceof CollectionConflictError)
+      return Response.json(
+        {
+          error: {
+            message: 'Event ID already used for different content',
+            code: 'event-id-conflict',
+            status: 409,
+          },
+        },
+        { status: 409 },
+      );
     return serverError(e);
   }
 }

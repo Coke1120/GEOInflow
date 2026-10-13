@@ -179,7 +179,7 @@ export async function buildAiFactsContext(input: {
           previous = browserRow(1);
         const [sources] = await query<Row>(
           `SELECT ${logInputConnectedSql} AS connected,
-        EXISTS(SELECT 1 FROM website_event WHERE website_id=$1::uuid AND event_type NOT IN(2,5)) AS browser,
+        EXISTS(SELECT 1 FROM liekan_raw_website_event WHERE website_id=$1::uuid AND event_type NOT IN(2,5)) AS browser,
         (SELECT count(*) FROM liekan_catalog WHERE website_id=$1::uuid) AS catalog,
         (SELECT count(*) FROM report WHERE website_id=$1::uuid AND type='goal') AS goals,
         (SELECT count(*) FROM report WHERE website_id=$1::uuid AND type='goal' AND NOT COALESCE(

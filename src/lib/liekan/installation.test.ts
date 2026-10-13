@@ -45,6 +45,19 @@ beforeEach(() => {
 });
 
 describe('website installation progress', () => {
+  it('reports received collection independently of the eligible analytics population', async () => {
+    const original = mocks.query.getMockImplementation();
+    mocks.query.mockImplementation((sql, ...params) =>
+      sql.includes('FROM liekan_raw_website_event')
+        ? Promise.resolve([{ pageviews: 3, firstAt: new Date(1000), lastAt: new Date(2000) }])
+        : original(sql, ...params),
+    );
+    expect((await getInstallation(id, false)).browser).toEqual({
+      pageviews: 3,
+      firstAt: new Date(1000).toISOString(),
+      lastAt: new Date(2000).toISOString(),
+    });
+  });
   it('reports a source-state read failure instead of presenting an empty source list', async () => {
     const original = mocks.query.getMockImplementation();
     mocks.query.mockImplementation((sql, ...params) =>

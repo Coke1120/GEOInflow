@@ -5,7 +5,7 @@ import { uuid } from '@/lib/crypto';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import { truncateString } from '@/lib/format';
 import kafka from '@/lib/kafka';
-import prisma from '@/lib/prisma';
+import { collectionWriteClient, recordEventQuality } from '@/lib/liekan/upstream/collection-write';
 import { saveEventData } from './saveEventData';
 import { saveRevenue } from './saveRevenue';
 
@@ -105,8 +105,9 @@ async function relationalQuery({
   ttfb,
 }: SaveEventArgs) {
   const websiteEventId = uuid();
+  const client = collectionWriteClient();
 
-  await prisma.client.websiteEvent.create({
+  await client.websiteEvent.create({
     data: {
       id: websiteEventId,
       websiteId,
@@ -167,6 +168,7 @@ async function relationalQuery({
       });
     }
   }
+  await recordEventQuality(client, websiteEventId, websiteId);
 }
 
 async function clickhouseQuery({

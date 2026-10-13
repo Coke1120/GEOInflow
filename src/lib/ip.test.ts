@@ -41,6 +41,17 @@ describe('getIpAddress', () => {
       '192.0.2.60',
     );
   });
+  test('resolves quoted Forwarded IPv4 and bracketed IPv6 with ports', () => {
+    vi.stubEnv('CLIENT_IP_HEADER', 'forwarded');
+    expect(getIpAddress(headers({ forwarded: 'for="192.0.2.60:8080";proto=https' }))).toBe(
+      '192.0.2.60',
+    );
+    expect(
+      getIpAddress(
+        headers({ forwarded: 'for="[2001:db8::1]:8080";proto=https, for=198.51.100.1' }),
+      ),
+    ).toBe('2001:db8::1');
+  });
 
   test('prefers higher-priority vendor headers over x-forwarded-for', () => {
     expect(

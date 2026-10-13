@@ -14,6 +14,7 @@ import {
   cacheHeadersEnabled,
 } from './cache-context';
 import { primaryMetadataClient } from './analytics-deadline';
+import { withTrafficPolicy } from './traffic-query';
 export { LiekanError } from './errors';
 const WEBSITE_ID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const SITE_NUMBER_PATTERN = /^\d{1,9}$/;
@@ -105,6 +106,7 @@ export async function lockWritableWebsite(tx: any, id: string, identity?: WriteI
 const primary = (): any => getRawQueryClient(prisma.client, { write: true });
 export { primary };
 export async function query<T = any>(sql: string, ...params: unknown[]): Promise<T[]> {
+  sql = withTrafficPolicy(sql);
   const snapshot = getQuerySnapshot() || primaryMetadataClient();
   if (snapshot) return snapshot.$queryRawUnsafe(sql, ...params) as Promise<T[]>;
   if (cacheHeadersEnabled())
