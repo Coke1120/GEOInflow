@@ -54,6 +54,10 @@ beforeEach(() => {
       if (path === '/api/websites')
         return Response.json({ data: deleted ? remaining : [site, ...remaining] });
       if (path === '/api/websites/site') return Response.json(deleted ? null : site);
+      if (path === '/api/liekan/websites/site/installation')
+        return deleted
+          ? Response.json({ error: { message: 'Forbidden' } }, { status: 403 })
+          : Response.json({ browser: { pageviews: 0, firstAt: null, lastAt: null } });
       if (path.endsWith('/stats'))
         return deleted
           ? Response.json({ error: { message: 'Forbidden' } }, { status: 403 })
@@ -133,6 +137,11 @@ it.each(['last', 'with-other-sites'])(
     expect(requests.filter(item => item.method === 'DELETE')).toHaveLength(1);
     expect(
       requests.filter(item => item.afterDelete && item.path.startsWith('/api/websites/site')),
+    ).toEqual([]);
+    expect(
+      requests.filter(
+        item => item.afterDelete && item.path === '/api/liekan/websites/site/installation',
+      ),
     ).toEqual([]);
     expect(requests.some(item => item.path === '/api/websites' && item.afterDelete)).toBe(true);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
