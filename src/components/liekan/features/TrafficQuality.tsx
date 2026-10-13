@@ -394,7 +394,17 @@ export function TrafficQuality({
                           rows={(risk.data.findings || []).map(f => [
                             date(f.windowEnd),
                             f.visitId.slice(0, 8),
-                            f.reasons.map(r => labels[r] || r).join('、'),
+                            f.reasons
+                              .map(r => {
+                                if (r === 'sustained-frequency')
+                                  return `持续高频（峰值 ${f.features.peakMinute} PV/分钟）`;
+                                if (r === 'regular-timing')
+                                  return `机械节律（间隔 ${(f.features.medianGapMs! / 1000).toFixed(1)} 秒，集中率 ${percent(f.features.timingConcentration)}）`;
+                                if (r === 'repeated-path')
+                                  return `路径高度重复（${percent(f.features.repeatFraction)}）`;
+                                return labels[r] || r;
+                              })
+                              .join('、'),
                             f.features.pageviews,
                           ])}
                           empty={

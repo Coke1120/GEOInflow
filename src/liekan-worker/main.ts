@@ -1,5 +1,5 @@
-import { processBrowserRisk } from '../lib/liekan/upstream/browser-risk';
 import 'dotenv/config';
+import { processBrowserRisk } from '../lib/liekan/upstream/browser-risk';
 import { writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { PgBoss } from 'pg-boss';

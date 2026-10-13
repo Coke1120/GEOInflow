@@ -218,7 +218,7 @@ export async function runTrafficQualityUpgradeChecks({
         for (let i = 0; i < 100; i++) {
           if (
             await sqlJson(
-              `SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='${lockName}' AND wait_event='PgSleep');`,
+              `SELECT to_json(EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='${lockName}' AND wait_event='PgSleep'));`,
             )
           )
             break;
@@ -226,7 +226,7 @@ export async function runTrafficQualityUpgradeChecks({
         }
         assert(
           await sqlJson(
-            `SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='${lockName}' AND wait_event='PgSleep');`,
+            `SELECT to_json(EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='${lockName}' AND wait_event='PgSleep'));`,
           ),
         );
         await docker(
@@ -241,7 +241,7 @@ export async function runTrafficQualityUpgradeChecks({
         );
         assert(
           await sqlJson(
-            `SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='${lockName}' AND wait_event='PgSleep');`,
+            `SELECT to_json(EXISTS(SELECT 1 FROM pg_stat_activity WHERE application_name='${lockName}' AND wait_event='PgSleep'));`,
           ),
           'worker must complete while the other website remains locked',
         );
@@ -253,7 +253,7 @@ export async function runTrafficQualityUpgradeChecks({
         );
         assert(
           await sqlJson(
-            `SELECT computed_at IS NOT NULL FROM liekan_browser_risk_state WHERE website_id='${riskSite}';`,
+            `SELECT to_json(computed_at IS NOT NULL) FROM liekan_browser_risk_state WHERE website_id='${riskSite}';`,
           ),
         );
       } finally {

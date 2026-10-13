@@ -74,6 +74,8 @@ for (const [file, digest] of Object.entries(qualityUI.files))
   if (hash(readFileSync(`${qualityUI.directory}/${file}`)) !== digest)
     throw new Error(`Traffic quality UI reference drift: ${file}`);
 const migrationLock = JSON.parse(readFileSync('config/liekan/migrations.json', 'utf8'));
+if (baseline.liekanMigration !== Object.keys(migrationLock).length)
+  throw new Error('Release migration count and immutable register differ');
 if (
   JSON.stringify(
     readdirSync('db/liekan/migrations')
