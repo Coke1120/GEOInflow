@@ -33,6 +33,8 @@ export async function measureTrafficQuality({
     rates: [],
     queries: [],
     scope: 'PostgreSQL collector, quality audit, shadow worker; isolated synthetic websites',
+    observationBudget:
+      'Observation subprocess shares the candidate web container: 2 CPU / 1536 MiB; contention includes its startup, separate analytics worker retains its existing budget',
   };
   const create = async () => {
     const id = randomUUID();
@@ -51,7 +53,7 @@ export async function measureTrafficQuality({
   );
   await database.query(
     `INSERT INTO liekan_browser_risk_state(website_id,epoch,next_window,rule_version)
-  SELECT website_id,1,date_trunc('minute',now())-interval '2 minutes','browser-behavior-v1' FROM website WHERE website_id=ANY($1::uuid[])
+  SELECT w.website_id,COALESCE(l.epoch,1),date_trunc('minute',now())-interval '2 minutes','browser-behavior-v1' FROM website w LEFT JOIN liekan_log_state l ON l.website_id=w.website_id WHERE w.website_id=ANY($1::uuid[])
   ON CONFLICT(website_id) DO UPDATE SET next_window=EXCLUDED.next_window`,
     [volumeSites],
   );
@@ -93,6 +95,22 @@ export async function measureTrafficQuality({
       (await database.query('SELECT count(*) FROM website_event WHERE website_id=$1', [site]))
         .rows[0].count,
     );
+    let observationFixture: { website_id: string; next_window: Date; epoch: string }[] = [];
+    let observationStarted: Date | undefined;
+    if (background) {
+      // Revisit a known due synthetic window for every rate so each load includes real analysis.
+      observationFixture = (
+        await database.query(
+          `UPDATE liekan_browser_risk_state s SET
+        next_window=(SELECT max(q.created_at)+interval '1 minute' FROM liekan_event_quality q WHERE q.website_id=s.website_id),
+        computed_at=NULL,error_code=NULL,next_attempt_at=clock_timestamp()
+        WHERE s.website_id=ANY($1::uuid[]) RETURNING website_id,next_window,epoch::text`,
+          [volumeSites],
+        )
+      ).rows;
+      assert.equal(observationFixture.length, volumeSites.length);
+      observationStarted = (await database.query('SELECT clock_timestamp() AS now')).rows[0].now;
+    }
     const start = performance.now();
     const backgroundReads: Promise<void>[] = [];
     let backgroundFailure: unknown;
@@ -177,6 +195,38 @@ export async function measureTrafficQuality({
     await Promise.all(backgroundReads);
     if (backgroundFailure) throw backgroundFailure;
     assert.equal(cookieResponses, 0, 'collector must preserve the cookieless response contract');
+    let observation;
+    if (background) {
+      const windows = (
+        await database.query(
+          `SELECT r.website_id,w.coverage,w.events,w.epoch::text,w.rule_version,w.computed_at,s.error_code
+        FROM jsonb_to_recordset($1::jsonb) AS r(website_id uuid,next_window timestamptz,epoch text)
+        LEFT JOIN liekan_browser_risk_window w ON w.website_id=r.website_id AND w.window_end=r.next_window
+        LEFT JOIN liekan_browser_risk_state s ON s.website_id=r.website_id`,
+          [JSON.stringify(observationFixture)],
+        )
+      ).rows;
+      assert.equal(windows.length, volumeSites.length);
+      for (const row of windows) {
+        assert(
+          row.computed_at && +row.computed_at >= +observationStarted!,
+          'each rate must compute every synthetic website window',
+        );
+        assert.equal(row.error_code, null, 'background analysis must not silently fail');
+        assert.equal(row.rule_version, 'browser-behavior-v1');
+        assert.equal(
+          row.epoch,
+          observationFixture.find(r => r.website_id === row.website_id)!.epoch,
+        );
+        assert(row.events > 0, 'observations must analyze real seeded events');
+      }
+      observation = {
+        sites: windows.length,
+        observed: windows.filter(w => w.coverage === 'observed').length,
+        partial: windows.filter(w => w.coverage === 'partial').length,
+        errors: 0,
+      };
+    }
     const receipts = (
       await database.query(
         'SELECT client_event_id::text FROM liekan_collection_receipt WHERE website_id=$1 AND client_event_id=ANY($2::uuid[])',
@@ -214,6 +264,7 @@ export async function measureTrafficQuality({
         success / (elapsedMs / 1000) >= rate * 0.9 &&
         dispatchEnded - start <= durationMs * 1.05,
       uniqueStored: stored.size,
+      observation,
     };
   }
   for (const rate of [100, 500, 1000]) {
@@ -262,6 +313,13 @@ export async function measureTrafficQuality({
       startAt = endAt - days * 86400000,
       times: number[] = [];
     let rawPV = 0;
+    const expected = (
+      await database.query(
+        `SELECT count(*)::float8 AS pv,count(DISTINCT session_id)::float8 AS uv FROM website_event
+      WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3 AND event_type NOT IN(2,5)`,
+        [volumeSites[0], new Date(startAt), new Date(endAt)],
+      )
+    ).rows[0];
     for (let i = 0; i < (smoke ? 3 : 200); i++) {
       const since = performance.now();
       const response = await fetch(
@@ -272,6 +330,8 @@ export async function measureTrafficQuality({
       const audit: any = await response.json();
       assert.equal(audit.totals.rawPV, audit.totals.includedPV + audit.totals.excludedPV);
       assert(audit.totals.rawUV >= audit.totals.includedUV);
+      assert.equal(audit.totals.rawPV, expected.pv);
+      assert.equal(audit.totals.rawUV, expected.uv);
       rawPV = audit.totals.rawPV;
       times.push(performance.now() - since);
     }

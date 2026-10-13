@@ -87,6 +87,10 @@ it('isolates a failing site with backoff and makes progress on healthy sites', a
       w => w.sql.includes('INSERT INTO liekan_browser_risk_window') && w.values[0] === 'healthy',
     ),
   ).toBe(true);
+  const failure = state.writes.find(w => w.sql.includes("error_code='analysis-unavailable'"));
+  expect(failure.sql).toContain('AND epoch=$2 AND next_window=$3');
+  expect(failure.values[1]).toBe(1);
+  expect(failure.values[2]).toBeInstanceOf(Date);
   expect(state.writes.filter(w => w.sql.includes('WHERE ctid IN'))).toHaveLength(2);
 });
 it('rejects stale epoch results after a reset', async () => {

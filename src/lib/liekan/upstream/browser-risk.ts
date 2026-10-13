@@ -27,6 +27,8 @@ export async function processBrowserRisk() {
   const attempted: string[] = [];
   for (let batch = 0; batch < 10; batch++) {
     let selected: string | undefined;
+    let selectedEpoch: number | bigint | undefined;
+    let selectedWindow: Date | undefined;
     try {
       const processed = await transaction(async tx => {
         await tx.$executeRawUnsafe("SET LOCAL statement_timeout='15s'");
@@ -51,6 +53,8 @@ export async function processBrowserRisk() {
           id,
         );
         if (!state) return true;
+        selectedEpoch = state.epoch;
+        selectedWindow = state.next_window;
         const [epoch] = await tx.$queryRawUnsafe(
           'SELECT epoch::text FROM liekan_log_state WHERE website_id=$1::uuid',
           id,
@@ -139,12 +143,14 @@ export async function processBrowserRisk() {
       });
       if (!processed) break;
     } catch {
-      if (selected)
+      if (selected && selectedEpoch !== undefined && selectedWindow)
         await transaction(async tx => {
           await tx.$executeRawUnsafe("SET LOCAL statement_timeout='2s'");
           await tx.$executeRawUnsafe(
-            "UPDATE liekan_browser_risk_state SET next_attempt_at=clock_timestamp()+interval '1 minute',error_code='analysis-unavailable' WHERE website_id=$1::uuid",
+            "UPDATE liekan_browser_risk_state SET next_attempt_at=clock_timestamp()+interval '1 minute',error_code='analysis-unavailable' WHERE website_id=$1::uuid AND epoch=$2 AND next_window=$3",
             selected,
+            selectedEpoch,
+            selectedWindow,
           );
         }).catch(() => {});
     }
