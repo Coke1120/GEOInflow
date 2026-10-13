@@ -5,21 +5,21 @@ describe('one relational traffic policy', () => {
   it('restricts native recording reads even when dimension filters are empty', () => {
     const sql = 'SELECT h.* FROM heatmap_event h JOIN session_replay sr ON sr.visit_id=h.visit_id';
     expect(withTrafficPolicy(sql)).toContain(
-      'heatmap_event AS (SELECT * FROM liekan_effective_heatmap_event), session_replay AS (SELECT * FROM liekan_effective_session_replay)',
+      'heatmap_event AS NOT MATERIALIZED (SELECT * FROM liekan_effective_heatmap_event), session_replay AS NOT MATERIALIZED (SELECT * FROM liekan_effective_session_replay)',
     );
   });
   it('covers counts and every nested event denominator without changing aliases', () => {
     const sql =
       'select website_event.session_id from website_event join session s on s.session_id=website_event.session_id where exists(select 1 from website_event e where e.event_id=website_event.event_id)';
     expect(withTrafficPolicy(sql)).toBe(
-      `WITH website_event AS (SELECT * FROM liekan_effective_website_event) ${sql}`,
+      `WITH website_event AS NOT MATERIALIZED (SELECT * FROM liekan_effective_website_event) ${sql}`,
     );
   });
   it('covers properties and revenue sharing a session with an excluded event', () => {
     const sql =
       'WITH selected AS(select * from website_event) select * from event_data d join revenue r on r.event_id=d.website_event_id';
     expect(withTrafficPolicy(sql)).toContain(
-      'website_event AS (SELECT * FROM liekan_effective_website_event), event_data AS (SELECT * FROM liekan_effective_event_data), revenue AS (SELECT * FROM liekan_effective_revenue), selected',
+      'website_event AS NOT MATERIALIZED (SELECT * FROM liekan_effective_website_event), event_data AS NOT MATERIALIZED (SELECT * FROM liekan_effective_event_data), revenue AS NOT MATERIALIZED (SELECT * FROM liekan_effective_revenue), selected',
     );
   });
   it('preserves recursive WITH, comments, quoted table names and values', () => {

@@ -75,9 +75,12 @@ vi.mock('@/lib/prisma', () => {
             receipts.set(key, { payload_hash: values[2] as string, event_id: null });
             return [{ client_event_id: values[1] }];
           }
-          if (/SELECT payload_hash/i.test(sql)) {
+          if (/SELECT (?:r\.)?payload_hash/i.test(sql)) {
             const receipt = receipts.get(key) || state.receipts.get(key);
-            return receipt ? [receipt] : [];
+            const event = state.events.find(event => event.id === receipt?.event_id);
+            return receipt
+              ? [{ ...receipt, session_id: event?.sessionId, visit_id: event?.visitId }]
+              : [];
           }
           throw new Error('unexpected-query');
         },
@@ -252,6 +255,30 @@ describe('atomic collection writes', () => {
     expect(state.quality).toHaveLength(1);
   });
 
+  it('keeps the stored event identity when a duplicate is acknowledged', async () => {
+    await withCollectionWrite(collection(), () => saveEvent(args()));
+    const retry = vi.fn(() =>
+      saveEvent({ ...args(), sessionId: otherWebsiteId, visitId: eventId }),
+    );
+    expect(await withCollectionWrite(collection(), retry)).toEqual({
+      status: 'duplicate',
+      sessionId: args().sessionId,
+      visitId: args().visitId,
+    });
+    expect(retry).not.toHaveBeenCalled();
+  });
+
+  it('rejects a duplicate whose original event identity is unavailable', async () => {
+    state.receipts.set(`${websiteId}:${eventId}`, {
+      payload_hash: 'opaque-fixture-hash',
+      event_id: null,
+    });
+    await expect(withCollectionWrite(collection(), () => saveEvent(args()))).rejects.toThrow(
+      'Collection receipt is unavailable',
+    );
+    expect(state.events).toHaveLength(0);
+  });
+
   it('rejects a reused ID with a different payload without repeating writes', async () => {
     await withCollectionWrite(collection(), () => saveEvent(args()));
     const work = vi.fn(() => saveEvent(args()));
@@ -291,15 +318,6 @@ describe('atomic collection writes', () => {
       expect(state.quality).toHaveLength(1);
     },
   );
-
-  it('keeps identify receipts valid when the callback creates no event', async () => {
-    await withCollectionWrite(collection(), async () => 'identified');
-    expect(state.receipts.get(`${websiteId}:${eventId}`)?.event_id).toBeNull();
-    const retry = vi.fn(async () => 'identified');
-    expect(await withCollectionWrite(collection(), retry)).toEqual({ status: 'duplicate' });
-    expect(retry).not.toHaveBeenCalled();
-    expect(state.quality).toHaveLength(0);
-  });
 
   it('links a receipt even when quality metadata is absent', async () => {
     await withCollectionWrite(collection({ quality: undefined }), () => saveEvent(args()));

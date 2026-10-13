@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   write: vi.fn(),
   classify: vi.fn(),
   authenticated: vi.fn(),
+  token: vi.fn(),
 }));
 vi.mock('@/lib/clickhouse', () => ({ default: { enabled: false } }));
 vi.mock('@/lib/crypto', () => ({
@@ -25,7 +26,7 @@ vi.mock('@/lib/detect', () => ({
   hasBlockedIp: () => false,
 }));
 vi.mock('@/lib/load', () => ({ fetchWebsite: mocks.fetchWebsite }));
-vi.mock('@/lib/jwt', () => ({ createToken: () => 'fixture-cache', parseToken: mocks.parseToken }));
+vi.mock('@/lib/jwt', () => ({ createToken: mocks.token, parseToken: mocks.parseToken }));
 vi.mock('@/lib/request', () => ({
   parseRequest: async (request: Request, schema: any) => {
     const parsed = schema.safeParse(await request.json());
@@ -81,6 +82,7 @@ describe('compatible collection quality intake', () => {
     vi.clearAllMocks();
     mocks.fetchWebsite.mockResolvedValue({ id: website });
     mocks.parseToken.mockResolvedValue(null);
+    mocks.token.mockReturnValue('fixture-cache');
     mocks.classify.mockReturnValue({
       classification: 'browser',
       source: 'browser',
@@ -104,6 +106,21 @@ describe('compatible collection quality intake', () => {
     expect(mocks.write.mock.calls[0][0].eventId).toBeUndefined();
     expect(mocks.saveEvent).toHaveBeenCalledTimes(1);
   });
+  it('keeps identify on its upstream path without creating an event receipt', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/send', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'identify',
+          payload: { website, eventId, id: 'visitor', data: { plan: 'pro' } },
+        }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(Object.keys(await response.json()).sort()).toEqual(['cache', 'sessionId', 'visitId']);
+    expect(mocks.write).not.toHaveBeenCalled();
+    expect(mocks.saveEvent).not.toHaveBeenCalled();
+  });
   it('carries one valid logical event ID and rejects malformed IDs', async () => {
     expect((await call({ eventId })).status).toBe(200);
     expect(mocks.write.mock.calls[0][0].eventId).toBe(eventId);
@@ -111,8 +128,23 @@ describe('compatible collection quality intake', () => {
     expect(mocks.saveEvent).toHaveBeenCalledTimes(1);
   });
   it('returns a compatible acknowledgement for an exact duplicate without another event', async () => {
-    mocks.write.mockResolvedValue({ status: 'duplicate' });
-    expect((await call({ eventId })).status).toBe(200);
+    const sessionId = '11111111-1111-4111-8111-111111111111';
+    const visitId = '22222222-2222-4222-8222-222222222222';
+    mocks.write.mockResolvedValue({ status: 'duplicate', sessionId, visitId });
+    mocks.parseToken.mockResolvedValue({
+      type: CACHE_TOKEN_TYPE,
+      websiteId: website,
+      sessionId: 'different-session',
+      visitId: 'different-visit',
+      sessionLinkId: 'different-identity-link',
+    });
+    const before = Math.floor(Date.now() / 1000);
+    const response = await call({ eventId, timestamp: 1 }, { 'x-umami-cache': 'stale-cache' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ cache: 'fixture-cache', sessionId, visitId });
+    expect(mocks.token.mock.calls[0][0]).toMatchObject({ websiteId: website, sessionId, visitId });
+    expect(mocks.token.mock.calls[0][0].iat).toBeGreaterThanOrEqual(before);
+    expect(mocks.token.mock.calls[0][0].sessionLinkId).toBeUndefined();
     expect(mocks.saveEvent).not.toHaveBeenCalled();
   });
   it('retains bot verdict evidence before the read policy excludes its event', async () => {

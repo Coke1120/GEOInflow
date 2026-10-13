@@ -282,7 +282,9 @@ type MetricEntry = PerformanceEntry & {
   const eventRegex = /data-umami-event-([\w-_]+)/;
   const eventNameAttribute = `${_data}umami-event`;
   const delayDuration = 300;
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  // Match the collector's UUID versions, variant and nil/max exceptions.
+  const uuidRegex =
+    /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
 
   /* Helper functions */
 

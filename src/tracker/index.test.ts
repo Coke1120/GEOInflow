@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { transformSync } from 'esbuild';
 import { JSDOM } from 'jsdom';
 import { afterEach, expect, test, vi } from 'vitest';
+import { z } from 'zod';
 import type { UmamiTracker } from './index';
 
 // Exercise the same classic script boundary as the published tracker, with a fresh
@@ -351,6 +352,36 @@ test('before-send replacements retain a logical event ID and can supply a valid 
   expect(requests[1].payload.eventId).toMatch(uuidPattern);
   expect(requests[0].payload.eventId).not.toBe(requests[1].payload.eventId);
   expect(requests[2].payload.eventId).toBe(suppliedId);
+});
+
+test.each([
+  '11111111-1111-0111-8111-111111111111',
+  '11111111-1111-9111-8111-111111111111',
+  '11111111-1111-4111-7111-111111111111',
+  '11111111-1111-4111-c111-111111111111',
+  '11111111-1111-4111-8111-111111111111',
+  '11111111-1111-8111-b111-111111111111',
+  '11111111-1111-4111-A111-111111111111',
+  '00000000-0000-0000-0000-000000000000',
+  'ffffffff-ffff-ffff-ffff-ffffffffffff',
+  'FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF',
+])('manual and before-send IDs remain acceptable to the server: %s', async eventId => {
+  const browser = createBrowser();
+  Object.assign(browser.window, {
+    beforeSend: (_type: string, payload: Record<string, unknown>) => payload,
+  });
+  browser.load({ 'before-send': 'beforeSend', 'auto-track': 'false' });
+  await browser.window.umami.track({ website: 'website-id', eventId });
+  Object.assign(browser.window, {
+    beforeSend: (_type: string, payload: Record<string, unknown>) => ({ ...payload, eventId }),
+  });
+  await browser.window.umami.track();
+  for (const request of browser.requests()) {
+    expect(z.uuid().safeParse(request.payload.eventId).success).toBe(true);
+    if (z.uuid().safeParse(eventId).success) expect(request.payload.eventId).toBe(eventId);
+    else expect(request.payload.eventId).not.toBe(eventId);
+  }
+  expect(browser.requests()).toHaveLength(2);
 });
 
 test('a logical send generates its ID once before an asynchronous before-send callback', async () => {

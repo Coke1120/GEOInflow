@@ -62,7 +62,8 @@ export function withTrafficPolicy(sql: string): string {
   )
     throw new Error('Analytics CTE conflicts with the traffic policy source');
   const definitions = used
-    .map(table => `${table} AS (SELECT * FROM ${effectiveTables[table]})`)
+    // Repeated reads must keep the caller's website/date predicates on the base scans.
+    .map(table => `${table} AS NOT MATERIALIZED (SELECT * FROM ${effectiveTables[table]})`)
     .join(', ');
   if (parts[0].value === 'with') {
     const boundary = parts[parts[1]?.value === 'recursive' ? 1 : 0].end;

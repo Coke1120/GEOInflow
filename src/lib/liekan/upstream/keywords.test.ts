@@ -70,7 +70,7 @@ it('batches raw evidence in one snapshot and closes the cursor after completion'
   ]);
   expect(mocks.execute.mock.calls.at(-1)[0]).toMatch(/^CLOSE keyword_/);
   expect(mocks.execute.mock.calls[0][0]).toContain(
-    'website_event AS (SELECT * FROM liekan_effective_website_event)',
+    'website_event AS NOT MATERIALIZED (SELECT * FROM liekan_effective_website_event)',
   );
 });
 it('closes on cancellation and rejects unsupported storage before database work', async () => {

@@ -9,7 +9,9 @@ export interface CollectionWriteInput {
   fingerprint: string;
   quality?: CollectionQuality;
 }
-export type CollectionWriteResult<T> = { status: 'written'; value: T } | { status: 'duplicate' };
+export type CollectionWriteResult<T> =
+  | { status: 'written'; value: T }
+  | { status: 'duplicate'; sessionId: string; visitId: string };
 export class CollectionConflictError extends Error {
   constructor() {
     super('Collection event ID already has a different payload');
@@ -94,14 +96,29 @@ export async function withCollectionWrite<T>(
           input.fingerprint,
         );
         if (!inserted.length) {
-          const receipt = await tx.$queryRawUnsafe<{ payload_hash: string }[]>(
-            'SELECT payload_hash FROM liekan_collection_receipt WHERE website_id=$1::uuid AND client_event_id=$2::uuid',
+          const receipt = await tx.$queryRawUnsafe<
+            {
+              payload_hash: string;
+              session_id: string | null;
+              visit_id: string | null;
+            }[]
+          >(
+            `SELECT r.payload_hash,e.session_id::text,e.visit_id::text
+             FROM liekan_collection_receipt r
+             LEFT JOIN website_event e ON e.event_id=r.event_id AND e.website_id=r.website_id
+             WHERE r.website_id=$1::uuid AND r.client_event_id=$2::uuid`,
             input.websiteId,
             input.eventId,
           );
           if (!receipt.length) throw new Error('Collection receipt is unavailable');
           if (receipt[0].payload_hash !== input.fingerprint) throw new CollectionConflictError();
-          return { status: 'duplicate' };
+          if (!receipt[0].session_id || !receipt[0].visit_id)
+            throw new Error('Collection receipt is unavailable');
+          return {
+            status: 'duplicate',
+            sessionId: receipt[0].session_id,
+            visitId: receipt[0].visit_id,
+          };
         }
       }
       const quality = input.quality

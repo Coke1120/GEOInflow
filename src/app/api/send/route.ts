@@ -178,7 +178,7 @@ export async function POST(request: Request) {
 
     // Identified users need a separate deterministic session from anonymous users
     // who happen to share the same IP address and user agent.
-    const sessionId = uuid(sourceId, ip, userAgent, sessionSalt, distinctId ?? '');
+    let sessionId = uuid(sourceId, ip, userAgent, sessionSalt, distinctId ?? '');
     const sessionDrift = !!websiteId && !!cache?.sessionId && cache.sessionId !== sessionId;
     const shouldEnsureSession = !clickhouse.enabled && sessionDrift;
 
@@ -398,13 +398,13 @@ export async function POST(request: Request) {
     if (qualityEnabled && type !== COLLECTION_TYPE.identify) {
       const quality = classifyCollection({
         request,
-        payload: {...payload,timestamp:createdAt.getTime()/1000},
+        payload: { ...payload, timestamp: createdAt.getTime() / 1000 },
         authenticated: isAuthenticatedCollection(request),
         ip,
         userAgent,
         snapshots: await collectionSnapshots(),
       });
-      await withCollectionWrite(
+      const result = await withCollectionWrite(
         {
           websiteId,
           eventId: payload.eventId,
@@ -413,6 +413,12 @@ export async function POST(request: Request) {
         },
         collect,
       );
+      if (result.status === 'duplicate') {
+        sessionId = result.sessionId;
+        visitId = result.visitId;
+        iat = now;
+        if (cache?.sessionId !== sessionId || cache?.visitId !== visitId) sessionLinkId = undefined;
+      }
     } else {
       await collect();
     }

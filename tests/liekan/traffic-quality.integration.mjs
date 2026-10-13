@@ -5,7 +5,9 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
+import { runInNewContext } from 'node:vm';
 import { gzipSync, inflateRawSync } from 'node:zlib';
+import { transformSync } from 'esbuild';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const runId = randomUUID().replaceAll('-', '');
@@ -448,13 +450,7 @@ try {
     });
   });
   stage = 'isolated database startup';
-  await docker([
-    'network',
-    'create',
-    '--label',
-    `${ownerLabel}=${runId}`,
-    names.network,
-  ]);
+  await docker(['network', 'create', '--label', `${ownerLabel}=${runId}`, names.network]);
   await docker(['volume', 'create', '--label', `${ownerLabel}=${runId}`, names.volume]);
   await docker(
     [
@@ -563,6 +559,41 @@ try {
     ensure(
       !runtime.some(value => /^DISABLE_BOT_CHECK=.+/.test(value)),
       'Bot classification must remain enabled',
+    );
+  });
+  await test('repeated policy reads push website predicates into base event scans', async () => {
+    const source = await readFile(
+      new URL('../../src/lib/liekan/upstream/traffic-query.ts', import.meta.url),
+      'utf8',
+    );
+    const module = { exports: {} };
+    runInNewContext(transformSync(source, { loader: 'ts', format: 'cjs' }).code, {
+      module,
+      exports: module.exports,
+    });
+    const statement = module.exports.withTrafficPolicy(`SELECT
+      (SELECT count(*) FROM website_event WHERE website_id=${websiteSql} AND created_at>=now()-interval '1 day') AS events,
+      (SELECT count(*) FROM website_event WHERE website_id=${websiteSql} AND created_at>=now()-interval '1 day' AND event_type=1) AS pageviews`);
+    const [explained] = await sqlJson(`EXPLAIN (FORMAT JSON) ${statement}`);
+    const nodes = [];
+    const visit = node => {
+      nodes.push(node);
+      for (const child of node.Plans ?? []) visit(child);
+    };
+    visit(explained.Plan);
+    ensure(
+      !nodes.some(node => node['Node Type'] === 'CTE Scan' && node['CTE Name'] === 'website_event'),
+      'Repeated policy reads must not materialize every website event before filtering',
+    );
+    const events = nodes.filter(node => node['Relation Name'] === 'website_event');
+    ensure(events.length >= 2, 'The plan must exercise both actual base event reads');
+    ensure(
+      events.every(node =>
+        /website_id/.test(
+          `${node['Index Cond'] ?? ''} ${node.Filter ?? ''} ${node['Recheck Cond'] ?? ''}`,
+        ),
+      ),
+      'Each base event scan must retain its website predicate',
     );
   });
   await test('login and create a unique private fixture site', async () => {
@@ -722,6 +753,47 @@ try {
       expected: 400,
     });
     same(await counts(), before, 'Conflicting and malformed IDs must create no analytics rows');
+  });
+  await test('duplicate receipts acknowledge their original session and visit', async () => {
+    const body = event('/retry-identity', { timestamp });
+    const first = await record(body, browserQuality);
+    const before = await counts();
+    const retry = await collect(body, { ip: '192.0.2.18' });
+    same(
+      [retry.sessionId, retry.visitId],
+      [first.sessionId, first.visitId],
+      'An exact retry must retain the identity of its stored event',
+    );
+    same(await counts(), before, 'An exact retry must leave the event and receipt unchanged');
+    await sql(
+      `UPDATE website SET recorder_enabled=true,replay_config='{"heatmapEnabled":true}'::jsonb WHERE website_id=${websiteSql};`,
+    );
+    const heatmap = (
+      await json('/api/record', {
+        method: 'POST',
+        body: {
+          type: 'heatmap',
+          payload: {
+            website: websiteId,
+            events: [{ type: 'click', url: '/retry-identity', x: 0.5, y: 0.5 }],
+          },
+        },
+        headers: {
+          'x-umami-cache': retry.cache,
+          'user-agent': browserUa,
+          'x-real-ip': '192.0.2.18',
+        },
+      })
+    ).body;
+    ensure(heatmap.ok === true, 'A retry acknowledgement must remain usable by the recorder');
+    ensure(
+      (await sql(`SELECT count(*) FROM heatmap_event h JOIN website_event e ON e.website_id=h.website_id AND e.session_id=h.session_id AND e.visit_id=h.visit_id
+      WHERE h.website_id=${websiteSql} AND h.url_path='/retry-identity';`)) === '1',
+      'Recorder signals from a duplicate acknowledgement must link to the stored visit',
+    );
+    await sql(
+      `DELETE FROM heatmap_event WHERE website_id=${websiteSql} AND url_path='/retry-identity';`,
+    );
   });
   await test('property constraint rolls back and failed nonce can be repaired', async () => {
     const body = event('/property-rollback', {
@@ -1093,6 +1165,25 @@ try {
       { US: unique(pages) },
       'Native country visitors must filter excluded evidence',
     );
+    for (const type of ['browser', 'country']) {
+      const values = (await json(`${nativePath}/values?${window}&type=${type}`, { auth: true }))
+        .body;
+      const expected =
+        type === 'country'
+          ? { US: unique(selected) }
+          : Object.fromEntries(
+              [...new Set(selected.map(f => f.browser))]
+                .sort()
+                .map(name => [name, unique(selected.filter(f => f.browser === name))]),
+            );
+      same(
+        Object.fromEntries(
+          values.map(row => [row.value, number(row.count)]).sort(([a], [b]) => a.localeCompare(b)),
+        ),
+        expected,
+        'Native filter candidates must count only sessions with eligible events',
+      );
+    }
     const channels = (await json(`${nativePath}/metrics?${window}&type=channel`, { auth: true }))
       .body;
     same(
