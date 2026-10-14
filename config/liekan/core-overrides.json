@@ -3354,6 +3354,14 @@
       "removalCondition": "Remove when upstream initialization supports the Liekan product default through an extension point"
     },
     {
+      "path": "tests/api/geography.spec.ts",
+      "purpose": "Verify geography provider attribution and private aggregate diagnostic contracts in the complete API gate",
+      "tests": ["pnpm liekan:verify", "tests/api/geography.spec.ts"],
+      "owner": "Liekan geography maintenance",
+      "constraint": "Use isolated fixtures, preserve complete authentication and keep raw visitor evidence out of responses",
+      "removalCondition": "Remove when equivalent upstream geography contracts and regression checks are available"
+    },
+    {
       "path": "tests/api/helpers/constants.ts",
       "purpose": "Use the Liekan default administrator and product migration startup in installation tests and seed guidance",
       "tests": [
