@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { csvText, isLiekanRoute, isWebsiteLanding, selectRows, tableCsv } from './data';
+import {
+  csvText,
+  formatCellValue,
+  isLiekanRoute,
+  isWebsiteLanding,
+  selectRows,
+  tableCsv,
+} from './data';
 import { translateText } from '@/lib/liekan/i18n/text';
 
 describe('Liekan route boundary', () => {
@@ -18,6 +25,27 @@ it('redirects only the exact website landing and preserves the settings route', 
   expect(isWebsiteLanding(`/websites/${id}/geo`)).toBe(false);
 });
 describe('report selection and CSV export', () => {
+  it('formats only provenance-marked source labels and keeps the marker outside CSV columns', () => {
+    const owned = { source: '直接访问', sourceLabel: 'direct', sessions: 3 };
+    const supplied = { source: '直接访问', referrer: '直接访问', sessions: 7 };
+    const display = (source: string) => translateText(source, 'en-US');
+    expect(formatCellValue(owned, 'source', 'srcBody', 'en-US', display)).toBe('Direct traffic');
+    expect(formatCellValue(supplied, 'source', 'srcBody', 'en-US', display)).toBe('直接访问');
+    const csv = tableCsv(
+      'srcBody',
+      [owned, supplied],
+      '全部',
+      { label: '', direction: 1 },
+      '',
+      undefined,
+      'en-US',
+      display,
+    );
+    expect(csv).toContain('Direct traffic');
+    expect(csv).toContain('直接访问');
+    expect(csv).not.toContain('sourceLabel');
+    expect(tableCsv('srcBody', [owned], '全部', { label: '', direction: 1 })).toContain('直接访问');
+  });
   it('exports English headers and durations while preserving raw names, selection and legacy output', () => {
     const rows = [
       { city: '未审核城镇', sessions: 1, duration: 75 },

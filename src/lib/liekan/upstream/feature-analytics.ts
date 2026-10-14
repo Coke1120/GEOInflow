@@ -29,6 +29,7 @@ import { canViewReport } from '@/permissions';
 import { getReport, getWebsiteSegment } from '@/queries/prisma';
 import { getRelationalHeatmapFilterContext } from '@/queries/sql/heatmap/getHeatmap';
 import { classifyEntrySource } from './analytics';
+import { classifyEntrySourceForDisplay } from '../contracts/sources';
 import { LiekanError } from './server';
 
 export function normalizeFeatureNumbers(value: any): any {
@@ -346,17 +347,23 @@ async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) 
         .filter(s => classifyEntrySource({ referrer: s.referrer }).channel === 'AI 搜索引荐')
         .map(s => s.id),
     );
-    const sourceMap = new Map<string, Set<string>>();
+    const sourceMap = new Map<string, { name: string; sourceLabel?: 'direct'; ids: Set<string> }>();
     for (const s of sources) {
-      const name = classifyEntrySource({ referrer: s.referrer }).source;
-      if (!sourceMap.has(name)) sourceMap.set(name, new Set());
-      sourceMap.get(name).add(s.id);
+      const label = classifyEntrySourceForDisplay({ referrer: s.referrer });
+      const key = JSON.stringify([label.source, label.sourceLabel ?? null]);
+      if (!sourceMap.has(key))
+        sourceMap.set(key, {
+          name: label.source,
+          ...(label.sourceLabel ? { sourceLabel: label.sourceLabel } : {}),
+          ids: new Set(),
+        });
+      sourceMap.get(key).ids.add(s.id);
     }
     return {
       totals: { ...totals[0], ai: ai.size },
       pages,
-      sources: [...sourceMap]
-        .map(([name, ids]) => ({ name, value: ids.size }))
+      sources: [...sourceMap.values()]
+        .map(({ ids, ...source }) => ({ ...source, value: ids.size }))
         .sort((a, b) => b.value - a.value),
     };
   }

@@ -1595,7 +1595,7 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
               <>
                 <div style={{ margin: '24px 0' }}>
                   <Notice tone={error ? 'red' : 'blue'}>
-                    {error ||
+                    {i18n.system(error) ||
                       (busy ? i18n.text('正在验证登录凭据。') : i18n.text('等待登录验证。'))}
                   </Notice>
                 </div>

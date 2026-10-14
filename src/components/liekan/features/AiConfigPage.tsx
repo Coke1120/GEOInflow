@@ -28,7 +28,11 @@ import {
   useAiRun,
 } from './AiShared';
 import { useFeature } from './context';
-import { aiSpaceDisplayName } from '@/lib/liekan/contracts/ai-display';
+import {
+  aiSpaceDisplayName,
+  aiTemplateDisplayName,
+  aiRegionDisplayName,
+} from '@/lib/liekan/contracts/ai-display';
 export function AiConfigPage() {
   const i18n = useLiekanI18n();
   const c = useFeature(),
@@ -42,6 +46,12 @@ export function AiConfigPage() {
     [error, setError] = useState(''),
     [actionSpace, setActionSpace] = useState('');
   const data = catalog.data;
+  const providerLabels = new Map(
+    data?.templates.map(template => [
+      template.provider,
+      aiTemplateDisplayName(template, i18n.system),
+    ]),
+  );
   const requestedSite = data?.websites.find(s => s.id === c.query.aiSite);
   const space = data?.spaces.find(
     s =>
@@ -214,15 +224,12 @@ export function AiConfigPage() {
                             <td>
                               <div className={styles.apiName}>
                                 <span className={styles.providerMark}>
-                                  {data.templates
-                                    .find(t => t.provider === row.provider)
-                                    ?.name.slice(0, 2) || 'API'}
+                                  {providerLabels.get(row.provider)?.slice(0, 2) || 'API'}
                                 </span>
                                 <div>
                                   <strong>{row.name}</strong>
                                   <small>
-                                    {data.templates.find(t => t.provider === row.provider)?.name ||
-                                      row.provider}
+                                    {providerLabels.get(row.provider) || row.provider}
                                     {row.isDefault ? i18n.text(' · 默认分析模型') : ''}
                                   </small>
                                 </div>
@@ -233,9 +240,7 @@ export function AiConfigPage() {
                               <span className={styles.endpoint}>{row.baseUrl}</span>
                               <small>
                                 {i18n.fragment('地域：', false, true)}
-                                {typeof record(row).region === 'string' && record(row).region
-                                  ? String(record(row).region)
-                                  : i18n.text('未知')}
+                                {aiRegionDisplayName(data.templates, row, i18n.system)}
                               </small>
                               <small>
                                 {i18n.fragment('应用上下文窗口：', false, true)}
@@ -722,9 +727,11 @@ export function ConnectionForm({
               checked={values.provider === t.provider}
               onChange={() => choose(t.id)}
             />
-            <span className={styles.providerMark}>{t.name.slice(0, 2)}</span>
+            <span className={styles.providerMark}>
+              {aiTemplateDisplayName(t, i18n.system).slice(0, 2)}
+            </span>
             <span>
-              <strong>{t.name}</strong>
+              <strong>{aiTemplateDisplayName(t, i18n.system)}</strong>
               <small>
                 {t.id === 'custom' ? i18n.text('自定义参数') : i18n.text('官方直连接口')}
               </small>
@@ -809,7 +816,9 @@ export function ConnectionForm({
         <aside className={styles.formNote}>
           <h3>{i18n.text('接入说明')}</h3>
           {preset?.notes.map(note => (
-            <p key={note}>{note}</p>
+            <p data-ai-platform-note key={note}>
+              {i18n.system(note)}
+            </p>
           ))}
           {preset?.documentationUrls.map((url, i) => (
             <a key={url} href={url} target="_blank" rel="noopener noreferrer">

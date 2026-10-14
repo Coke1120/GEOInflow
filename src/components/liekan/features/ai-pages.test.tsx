@@ -2335,3 +2335,44 @@ it('shows cancellation as pending until the server confirms its terminal state',
   expect(screen.queryByText('分析已停止', { exact: true })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '回查原任务' })).toBeInTheDocument();
 });
+
+it('fills an English suggested question on click and keeps the existing draft on language changes', async () => {
+  const user = userEvent.setup();
+  mocks.context.query = { aiSite: siteId };
+  const view = mount('ai-chat', 'en-US');
+  const question = await screen.findByLabelText('Analysis question');
+  await user.click(
+    await screen.findByRole('button', { name: 'Analyze AI crawl trends over the last 7 days' }),
+  );
+  expect(question).toHaveValue('Analyze AI crawl trends over the last 7 days');
+  expect(mocks.stream).not.toHaveBeenCalled();
+  await user.type(question, ' · 原始补充');
+  view.changeLanguage('zh-CN');
+  expect(question).toHaveValue('Analyze AI crawl trends over the last 7 days · 原始补充');
+  await user.click(screen.getByRole('button', { name: '哪些页面值得优先优化？' }));
+  expect(question).toHaveValue('哪些页面值得优先优化？');
+  expect(mocks.stream).not.toHaveBeenCalled();
+});
+
+it('shows English custom platform labels and owned platform instructions while preserving connection names', async () => {
+  const custom = {
+    ...template,
+    id: 'custom',
+    provider: 'custom',
+    name: '自定义兼容接口',
+    notes: ['仅支持公共 HTTPS 443 端口上的兼容文本接口。'],
+  };
+  mocks.catalog.mockResolvedValue({ ...catalog(), templates: [custom] });
+  mocks.connections.mockResolvedValue({
+    items: [{ ...connection(), provider: 'custom', name: '自定义兼容接口' }],
+  });
+  const user = userEvent.setup();
+  mount('ai-config', 'en-US');
+  expect(await screen.findByText(/^Custom compatible API/)).toBeVisible();
+  expect(screen.getByText('自定义兼容接口')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'New API' }));
+  await user.click(screen.getByRole('radio', { name: /Custom compatible API/ }));
+  expect(
+    screen.getByText('Supports compatible text endpoints on public HTTPS port 443 only.'),
+  ).toBeVisible();
+});

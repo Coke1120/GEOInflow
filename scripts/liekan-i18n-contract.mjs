@@ -143,3 +143,53 @@ export function assertLanguagePair(chinese, english, directory = 'catalog') {
       throw new Error(`Unreviewed Chinese in English message: ${key}`);
   }
 }
+
+/** Covers explicitly owned TS metadata without executing modules or inspecting raw values. */
+export function assertOwnedSourceMetadata(source, variables, sources, file = 'metadata.ts') {
+  const ast = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const normalize = text => text.trim().replace(/\s+/g, ' ');
+  const messages = new Set([...sources].map(normalize));
+  const requireMessage = node => {
+    if (
+      (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) &&
+      /[\u3400-\u9fff]/.test(node.text) &&
+      !messages.has(normalize(node.text))
+    )
+      throw new Error(
+        `Missing English owned metadata at ${file}:${ast.getLineAndCharacterOfPosition(node.pos).line + 1}: ${node.text}`,
+      );
+    ts.forEachChild(node, requireMessage);
+  };
+  const properties = (node, keys) => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      keys.includes(node.name.getText(ast).replace(/^['"]|['"]$/g, ''))
+    )
+      requireMessage(node.initializer);
+    else ts.forEachChild(node, child => properties(child, keys));
+  };
+  const found = new Set();
+  const visit = node => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      node.initializer &&
+      Object.hasOwn(variables, node.name.getText(ast))
+    ) {
+      const name = node.name.getText(ast);
+      found.add(name);
+      const keys = variables[name];
+      if (keys === '*') requireMessage(node.initializer);
+      else properties(node.initializer, keys);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(ast);
+  for (const name of Object.keys(variables))
+    if (!found.has(name)) throw new Error(`Owned metadata declaration missing in ${file}: ${name}`);
+}

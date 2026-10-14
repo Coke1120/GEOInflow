@@ -1,6 +1,8 @@
 import { Decimal } from '@prisma/client/runtime/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { featureAnalytics, featureJourney } from './feature-analytics';
+import { classifyEntrySource } from './analytics';
+import { classifyEntrySource as originalClassifier } from '../contracts/sources';
 
 const mocks = vi.hoisted(() => ({ rawQuery: vi.fn(), getQueryFilters: vi.fn() }));
 vi.mock('@/lib/prisma', () => ({
@@ -79,6 +81,29 @@ describe('composed analytics membership', () => {
 });
 
 describe('native numeric response normalization', () => {
+  it('keeps realtime generated direct labels separate from same-named supplied referrers', async () => {
+    vi.mocked(classifyEntrySource).mockImplementation(originalClassifier);
+    mocks.rawQuery.mockImplementation(async sql =>
+      sql.includes('SELECT DISTINCT session_id AS id,referrer_domain AS referrer')
+        ? [
+            { id: 'one', referrer: null },
+            { id: 'two', referrer: '直接访问' },
+            { id: 'two', referrer: '直接访问' },
+          ]
+        : sql.includes('AS active')
+          ? [{ active: 2, views: 2, events: 0 }]
+          : [],
+    );
+    const data = await featureAnalytics(websiteId, { ...common, kind: 'realtime' });
+    expect(data).toMatchObject({
+      totals: { active: 2, ai: 0 },
+      sources: [
+        { name: '直接访问', sourceLabel: 'direct', value: 1 },
+        { name: '直接访问', value: 1 },
+      ],
+    });
+    expect(data.sources[1]).not.toHaveProperty('sourceLabel');
+  });
   it('preserves the exact decimal representation of transaction amounts', async () => {
     mocks.rawQuery.mockImplementation(async (sql: string) =>
       sql.includes('SELECT COUNT(*) AS count FROM transactions')

@@ -262,29 +262,30 @@ export async function buildReport(
   }
   const knownCovered = l.catalog.filter(c => paths.has(c.path)).length,
     blind = l.catalog.filter(c => !paths.has(c.path));
-  const src: Row[] = h.sources.map(s => ({
-    source: s.source,
-    channel: channel(s),
-    utmSource: s.utmSource ?? null,
-    utmMedium: s.utmMedium ?? null,
-    utmCampaign: s.utmCampaign ?? null,
-    referrer: s.referrer ?? null,
-    sessions: s.sessions,
-    share: pct(s.sessions, t.visits),
-    bounceRate: pct(s.bounces, s.sessions),
-    conversionRate: h.goals.length ? pct(s.conversions, s.sessions) : null,
-    trend: h.previousSources.find(prev => prev.source === s.source && channel(prev) === channel(s))
-      ?.sessions
-      ? Math.round(
-          ((s.sessions -
-            h.previousSources.find(prev => prev.source === s.source && channel(prev) === channel(s))
-              .sessions) /
-            h.previousSources.find(prev => prev.source === s.source && channel(prev) === channel(s))
-              .sessions) *
-            10000,
-        ) / 100
-      : null,
-  }));
+  const src: Row[] = h.sources.map(s => {
+    const previous = h.previousSources.find(
+      prev =>
+        prev.source === s.source &&
+        channel(prev) === channel(s) &&
+        prev.sourceLabel === s.sourceLabel,
+    );
+    return {
+      source: s.source,
+      ...(s.sourceLabel === 'direct' ? { sourceLabel: 'direct' } : {}),
+      channel: channel(s),
+      utmSource: s.utmSource ?? null,
+      utmMedium: s.utmMedium ?? null,
+      utmCampaign: s.utmCampaign ?? null,
+      referrer: s.referrer ?? null,
+      sessions: s.sessions,
+      share: pct(s.sessions, t.visits),
+      bounceRate: pct(s.bounces, s.sessions),
+      conversionRate: h.goals.length ? pct(s.conversions, s.sessions) : null,
+      trend: previous?.sessions
+        ? Math.round(((s.sessions - previous.sessions) / previous.sessions) * 10000) / 100
+        : null,
+    };
+  });
   const aggregate = (rows: any[], key: string, value: string) => {
     const map = new Map<string, number>();
     for (const row of rows) {

@@ -232,3 +232,28 @@ it('keeps raw property keys, values, descriptions and custom metric names unchan
   expect(screen.getAllByText('未提供')).toHaveLength(2);
   expect(screen.queryByText('Website name')).not.toBeInTheDocument();
 });
+
+it('keeps an immediately persisted language selection outside the form unsaved state', async () => {
+  const { container } = render(
+    <LiveLanguage>
+      <Form onSubmit={vi.fn()}>
+        <Field label="Name" name="name" defaultValue="draft" />
+        <LanguageSelector field />
+      </Form>
+    </LiveLanguage>,
+  );
+  const form = container.querySelector('form');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Language / 语言' }), {
+    target: { value: 'en-US' },
+  });
+  await waitFor(() => expect(useApp.getState().locale).toBe('en-US'));
+  expect(form.dataset.unsaved).not.toBe('true');
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'original unsaved draft' } });
+  expect(form.dataset.unsaved).toBe('true');
+  fireEvent.change(screen.getByRole('combobox', { name: 'Language / 语言' }), {
+    target: { value: 'zh-CN' },
+  });
+  await waitFor(() => expect(useApp.getState().locale).toBe('zh-CN'));
+  expect(form.dataset.unsaved).toBe('true');
+  expect(screen.getByRole('textbox')).toHaveValue('original unsaved draft');
+});

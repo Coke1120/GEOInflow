@@ -73,3 +73,13 @@ export function classifyEntrySource(entry: EntrySource): { source: string; chann
     ? { source: referrer, channel: domainChannel(referrer) }
     : { source: '直接访问', channel: '直接访问' };
 }
+
+/** Display ownership comes from the original entry fields, including same-named raw values. */
+export function classifyEntrySourceForDisplay(entry: EntrySource) {
+  const attribution = classifyEntrySource(entry);
+  const sourceLabel: 'direct' | undefined =
+    !entry.utmSource?.trim() && !entry.utmMedium?.trim() && !entry.referrer?.trim()
+      ? 'direct'
+      : undefined;
+  return { ...attribution, ...(sourceLabel ? { sourceLabel } : {}) };
+}

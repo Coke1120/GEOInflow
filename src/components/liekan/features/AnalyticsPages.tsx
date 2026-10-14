@@ -19,7 +19,7 @@ import {
   type JourneyData,
 } from '@/lib/liekan/contracts/analysis';
 import { visitorGeographyLabel } from '@/lib/liekan/contracts/geography';
-import { classifyEntrySource } from '@/lib/liekan/contracts/sources';
+import { classifyEntrySourceForDisplay } from '@/lib/liekan/contracts/sources';
 import { numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import { getAllFeatureRows } from '@/lib/liekan/upstream/features-client';
 import { pageLink, pageSequence } from '../PageLink';
@@ -95,6 +95,16 @@ function useWebsiteData(
   );
 }
 const visitor = (id: string) => `访客 ${id?.replaceAll('-', '').slice(-6) || '—'}`;
+type SourceDisplay = { source: string; sourceLabel?: 'direct' };
+const sourceText = (value: SourceDisplay, display: (source: string) => string) =>
+  value.sourceLabel === 'direct' ? display('直接访问') : value.source;
+function sourceCell(value: SourceDisplay, i18n: ReturnType<typeof useLiekanI18n>) {
+  return (
+    <TableCell sortValue={value.source} searchValue={sourceText(value, i18n.english.text)}>
+      {sourceText(value, i18n.text)}
+    </TableCell>
+  );
+}
 function date(value: any, timezone: string) {
   return value ? formatInTimeZone(value, timezone, 'yyyy-MM-dd HH:mm:ss') : '—';
 }
@@ -193,7 +203,7 @@ export function SessionTable({
             >
               {visitorGeographyLabel(r, i18n.locale)}
             </TableCell>,
-            classifyEntrySource({ referrer: r.referrerDomain }).source,
+            sourceCell(classifyEntrySourceForDisplay({ referrer: r.referrerDomain }), i18n),
             <TableCell
               sortValue={pageLink(r.urlPath, c.site?.domain, undefined, undefined, 'zh-CN')}
               searchValue={pageLink(r.urlPath, c.site?.domain, undefined, undefined, 'en-US')}
@@ -301,7 +311,10 @@ function Realtime() {
           <QueryState query={query}>
             <Table
               columns={['来源', '活跃访客']}
-              rows={(query.data?.sources || []).map((r: any) => [r.name, n(r.value)])}
+              rows={(query.data?.sources || []).map((r: any) => [
+                sourceCell({ source: r.name, sourceLabel: r.sourceLabel }, i18n),
+                n(r.value),
+              ])}
               numeric={[1]}
             />
           </QueryState>
@@ -722,7 +735,12 @@ function SessionDetail() {
           ],
           [
             i18n.text('访问来源'),
-            first ? classifyEntrySource({ referrer: first.referrerDomain }).source : null,
+            first
+              ? sourceText(
+                  classifyEntrySourceForDisplay({ referrer: first.referrerDomain }),
+                  i18n.text,
+                )
+              : null,
             i18n.text('引荐域名识别'),
             'blue',
           ],
@@ -1865,7 +1883,7 @@ function Journeys({ detail = false }: { detail?: boolean }) {
                 >
                   {visitorGeographyLabel(r, i18n.locale)}
                 </TableCell>,
-                classifyEntrySource({ referrer: r.referrerDomain }).source,
+                sourceCell(classifyEntrySourceForDisplay({ referrer: r.referrerDomain }), i18n),
                 <TableCell
                   sortValue={pageLink(r.urlPath, c.site?.domain, undefined, undefined, 'zh-CN')}
                   searchValue={pageLink(r.urlPath, c.site?.domain, undefined, undefined, 'en-US')}
@@ -2262,7 +2280,7 @@ function Attribution() {
               search
               columns={['渠道', '转化次数', '贡献占比', '操作']}
               rows={rows.map((r: any) => [
-                classifyEntrySource({ referrer: r.name }).source,
+                sourceCell(classifyEntrySourceForDisplay({ referrer: r.name }), i18n),
                 n(r.value),
                 percentage(r.value, total),
                 <TableCell sortValue={i18n.source('会话')} searchValue={i18n.english.text('会话')}>
@@ -2473,14 +2491,21 @@ function Compare() {
   );
   const d = query.data;
   const change = (a: number, b: number) =>
-    b ? `${a >= b ? '+' : ''}${(((a - b) / b) * 100).toFixed(2)}%` : a ? '新增' : '0%';
+    b ? `${a >= b ? '+' : ''}${(((a - b) / b) * 100).toFixed(2)}%` : a ? i18n.text('新增') : '0%';
   const rate = (r: any) => (r?.visits ? (r.bounces / r.visits) * 100 : null);
-  const channels = [
-    ...new Set<string>([
-      ...(d?.sources || []).map((r: any) => r.referrer || '直接访问'),
-      ...(d?.oldSources || []).map((r: any) => r.referrer || '直接访问'),
-    ]),
-  ];
+  const channels = new Map<string, { label: SourceDisplay; current: number; previous: number }>();
+  for (const [rows, period] of [
+    [d?.sources || [], 'current'],
+    [d?.oldSources || [], 'previous'],
+  ] as const) {
+    for (const row of rows) {
+      const generated = classifyEntrySourceForDisplay({ referrer: row.referrer });
+      const label = generated.sourceLabel ? generated : { source: row.referrer };
+      const key = JSON.stringify([label.source, generated.sourceLabel ?? null]);
+      if (!channels.has(key)) channels.set(key, { label, current: 0, previous: 0 });
+      channels.get(key)[period] += Number(row.visitors || 0);
+    }
+  }
   const first = relativeDaySeries(
       d?.currentSeries?.sessions || [],
       c.range.startAt,
@@ -2568,15 +2593,12 @@ function Compare() {
           <Table
             columns={['来源', '当前访客', '对照访客', '变化']}
             numeric={[1, 2, 3]}
-            rows={channels.map(name => {
-              const a = Number(
-                  d.sources.find((r: any) => (r.referrer || '直接访问') === name)?.visitors || 0,
-                ),
-                b = Number(
-                  d.oldSources.find((r: any) => (r.referrer || '直接访问') === name)?.visitors || 0,
-                );
-              return [name, n(a), n(b), change(a, b)];
-            })}
+            rows={[...channels.values()].map(({ label, current, previous }) => [
+              sourceCell(label, i18n),
+              n(current),
+              n(previous),
+              change(current, previous),
+            ])}
           />
         </Panel>
       </QueryState>

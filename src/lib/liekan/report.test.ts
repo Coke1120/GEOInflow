@@ -35,6 +35,31 @@ import { geographyLabel, regionName } from './contracts/geography';
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
 
+it('matches generated and supplied direct-source trends by their distinct display identities', async () => {
+  const human = await mocks.human();
+  mocks.human.mockResolvedValue({
+    ...human,
+    totals: { visits: 10, visitors: 10, pageviews: 10, bounces: 0, totaltime: 0 },
+    sources: [
+      { source: '直接访问', channel: '直接访问', sourceLabel: 'direct', sessions: 3, bounces: 0 },
+      { source: '直接访问', channel: '直接访问', referrer: '直接访问', sessions: 7, bounces: 0 },
+    ],
+    previousSources: [
+      { source: '直接访问', channel: '直接访问', sourceLabel: 'direct', sessions: 2 },
+      { source: '直接访问', channel: '直接访问', referrer: '直接访问', sessions: 5 },
+    ],
+  });
+  const report = await buildReport(website, false, { ...params, resource: 'human/sources' });
+  expect(report.tables.srcBody.find(row => row.sourceLabel === 'direct')).toMatchObject({
+    sessions: 3,
+    trend: 50,
+  });
+  expect(report.tables.srcBody.find(row => row.referrer === '直接访问')).toMatchObject({
+    sessions: 7,
+    trend: 40,
+  });
+});
+
 it('keeps keywords on the dedicated page contract and rejects the full report path before reading', async () => {
   await expect(
     buildReport(website, false, { ...params, resource: 'human/keywords' }),

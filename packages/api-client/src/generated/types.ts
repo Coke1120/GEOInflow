@@ -12329,6 +12329,8 @@ export interface operations {
                 sources: {
                   /** @description Display name of the resource. */
                   name: string;
+                  /** @constant */
+                  sourceLabel?: 'direct';
                   value: number;
                 }[];
                 totals: {

@@ -210,6 +210,41 @@ it('routes an empty replay list to the current website recorder settings', () =>
   expect(screen.getByText(/会话是一次连续访问/)).toBeInTheDocument();
   expect(mocks.context.href).toHaveBeenCalledWith('recorder-settings', { websiteId: 'site' });
 });
+it('localizes generated replay visitor labels while keeping saved names and searches raw', () => {
+  mocks.query['replay-list'] = {
+    rows: [
+      { id: 'one', sessionId: 'session-111111', startedAt: null },
+      { id: 'two', sessionId: 'session-222222', name: '访客 111111', startedAt: null },
+      { id: 'three', sessionId: 'session-333333', name: '网站管理', startedAt: null },
+    ],
+    count: 3,
+  };
+  const page = (locale: 'en-US' | 'zh-CN') => (
+    <LiekanLocaleContext.Provider value={locale}>
+      <ExtendedPages page="replays" />
+    </LiekanLocaleContext.Provider>
+  );
+  const view = render(page('en-US'));
+  expect(screen.getByRole('cell', { name: /Visitor 111111/ })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '访客 111111' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '网站管理' })).toBeVisible();
+  const search = screen.getByRole('searchbox');
+  fireEvent.change(search, { target: { value: 'Visitor 111111' } });
+  expect(screen.getAllByRole('link', { name: 'Play →' })).toHaveLength(1);
+  view.rerender(page('zh-CN'));
+  expect(search).toHaveValue('Visitor 111111');
+  expect(screen.getAllByRole('link', { name: '播放 →' })).toHaveLength(1);
+});
+it('formats the replay player visitor prefix without changing its masked suffix', () => {
+  mocks.query.replay = { sessionId: 'session-abcdef', events: [] };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <ExtendedPages page="replay-player" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('heading', { name: /^Visitor abcdef ·/ })).toBeVisible();
+  expect(screen.queryByText('session-abcdef')).not.toBeInTheDocument();
+});
 
 it('shows measured zero revenue but preserves a missing amount as unavailable', () => {
   mocks.query['revenue-summary'] = { sum: null, count: 0, unique_count: 0 };

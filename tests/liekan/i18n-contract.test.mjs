@@ -87,3 +87,22 @@ test('keeps action and form identifiers canonical while permitting static anonym
     /identity attribute/,
   );
 });
+
+test('checks owned TS metadata and fails if its declared source disappears', async () => {
+  const { assertOwnedSourceMetadata } = await import('../../scripts/liekan-i18n-contract.mjs');
+  const source = `export const templates = [{id: '原始标识', name: '原始品牌', notes: ['服务器一次安装'], region: '北京'}];`;
+  assert.doesNotThrow(() =>
+    assertOwnedSourceMetadata(source, { templates: ['notes', 'region'] }, [
+      '服务器一次安装',
+      '北京',
+    ]),
+  );
+  assert.throws(
+    () => assertOwnedSourceMetadata(source, { templates: ['notes', 'region'] }, ['北京']),
+    /owned metadata.*服务器一次安装/,
+  );
+  assert.throws(
+    () => assertOwnedSourceMetadata(source, { missing: '*' }, []),
+    /declaration missing/,
+  );
+});

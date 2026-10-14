@@ -920,7 +920,7 @@ function referenceChartOptions(id: string, chart: ChartData, locale: LiekanLocal
 export function chartOptions(id: string, chart: ChartData, locale: LiekanLocale = 'zh-CN'): any {
   const displayChart = {
     ...chart,
-    labels: ['b1', 'h2', 's1', 's2', 'c2', 'f2'].includes(id)
+    labels: ['b1', 'h2', 's1', 'd3', 'f2'].includes(id)
       ? chart.labels.map(value => translateSystemText(value, locale))
       : chart.labels,
     series: chart.series.map(series => ({

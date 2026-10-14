@@ -313,15 +313,16 @@ export function ChatHome({
               key={text}
               type="button"
               aria-label={i18n.system(text)}
+              data-ai-suggested-question
               className={home.question}
               disabled={disabled}
               onClick={() => {
-                onPrompt(text);
+                onPrompt(i18n.system(text));
                 document.querySelector<HTMLTextAreaElement>('textarea[data-ai-question]')?.focus();
               }}
             >
               <MessageSquare size={14} aria-hidden="true" />
-              <span>{text}</span>
+              <span>{i18n.system(text)}</span>
             </button>
           ))}
         </div>

@@ -356,7 +356,12 @@ function Revenue() {
             <Table
               columns={['会话', '事件', '金额', '操作']}
               rows={(transactions.data?.rows || []).map((r: any) => [
-                masked(r.sessionId),
+                <TableCell
+                  sortValue={masked(r.sessionId)}
+                  searchValue={i18n.english.system(masked(r.sessionId))}
+                >
+                  {i18n.system(masked(r.sessionId))}
+                </TableCell>,
                 r.event,
                 money(r.amount),
                 <TableCell
@@ -696,11 +701,11 @@ function Replays() {
                 }
                 searchValue={
                   r.name ||
-                  `${masked(r.sessionId)} · ${r.startedAt ? new Date(r.startedAt).toLocaleTimeString('en-US') : i18n.english.text('已保存录制')}`
+                  `${i18n.english.system(masked(r.sessionId))} · ${r.startedAt ? new Date(r.startedAt).toLocaleTimeString('en-US') : i18n.english.text('已保存录制')}`
                 }
               >
                 {r.name ||
-                  `${masked(r.sessionId)} · ${r.startedAt ? new Date(r.startedAt).toLocaleTimeString(i18n.locale) : i18n.text('已保存录制')}`}
+                  `${i18n.system(masked(r.sessionId))} · ${r.startedAt ? new Date(r.startedAt).toLocaleTimeString(i18n.locale) : i18n.text('已保存录制')}`}
               </TableCell>,
               <TableCell
                 sortValue={r.referrerDomain || i18n.source('未提供')}
@@ -883,7 +888,7 @@ function ReplayPlayer() {
       <div className="row between">
         <div>
           <h2>
-            {masked(query.data?.sessionId)}
+            {i18n.system(masked(query.data?.sessionId))}
             {i18n.fragment(' · 访问路径', true, false)}
           </h2>
           <p className="muted">

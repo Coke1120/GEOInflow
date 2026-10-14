@@ -301,6 +301,7 @@ export function formatCellValue(
 ) {
   const value = row[field];
   if (value == null || value === '') return '–';
+  if (field === 'source' && row.sourceLabel === 'direct') return display('直接访问');
   if (table === 'botBody' && field === 'name')
     return `${formatValue(value, locale)}${row.vendor ? ` / ${row.vendor}` : ''}`;
   if (table === 'logBody' && field === 'ipMasked')

@@ -59,6 +59,13 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       width: innerWidth,
       title: document.title,
       empty: !document.body.textContent.trim(),
+      untranslatedOwned: [
+        ...document.querySelectorAll(
+          '[data-liekan-page-title],[data-liekan-owned-actions] button,[data-liekan-product-footer] nav a,[data-navigation-section],[data-ai-suggested-question],[data-ai-platform-note]',
+        ),
+      ]
+        .map(el => el.textContent.trim())
+        .filter(text => /[\u3400-\u9fff]/.test(text)),
       untranslatedTitles: [...document.querySelectorAll('[data-liekan-page-title]')]
         .map(el => el.textContent.trim())
         .filter(text => /[\u3400-\u9fff]/.test(text)),
@@ -69,7 +76,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
         .filter(text => /[\u3400-\u9fff]/.test(text)),
       untranslated: [
         ...document.querySelectorAll(
-          '.metric-label,.table-sort,.tab,[data-liekan-features] header h1,[data-liekan-ui] main h1,.identity-flow h1,[data-help-center] h2,[data-help-center] h3,.dialog-title,.state-box h3',
+          '.metric-label,.table-sort,.tab,[data-liekan-page-title],[data-liekan-owned-actions] button,[data-liekan-product-footer] nav a,[data-navigation-section],[data-ai-suggested-question],[data-ai-platform-note],[data-liekan-features] header h1,[data-liekan-ui] main h1,.identity-flow h1,[data-help-center] h2,[data-help-center] h3,.dialog-title,.state-box h3',
         ),
       ]
         .map(el => el.textContent.trim())
@@ -130,6 +137,11 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
           const leftovers = state.untranslated.filter(
             text => english.has(normalize(text)) && label(text) !== text,
           );
+          assert.deepEqual(
+            state.untranslatedOwned,
+            [],
+            `${route.id}: untranslated owned interface text`,
+          );
           assert.deepEqual(leftovers, [], `${route.id}: untranslated interface text`);
           assert.deepEqual(
             state.untranslatedTitles,
@@ -176,18 +188,24 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     const range = page.locator('select[name="range"]');
     await range.selectOption('7day');
     const draft = await range.inputValue();
-    await page.getByRole('combobox', { name: 'Language / 语言' }).selectOption('zh-CN');
+    await page
+      .locator('#main-content')
+      .getByRole('combobox', { name: 'Language / 语言' })
+      .selectOption('zh-CN');
     await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
     assert.equal(await range.inputValue(), draft, 'Language switch preserves preference drafts');
-    await page.getByRole('combobox', { name: 'Language / 语言' }).selectOption('en-US');
+    await page
+      .locator('#main-content')
+      .getByRole('combobox', { name: 'Language / 语言' })
+      .selectOption('en-US');
     await page.waitForFunction(() => document.documentElement.lang === 'en-US');
-    const language = page.getByRole('combobox', { name: 'Language / 语言' });
-    await language.focus();
-    await page.keyboard.press('Home');
-    await page.keyboard.press('Enter');
+    const language = page
+      .locator('#main-content')
+      .getByRole('combobox', { name: 'Language / 语言' });
+    await language.selectOption('zh-CN');
     await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
-    await page.keyboard.press('End');
-    await page.keyboard.press('Enter');
+    await language.focus();
+    await page.keyboard.press('e');
     await page.waitForFunction(() => document.documentElement.lang === 'en-US');
     assert.equal(
       await range.inputValue(),
@@ -198,7 +216,10 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     await page.reload();
     await settled(page);
     assert.equal(
-      await page.getByRole('combobox', { name: 'Language / 语言' }).inputValue(),
+      await page
+        .locator('#main-content')
+        .getByRole('combobox', { name: 'Language / 语言' })
+        .inputValue(),
       'en-US',
     );
     report.checks.push({ name: 'draft-and-reload-persistence', passed: true });
@@ -243,11 +264,12 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
 
     await page.goto(base + '/liekan/help');
     await settled(page);
-    await page.getByRole('searchbox').fill('official range');
+    await page.getByRole('searchbox').fill('GPTBot');
+    const results = page.getByRole('region', { name: label('蜘蛛结果'), exact: true });
+    await results.locator('a[href*="crawler=gptbot"]').waitFor();
     assert(
-      (await page.locator('[data-help-center] .articleList li, [data-help-center] li a').count()) >
-        0,
-      'English help search results',
+      (await results.locator('li a').count()) > 0,
+      'English help search has matching crawler results',
     );
     await page.goto(base + '/liekan/help?section=crawlers');
     await settled(page);

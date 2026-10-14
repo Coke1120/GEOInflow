@@ -161,3 +161,20 @@ it.each(['se1', 'se2'])('preserves platform colors and values in English %s', id
   expect(english.tooltip.formatter({ name: '<script>', value: 7 })).toContain('&lt;script&gt;');
   expect(english.tooltip.formatter({ name: 'Google', value: 7 })).not.toContain('会话');
 });
+
+it('translates generated overview channels while preserving raw AI referral names', () => {
+  const chart = {
+    labels: ['直接访问', '其他引荐', '网站管理'],
+    series: [{ name: '会话', values: [3, 2, 1] }],
+  };
+  const original = structuredClone(chart);
+  const channels = chartOptions('d3', chart, 'en-US').series[0].data;
+  expect(channels.slice(0, 2).map(row => row.name)).toEqual(['Direct traffic', 'Other referrals']);
+  expect(channels.map(row => row.value)).toEqual([3, 2, 1]);
+  const raw = chartOptions('s2', chart, 'en-US').series[0].data;
+  expect(raw.map(row => row.name)).toEqual(chart.labels);
+  expect(raw.map(row => row.itemStyle)).toEqual(
+    chartOptions('s2', chart).series[0].data.map(row => row.itemStyle),
+  );
+  expect(chart).toEqual(original);
+});

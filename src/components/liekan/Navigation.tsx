@@ -435,7 +435,9 @@ export function Navigation({
           {groups.map(group => (
             <div key={group.id} data-navigation-group={group.id}>
               {group.sectionLabel && (
-                <div className={styles.sectionLabel}>{group.sectionLabel}</div>
+                <div data-navigation-section className={styles.sectionLabel}>
+                  {i18n.system(group.sectionLabel)}
+                </div>
               )}
               {group.children && (
                 <div className={styles.sectionLabel}>{i18n.system(group.label)}</div>

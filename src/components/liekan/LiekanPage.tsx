@@ -688,7 +688,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const period = chartPeriod === '24h' ? '24h' : chartPeriod === '7d' ? '7 天' : '30 天';
   const View = reportViews[resource];
   const headerActions = (
-    <div className={styles.headerActions}>
+    <div data-liekan-owned-actions className={styles.headerActions}>
       <QuickRangeButtons
         variant="chip"
         activeToken={activeQuickDateRange(params, '30day')}
@@ -722,7 +722,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             ? i18n.text('网站设置')
             : label === 'UTM 管理'
               ? i18n.text('UTM 活动')
-              : i18n.system(managementLabels[label]) || label}
+              : i18n.system(managementLabels[label] || label)}
         </button>
       ))}
     </div>
@@ -767,10 +767,12 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       <div className={styles.header}>
         <div className={styles.headerInner}>
           <div>
-            <h1 className="text-[16px] font-bold tracking-tight">
-              {websiteAnalysisFamily(route)?.label ||
-                pageNavigation[route.page]?.title ||
-                page.title}
+            <h1 data-liekan-page-title className="text-[16px] font-bold tracking-tight">
+              {i18n.system(
+                websiteAnalysisFamily(route)?.label ||
+                  pageNavigation[route.page]?.title ||
+                  page.title,
+              )}
             </h1>
           </div>
           {!shell?.websiteActionsTarget && headerActions}

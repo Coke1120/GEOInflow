@@ -22,6 +22,7 @@ export function LanguageSelector({
           aria-label="Language / 语言"
           value={locale}
           onChange={async event => {
+            event.stopPropagation();
             const { persisted } = await saveLocale(event.currentTarget.value);
             setPersistenceError(!persisted);
           }}

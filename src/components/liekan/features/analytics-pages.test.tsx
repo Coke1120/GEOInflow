@@ -239,6 +239,106 @@ it('localizes anonymous visitor labels and long durations while preserving their
     expect.objectContaining({ id: 'anonymous-123456' }),
   );
 });
+it('formats missing session sources while retaining supplied names and bilingual source search', () => {
+  mocks.query['sessions-rich'] = {
+    rows: [
+      { id: 'missing-111111', referrerDomain: null },
+      { id: 'supplied-222222', referrerDomain: '直接访问' },
+      { id: 'named-333333', referrerDomain: '网站管理' },
+    ],
+    count: 3,
+  };
+  const page = (locale: 'en-US' | 'zh-CN') => (
+    <LiekanLocaleContext.Provider value={locale}>
+      <AnalyticsPages page="sessions" />
+    </LiekanLocaleContext.Provider>
+  );
+  const view = render(page('en-US'));
+  expect(screen.getByRole('cell', { name: 'Direct traffic' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '直接访问' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '网站管理' })).toBeVisible();
+  const search = screen.getByRole('searchbox');
+  fireEvent.change(search, { target: { value: 'Direct traffic' } });
+  expect(screen.getByText('Visitor 111111')).toBeVisible();
+  expect(screen.queryByText('Visitor 222222')).not.toBeInTheDocument();
+  view.rerender(page('zh-CN'));
+  expect(search).toHaveValue('Direct traffic');
+  expect(screen.getByText('访客 111111')).toBeVisible();
+  expect(screen.queryByText('访客 222222')).not.toBeInTheDocument();
+});
+it('keeps generated and supplied compare sources separate with correctly aligned periods', () => {
+  mocks.query['compare-rich'] = {
+    current: {},
+    previous: {},
+    currentSeries: {},
+    previousSeries: {},
+    sources: [
+      { referrer: null, visitors: 3 },
+      { referrer: '直接访问', visitors: 7 },
+    ],
+    oldSources: [
+      { referrer: null, visitors: 2 },
+      { referrer: '直接访问', visitors: 5 },
+    ],
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="compare" />
+    </LiekanLocaleContext.Provider>,
+  );
+  const generated = screen.getByRole('cell', { name: 'Direct traffic' }).closest('tr');
+  const supplied = screen.getByRole('cell', { name: '直接访问' }).closest('tr');
+  expect(generated).toHaveTextContent('3');
+  expect(generated).toHaveTextContent('2');
+  expect(generated).toHaveTextContent('+50.00%');
+  expect(supplied).toHaveTextContent('7');
+  expect(supplied).toHaveTextContent('5');
+  expect(supplied).toHaveTextContent('+40.00%');
+});
+it('localizes realtime source metadata while retaining unmarked legacy and supplied labels', () => {
+  mocks.query['realtime-rich'] = {
+    totals: { active: 2, views: 2, events: 0, ai: 0 },
+    sources: [
+      { name: '直接访问', sourceLabel: 'direct', value: 1 },
+      { name: '直接访问', value: 1 },
+      { name: '网站管理', value: 1 },
+    ],
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="realtime" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('cell', { name: 'Direct traffic' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '直接访问' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '网站管理' })).toBeVisible();
+});
+it('formats empty attribution sources while preserving supplied names and canonical query values', async () => {
+  mocks.query.attribution = {
+    total: { visitors: 3, attributed: 3 },
+    referrer: [
+      { name: '', value: 1 },
+      { name: '直接访问', value: 1 },
+      { name: '网站管理', value: 1 },
+    ],
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="attribution" />
+    </LiekanLocaleContext.Provider>,
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: /^Conversion steps/ }), {
+    target: { value: 'purchase' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply attribution settings' }));
+  await waitFor(() => expect(screen.getByRole('cell', { name: 'Direct traffic' })).toBeVisible());
+  expect(screen.getByRole('cell', { name: '直接访问' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '网站管理' })).toBeVisible();
+  expect(mocks.href).toHaveBeenCalledWith(
+    'sessions',
+    expect.objectContaining({ attributionSource: '直接访问' }),
+  );
+});
 it('localizes the selected unavailable retention placeholder while keeping audience names and option values', () => {
   mocks.context.filters = { segment: 'segment-a' };
   mocks.pending['retention-audiences'] = true;

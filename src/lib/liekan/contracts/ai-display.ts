@@ -18,3 +18,50 @@ export function aiSpaceDisplayName(
     ? display('个人空间')
     : space.name;
 }
+
+export function aiTemplateDisplayName(
+  template: { id: string; name: string },
+  display: (source: string) => string,
+) {
+  return template.id === 'custom' ? display('自定义兼容接口') : template.name;
+}
+
+export function aiRegionDisplayName(
+  templates: readonly {
+    id: string;
+    provider: string;
+    protocol: string;
+    baseUrl: string;
+    model: string;
+    region?: string | null;
+  }[],
+  configuration: {
+    provider: string;
+    protocol: string;
+    baseUrl: string;
+    model: string;
+    region?: string | null;
+  },
+  display: (source: string) => string,
+) {
+  const region = configuration.region;
+  if (!region) return display('未知');
+  const endpoint = (value: string) => {
+    try {
+      return new URL(value).href;
+    } catch {
+      return '';
+    }
+  };
+  const matched = templates.some(
+    template =>
+      template.id !== 'custom' &&
+      template.provider === configuration.provider &&
+      template.protocol === configuration.protocol &&
+      template.model === configuration.model &&
+      template.region === region &&
+      !!endpoint(configuration.baseUrl) &&
+      endpoint(template.baseUrl) === endpoint(configuration.baseUrl),
+  );
+  return matched ? display(region) : region;
+}
