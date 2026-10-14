@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { getIpAddress, stripPort, normalizeIp, normalizedCidr, resolveClientIp, hasIgnoredIp } from './ip';
+import {
+  getIpAddress,
+  stripPort,
+  normalizeIp,
+  normalizedCidr,
+  resolveClientIp,
+  hasIgnoredIp,
+} from './ip';
 
 function headers(init: Record<string, string>) {
   return new Headers(init);
@@ -124,30 +131,41 @@ describe('stripPort', () => {
   });
 });
 
-
 test('skips invalid preferred headers and never substitutes a proxy hop', () => {
   vi.stubEnv('CLIENT_IP_HEADER', 'x-custom-ip');
-  expect(resolveClientIp(headers({'x-custom-ip':'unknown', 'cf-connecting-ip':'garbage', 'x-forwarded-for':'223.5.5.5, 8.8.8.8'}))).toMatchObject({ip:'223.5.5.5', trusted:false});
-  expect(getIpAddress(headers({'x-forwarded-for':'unknown, 8.8.8.8'}))).toBeUndefined();
+  expect(
+    resolveClientIp(
+      headers({
+        'x-custom-ip': 'unknown',
+        'cf-connecting-ip': 'garbage',
+        'x-forwarded-for': '223.5.5.5, 8.8.8.8',
+      }),
+    ),
+  ).toMatchObject({ ip: '223.5.5.5', trusted: false });
+  expect(getIpAddress(headers({ 'x-forwarded-for': 'unknown, 8.8.8.8' }))).toBeUndefined();
 });
 
 test('trusted ingress takes precedence over public overrides', () => {
   vi.stubEnv('CLIENT_IP_HEADER', 'x-real-ip');
-  const h = headers({'x-real-ip':'[::ffff:223.5.5.5]:443'});
-  expect(resolveClientIp(h, '8.8.8.8')).toMatchObject({ip:'223.5.5.5', trusted:true});
-  expect(resolveClientIp(h, '8.8.8.8', true)).toMatchObject({ip:'8.8.8.8', source:'authenticated_server'});
+  const h = headers({ 'x-real-ip': '[::ffff:223.5.5.5]:443' });
+  expect(resolveClientIp(h, '8.8.8.8')).toMatchObject({ ip: '223.5.5.5', trusted: true });
+  expect(resolveClientIp(h, '8.8.8.8', true)).toMatchObject({
+    ip: '8.8.8.8',
+    source: 'authenticated_server',
+  });
 });
 
 test.each(['2409:807e:2001:1107::4', '64:ff9b::808:808', '::ffff:223.5.5.5'])(
-  'normalizes native and mapped address %s', value => {
+  'normalizes native and mapped address %s',
+  value => {
     expect(normalizeIp(value)).toBe(value.startsWith('::ffff:') ? '223.5.5.5' : value);
   },
 );
 
-test.each([0,32,64,96,128])('keeps CIDR address family correct for mapped /%s', bits => {
+test.each([0, 32, 64, 96, 128])('keeps CIDR address family correct for mapped /%s', bits => {
   const cidr = normalizedCidr(`::ffff:223.5.5.5/${bits}`);
   expect(cidr[0].kind()).toBe(bits >= 96 ? 'ipv4' : 'ipv6');
-  expect(cidr[1]).toBe(bits >= 96 ? bits-96 : bits);
+  expect(cidr[1]).toBe(bits >= 96 ? bits - 96 : bits);
 });
 
 test('filtering normalizes addresses and retains valid rules after a bad update', () => {
@@ -157,4 +175,11 @@ test('filtering normalizes addresses and retains valid rules after a bad update'
   vi.stubEnv('IGNORE_IP', 'broken');
   expect(hasIgnoredIp('223.5.5.5')).toBe(true);
   expect(hasIgnoredIp('8.8.8.8')).toBe(false);
+});
+
+test('rejects ambiguous leading-zero addresses and CIDRs consistently', () => {
+  for (const ip of ['010.011.012.013', '::ffff:010.011.012.013'])
+    expect(normalizeIp(ip)).toBeUndefined();
+  expect(normalizedCidr('010.011.012.0/24')).toBeUndefined();
+  expect(normalizedCidr('::ffff:010.011.012.0/120')).toBeUndefined();
 });

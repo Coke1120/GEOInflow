@@ -48,7 +48,7 @@ function sourceFacts(rows: any[]) {
 // All knowledge of upstream storage and metric semantics is confined here.
 export function humanVisitsSql(keywords = false) {
   return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country AS country,s.region AS region,s.city AS city,s.browser,s.os,s.device FROM website_event e
-  JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
+  LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
   WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz AND e.event_type != 5 AND $4::text IS NOT NULL),
 visit_geography AS (SELECT DISTINCT ON (visit_id,session_id) visit_id,session_id,country,region,city FROM events WHERE event_type NOT IN(2,5) ORDER BY visit_id,session_id,created_at,event_id),
 visit_totals AS (SELECT visit_id,session_id,count(*) FILTER(WHERE event_type NOT IN(2,5))::int AS pv,

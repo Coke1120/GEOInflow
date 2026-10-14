@@ -27,6 +27,8 @@ export function normalizeIp(value?: string | null): string | undefined {
   // Scoped/link-local interface identifiers are not visitor addresses.
   if (clean.includes('%')) return undefined;
   if (!clean.includes(':') && !/^\d{1,3}(?:\.\d{1,3}){3}$/.test(clean)) return undefined;
+  const dotted = clean.includes('.') ? clean.split(':').at(-1) : undefined;
+  if (dotted?.split('.').some(part => part.length > 1 && part.startsWith('0'))) return undefined;
   if (!clean.includes(':')) {
     const bytes = clean.split('.').map(Number);
     if (bytes.some(n => n > 255)) return undefined;
@@ -147,7 +149,10 @@ export function normalizedCidr(value: string): IpRange | undefined {
       const addr = ipaddr.parse(ip);
       return [addr, addr.kind() === 'ipv4' ? 32 : 128];
     }
-    const [addr, bits] = ipaddr.parseCIDR(value.trim());
+    const raw = value.trim();
+    const base = raw.slice(0, raw.lastIndexOf('/'));
+    if (!normalizeIp(base)) return undefined;
+    const [addr, bits] = ipaddr.parseCIDR(raw);
     if (addr.kind() === 'ipv6' && (addr as ipaddr.IPv6).isIPv4MappedAddress() && bits >= 96)
       return [(addr as ipaddr.IPv6).toIPv4Address(), bits - 96];
     return [addr, bits];

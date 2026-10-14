@@ -208,3 +208,24 @@ test('records provider province conflicts without filling or losing collection m
     },
   });
 });
+
+test('ignores unknown country header markers and oversized province codes', async () => {
+  open.mockResolvedValue({
+    get: () => ({
+      country: { iso_code: 'CN' },
+      subdivisions: [{ iso_code: '44' }],
+      city: { names: { en: 'Guangzhou' } },
+    }),
+  });
+  const { getLocation } = await import('@/lib/detect');
+  expect(
+    await getLocation('223.5.5.5', new Headers({ 'cf-ipcountry': 'XX' }), false),
+  ).toMatchObject({ country: 'CN', city: 'Guangzhou' });
+  expect(
+    await getLocation(
+      '223.5.5.5',
+      new Headers({ 'cf-ipcountry': 'CN', 'cf-region-code': 'ABCDEFGHIJKLMNOPQRST' }),
+      false,
+    ),
+  ).toMatchObject({ region: 'CN-44', city: 'Guangzhou' });
+});

@@ -204,11 +204,19 @@ function identifyCitySafe(value: import('../contracts/geography').Geography) {
 }
 export function geographyRuntimeStatus() {
   const bundle = validCurrent();
+  const managed = bundle && !process.env.GEOLITE_DB_PATH;
+  const fallback = globalThis.maxmind?.metadata;
+  const type = managed ? bundle.databaseType : fallback?.databaseType;
+  const provider = /dbip|db-ip/i.test(type || '')
+    ? 'DB-IP Lite'
+    : /geolite|geoip/i.test(type || '')
+      ? 'MaxMind'
+      : type
+        ? 'authorized-custom'
+        : null;
   return {
-    version: bundle?.manifest.version || null,
-    providers: bundle
-      ? [bundle.manifest.mmdb.provider, ...(bundle.readers.length ? ['ip2region'] : [])]
-      : [],
+    version: managed ? bundle.manifest.version : fallback ? `${type}:${fallback.buildEpoch}` : null,
+    providers: [...(provider ? [provider] : []), ...(bundle?.readers.length ? ['ip2region'] : [])],
     chinaMode:
       bundle &&
       activationAllowed(bundle.manifest) &&
@@ -216,6 +224,6 @@ export function geographyRuntimeStatus() {
       process.env.LIEKAN_GEO_CHINA_MODE === 'active'
         ? 'active'
         : 'shadow',
-    dataAvailable: !!bundle,
+    dataAvailable: !!type,
   };
 }

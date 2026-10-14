@@ -6,7 +6,7 @@ import {
   providerText,
   type GeographyEvidence,
 } from './liekan/geography/evidence';
-import { identifyCity } from './liekan/contracts/geography';
+import { identifyCity, isCountryCode } from './liekan/contracts/geography';
 import { geographyRegion } from './liekan/contracts/geography';
 import path from 'node:path';
 import { browserName, detectOS } from 'detect-browser';
@@ -126,7 +126,8 @@ export function getDevice(userAgent: string | null | undefined, screen: string =
 function getRegionCode(country: string | null | undefined, region: string | null | undefined) {
   const clean = providerText(region);
   if (clean && !/^[A-Z0-9-]{1,20}$/i.test(clean)) return undefined;
-  return normalizeRegionCode(clean, country);
+  const normalized = normalizeRegionCode(clean, country);
+  return normalized?.length > 20 ? undefined : normalized;
 }
 
 function decodeHeader(s: string | undefined | null): string | undefined | null {
@@ -157,7 +158,7 @@ export async function getLocation(
       if (countryHeader) {
         const sourceCountry = decodeHeader(countryHeader);
         const normalizedCountry = normalizeCountryCode(sourceCountry);
-        const country = /^[A-Z]{2}$/.test(normalizedCountry || '') ? normalizedCountry : undefined;
+        const country = isCountryCode(normalizedCountry) ? normalizedCountry : undefined;
         if (!country) continue;
         if (trace) trace.usedHeader = true;
         const region = decodeHeader(headers.get(provider.regionHeader));
@@ -207,29 +208,8 @@ export async function getLocation(
     }
   }
 
-  // Pin the fallback reader for this lookup, including while another request activates a bundle.
-  let reader = globalThis[MAXMIND];
-  if (!reader) {
-    if (Date.now() < locationRetryAt) return null;
-    const dir = path.join(process.cwd(), 'geo');
-    locationDatabaseLoading ??= maxmind
-      .open(process.env.GEOLITE_DB_PATH || path.resolve(dir, 'GeoLite2-City.mmdb'))
-      .then(reader => {
-        if (reader.metadata && !/city/i.test(reader.metadata.databaseType))
-          throw new Error('city-database-required');
-        globalThis[MAXMIND] = reader;
-        return reader;
-      })
-      .catch(() => {
-        // Missing geography must not prevent collecting an otherwise valid event.
-        unavailableLocation();
-      })
-      .finally(() => {
-        locationDatabaseLoading = undefined;
-      });
-    reader = await locationDatabaseLoading;
-    if (!reader) return null;
-  }
+  const reader = await fallbackLocationReader();
+  if (!reader) return null;
 
   try {
     return readLocation(reader, cleanIp, trace);
@@ -239,6 +219,27 @@ export async function getLocation(
     if (trace) trace.reason = 'database_corrupt';
     return null;
   }
+}
+
+async function fallbackLocationReader() {
+  if (globalThis[MAXMIND]) return globalThis[MAXMIND];
+  if (Date.now() < locationRetryAt) return null;
+  locationDatabaseLoading ??= maxmind
+    .open(process.env.GEOLITE_DB_PATH || path.resolve('geo/GeoLite2-City.mmdb'))
+    .then(reader => {
+      if (reader.metadata && !/city/i.test(reader.metadata.databaseType))
+        throw new Error('city-database-required');
+      globalThis[MAXMIND] = reader;
+      return reader;
+    })
+    .catch(() => {
+      unavailableLocation();
+      return null;
+    })
+    .finally(() => {
+      locationDatabaseLoading = undefined;
+    });
+  return locationDatabaseLoading;
 }
 
 function readLocation(reader: any, ip: string, trace?: LocationTrace) {
@@ -387,18 +388,7 @@ export async function geographyAttribution() {
     bundle && !process.env.GEOLITE_DB_PATH
       ? bundle.mmdb.metadata.databaseType
       : globalThis[MAXMIND]?.metadata?.databaseType;
-  if (!type && Date.now() >= locationRetryAt) {
-    try {
-      const attributionReader = await maxmind.open(
-        process.env.GEOLITE_DB_PATH || path.resolve('geo/GeoLite2-City.mmdb'),
-      );
-      globalThis[MAXMIND] = attributionReader;
-      type = attributionReader.metadata.databaseType;
-    } catch {
-      locationRetryAt = Date.now() + 60000;
-      /* No attribution claim for an absent database. */
-    }
-  }
+  if (!type) type = (await fallbackLocationReader())?.metadata?.databaseType;
   const links = [];
   if (/dbip|db-ip/i.test(type || ''))
     links.push({ label: 'IP Geolocation by DB-IP', href: 'https://db-ip.com' });

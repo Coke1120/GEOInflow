@@ -4,7 +4,7 @@ import countries from '../../../../public/intl/country/zh-CN.json' with { type: 
 import regions from '../../../../public/iso-3166-2.json' with { type: 'json' };
 
 export const geographyDisplayRuleVersion = 'city-known-1';
-export const geographyVersion = `geo-${catalog.version}-rules-3-${geographyDisplayRuleVersion}`;
+export const geographyVersion = `geo-${catalog.version}-rules-4-${geographyDisplayRuleVersion}`;
 export const provinceDefinitions = catalog.provinces;
 export const cityDefinitions = catalog.cities;
 export const geographyAlias = (value: string) => value.normalize('NFC').trim().toLowerCase();
@@ -36,6 +36,20 @@ export function geographyRegion(region?: string | null, country?: string | null)
   if (prefix && cc && prefix !== cc) return region.trim().toUpperCase();
   const normalized = normalizeRegionCode(region?.trim().toUpperCase(), country?.trim());
   return provinceCodes.get(normalized) || normalized || null;
+}
+
+export function isCountryCode(code?: string | null) {
+  return !!countries[normalizeCountryCode(code?.trim())];
+}
+export function knownChinaProvince(region?: string | null) {
+  return provinceDefinitions.some(p => p.code === geographyRegion(region, 'CN'));
+}
+export function cityNameValue(value?: string | null) {
+  const text = value?.normalize('NFC').trim();
+  return !text ||
+    ['0', 'unknown', '未知', '城市未知', '未知城市', 'n/a', '-'].includes(text.toLowerCase())
+    ? null
+    : text;
 }
 
 export function countryName(code?: string | null) {
@@ -115,7 +129,7 @@ export function identifyCity(value: Geography) {
       : country === 'CN' && region === 'CN-92'
         ? 'MO'
         : country;
-  const rawCity = value.city?.normalize('NFC').trim() || null;
+  const rawCity = cityNameValue(value.city);
   const candidates = rawCity
     ? (cityAliases.get(JSON.stringify([catalogueCountry, geographyAlias(rawCity)])) || []).filter(
         city =>
@@ -193,7 +207,7 @@ export function geographyCoverage(rows: GeographyFact[], totalVisits: number): G
   );
   const chinaVisits = count(row => normalizeCountryCode(row.country) === 'CN');
   const chinaProvinceKnownVisits = count(
-    row => normalizeCountryCode(row.country) === 'CN' && !!geographyRegion(row.region, 'CN'),
+    row => normalizeCountryCode(row.country) === 'CN' && knownChinaProvince(row.region),
   );
   const percent = (a: number, b: number) => (b ? Math.round((a / b) * 10000) / 100 : null);
   return {

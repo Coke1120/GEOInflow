@@ -24,6 +24,8 @@ import {
   geographyTable,
   geographyLabel,
   geographyCoverage,
+  knownChinaProvince,
+  isCountryCode,
 } from './contracts/geography';
 import {
   getContentImpact,
@@ -641,12 +643,12 @@ export async function buildReport(
     l.latest ? scatter : [],
   );
   const regions = aggregate(
-      h.geo.filter(g => g.country === 'CN' && g.region),
+      h.geo.filter(g => g.country === 'CN' && knownChinaProvince(g.region)),
       'region',
       'sessions',
     ),
     countries = aggregate(
-      h.geo.filter(g => g.country && g.country !== 'CN'),
+      h.geo.filter(g => isCountryCode(g.country) && g.country !== 'CN'),
       'country',
       'sessions',
     );

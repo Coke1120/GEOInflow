@@ -1,3 +1,4 @@
+import { geographyAttribution } from '@/lib/detect';
 import clickhouse from '@/lib/clickhouse';
 import { query, LiekanError, reportSnapshot } from './server';
 import { getHumanFacts } from './analytics';
@@ -33,6 +34,7 @@ export async function geographyDiagnostics(id: string, input: URLSearchParams) {
     throw new LiekanError('时区无效');
   }
   await geographyBundle();
+  await geographyAttribution();
   return reportSnapshot(async () => {
     const facts = await getHumanFacts(id, new Date(startAt), new Date(endAt), timezone, ['geo']);
     const evidence = await query(
