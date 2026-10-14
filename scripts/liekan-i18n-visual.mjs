@@ -27,6 +27,9 @@ export function englishPageGeometry() {
     ),
     analyticsCards: document.querySelectorAll('main .metric-label,main [data-liekan-metric-label]')
       .length,
+    analyticsTables: [...document.querySelectorAll('main table')].filter(
+      el => el.querySelector('thead') && el.querySelector('tbody')?.textContent.trim(),
+    ).length,
     untranslatedOwned: [
       ...document.querySelectorAll(
         '[data-liekan-page-title],[data-liekan-owned-actions] button,[data-liekan-product-footer] nav a,[data-navigation-section],[data-ai-suggested-question],[data-ai-platform-note],[data-liekan-metric-label],[data-liekan-auth-copy],.auth-form .field > span',
@@ -64,7 +67,9 @@ export const isStatisticsRequest = url =>
   );
 export function assertRenderedEnglishState(state, analytics = false) {
   assert(!state.empty && state.contentLength > 0, 'Rendered page body is required');
-  if (analytics) assert(state.analyticsCards > 0, 'Rendered analytics cards are required');
+  if (analytics === 'table')
+    assert(state.analyticsTables > 0, 'Rendered analytics table is required');
+  else if (analytics) assert(state.analyticsCards > 0, 'Rendered analytics cards are required');
   assert.deepEqual(state.untranslatedOwned, [], 'Owned interface text must be English');
   assert(
     !state.readFailureHeads.some(text => [label('读取失败'), label('加载失败')].includes(text)),
@@ -103,6 +108,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     errors: [],
   };
   const contexts = [];
+  let loggingOut = false;
   const watchPage = page => {
     page.on('pageerror', error => report.errors.push(error.message));
     page.on('response', response => {
@@ -110,7 +116,8 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       if (
         url.origin === new URL(base).origin &&
         url.pathname.startsWith('/api/') &&
-        response.status() >= 400
+        response.status() >= 400 &&
+        !(loggingOut && url.pathname === '/api/auth/verify' && response.status() === 401)
       )
         report.errors.push(`Unexpected API response ${response.status()}: ${url.pathname}`);
     });
@@ -134,12 +141,16 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     value.on('page', watchPage);
     await value.addCookies([{ name: 'liekan.locale', value: 'en-US', url: base }]);
     if (authToken)
-      await value.addInitScript(value => {
-        if (!sessionStorage.getItem('liekan.i18n.seeded')) {
-          localStorage.setItem('umami.auth', JSON.stringify(value));
-          sessionStorage.setItem('liekan.i18n.seeded', 'true');
-        }
-      }, authToken);
+      await value.addInitScript(
+        ({ value, origin }) => {
+          if (location.origin !== origin) return;
+          if (!sessionStorage.getItem('liekan.i18n.seeded')) {
+            localStorage.setItem('umami.auth', JSON.stringify(value));
+            sessionStorage.setItem('liekan.i18n.seeded', 'true');
+          }
+        },
+        { value: authToken, origin: new URL(base).origin },
+      );
     return value;
   };
   const settled = async (page, locale = 'en-US') => {
@@ -188,8 +199,10 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
         auth = await context(width),
         publicContext = await context(width);
       await auth.addInitScript(
-        value => sessionStorage.setItem('umami.partial-token', value),
-        partial,
+        ({ value, origin }) => {
+          if (location.origin === origin) sessionStorage.setItem('umami.partial-token', value);
+        },
+        { value: partial, origin: new URL(base).origin },
       );
       const actual = await authenticated.newPage(),
         login = await auth.newPage(),
@@ -249,10 +262,13 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
             `${route.id}: fixture data read succeeded`,
           );
           const state = await geometry(page);
-          assertRenderedEnglishState(state, route.id.startsWith('geo-'));
+          assertRenderedEnglishState(
+            state,
+            route.id === 'geo-2' ? 'table' : route.id.startsWith('geo-'),
+          );
           assert(!state.empty, `${route.id}: empty page`);
           assert(state.contentLength > 0, `${route.id}: missing page body`);
-          if (route.id.startsWith('geo-'))
+          if (route.id.startsWith('geo-') && route.id !== 'geo-2')
             assert(state.analyticsCards > 0, `${route.id}: missing analytics cards`);
           assert.equal(state.overflow, 0, `${route.id} ${width}px page overflow`);
           // User-defined labels remain original; known application labels must localize.
@@ -497,9 +513,15 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     await page
       .locator('#liekan-navigation footer button[aria-controls="account-navigation"]')
       .click();
+    loggingOut = true;
     await page.getByRole('button', { name: label('退出登录'), exact: true }).click();
     await page.waitForURL(url => url.pathname === '/login');
     await settled(page);
+    assert.equal(
+      await page.evaluate(() => localStorage.getItem('umami.auth')),
+      null,
+      'Logout removes the authentication token',
+    );
     assert.equal(
       await page.getByRole('combobox', { name: 'Language / 语言' }).inputValue(),
       'en-US',

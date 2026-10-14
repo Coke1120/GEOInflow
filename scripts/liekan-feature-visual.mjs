@@ -526,6 +526,9 @@ try {
     journey,
     token: adminToken,
   });
+  const fixtureWebsite = await api('GET', '/websites/' + seed.website.id);
+  assert.equal(fixtureWebsite.id, seed.website.id, 'English routes address the fixture website');
+  const fixtureWebsiteHandle = fixtureWebsite.siteNumber ?? fixtureWebsite.id;
   const geoRoutes = [
     '',
     '/ai',
@@ -600,7 +603,7 @@ try {
       id: `geo-${index}`,
       heading: navigationBaseline.geo[geoExpectedKeys[index]].title,
       documentTitle: navigationBaseline.geo[geoExpectedKeys[index]].title,
-      path: `/websites/${seed.website.id}/geo${suffix}?${params('overview')}`,
+      path: `/websites/${fixtureWebsiteHandle}/geo${suffix}?${params('overview')}`,
     })),
     {
       id: 'help',

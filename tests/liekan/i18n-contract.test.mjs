@@ -138,6 +138,16 @@ test('English browser guards inspect real GEO labels, chart states, owned auth c
       .setAttribute('data-liekan-chart-state', 'empty');
     assert.equal(englishChartsReady(), true, 'A declared empty state remains supported');
     setBody(
+      '<main><table><thead><tr><th>Crawler</th></tr></thead><tbody><tr><td>No data in the current range.</td></tr></tbody></table></main>',
+    );
+    assert.doesNotThrow(() => assertRenderedEnglishState(englishPageGeometry(), 'table'));
+    assert.throws(() => assertRenderedEnglishState(englishPageGeometry(), true), /analytics cards/);
+    setBody('<main><table><thead><tr><th>Crawler</th></tr></thead><tbody></tbody></table></main>');
+    assert.throws(
+      () => assertRenderedEnglishState(englishPageGeometry(), 'table'),
+      /analytics table/,
+    );
+    setBody(
       '<aside data-liekan-auth-copy><h1>从 AI 与搜索访问</h1></aside><main><h1>Welcome back</h1></main>',
     );
     assert.throws(() => assertRenderedEnglishState(englishPageGeometry()), /Owned interface text/);
