@@ -9,6 +9,7 @@ import { ShareFeatureView } from './WorkspacePages';
 import { QueryState } from './ui';
 import '@/styles/liekan/Features.module.css';
 import { LanguageSelector } from '../LanguageSelector';
+import localeStyles from '@/styles/liekan/LanguageSelector.module.css';
 import { useLiekanPageTitle } from '@/lib/liekan/i18n/client';
 function LegacyGate({
   slug,
@@ -45,7 +46,9 @@ export function PublicShareEntry({ slug, children }: { slug: string; children: R
     page = (segments[0]?.includes('.') ? segments[1] : segments[0]) || 'overview';
   return (
     <div data-liekan-features lang={i18n.locale} style={{ minHeight: '100dvh' }}>
-      <LanguageSelector compact />
+      <div className={localeStyles.share} data-public-language>
+        <LanguageSelector />
+      </div>
       {search.get('legacy') === '1' ? (
         <LegacyGate slug={slug} page={page}>
           {children}

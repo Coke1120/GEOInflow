@@ -587,6 +587,7 @@ try {
       p.title,
     documentTitle: titleOverrides[p.id] || p.title,
     shareName: p.id === 'share-preview' ? share.name : undefined,
+    previewPath: p.id === 'share-preview' ? `/liekan/share-preview?${params(p.id)}` : undefined,
     path:
       p.id === 'share-preview'
         ? '/share/' + encodeURIComponent(share.slug)

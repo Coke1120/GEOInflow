@@ -2,6 +2,7 @@
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { useLiekanPageTitle } from '@/lib/liekan/i18n/client';
 import { LanguageSelector } from '../LanguageSelector';
+import localeStyles from '@/styles/liekan/LanguageSelector.module.css';
 
 import {
   useManualQuery as useQuery,
@@ -362,7 +363,9 @@ export function FeatureApp({
     return (
       <FeatureProvider value={value}>
         <div data-liekan-features lang={i18n.locale} style={{ minHeight: '100dvh' }}>
-          <LanguageSelector compact />
+          <div className={localeStyles.share} data-public-language>
+            <LanguageSelector />
+          </div>
           <WorkspacePages page="share-preview" />
         </div>
       </FeatureProvider>

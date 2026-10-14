@@ -15,7 +15,10 @@ export function LanguageSelector({
   const { locale } = useLiekanI18n();
   const [persistenceError, setPersistenceError] = useState(false);
   return (
-    <div className={`${styles.root} ${compact ? styles.compact : ''} ${field ? styles.field : ''}`}>
+    <div
+      data-language-selector
+      className={`${styles.root} ${compact ? styles.compact : ''} ${field ? styles.field : ''}`}
+    >
       <label>
         <span>Language / 语言</span>
         <select

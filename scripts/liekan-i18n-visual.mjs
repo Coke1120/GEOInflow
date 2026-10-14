@@ -170,6 +170,15 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     );
   };
   const geometry = page => page.evaluate(englishPageGeometry);
+  const assertShareLayout = async page => {
+    await page.locator('.public-shell[data-share-theme="light"]').waitFor();
+    const languageBounds = await page.locator('[data-public-language]').boundingBox();
+    const headerBounds = await page.locator('.public-head').boundingBox();
+    assert(
+      languageBounds && headerBounds && languageBounds.y + languageBounds.height <= headerBounds.y,
+      'Public language selector stays above the share header',
+    );
+  };
   try {
     const rendered = await Promise.all(
       ['en-US', 'zh-CN', 'en-US'].map(async locale => {
@@ -219,7 +228,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
           await settled(page);
           assertEnglishRouteIdentity(route, page.url(), await page.title());
           if (route.id === 'share-preview') {
-            await page.locator('.public-shell[data-share-theme="light"]').waitFor();
+            await assertShareLayout(page);
             assert(
               (await page.locator('.public-brand small').innerText()).includes(route.shareName),
               'Anonymous share retains its resource name',
@@ -240,6 +249,17 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
               .waitFor();
           }
           if (['login', 'login-2fa', 'sso'].includes(route.id)) {
+            const languageBounds = await page.locator('[data-language-selector]').boundingBox();
+            const brandBounds = await page.locator('.auth-brand').boundingBox();
+            assert(
+              languageBounds &&
+                brandBounds &&
+                (languageBounds.x + languageBounds.width <= brandBounds.x ||
+                  brandBounds.x + brandBounds.width <= languageBounds.x ||
+                  languageBounds.y + languageBounds.height <= brandBounds.y ||
+                  brandBounds.y + brandBounds.height <= languageBounds.y),
+              'Authentication language selector stays clear of the brand',
+            );
             assert.equal(new URL(page.url()).pathname, new URL(base + route.path).pathname);
             await page
               .getByRole('heading', {
@@ -305,6 +325,17 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
             .catch(() => {});
         }
       }
+      const shareRoute = routes.find(route => route.id === 'share-preview');
+      assert(shareRoute.previewPath, 'Management share preview route is required');
+      await actual.goto(base + shareRoute.previewPath);
+      await settled(actual);
+      assertEnglishRouteIdentity(
+        { ...shareRoute, path: shareRoute.previewPath },
+        actual.url(),
+        await actual.title(),
+      );
+      await assertShareLayout(actual);
+      report.checks.push({ name: 'management-share-preview-no-overlap', width, passed: true });
       await authenticated.close();
       await auth.close();
     }
