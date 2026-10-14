@@ -5,8 +5,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/mcp/package.json ./packages/mcp/
 COPY packages/mcp/bin ./packages/mcp/bin/
-RUN --mount=type=cache,id=liekan-pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --store-dir=/pnpm/store --network-concurrency=8 --fetch-timeout=300000
+# Keep the frozen installation inside the dependency layer. Native pnpm cache mounts
+# can expose incomplete package manifests while linking on Docker overlay filesystems.
+RUN pnpm install --frozen-lockfile --store-dir=/pnpm/store --network-concurrency=8 --fetch-timeout=300000
 FROM dependencies AS builder
 COPY . .
 COPY docker/proxy.ts ./src/proxy.ts
@@ -26,7 +27,7 @@ ARG LIEKAN_VERSION=0.2.4
 ARG LIEKAN_UPSTREAM=ec0ff50388c264ed8ce46f00967e92f7e71476ae
 ARG LIEKAN_UI=139d21c5ccde96c433fa1da3db6fa4cdd71f5e7660a9c6297d79861c19b38385
 ARG LIEKAN_FEATURE_UI=e0d8650251be7eb48baef8aec902c3cd6952c162ee6a5f81add5eb9ea89d6835
-ARG LIEKAN_MIGRATION=22
+ARG LIEKAN_MIGRATION=26
 ARG LIEKAN_AI_UI=a28373e8cb9c6b8be13d2210297765b1bbafe1884f02d0e91a311c2442bbe702
 LABEL org.opencontainers.image.title="Liekan 猎看统计" \
       org.opencontainers.image.version=$LIEKAN_VERSION \
@@ -54,6 +55,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
 COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/src/lib/two-factor/crypto.ts ./checks/two-factor.ts
 COPY --from=builder /app/LICENSE /app/THIRD_PARTY_NOTICES.md ./
+RUN mkdir -p /app/managed-geo && chown nextjs:nodejs /app/managed-geo
 USER nextjs
 EXPOSE 3000
 CMD ["sh","scripts/liekan-start.sh"]

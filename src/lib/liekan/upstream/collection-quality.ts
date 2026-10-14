@@ -1,3 +1,4 @@
+import { normalizeIp, configuredIp } from '@/lib/ip';
 import { createHash } from 'node:crypto';
 import { browserName } from 'detect-browser';
 import ipaddr from 'ipaddr.js';
@@ -65,49 +66,16 @@ export function normalizeCollectionHostname(value: unknown): string | null {
 }
 
 function address(value: unknown) {
-  if (typeof value !== 'string' || !value.trim()) return null;
-  let clean = value.trim();
-  const bracket = clean.match(/^\[([^\]]+)](?::\d+)?$/);
-  if (bracket) clean = bracket[1];
-  else if (/^\d+\.\d+\.\d+\.\d+:\d+$/.test(clean)) clean = clean.slice(0, clean.lastIndexOf(':'));
-  try {
-    return ipaddr.process(clean);
-  } catch {
-    return null;
-  }
-}
-
-function trustedHeaderAddress(request: Request, name: string) {
-  let raw: string | null;
-  try {
-    raw = request.headers.get(name);
-  } catch {
-    return null;
-  }
-  if (!raw) return null;
-  const header = name.toLowerCase();
-  if (header === 'x-forwarded-for') return address(raw.split(',')[0]);
-  if (header === 'forwarded') {
-    const first = raw.split(',')[0];
-    const value = first.match(/(?:^|;)\s*for=(?:"([^"]+)"|([^;\s]+))/i);
-    return address(value?.[1] || value?.[2]);
-  }
-  return address(raw);
+  const clean = typeof value === 'string' ? normalizeIp(value) : undefined;
+  return clean ? ipaddr.parse(clean) : null;
 }
 
 function trustedAddress(input: CollectionInput) {
   const clientAddress = address(input.ip);
   if (!clientAddress) return null;
   if (input.authenticated) return clientAddress;
-  if (input.payload?.ip) return null;
-  const names = [
-    ...(process.env.CLIENT_IP_HEADER ? [process.env.CLIENT_IP_HEADER] : []),
-    ...(process.env.CLOUD_MODE ? ['x-umami-client-ip'] : []),
-  ];
-  for (const name of names) {
-    const candidate = trustedHeaderAddress(input.request, name);
-    if (candidate?.toString() === clientAddress.toString()) return clientAddress;
-  }
+  const candidate = configuredIp(input.request.headers);
+  if (candidate?.ip === clientAddress.toString()) return clientAddress;
   return null;
 }
 

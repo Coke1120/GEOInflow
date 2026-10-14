@@ -1,5 +1,18 @@
 import { z } from 'zod';
-import type { GeographyDisplay } from './geography';
+import type { GeographyDisplay, GeographyCoverage } from './geography';
+export const geographyCoverageSchema = z.object({
+  displayRuleVersion: z.string(),
+  totalVisits: z.number().int().nonnegative(),
+  cityKnownVisits: z.number().int().nonnegative(),
+  cityUnknownVisits: z.number().int().nonnegative(),
+  cityCoverage: z.number().min(0).max(100).nullable(),
+  chinaVisits: z.number().int().nonnegative(),
+  chinaProvinceKnownVisits: z.number().int().nonnegative(),
+  chinaProvinceUnknownVisits: z.number().int().nonnegative(),
+  chinaProvinceCoverage: z.number().min(0).max(100).nullable(),
+  cityDisplayState: z.enum(['empty', 'unidentified', 'available']),
+  provinceDisplayState: z.enum(['empty', 'unidentified', 'available']),
+});
 export const dataStateSchema = z.enum([
   'available',
   'empty',
@@ -39,6 +52,7 @@ export interface LiekanReport {
       tables?: Record<string, GeographyDisplay[]>;
       cards?: Record<string, GeographyDisplay>;
     };
+    geographyCoverage?: GeographyCoverage;
     keywordSnapshot?: string;
     keywordReset?: boolean;
     keywordEngines?: string[];
@@ -143,6 +157,7 @@ export const liekanReportSchema = z.object({
         cards: z.record(z.string(), geographyDisplaySchema).optional(),
       })
       .optional(),
+    geographyCoverage: geographyCoverageSchema.optional(),
     keywordSnapshot: z.string().optional(),
     keywordReset: z.boolean().optional(),
     keywordEngines: z.array(z.string()).optional(),

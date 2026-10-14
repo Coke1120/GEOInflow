@@ -10,6 +10,54 @@
       "homepage": "https://github.com/adobe/css-tools#readme"
     },
     {
+      "name": "@ai-sdk/anthropic",
+      "versions": [
+        "4.0.71"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://ai-sdk.dev/docs"
+    },
+    {
+      "name": "@ai-sdk/gateway",
+      "versions": [
+        "4.0.103"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://ai-sdk.dev/docs"
+    },
+    {
+      "name": "@ai-sdk/openai",
+      "versions": [
+        "4.0.83"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://ai-sdk.dev/docs"
+    },
+    {
+      "name": "@ai-sdk/openai-compatible",
+      "versions": [
+        "3.0.62"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://ai-sdk.dev/docs"
+    },
+    {
+      "name": "@ai-sdk/provider",
+      "versions": [
+        "4.0.21"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://ai-sdk.dev/docs"
+    },
+    {
+      "name": "@ai-sdk/provider-utils",
+      "versions": [
+        "5.0.53"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://ai-sdk.dev/docs"
+    },
+    {
       "name": "@asamuzakjp/css-color",
       "versions": [
         "6.0.5"
@@ -1299,6 +1347,14 @@
       "homepage": "https://github.com/open-draft/until#readme"
     },
     {
+      "name": "@opentelemetry/api",
+      "versions": [
+        "1.9.1"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://github.com/open-telemetry/opentelemetry-js/tree/main/api"
+    },
+    {
       "name": "@otplib/core",
       "versions": [
         "13.5.0"
@@ -2404,6 +2460,14 @@
       "homepage": "https://zen.umami.is"
     },
     {
+      "name": "@vercel/oidc",
+      "versions": [
+        "3.2.0"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://vercel.com"
+    },
+    {
       "name": "@visx/curve",
       "versions": [
         "4.0.1-alpha.0"
@@ -2532,6 +2596,14 @@
       "homepage": "https://github.com/vitest-dev/vitest/tree/main/packages/utils"
     },
     {
+      "name": "@workflow/serde",
+      "versions": [
+        "4.1.0"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://github.com/vercel/workflow#readme"
+    },
+    {
       "name": "@xstate/fsm",
       "versions": [
         "1.6.5"
@@ -2554,6 +2626,14 @@
       ],
       "license": "MIT",
       "homepage": "https://github.com/TooTallNate/proxy-agents#readme"
+    },
+    {
+      "name": "ai",
+      "versions": [
+        "7.0.127"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://ai-sdk.dev/docs"
     },
     {
       "name": "ajv",
@@ -3085,6 +3165,14 @@
       ],
       "license": "MIT",
       "homepage": "https://github.com/cosmiconfig/cosmiconfig#readme"
+    },
+    {
+      "name": "cron-parser",
+      "versions": [
+        "5.10.1"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/harrisiirak/cron-parser#readme"
     },
     {
       "name": "cross-spawn",
@@ -4388,6 +4476,14 @@
       "homepage": "https://github.com/formatjs/formatjs"
     },
     {
+      "name": "ip2region.js",
+      "versions": [
+        "3.1.8"
+      ],
+      "license": "ISC",
+      "homepage": "https://github.com/lionsoul2014/ip2region#readme"
+    },
+    {
       "name": "ipaddr.js",
       "versions": [
         "2.5.0"
@@ -4829,6 +4925,14 @@
       "homepage": "https://github.com/npm/json-parse-even-better-errors#readme"
     },
     {
+      "name": "json-schema",
+      "versions": [
+        "0.4.0"
+      ],
+      "license": "(AFL-2.1 OR BSD-3-Clause)",
+      "homepage": "https://github.com/kriszyp/json-schema#readme"
+    },
+    {
       "name": "json-schema-traverse",
       "versions": [
         "1.0.0"
@@ -5069,6 +5173,14 @@
       ],
       "license": "ISC",
       "homepage": "https://lucide.dev"
+    },
+    {
+      "name": "luxon",
+      "versions": [
+        "3.7.2"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/moment/luxon#readme"
     },
     {
       "name": "lz-string",
@@ -5610,15 +5722,25 @@
     {
       "name": "pg",
       "versions": [
-        "8.22.0"
+        "8.22.0",
+        "8.23.1"
       ],
       "license": "MIT",
       "homepage": "https://github.com/brianc/node-postgres"
     },
     {
+      "name": "pg-boss",
+      "versions": [
+        "12.36.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://pgboss.io"
+    },
+    {
       "name": "pg-cloudflare",
       "versions": [
-        "1.4.0"
+        "1.4.0",
+        "1.4.1"
       ],
       "license": "MIT",
       "homepage": "https://github.com/brianc/node-postgres#readme"
@@ -5626,7 +5748,8 @@
     {
       "name": "pg-connection-string",
       "versions": [
-        "2.14.0"
+        "2.14.0",
+        "2.14.1"
       ],
       "license": "MIT",
       "homepage": "https://github.com/brianc/node-postgres/tree/master/packages/pg-connection-string"
@@ -5650,7 +5773,8 @@
     {
       "name": "pg-protocol",
       "versions": [
-        "1.15.0"
+        "1.15.0",
+        "1.16.1"
       ],
       "license": "MIT",
       "homepage": "https://github.com/brianc/node-postgres#readme"
@@ -6418,6 +6542,14 @@
       "homepage": "https://github.com/rrweb-io/rrweb/tree/main/packages/rrdom#readme"
     },
     {
+      "name": "rrule-temporal",
+      "versions": [
+        "2.2.8"
+      ],
+      "license": "MIT",
+      "homepage": "https://ggaabe.github.io/rrule-temporal/"
+    },
+    {
       "name": "rrweb",
       "versions": [
         "2.0.1"
@@ -6527,7 +6659,8 @@
     {
       "name": "serialize-error",
       "versions": [
-        "13.0.1"
+        "13.0.1",
+        "13.0.2"
       ],
       "license": "MIT",
       "homepage": "https://github.com/sindresorhus/serialize-error#readme"
@@ -6990,6 +7123,14 @@
       "homepage": "https://github.com/isaacs/node-tar#readme"
     },
     {
+      "name": "temporal-spec",
+      "versions": [
+        "1.0.1"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://github.com/fullcalendar/temporal-polyfill#readme"
+    },
+    {
       "name": "terser",
       "versions": [
         "5.46.1"
@@ -7211,6 +7352,7 @@
     {
       "name": "undici",
       "versions": [
+        "7.30.0",
         "8.9.0"
       ],
       "license": "MIT",

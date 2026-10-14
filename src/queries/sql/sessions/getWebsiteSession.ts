@@ -31,9 +31,9 @@ async function relationalQuery(websiteId: string, sessionId: string) {
       device,
       screen,
       language,
-      ${getPostgresCountrySQL('country')} as country,
-      ${getPostgresRegionSQL('country', 'region')} as region,
-      city,
+      ${getPostgresCountrySQL('(array_agg(country order by max_time desc,visit_id desc))[1]')} as country,
+      ${getPostgresRegionSQL('(array_agg(country order by max_time desc,visit_id desc))[1]', '(array_agg(region order by max_time desc,visit_id desc))[1]')} as region,
+      (array_agg(city order by max_time desc,visit_id desc))[1] as city,
       min(min_time) as "firstAt",
       max(max_time) as "lastAt",
       count(distinct visit_id) as visits,
@@ -50,9 +50,9 @@ async function relationalQuery(websiteId: string, sessionId: string) {
           session.device,
           session.screen,
           session.language,
-          session.country,
-          session.region,
-          session.city,
+          session.country as country,
+          session.region as region,
+          session.city as city,
           min(website_event.created_at) as min_time,
           max(website_event.created_at) as max_time,
           sum(case when website_event.event_type = ${EVENT_TYPE.pageView} then 1 else 0 end) as views,
@@ -63,7 +63,7 @@ async function relationalQuery(websiteId: string, sessionId: string) {
       and session.session_id = {{sessionId::uuid}}
       and website_event.event_type != ${EVENT_TYPE.performance}
     group by session.session_id, session.distinct_id, visit_id, session.website_id, session.browser, session.os, session.device, session.screen, session.language, session.country, session.region, session.city) t
-    group by id, distinct_id, website_id, browser, os, device, screen, language, country, region, city;
+    group by id, distinct_id, website_id, browser, os, device, screen, language;
     `,
     { websiteId, sessionId },
     FUNCTION_NAME,

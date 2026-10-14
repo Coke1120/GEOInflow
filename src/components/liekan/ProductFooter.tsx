@@ -1,4 +1,5 @@
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import { GeographyAttribution } from './GeographyAttribution';
 import Link from '@/components/liekan/Link';
 import { liekanFooterLinks, liekanProduct } from '@/lib/liekan/contracts/product';
 import styles from '@/styles/liekan/ProductFooter.module.css';
@@ -22,17 +23,20 @@ export function ProductFooter() {
           </a>
         </div>
         <nav className={styles.links} aria-label={i18n.text('项目相关链接')}>
-          {liekanFooterLinks.map(({ label, href }) =>
-            href.startsWith('https://') ? (
-              <a key={label} href={href} target="_blank" rel="noopener noreferrer">
-                {i18n.system(label)}
-              </a>
-            ) : (
-              <Link key={label} prefetch={false} href={href}>
-                {i18n.system(label)}
-              </Link>
-            ),
-          )}
+          <GeographyAttribution />
+          {liekanFooterLinks
+            .filter(link => link.label !== 'IP Geolocation by DB-IP')
+            .map(({ label, href }) =>
+              href.startsWith('https://') ? (
+                <a key={label} href={href} target="_blank" rel="noopener noreferrer">
+                  {i18n.system(label)}
+                </a>
+              ) : (
+                <Link key={label} prefetch={false} href={href}>
+                  {i18n.system(label)}
+                </Link>
+              ),
+            )}
         </nav>
       </div>
     </footer>

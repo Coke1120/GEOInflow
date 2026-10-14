@@ -117,6 +117,7 @@
     "echarts": "5.5.0",
     "esbuild": "^0.28.2",
     "immer": "^11.1.18",
+    "ip2region.js": "3.1.8",
     "ipaddr.js": "^2.5.0",
     "is-ci": "^4.1.0",
     "is-docker": "^4.0.0",

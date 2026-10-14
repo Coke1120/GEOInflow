@@ -1,4 +1,5 @@
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import { geographyCoverageText } from '@/lib/liekan/contracts/geography';
 import { MetricCard, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
@@ -62,7 +63,7 @@ export function HumanGeo({ report, rangeLabel }: ReportViewProps) {
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('城市明细')}</h2>
           <span className="text-[11.5px] text-faint">
-            {i18n.text('本地人工 GeoIP · 更新日期待核验')}
+            {i18n.system(geographyCoverageText(report?.meta.geographyCoverage))}
           </span>
         </div>
         <table className="w-full text-[12.5px]">

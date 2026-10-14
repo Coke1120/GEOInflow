@@ -10,6 +10,11 @@ execFileSync(process.execPath, ['scripts/liekan-geography-catalog.mjs'], { stdio
 execFileSync(process.execPath, ['scripts/liekan-i18n-check.mjs'], { stdio: 'inherit' });
 assertDialogContract();
 assertManualReadPolicy();
+const geographyUI=JSON.parse(readFileSync('config/liekan/geography-ui.json','utf8'));
+if (geographyUI.cityRule!=='merge-filter-search-sort-page-limit' || geographyUI.denominator!=='all-eligible-visits' || geographyUI.shareLimit!==12 || geographyUI.provinceLimit!==10) throw new Error('Approved geography display rules changed');
+const geographyContract=readFileSync('src/lib/liekan/contracts/geography.ts','utf8');
+for (const key of ['subtitle','empty','unidentified','searchEmpty','legacy']) if (!geographyContract.includes(geographyUI[key])) throw new Error(`Geography copy contract missing: ${key}`);
+
 const teamUserUI = JSON.parse(readFileSync('config/liekan/team-user-ui.json', 'utf8'));
 if (
   teamUserUI.systemRole !== 'user' ||

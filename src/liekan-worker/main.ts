@@ -1,3 +1,4 @@
+import { maintainGeography } from '../lib/liekan/geography/update';
 import 'dotenv/config';
 import { processBrowserRisk } from '../lib/liekan/upstream/browser-risk';
 import { writeFile } from 'node:fs/promises';
@@ -62,6 +63,7 @@ async function reconcile() {
         '1.0.0',
       );
       await tx.$executeRawUnsafe('DELETE FROM liekan_log_grant WHERE expires_at<now()');
+      await tx.$executeRawUnsafe("DELETE FROM liekan_geography_ingress WHERE bucket<now()-interval '90 days'");
       await tx.$executeRawUnsafe(
         "DELETE FROM liekan_ingest_batch WHERE state!='pending' AND received_at<now()-interval '30 days'",
       );
@@ -273,6 +275,7 @@ async function main() {
     try {
       await cleanupExpiredAuthorizations(workerId);
       await maintainCrawlerRecords();
+      await maintainGeography();
     } finally {
       cleaning = false;
     }

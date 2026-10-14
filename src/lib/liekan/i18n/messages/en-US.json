@@ -2907,7 +2907,7 @@
   "m_4c9e646c5109": "No analytics pages enabled for this share.",
   "m_3ff2f839ed10": "Verify share again",
   "m_160697452ea0": "Shared data not provided.",
-  "m_6ea545cf6557": "Place name data: GeoNames (organized)",
+  "m_6ea545cf6557": "Place names: GeoNames (curated)",
   "m_133034730772": "Select a share.",
   "m_76cdc4a13d1e": "Sharing Management",
   "m_acdc17a0631f": "{v0}, some data update failed, please try reading again",
@@ -3671,5 +3671,15 @@
   "m_62cdbb60b800": "Generating file",
   "m_bb109234e9be": "Transferring download",
   "m_127636b82d8b": "Edit goal",
-  "m_37e03fdfdc43": "Edit cohort"
+  "m_37e03fdfdc43": "Edit cohort",
+  "m_64803b5d2cdd": "Only visits with a known city are listed. Shares use all eligible visits. City coverage is unavailable.",
+  "m_7852c8993940": "Only visits with a known city are listed. Shares use all eligible visits. No visits in this period.",
+  "m_b1bb2b963075": "Only visits with a known city are listed. Shares use all eligible visits. City coverage: {v0}% · {v1} visits have no identified city",
+  "m_f65bcd228675": "City coverage is unavailable",
+  "m_d2fa9344171b": "No visits in this period",
+  "m_604dc11dcac7": "Visits received; city information has not been identified",
+  "m_8f4f9c2695d3": "No matching cities",
+  "m_22ce30aad3fb": "No city records in this period",
+  "m_11075e8fb940": "Licensed IP geolocation database",
+  "m_554de8c0f507": "IP lookup: ip2region"
 }

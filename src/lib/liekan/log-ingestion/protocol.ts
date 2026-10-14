@@ -51,6 +51,7 @@ export function normalizeAutomatic(
   secret: string,
   rules: BotRule[] = BOT_RULES,
   snapshots?: VerificationSnapshots,
+  observe?: (ip:string, record:AutomaticRecord) => void,
 ) {
   if (!events.length || events.length > MAX_RECORDS)
     throw new LiekanError('每批需要 1–1000 条日志');
@@ -115,7 +116,8 @@ export function normalizeAutomatic(
           e.EdgeResponseBodyBytes,
         ];
       }
-      const parsed = parseLogInput(input, domain, secret, rules, snapshots);
+      let validatedIp:string;
+      const parsed = parseLogInput(input, domain, secret, rules, snapshots,(ip)=>{validatedIp=ip;});
       if (parsed.records.length !== 1) throw new Error();
       const content = kind === 'server' ? serverEventSchema.parse(raw).line : identity;
       const eventDigest = createHmac('sha256', secret)
@@ -132,6 +134,7 @@ export function normalizeAutomatic(
         crawlerEvidence:
           kind === 'cloudflare' ? cloudflareCrawlerEvidence(raw as Record<string, unknown>) : null,
       });
+      observe?.(validatedIp, records[records.length-1]);
     } catch {
       errors.push({ line: index + 1, reason: '字段、时间、IP、请求来源或域名无效' });
     }

@@ -1,6 +1,7 @@
 'use client';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
+import { geographyEmptyText } from '@/lib/liekan/contracts/geography';
 import { useEffect, useRef, useState } from 'react';
 import styles from '@/styles/liekan/Shell.module.css';
 import {
@@ -639,11 +640,13 @@ export function ReportRows({
         ) : (
           <tr>
             <td colSpan={fields.length} className={styles.emptyRow}>
-              {a.query
-                ? i18n.text('没有匹配的记录')
-                : i18n.system(
-                    stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state],
-                  )}
+              {table === 'cityBody'
+                ? i18n.system(geographyEmptyText(meta?.geographyCoverage, a.query))
+                : a.query
+                  ? i18n.text('没有匹配的记录')
+                  : i18n.system(
+                      stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state],
+                    )}
             </td>
           </tr>
         )}

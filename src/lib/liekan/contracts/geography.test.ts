@@ -1,6 +1,10 @@
 import { expect, test } from 'vitest';
+import { translateSystemText } from '../i18n/text';
 import {
   geographyLabel,
+  geographyCoverage,
+  geographyCoverageText,
+  geographyEmptyText,
   geographyTable,
   identifyCity,
   mergeGeography,
@@ -99,17 +103,19 @@ test('locale preserves full geography selection, ranking, metrics and location m
 
 test('matches visible English country and region labels with identical selection across locales', () => {
   const rows = [
-    fact(null, 4, 75, { country: 'US', region: null }),
-    fact(null, 2, 30, { country: 'CN', region: 'CN-SD' }),
+    fact('Unlisted US Town', 4, 75, { country: 'US', region: null }),
+    fact('青岛', 2, 30, { country: 'CN', region: 'CN-SD' }),
+    fact(null, 1, null, { country: 'US', region: null }),
+    fact(null, 1, null, { country: 'CN', region: 'CN-SD' }),
   ];
   const original = JSON.stringify(rows);
   for (const [query, expected] of [
-    ['United States', 'United States · Unknown city'],
-    ['Shandong', 'Shandong · Unknown city'],
+    ['United States', 'Unlisted US Town'],
+    ['Shandong', 'Qingdao'],
   ] as const) {
     const selection = { search: query };
-    const english = geographyTableDisplay(rows, 6, false, selection, 'en-US');
-    const chinese = geographyTableDisplay(rows, 6, false, selection, 'zh-CN');
+    const english = geographyTableDisplay(rows, 8, false, selection, 'en-US');
+    const chinese = geographyTableDisplay(rows, 8, false, selection, 'zh-CN');
     expect(english.rows).toHaveLength(1);
     expect(english.rows[0].city).toBe(expected);
     expect(english.locations).toEqual(chinese.locations);
@@ -210,7 +216,13 @@ test('merges aliases with valid sample weighting and preserves counts', () => {
   expect(JSON.stringify(rows)).toBe(original);
   const table = geographyTable(rows, 10, true);
   expect(table[0]).toMatchObject({ city: '西安', share: 60, bounceRate: 50, conversionRate: 50 });
-  expect(table[1]).toMatchObject({ city: '陕西 · 城市未知', share: 40 });
+  expect(table).toHaveLength(1);
+  expect(geographyCoverage(rows, 10)).toMatchObject({
+    totalVisits: 10,
+    cityKnownVisits: 6,
+    cityUnknownVisits: 4,
+    cityCoverage: 60,
+  });
 });
 
 test('searches all explicit aliases after merging and sorts full results deterministically', () => {
@@ -231,4 +243,75 @@ test('searches all explicit aliases after merging and sorts full results determi
   expect(regionName('CN-SD')).toBe('山东');
   expect(regionName('CN-SN')).toBe('陕西');
   expect(regionName('CN-SX')).toBe('山西');
+});
+
+test('hides missing cities before ranking and keeps original non-catalogue names', () => {
+  const rows = [
+    fact(null, 1000, null),
+    fact(' ', 500, null),
+    ...Array.from({ length: 15 }, (_, i) => fact(`Town ${i}`, 20 - i, 10)),
+  ];
+  const table = geographyTable(rows, 1695, false);
+  expect(table).toHaveLength(15);
+  expect(table.slice(0, 12).map(r => r.city)).toEqual(
+    Array.from({ length: 12 }, (_, i) => `Town ${i}`),
+  );
+  expect(table[0].share).toBe(1.18);
+  expect(geographyTable(rows, 1695, false, { search: 'Town 14' })).toHaveLength(1);
+});
+
+test('coverage distinguishes no traffic, unidentified traffic and search misses', () => {
+  expect(geographyCoverage([], 0)).toMatchObject({ cityCoverage: null, cityDisplayState: 'empty' });
+  const missing = geographyCoverage(
+    [fact(null, 7, null), fact(null, 3, null, { region: null })],
+    10,
+  );
+  expect(missing).toMatchObject({
+    cityCoverage: 0,
+    chinaProvinceKnownVisits: 7,
+    chinaProvinceCoverage: 70,
+  });
+  expect(geographyEmptyText(missing, '上海')).toBe('已收到访问数据，城市信息尚未识别');
+  expect(geographyEmptyText(geographyCoverage([fact('Town', 1, null)], 1), '上海')).toBe(
+    '没有匹配的城市',
+  );
+  expect(geographyEmptyText()).toBe('城市覆盖情况暂不可用');
+});
+
+test('provider missing-city tokens and unrecognized mainland provinces stay unknown', () => {
+  const rows = [
+    fact('unknown', 3, null, { region: 'CN-XX' }),
+    fact('0', 2, null),
+    fact('Unknown Town', 5, null),
+  ];
+  expect(geographyTable(rows, 10, false).map(r => r.city)).toEqual(['Unknown Town']);
+  expect(geographyCoverage(rows, 10)).toMatchObject({
+    cityKnownVisits: 5,
+    cityUnknownVisits: 5,
+    chinaProvinceKnownVisits: 7,
+    chinaProvinceUnknownVisits: 3,
+  });
+});
+
+test('English coverage labels retain full-population counts and distinguish missing states', () => {
+  const rows = [fact('西安', 6, 10), fact(null, 4, null)];
+  const original = JSON.stringify(rows);
+  const coverage = geographyCoverage(rows, 10);
+  expect(translateSystemText(geographyCoverageText(coverage), 'en-US')).toBe(
+    'Only visits with a known city are listed. Shares use all eligible visits. City coverage: 60% · 4 visits have no identified city',
+  );
+  expect(translateSystemText(geographyEmptyText(coverage, 'missing'), 'en-US')).toBe(
+    'No matching cities',
+  );
+  expect(
+    translateSystemText(geographyEmptyText(geographyCoverage([fact(null, 10, null)], 10)), 'en-US'),
+  ).toBe('Visits received; city information has not been identified');
+  expect(translateSystemText(geographyEmptyText(geographyCoverage([], 0)), 'en-US')).toBe(
+    'No visits in this period',
+  );
+  expect(translateSystemText(geographyEmptyText(), 'en-US')).toBe('City coverage is unavailable');
+  expect(geographyTableDisplay(rows, 10, false, {}, 'en-US').rows).toEqual([
+    expect.objectContaining({ city: "Xi'an", sessions: 6, share: 60 }),
+  ]);
+  expect(JSON.stringify(rows)).toBe(original);
 });

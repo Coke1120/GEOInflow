@@ -124,7 +124,7 @@ describe('report evidence states', () => {
     };
     expect(liekanReportSchema.safeParse(invalid).success).toBe(false);
   });
-  it('retains a missing province as unknown display metadata without synthesizing a region code', async () => {
+  it('excludes missing provinces from rankings and retains observed city metadata', async () => {
     const human = await mocks.human();
     human.totals.visits = 1;
     human.geo = [
@@ -140,12 +140,16 @@ describe('report evidence states', () => {
     ];
     mocks.human.mockResolvedValue(human);
     const report = await buildReport(website, false, { ...params, resource: 'human/geo' }, true);
-    expect(report.charts.g1.labels).toEqual(['未知']);
-    expect(report.charts.g1.series[0].values).toEqual([1]);
-    expect(report.meta.geography.charts.g1).toEqual([
-      { country: 'CN', region: null, city: null, cityId: null },
-    ]);
-    const location = report.meta.geography.charts.g1[0];
+    expect(report.charts.g1.labels).toEqual([]);
+    expect(report.charts.g1.series[0].values).toEqual([]);
+    expect(report.meta.geography.charts.g1).toEqual([]);
+    expect(report.meta.geographyCoverage).toMatchObject({
+      totalVisits: 1,
+      chinaProvinceKnownVisits: 0,
+      chinaProvinceUnknownVisits: 1,
+    });
+    const location = report.meta.geography.tables.cityBody[0];
+    expect(location).toEqual({ country: 'CN', region: null, city: 'Unlisted Town', cityId: null });
     expect(regionName(location.region, location.country, 'en-US')).toBe('Unknown');
   });
   it('merges historical geography before ranking, search and server pagination', async () => {
@@ -172,7 +176,7 @@ describe('report evidence states', () => {
     expect(report.cards.find(row => row.label === 'TOP1 城市').value).toBe('西安');
     expect(report.charts.g1.labels).toEqual(['陕西']);
     expect(report.charts.g1.series[0].values).toEqual([39]);
-    expect(report.meta.tablePages.cityBody).toMatchObject({ total: 27, page: 1 });
+    expect(report.meta.tablePages.cityBody).toMatchObject({ total: 26, page: 1 });
     expect(report.tables.cityBody).toHaveLength(20);
     expect(report.meta.geography.charts.g1).toEqual([
       { country: 'CN', region: 'CN-61', city: null, cityId: null },
@@ -214,8 +218,8 @@ describe('report evidence states', () => {
       { ...params, resource: 'human/geo', tp_cityBody: 2 },
       true,
     );
-    expect(last.tables.cityBody).toHaveLength(7);
-    expect(last.meta.geography.tables.cityBody).toHaveLength(7);
+    expect(last.tables.cityBody).toHaveLength(6);
+    expect(last.meta.geography.tables.cityBody).toHaveLength(6);
     last.tables.cityBody.forEach((row, index) =>
       expect(geographyLabel(last.meta.geography.tables.cityBody[index])).toBe(row.city),
     );

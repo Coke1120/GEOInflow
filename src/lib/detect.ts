@@ -1,16 +1,31 @@
+import { geographyBundle, enrichChina, type GeographyBundle } from './liekan/geography/bundle';
+import {
+  GEOGRAPHY_RULE_VERSION,
+  consistentFill,
+  geographyPrecision,
+  providerText,
+  type GeographyEvidence,
+} from './liekan/geography/evidence';
+import { identifyCity, isCountryCode } from './liekan/contracts/geography';
 import { geographyRegion } from './liekan/contracts/geography';
 import path from 'node:path';
 import { browserName, detectOS } from 'detect-browser';
-import ipaddr from 'ipaddr.js';
-import isLocalhost from 'is-localhost-ip';
 import maxmind from 'maxmind';
 import { normalizeCountryCode, normalizeRegionCode } from '@/lib/country';
-import { getIpAddress, stripPort } from '@/lib/ip';
+import { normalizeIp, resolveClientIp, hasIgnoredIp, isGeolocatable } from '@/lib/ip';
 import { safeDecodeURIComponent } from '@/lib/url';
 
 const MAXMIND = 'maxmind';
 let locationRetryAt = 0;
-let locationDatabaseLoading: Promise<void> | undefined;
+let locationDatabaseLoading: Promise<any> | undefined;
+type LocationTrace = {
+  usedHeader?: boolean;
+  usedDatabase?: boolean;
+  reason?: string;
+  databaseVersion?: string;
+  countryBasis?: GeographyEvidence['countryBasis'];
+  accuracyRadius?: number;
+};
 
 function unavailableLocation() {
   delete globalThis[MAXMIND];
@@ -109,7 +124,10 @@ export function getDevice(userAgent: string | null | undefined, screen: string =
 }
 
 function getRegionCode(country: string | null | undefined, region: string | null | undefined) {
-  return normalizeRegionCode(region, country);
+  const clean = providerText(region);
+  if (clean && !/^[A-Z0-9-]{1,20}$/i.test(clean)) return undefined;
+  const normalized = normalizeRegionCode(clean, country);
+  return normalized?.length > 20 ? undefined : normalized;
 }
 
 function decodeHeader(s: string | undefined | null): string | undefined | null {
@@ -120,19 +138,17 @@ function decodeHeader(s: string | undefined | null): string | undefined | null {
   return Buffer.from(s, 'latin1').toString('utf-8');
 }
 
-async function isLocalIp(ip: string) {
-  try {
-    return await isLocalhost(ip);
-  } catch {
-    return false;
-  }
-}
-
-export async function getLocation(ip: string = '', headers: Headers, skipHeaders: boolean) {
-  const cleanIp = stripPort(ip);
+export async function getLocation(
+  ip: string = '',
+  headers: Headers,
+  skipHeaders: boolean,
+  bundle?: GeographyBundle | null,
+  trace?: LocationTrace,
+) {
+  const cleanIp = normalizeIp(ip);
 
   // Ignore local or invalid ips
-  if (!cleanIp || !ipaddr.isValid(cleanIp) || (await isLocalIp(cleanIp))) {
+  if (!cleanIp || !isGeolocatable(cleanIp)) {
     return null;
   }
 
@@ -141,29 +157,37 @@ export async function getLocation(ip: string = '', headers: Headers, skipHeaders
       const countryHeader = headers.get(provider.countryHeader);
       if (countryHeader) {
         const sourceCountry = decodeHeader(countryHeader);
-        const country = normalizeCountryCode(sourceCountry);
+        const normalizedCountry = normalizeCountryCode(sourceCountry);
+        const country = isCountryCode(normalizedCountry) ? normalizedCountry : undefined;
+        if (!country) continue;
+        if (trace) trace.usedHeader = true;
         const region = decodeHeader(headers.get(provider.regionHeader));
-        const city = decodeHeader(headers.get(provider.cityHeader));
+        const city = providerText(decodeHeader(headers.get(provider.cityHeader)));
 
         const header = { country, region: getRegionCode(sourceCountry, region), city };
         if (header.region && header.city) return header;
-        const database = await getLocation(cleanIp, headers, true);
-        if (
-          !database ||
-          database.country !== header.country ||
-          (header.region &&
-            geographyRegion(header.region, header.country) !==
-              geographyRegion(database.region, database.country))
-        )
+        const database = await getLocation(cleanIp, headers, true, bundle, trace);
+        if (!database) {
+          if (trace) trace.reason = 'database_unavailable';
           return header;
-        // A city-bearing header without a province supplies no evidence that the two cities agree.
-        if (
-          header.city &&
-          (!database.city ||
-            header.city.normalize('NFC').trim().toLowerCase() !==
-              database.city.normalize('NFC').trim().toLowerCase())
-        )
+        }
+        if (database.country !== header.country) {
+          if (trace) trace.reason = 'country_conflict';
           return header;
+        }
+        if (
+          header.region &&
+          geographyRegion(header.region, header.country) !==
+            geographyRegion(database.region, database.country)
+        ) {
+          if (trace) trace.reason = 'province_conflict';
+          return header;
+        }
+        if (header.city && consistentFill(header, database).reason === 'city_context_conflict') {
+          if (trace) trace.reason = 'city_context_conflict';
+          return header;
+        }
+        if (trace) trace.usedDatabase = true;
         return {
           country: header.country,
           region: header.region || database.region,
@@ -173,52 +197,167 @@ export async function getLocation(ip: string = '', headers: Headers, skipHeaders
     }
   }
 
-  // Database lookup
-  if (!globalThis[MAXMIND]) {
-    if (Date.now() < locationRetryAt) return null;
-    const dir = path.join(process.cwd(), 'geo');
-    locationDatabaseLoading ??= maxmind
-      .open(process.env.GEOLITE_DB_PATH || path.resolve(dir, 'GeoLite2-City.mmdb'))
-      .then(reader => {
-        globalThis[MAXMIND] = reader;
-      })
-      .catch(() => {
-        // Missing geography must not prevent collecting an otherwise valid event.
-        unavailableLocation();
-      })
-      .finally(() => {
-        locationDatabaseLoading = undefined;
-      });
-    await locationDatabaseLoading;
-    if (!globalThis[MAXMIND]) return null;
+  // A lookup pins the complete managed generation. A valid user MMDB takes precedence.
+  if (bundle === undefined) bundle = await geographyBundle();
+  if (bundle && !process.env.GEOLITE_DB_PATH) {
+    delete globalThis[MAXMIND];
+    try {
+      return readLocation(bundle.mmdb, cleanIp, trace);
+    } catch {
+      return null;
+    }
   }
 
+  const reader = await fallbackLocationReader();
+  if (!reader) return null;
+
   try {
-    const result = globalThis[MAXMIND]?.get(cleanIp);
-    if (result) {
-      const sourceCountry = result.country?.iso_code ?? result?.registered_country?.iso_code;
-      const region = result.subdivisions?.[0]?.iso_code;
-      const city = result.city?.names?.en;
-      if ([sourceCountry, region, city].some(value => value != null && typeof value !== 'string')) {
-        throw new Error('invalid-geography-fields');
-      }
-      return {
-        country: normalizeCountryCode(sourceCountry),
-        region: getRegionCode(sourceCountry, region),
-        city,
-      };
-    }
+    return readLocation(reader, cleanIp, trace);
   } catch {
     // A readable database can still contain a corrupt tree or invalid field types.
     unavailableLocation();
+    if (trace) trace.reason = 'database_corrupt';
     return null;
   }
 }
 
-export async function getClientInfo(request: Request, payload: Record<string, any>) {
+async function fallbackLocationReader() {
+  if (globalThis[MAXMIND]) return globalThis[MAXMIND];
+  if (Date.now() < locationRetryAt) return null;
+  locationDatabaseLoading ??= maxmind
+    .open(process.env.GEOLITE_DB_PATH || path.resolve('geo/GeoLite2-City.mmdb'))
+    .then(reader => {
+      if (reader.metadata && !/city/i.test(reader.metadata.databaseType))
+        throw new Error('city-database-required');
+      globalThis[MAXMIND] = reader;
+      return reader;
+    })
+    .catch(() => {
+      unavailableLocation();
+      return null;
+    })
+    .finally(() => {
+      locationDatabaseLoading = undefined;
+    });
+  return locationDatabaseLoading;
+}
+
+function readLocation(reader: any, ip: string, trace?: LocationTrace) {
+  const result = reader.get(ip);
+  if (trace) {
+    trace.databaseVersion = reader.metadata
+      ? `${reader.metadata.databaseType}:${reader.metadata.buildEpoch}`
+      : undefined;
+    trace.countryBasis = result?.country?.iso_code
+      ? 'located'
+      : result?.registered_country?.iso_code
+        ? 'registered'
+        : 'missing';
+    const radius = result?.location?.accuracy_radius;
+    trace.accuracyRadius = Number.isInteger(radius) && radius >= 0 ? radius : undefined;
+    if (!result) trace.reason = 'database_no_match';
+  }
+  return databaseLocation(result);
+}
+
+function databaseLocation(result: any) {
+  if (!result) return null;
+  const sourceCountry = result.country?.iso_code ?? result.registered_country?.iso_code;
+  const region = result.subdivisions?.[0]?.iso_code;
+  const city = result.city?.names?.en ?? result.city?.names?.['zh-CN'];
+  if (
+    [sourceCountry, region, city].some(v => v != null && typeof v !== 'string') ||
+    (sourceCountry && !/^[A-Z]{2}$/.test(normalizeCountryCode(sourceCountry) || ''))
+  )
+    throw new Error('invalid-geography-fields');
+  return {
+    country: normalizeCountryCode(sourceCountry),
+    region: getRegionCode(sourceCountry, region),
+    city: providerText(city) ?? undefined,
+  };
+}
+
+export async function getGeographyEvidence(
+  ipEvidence: ReturnType<typeof resolveClientIp>,
+  headers = new Headers(),
+  skipHeaders = true,
+): Promise<GeographyEvidence> {
+  const ip = ipEvidence.ip;
+  const bundle = await geographyBundle();
+  if (bundle && !process.env.GEOLITE_DB_PATH) delete globalThis[MAXMIND];
+  const trace: LocationTrace = {};
+  const baseline = await getLocation(ip, headers, skipHeaders, bundle, trace);
+  const filled =
+    ip && isGeolocatable(ip) && !trace.reason?.includes('conflict')
+      ? await enrichChina(baseline, ip, bundle)
+      : {
+          location: baseline || {},
+          reason: trace.reason || (ip ? 'special_address' : 'missing_ip'),
+          shadow: null,
+          source: 'missing',
+        };
+  const location = filled.location;
+  const usedHeader = !!trace.usedHeader;
+  const countryBasis: GeographyEvidence['countryBasis'] = usedHeader
+    ? 'header'
+    : trace.countryBasis || 'missing';
+  const radius = trace.accuracyRadius ?? null;
+  return {
+    location,
+    source: usedHeader
+      ? trace.usedDatabase
+        ? 'ingress_header+mmdb'
+        : 'ingress_header'
+      : ['mmdb+ip2region', 'ip2region'].includes(filled.source)
+        ? filled.source
+        : location.country || location.city
+          ? 'mmdb'
+          : 'missing',
+    trust: ipEvidence.source,
+    ipFamily: ip ? (ip.includes(':') ? 'ipv6' : 'ipv4') : 'missing',
+    precision: geographyPrecision(location),
+    reason:
+      (filled.reason === 'compatible_fill' ? filled.reason : trace.reason) ||
+      (filled.reason === 'baseline_preserved'
+        ? location.city
+          ? 'city_present'
+          : location.region
+            ? 'city_missing'
+            : location.country
+              ? 'province_city_missing'
+              : 'database_unavailable'
+        : filled.reason),
+    ruleVersion: GEOGRAPHY_RULE_VERSION,
+    dataVersion:
+      usedHeader && !trace.usedDatabase && !filled.shadow
+        ? null
+        : process.env.GEOLITE_DB_PATH
+          ? trace.databaseVersion
+            ? `${trace.databaseVersion}${bundle ? `:shadow-${bundle.manifest.version}` : ''}`
+            : null
+          : bundle?.manifest.version || trace.databaseVersion || null,
+    cityId: identifyCity(location).cityId == null ? null : String(identifyCity(location).cityId),
+    accuracyRadius: radius,
+    countryBasis,
+    processedAt: new Date().toISOString(),
+    shadow: filled.shadow,
+  };
+}
+
+export async function getClientInfo(
+  request: Request,
+  payload: Record<string, any>,
+  authenticated = false,
+) {
   const userAgent = payload?.userAgent || request.headers.get('user-agent');
-  const ip = payload?.ip || getIpAddress(request.headers);
-  const location = await getLocation(ip, request.headers, !!payload?.ip);
+  const ipEvidence = resolveClientIp(request.headers, payload?.ip, authenticated);
+  const ip = ipEvidence.ip;
+  const geographyEvidence = await getGeographyEvidence(
+    ipEvidence,
+    request.headers,
+    !!payload?.ip && ipEvidence.source !== 'trusted_ingress',
+  );
+  const location = geographyEvidence.location;
   const country = normalizeCountryCode(safeDecodeURIComponent(location?.country));
   const region = normalizeRegionCode(safeDecodeURIComponent(location?.region), country);
   const city = safeDecodeURIComponent(location?.city);
@@ -226,37 +365,38 @@ export async function getClientInfo(request: Request, payload: Record<string, an
   const os = payload?.os ?? (detectOS(userAgent) as string);
   const device = payload?.device ?? getDevice(userAgent, payload?.screen);
 
-  return { userAgent, browser, os, ip, country, region, city, device };
+  return {
+    userAgent,
+    browser,
+    os,
+    ip,
+    country,
+    region,
+    city,
+    device,
+    ipEvidence,
+    geographyEvidence,
+  };
 }
 
-export function hasBlockedIp(clientIp: string) {
-  const ignoreIps = process.env.IGNORE_IP;
+export const hasBlockedIp = hasIgnoredIp;
 
-  if (!clientIp || !ignoreIps) {
-    return false;
-  }
-
-  const ips = ignoreIps.split(',').map(n => n.trim());
-
-  return ips.some(ip => {
-    if (ip === clientIp) {
-      return true;
-    }
-
-    // CIDR notation
-    if (ip.indexOf('/') > 0) {
-      try {
-        const addr = ipaddr.parse(clientIp);
-        const range = ipaddr.parseCIDR(ip);
-
-        if (addr.kind() === range[0].kind() && addr.match(range)) {
-          return true;
-        }
-      } catch {
-        // Ignore parsing errors
-      }
-    }
-
-    return false;
-  });
+export async function geographyAttribution() {
+  const bundle = await geographyBundle();
+  if (bundle && !process.env.GEOLITE_DB_PATH) delete globalThis[MAXMIND];
+  let type =
+    bundle && !process.env.GEOLITE_DB_PATH
+      ? bundle.mmdb.metadata.databaseType
+      : globalThis[MAXMIND]?.metadata?.databaseType;
+  if (!type) type = (await fallbackLocationReader())?.metadata?.databaseType;
+  const links = [];
+  if (/dbip|db-ip/i.test(type || ''))
+    links.push({ label: 'IP Geolocation by DB-IP', href: 'https://db-ip.com' });
+  else if (/geolite|geoip/i.test(type || ''))
+    links.push({ label: 'IP Geolocation by MaxMind', href: 'https://www.maxmind.com' });
+  else if (type)
+    links.push({ label: '已授权 IP 地理库', href: '/liekan/help?article=project-about' });
+  if (bundle?.readers.length)
+    links.push({ label: 'IP 查询：ip2region', href: 'https://github.com/lionsoul2014/ip2region' });
+  return { links };
 }

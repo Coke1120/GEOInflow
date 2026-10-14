@@ -1,6 +1,7 @@
 'use client';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
+import { geographyCoverageText, geographyEmptyText } from '@/lib/liekan/contracts/geography';
 import { useFreshQuery } from './context';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
@@ -299,9 +300,10 @@ export function SharedWebsiteOverview({
           <section className={styles.panel} data-liekan-report-panel>
             <div className={styles.panelHead}>
               <h2>{i18n.text('城市明细 TOP12')}</h2>
-              <p>{i18n.text('本地 GeoIP · 地理信息取决于识别库覆盖 · 时长按浏览间隔估算')}</p>
+              <p>{i18n.system(geographyCoverageText(report?.meta.geographyCoverage))}</p>
             </div>
             <Table
+              empty={geographyEmptyText(report?.meta.geographyCoverage)}
               columns={['城市', '会话', '占比', '平均时长', '跳出率', ...(goals ? ['转化率'] : [])]}
               numeric={[1, 2, 3, 4, 5]}
               rows={(report?.tables.cityBody || []).map((row, index) =>

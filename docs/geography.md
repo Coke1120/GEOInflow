@@ -46,13 +46,13 @@ GeoNames 的中国 `admin1` 编码采用 FIPS 编码，字典生成时通过审�
 
 地域请求头齐全时直接使用。国家、省份或城市信息不完整时，尝试本地 City MMDB；国家必须一致，已有省份也必须一致。对仅缺省份但城市已经存在的情况，还需要城市信息一致。冲突、缺库或损坏时保留已有字段，事件采集正常继续。保留显式 IP、跳过请求头和 `SKIP_LOCATION_HEADERS` 的既有行为。
 
-补齐主要作用于新建会话。PostgreSQL 会话的地域在创建时写入，既有会话再次访问也不会重写历史地域；数据库没有保存可重新定位的访客原始 IP。已有英文城市可立即按目录显示中文，历史缺失城市继续保留缺失。升级不迁移或回填地域记录。
+上游 PostgreSQL 会话的地域在创建时写入，既有会话再次访问保留原 session 地域。新增 Liekan 事件证据允许新访问使用当次识别结果，按下文的访问锚点规则查询。数据库没有保存可重新定位的访客原始 IP。已有英文城市可立即按目录显示中文，历史缺失城市继续保留缺失，升级不回填历史定位结果。
 
 ## 地域导出与缓存
 
 地域页的导出按钮通过现有受权限保护的导出接口提交 `kind: geography`，在同一 PostgreSQL repeatable-read 快照内计算全量城市结果。日期、时区、搜索和排序与地域表相同，CSV 保留城市、会话、占比、平均时长、跳出率、转化率六列。原始地域组读取与最终文件分别限制在 100,000 组 / 行及 50 MiB；超过限制明确报错，支持取消、公式防护和敏感内容脱敏。ClickHouse 的完整地域导出沿用当前能力边界并返回明确的不支持状态。公共分享身份和未完成登录身份不获得私有导出权限。
 
-页面报告、分享报告和受影响的统计缓存包含地名字典与规则版本；升级后重算。回滚恢复上一应用版本，不改数据库结构、原始地域字段、账号或地理数据库文件。
+页面报告、分享报告和受影响的统计缓存包含地名字典与规则版本；升级后重算。应用回滚恢复上一版本，自有增量迁移表保留，原始地域字段、账号和用户提供的地理数据库文件保持不变。
 
 真实数据库补充回归：在名称以 `liekan_verify` 或 `liekan_regression` 开头的独立数据库中，运行 `pnpm exec tsx scripts/liekan-geography-regression.ts`；它只执行只读事务与合成地域数据，验证地域条件和候选查询。`scripts/liekan-data-regression.mjs` 同时验证原始地域组读取的行数与字节上限。
 
@@ -68,3 +68,37 @@ ClickHouse 补充回归运行 `pnpm exec tsx scripts/liekan-geography-clickhouse
 ## Display language
 
 Geographic labels accept an optional `zh-CN` or `en-US` display locale. Country and region codes and catalog city IDs determine the label. English city names use the catalog's existing English aliases. Unknown names retain the supplied text. Identity keys, aliases, merges, sorting, filters, counts and rates stay independent of display language. Optional report metadata carries the geographic identities for retained cards, charts and paginated rows. Geography CSV captures the requested locale; omitted locale retains the existing Chinese output.
+
+## 城市榜单和覆盖率（city-known-1）
+
+城市明细、分享 TOP12 和城市 CSV 仅包含城市字段非空的访问。库内没有中文翻译的真实城市继续显示原名称。先合并明确别名，再剔除城市缺失组，然后执行搜索、排序、分页和 TOP 限额。省份榜单剔除省份缺失组；已知省份、城市缺失的访问仍参与省份统计。
+
+城市占比的分母是所选期间全部有效访问。PV、UV、访问总量、整体跳出和转化维持现有流量质量口径。`meta.geographyCoverage` 提供全量覆盖数据，搜索和分页保持覆盖率不变。城市覆盖率为已知城市访问数除以全部有效访问数；无访问时为 null，全部城市未识别时为 0。中国省份覆盖率使用已归类为 CN 的访问，包含既有项目地区归一化规则，国家级结果无法证明大陆城市。CSV 保留六列，在导出清单中提供覆盖率、显示规则版本和全量分母。
+
+## IP 入口和排除规则
+
+`CLIENT_IP_HEADER` 指定受信代理覆盖写入的单一入口；开启前核验代理清理客户端同名字段。`CLOUD_MODE` 的专用入口保留原兼容行为。有效受信入口优先于公开 payload IP。授权服务器采集器可使用验证后的 payload IP。未配置入口时，现有标准头和 payload 兼容路径继续工作，并记录未验证来源。公开 payload 不建立官方爬虫 IP 证明。
+
+统一解析普通 IPv4、IPv6、带端口的括号 IPv6、Forwarded、X-Forwarded-For 的首个客户端地址。首项无效时不取后面的代理地址；继续寻找其他有效头。IPv4 映射 IPv6 转成 IPv4；原生 IPv6 和 NAT64 保留地址族。`IGNORE_IP` 支持归一化后的单地址和 CIDR，配置变化后重新编译。IPv4 映射 CIDR 仅在 /96 到 /128 内转换成对应 IPv4 前缀；更宽前缀按 IPv6 网络解释。运行中无效规则更新保留上一组有效规则，初次配置使用其中有效条目。该规则主动拒绝采集，地理信息缺失保持采集可用。
+
+## 管理地理库和大陆补齐
+
+镜像内默认 DB-IP City Lite 继续作为全局离线库。有效用户 `GEOLITE_DB_PATH` 文件优先，用户文件只读。Compose 为管理库增加独立持久卷：应用只读，现有日志 worker 写入，其他副本通过文件锁排队。每日检查供应商数据；所有下载先在新目录验证大小、SHA-256、City MMDB 类型、XDB 格式和地址族、来源字段及公开能力样本，再原子替换整个版本指针。读者固定一次查询的完整版本，装载成功后交换内存引用。损坏更新继续使用权限有效的上一版本；过期授权停止使用该版本。缺少库仍可采集。异常日志不输出 URL、密钥或地址。
+
+`ip2region.js` 固定 3.1.8，使用官方 JavaScript IPv4/IPv6 缓冲查询，无在线逐 IP 请求。发行包只包括查询代码。XDB 数据需要独立许可清单，默认不会下载或分发。设置 `LIEKAN_GEO_XDB_MANIFEST` 指向容器内只读私有 JSON 清单，分别声明 ipv4 和 ipv6：`path`、`sha256`、`authorized:true`、`license`、`source`、`expiresAt` 和可选 `buildTime`。两个文件同时通过验证才发布。清单内不放访问者地址。
+
+默认 `LIEKAN_GEO_CHINA_MODE=shadow`。国家和省份必须一致，市名上下文明确才补字段；完整原结果保持原值。提供方 `0`、unknown、空白等缺失标记在适配层转成缺失值。省全名和城市行政后缀只使用审核过的精确映射。国家或省份冲突保留原结果并记原因。大陆补齐只接收明确 CN 的大陆记录，全球其他结果继续使用 MMDB。
+
+正式补齐要求 `active` 和清单 activation 审核共同满足：300 条独立标注真实样本，IPv4、IPv6 各 100 条，20 个省份，3 家运营商及移动和宽带，60 条新补城市，省份准确率 95%、城市 90%、缺失减少 30%、既有完整样本全部保留、7 天试运行、有效 evidenceId，并绑定此次 MMDB 和双栈 XDB 的 SHA-256。样本或数据权限未完成时保留影子模式。公开 DNS 地址仅用于查询能力测试。用户通过 GEOLITE_DB_PATH 指定的库保持优先；其大陆补齐保留影子模式。正式补齐使用审核清单所绑定的管理库版本，库变化后重新审核。
+
+自定义自动下载源通过 `GEO_DATABASE_URL` 和 `LIEKAN_GEO_SOURCE_MANIFEST` 声明独立数据授权；MaxMind 自动下载需要有效账号和许可密钥。私有源清单和用户库需以只读挂载进入容器，示例见 `docs/local-deployment.md`。管理锁在异常终止后可能保留，先确认没有更新进程，再移除该锁目录；其余文件保持不动。保留的上一代数据供回退使用。
+
+## 事件证据、历史和诊断
+
+增量迁移 019 新增独立地域证据表，020 保留缺少历史 session 元数据的有效事件计数，上游 session 和 website_event 结构保持不变。事件、地域、流量质量、属性、收入和 UUID 回执在同一事务提交。证据保留国家、省份、城市的完整元组、来源、可信性、地址族、精度、缺失或冲突原因、库和规则版本、城市标识、实际库提供的精度半径、处理时间及影子汇总，禁止保存原始 IP 或完整 UA。
+
+每次访问使用 `(website_id,session_id,visit_id)` 全历史中按事件时间、事件 ID 最早的当前质量策略内 PV 作地域锚点；锚点有证据时使用其完整元组，无证据时使用原 session 元组。日期窗口只决定候选访问和统计事件，锚点不随窗口移动。升级前开始的同一访问保留原锚点；同一旧匿名会话的新访问可以使用新地域。晚到的更早事件重新决定锚点并更新统计修订。回补事件的定位以接收时的库为依据，处理时间独立于事件时间。索引按网站、会话和访问限制锚点查找。
+
+新日志在已验证原始地址仍在内存时查询地域，持久化任务仅带派生证据。原始导入摘要、事件指纹和批次标识先按原算法计算，后续数据库变化不会导致重复导入。输入声明地域与库查询分别记录。历史哈希和掩码无法定位，重放原始源文件需要独立授权。
+
+`GET /api/liekan/websites/{websiteId}/geography/diagnostics` 要求完整账户和站点查看权限，拒绝分享身份和未完成双重验证。返回全量城市及省份覆盖、事件精度、缺失/冲突原因、来源和信任分布、影子结果、版本和有效配置状态，不返回原始 IP、UA、路径、密钥或源文件位置。入口拒绝和无效 IP 仅记录分钟计数，保存 90 天。ClickHouse 明确返回证据诊断未支持，原有地域查询维持兼容。

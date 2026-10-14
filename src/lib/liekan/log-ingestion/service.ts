@@ -1,3 +1,4 @@
+import { normalizeAutomaticWithGeography, persistLogGeography } from '../upstream/log-geography';
 import { randomUUID, createHmac } from 'node:crypto';
 import { z } from 'zod';
 import { logPublicOrigin } from '../contracts/installation';
@@ -181,7 +182,7 @@ export async function receiveBatch(request: Request, sourceId: string) {
   const secret = process.env.APP_SECRET;
   if (!secret) throw new LiekanError('日志隐私服务未配置', 503);
   const settings = await getSettings(principal.source.website_id);
-  const parsed = normalizeAutomatic(
+  const parsed = await normalizeAutomaticWithGeography(
     principal.source.kind,
     sourceId,
     upload.events,
@@ -328,6 +329,7 @@ export async function processBatch(batchId: string) {
         first.source_id,
         JSON.stringify(valid),
       );
+    await persistLogGeography(tx, first.website_id, valid);
     await persistCrawlerEvidence(tx, first.website_id, batchId, valid);
     await tx.$executeRawUnsafe(
       'UPDATE liekan_import SET accepted=(SELECT count(*)::int FROM liekan_effective_log WHERE import_id=$1::uuid),inserted=$2 WHERE id=$1::uuid',

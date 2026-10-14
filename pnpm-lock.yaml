@@ -216,6 +216,9 @@ importers:
       immer:
         specifier: ^11.1.18
         version: 11.1.18
+      ip2region.js:
+        specifier: 3.1.8
+        version: 3.1.8
       ipaddr.js:
         specifier: ^2.5.0
         version: 2.5.0
@@ -4014,6 +4017,9 @@ packages:
 
   intl-messageformat@11.2.12:
     resolution: {integrity: sha512-KW70Xxfcvy7vV3qODfvShWkFDPMqKDAa4N+hSyVBWGNtVhTUFYaqlD/l88DaYPKiVcPP4rPQ3qnH7i5K82Mg7g==}
+
+  ip2region.js@3.1.8:
+    resolution: {integrity: sha512-USvUDme5Gyh0qs21Xpjb7QAXN5eRFDe5ZNtPVk3Ns2wYOc5eLIC57zPXZYBbN9kvA2yK0dBpJImArf1ekobSNA==}
 
   ipaddr.js@2.5.0:
     resolution: {integrity: sha512-aq+t5NAc+cS6rZQQVWC2x98CPqGtKKTMDd4Gaodv0wShnItdKg/51djkGJ1hqH+Oy0ivDftCbSLCQob8zso01w==}
@@ -9392,6 +9398,8 @@ snapshots:
     dependencies:
       '@formatjs/fast-memoize': 3.1.7
       '@formatjs/icu-messageformat-parser': 3.5.15
+
+  ip2region.js@3.1.8: {}
 
   ipaddr.js@2.5.0: {}
 

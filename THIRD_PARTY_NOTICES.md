@@ -17,3 +17,10 @@ Liekan application source is distributed under the MIT license. The complete app
 
 The direct ua-parser-js dependency has been removed. Next.js may bundle a separate ua-parser-js 1.x implementation with its own MIT notice. The application MIT license does not change the licenses of Next.js, ECharts, fonts, geography data or other dependencies. A clean open-source release must retain their notices and exclude private configuration, database backups and non-distributable data.
 实际安装依赖清单随镜像提供在 public/liekan/licenses/dependencies.json，各依赖的 LICENSE/COPYING 文件随 node_modules 保留。清单在镜像内按 Linux 依赖重新生成。Next.js 图片处理使用的 libvips 共享库采用 LGPL-3.0-or-later，其源码与许可链接由 @img/sharp-libvips 包提供；共享库位于独立 node_modules 路径。JSZip 采用可选择的 MIT 许可。
+
+
+## ip2region.js 3.1.8
+
+Copyright 2022 The Ip2Region Authors. The binding is used unchanged for offline IPv4 and IPv6 lookup. The upstream software license is Apache-2.0 OR MIT; this distribution retains the full upstream license in public/liekan/licenses/ip2region-LICENSE.md. The npm 3.1.8 package metadata declares ISC, while its source headers declare Apache-2.0. The upstream license and original copyright notices are retained. Database permissions are verified separately. No XDB database is included in this distribution.
+
+Upstream: https://github.com/lionsoul2014/ip2region/blob/master/LICENSE.md

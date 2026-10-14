@@ -43,7 +43,7 @@ async function relationalQuery(websiteId: string, filters: QueryFilters, session
 
   const searchQuery = search
     ? `and (session.distinct_id ilike {{search}}
-           or session.city ilike {{search}}
+           or (CASE WHEN geo.present THEN geo.city ELSE session.city END) ilike {{search}}
            or session.browser ilike {{search}}
            or session.os ilike {{search}}
            or session.device ilike {{search}})`
@@ -62,8 +62,8 @@ async function relationalQuery(websiteId: string, filters: QueryFilters, session
       session.browser,
       session.os,
       session.device,
-      ${getPostgresCountrySQL('session.country')} as country,
-      session.city,
+      ${getPostgresCountrySQL('CASE WHEN geo.present THEN geo.country ELSE session.country END')} as country,
+      CASE WHEN geo.present THEN geo.city ELSE session.city END as city,
       sum(sr.event_count) as "eventCount",
       count(sr.replay_id) as "chunkCount",
       min(sr.started_at) as "startedAt",
@@ -73,6 +73,12 @@ async function relationalQuery(websiteId: string, filters: QueryFilters, session
     from session_replay sr
     join session on session.session_id = sr.session_id
       and session.website_id = sr.website_id
+    LEFT JOIN LATERAL (
+      SELECT true AS present,g.liekan_country AS country,g.liekan_city AS city
+      FROM liekan_geographic_website_event g
+      WHERE g.website_id=sr.website_id AND g.session_id=sr.session_id AND g.visit_id=sr.visit_id
+      ORDER BY g.created_at,g.event_id LIMIT 1
+    ) geo ON true
     ${joinQuery}
     where sr.website_id = {{websiteId::uuid}}
       and sr.created_at between {{startDate}} and {{endDate}}
@@ -84,8 +90,7 @@ async function relationalQuery(websiteId: string, filters: QueryFilters, session
       session.browser,
       session.os,
       session.device,
-      session.country,
-      session.city
+      geo.present,geo.country,geo.city,session.country,session.city
     ${havingQuery}
     order by max(sr.created_at) desc
     `,

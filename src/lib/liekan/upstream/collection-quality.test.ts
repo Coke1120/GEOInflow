@@ -140,7 +140,7 @@ describe('collection quality evidence', () => {
   it.each([
     { headers: { 'cf-connecting-ip': '192.0.2.1' }, payload: {} },
     { headers: { 'x-forwarded-for': '192.0.2.2' }, payload: {} },
-    { headers: { 'x-forwarded-for': '192.0.2.1' }, payload: { ip: '192.0.2.1' } },
+    { headers: { 'cf-connecting-ip': '192.0.2.1' }, payload: { ip: '192.0.2.1' } },
   ])('never promotes fallback headers or payload IP to trusted ranges: %j', fixture => {
     vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
     const quality = classifyCollection(
@@ -291,4 +291,22 @@ describe('collection hostname normalization', () => {
       expect(classifyCollection(input({ payload: { url } })).hostname).toBeNull();
     },
   );
+});
+
+it('configured ingress supplies independent range evidence when a public override is present', () => {
+  vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
+  const request = new Request('https://collector.test', {
+    headers: { 'x-forwarded-for': '192.0.2.1' },
+  });
+  const quality = classifyCollection(
+    input({ request, payload: { ip: '8.8.8.8' }, ip: getIpAddress(request.headers) }),
+  );
+  expect(quality.classification).toBe('automated');
+  expect(quality.rangeStatus).toBe('fresh');
+  const fallback = new Request('https://collector.test', {
+    headers: { 'cf-connecting-ip': '192.0.2.1' },
+  });
+  expect(
+    classifyCollection(input({ request: fallback, payload: { ip: '192.0.2.1' } })).rangeStatus,
+  ).toBe('untrusted');
 });

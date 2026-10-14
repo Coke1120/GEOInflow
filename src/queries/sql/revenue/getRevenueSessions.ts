@@ -49,9 +49,9 @@ async function relationalQuery(websiteId: string, currency: string, filters: Que
       session.device,
       session.screen,
       session.language,
-      ${getPostgresCountrySQL('session.country')} as country,
-      ${getPostgresRegionSQL('session.country', 'session.region')} as region,
-      session.city,
+      ${getPostgresCountrySQL('(array_agg(session.country order by website_event.created_at desc,website_event.event_id desc))[1]')} as country,
+      ${getPostgresRegionSQL('(array_agg(session.country order by website_event.created_at desc,website_event.event_id desc))[1]', '(array_agg(session.region order by website_event.created_at desc,website_event.event_id desc))[1]')} as region,
+      (array_agg(session.city order by website_event.created_at desc,website_event.event_id desc))[1] as city,
       min(website_event.created_at) as "firstAt",
       max(website_event.created_at) as "lastAt",
       count(distinct website_event.visit_id) as "visits",
@@ -83,10 +83,7 @@ async function relationalQuery(websiteId: string, currency: string, filters: Que
       session.os,
       session.device,
       session.screen,
-      session.language,
-      session.country,
-      session.region,
-      session.city
+      session.language
     order by max(website_event.created_at) desc
     `,
     queryParams,
