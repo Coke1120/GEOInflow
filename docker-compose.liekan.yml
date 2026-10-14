@@ -16,6 +16,12 @@ services:
       DISABLE_TELEMETRY: '1'
       NEXT_TELEMETRY_DISABLED: '1'
       DEFAULT_LOCALE: zh-CN
+      CLIENT_IP_HEADER: ${CLIENT_IP_HEADER:-}
+      IGNORE_IP: ${IGNORE_IP:-}
+      GEOLITE_DB_PATH: ${GEOLITE_DB_PATH:-}
+      SKIP_LOCATION_HEADERS: ${SKIP_LOCATION_HEADERS:-}
+      LIEKAN_GEO_DIRECTORY: /app/managed-geo
+      LIEKAN_GEO_CHINA_MODE: ${LIEKAN_GEO_CHINA_MODE:-shadow}
       LIEKAN_ANALYTICS_REDIS_URL: ${LIEKAN_ANALYTICS_REDIS_URL:-redis://analytics-cache:6379}
       LIEKAN_AI_ENABLED: ${LIEKAN_AI_ENABLED:-false}
       LIEKAN_AI_ENCRYPTION_KEY: ${LIEKAN_AI_ENCRYPTION_KEY:-}
@@ -24,6 +30,8 @@ services:
       LIEKAN_LOG_PREVIOUS_KEYS: ${LIEKAN_LOG_PREVIOUS_KEYS:-}
       CLOUDFLARE_OAUTH_CLIENT_ID: ${CLOUDFLARE_OAUTH_CLIENT_ID:-}
       CLOUDFLARE_OAUTH_CLIENT_SECRET: ${CLOUDFLARE_OAUTH_CLIENT_SECRET:-}
+    volumes:
+      - liekan-geography:/app/managed-geo:ro
     depends_on:
       db:
         condition: service_healthy
@@ -45,6 +53,17 @@ services:
       CLOUDFLARE_OAUTH_CLIENT_ID: ${CLOUDFLARE_OAUTH_CLIENT_ID:-}
       CLOUDFLARE_OAUTH_CLIENT_SECRET: ${CLOUDFLARE_OAUTH_CLIENT_SECRET:-}
       DISABLE_TELEMETRY: '1'
+      GEOLITE_DB_PATH: ${GEOLITE_DB_PATH:-}
+      LIEKAN_GEO_DIRECTORY: /app/managed-geo
+      LIEKAN_GEO_UPDATER: '1'
+      LIEKAN_GEO_CHINA_MODE: ${LIEKAN_GEO_CHINA_MODE:-shadow}
+      LIEKAN_GEO_XDB_MANIFEST: ${LIEKAN_GEO_XDB_MANIFEST:-}
+      LIEKAN_GEO_SOURCE_MANIFEST: ${LIEKAN_GEO_SOURCE_MANIFEST:-}
+      GEO_DATABASE_URL: ${GEO_DATABASE_URL:-}
+      MAXMIND_ACCOUNT_ID: ${MAXMIND_ACCOUNT_ID:-}
+      MAXMIND_LICENSE_KEY: ${MAXMIND_LICENSE_KEY:-}
+    volumes:
+      - liekan-geography:/app/managed-geo
     depends_on:
       app:
         condition: service_healthy
@@ -102,6 +121,7 @@ services:
     restart: unless-stopped
 volumes:
   liekan-data:
+  liekan-geography:
 networks:
   default:
     ipam:

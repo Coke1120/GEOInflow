@@ -1,4 +1,5 @@
 'use client';
+import { geographyEmptyText } from '@/lib/liekan/contracts/geography';
 import { useEffect, useRef, useState } from 'react';
 import styles from '@/styles/liekan/Shell.module.css';
 import { chartOptions } from './chartOptions';
@@ -462,13 +463,8 @@ export function ReportRows({
   const selected =
     serverPage && table === 'cityBody'
       ? report?.tables[table] || []
-      : selectRows(
-          report?.tables[table] || [],
-          a.filter,
-          a.sort,
-          table,
-          a.query,
-          value => pageUrl(value, report?.website.domain),
+      : selectRows(report?.tables[table] || [], a.filter, a.sort, table, a.query, value =>
+          pageUrl(value, report?.website.domain),
         );
   const perPage = typeof pageSize === 'number' && pageSize > 0 ? pageSize : 0;
   const paged = perPage > 0 || !!serverPage;
@@ -583,9 +579,11 @@ export function ReportRows({
         ) : (
           <tr>
             <td colSpan={fields.length} className={styles.emptyRow}>
-              {a.query
-                ? '没有匹配的记录'
-                : stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state]}
+              {table === 'cityBody'
+                ? geographyEmptyText(meta?.geographyCoverage, a.query)
+                : a.query
+                  ? '没有匹配的记录'
+                  : stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state]}
             </td>
           </tr>
         )}

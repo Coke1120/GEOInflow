@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest';
 import {
   geographyLabel,
+  geographyCoverage, geographyEmptyText,
   geographyTable,
   identifyCity,
   mergeGeography,
@@ -123,7 +124,8 @@ test('merges aliases with valid sample weighting and preserves counts', () => {
   expect(JSON.stringify(rows)).toBe(original);
   const table = geographyTable(rows, 10, true);
   expect(table[0]).toMatchObject({ city: '西安', share: 60, bounceRate: 50, conversionRate: 50 });
-  expect(table[1]).toMatchObject({ city: '陕西 · 城市未知', share: 40 });
+  expect(table).toHaveLength(1);
+  expect(geographyCoverage(rows, 10)).toMatchObject({ totalVisits: 10, cityKnownVisits: 6, cityUnknownVisits: 4, cityCoverage: 60 });
 });
 
 test('searches all explicit aliases after merging and sorts full results deterministically', () => {
@@ -144,4 +146,23 @@ test('searches all explicit aliases after merging and sorts full results determi
   expect(regionName('CN-SD')).toBe('山东');
   expect(regionName('CN-SN')).toBe('陕西');
   expect(regionName('CN-SX')).toBe('山西');
+});
+
+
+test('hides missing cities before ranking and keeps original non-catalogue names', () => {
+  const rows = [fact(null, 1000, null), fact(' ', 500, null), ...Array.from({length: 15}, (_, i) => fact(`Town ${i}`, 20-i, 10))];
+  const table = geographyTable(rows, 1695, false);
+  expect(table).toHaveLength(15);
+  expect(table.slice(0, 12).map(r => r.city)).toEqual(Array.from({length:12}, (_, i) => `Town ${i}`));
+  expect(table[0].share).toBe(1.18);
+  expect(geographyTable(rows, 1695, false, {search: 'Town 14'})).toHaveLength(1);
+});
+
+test('coverage distinguishes no traffic, unidentified traffic and search misses', () => {
+  expect(geographyCoverage([], 0)).toMatchObject({cityCoverage:null, cityDisplayState:'empty'});
+  const missing = geographyCoverage([fact(null, 7, null), fact(null, 3, null, {region:null})], 10);
+  expect(missing).toMatchObject({cityCoverage:0, chinaProvinceKnownVisits:7, chinaProvinceCoverage:70});
+  expect(geographyEmptyText(missing, '上海')).toBe('已收到访问数据，城市信息尚未识别');
+  expect(geographyEmptyText(geographyCoverage([fact('Town', 1, null)], 1), '上海')).toBe('没有匹配的城市');
+  expect(geographyEmptyText()).toBe('城市覆盖情况暂不可用');
 });

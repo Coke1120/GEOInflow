@@ -135,7 +135,7 @@ describe('report evidence states', () => {
     expect(report.cards.find(row => row.label === 'TOP1 城市').value).toBe('西安');
     expect(report.charts.g1.labels).toEqual(['陕西']);
     expect(report.charts.g1.series[0].values).toEqual([39]);
-    expect(report.meta.tablePages.cityBody).toMatchObject({ total: 27, page: 1 });
+    expect(report.meta.tablePages.cityBody).toMatchObject({ total: 26, page: 1 });
     expect(report.tables.cityBody).toHaveLength(20);
     const searched = await buildReport(
       website,
@@ -166,7 +166,7 @@ describe('report evidence states', () => {
       { ...params, resource: 'human/geo', tp_cityBody: 2 },
       true,
     );
-    expect(last.tables.cityBody).toHaveLength(7);
+    expect(last.tables.cityBody).toHaveLength(6);
   });
   it('excludes private funnel configuration diagnostics from the public share profile', async () => {
     const human = await mocks.human();

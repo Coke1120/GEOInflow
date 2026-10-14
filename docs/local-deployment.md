@@ -65,3 +65,24 @@ Compose 使用专用 10.253.30.0/24 网段。其他机器部署时核对该网�
 ## 已上线功能连续性检查
 
 更新本地应用前，核对候选构建与当前运行版本、最近完整版本的页面入口和 API 路由，候选必须包含已上线功能。检查应覆盖全局导航、页面直达链接及实际接口响应，并保存源码指纹与镜像对应关系。并行工作目录中的已上线功能需要先合入候选源码，再执行验证和构建。恢复 AI 页面时沿用原启用状态与加密密钥，并保留模型连接、对话记录、缓存服务和数据库迁移指纹。
+
+
+### IP 入口与管理地理卷
+
+Compose 将 CLIENT_IP_HEADER、IGNORE_IP、GEOLITE_DB_PATH 和 SKIP_LOCATION_HEADERS 注入应用。已有入口配置需要代理清理并覆盖同名请求头。更改可信入口会改变部分匿名访问标识，应安排明确切换时间并记录统计口径。
+
+`liekan-geography` 是本产品独立持久卷，应用只读，日志 worker 写入。默认全局库继续使用 DB-IP City Lite，大陆 XDB 补齐为影子模式。`LIEKAN_GEO_CHINA_MODE=active` 仍需要独立真实样本审核和有效 XDB 数据许可清单。
+
+自定义库、许可清单和源文件可用独立 Compose override 做只读挂载：
+
+```yaml
+services:
+  app:
+    volumes:
+      - ./private-geo/City.mmdb:/app/private-geo/City.mmdb:ro
+  log-worker:
+    volumes:
+      - ./private-geo:/app/private-geo:ro
+```
+
+同时在私有 .env 中将 GEOLITE_DB_PATH 指向 `/app/private-geo/City.mmdb`，将 LIEKAN_GEO_XDB_MANIFEST 指向相应私有 JSON 清单。清单中 path 使用容器内位置。两个服务必须能读取同一授权文件，原文件不会自动覆盖。MaxMind 下载账号与密钥只进入 worker 环境。管理目录内 `.update-lock` 保证同一时间一个写入者；异常终止后先确认不存在更新进程，再清理锁。地理更新失败保留权限有效的旧版本，事件采集持续可用。

@@ -28,12 +28,75 @@ function tokens(sql: string): Token[] {
 }
 
 const effectiveTables = {
-  website_event: 'liekan_effective_website_event',
+  website_event: 'liekan_geographic_website_event',
   event_data: 'liekan_effective_event_data',
   revenue: 'liekan_effective_revenue',
   heatmap_event: 'liekan_effective_heatmap_event',
   session_replay: 'liekan_effective_session_replay',
 } as const;
+
+/** Keep geography filters and event-bound visitor rows on one visit tuple. */
+function withVisitGeography(sql: string) {
+  const parts = tokens(sql),
+    scopes: number[] = [],
+    stack = [0];
+  let sequence = 0;
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i].value === '(')
+      stack.push(
+        ['select', 'with'].includes(parts[i + 1]?.value) ? ++sequence : stack[stack.length - 1],
+      );
+    scopes[i] = stack[stack.length - 1];
+    if (parts[i].value === ')') stack.pop();
+  }
+  const events = new Set<string>(),
+    sessions = new Set<string>();
+  for (let i = 0; i < parts.length; i++) {
+    if (
+      !['website_event', 'session'].includes(parts[i].value) ||
+      !['from', 'join'].includes(parts[i - 1]?.value)
+    )
+      continue;
+    const next = parts[i + 1]?.value === 'as' ? parts[i + 2] : parts[i + 1];
+    const alias =
+      next?.identifier &&
+      !['join', 'on', 'where', 'left', 'inner', 'right', 'full', 'group', 'order'].includes(
+        next.value,
+      )
+        ? next.value
+        : parts[i].value;
+    (parts[i].value === 'session' ? sessions : events).add(`${scopes[i]}:${alias}`);
+  }
+  const mapping = new Map<string, string>();
+  for (let i = 0; i < parts.length - 6; i++) {
+    if (
+      parts[i + 1].value !== '.' ||
+      parts[i + 2].value !== 'session_id' ||
+      parts[i + 3].value !== '=' ||
+      parts[i + 5].value !== '.' ||
+      parts[i + 6].value !== 'session_id'
+    )
+      continue;
+    const a = `${scopes[i]}:${parts[i].value}`,
+      b = `${scopes[i]}:${parts[i + 4].value}`;
+    if (sessions.has(a) && events.has(b)) mapping.set(a, parts[i + 4].value);
+    if (sessions.has(b) && events.has(a)) mapping.set(b, parts[i].value);
+  }
+  const edits: { start: number; end: number; value: string }[] = [];
+  for (let i = 0; i < parts.length - 2; i++) {
+    const event = mapping.get(`${scopes[i]}:${parts[i].value}`),
+      field = parts[i + 2]?.value;
+    if (event && parts[i + 1].value === '.' && ['country', 'region', 'city'].includes(field))
+      edits.push({
+        start: parts[i].start,
+        end: parts[i + 2].end,
+        value: `${event}.liekan_${field}`,
+      });
+  }
+  for (const edit of edits.reverse())
+    sql = sql.slice(0, edit.start) + edit.value + sql.slice(edit.end);
+  return sql;
+}
 
 /** Apply one site policy to all relational analytics, including nested denominators. */
 export function withTrafficPolicy(sql: string): string {
@@ -61,12 +124,14 @@ export function withTrafficPolicy(sql: string): string {
     )
   )
     throw new Error('Analytics CTE conflicts with the traffic policy source');
+  sql = withVisitGeography(sql);
+  const adjustedParts = tokens(sql);
   const definitions = used
     // Repeated reads must keep the caller's website/date predicates on the base scans.
     .map(table => `${table} AS NOT MATERIALIZED (SELECT * FROM ${effectiveTables[table]})`)
     .join(', ');
   if (parts[0].value === 'with') {
-    const boundary = parts[parts[1]?.value === 'recursive' ? 1 : 0].end;
+    const boundary = adjustedParts[adjustedParts[1]?.value === 'recursive' ? 1 : 0].end;
     return `${sql.slice(0, boundary)} ${definitions},${sql.slice(boundary)}`;
   }
   return `WITH ${definitions} ${sql}`;

@@ -1,3 +1,4 @@
+import { parseLogInputWithGeography, persistLogGeography } from './upstream/log-geography';
 import { invalidateWebsiteAnalytics } from './upstream/query-cache';
 import { bumpAnalyticsRevision } from './upstream/analytics-revision';
 import { randomUUID } from 'node:crypto';
@@ -120,7 +121,7 @@ export async function importLogs(id: string, domain: string, input: any, identit
   const classificationVersion = crawlerClassificationVersion(settings.rules);
   let parsed: ReturnType<typeof parseLogInput>;
   try {
-    parsed = parseLogInput(
+    parsed = await parseLogInputWithGeography(
       input,
       domain,
       process.env.APP_SECRET ||
@@ -195,6 +196,7 @@ export async function importLogs(id: string, domain: string, input: any, identit
         importId,
         JSON.stringify(parsed.records.slice(offset, offset + 500)),
       );
+      await persistLogGeography(tx,id,parsed.records.slice(offset,offset+500));
       await persistCrawlerEvidence(
         tx,
         id,

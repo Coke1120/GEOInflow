@@ -35,7 +35,7 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
 
   const searchQuery = search
     ? `and (distinct_id ilike {{search}}
-           or city ilike {{search}}
+           or session.city ilike {{search}}
            or browser ilike {{search}}
            or os ilike {{search}}
            or device ilike {{search}})`
@@ -52,9 +52,9 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
       session.device,
       session.screen,
       session.language,
-      ${getPostgresCountrySQL('session.country')} as country,
-      ${getPostgresRegionSQL('session.country', 'session.region')} as region,
-      session.city,
+      ${getPostgresCountrySQL('(array_agg(session.country order by website_event.created_at desc,website_event.event_id desc))[1]')} as country,
+      ${getPostgresRegionSQL('(array_agg(session.country order by website_event.created_at desc,website_event.event_id desc))[1]', '(array_agg(session.region order by website_event.created_at desc,website_event.event_id desc))[1]')} as region,
+      (array_agg(session.city order by website_event.created_at desc,website_event.event_id desc))[1] as city,
       min(website_event.created_at) as "firstAt",
       max(website_event.created_at) as "lastAt",
       count(distinct website_event.visit_id) as "visits",
@@ -77,10 +77,7 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
       session.os, 
       session.device, 
       session.screen, 
-      session.language, 
-      session.country, 
-      session.region, 
-      session.city
+      session.language
     `,
     queryParams,
     filters,

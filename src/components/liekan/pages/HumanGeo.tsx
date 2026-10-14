@@ -1,3 +1,4 @@
+import { geographyCoverageText } from '@/lib/liekan/contracts/geography';
 import { MetricCard, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
@@ -49,7 +50,7 @@ export function HumanGeo({ report, rangeLabel }: ReportViewProps) {
       <section className="card fade-in d2 overflow-hidden">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <h2 className="text-[14px] font-bold tracking-tight">城市明细</h2>
-          <span className="text-[11.5px] text-faint">本地人工 GeoIP · 更新日期待核验</span>
+          <span className="text-[11.5px] text-faint">{geographyCoverageText(report?.meta.geographyCoverage)}</span>
         </div>
         <table className="w-full text-[12.5px]">
           <thead>

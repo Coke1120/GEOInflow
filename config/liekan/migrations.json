@@ -22,5 +22,6 @@
   "015_crawler_analysis_control.sql": "b8c1745abfb96ffa79784f4f4bcfd5789e951c2cd286bc8d9b1877e2a3f7ffff",
   "016_traffic_quality.sql": "c073a22d8b5831d50c698d7ee2ad98a76319c5c28ca796f47c71c85cfc803dc6",
   "017_traffic_diagnostics.sql": "6aece1e899d8e85a16d8ccf71124aad254192f873631c09addda8710ad7ddc63",
-  "018_browser_risk.sql": "56dddf3f22a6f758875ea5963374217b856c3e22d6bc6e9564e1886faf7da7f7"
+  "018_browser_risk.sql": "56dddf3f22a6f758875ea5963374217b856c3e22d6bc6e9564e1886faf7da7f7",
+  "019_geography_evidence.sql": "caac83c2ef7bcdd2cf761c5b3190a98c1bf8981bffffecaf07e68497fe17c45d"
 }

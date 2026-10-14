@@ -1026,6 +1026,22 @@ export const operations = {
     ],
     hasBody: false,
   },
+  getLiekanGeographyAttribution: {
+    operationId: 'getLiekanGeographyAttribution',
+    method: 'get',
+    path: '/api/liekan/geography/attribution',
+    pathParams: [],
+    queryParams: [],
+    hasBody: false,
+  },
+  getLiekanGeographyDiagnostics: {
+    operationId: 'getLiekanGeographyDiagnostics',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/geography/diagnostics',
+    pathParams: ['websiteId'],
+    queryParams: ['startAt', 'endAt', 'timezone'],
+    hasBody: false,
+  },
   getLiekanGoalAnalytics: {
     operationId: 'getLiekanGoalAnalytics',
     method: 'get',
@@ -4444,6 +4460,28 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getLiekanFeatureAnalytics'>> {
     return this.execute('getLiekanFeatureAnalytics', input, options);
+  }
+
+  /**
+   * Read public geography provider attribution
+   * `GET /api/liekan/geography/attribution`
+   */
+  getLiekanGeographyAttribution(
+    input?: OperationInput<'getLiekanGeographyAttribution'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanGeographyAttribution'>> {
+    return this.execute('getLiekanGeographyAttribution', input, options);
+  }
+
+  /**
+   * Inspect aggregate geography coverage and evidence
+   * `GET /api/liekan/websites/{websiteId}/geography/diagnostics`
+   */
+  getLiekanGeographyDiagnostics(
+    input: OperationInput<'getLiekanGeographyDiagnostics'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanGeographyDiagnostics'>> {
+    return this.execute('getLiekanGeographyDiagnostics', input, options);
   }
 
   /**

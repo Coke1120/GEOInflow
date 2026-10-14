@@ -116,7 +116,7 @@ describe('evidence-backed reference copy', () => {
         <HumanGeo report={report()} rangeLabel="范围" />
       </ReportContext.Provider>,
     );
-    expect(html).toContain('本地人工 GeoIP · 更新日期待核验');
+    expect(html).toContain('仅展示有城市信息的访问，占比按全部有效访问计算。');
     expect(html).not.toContain('每日更新');
   });
   it('keeps AI preference insights in the original single paragraph with its bold prefix', () => {

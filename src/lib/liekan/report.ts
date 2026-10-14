@@ -23,6 +23,7 @@ import {
   mergeGeography,
   geographyTable,
   geographyLabel,
+  geographyCoverage,
 } from './contracts/geography';
 import {
   getContentImpact,
@@ -175,6 +176,9 @@ export async function buildReport(
     tables: {},
     insights: [],
     meta: {
+      ...(!parts || parts.human?.includes('geo' as never)
+        ? { geographyCoverage: geographyCoverage(h.geo, t.visits) }
+        : {}),
       demo: settings.isDemo,
       aiCrawlerEnabled: settings.aiCrawlerEnabled ?? true,
       logsConfigured: settings.logsConfigured ?? (!settings.isDemo && !!l.latest),
@@ -637,7 +641,7 @@ export async function buildReport(
     l.latest ? scatter : [],
   );
   const regions = aggregate(
-      h.geo.filter(g => g.country === 'CN'),
+      h.geo.filter(g => g.country === 'CN' && g.region),
       'region',
       'sessions',
     ),
