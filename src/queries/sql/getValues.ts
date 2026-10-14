@@ -82,7 +82,6 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
       from website_event
       where website_event.website_id = {{websiteId::uuid}}
         and website_event.created_at between {{startDate}} and {{endDate}}
-        and website_event.event_type NOT IN (2,5)
         ${searchQuery}
       group by 1${column === 'city' ? ',2,3' : ''}
       order by "count" desc, "value"

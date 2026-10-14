@@ -192,6 +192,31 @@ try {
       cohortRevenue.some(row => row.name === 'US' && Number(row.value) === 100),
     'native revenue preserves visitor cohort filters and assigns every amount to its own visit geography',
   );
+  const customSession = randomUUID();
+  await db.query(
+    "INSERT INTO session(session_id,website_id,country,created_at) VALUES($1,$2,'JP','2026-10-01')",
+    [customSession, site],
+  );
+  await db.query(
+    "INSERT INTO website_event(event_id,website_id,session_id,visit_id,event_type,url_path,created_at) VALUES($1,$2,$3,$4,2,'/custom-only-fixture','2026-10-14T11:00:00Z')",
+    [randomUUID(), site, customSession, randomUUID()],
+  );
+  const customValues = await getValues(site, 'country', { ...filters, search: 'JP' });
+  check(
+    customValues.length === 1 &&
+      customValues[0].value === 'JP' &&
+      Number(customValues[0].count) === 1,
+    'geography dropdown preserves eligible visitors with only custom events',
+  );
+  const customMetrics = await getSessionMetrics(
+    site,
+    { type: 'country' },
+    { ...filters, country: 'eq.JP' },
+  );
+  check(
+    customMetrics.length === 0,
+    'native pageview metrics retain their existing event population',
+  );
   const counter = async () =>
     db.query(
       "INSERT INTO liekan_geography_ingress(website_id,bucket,reason,count) VALUES($1,date_trunc('hour',now()),'blocked_ip',7) ON CONFLICT(website_id,bucket,reason) DO UPDATE SET count=7",
