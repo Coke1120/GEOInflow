@@ -25,7 +25,7 @@ export async function measureTrafficQuality({
   database: pg.Client;
   ownerId: string;
   smoke: boolean;
-  observe: () => Promise<void>;
+  observe: () => Promise<unknown>;
   volumeSites: string[];
 }) {
   const result: any = {
@@ -34,7 +34,7 @@ export async function measureTrafficQuality({
     queries: [],
     scope: 'PostgreSQL collector, quality audit, shadow worker; isolated synthetic websites',
     observationBudget:
-      'Observation subprocess shares the candidate web container: 2 CPU / 1536 MiB; contention includes its startup, separate analytics worker retains its existing budget',
+      'Observation subprocess and analytics prewarming share the existing background container: 1 CPU / 512 MiB; includes observation startup; production uses separate worker containers',
   };
   const create = async () => {
     const id = randomUUID();
@@ -114,11 +114,16 @@ export async function measureTrafficQuality({
     const start = performance.now();
     const backgroundReads: Promise<void>[] = [];
     let backgroundFailure: unknown;
+    let observationResources: unknown;
     if (background)
       backgroundReads.push(
-        observe().catch(error => {
-          backgroundFailure = error;
-        }),
+        observe()
+          .then(resources => {
+            observationResources = resources;
+          })
+          .catch(error => {
+            backgroundFailure = error;
+          }),
       );
     for (let i = 0; i < attempts; i++) {
       const delay = start + (i * 1000) / rate - performance.now();
@@ -225,6 +230,7 @@ export async function measureTrafficQuality({
         observed: windows.filter(w => w.coverage === 'observed').length,
         partial: windows.filter(w => w.coverage === 'partial').length,
         errors: 0,
+        resources: observationResources,
       };
     }
     const receipts = (

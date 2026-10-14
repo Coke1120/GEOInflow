@@ -2293,11 +2293,35 @@ try {
     smoke,
     volumeSites: sites,
     observe: async () => {
+      const resourceScript = `const fs=require('node:fs');
+        const counters=path=>Object.fromEntries(fs.readFileSync(path,'utf8').trim().split('\\n').map(line=>{const [key,value]=line.split(/\\s+/);return [key,Number(value)]}));
+        console.log(JSON.stringify({cpu:counters('/sys/fs/cgroup/cpu.stat'),memoryEvents:counters('/sys/fs/cgroup/memory.events'),memoryPeakBytes:Number(fs.readFileSync('/sys/fs/cgroup/memory.peak','utf8'))}));`;
+      const resources = async () =>
+        JSON.parse(
+          (await promisify(execFile)('docker', ['exec', workerName, 'node', '-e', resourceScript]))
+            .stdout,
+        );
+      const before = await resources();
       await promisify(execFile)(
         'docker',
-        ['exec', `${stamp}-app1`, 'node', 'dist/liekan-worker.mjs', '--observe-browser-risk-once'],
+        ['exec', workerName, 'node', 'dist/liekan-worker.mjs', '--observe-browser-risk-once'],
         { timeout: 180000 },
       );
+      const after = await resources();
+      const difference = (key: 'cpu' | 'memoryEvents') =>
+        Object.fromEntries(
+          Object.keys(after[key]).map(name => [name, after[key][name] - before[key][name]]),
+        );
+      const memoryEvents = difference('memoryEvents');
+      assert.equal(memoryEvents.oom, 0, 'background observation must fit its memory budget');
+      assert.equal(memoryEvents.oom_kill, 0, 'background observation must not kill a worker');
+      return {
+        container: workerName,
+        before,
+        after,
+        delta: { cpu: difference('cpu'), memoryEvents },
+        memoryPeakMeaning: 'container lifetime peak before and after this observation',
+      };
     },
   });
   save();

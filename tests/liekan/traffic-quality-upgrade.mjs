@@ -164,9 +164,10 @@ export async function runTrafficQualityUpgradeChecks({
     await test('quality cursor retains microsecond ordering and rejects changed scope', async () => {
       const began = performance.now();
       const first = (await json(`${quality}?${riskRange}`, { auth: true })).body;
+      const auditMs = performance.now() - began;
       assert(
-        performance.now() - began < 5000,
-        'stale import statistics must not cause repeated scans',
+        auditMs < 5000,
+        `stale import statistics must not cause repeated scans (${auditMs.toFixed(1)}ms)`,
       );
       assert.equal(first.totals.rawPV, 10032);
       assert.equal(first.totals.includedPV, 10032);

@@ -127,9 +127,11 @@ type Range = ReturnType<typeof parseQualityRange>;
 export function qualityReadTransaction<T>(work: (tx: any) => Promise<T>): Promise<T> {
   return transaction(async tx => {
     await tx.$executeRawUnsafe('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
-    // Fresh imports can leave site cardinality severely underestimated. Avoid rescanning
-    // the policy view for every raw event; this preference lasts only for this read.
+    // Fresh imports can severely underestimate site cardinality. Nested loops and
+    // site-only merge joins can repeatedly scan the same quality rows. Prefer hash
+    // joins for this read; both preferences end with the transaction.
     await tx.$executeRawUnsafe('SET LOCAL enable_nestloop = off');
+    await tx.$executeRawUnsafe('SET LOCAL enable_mergejoin = off');
     return work(tx);
   });
 }
