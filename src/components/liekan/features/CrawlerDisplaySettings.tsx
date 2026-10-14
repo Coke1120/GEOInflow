@@ -103,7 +103,7 @@ export function CrawlerDisplaySettings({
                 {i18n.text('默认开启。关闭展示会保留已有数据和采集配置；日志采集仍按原配置运行。')}
               </p>
               {!manage && <p className="muted">{i18n.text('更改此设置需要网站管理权限。')}</p>}
-              {action.error && <Notice tone="red">{action.error}</Notice>}
+              {action.error && <Notice tone="red">{i18n.system(action.error)}</Notice>}
             </>
           )}
         </QueryState>

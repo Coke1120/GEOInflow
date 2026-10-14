@@ -75,7 +75,7 @@ export function ManualRefreshControl({
       </button>
       {(reading.error || prepareError) && (
         <span role="status" style={{ fontSize: 11 }}>
-          {reading.error || prepareError}
+          {i18n.system(reading.error || prepareError)}
         </span>
       )}
       {draftNotice && (

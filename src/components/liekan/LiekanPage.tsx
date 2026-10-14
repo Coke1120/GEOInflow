@@ -845,9 +845,9 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             ? report
               ? i18n.text('更新失败，当前显示上次读取的数据')
               : query.isStaleAggregate && !restricted
-                ? query.error?.message || i18n.text('统计数据已过期，请重试读取。')
+                ? i18n.system(query.error?.message) || i18n.text('统计数据已过期，请重试读取。')
                 : resource === 'human/keywords'
-                  ? query.error?.message || i18n.text('来源关键词读取失败')
+                  ? i18n.system(query.error?.message) || i18n.text('来源关键词读取失败')
                   : i18n.text('无法读取此范围的数据')
             : i18n.system(message) || i18n.text('查询：{v0}', [search])}
           {query.isError && (

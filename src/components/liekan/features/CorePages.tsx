@@ -1561,7 +1561,7 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
   return (
     <div data-liekan-features>
       <div className="auth-page">
-        <aside className="auth-info">
+        <aside data-liekan-auth-copy className="auth-info">
           <Link prefetch={false} className="auth-brand" href="/">
             <img src={`${basePath}/liekan/features/logo.svg`} alt="" />
             <span className="brand-name" style={{ color: 'var(--ink)' }}>
@@ -2616,7 +2616,7 @@ function Goals() {
             {firstResult?.error && (
               <Notice tone="red">
                 {i18n.fragment('该目标的转化统计读取失败：', false, true)}
-                {firstResult.error.message}
+                {i18n.system(firstResult.error.message)}
               </Notice>
             )}
           </Chart>

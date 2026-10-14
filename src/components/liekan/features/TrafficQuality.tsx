@@ -141,7 +141,7 @@ export function TrafficQuality({
       </p>
       <QueryState query={audit}>
         {data?.available === false ? (
-          <Notice>{data.reason}</Notice>
+          <Notice>{i18n.system(data.reason)}</Notice>
         ) : (
           data?.available && (
             <>
@@ -395,7 +395,7 @@ export function TrafficQuality({
                 <QueryState query={risk}>
                   {risk.data?.available === false ? (
                     <Body>
-                      <Notice>{risk.data.reason}</Notice>
+                      <Notice>{i18n.system(risk.data.reason)}</Notice>
                     </Body>
                   ) : (
                     risk.data?.available && (

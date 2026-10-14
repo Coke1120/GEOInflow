@@ -99,7 +99,7 @@ export function ChatActivity({
                 : i18n.text('本次分析未完成')}
           </strong>
           <p>
-            {error ||
+            {i18n.system(error) ||
               (stopping
                 ? i18n.text('取消请求已提交，正在等待服务端确认。')
                 : stopped
@@ -141,7 +141,7 @@ export function ChatRunDetails({ run }: { run: AiRun | null }) {
           <dd>{run.usage?.totalTokens ?? i18n.text('供应商未返回')}</dd>
         </div>
       </dl>
-      {run.error && <p>{aiError(run.error)}</p>}
+      {run.error && <p>{i18n.system(aiError(run.error))}</p>}
     </details>
   );
 }

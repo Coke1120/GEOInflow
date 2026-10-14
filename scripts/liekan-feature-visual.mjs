@@ -4,6 +4,7 @@ import { checkMobileExperience } from './liekan-mobile-visual.mjs';
 import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
 import { assertDialogContract } from './liekan-dialog-contract.mjs';
 import fs from 'node:fs';
+import ts from 'typescript';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -341,13 +342,15 @@ try {
       const authPage = ['login', 'login-2fa', 'sso'].includes(p.id),
         page = authPage ? auth : actual;
       const target =
-        p.id === 'login'
-          ? '/login'
-          : p.id === 'login-2fa'
-            ? '/login/two-factor'
-            : p.id === 'sso'
-              ? '/sso'
-              : `/liekan/${p.id}?${params(p.id)}`;
+        p.id === 'share-preview'
+          ? '/share/' + encodeURIComponent(share.slug)
+          : p.id === 'login'
+            ? '/login'
+            : p.id === 'login-2fa'
+              ? '/login/two-factor'
+              : p.id === 'sso'
+                ? '/sso'
+                : `/liekan/${p.id}?${params(p.id)}`;
       try {
         await page.goto(base + target);
         await ready(page);
@@ -538,23 +541,73 @@ try {
     '/conversions',
     '/logs',
   ];
+  const titleAst = ts.createSourceFile(
+    'navigation.ts',
+    fs.readFileSync('src/lib/liekan/contracts/navigation.ts', 'utf8'),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const titleOverrides = {};
+  const collectTitles = node => {
+    if (ts.isVariableDeclaration(node) && node.name.getText(titleAst) === 'titles') {
+      assert(ts.isObjectLiteralExpression(node.initializer));
+      for (const property of node.initializer.properties) {
+        assert(ts.isPropertyAssignment(property) && ts.isStringLiteral(property.initializer));
+        titleOverrides[property.name.text || property.name.getText(titleAst)] =
+          property.initializer.text;
+      }
+    }
+    ts.forEachChild(node, collectTitles);
+  };
+  collectTitles(titleAst);
+  assert(Object.keys(titleOverrides).length > 0, 'Approved navigation document titles loaded');
+  const geoExpectedKeys = [
+    'index',
+    'ai',
+    'ai-bots',
+    'ai-pages',
+    'ai-preference',
+    'human',
+    'human-geo',
+    'human-source',
+    'human-search-engines',
+    'human-keywords',
+    'content',
+    'funnel',
+    'logs',
+  ];
   const englishRoutes = manifest.pages.map(p => ({
     id: p.id,
+    heading:
+      navigationBaseline.standaloneHeadings[p.id] ||
+      navigationBaseline.pages[p.id]?.title ||
+      p.title,
+    documentTitle: titleOverrides[p.id] || p.title,
+    shareName: p.id === 'share-preview' ? share.name : undefined,
     path:
-      p.id === 'login'
-        ? '/login'
-        : p.id === 'login-2fa'
-          ? '/login/two-factor'
-          : p.id === 'sso'
-            ? '/sso'
-            : `/liekan/${p.id}?${params(p.id)}`,
+      p.id === 'share-preview'
+        ? '/share/' + encodeURIComponent(share.slug)
+        : p.id === 'login'
+          ? '/login'
+          : p.id === 'login-2fa'
+            ? '/login/two-factor'
+            : p.id === 'sso'
+              ? '/sso'
+              : `/liekan/${p.id}?${params(p.id)}`,
   }));
   englishRoutes.push(
     ...geoRoutes.map((suffix, index) => ({
       id: `geo-${index}`,
+      heading: navigationBaseline.geo[geoExpectedKeys[index]].title,
+      documentTitle: navigationBaseline.geo[geoExpectedKeys[index]].title,
       path: `/websites/${seed.website.id}/geo${suffix}?${params('overview')}`,
     })),
-    { id: 'help', path: '/liekan/help' },
+    {
+      id: 'help',
+      path: '/liekan/help',
+      heading: navigationBaseline.pages.help.title,
+      documentTitle: titleOverrides.help,
+    },
   );
   report.english = await checkEnglishExperience({
     browser,

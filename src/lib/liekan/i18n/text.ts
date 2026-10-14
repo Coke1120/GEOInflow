@@ -68,6 +68,7 @@ export function createTranslator(chinese: MessageCatalog, english: MessageCatalo
   );
   const key = (source: string) => sourceKeys.get(normalizeMessage(source));
   const ownedSlots: Record<string, number[]> = {
+    '{v0}。请核对本次账户 ID，或关闭弹窗后添加已有用户。': [0],
     '第 {v0} 条规则的{v1}须为 1 至 80 个字符。': [1],
     '{v0}，部分数据更新失败，请重试读取': [0],
     '{v0} 页面状态刷新失败，请刷新页面确认已保存结果。': [0],

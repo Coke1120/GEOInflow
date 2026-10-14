@@ -131,7 +131,7 @@ function ResourceList({ kind }: { kind: 'link' | 'pixel' }) {
           {stats.error && (
             <Notice tone="red">
               {i18n.fragment('统计读取失败：', false, true)}
-              {stats.error.message}
+              {i18n.system(stats.error.message)}
               <Button onClick={() => stats.refetch()}>{i18n.text('重试统计')}</Button>
             </Notice>
           )}

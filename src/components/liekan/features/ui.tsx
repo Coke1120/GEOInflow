@@ -221,6 +221,7 @@ export function Field({
   error,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { label: string; help?: ReactNode; error?: string }) {
+  const i18n = useLiekanI18n();
   return (
     <label className="field">
       <span>
@@ -229,7 +230,7 @@ export function Field({
       </span>
       <input {...props} />
       {help && <small className="field-help">{help}</small>}
-      {error && <small className="field-error">{error}</small>}
+      {error && <small className="field-error">{i18n.system(error)}</small>}
     </label>
   );
 }

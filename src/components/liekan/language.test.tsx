@@ -1,5 +1,6 @@
 import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
+import { translateSystemText } from '@/lib/liekan/i18n/text';
 import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 import { initializeLocale, useLocale } from '@/components/hooks/useLocale';
 import { useApp } from '@/store/app';
@@ -256,4 +257,32 @@ it('keeps an immediately persisted language selection outside the form unsaved s
   await waitFor(() => expect(useApp.getState().locale).toBe('zh-CN'));
   expect(form.dataset.unsaved).toBe('true');
   expect(screen.getByRole('textbox')).toHaveValue('original unsaved draft');
+});
+
+it('localizes a real field validation issue and preserves the field label and entered content', async () => {
+  const { teamUserCreateSchema } = await import('@/lib/liekan/contracts/team-users');
+  const result = teamUserCreateSchema.safeParse({
+    userId: '11111111-1111-4111-8111-111111111111',
+    username: 'test',
+    password: '汉'.repeat(25),
+  });
+  expect(result.success).toBe(false);
+  const error = result.error.issues.find(issue => issue.path[0] === 'password').message;
+  render(
+    <LiveLanguage>
+      <Field label="原始字段名称" defaultValue="原始输入内容" error={error} />
+    </LiveLanguage>,
+  );
+  act(() => useApp.setState({ locale: 'en-US' }));
+  expect(screen.getByText(/Passwords can contain up to 72 UTF-8 bytes/)).toBeVisible();
+  expect(screen.getByRole('textbox', { name: /原始字段名称/ })).toHaveValue('原始输入内容');
+  act(() => useApp.setState({ locale: 'zh-CN' }));
+  expect(screen.getByText(error)).toBeVisible();
+});
+
+it('translates a nested reconciliation error without changing its raw template slot', () => {
+  const system = translateSystemText;
+  const source = '请求失败 (409)。请核对本次账户 ID，或关闭弹窗后添加已有用户。';
+  expect(system(source, 'en-US')).toMatch(/Request failed \(409\).*account ID/);
+  expect(system(source, 'zh-CN')).toBe(source);
 });

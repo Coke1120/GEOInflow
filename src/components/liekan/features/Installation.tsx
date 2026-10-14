@@ -265,7 +265,7 @@ export function Installation({
           </p>
           {browser.error && (
             <p role="alert" className="field-error">
-              {browser.error.message || i18n.text('浏览统计读取失败，请重试。')}
+              {i18n.system(browser.error.message) || i18n.text('浏览统计读取失败，请重试。')}
             </p>
           )}
         </div>
@@ -801,7 +801,7 @@ export function Installation({
                 </Body>
               </Panel>
             )}
-            {action.error && <Notice tone="red">{action.error}</Notice>}
+            {action.error && <Notice tone="red">{i18n.system(action.error)}</Notice>}
             {importOpen && (
               <ManagementDrawer
                 key={site.id}

@@ -8,3 +8,19 @@ it('extracts only a provisional plain summary from partial JSON, including escap
   expect(chatPreviewSummary('{"observations":[')).toBe('');
   expect(chatPreviewSummary('plain provisional text')).toBe('plain provisional text');
 });
+
+it('localizes controlled activity failures while retaining the original model preview', async () => {
+  const { render, screen } = await import('@testing-library/react');
+  const { LiekanLocaleContext } = await import('@/lib/liekan/i18n/client');
+  const { ChatActivity } = await import('./AiChatActivity');
+  const { aiError } = await import('./AiShared');
+  const controlledError = aiError({ code: 'credentials' });
+  const original = '历史模型预览：网站管理';
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <ChatActivity busy={false} error={controlledError} preview={original} stage="failed" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('alert').querySelector('p')).not.toHaveTextContent(controlledError);
+  expect(screen.getByText(original)).toBeInTheDocument();
+});

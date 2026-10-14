@@ -106,3 +106,78 @@ test('checks owned TS metadata and fails if its declared source disappears', asy
     /declaration missing/,
   );
 });
+
+test('English browser guards inspect real GEO labels, chart states, owned auth copy and read failures', async () => {
+  const { JSDOM } = await import('jsdom');
+  const { englishPageGeometry, englishChartsReady, assertRenderedEnglishState } = await import(
+    '../../scripts/liekan-i18n-visual.mjs'
+  );
+  const oldDocument = globalThis.document,
+    oldWidth = globalThis.innerWidth;
+  const setBody = html => {
+    globalThis.document = new JSDOM(html).window.document;
+    globalThis.innerWidth = 1440;
+  };
+  try {
+    setBody(
+      '<main><p data-liekan-metric-label>Visitors</p><div data-liekan-chart-state="data"></div></main>',
+    );
+    assert.equal(englishPageGeometry().analyticsCards, 1);
+    assert.equal(englishChartsReady(), false, 'A data chart without canvas cannot count as ready');
+    document
+      .querySelector('[data-liekan-chart-state]')
+      .appendChild(document.createElement('canvas'));
+    assert.equal(englishChartsReady(), true);
+    assert.doesNotThrow(() => assertRenderedEnglishState(englishPageGeometry(), true));
+    document
+      .querySelector('[data-liekan-chart-state]')
+      .setAttribute('data-liekan-chart-state', 'failed');
+    assert.equal(englishChartsReady(), false);
+    document
+      .querySelector('[data-liekan-chart-state]')
+      .setAttribute('data-liekan-chart-state', 'empty');
+    assert.equal(englishChartsReady(), true, 'A declared empty state remains supported');
+    setBody(
+      '<aside data-liekan-auth-copy><h1>从 AI 与搜索访问</h1></aside><main><h1>Welcome back</h1></main>',
+    );
+    assert.throws(() => assertRenderedEnglishState(englishPageGeometry()), /Owned interface text/);
+    setBody('<main><div class="state-box"><h3>Load failed</h3></div></main>');
+    assert.throws(() => assertRenderedEnglishState(englishPageGeometry()), /Fixture data read/);
+    setBody('<main></main>');
+    assert.throws(
+      () => assertRenderedEnglishState(englishPageGeometry(), true),
+      /Rendered page body/,
+    );
+  } finally {
+    globalThis.document = oldDocument;
+    globalThis.innerWidth = oldWidth;
+  }
+});
+
+test('English route, snapshot and request guards refuse wrong views and empty statistics', async () => {
+  const { assertEnglishRouteIdentity, assertNumericSnapshot, isStatisticsRequest } = await import(
+    '../../scripts/liekan-i18n-visual.mjs'
+  );
+  const route = { id: 'preferences', path: '/liekan/preferences', documentTitle: '偏好设置' };
+  assert.throws(
+    () => assertEnglishRouteIdentity(route, 'http://127.0.0.1:3302/login', 'Preferences | Liekan'),
+    /correct page route/,
+  );
+  assert.throws(
+    () =>
+      assertEnglishRouteIdentity(
+        route,
+        'http://127.0.0.1:3302/liekan/preferences',
+        'Wrong view | Liekan',
+      ),
+    /document title/,
+  );
+  assert.throws(() => assertNumericSnapshot([]), /actual numeric/);
+  assert.throws(() => assertNumericSnapshot([[], []]), /actual numeric/);
+  assert.doesNotThrow(() => assertNumericSnapshot([['0'], ['40']]));
+  assert(
+    isStatisticsRequest('http://127.0.0.1:3302/api/liekan/websites/site/page-report?date=7day'),
+  );
+  assert(isStatisticsRequest('http://127.0.0.1:3302/api/liekan/websites/site/keywords/export'));
+  assert(!isStatisticsRequest('http://127.0.0.1:3302/api/liekan/geography/attribution'));
+});

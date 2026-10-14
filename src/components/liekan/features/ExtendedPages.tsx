@@ -1054,7 +1054,7 @@ function ReplayPlayer() {
           {saved.data?.isSaved && (
             <>
               <Notice>{i18n.text('此会话回放已保存，可在已保存列表查看或取消保存。')}</Notice>
-              {action.error && <Notice tone="red">{action.error}</Notice>}
+              {action.error && <Notice tone="red">{i18n.system(action.error)}</Notice>}
               <DialogActions>
                 <Button
                   danger

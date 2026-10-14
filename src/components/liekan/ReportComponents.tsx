@@ -68,7 +68,9 @@ export function MetricCard({
   const pageMetric = ['入口页 TOP1', '退出页 TOP1'].includes(label);
   return (
     <div className={className} aria-busy={loading || undefined}>
-      <p className="text-[11.5px] text-sub">{i18n.system(label)}</p>
+      <p data-liekan-metric-label className="text-[11.5px] text-sub">
+        {i18n.system(label)}
+      </p>
       <p className={`${valueClass} ${styles.metricValue} ${pageMetric ? styles.pageMetric : ''}`}>
         {loading ? (
           <Skeleton width="3.5em" />
@@ -198,6 +200,7 @@ export function ReferenceChart({
   return (
     <div
       id={id}
+      data-liekan-chart-state={loading ? 'loading' : failed ? 'failed' : hasData ? 'data' : 'empty'}
       style={{ height, position: 'relative' }}
       role={failed ? 'group' : 'img'}
       aria-busy={loading || undefined}

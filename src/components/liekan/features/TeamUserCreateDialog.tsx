@@ -151,7 +151,7 @@ export function TeamUserCreateDialog({
     >
       {uncertain ? (
         <>
-          <Notice tone="amber">{message || i18n.text('创建结果尚未确认。')}</Notice>
+          <Notice tone="amber">{i18n.system(message) || i18n.text('创建结果尚未确认。')}</Notice>
           <Notice>
             {i18n.text('关闭弹窗不会回滚已经完成的创建。用户名和团队权限需要核对后确认。')}
           </Notice>

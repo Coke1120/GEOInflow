@@ -3711,5 +3711,13 @@
   "m_639734d8afd9": "Supports compatible text endpoints on public HTTPS port 443 only.",
   "m_68c77e155132": "Beijing",
   "m_811d48f28035": "China site",
-  "m_f9fcbbc86802": "International site"
+  "m_f9fcbbc86802": "International site",
+  "m_1a4ae3a42e22": "Network connection lost. Restore the connection, then retry.",
+  "m_a46b3a6446a9": "Some data could not be loaded. Previous results are still shown. Retry.",
+  "m_9362c2968498": "Invalid format, time, IP address or website URL",
+  "m_184bf6b896ec": "Time range overlaps an automatic log source",
+  "m_228d2043be46": "Behavioral risk monitoring currently supports PostgreSQL",
+  "m_ba1f34a4de75": "Request failed ({v0})",
+  "m_92b83e5c05e0": "Network connection lost",
+  "m_4b92872aaa40": "Some data could not be loaded"
 }

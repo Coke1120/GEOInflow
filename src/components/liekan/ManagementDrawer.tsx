@@ -346,7 +346,7 @@ export function ManagementDrawer({
         {loadError && (
           <div className="notice red" role="alert">
             {i18n.fragment('无法读取设置：', false, true)}
-            {loadError}{' '}
+            {i18n.system(loadError)}{' '}
             <Button disabled={busy || dirty} onClick={() => setLoadVersion(v => v + 1)}>
               {i18n.text('重新读取设置')}
             </Button>
@@ -698,7 +698,7 @@ export function ManagementDrawer({
                     {importErrors.map(error => (
                       <tr key={error.line}>
                         <td>{error.line}</td>
-                        <td>{error.reason}</td>
+                        <td>{i18n.system(error.reason)}</td>
                       </tr>
                     ))}
                   </tbody>
