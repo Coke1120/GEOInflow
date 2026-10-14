@@ -65,6 +65,10 @@ ClickHouse 补充回归运行 `pnpm exec tsx scripts/liekan-geography-clickhouse
 - [Matomo GeoIP2 地域处理](https://github.com/matomo-org/matomo/blob/5.x-dev/plugins/GeoIp2/LocationProvider/GeoIp2.php) 明确区分 FIPS 与 ISO 编码，并支持 DB-IP 与 MaxMind 数据库。猎看的目录更新也保留来源编码对照与定位库能力边界。
 - [GeoNames 数据格式](https://download.geonames.org/export/dump/readme.txt) 提供语言、历史名称、地物类别与行政编码元数据；审核城市目录时保留对应地域身份与明确别名。
 
+## Display language
+
+Geographic labels accept an optional `zh-CN` or `en-US` display locale. Country and region codes and catalog city IDs determine the label. English city names use the catalog's existing English aliases. Unknown names retain the supplied text. Identity keys, aliases, merges, sorting, filters, counts and rates stay independent of display language. Optional report metadata carries the geographic identities for retained cards, charts and paginated rows. Geography CSV captures the requested locale; omitted locale retains the existing Chinese output.
+
 ## 城市榜单和覆盖率（city-known-1）
 
 城市明细、分享 TOP12 和城市 CSV 仅包含城市字段非空的访问。库内没有中文翻译的真实城市继续显示原名称。先合并明确别名，再剔除城市缺失组，然后执行搜索、排序、分页和 TOP 限额。省份榜单剔除省份缺失组；已知省份、城市缺失的访问仍参与省份统计。

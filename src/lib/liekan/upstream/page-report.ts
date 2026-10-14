@@ -85,7 +85,7 @@ export async function readPageReport(
           website.id,
         )
       )[0] || { data: '0', policy: '0' };
-  const key = analyticsCacheKey(`page-report-v5-${geographyVersion}`, [
+  const key = analyticsCacheKey(`page-report-v6-${geographyVersion}`, [
     process.env.DATABASE_URL,
     website.id,
     p,

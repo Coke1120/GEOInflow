@@ -1,8 +1,10 @@
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { MetricCard, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 import { Skeleton, useDataLoading } from '../DataLoading';
 
 export function Conversions({ report, rangeLabel }: ReportViewProps) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
@@ -35,16 +37,19 @@ export function Conversions({ report, rangeLabel }: ReportViewProps) {
       <section className="grid grid-cols-5 gap-4">
         <div className="card col-span-2 fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">主转化漏斗（{rangeLabel}）</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.fragment('主转化漏斗（', false, true)}
+              {i18n.system(rangeLabel)}）
+            </h2>
             <p className="text-[11.5px] text-faint mt-0.5">
               {loading ? (
                 <Skeleton width="65%" />
               ) : report?.charts.f1?.labels.length ? (
                 report.charts.f1.labels.join(' → ')
               ) : report?.charts.f1?.state === 'unsupported' ? (
-                '已保存的漏斗配置无效，请检查目标配置'
+                i18n.text('已保存的漏斗配置无效，请检查目标配置')
               ) : (
-                '转化漏斗待配置'
+                i18n.text('转化漏斗待配置')
               )}
             </p>
           </div>
@@ -52,7 +57,7 @@ export function Conversions({ report, rangeLabel }: ReportViewProps) {
         </div>
         <div className="card col-span-3 fade-in d3 overflow-hidden">
           <div className="px-6 py-4 border-b border-line">
-            <h2 className="text-[14px] font-bold tracking-tight">转化目标明细</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('转化目标明细')}</h2>
           </div>
           <table className="w-full text-[12.5px]">
             <thead>
@@ -71,15 +76,21 @@ export function Conversions({ report, rangeLabel }: ReportViewProps) {
       <section className="grid grid-cols-2 gap-4">
         <div className="card fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">渠道转化率对比</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 按来源渠道</p>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('渠道转化率对比')}</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' · 按来源渠道', true, false)}
+            </p>
           </div>
           <ReferenceChart id="f2" height={250} report={report} />
         </div>
         <div className="card fade-in d3">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">转化趋势</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 转化次数/天</p>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('转化趋势')}</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' · 转化次数/天', true, false)}
+            </p>
           </div>
           <ReferenceChart id="f3" height={250} report={report} />
         </div>

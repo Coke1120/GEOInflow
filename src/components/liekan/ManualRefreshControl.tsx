@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useEffect, useRef, useState } from 'react';
 import { useManualRefresh } from '@/lib/liekan/contracts/manual-refresh';
 import { DialogActions, LiekanDialog } from './features/LiekanDialog';
@@ -10,6 +12,7 @@ export function ManualRefreshControl({
   showTime?: boolean;
   beforeRefresh?: () => Promise<unknown>;
 }) {
+  const i18n = useLiekanI18n();
   const reading = useManualRefresh();
   const [draftNotice, setDraftNotice] = useState(false);
   const [preparing, setPreparing] = useState<number | null>(null);
@@ -30,7 +33,8 @@ export function ManualRefreshControl({
     >
       {showTime && reading.readAt > 0 && (
         <span style={{ fontSize: 11, color: '#737373' }}>
-          本次读取：{new Date(reading.readAt).toLocaleString('zh-CN', { hour12: false })}
+          {i18n.fragment('本次读取：', false, true)}
+          {new Date(reading.readAt).toLocaleString(i18n.locale, { hour12: false })}
         </span>
       )}
       <button
@@ -67,23 +71,23 @@ export function ManualRefreshControl({
             });
         }}
       >
-        {refreshing ? '正在读取' : '刷新'}
+        {refreshing ? i18n.text('正在读取') : i18n.text('刷新')}
       </button>
       {(reading.error || prepareError) && (
         <span role="status" style={{ fontSize: 11 }}>
-          {reading.error || prepareError}
+          {i18n.system(reading.error || prepareError)}
         </span>
       )}
       {draftNotice && (
         <LiekanDialog
-          title="当前有未保存的输入"
+          title={i18n.text('当前有未保存的输入')}
           onClose={() => setDraftNotice(false)}
           protectUnsaved={false}
         >
-          <p>请先保存输入或关闭编辑区域，再重新读取。当前草稿继续保留。</p>
+          <p>{i18n.text('请先保存输入或关闭编辑区域，再重新读取。当前草稿继续保留。')}</p>
           <DialogActions>
             <button type="button" className="btn primary" onClick={() => setDraftNotice(false)}>
-              继续编辑
+              {i18n.text('继续编辑')}
             </button>
           </DialogActions>
         </LiekanDialog>

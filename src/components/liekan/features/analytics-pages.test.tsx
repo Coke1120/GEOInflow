@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { AnalyticsPages } from './AnalyticsPages';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const mocks = vi.hoisted(() => ({
   context: null as any,
@@ -171,6 +172,68 @@ it('orders the breakdown chart by views and emits explicit missing-dimension dri
   );
 });
 
+it.each(['path', 'country'])(
+  'keeps missing %s dimension rows in the same sort order through language changes',
+  field => {
+    mocks.context.site.domain = 'example.test';
+    mocks.query.breakdown = [
+      { path: '/known', country: 'CN', views: 2, visitors: 1 },
+      { path: field === 'path' ? null : '/missing', country: null, views: 5, visitors: 2 },
+    ];
+    const view = render(
+      <LiekanLocaleContext.Provider value="zh-CN">
+        <AnalyticsPages page="breakdown" />
+      </LiekanLocaleContext.Provider>,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: field === 'path' ? /页面路径/ : /国家 \/ 地区/ }),
+    );
+    const counts = () =>
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map(row => row.children[2].textContent);
+    const order = counts();
+    expect(order).toHaveLength(2);
+    view.rerender(
+      <LiekanLocaleContext.Provider value="en-US">
+        <AnalyticsPages page="breakdown" />
+      </LiekanLocaleContext.Provider>,
+    );
+    expect(counts()).toEqual(order);
+  },
+);
+
+it.each(['未提供', 'Not provided'])(
+  'keeps the bilingual missing-dimension search %s through language changes',
+  term => {
+    mocks.query.breakdown = [
+      { path: '/known', country: 'CN', views: 2, visitors: 1 },
+      { path: '/missing', country: null, views: 5, visitors: 2 },
+    ];
+    const view = render(
+      <LiekanLocaleContext.Provider value="zh-CN">
+        <AnalyticsPages page="breakdown" />
+      </LiekanLocaleContext.Provider>,
+    );
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索本页记录' }), {
+      target: { value: term },
+    });
+    expect(screen.getAllByRole('cell').map(cell => cell.textContent)).toContain('/missing');
+    expect(screen.queryByRole('cell', { name: '/known' })).not.toBeInTheDocument();
+    view.rerender(
+      <LiekanLocaleContext.Provider value="en-US">
+        <AnalyticsPages page="breakdown" />
+      </LiekanLocaleContext.Provider>,
+    );
+    expect(screen.getByRole('searchbox', { name: 'Search records on this page' })).toHaveValue(
+      term,
+    );
+    expect(screen.getAllByRole('cell').map(cell => cell.textContent)).toContain('/missing');
+    expect(screen.queryByRole('cell', { name: '/known' })).not.toBeInTheDocument();
+  },
+);
+
 it('keeps the selected event property while its value query is pending', () => {
   mocks.context.query.eventName = 'signup';
   const keys: string[] = [];
@@ -199,6 +262,158 @@ it('keeps the selected event property while its value query is pending', () => {
   expect(JSON.parse(screen.getByRole('img').textContent!).series[0].values).toEqual([3]);
 });
 
+it('localizes property types while retaining original property names and values', () => {
+  mocks.context.query.eventName = '网站管理';
+  mocks.query['event-detail'] = {
+    totals: { total: 6, visitors: 1 },
+    properties: [{ name: '网站名称', total: 6 }],
+    values: [null, '未提供', 17, true, '2026-10-14', '页面访问'].map((value, dataType) => ({
+      value,
+      dataType,
+      total: 1,
+    })),
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="event-detail" />
+    </LiekanLocaleContext.Provider>,
+  );
+  for (const type of ['Missing', 'String', 'Number', 'Boolean', 'Date', 'Array'])
+    expect(screen.getByRole('cell', { name: type })).toBeVisible();
+  expect(screen.getByRole('tab', { name: '网站名称' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '未提供' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '页面访问' })).toBeVisible();
+});
+it('localizes anonymous visitor labels and long durations while preserving their suffix and query identities', () => {
+  mocks.query['sessions-rich'] = {
+    rows: [{ id: 'anonymous-123456', views: 2, seconds: 90000 }],
+    count: 1,
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="sessions" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('cell', { name: 'Visitor 123456' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '1d 1h' })).toBeVisible();
+  expect(mocks.href).toHaveBeenCalledWith(
+    'session-detail',
+    expect.objectContaining({ id: 'anonymous-123456' }),
+  );
+});
+it('formats missing session sources while retaining supplied names and bilingual source search', () => {
+  mocks.query['sessions-rich'] = {
+    rows: [
+      { id: 'missing-111111', referrerDomain: null },
+      { id: 'supplied-222222', referrerDomain: '直接访问' },
+      { id: 'named-333333', referrerDomain: '网站管理' },
+    ],
+    count: 3,
+  };
+  const page = (locale: 'en-US' | 'zh-CN') => (
+    <LiekanLocaleContext.Provider value={locale}>
+      <AnalyticsPages page="sessions" />
+    </LiekanLocaleContext.Provider>
+  );
+  const view = render(page('en-US'));
+  expect(screen.getByRole('cell', { name: 'Direct traffic' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '直接访问' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '网站管理' })).toBeVisible();
+  const search = screen.getByRole('searchbox');
+  fireEvent.change(search, { target: { value: 'Direct traffic' } });
+  expect(screen.getByText('Visitor 111111')).toBeVisible();
+  expect(screen.queryByText('Visitor 222222')).not.toBeInTheDocument();
+  view.rerender(page('zh-CN'));
+  expect(search).toHaveValue('Direct traffic');
+  expect(screen.getByText('访客 111111')).toBeVisible();
+  expect(screen.queryByText('访客 222222')).not.toBeInTheDocument();
+});
+it('keeps generated and supplied compare sources separate with correctly aligned periods', () => {
+  mocks.query['compare-rich'] = {
+    current: {},
+    previous: {},
+    currentSeries: {},
+    previousSeries: {},
+    sources: [
+      { referrer: null, visitors: 3 },
+      { referrer: '直接访问', visitors: 7 },
+    ],
+    oldSources: [
+      { referrer: null, visitors: 2 },
+      { referrer: '直接访问', visitors: 5 },
+    ],
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="compare" />
+    </LiekanLocaleContext.Provider>,
+  );
+  const generated = screen.getByRole('cell', { name: 'Direct traffic' }).closest('tr');
+  const supplied = screen.getByRole('cell', { name: '直接访问' }).closest('tr');
+  expect(generated).toHaveTextContent('3');
+  expect(generated).toHaveTextContent('2');
+  expect(generated).toHaveTextContent('+50.00%');
+  expect(supplied).toHaveTextContent('7');
+  expect(supplied).toHaveTextContent('5');
+  expect(supplied).toHaveTextContent('+40.00%');
+});
+it('localizes realtime source metadata while retaining unmarked legacy and supplied labels', () => {
+  mocks.query['realtime-rich'] = {
+    totals: { active: 2, views: 2, events: 0, ai: 0 },
+    sources: [
+      { name: '直接访问', sourceLabel: 'direct', value: 1 },
+      { name: '直接访问', value: 1 },
+      { name: '网站管理', value: 1 },
+    ],
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="realtime" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('cell', { name: 'Direct traffic' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '直接访问' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '网站管理' })).toBeVisible();
+});
+it('formats empty attribution sources while preserving supplied names and canonical query values', async () => {
+  mocks.query.attribution = {
+    total: { visitors: 3, attributed: 3 },
+    referrer: [
+      { name: '', value: 1 },
+      { name: '直接访问', value: 1 },
+      { name: '网站管理', value: 1 },
+    ],
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="attribution" />
+    </LiekanLocaleContext.Provider>,
+  );
+  fireEvent.change(screen.getByRole('textbox', { name: /^Conversion steps/ }), {
+    target: { value: 'purchase' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply attribution settings' }));
+  await waitFor(() => expect(screen.getByRole('cell', { name: 'Direct traffic' })).toBeVisible());
+  expect(screen.getByRole('cell', { name: '直接访问' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '网站管理' })).toBeVisible();
+  expect(mocks.href).toHaveBeenCalledWith(
+    'sessions',
+    expect.objectContaining({ attributionSource: '直接访问' }),
+  );
+});
+it('localizes the selected unavailable retention placeholder while keeping audience names and option values', () => {
+  mocks.context.filters = { segment: 'segment-a' };
+  mocks.pending['retention-audiences'] = true;
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="retention" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('option', { name: 'Selected segment (Loading)' })).toHaveValue(
+    'segment:segment-a',
+  );
+  expect(screen.getByRole('option', { name: 'Selected segment (Loading)' })).toBeDisabled();
+});
 it('shows the current dimension selection and enforces the three dimension limit', async () => {
   render(<AnalyticsPages page="breakdown" />);
   fireEvent.click(screen.getByRole('button', { name: '选择维度' }));

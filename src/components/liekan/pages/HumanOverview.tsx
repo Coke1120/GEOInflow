@@ -1,7 +1,9 @@
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { FilterChip, MetricCard, ReferenceChart, ReportList } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
 export function HumanOverview({ report, rangeLabel, trendLabel }: ReportViewProps) {
+  const i18n = useLiekanI18n();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -39,9 +41,12 @@ export function HumanOverview({ report, rangeLabel, trendLabel }: ReportViewProp
       <section className="card fade-in d2">
         <div className="px-6 pt-5 pb-2 flex items-center justify-between">
           <div>
-            <h2 className="text-[14px] font-bold tracking-tight">访客趋势（UV / PV / 跳出率）</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.text('访客趋势（UV / PV / 跳出率）')}
+            </h2>
             <p className="text-[11.5px] text-faint mt-0.5">
-              {trendLabel || rangeLabel} · 浏览器追踪数据
+              {trendLabel || rangeLabel}
+              {i18n.fragment(' · 浏览器追踪数据', true, false)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -54,21 +59,26 @@ export function HumanOverview({ report, rangeLabel, trendLabel }: ReportViewProp
       <section className="grid grid-cols-3 gap-4">
         <div className="card fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">访问时段热力</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 24h</p>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('访问时段热力')}</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">{i18n.system(rangeLabel)} · 24h</p>
           </div>
           <ReferenceChart id="h2" height={220} report={report} />
         </div>
         <div className="card fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">设备构成</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 按会话</p>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('设备构成')}</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' · 按会话', true, false)}
+            </p>
           </div>
           <ReferenceChart id="h3" height={220} report={report} />
         </div>
         <div className="card fade-in d3">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">浏览器 / OS TOP5</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.text('浏览器 / OS TOP5')}
+            </h2>
           </div>
           <ReportList id="envGrid" className="px-6 pb-5 grid grid-cols-2 gap-4" report={report} />
         </div>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { featureDateRange } from '../contracts/analysis';
 import { readFeatureDateRange } from './date-range';
 
 describe('URL date range recovery', () => {
@@ -21,4 +22,17 @@ describe('URL date range recovery', () => {
     expect(readFeatureDateRange('30day', 'unknown', -1, 'UTC').invalidDate).toBe(true);
     expect(readFeatureDateRange('30day', '', NaN, 'UTC').invalidDate).toBe(true);
   });
+});
+
+it('keeps the natural week Monday to Sunday in both display languages', () => {
+  const readAt = Date.parse('2026-10-14T12:00:00Z');
+  const chinese = readFeatureDateRange('0week', '', 0, 'UTC', 'zh-CN', readAt);
+  const english = readFeatureDateRange('0week', '', 0, 'UTC', 'en-US', readAt);
+  expect(english.dateRange).toEqual(chinese.dateRange);
+  expect(new Date(featureDateRange(english.dateRange, 'UTC').startAt).toISOString()).toBe(
+    '2026-10-12T00:00:00.000Z',
+  );
+  expect(new Date(featureDateRange(english.dateRange, 'UTC').endAt).toISOString()).toBe(
+    '2026-10-18T23:59:59.999Z',
+  );
 });

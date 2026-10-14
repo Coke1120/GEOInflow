@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useEffect, useRef, useState } from 'react';
 import { EXPORT_MAX_BYTES, type ExportFrame } from '@/lib/liekan/contracts/exports';
 import { keywordStatusVersion, type KeywordConditions } from '@/lib/liekan/contracts/keywords';
@@ -15,6 +17,7 @@ export function KeywordExport({
   conditions: KeywordConditions;
   disabled: boolean;
 }) {
+  const i18n = useLiekanI18n();
   const userId = useFeatureAppState(state => state.user?.id);
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState('');
@@ -50,6 +53,7 @@ export function KeywordExport({
           ...report.range,
           ...conditions,
           keywordStatusVersion,
+          locale: i18n.locale,
         },
         run.signal,
         frame => {
@@ -96,16 +100,16 @@ export function KeywordExport({
         disabled={disabled || working}
         onClick={download}
       >
-        {working ? '正在导出' : '导出全部筛选结果'}
+        {working ? i18n.text('正在导出') : i18n.text('导出全部筛选结果')}
       </button>
       {working && (
         <button type="button" className="text-brand" onClick={() => controller.current?.abort()}>
-          取消导出
+          {i18n.text('取消导出')}
         </button>
       )}
       {message && (
         <span role="status" className="text-[11.5px] text-sub">
-          {message}
+          {i18n.system(message)}
         </span>
       )}
     </div>

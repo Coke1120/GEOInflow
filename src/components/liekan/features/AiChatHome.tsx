@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import {
   ArrowUp,
   ChartNoAxesCombined,
@@ -19,10 +21,11 @@ import home from '@/styles/liekan/AiChatHome.module.css';
 import { useFeature } from './context';
 
 export function ChatWelcome() {
+  const i18n = useLiekanI18n();
   return (
     <div className={home.welcome} data-ai-welcome>
-      <h2>今天想问什么，猎看团队？</h2>
-      <p>问指标、查趋势、排查网站表现，回答后可直达相关页面</p>
+      <h2>{i18n.text('今天想问什么，猎看团队？')}</h2>
+      <p>{i18n.text('问指标、查趋势、排查网站表现，回答后可直达相关页面')}</p>
     </div>
   );
 }
@@ -38,16 +41,18 @@ export function ChatWebsite({
   onChange: (id: string) => void;
   disabled?: boolean;
 }) {
+  const i18n = useLiekanI18n();
   return (
     <label className={home.website}>
       <Globe2 size={16} aria-hidden="true" />
       <select
-        aria-label="分析网站"
+        data-ai-site-selector
+        aria-label={i18n.text('分析网站')}
         value={value}
         onChange={event => onChange(event.target.value)}
         disabled={disabled}
       >
-        <option value="">选择网站</option>
+        <option value="">{i18n.text('选择网站')}</option>
         {websites.map(site => (
           <option key={site.id} value={site.id}>
             {site.name}
@@ -84,6 +89,7 @@ export function ChatComposer({
   maxLength: number;
   compact?: boolean;
 }) {
+  const i18n = useLiekanI18n();
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!input.current) return;
@@ -103,14 +109,15 @@ export function ChatComposer({
         <textarea
           ref={input}
           rows={compact ? 1 : 3}
-          aria-label="分析问题"
+          data-ai-question
+          aria-label={i18n.text('分析问题')}
           value={question}
           maxLength={maxLength}
-          placeholder={
+          placeholder={i18n.system(
             compact
-              ? '继续提问，或补充你想分析的细节…'
-              : '例如：本周 AI 抓取为什么下降？哪些页面值得优先优化？'
-          }
+              ? i18n.text('继续提问，或补充你想分析的细节…')
+              : i18n.text('例如：本周 AI 抓取为什么下降？哪些页面值得优先优化？'),
+          )}
           disabled={disabled}
           onChange={event => onQuestion(event.target.value)}
           onKeyDown={event => {
@@ -132,8 +139,8 @@ export function ChatComposer({
               type="button"
               className={`${home.send} ${home.stop}`}
               onClick={onStop}
-              aria-label="停止分析"
-              title="停止分析"
+              aria-label={i18n.text('停止分析')}
+              title={i18n.text('停止分析')}
             >
               <Square size={13} fill="currentColor" aria-hidden="true" />
             </button>
@@ -141,8 +148,8 @@ export function ChatComposer({
             <button
               type="submit"
               className={home.send}
-              aria-label="发起分析"
-              title="Enter 发送，Shift + Enter 换行"
+              aria-label={i18n.text('发起分析')}
+              title={i18n.text('Enter 发送，Shift + Enter 换行')}
               disabled={disabled || submitDisabled}
             >
               <ArrowUp size={21} aria-hidden="true" />
@@ -184,6 +191,7 @@ export function ChatHome({
   disabled?: boolean;
   range?: { startAt: number; endAt: number; timezone: string };
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const validRange =
     !range ||
@@ -204,15 +212,15 @@ export function ChatHome({
     <div className={home.home}>
       <section aria-labelledby="ai-functions-title">
         <div className={home.sectionHeading}>
-          <h3 id="ai-functions-title">常用功能</h3>
-          <span>常用功能可直接进入对应页面</span>
+          <h3 id="ai-functions-title">{i18n.text('常用功能')}</h3>
+          <span>{i18n.text('常用功能可直接进入对应页面')}</span>
         </div>
         <div className={home.functionGrid}>
           {functions.map(({ title, page, icon: Icon }) => {
             const content = (
               <>
                 <Icon size={16} aria-hidden="true" />
-                <span>{title}</span>
+                <span>{i18n.system(title)}</span>
               </>
             );
             return siteId && validRange ? (
@@ -231,35 +239,36 @@ export function ChatHome({
           })}
         </div>
       </section>
-      <section className={home.toolZone} aria-label="分析与数据指引">
+      <section className={home.toolZone} aria-label={i18n.text('分析与数据指引')}>
         <div>
           <h3>
-            GEO 工具一站直达 <ChevronRight size={14} aria-hidden="true" />
+            {i18n.fragment('GEO 工具一站直达 ', false, true)}
+            <ChevronRight size={14} aria-hidden="true" />
           </h3>
-          <p>常用工具直接进入独立页面，操作中遇到问题可以随时问 AI 管家</p>
+          <p>{i18n.text('常用工具直接进入独立页面，操作中遇到问题可以随时问 AI 管家')}</p>
           <div className={home.toolLinks}>
             {[
-              ['网站管理', 'websites'],
-              ['数据看板', 'boards'],
-              ['追踪管理', 'links'],
-              ['团队管理', 'teams'],
+              [i18n.text('网站管理'), 'websites'],
+              [i18n.text('数据看板'), 'boards'],
+              [i18n.text('追踪管理'), 'links'],
+              [i18n.text('团队管理'), 'teams'],
             ].map(([label, page]) => (
               <a key={page} href={c.href(page)}>
-                {label}
+                {i18n.system(label)}
               </a>
             ))}
             {siteId ? (
               <button type="button" disabled={disabled} onClick={onHistory}>
-                回答记录
+                {i18n.text('回答记录')}
               </button>
             ) : (
-              <button type="button" disabled title="选择网站后可查看历史对话">
-                回答记录
+              <button type="button" disabled title={i18n.text('选择网站后可查看历史对话')}>
+                {i18n.text('回答记录')}
               </button>
             )}
             {[
-              ['来源分析', 'geo-sources'],
-              ['数据导出', 'exports'],
+              [i18n.text('来源分析'), 'geo-sources'],
+              [i18n.text('数据导出'), 'exports'],
             ].map(([label, page]) =>
               siteId && validRange ? (
                 <a
@@ -270,11 +279,11 @@ export function ChatHome({
                     ...(page === 'exports' ? { from: 'stats' } : {}),
                   })}
                 >
-                  {label}
+                  {i18n.system(label)}
                 </a>
               ) : (
                 <button key={page} type="button" onClick={onChooseSite}>
-                  {label}
+                  {i18n.system(label)}
                 </button>
               ),
             )}
@@ -283,38 +292,37 @@ export function ChatHome({
         <aside className={home.guide}>
           <h3>
             <span className={home.guideDot} aria-hidden="true" />
-            一次提问，清晰指引
+            {i18n.fragment('一次提问，清晰指引', true, false)}
           </h3>
           <div>
-            <span>理解问题</span>
-            <span>检索指标</span>
-            <span>定位页面</span>
-            <span>提供入口</span>
+            <span>{i18n.text('理解问题')}</span>
+            <span>{i18n.text('检索指标')}</span>
+            <span>{i18n.text('定位页面')}</span>
+            <span>{i18n.text('提供入口')}</span>
           </div>
         </aside>
       </section>
       <section className={home.questions} aria-labelledby="ai-questions-title">
         <div className={home.sectionHeading}>
-          <h3 id="ai-questions-title">试着这样问</h3>
-          <span>点击填入问题，随时补充细节</span>
+          <h3 id="ai-questions-title">{i18n.text('试着这样问')}</h3>
+          <span>{i18n.text('点击填入问题，随时补充细节')}</span>
         </div>
         <div className={home.questionGrid}>
           {prompts.map(text => (
             <button
               key={text}
               type="button"
-              aria-label={text}
+              aria-label={i18n.system(text)}
+              data-ai-suggested-question
               className={home.question}
               disabled={disabled}
               onClick={() => {
-                onPrompt(text);
-                document
-                  .querySelector<HTMLTextAreaElement>('textarea[aria-label="分析问题"]')
-                  ?.focus();
+                onPrompt(i18n.system(text));
+                document.querySelector<HTMLTextAreaElement>('textarea[data-ai-question]')?.focus();
               }}
             >
               <MessageSquare size={14} aria-hidden="true" />
-              <span>{text}</span>
+              <span>{i18n.system(text)}</span>
             </button>
           ))}
         </div>

@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import Link from '@/components/liekan/Link';
 import { useId } from 'react';
 import { getAllFeatureRows } from '@/lib/liekan/upstream/features-client';
@@ -40,6 +42,7 @@ function conditionSummary(parameters: any = {}) {
 }
 
 export function SavedSegments({ onClose }: { onClose: () => void }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const visit = useId();
   const query = useData<any[]>(
@@ -48,7 +51,7 @@ export function SavedSegments({ onClose }: { onClose: () => void }) {
     !!c.siteId,
   );
   return (
-    <LiekanDialog size="wide" title="已保存分群" onClose={onClose}>
+    <LiekanDialog size="wide" title={i18n.text('已保存分群')} onClose={onClose}>
       <QueryState query={query}>
         <div className="saved-segments">
           {(query.data || []).map(segment => (
@@ -63,23 +66,23 @@ export function SavedSegments({ onClose }: { onClose: () => void }) {
                   onClose();
                 }}
               >
-                应用
+                {i18n.text('应用')}
               </Button>
             </div>
           ))}
-          {!query.data?.length && <p className="muted">当前网站没有已保存分群。</p>}
+          {!query.data?.length && <p className="muted">{i18n.text('当前网站没有已保存分群。')}</p>}
         </div>
       </QueryState>
       <DialogActions>
         <Button onClick={() => query.refetch()} disabled={query.isFetching}>
-          重新读取
+          {i18n.text('重新读取')}
         </Button>
         <Link className="btn" href={c.href('segments')}>
-          管理分群
+          {i18n.text('管理分群')}
         </Link>
         {canManage(c) && (
           <Link className="btn primary" href={c.href('segment-editor')}>
-            创建分群
+            {i18n.text('创建分群')}
           </Link>
         )}
       </DialogActions>

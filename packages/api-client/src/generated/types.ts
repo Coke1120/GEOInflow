@@ -9716,6 +9716,8 @@ export interface operations {
            */
           endAt: string;
           expectedConfigVersion: number;
+          /** @enum {string} */
+          locale?: 'zh-CN' | 'en-US';
           localOnly?: boolean;
           question: string;
           /**
@@ -12327,6 +12329,8 @@ export interface operations {
                 sources: {
                   /** @description Display name of the resource. */
                   name: string;
+                  /** @constant */
+                  sourceLabel?: 'direct';
                   value: number;
                 }[];
                 totals: {
@@ -17131,6 +17135,8 @@ export interface operations {
                 | 'conversionRate';
               /** @constant */
               kind: 'geography';
+              /** @enum {string} */
+              locale?: 'zh-CN' | 'en-US';
               /**
                * @description Search text used to filter results.
                * @default
@@ -17168,6 +17174,8 @@ export interface operations {
               keywordStatusVersion?: '2';
               /** @constant */
               kind: 'source-keywords';
+              /** @enum {string} */
+              locale?: 'zh-CN' | 'en-US';
               /**
                * @description Search text used to filter results.
                * @default
@@ -17221,6 +17229,8 @@ export interface operations {
               /** @enum {string} */
               format: 'zip' | 'csv' | 'json';
               kind?: never;
+              /** @enum {string} */
+              locale?: 'zh-CN' | 'en-US';
               sections: ('summary' | 'dimensions' | 'events' | 'sessions' | 'config')[];
               /** @description Start of the date range as a Unix timestamp in milliseconds. */
               startAt: number;
@@ -19280,6 +19290,41 @@ export interface operations {
               /** @description Date and time the credential expires. */
               expiresAt: number;
               generatedAt: number;
+              geography?: {
+                cards?: {
+                  [key: string]: {
+                    /** @description City of the visitor. */
+                    city: string | null;
+                    cityId: number | null;
+                    /** @description Country code of the visitor. */
+                    country: string | null;
+                    /** @description Region or subdivision of the visitor. */
+                    region: string | null;
+                  };
+                };
+                charts?: {
+                  [key: string]: {
+                    /** @description City of the visitor. */
+                    city: string | null;
+                    cityId: number | null;
+                    /** @description Country code of the visitor. */
+                    country: string | null;
+                    /** @description Region or subdivision of the visitor. */
+                    region: string | null;
+                  }[];
+                };
+                tables?: {
+                  [key: string]: {
+                    /** @description City of the visitor. */
+                    city: string | null;
+                    cityId: number | null;
+                    /** @description Country code of the visitor. */
+                    country: string | null;
+                    /** @description Region or subdivision of the visitor. */
+                    region: string | null;
+                  }[];
+                };
+              };
               geographyCoverage?: {
                 chinaProvinceCoverage: number | null;
                 chinaProvinceKnownVisits: number;
@@ -19836,6 +19881,41 @@ export interface operations {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
+              geography?: {
+                cards?: {
+                  [key: string]: {
+                    /** @description City of the visitor. */
+                    city: string | null;
+                    cityId: number | null;
+                    /** @description Country code of the visitor. */
+                    country: string | null;
+                    /** @description Region or subdivision of the visitor. */
+                    region: string | null;
+                  };
+                };
+                charts?: {
+                  [key: string]: {
+                    /** @description City of the visitor. */
+                    city: string | null;
+                    cityId: number | null;
+                    /** @description Country code of the visitor. */
+                    country: string | null;
+                    /** @description Region or subdivision of the visitor. */
+                    region: string | null;
+                  }[];
+                };
+                tables?: {
+                  [key: string]: {
+                    /** @description City of the visitor. */
+                    city: string | null;
+                    cityId: number | null;
+                    /** @description Country code of the visitor. */
+                    country: string | null;
+                    /** @description Region or subdivision of the visitor. */
+                    region: string | null;
+                  }[];
+                };
+              };
               geographyCoverage?: {
                 chinaProvinceCoverage: number | null;
                 chinaProvinceKnownVisits: number;
@@ -20298,6 +20378,41 @@ export interface operations {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
+              geography?: {
+                cards?: {
+                  [key: string]: {
+                    /** @description City of the visitor. */
+                    city: string | null;
+                    cityId: number | null;
+                    /** @description Country code of the visitor. */
+                    country: string | null;
+                    /** @description Region or subdivision of the visitor. */
+                    region: string | null;
+                  };
+                };
+                charts?: {
+                  [key: string]: {
+                    /** @description City of the visitor. */
+                    city: string | null;
+                    cityId: number | null;
+                    /** @description Country code of the visitor. */
+                    country: string | null;
+                    /** @description Region or subdivision of the visitor. */
+                    region: string | null;
+                  }[];
+                };
+                tables?: {
+                  [key: string]: {
+                    /** @description City of the visitor. */
+                    city: string | null;
+                    cityId: number | null;
+                    /** @description Country code of the visitor. */
+                    country: string | null;
+                    /** @description Region or subdivision of the visitor. */
+                    region: string | null;
+                  }[];
+                };
+              };
               geographyCoverage?: {
                 chinaProvinceCoverage: number | null;
                 chinaProvinceKnownVisits: number;

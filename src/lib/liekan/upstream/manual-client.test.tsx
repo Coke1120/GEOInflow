@@ -852,3 +852,44 @@ it('finishes a failed selection and lets the next manual read recover', async ()
   expect(hook.result.current.query.data).toBe(7);
   expect(hook.result.current.reading.error).toBe('');
 });
+
+it('renders controlled refresh failures in the current language while keeping its canonical read state', async () => {
+  const { LiekanLocaleContext } = await import('../i18n/client');
+  let fail = false;
+  let locale: 'zh-CN' | 'en-US' = 'en-US';
+  function Scope() {
+    const query = useManualQuery({
+      queryKey: ['localized-refresh-error'],
+      queryFn: async () => {
+        if (fail) throw new Error('fixture unavailable');
+        return 7;
+      },
+    });
+    return (
+      <>
+        <output>{query.isPending ? 'Pending' : query.data}</output>
+        <span>{query.error ? 'Read failed' : ''}</span>
+        <ManualRefreshControl />
+      </>
+    );
+  }
+  const content = () => (
+    <LiekanLocaleContext.Provider value={locale}>
+      <Scope />
+    </LiekanLocaleContext.Provider>
+  );
+  const view = render(content(), { wrapper });
+  await advance();
+  fail = true;
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+  await advance(100);
+  await advance(100);
+  expect(document.querySelector('[data-manual-reading] [role="status"]')).toHaveTextContent(
+    'Some data could not be loaded. Previous results are still shown. Retry.',
+  );
+  locale = 'zh-CN';
+  view.rerender(content());
+  expect(document.querySelector('[data-manual-reading] [role="status"]')).toHaveTextContent(
+    '部分数据读取失败，仍显示上次读取结果，请主动重试。',
+  );
+});

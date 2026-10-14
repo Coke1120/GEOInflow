@@ -1,4 +1,7 @@
 'use client';
+import { TableCell } from './ui';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import Link from '@/components/liekan/Link';
 import { useEffect, useRef, useState } from 'react';
 import { duration, percentage } from '@/lib/liekan/contracts/analysis';
@@ -76,6 +79,7 @@ const perfValue = (value: number | null, metric: string) =>
         ? `${(value / 1000).toFixed(2)} s`
         : `${Math.round(value)} ms`;
 function Performance() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [metric, setMetric] = useState('lcp'),
     [percentile, setPercentile] = useState('p75'),
@@ -117,14 +121,15 @@ function Performance() {
           onChange={setMetric}
         />
         <Select
-          label="摘要分位数"
+          label={i18n.text('摘要分位数')}
           value={percentile}
           onChange={e => setPercentile(e.target.value)}
           options={[
-            ['p50', 'p50 · 中位数'],
-            ['p75', 'p75 · 第 75 分位'],
-            ['p95', 'p95 · 第 95 分位'],
+            ['p50', i18n.text('p50 · 中位数')],
+            ['p75', i18n.text('p75 · 第 75 分位')],
+            ['p95', i18n.text('p95 · 第 95 分位')],
           ]}
+          localizeLabels
         />
       </div>
       <Metrics
@@ -135,17 +140,20 @@ function Performance() {
             [
               m.toUpperCase(),
               perfValue(value(m), m),
-              `${['最大内容绘制', '交互延迟', '累计布局偏移', '首次内容绘制', '首字节时间'][i]} · ${percentile}`,
+              `${[i18n.text('最大内容绘制'), i18n.text('交互延迟'), i18n.text('累计布局偏移'), i18n.text('首次内容绘制'), i18n.text('首字节时间')][i]} · ${percentile}`,
               m === metric ? 'blue' : '',
             ] as any,
         )}
       />
       <Panel
-        title={`${metric.toUpperCase()} 分位数趋势`}
-        subtitle={`p50、p75、p95 · ${data ? n(data[`${metric}Count`]) : summary.data ? n(summary.data.count) : '—'} 次采样`}
+        title={i18n.text('{v0} 分位数趋势', [metric.toUpperCase()])}
+        subtitle={i18n.text('p50、p75、p95 · {v0} 次采样', [
+          data ? n(data[`${metric}Count`]) : summary.data ? n(summary.data.count) : '—',
+        ])}
       >
         <QueryState query={chart}>
           <Chart
+            interactionKey={JSON.stringify(['performance', c.user.id, c.siteId, scope, chart.data])}
             labels={points.map((r: any) => r.t)}
             series={['p50', 'p75', 'p95'].map(p => ({
               name: p,
@@ -164,12 +172,17 @@ function Performance() {
         </QueryState>
       </Panel>
       <div className="two">
-        <Panel title="页面性能" subtitle="所选指标和分位数，保留单位。">
+        <Panel title={i18n.text('页面性能')} subtitle={i18n.text('所选指标和分位数，保留单位。')}>
           <QueryState query={pages}>
             <Table
               columns={['页面', `${metric.toUpperCase()} · ${percentile}`, '采样数']}
               rows={(pages.data || []).map((r: any) => [
-                pageLink(r.name, c.site?.domain),
+                <TableCell
+                  sortValue={pageLink(r.name, c.site?.domain, undefined, undefined, 'zh-CN')}
+                  searchValue={pageLink(r.name, c.site?.domain, undefined, undefined, 'en-US')}
+                >
+                  {pageLink(r.name, c.site?.domain, undefined, undefined, i18n.locale)}
+                </TableCell>,
                 perfValue(r[percentile] == null ? null : Number(r[percentile]), metric),
                 n(r.count),
               ])}
@@ -178,13 +191,13 @@ function Performance() {
           </QueryState>
         </Panel>
         <Panel
-          title="环境拆分"
-          subtitle="设备与浏览器分别查看。"
+          title={i18n.text('环境拆分')}
+          subtitle={i18n.text('设备与浏览器分别查看。')}
           actions={
             <Tabs
               items={[
-                ['device', '设备'],
-                ['browser', '浏览器'],
+                ['device', i18n.text('设备')],
+                ['browser', i18n.text('浏览器')],
               ]}
               active={environment}
               onChange={setEnvironment}
@@ -199,7 +212,12 @@ function Performance() {
                 '采样数',
               ]}
               rows={(devices.data || []).map((r: any) => [
-                r.name || '未提供',
+                <TableCell
+                  sortValue={r.name || i18n.source('未提供')}
+                  searchValue={r.name || i18n.english.text('未提供')}
+                >
+                  {r.name || i18n.text('未提供')}
+                </TableCell>,
                 perfValue(r[percentile] == null ? null : Number(r[percentile]), metric),
                 n(r.count),
               ])}
@@ -208,13 +226,16 @@ function Performance() {
           </QueryState>
         </Panel>
       </div>
-      <Notice>性能数据需采集对应浏览器指标。没有样本时显示“未采集”。CLS 不使用时间单位。</Notice>
+      <Notice>
+        {i18n.text('性能数据需采集对应浏览器指标。没有样本时显示“未采集”。CLS 不使用时间单位。')}
+      </Notice>
       {counts.error && <QueryState query={counts}>{null}</QueryState>}
       {summary.error && <QueryState query={summary}>{null}</QueryState>}
     </>
   );
 }
 function Revenue() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [currency, setCurrency] = useState('CNY'),
     [mode, setMode] = useState('period'),
@@ -249,9 +270,10 @@ function Revenue() {
     <>
       <div className="row between">
         <Select
-          label="币种"
+          label={i18n.text('币种')}
           value={currency}
           options={['CNY', 'USD']}
+          localizeLabels
           onChange={e => {
             setCurrency(e.target.value);
             setPage(1);
@@ -259,8 +281,8 @@ function Revenue() {
         />
         <Tabs
           items={[
-            ['period', '按期间'],
-            ['cumulative', '累计'],
+            ['period', i18n.text('按期间')],
+            ['cumulative', i18n.text('累计')],
           ]}
           active={mode}
           onChange={setMode}
@@ -269,20 +291,35 @@ function Revenue() {
       <Metrics
         loading={summary.isPending}
         items={[
-          ['收入', totals ? money(totals.sum) : null, `${currency} · 所选币种`],
-          ['付费事件', totals ? n(totals.count) : null, '收入事件触发次数'],
-          ['付费访客', totals ? n(totals.unique_count) : null, '独立访客'],
           [
-            '平均事件金额',
+            i18n.text('收入'),
+            totals ? money(totals.sum) : null,
+            i18n.text('{v0} · 所选币种', [currency]),
+          ],
+          [i18n.text('付费事件'), totals ? n(totals.count) : null, i18n.text('收入事件触发次数')],
+          [i18n.text('付费访客'), totals ? n(totals.unique_count) : null, i18n.text('独立访客')],
+          [
+            i18n.text('平均事件金额'),
             totals ? formatRevenueAverage(totals.sum, Number(totals.count), currency) : '—',
-            '收入 / 付费事件',
+            i18n.text('收入 / 付费事件'),
           ],
         ]}
       />
       {summary.error && <QueryState query={summary}>{null}</QueryState>}
-      <Panel title="收入趋势" subtitle={`金额单位：${currency}。累计从所选期间起点计算。`}>
+      <Panel
+        title={i18n.text('收入趋势')}
+        subtitle={i18n.text('金额单位：{v0}。累计从所选期间起点计算。', [currency])}
+      >
         <QueryState query={chart}>
           <Chart
+            interactionKey={JSON.stringify([
+              'revenue',
+              c.user.id,
+              c.siteId,
+              scope,
+              mode,
+              chart.data,
+            ])}
             labels={labels}
             series={[{ name: currency, values: series }]}
             option={{
@@ -299,12 +336,20 @@ function Revenue() {
         </QueryState>
       </Panel>
       <div className="two">
-        <Panel title="收入来源" subtitle={`当前币种 ${currency} 的收入贡献。`}>
+        <Panel
+          title={i18n.text('收入来源')}
+          subtitle={i18n.text('当前币种 {v0} 的收入贡献。', [currency])}
+        >
           <QueryState query={sources}>
             <Table
               columns={['来源', '收入', '占比']}
               rows={(sources.data || []).map((r: any) => [
-                r.name || '直接访问',
+                <TableCell
+                  sortValue={r.name || i18n.source('直接访问')}
+                  searchValue={r.name || i18n.english.text('直接访问')}
+                >
+                  {r.name || i18n.text('直接访问')}
+                </TableCell>,
                 money(r.value),
                 percentage(Number(r.value), Number(totals?.sum)),
               ])}
@@ -312,21 +357,34 @@ function Revenue() {
             />
           </QueryState>
         </Panel>
-        <Panel title="交易访问记录" subtitle={`事件金额与币种属性，金额单位：${currency}。`}>
+        <Panel
+          title={i18n.text('交易访问记录')}
+          subtitle={i18n.text('事件金额与币种属性，金额单位：{v0}。', [currency])}
+        >
           <QueryState query={transactions}>
             <Table
               columns={['会话', '事件', '金额', '操作']}
               rows={(transactions.data?.rows || []).map((r: any) => [
-                masked(r.sessionId),
+                <TableCell
+                  sortValue={masked(r.sessionId)}
+                  searchValue={i18n.english.system(masked(r.sessionId))}
+                >
+                  {i18n.system(masked(r.sessionId))}
+                </TableCell>,
                 r.event,
                 money(r.amount),
-                <Link
-                  prefetch={false}
-                  key={r.id}
-                  href={c.href('session-detail', { id: r.sessionId })}
+                <TableCell
+                  sortValue={i18n.source('查看访问详情 →')}
+                  searchValue={i18n.english.text('查看访问详情 →')}
                 >
-                  查看访问详情 →
-                </Link>,
+                  <Link
+                    prefetch={false}
+                    key={r.id}
+                    href={c.href('session-detail', { id: r.sessionId })}
+                  >
+                    {i18n.text('查看访问详情 →')}
+                  </Link>
+                </TableCell>,
               ])}
               numeric={[2]}
               page={page}
@@ -337,12 +395,15 @@ function Revenue() {
         </Panel>
       </div>
       <Notice>
-        不同币种分别展示，使用已采集的事件金额，保持上游事件去重口径。当前页面不进行汇率换算。
+        {i18n.text(
+          '不同币种分别展示，使用已采集的事件金额，保持上游事件去重口径。当前页面不进行汇率换算。',
+        )}
       </Notice>
     </>
   );
 }
 function Heatmaps() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [path, setPath] = useState(''),
     [device, setDevice] = useState('desktop'),
@@ -386,12 +447,14 @@ function Heatmaps() {
   return (
     <>
       <Notice tone="amber">
-        画布使用当前页面预览叠加真实聚合数据。页面布局变化或网站禁止嵌入时，可通过右侧明细核对采样结果。
+        {i18n.text(
+          '画布使用当前页面预览叠加真实聚合数据。页面布局变化或网站禁止嵌入时，可通过右侧明细核对采样结果。',
+        )}
       </Notice>
       <div className="row between">
         <div className="row">
           <Select
-            label="页面"
+            label={i18n.text('页面')}
             options={pages.map((p: any) => [
               p.urlPath,
               pageUrl(p.urlPath, c.site?.domain) || p.urlPath,
@@ -400,19 +463,20 @@ function Heatmaps() {
             onChange={e => setPath(e.target.value)}
           />
           <Select
-            label="设备"
+            label={i18n.text('设备')}
             options={[
-              ['desktop', '桌面'],
-              ['phone', '移动'],
+              ['desktop', i18n.text('桌面')],
+              ['phone', i18n.text('移动')],
             ]}
+            localizeLabels
             value={device}
             onChange={e => setDevice(e.target.value)}
           />
         </div>
         <Tabs
           items={[
-            ['click', '点击热力图'],
-            ['scroll', '滚动热力图'],
+            ['click', i18n.text('点击热力图')],
+            ['scroll', i18n.text('滚动热力图')],
           ]}
           active={mode}
           onChange={setMode}
@@ -428,36 +492,40 @@ function Heatmaps() {
           mode === 'click'
             ? [
                 [
-                  '采样会话',
+                  i18n.text('采样会话'),
                   selected ? n(selected.sessions) : query.data ? '0' : null,
-                  '当前页面与设备',
+                  i18n.text('当前页面与设备'),
                 ],
-                ['点击次数', query.data ? n(clicks) : null, '当前页聚合点击'],
-                ['主要点击', points.length ? '见坐标明细' : '未采集', '由实际点击坐标聚合'],
+                [i18n.text('点击次数'), query.data ? n(clicks) : null, i18n.text('当前页聚合点击')],
                 [
-                  '采样率',
+                  i18n.text('主要点击'),
+                  points.length ? i18n.text('见坐标明细') : i18n.text('未采集'),
+                  i18n.text('由实际点击坐标聚合'),
+                ],
+                [
+                  i18n.text('采样率'),
                   recorder.data
                     ? recorder.data.heatmapSampleRate == null
-                      ? '未开启'
+                      ? i18n.text('未开启')
                       : `${Number(recorder.data.heatmapSampleRate) * 100}%`
                     : null,
-                  '行为采集配置',
+                  i18n.text('行为采集配置'),
                 ],
               ]
             : [
-                ['采样会话', n(exactScroll.data?.total), '当前页面与设备'],
+                [i18n.text('采样会话'), n(exactScroll.data?.total), i18n.text('当前页面与设备')],
                 [
-                  '到达 50%',
+                  i18n.text('到达 50%'),
                   percentage(reached(50), exactScroll.data?.total),
                   `${n(reached(50))} / ${n(exactScroll.data?.total)}`,
                 ],
                 [
-                  '到达 75%',
+                  i18n.text('到达 75%'),
                   percentage(reached(75), exactScroll.data?.total),
                   `${n(reached(75))} / ${n(exactScroll.data?.total)}`,
                 ],
                 [
-                  '到达底部',
+                  i18n.text('到达底部'),
                   percentage(reached(100), exactScroll.data?.total),
                   `${n(reached(100))} / ${n(exactScroll.data?.total)}`,
                 ],
@@ -469,8 +537,8 @@ function Heatmaps() {
       )}
       <div className="wide-narrow">
         <Panel
-          title={mode === 'click' ? '点击分布' : '滚动深度'}
-          subtitle="热度表达聚合强度，右侧同时提供数值。"
+          title={i18n.system(mode === 'click' ? i18n.text('点击分布') : i18n.text('滚动深度'))}
+          subtitle={i18n.text('热度表达聚合强度，右侧同时提供数值。')}
         >
           <Body>
             <QueryState query={query}>
@@ -480,12 +548,18 @@ function Heatmaps() {
                 style={{ maxHeight: 720, overflow: 'auto' }}
               >
                 <div className="browser-bar">
-                  {pageLink(snapshot?.url || path, c.site?.domain, '选择已采集页面')}
+                  {pageLink(
+                    snapshot?.url || path,
+                    c.site?.domain,
+                    i18n.text('选择已采集页面'),
+                    undefined,
+                    i18n.locale,
+                  )}
                 </div>
                 {snapshot ? (
                   <div style={{ position: 'relative', height, overflow: 'hidden' }}>
                     <iframe
-                      title="采集页面预览"
+                      title={i18n.text('采集页面预览')}
                       src={snapshot.url}
                       referrerPolicy="no-referrer"
                       sandbox="allow-scripts allow-forms"
@@ -532,10 +606,12 @@ function Heatmaps() {
                   </div>
                 ) : (
                   <div className="state-box">
-                    <h3>尚未采集可预览的数据</h3>
-                    <p>开启行为采集并产生对应页面的点击或滚动后，此处显示真实分布。</p>
+                    <h3>{i18n.text('尚未采集可预览的数据')}</h3>
+                    <p>
+                      {i18n.text('开启行为采集并产生对应页面的点击或滚动后，此处显示真实分布。')}
+                    </p>
                     <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
-                      查看当前网站采集设置
+                      {i18n.text('查看当前网站采集设置')}
                     </LinkButton>
                   </div>
                 )}
@@ -543,14 +619,17 @@ function Heatmaps() {
             </QueryState>
           </Body>
         </Panel>
-        <Panel title="页面明细" subtitle="当前日期与设备的采样区间。">
+        <Panel title={i18n.text('页面明细')} subtitle={i18n.text('当前日期与设备的采样区间。')}>
           <Body>
             <Definition
               items={[
-                ['页面', pageLink(path, c.site?.domain, '未选择')],
-                ['设备', device === 'phone' ? '移动' : '桌面'],
-                ['采集范围', '聚合行为坐标'],
-                ['热度颜色', '蓝：低；橙：中；红：高'],
+                [
+                  i18n.text('页面'),
+                  pageLink(path, c.site?.domain, i18n.text('未选择'), undefined, i18n.locale),
+                ],
+                [i18n.text('设备'), device === 'phone' ? i18n.text('移动') : i18n.text('桌面')],
+                [i18n.text('采集范围'), i18n.text('聚合行为坐标')],
+                [i18n.text('热度颜色'), i18n.text('蓝：低；橙：中；红：高')],
               ]}
             />
             <hr className="divider" />
@@ -570,7 +649,7 @@ function Heatmaps() {
             </QueryState>
             <div className="form-actions">
               <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
-                网站采集设置
+                {i18n.text('网站采集设置')}
               </LinkButton>
             </div>
           </Body>
@@ -581,6 +660,7 @@ function Heatmaps() {
   );
 }
 function Replays() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [tab, setTab] = useState('all'),
     [page, setPage] = useState(1);
@@ -600,8 +680,8 @@ function Replays() {
     <>
       <Tabs
         items={[
-          ['all', '所有录制'],
-          ['saved', '已保存'],
+          ['all', i18n.text('所有录制')],
+          ['saved', i18n.text('已保存')],
         ]}
         active={tab}
         onChange={t => {
@@ -610,11 +690,11 @@ function Replays() {
         }}
       />
       <Panel
-        title="会话录制"
-        subtitle="隐私遮蔽后的实际录制，通过录制标识进入播放器。"
+        title={i18n.text('会话录制')}
+        subtitle={i18n.text('隐私遮蔽后的实际录制，通过录制标识进入播放器。')}
         actions={
           <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
-            网站采集设置
+            {i18n.text('网站采集设置')}
           </LinkButton>
         }
       >
@@ -623,22 +703,68 @@ function Replays() {
             search
             columns={['录制', '来源', '设备', '时长', '页面数', '状态', '操作']}
             rows={rows.map(r => [
-              r.name ||
-                `${masked(r.sessionId)} · ${r.startedAt ? new Date(r.startedAt).toLocaleTimeString('zh-CN') : '已保存录制'}`,
-              r.referrerDomain || '未提供',
-              r.device || '未提供',
-              duration(r.duration == null ? null : Number(r.duration) / 1000),
-              r.pageviews == null ? '未提供' : n(r.pageviews),
-              <Badge key={r.id} tone={tab === 'saved' ? 'blue' : 'green'}>
-                {tab === 'saved' ? '已保存' : '可播放'}
-              </Badge>,
-              <Link
-                prefetch={false}
-                href={c.href('replay-player', { id: tab === 'saved' ? r.visitId : r.id })}
-                key={r.id}
+              <TableCell
+                sortValue={
+                  r.name ||
+                  `${masked(r.sessionId)} · ${r.startedAt ? new Date(r.startedAt).toLocaleTimeString('zh-CN') : i18n.source('已保存录制')}`
+                }
+                searchValue={
+                  r.name ||
+                  `${i18n.english.system(masked(r.sessionId))} · ${r.startedAt ? new Date(r.startedAt).toLocaleTimeString('en-US') : i18n.english.text('已保存录制')}`
+                }
               >
-                播放 →
-              </Link>,
+                {r.name ||
+                  `${i18n.system(masked(r.sessionId))} · ${r.startedAt ? new Date(r.startedAt).toLocaleTimeString(i18n.locale) : i18n.text('已保存录制')}`}
+              </TableCell>,
+              <TableCell
+                sortValue={r.referrerDomain || i18n.source('未提供')}
+                searchValue={r.referrerDomain || i18n.english.text('未提供')}
+              >
+                {r.referrerDomain || i18n.text('未提供')}
+              </TableCell>,
+              <TableCell
+                sortValue={r.device || i18n.source('未提供')}
+                searchValue={r.device || i18n.english.text('未提供')}
+              >
+                {r.device || i18n.text('未提供')}
+              </TableCell>,
+              <TableCell
+                sortValue={duration(r.duration == null ? null : Number(r.duration) / 1000, 'zh-CN')}
+                searchValue={duration(
+                  r.duration == null ? null : Number(r.duration) / 1000,
+                  'en-US',
+                )}
+              >
+                {duration(r.duration == null ? null : Number(r.duration) / 1000, i18n.locale)}
+              </TableCell>,
+              <TableCell
+                sortValue={r.pageviews == null ? i18n.source('未提供') : n(r.pageviews)}
+                searchValue={r.pageviews == null ? i18n.english.text('未提供') : n(r.pageviews)}
+              >
+                {r.pageviews == null ? i18n.text('未提供') : n(r.pageviews)}
+              </TableCell>,
+              <TableCell
+                sortValue={tab === 'saved' ? i18n.source('已保存') : i18n.source('可播放')}
+                searchValue={i18n.english.system(
+                  tab === 'saved' ? i18n.english.text('已保存') : i18n.english.text('可播放'),
+                )}
+              >
+                <Badge key={r.id} tone={tab === 'saved' ? 'blue' : 'green'}>
+                  {tab === 'saved' ? i18n.text('已保存') : i18n.text('可播放')}
+                </Badge>
+              </TableCell>,
+              <TableCell
+                sortValue={i18n.source('播放 →')}
+                searchValue={i18n.english.text('播放 →')}
+              >
+                <Link
+                  prefetch={false}
+                  href={c.href('replay-player', { id: tab === 'saved' ? r.visitId : r.id })}
+                  key={r.id}
+                >
+                  {i18n.text('播放 →')}
+                </Link>
+              </TableCell>,
             ])}
             numeric={[3, 4]}
             page={page}
@@ -647,21 +773,28 @@ function Replays() {
           />
           {!rows.length && (
             <Notice>
-              当前日期与筛选条件下没有录制。会话是一次连续访问，录制需要提前开启行为采集。
+              {i18n.fragment(
+                '当前日期与筛选条件下没有录制。会话是一次连续访问，录制需要提前开启行为采集。',
+                false,
+                true,
+              )}
               <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
-                查看当前网站采集设置
+                {i18n.text('查看当前网站采集设置')}
               </LinkButton>
             </Notice>
           )}
         </QueryState>
       </Panel>
       <Notice>
-        采集开关、采样与存储策略从行为采集设置管理。未采集的环境与来源字段显示“未提供”。
+        {i18n.text(
+          '采集开关、采样与存储策略从行为采集设置管理。未采集的环境与来源字段显示“未提供”。',
+        )}
       </Notice>
     </>
   );
 }
 function ReplayPlayer() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   const id = c.route.id;
@@ -750,28 +883,32 @@ function ReplayPlayer() {
     .filter((e: any) => e.type === 4 || e.type === 5)
     .map((e: any) => ({
       time: Math.max(0, (e.timestamp - events[0].timestamp) / 1000),
-      label: e.type === 4 ? e.data?.href : e.data?.tag || '行为标记',
+      label: e.type === 4 ? e.data?.href : e.data?.tag || i18n.text('行为标记'),
     }));
   if (!id)
     return (
       <Notice>
-        请选择录制后查看。<LinkButton page="replays">返回录制列表</LinkButton>
+        {i18n.fragment('请选择录制后查看。', false, true)}
+        <LinkButton page="replays">{i18n.text('返回录制列表')}</LinkButton>
       </Notice>
     );
   return (
     <>
       <div className="row between">
         <div>
-          <h2>{masked(query.data?.sessionId)} · 访问路径</h2>
+          <h2>
+            {i18n.system(masked(query.data?.sessionId))}
+            {i18n.fragment(' · 访问路径', true, false)}
+          </h2>
           <p className="muted">
             {query.data?.startedAt
-              ? new Date(query.data.startedAt).toLocaleString('zh-CN')
-              : '正在读取'}{' '}
-            · 实际录制
+              ? new Date(query.data.startedAt).toLocaleString(i18n.locale)
+              : i18n.text('正在读取')}{' '}
+            {i18n.fragment('· 实际录制', true, false)}
           </p>
         </div>
         <div className="actions">
-          <LinkButton page="replays">返回录制列表</LinkButton>
+          <LinkButton page="replays">{i18n.text('返回录制列表')}</LinkButton>
           <Button
             disabled={
               saved.isPending ||
@@ -792,30 +929,32 @@ function ReplayPlayer() {
             }
             onClick={() => setSaveOpen(true)}
           >
-            {saved.data?.isSaved ? '已保存' : '保存会话回放'}
+            {saved.data?.isSaved ? i18n.text('已保存') : i18n.text('保存会话回放')}
           </Button>
         </div>
       </div>
-      <Notice tone="amber">播放器重建已经采集并遮蔽的录制事件。录制未包含的行为不会补生成。</Notice>
+      <Notice tone="amber">
+        {i18n.text('播放器重建已经采集并遮蔽的录制事件。录制未包含的行为不会补生成。')}
+      </Notice>
       <QueryState query={query}>
         <div className="wide-narrow">
-          <Panel title="回放画布" subtitle="使用实际页面快照与采集视口。">
+          <Panel title={i18n.text('回放画布')} subtitle={i18n.text('使用实际页面快照与采集视口。')}>
             <Body>
               {error && (
                 <Notice tone="red">
-                  {error}
+                  {i18n.system(error)}
                   {error === missingReplaySnapshotMessage && (
                     <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
-                      查看当前网站采集设置
+                      {i18n.text('查看当前网站采集设置')}
                     </LinkButton>
                   )}
                 </Notice>
               )}
               {events.length < 2 && (
                 <Notice>
-                  当前录制没有可播放的完整快照。
+                  {i18n.fragment('当前录制没有可播放的完整快照。', false, true)}
                   <LinkButton page="recorder-settings" params={{ websiteId: c.siteId }}>
-                    查看当前网站采集设置
+                    {i18n.text('查看当前网站采集设置')}
                   </LinkButton>
                 </Notice>
               )}
@@ -836,10 +975,10 @@ function ReplayPlayer() {
                   }}
                 >
                   <Icon name={playing ? 'pause' : 'play'} />
-                  {playing ? '暂停' : '播放'}
+                  {playing ? i18n.text('暂停') : i18n.text('播放')}
                 </Button>
                 <span className="num">
-                  {duration(time)} / {duration(total)}
+                  {duration(time, i18n.locale)} / {duration(total, i18n.locale)}
                 </span>
                 <input
                   type="range"
@@ -847,11 +986,11 @@ function ReplayPlayer() {
                   max={Math.max(0, total)}
                   value={Math.min(time, total)}
                   step={0.1}
-                  aria-label="播放位置"
+                  aria-label={i18n.text('播放位置')}
                   onChange={e => seek(Number(e.target.value))}
                 />
                 <Select
-                  label="播放速度"
+                  label={i18n.text('播放速度')}
                   value={speed}
                   onChange={e => setSpeed(e.target.value)}
                   options={[
@@ -860,28 +999,31 @@ function ReplayPlayer() {
                     ['2', '2×'],
                     ['4', '4×'],
                   ]}
+                  localizeLabels
                 />
               </div>
             </Body>
           </Panel>
-          <Panel title="行为时间线" subtitle="点击节点定位到录制时间。">
+          <Panel title={i18n.text('行为时间线')} subtitle={i18n.text('点击节点定位到录制时间。')}>
             <Body>
               <ul className="timeline">
                 {behavior.map((b: any, i: number) => (
                   <li key={i}>
-                    <time className="timeline-time">{duration(b.time)}</time>
+                    <time className="timeline-time">{duration(b.time, i18n.locale)}</time>
                     <button className="table-action" onClick={() => seek(b.time)}>
                       {b.label}
                     </button>
-                    <p>实际录制时间点</p>
+                    <p>{i18n.text('实际录制时间点')}</p>
                   </li>
                 ))}
               </ul>
-              {!behavior.length && <Notice>此录制未提供页面或自定义行为标记。</Notice>}
+              {!behavior.length && (
+                <Notice>{i18n.text('此录制未提供页面或自定义行为标记。')}</Notice>
+              )}
               <hr className="divider" />
               {query.data?.sessionId && (
                 <LinkButton page="session-detail" params={{ id: query.data.sessionId }}>
-                  查看访问详情
+                  {i18n.text('查看访问详情')}
                 </LinkButton>
               )}
             </Body>
@@ -890,7 +1032,9 @@ function ReplayPlayer() {
       </QueryState>
       {saveOpen && (
         <LiekanDialog
-          title={saved.data?.isSaved ? '管理已保存回放' : '保存会话回放'}
+          title={i18n.system(
+            saved.data?.isSaved ? i18n.text('管理已保存回放') : i18n.text('保存会话回放'),
+          )}
           onClose={() => {
             if (!action.busy) setSaveOpen(false);
           }}
@@ -899,7 +1043,7 @@ function ReplayPlayer() {
             <Form
               busy={action.busy}
               error={action.error}
-              submitLabel="保存回放"
+              submitLabel={i18n.text('保存回放')}
               onSubmit={async v => {
                 await action.run(
                   () =>
@@ -912,14 +1056,14 @@ function ReplayPlayer() {
                 setSaveOpen(false);
               }}
             >
-              <Notice>为当前会话回放添加名称，便于在已保存列表中查找。</Notice>
-              <Field label="回放名称" name="name" required maxLength={100} />
+              <Notice>{i18n.text('为当前会话回放添加名称，便于在已保存列表中查找。')}</Notice>
+              <Field label={i18n.text('回放名称')} name="name" required maxLength={100} />
             </Form>
           )}
           {saved.data?.isSaved && (
             <>
-              <Notice>此会话回放已保存，可在已保存列表查看或取消保存。</Notice>
-              {action.error && <Notice tone="red">{action.error}</Notice>}
+              <Notice>{i18n.text('此会话回放已保存，可在已保存列表查看或取消保存。')}</Notice>
+              {action.error && <Notice tone="red">{i18n.system(action.error)}</Notice>}
               <DialogActions>
                 <Button
                   danger
@@ -933,7 +1077,7 @@ function ReplayPlayer() {
                     setSaveOpen(false);
                   }}
                 >
-                  取消保存此回放
+                  {i18n.text('取消保存此回放')}
                 </Button>
               </DialogActions>
             </>
@@ -944,6 +1088,7 @@ function ReplayPlayer() {
   );
 }
 export function ExtendedPages({ page }: { page: string }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   if (!extendedPages.has(page)) return null;
   if (['access-denied', 'session-expired', 'not-found'].includes(page)) {
@@ -985,7 +1130,8 @@ export function ExtendedPages({ page }: { page: string }) {
   if (!c.siteId)
     return (
       <Notice>
-        请先添加网站后查看分析。<LinkButton page="websites">网站管理</LinkButton>
+        {i18n.fragment('请先添加网站后查看分析。', false, true)}
+        <LinkButton page="websites">{i18n.text('网站管理')}</LinkButton>
       </Notice>
     );
   switch (page) {

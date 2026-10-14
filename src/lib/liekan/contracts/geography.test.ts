@@ -1,7 +1,9 @@
 import { expect, test } from 'vitest';
+import { translateSystemText } from '../i18n/text';
 import {
   geographyLabel,
   geographyCoverage,
+  geographyCoverageText,
   geographyEmptyText,
   geographyTable,
   identifyCity,
@@ -9,6 +11,11 @@ import {
   regionName,
   cityValueOptions,
   visitorGeographyLabel,
+  countryName,
+  cityName,
+  geographyDisplay,
+  geographyTableDisplay,
+  cityDefinitions,
 } from './geography';
 
 test.each([
@@ -33,6 +40,90 @@ test.each([
   ['TW', null, 'Taipei', '台北'],
 ])('formats %s/%s/%s as %s', (country, region, city, name) => {
   expect(geographyLabel({ country, region, city })).toBe(name);
+});
+
+test('selects English display by stable IDs and keeps uncertain or missing geography explicit', () => {
+  const value = { country: 'CN', region: 'CN-SN', city: '西安' };
+  const identity = identifyCity(value);
+  expect(countryName('TW', 'en-US')).toBe('China');
+  expect(regionName('CN-SN', 'CN', 'en-US')).toBe('Shaanxi');
+  expect(regionName('CN-SX', 'CN', 'en-US')).toBe('Shanxi');
+  expect(regionName('TW-TPE', 'TW', 'en-US')).toBe('Taiwan');
+  expect(regionName('CN-SD', 'US', 'en-US')).toBe('CN-SD');
+  expect(geographyLabel(value, 'en-US')).toBe("Xi'an");
+  expect(geographyLabel({ ...geographyDisplay(value), city: null }, 'en-US')).toBe("Xi'an");
+  expect(geographyLabel({ country: 'CN', region: 'CN-SD' }, 'en-US')).toBe(
+    'Shandong · Unknown city',
+  );
+  expect(geographyLabel({ country: 'CN' }, 'en-US')).toBe('China · Unknown city');
+  expect(geographyLabel({}, 'en-US')).toBe('Unknown location');
+  for (const unknown of ['Suzhou', '未审核地名', 'Unlisted Town'])
+    expect(geographyLabel({ country: 'CN', city: unknown }, 'en-US')).toBe(unknown);
+  expect(visitorGeographyLabel(value, 'en-US')).toBe("Xi'an, Shaanxi, China");
+  expect(identifyCity(value)).toEqual(identity);
+  expect(geographyLabel(value)).toBe('西安');
+  expect(value.city).toBe('西安');
+});
+
+test('English city labels use explicit catalog aliases for the same stable identity', () => {
+  for (const entry of cityDefinitions) {
+    const value = { country: entry.country, region: entry.region, city: entry.name };
+    expect(identifyCity(value).cityId).toBe(entry.id);
+    const english = cityName(value, 'en-US');
+    expect(entry.aliases).toContain(english);
+    expect(english).not.toMatch(/\p{Script=Han}/u);
+    expect(identifyCity({ ...value, city: english }).key).toBe(identifyCity(value).key);
+  }
+});
+
+test('locale preserves full geography selection, ranking, metrics and location metadata', () => {
+  const rows = [
+    fact("Xi'an", 2, 10),
+    fact('西安', 1, 40, { region: 'CN-61' }),
+    fact('Chengdu', 2, 20, { region: 'CN-SC' }),
+    fact(null, 4, null),
+  ];
+  const original = JSON.stringify(rows);
+  const selection = { geoSort: 'city' as const, direction: 'asc' as const };
+  const chinese = geographyTableDisplay(rows, 9, true, selection);
+  const english = geographyTableDisplay(rows, 9, true, selection, 'en-US');
+  expect(english.locations).toEqual(chinese.locations);
+  expect(english.rows.map(({ city, ...metrics }) => metrics)).toEqual(
+    chinese.rows.map(({ city, ...metrics }) => metrics),
+  );
+  english.rows.forEach((row, i) =>
+    expect(row.city).toBe(geographyLabel(english.locations[i], 'en-US')),
+  );
+  expect(geographyTable(rows, 9, true, { search: 'Xian' }, 'en-US')).toMatchObject([
+    { city: "Xi'an", sessions: 3, duration: 20 },
+  ]);
+  expect(geographyTable(rows, 9, true, { search: '西安' }, 'en-US')).toHaveLength(1);
+  expect(JSON.stringify(rows)).toBe(original);
+});
+
+test('matches visible English country and region labels with identical selection across locales', () => {
+  const rows = [
+    fact('Unlisted US Town', 4, 75, { country: 'US', region: null }),
+    fact('青岛', 2, 30, { country: 'CN', region: 'CN-SD' }),
+    fact(null, 1, null, { country: 'US', region: null }),
+    fact(null, 1, null, { country: 'CN', region: 'CN-SD' }),
+  ];
+  const original = JSON.stringify(rows);
+  for (const [query, expected] of [
+    ['United States', 'Unlisted US Town'],
+    ['Shandong', 'Qingdao'],
+  ] as const) {
+    const selection = { search: query };
+    const english = geographyTableDisplay(rows, 8, false, selection, 'en-US');
+    const chinese = geographyTableDisplay(rows, 8, false, selection, 'zh-CN');
+    expect(english.rows).toHaveLength(1);
+    expect(english.rows[0].city).toBe(expected);
+    expect(english.locations).toEqual(chinese.locations);
+    expect(english.rows.map(({ city, ...rest }) => rest)).toEqual(
+      chinese.rows.map(({ city, ...rest }) => rest),
+    );
+  }
+  expect(JSON.stringify(rows)).toBe(original);
 });
 
 test('distinguishes missing location from a city without a translation', () => {
@@ -200,4 +291,27 @@ test('provider missing-city tokens and unrecognized mainland provinces stay unkn
     chinaProvinceKnownVisits: 7,
     chinaProvinceUnknownVisits: 3,
   });
+});
+
+test('English coverage labels retain full-population counts and distinguish missing states', () => {
+  const rows = [fact('西安', 6, 10), fact(null, 4, null)];
+  const original = JSON.stringify(rows);
+  const coverage = geographyCoverage(rows, 10);
+  expect(translateSystemText(geographyCoverageText(coverage), 'en-US')).toBe(
+    'Only visits with a known city are listed. Shares use all eligible visits. City coverage: 60% · 4 visits have no identified city',
+  );
+  expect(translateSystemText(geographyEmptyText(coverage, 'missing'), 'en-US')).toBe(
+    'No matching cities',
+  );
+  expect(
+    translateSystemText(geographyEmptyText(geographyCoverage([fact(null, 10, null)], 10)), 'en-US'),
+  ).toBe('Visits received; city information has not been identified');
+  expect(translateSystemText(geographyEmptyText(geographyCoverage([], 0)), 'en-US')).toBe(
+    'No visits in this period',
+  );
+  expect(translateSystemText(geographyEmptyText(), 'en-US')).toBe('City coverage is unavailable');
+  expect(geographyTableDisplay(rows, 10, false, {}, 'en-US').rows).toEqual([
+    expect.objectContaining({ city: "Xi'an", sessions: 6, share: 60 }),
+  ]);
+  expect(JSON.stringify(rows)).toBe(original);
 });

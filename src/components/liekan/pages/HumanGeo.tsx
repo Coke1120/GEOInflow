@@ -1,8 +1,10 @@
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { geographyCoverageText } from '@/lib/liekan/contracts/geography';
 import { MetricCard, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
 export function HumanGeo({ report, rangeLabel }: ReportViewProps) {
+  const i18n = useLiekanI18n();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -34,23 +36,35 @@ export function HumanGeo({ report, rangeLabel }: ReportViewProps) {
       <section className="grid grid-cols-3 gap-4">
         <div className="card col-span-2 fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">国内省份分布 TOP10</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 按会话数（含转化率）</p>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.text('国内省份分布 TOP10')}
+            </h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' · 按会话数（含转化率）', true, false)}
+            </p>
           </div>
           <ReferenceChart id="g1" height={300} report={report} />
         </div>
         <div className="card fade-in d3">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">海外国家/地区 TOP8</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 按会话数</p>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.text('海外国家/地区 TOP8')}
+            </h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' · 按会话数', true, false)}
+            </p>
           </div>
           <ReferenceChart id="g2" height={300} report={report} />
         </div>
       </section>
       <section className="card fade-in d2 overflow-hidden">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
-          <h2 className="text-[14px] font-bold tracking-tight">城市明细</h2>
-          <span className="text-[11.5px] text-faint">{geographyCoverageText(report?.meta.geographyCoverage)}</span>
+          <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('城市明细')}</h2>
+          <span className="text-[11.5px] text-faint">
+            {i18n.system(geographyCoverageText(report?.meta.geographyCoverage))}
+          </span>
         </div>
         <table className="w-full text-[12.5px]">
           <thead>

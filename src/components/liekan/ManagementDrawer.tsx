@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { fromZonedTime } from 'date-fns-tz';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useApi } from '@/lib/liekan/upstream/client';
@@ -71,6 +73,7 @@ export function ManagementDrawer({
     refetch?: () => void;
   };
 }) {
+  const i18n = useLiekanI18n();
   const api = useApi();
   const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
   const formId = useId();
@@ -230,8 +233,8 @@ export function ManagementDrawer({
           action === 'robots.txt 编辑'
             ? 'robots.txt 已保存到当前网站设置。下载后部署到网站根目录。'
             : action === '蜘蛛白名单'
-              ? '白名单已保存，共 ' + saved.allowlist.length + ' 条。'
-              : '蜘蛛识别规则已保存，共 ' + saved.rules.length + ' 条。',
+              ? i18n.source('白名单已保存，共 {v0} 条。', [saved.allowlist.length])
+              : i18n.source('蜘蛛识别规则已保存，共 {v0} 条。', [saved.rules.length]),
         );
       } else if (isCatalog) {
         const result: { accepted: number; mode: string } = await api.put(
@@ -239,7 +242,10 @@ export function ManagementDrawer({
           { format, content },
         );
         setStatus(
-          `${result.mode === 'upsert' ? '已新增或更新' : '已导入'} ${formatValue(result.accepted)} 个页面`,
+          i18n.source('{v0} {v1} 个页面', [
+            result.mode === 'upsert' ? '已新增或更新' : '已导入',
+            formatValue(result.accepted),
+          ]),
         );
       } else {
         const payload =
@@ -275,15 +281,15 @@ export function ManagementDrawer({
   };
   return (
     <LiekanDialog
-      title={title}
+      title={i18n.system(title)}
       size={isRange || action === '蜘蛛白名单' ? 'standard' : 'wide'}
-      subtitle={
+      subtitle={i18n.system(
         <>
           {currentWebsite}
           {currentDomain ? ' · ' + currentDomain : ''}
           {isRange || isComparison || isQuery ? ' · ' + timezone : ''}
-        </>
-      }
+        </>,
+      )}
       protectUnsaved={!busy}
       onClose={() => {
         if (!saving.current) onClose();
@@ -299,7 +305,7 @@ export function ManagementDrawer({
         }}
       >
         {action === '日志查询' && (
-          <div className="tabs" role="tablist" aria-label="访问日志操作">
+          <div className="tabs" role="tablist" aria-label={i18n.text('访问日志操作')}>
             <button
               type="button"
               role="tab"
@@ -317,7 +323,7 @@ export function ManagementDrawer({
                 setDirty(importDirty.current);
               }}
             >
-              查询记录
+              {i18n.text('查询记录')}
             </button>
             <button
               type="button"
@@ -333,38 +339,41 @@ export function ManagementDrawer({
                 setDirty(importDirty.current);
               }}
             >
-              导入日志
+              {i18n.text('导入日志')}
             </button>
           </div>
         )}
         {loadError && (
           <div className="notice red" role="alert">
-            无法读取设置：{loadError}{' '}
+            {i18n.fragment('无法读取设置：', false, true)}
+            {i18n.system(loadError)}{' '}
             <Button disabled={busy || dirty} onClick={() => setLoadVersion(v => v + 1)}>
-              重新读取设置
+              {i18n.text('重新读取设置')}
             </Button>
           </div>
         )}
         {busy && settingsAction && !saving.current && (
           <p role="status" className="muted">
-            正在读取网站设置…
+            {i18n.text('正在读取网站设置…')}
           </p>
         )}
         {isComparison ? (
           <>
             <div className="management-grid">
               <div>
-                <h3>当前期间</h3>
+                <h3>{i18n.text('当前期间')}</h3>
                 <p className={styles.help}>
-                  {comparisonDate(comparison.startAt)} 至 {comparisonDate(comparison.endAt)}
+                  {comparisonDate(comparison.startAt)}
+                  {i18n.fragment(' 至 ', true, true)}
+                  {comparisonDate(comparison.endAt)}
                 </p>
               </div>
               <div>
-                <h3>上周期间</h3>
-                <p className={styles.help}>整体前移 7 天</p>
+                <h3>{i18n.text('上周期间')}</h3>
+                <p className={styles.help}>{i18n.text('整体前移 7 天')}</p>
                 <p className={styles.help}>
-                  {comparisonDate(comparison.previousStartAt)} 至{' '}
-                  {comparisonDate(comparison.previousEndAt)}
+                  {comparisonDate(comparison.previousStartAt)}
+                  {i18n.fragment(' 至', true, true)} {comparisonDate(comparison.previousEndAt)}
                 </p>
               </div>
             </div>
@@ -372,9 +381,9 @@ export function ManagementDrawer({
               <table className="management-comparison">
                 <thead>
                   <tr>
-                    <th>指标</th>
-                    <th>当前期间</th>
-                    <th>上周期间</th>
+                    <th>{i18n.text('指标')}</th>
+                    <th>{i18n.text('当前期间')}</th>
+                    <th>{i18n.text('上周期间')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -389,15 +398,19 @@ export function ManagementDrawer({
                       );
                       return (
                         <tr key={card.key}>
-                          <td>{card.label}</td>
+                          <td>{i18n.system(card.label)}</td>
                           <td>
-                            {formatMetricValue(card)}
-                            {stateLabels[card.state] ? ' · ' + stateLabels[card.state] : ''}
+                            {formatMetricValue(card, i18n.locale, i18n.system)}
+                            {i18n.system(stateLabels[card.state])
+                              ? ' · ' + i18n.system(stateLabels[card.state])
+                              : ''}
                           </td>
                           <td>
-                            {previous ? formatMetricValue(previous) : '暂无数据'}
-                            {previous && stateLabels[previous.state]
-                              ? ' · ' + stateLabels[previous.state]
+                            {previous
+                              ? formatMetricValue(previous, i18n.locale, i18n.system)
+                              : i18n.text('暂无数据')}
+                            {previous && i18n.system(stateLabels[previous.state])
+                              ? ' · ' + i18n.system(stateLabels[previous.state])
                               : ''}
                           </td>
                         </tr>
@@ -407,20 +420,21 @@ export function ManagementDrawer({
               </table>
             </div>
             {comparison.fetching ? (
-              <p role="status">正在读取上周数据…</p>
+              <p role="status">{i18n.text('正在读取上周数据…')}</p>
             ) : comparison.error ? (
               <div className="notice red" role="alert">
-                上周数据读取失败。<Button onClick={comparison.refetch}>重新读取</Button>
+                {i18n.fragment('上周数据读取失败。', false, true)}
+                <Button onClick={comparison.refetch}>{i18n.text('重新读取')}</Button>
               </div>
             ) : (
-              !comparison.previous && <p className="muted">上周期间暂无数据。</p>
+              !comparison.previous && <p className="muted">{i18n.text('上周期间暂无数据。')}</p>
             )}
           </>
         ) : isRange ? (
           <>
             <div className={styles.dateFields}>
               <label>
-                开始日期
+                {i18n.fragment('开始日期', false, true)}
                 <input
                   type="date"
                   required
@@ -429,39 +443,45 @@ export function ManagementDrawer({
                 />
               </label>
               <label>
-                结束日期
+                {i18n.fragment('结束日期', false, true)}
                 <input type="date" required value={end} onChange={e => setEnd(e.target.value)} />
               </label>
             </div>
-            <p className={styles.help}>日期按 {timezone} 时区统计，选择后应用到当前页面。</p>
+            <p className={styles.help}>
+              {i18n.fragment('日期按 ', false, true)}
+              {timezone}
+              {i18n.fragment(' 时区统计，选择后应用到当前页面。', true, false)}
+            </p>
           </>
         ) : isQuery ? (
           <>
             <div className="management-grid">
               <label>
-                查询关键词
+                {i18n.fragment('查询关键词', false, true)}
                 <input
                   value={content}
                   onChange={e => setContent(e.target.value)}
-                  placeholder="User-Agent、页面路径或状态码"
+                  placeholder={i18n.text('User-Agent、页面路径或状态码')}
                 />
               </label>
               <label>
-                请求类型
+                {i18n.fragment('请求类型', false, true)}
                 <select
-                  aria-label="日志请求类型"
+                  aria-label={i18n.text('日志请求类型')}
                   value={logsFilter || '全部'}
                   onChange={e => onLogsFilter?.(e.target.value)}
                 >
-                  <option>全部</option>
-                  <option>仅 AI 蜘蛛</option>
-                  <option>仅人类</option>
-                  <option>仅异常</option>
+                  <option value="全部">{i18n.text('全部')}</option>
+                  <option value="仅 AI 蜘蛛">{i18n.text('仅 AI 蜘蛛')}</option>
+                  <option value="仅人类">{i18n.text('仅人类')}</option>
+                  <option value="仅异常">{i18n.text('仅异常')}</option>
                 </select>
               </label>
             </div>
             <p className={styles.help}>
-              查询当前统计期间的已导入脱敏记录。“仅人类”显示未识别或其他请求，日志无法据此确认人类身份。
+              {i18n.text(
+                '查询当前统计期间的已导入脱敏记录。“仅人类”显示未识别或其他请求，日志无法据此确认人类身份。',
+              )}
             </p>
             {report && (
               <div className={styles.logResults}>
@@ -484,18 +504,18 @@ export function ManagementDrawer({
                 <div className={styles.pagination}>
                   <span>
                     {isFetching
-                      ? '正在读取记录…'
-                      : '共 ' +
+                      ? i18n.text('正在读取记录…')
+                      : i18n.text('共 ') +
                         (report.meta.totalLogs ?? report.tables.logBody?.length ?? 0) +
-                        ' 条 · 第 ' +
+                        i18n.text(' 条 · 第 ') +
                         (report.meta.page || 1) +
-                        ' 页'}
+                        i18n.text(' 页')}
                   </span>
                   <Button
                     disabled={(report.meta.page || 1) <= 1 || isFetching}
                     onClick={() => onPage?.((report.meta.page || 1) - 1)}
                   >
-                    上一页
+                    {i18n.text('上一页')}
                   </Button>
                   <Button
                     disabled={
@@ -504,7 +524,7 @@ export function ManagementDrawer({
                     }
                     onClick={() => onPage?.((report.meta.page || 1) + 1)}
                   >
-                    下一页
+                    {i18n.text('下一页')}
                   </Button>
                 </div>
               </div>
@@ -513,14 +533,16 @@ export function ManagementDrawer({
         ) : (
           <>
             {!canManage && (
-              <div className="notice amber">当前账户可以查看，修改和导入需要网站管理权限。</div>
+              <div className="notice amber">
+                {i18n.text('当前账户可以查看，修改和导入需要网站管理权限。')}
+              </div>
             )}
             <div className={'management-input-layout' + (isRules ? ' rules-layout' : '')}>
               <div className="management-input-main">
                 {!settingsAction && (
                   <div className="management-grid">
                     <label>
-                      文件格式
+                      {i18n.fragment('文件格式', false, true)}
                       <select
                         value={format}
                         onChange={e => setFormat(e.target.value)}
@@ -529,13 +551,13 @@ export function ManagementDrawer({
                         {isCatalog ? (
                           <>
                             <option value="sitemap">Sitemap XML</option>
-                            <option value="csv">CSV 页面目录</option>
-                            <option value="json">JSON 页面目录</option>
+                            <option value="csv">{i18n.text('CSV 页面目录')}</option>
+                            <option value="json">{i18n.text('JSON 页面目录')}</option>
                           </>
                         ) : (
                           <>
                             <option value="combined">Nginx / Apache Combined</option>
-                            <option value="json">JSON 日志记录</option>
+                            <option value="json">{i18n.text('JSON 日志记录')}</option>
                           </>
                         )}
                       </select>
@@ -543,7 +565,7 @@ export function ManagementDrawer({
                   </div>
                 )}
                 <label>
-                  选择本地文件
+                  {i18n.fragment('选择本地文件', false, true)}
                   <input
                     type="file"
                     accept={
@@ -585,12 +607,12 @@ export function ManagementDrawer({
                 ) : (
                   <label>
                     {action === 'robots.txt 编辑'
-                      ? 'robots.txt 内容'
+                      ? i18n.text('robots.txt 内容')
                       : action === '蜘蛛白名单'
-                        ? 'CIDR 白名单'
+                        ? i18n.text('CIDR 白名单')
                         : isCatalog
-                          ? '页面目录内容'
-                          : '访问日志内容'}
+                          ? i18n.text('页面目录内容')
+                          : i18n.text('访问日志内容')}
                     <textarea
                       value={content}
                       onChange={e => setContent(e.target.value)}
@@ -598,45 +620,51 @@ export function ManagementDrawer({
                       required={!settingsAction}
                       spellCheck={false}
                       rows={12}
-                      placeholder={
-                        action === '蜘蛛白名单' ? '每行一个 CIDR，如 192.0.2.0/24' : undefined
-                      }
+                      placeholder={i18n.system(
+                        action === '蜘蛛白名单'
+                          ? i18n.text('每行一个 CIDR，如 192.0.2.0/24')
+                          : undefined,
+                      )}
                     />
                   </label>
                 )}
               </div>
               <aside className="management-guide">
-                <h3>{settingsAction ? '配置说明' : '导入说明'}</h3>
+                <h3>{settingsAction ? i18n.text('配置说明') : i18n.text('导入说明')}</h3>
                 {action === 'robots.txt 编辑' ? (
                   <>
-                    <p>此配置保存到当前网站设置。</p>
-                    <p>下载 robots.txt 后，由网站管理员部署到目标网站根目录。</p>
-                    <p>最多 50,000 个字符。</p>
+                    <p>{i18n.text('此配置保存到当前网站设置。')}</p>
+                    <p>{i18n.text('下载 robots.txt 后，由网站管理员部署到目标网站根目录。')}</p>
+                    <p>{i18n.text('最多 50,000 个字符。')}</p>
                   </>
                 ) : action === '蜘蛛白名单' ? (
                   <>
-                    <p>每行填写一个合法的 IPv4 或 IPv6 CIDR，最多 100 条。</p>
-                    <p>此名单保存在当前网站设置中，当前日志导入和请求拦截尚未使用该配置。</p>
+                    <p>{i18n.text('每行填写一个合法的 IPv4 或 IPv6 CIDR，最多 100 条。')}</p>
+                    <p>
+                      {i18n.text(
+                        '此名单保存在当前网站设置中，当前日志导入和请求拦截尚未使用该配置。',
+                      )}
+                    </p>
                   </>
                 ) : isRules ? (
                   <>
-                    <p>设置蜘蛛名称、厂商、类型与 User-Agent 匹配词。</p>
-                    <p>按条目顺序进行文本包含匹配，忽略大小写。</p>
-                    <p>规则用于后续日志识别。高级 JSON 编辑保留原有字段。</p>
+                    <p>{i18n.text('设置蜘蛛名称、厂商、类型与 User-Agent 匹配词。')}</p>
+                    <p>{i18n.text('按条目顺序进行文本包含匹配，忽略大小写。')}</p>
+                    <p>{i18n.text('规则用于后续日志识别。高级 JSON 编辑保留原有字段。')}</p>
                   </>
                 ) : isCatalog ? (
                   <>
-                    <p>导入已发布页面目录，用于页面覆盖率与 AI 盲区分析。</p>
-                    <p>Sitemap XML 支持 urlset 页面列表，暂不支持 sitemap 索引。</p>
-                    <p>CSV / JSON 使用 url 或 path 字段，可附带已有内容元数据。</p>
-                    <p>文件最多 10 MiB、10,000 个页面；导入会新增或更新对应页面。</p>
+                    <p>{i18n.text('导入已发布页面目录，用于页面覆盖率与 AI 盲区分析。')}</p>
+                    <p>{i18n.text('Sitemap XML 支持 urlset 页面列表，暂不支持 sitemap 索引。')}</p>
+                    <p>{i18n.text('CSV / JSON 使用 url 或 path 字段，可附带已有内容元数据。')}</p>
+                    <p>{i18n.text('文件最多 10 MiB、10,000 个页面；导入会新增或更新对应页面。')}</p>
                   </>
                 ) : (
                   <>
-                    <p>确认日志属于当前网站，并选择对应格式。</p>
-                    <p>JSON 每批最多 1000 条；Combined 最多 10 MiB、10,000 行。</p>
-                    <p>原生 CDN 日志需先转换为支持的字段格式。</p>
-                    <p>校验后保存脱敏记录，结果分别显示新增、重复和拒绝数量。</p>
+                    <p>{i18n.text('确认日志属于当前网站，并选择对应格式。')}</p>
+                    <p>{i18n.text('JSON 每批最多 1000 条；Combined 最多 10 MiB、10,000 行。')}</p>
+                    <p>{i18n.text('原生 CDN 日志需先转换为支持的字段格式。')}</p>
+                    <p>{i18n.text('校验后保存脱敏记录，结果分别显示新增、重复和拒绝数量。')}</p>
                   </>
                 )}
               </aside>
@@ -649,22 +677,28 @@ export function ManagementDrawer({
             role={failed ? 'alert' : 'status'}
             aria-live="polite"
           >
-            <strong>{failed ? '操作未完成' : totalErrors ? '部分记录未导入' : '操作结果'}</strong>
-            <p>{status}</p>
+            <strong>
+              {failed
+                ? i18n.text('操作未完成')
+                : totalErrors
+                  ? i18n.text('部分记录未导入')
+                  : i18n.text('操作结果')}
+            </strong>
+            <p>{i18n.system(status)}</p>
             {importErrors.length > 0 && (
               <div className="table-wrap">
                 <table>
                   <thead>
                     <tr>
-                      <th>行号</th>
-                      <th>拒绝原因</th>
+                      <th>{i18n.text('行号')}</th>
+                      <th>{i18n.text('拒绝原因')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {importErrors.map(error => (
                       <tr key={error.line}>
                         <td>{error.line}</td>
-                        <td>{error.reason}</td>
+                        <td>{i18n.system(error.reason)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -673,7 +707,11 @@ export function ManagementDrawer({
             )}
             {totalErrors > importErrors.length && (
               <p>
-                显示前 {importErrors.length} 条错误，共拒绝 {totalErrors} 条。
+                {i18n.fragment('显示前 ', false, true)}
+                {importErrors.length}
+                {i18n.unit(' 条错误，共拒绝 ', importErrors.length, true, true)}
+                {totalErrors}
+                {i18n.unit(' 条。', totalErrors, true, false)}
               </p>
             )}
           </section>
@@ -681,7 +719,7 @@ export function ManagementDrawer({
         <DialogActions>
           {settingsAction && !loadError && (
             <Button disabled={busy || dirty} onClick={() => setLoadVersion(value => value + 1)}>
-              重新读取设置
+              {i18n.text('重新读取设置')}
             </Button>
           )}
           {action === 'robots.txt 编辑' && (
@@ -691,10 +729,13 @@ export function ManagementDrawer({
               disabled={busy || !settings}
               onClick={() => downloadFile(content, 'robots.txt', 'text/plain;charset=utf-8')}
             >
-              下载 robots.txt
+              {i18n.text('下载 robots.txt')}
             </button>
           )}
-          <ManagementClose label={isComparison ? '关闭' : '取消'} disabled={saving.current} />
+          <ManagementClose
+            label={isComparison ? i18n.text('关闭') : i18n.text('取消')}
+            disabled={saving.current}
+          />
           {!isComparison && (
             <button
               type="submit"
@@ -704,7 +745,11 @@ export function ManagementDrawer({
                 busy || (settingsAction && !settings) || (!canManage && !isQuery && !isRange)
               }
             >
-              {busy ? '正在' + submitLabel + '…' : submitLabel}
+              {busy
+                ? i18n.locale === 'en-US'
+                  ? i18n.system(submitLabel) + '…'
+                  : '正在' + submitLabel + '…'
+                : i18n.system(submitLabel)}
             </button>
           )}
         </DialogActions>

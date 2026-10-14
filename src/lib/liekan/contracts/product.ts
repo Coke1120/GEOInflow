@@ -40,7 +40,7 @@ export const projectArticles: HelpArticle[] = [
       {
         title: '项目与版本',
         paragraphs: [
-          `${liekanProduct.displayName}（${liekanProduct.name}）当前版本为 ${liekanProduct.version}。系统提供浏览器采集、账号权限、网站与团队、目标和漏斗，通过独立日志接入分析 AI 抓取行为与搜索引荐。`,
+          `${liekanProduct.displayName}（${liekanProduct.name}）当前版本为 ${liekanProduct.version}。系统提供浏览器采集、账号权限、网站与团队、目标和漏斗，AI 抓取行为通过独立日志接入分析，搜索引荐通过浏览器来源数据分析。`,
         ],
       },
       {

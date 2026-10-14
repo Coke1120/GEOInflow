@@ -93,11 +93,58 @@ export function mobileChartOptions(source: any, width: number, compact: boolean)
   return option;
 }
 
+export function restoreChartInteractions(source: any, current: any, remapNames = false) {
+  const names = (option: any) =>
+    list(option?.series).flatMap(series =>
+      series.type === 'pie' ? list(series.data).map(item => item?.name) : [series.name],
+    );
+  const nextNames = remapNames ? names(source) : [];
+  const renamed = new Map(
+    remapNames ? names(current).map((name: string, index: number) => [name, nextNames[index]]) : [],
+  );
+  const selection = (value: Record<string, boolean>) =>
+    remapNames
+      ? Object.fromEntries(
+          Object.entries(value).flatMap(([name, selected]) => {
+            const next = renamed.get(name);
+            return typeof next === 'string' ? [[next, selected]] : [];
+          }),
+        )
+      : value;
+  const restored = { ...source };
+  if (source.legend && current?.legend)
+    restored.legend = sameShape(
+      source.legend,
+      list(source.legend).map((legend, i) => ({
+        ...legend,
+        selected: current.legend[i]?.selected && selection(current.legend[i].selected),
+        scrollDataIndex: current.legend[i]?.scrollDataIndex,
+      })),
+    );
+  if (source.dataZoom && current?.dataZoom)
+    restored.dataZoom = sameShape(
+      source.dataZoom,
+      list(source.dataZoom).map((zoom, i) => ({
+        ...zoom,
+        start: current.dataZoom[i]?.start,
+        end: current.dataZoom[i]?.end,
+      })),
+    );
+  if (source.series && current?.series)
+    restored.series = source.series.map((series: any, i: number) =>
+      current.series[i]?.selectedMap
+        ? { ...series, selectedMap: selection(current.series[i].selectedMap) }
+        : series,
+    );
+  return restored;
+}
+
 export function observeChartLayout(
   instance: any,
   element: HTMLElement,
   source: any,
   onError?: () => void,
+  previousOption?: any,
 ) {
   const media = window.matchMedia('(max-width: 900px)');
   let signature = '';
@@ -108,34 +155,11 @@ export function observeChartLayout(
     const next = `${compact}:${compact ? Math.round(width) : 0}`;
     if (next !== signature) {
       const option = mobileChartOptions(source, width, compact);
-      const current = signature ? instance.getOption() : undefined;
-      const restored = { ...option };
-      if (option.legend && current?.legend)
-        restored.legend = sameShape(
-          option.legend,
-          list(option.legend).map((legend, i) => ({
-            ...legend,
-            selected: current.legend[i]?.selected,
-            scrollDataIndex: current.legend[i]?.scrollDataIndex,
-          })),
-        );
-      if (option.dataZoom && current?.dataZoom)
-        restored.dataZoom = sameShape(
-          option.dataZoom,
-          list(option.dataZoom).map((zoom, i) => ({
-            ...zoom,
-            start: current.dataZoom[i]?.start,
-            end: current.dataZoom[i]?.end,
-          })),
-        );
-      if (option.series && current?.series)
-        restored.series = option.series.map((series: any, i: number) =>
-          current.series[i]?.selectedMap
-            ? { ...series, selectedMap: current.series[i].selectedMap }
-            : series,
-        );
+      const current = signature ? instance.getOption() : previousOption;
+      const restored = restoreChartInteractions(option, current, !signature && !!previousOption);
       instance.setOption(restored, { notMerge: true });
       signature = next;
+      previousOption = undefined;
     }
     instance.resize();
   };

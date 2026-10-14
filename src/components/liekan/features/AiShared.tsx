@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import {
   useManualQuery as useQuery,
   useManualInfiniteQuery as useInfiniteQuery,
@@ -87,10 +89,13 @@ export function ModelWindow({
   catalog: AiCatalog;
   configuration: ModelConfiguration;
 }) {
+  const i18n = useLiekanI18n();
   const window = modelWindow(catalog, configuration);
   return (
     <>
-      {window.tokens.toLocaleString('en-US')} Token · 来源：{window.source}
+      {window.tokens.toLocaleString('en-US')}
+      {i18n.fragment(' Token · 来源：', true, true)}
+      {i18n.system(window.source)}
     </>
   );
 }
@@ -141,12 +146,13 @@ export function AiButton({
   );
 }
 export function AiNotice({ children, error = false }: { children: ReactNode; error?: boolean }) {
+  const i18n = useLiekanI18n();
   return (
     <div
       role={error ? 'alert' : 'status'}
       className={`${styles.notice} ${error ? styles.error : ''}`}
     >
-      {children}
+      {i18n.system(children)}
     </div>
   );
 }
@@ -213,17 +219,23 @@ export function useAiCatalog(selectedWebsiteId?: string) {
   };
 }
 export function AiCatalogMore({ query }: { query: ReturnType<typeof useAiCatalog> }) {
+  const i18n = useLiekanI18n();
   if (!query.hasNextPage) return null;
   return (
     <>
-      {query.isFetchNextPageError && <AiNotice error>更多网站与空间暂未读取，请重试。</AiNotice>}
+      {query.isFetchNextPageError && (
+        <AiNotice error>{i18n.text('更多网站与空间暂未读取，请重试。')}</AiNotice>
+      )}
       <AiButton disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>
-        {query.isFetchingNextPage ? '正在读取更多网站与空间…' : '加载更多网站与空间'}
+        {query.isFetchingNextPage
+          ? i18n.text('正在读取更多网站与空间…')
+          : i18n.text('加载更多网站与空间')}
       </AiButton>
     </>
   );
 }
 export function ModuleNotice({ catalog }: { catalog: AiCatalog }) {
+  const i18n = useLiekanI18n();
   if (catalog.module.enabled) return null;
   const reason: Record<string, string> = {
     feature_disabled: '实例尚未启用 AI 能力。',
@@ -232,7 +244,8 @@ export function ModuleNotice({ catalog }: { catalog: AiCatalog }) {
   };
   return (
     <AiNotice>
-      {reason[catalog.module.reason || ''] || '实例的 AI 能力暂不可用。'} 请联系实例管理员完成配置。
+      {i18n.system(reason[catalog.module.reason || '']) || i18n.text('实例的 AI 能力暂不可用。')}
+      {i18n.fragment(' 请联系实例管理员完成配置。', true, false)}
     </AiNotice>
   );
 }
@@ -249,6 +262,7 @@ export function AiModal({
   onClose: () => void | Promise<void>;
   wide?: boolean;
 }) {
+  const i18n = useLiekanI18n();
   const ref = useRef<HTMLDivElement>(null),
     close = useRef(onClose),
     label = useId();
@@ -309,14 +323,14 @@ export function AiModal({
         aria-modal="true"
         aria-labelledby={label}
         tabIndex={-1}
-        lang="zh-CN"
+        lang={i18n.locale}
       >
         <div className={styles.modalHeader}>
           <div>
-            <h2 id={label}>{title}</h2>
-            {subtitle && <p>{subtitle}</p>}
+            <h2 id={label}>{i18n.system(title)}</h2>
+            {subtitle && <p>{i18n.system(subtitle)}</p>}
           </div>
-          <AiButton aria-label={`关闭${title}`} onClick={() => void onClose()}>
+          <AiButton aria-label={i18n.text('关闭{v0}', [title])} onClick={() => void onClose()}>
             ×
           </AiButton>
         </div>
@@ -691,28 +705,34 @@ const stageLabels: Record<string, string> = {
   invalidated: '结果已失效',
 };
 export function RunStatus({ state }: { state: string }) {
+  const i18n = useLiekanI18n();
   return (
     <span role="status" aria-live="polite" data-ai-run-state={state} className={styles.badge}>
-      {stageLabels[state] || '准备开始'}
+      {i18n.system(stageLabels[state]) || i18n.text('准备开始')}
     </span>
   );
 }
 export function RunMetrics({ run }: { run: AiRun | null }) {
+  const i18n = useLiekanI18n();
   return (
     <div className={styles.runMetrics}>
       <div>
-        <small>首字耗时</small>
+        <small>{i18n.text('首字耗时')}</small>
         <strong>
-          {run?.ttftMs != null ? `${run.ttftMs} ms` : run && !activeRun(run) ? '不适用' : '等待'}
+          {run?.ttftMs != null
+            ? `${run.ttftMs} ms`
+            : run && !activeRun(run)
+              ? i18n.text('不适用')
+              : i18n.text('等待')}
         </strong>
       </div>
       <div>
-        <small>总耗时</small>
-        <strong>{run?.latencyMs != null ? `${run.latencyMs} ms` : '未知'}</strong>
+        <small>{i18n.text('总耗时')}</small>
+        <strong>{run?.latencyMs != null ? `${run.latencyMs} ms` : i18n.text('未知')}</strong>
       </div>
       <div>
-        <small>Token 用量</small>
-        <strong>{run?.usage?.totalTokens ?? '未知'}</strong>
+        <small>{i18n.text('Token 用量')}</small>
+        <strong>{run?.usage?.totalTokens ?? i18n.text('未知')}</strong>
       </div>
     </div>
   );

@@ -1,4 +1,7 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import { useLiekanPageTitle } from '@/lib/liekan/i18n/client';
+
 import { type CSSProperties, createContext, type ReactNode, useContext, useState } from 'react';
 import type { FeatureUser } from '@/lib/liekan/contracts/features';
 import {
@@ -27,6 +30,7 @@ const ShellContext = createContext<{
 }>(null);
 export const useLiekanShell = () => useContext(ShellContext);
 export function LiekanShell({ children, user }: { children: ReactNode; user: FeatureUser }) {
+  const i18n = useLiekanI18n();
   const { pathname, websiteId, query } = useNavigation();
   const [width, setWidth] = useSidebarWidth();
   const [website, setWebsite] = useState<LiekanReport['website']>(null);
@@ -35,13 +39,18 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
   const route = pathname.includes('/geo')
     ? { page: geoPageFromPath(pathname), websiteId }
     : matchFeatureRoute(pathname, query) || { page: 'websites' };
+  useLiekanPageTitle(
+    websiteAnalysisFamily(route)?.label || pageNavigation[route.page]?.title || '网站管理',
+  );
   const metadata = useWebsiteQuery(isGeo ? websiteId : undefined, {
     ...featureSiteQuery(user.id, websiteId),
     placeholderData: undefined,
   });
   const metadataRestricted = [401, 403, 404].includes((metadata.error as any)?.status);
   const currentMetadata =
-    !metadataRestricted && websiteMatchesHandle(metadata.data, websiteId) ? metadata.data : undefined;
+    !metadataRestricted && websiteMatchesHandle(metadata.data, websiteId)
+      ? metadata.data
+      : undefined;
   const currentWebsite =
     !metadataRestricted && websiteMatchesHandle(website, websiteId) ? website : undefined;
   const site = currentMetadata ? { ...currentWebsite, ...currentMetadata } : currentWebsite;
@@ -55,7 +64,7 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
         className={styles.shell}
         style={{ '--lk-side-w': `${width}px` } as CSSProperties}
         data-liekan-ui
-        lang="zh-CN"
+        lang={i18n.locale}
       >
         <Navigation
           user={user}
@@ -78,8 +87,10 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
               <>
                 <div className={styles.header}>
                   <div className={styles.headerInner}>
-                    <h1 className="text-[16px] font-bold tracking-tight">
-                      {websiteAnalysisFamily(route)?.label || pageNavigation[route.page]?.title}
+                    <h1 data-liekan-page-title className="text-[16px] font-bold tracking-tight">
+                      {i18n.system(
+                        websiteAnalysisFamily(route)?.label || pageNavigation[route.page]?.title,
+                      )}
                     </h1>
                   </div>
                 </div>
@@ -87,9 +98,9 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
                   <AnalysisTabs route={route} href={href} />
                 </div>
                 <div className={styles.notice} role="status">
-                  无法读取网站信息
+                  {i18n.fragment('无法读取网站信息', false, true)}
                   <button type="button" onClick={() => metadata.refetch()}>
-                    重试
+                    {i18n.text('重试')}
                   </button>
                 </div>
               </>

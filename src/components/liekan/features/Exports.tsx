@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useEffect, useRef, useState } from 'react';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import {
@@ -28,6 +30,7 @@ import {
 } from './ui';
 
 export function Exports() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   // 选项值用站点 UUID，而 c.siteId 携带 URL 里的短编号或 UUID；
   // 先换算成对应站点的 id，短编号入口才能命中默认选项。
@@ -61,12 +64,15 @@ export function Exports() {
   };
   return (
     <div className="wide-narrow">
-      <Panel title="创建导出任务" subtitle="选择真实数据范围，文件生成与下载在本次请求内完成。">
+      <Panel
+        title={i18n.text('创建导出任务')}
+        subtitle={i18n.text('选择真实数据范围，文件生成与下载在本次请求内完成。')}
+      >
         <Body>
           <Form
             busy={status === 'working'}
-            error={error}
-            submitLabel="生成导出文件"
+            error={i18n.system(error)}
+            submitLabel={i18n.text('生成导出文件')}
             onSubmit={async (values: any) => {
               const startAt = +fromZonedTime(`${values.start}T00:00:00.000`, c.range.timezone),
                 endAt = +fromZonedTime(`${values.end}T23:59:59.999`, c.range.timezone);
@@ -98,6 +104,7 @@ export function Exports() {
                     format,
                     sections,
                     filters: c.filters,
+                    locale: i18n.locale,
                   },
                   controller.current.signal,
                   frame => {
@@ -136,7 +143,7 @@ export function Exports() {
             }}
           >
             <Select
-              label="导出网站"
+              label={i18n.text('导出网站')}
               name="website"
               defaultValue={currentSite?.id || c.siteId}
               options={c.sites.map(site => [site.id, site.name])}
@@ -144,21 +151,21 @@ export function Exports() {
             />
             <div className="form-grid">
               <Field
-                label="开始日期"
+                label={i18n.text('开始日期')}
                 name="start"
                 type="date"
                 required
                 defaultValue={formatInTimeZone(c.range.startAt, c.range.timezone, 'yyyy-MM-dd')}
               />
               <Field
-                label="结束日期"
+                label={i18n.text('结束日期')}
                 name="end"
                 type="date"
                 required
                 defaultValue={formatInTimeZone(c.range.endAt, c.range.timezone, 'yyyy-MM-dd')}
               />
             </div>
-            <h3>数据范围</h3>
+            <h3>{i18n.text('数据范围')}</h3>
             <div className="two">
               {exportSections.map((section, i) => (
                 <Check
@@ -167,99 +174,136 @@ export function Exports() {
                   defaultChecked={section !== 'sessions'}
                   disabled={format !== 'zip'}
                 >
-                  {['汇总指标', '页面与来源', '事件与属性', '访问记录（脱敏）', '已保存配置'][i]}
+                  {
+                    [
+                      i18n.text('汇总指标'),
+                      i18n.text('页面与来源'),
+                      i18n.text('事件与属性'),
+                      i18n.text('访问记录（脱敏）'),
+                      i18n.text('已保存配置'),
+                    ][i]
+                  }
                 </Check>
               ))}
             </div>
             <Select
-              label="文件格式"
+              label={i18n.text('文件格式')}
               name="format"
               value={format}
               onChange={e => setFormat(e.target.value as ExportRequest['format'])}
               options={[
-                ['zip', 'ZIP：CSV 与字段清单'],
-                ['csv', 'CSV：汇总指标'],
-                ['json', 'JSON：汇总与字段清单'],
+                ['zip', i18n.text('ZIP：CSV 与字段清单')],
+                ['csv', i18n.text('CSV：汇总指标')],
+                ['json', i18n.text('JSON：汇总与字段清单')],
               ]}
             />
             <Notice tone="amber">
-              CSV 与 JSON 使用汇总范围；ZIP 按勾选项导出。明细上限 100,000 行，未压缩内容上限 50
-              MiB。超出范围时明确报错。文件不包含原始 IP 或账户凭据。
+              {i18n.text(
+                'CSV 与 JSON 使用汇总范围；ZIP 按勾选项导出。明细上限 100,000 行，未压缩内容上限 50 MiB。超出范围时明确报错。文件不包含原始 IP 或账户凭据。',
+              )}
             </Notice>
           </Form>
         </Body>
       </Panel>
-      <Panel title="导出任务" subtitle="显示当前请求的生成与传输状态。">
+      <Panel title={i18n.text('导出任务')} subtitle={i18n.text('显示当前请求的生成与传输状态。')}>
         <Body>
           {status === 'idle' ? (
             <div className="state-box" style={{ border: 0, padding: '24px 0' }}>
-              <h3>还没有导出任务</h3>
-              <p>左侧选择范围并生成文件。</p>
+              <h3>{i18n.text('还没有导出任务')}</h3>
+              <p>{i18n.text('左侧选择范围并生成文件。')}</p>
             </div>
           ) : status === 'working' ? (
             <div className="stack">
               <div className="row between">
-                <strong>{progress.stage}</strong>
+                <strong>{i18n.system(progress.stage)}</strong>
                 <span className="num">{progress.percent}%</span>
               </div>
               <div className="progress">
                 <i style={{ width: `${progress.percent}%` }} />
               </div>
-              <p className="muted">校验范围 → 整理字段 → 生成文件 → 传输下载</p>
-              <Button onClick={cancel}>取消导出</Button>
+              <p className="muted">{i18n.text('校验范围 → 整理字段 → 生成文件 → 传输下载')}</p>
+              <Button onClick={cancel}>{i18n.text('取消导出')}</Button>
             </div>
           ) : (
             file && (
               <div className="stack">
-                <Badge tone="green">文件已就绪</Badge>
+                <Badge tone="green">{i18n.text('文件已就绪')}</Badge>
                 <Definition
                   items={[
-                    ['网站', file.manifest.website.name],
+                    [i18n.text('网站'), file.manifest.website.name],
                     [
-                      '范围',
-                      `${formatInTimeZone(file.manifest.range.startAt, c.range.timezone, 'yyyy-MM-dd')} 至 ${formatInTimeZone(file.manifest.range.endAt, c.range.timezone, 'yyyy-MM-dd')}`,
+                      i18n.text('范围'),
+                      i18n.text('{v0} 至 {v1}', [
+                        formatInTimeZone(
+                          file.manifest.range.startAt,
+                          c.range.timezone,
+                          'yyyy-MM-dd',
+                        ),
+                        formatInTimeZone(file.manifest.range.endAt, c.range.timezone, 'yyyy-MM-dd'),
+                      ]),
                     ],
-                    ['格式', file.manifest.format.toUpperCase()],
-                    ['敏感字段', '不包含原始 IP 或账户凭据'],
-                    ['数据性质', '当前网站的真实统计数据'],
+                    [i18n.text('格式'), file.manifest.format.toUpperCase()],
+                    [i18n.text('敏感字段'), i18n.text('不包含原始 IP 或账户凭据')],
+                    [i18n.text('数据性质'), i18n.text('当前网站的真实统计数据')],
                   ]}
                 />
                 <a className="btn primary" href={file.url} download={file.name}>
                   <Icon name="download" />
-                  下载导出文件
+                  {i18n.text('下载导出文件')}
                 </a>
-                <Button onClick={() => setManifestOpen(true)}>查看字段清单</Button>
+                <Button onClick={() => setManifestOpen(true)}>{i18n.text('查看字段清单')}</Button>
               </div>
             )
           )}
         </Body>
       </Panel>
       {manifestOpen && file && (
-        <LiekanDialog size="wide" title="导出字段清单" onClose={() => setManifestOpen(false)}>
+        <LiekanDialog
+          size="wide"
+          title={i18n.text('导出字段清单')}
+          onClose={() => setManifestOpen(false)}
+        >
           <div className="stack">
             <Definition
               items={[
-                ['网站', file.manifest.website.name + ' · ' + file.manifest.website.domain],
                 [
-                  '统计期间',
-                  `${formatInTimeZone(file.manifest.range.startAt, file.manifest.range.timezone, 'yyyy-MM-dd')} 至 ${formatInTimeZone(file.manifest.range.endAt, file.manifest.range.timezone, 'yyyy-MM-dd')}`,
+                  i18n.text('网站'),
+                  file.manifest.website.name + ' · ' + file.manifest.website.domain,
                 ],
-                ['时区', file.manifest.range.timezone],
-                ['文件格式', file.manifest.format.toUpperCase()],
                 [
-                  '导出上限',
-                  `${numberLabel(file.manifest.limits.rows)} 行 · ${file.manifest.limits.bytes / 1024 / 1024} MiB`,
+                  i18n.text('统计期间'),
+                  i18n.text('{v0} 至 {v1}', [
+                    formatInTimeZone(
+                      file.manifest.range.startAt,
+                      file.manifest.range.timezone,
+                      'yyyy-MM-dd',
+                    ),
+                    formatInTimeZone(
+                      file.manifest.range.endAt,
+                      file.manifest.range.timezone,
+                      'yyyy-MM-dd',
+                    ),
+                  ]),
+                ],
+                [i18n.text('时区'), file.manifest.range.timezone],
+                [i18n.text('文件格式'), file.manifest.format.toUpperCase()],
+                [
+                  i18n.text('导出上限'),
+                  i18n.text('{v0} 行 · {v1} MiB', [
+                    numberLabel(file.manifest.limits.rows),
+                    file.manifest.limits.bytes / 1024 / 1024,
+                  ]),
                 ],
               ]}
             />
-            <Notice>{file.manifest.privacy}</Notice>
+            <Notice>{i18n.system(file.manifest.privacy)}</Notice>
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>文件</th>
-                    <th>行数</th>
-                    <th>字段</th>
+                    <th>{i18n.text('文件')}</th>
+                    <th>{i18n.text('行数')}</th>
+                    <th>{i18n.text('字段')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -267,14 +311,18 @@ export function Exports() {
                     <tr key={entry.name}>
                       <td>{entry.name}</td>
                       <td>{numberLabel(entry.rows)}</td>
-                      <td>{entry.fields.join('、') || '无字段'}</td>
+                      <td>
+                        {(entry.displayFields || entry.fields).join(
+                          i18n.locale === 'en-US' ? ', ' : '、',
+                        ) || i18n.text('无字段')}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <details>
-              <summary>查看原始 JSON 清单</summary>
+              <summary>{i18n.text('查看原始 JSON 清单')}</summary>
               <Code>{JSON.stringify(file.manifest, null, 2)}</Code>
             </details>
           </div>

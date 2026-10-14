@@ -910,6 +910,9 @@
     background: #f5f7fa;
     z-index: 2;
   }
+  .root:lang(en) main table th:first-child {
+    overflow-wrap: normal;
+  }
 }
 @media (max-width: 540px) {
   .root :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {

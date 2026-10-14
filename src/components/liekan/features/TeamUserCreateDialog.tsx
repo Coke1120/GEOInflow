@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useEffect, useRef, useState } from 'react';
 import {
   teamUserCreateSchema,
@@ -31,6 +33,7 @@ export function TeamUserCreateDialog({
   onClose: () => void;
   onCreated: (result: TeamUserCreated) => void;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [role, setRole] = useState('team-view-only');
   const [showPassword, setShowPassword] = useState(false);
@@ -137,7 +140,7 @@ export function TeamUserCreateDialog({
   }
   return (
     <LiekanDialog
-      title="新建用户并加入团队"
+      title={i18n.text('新建用户并加入团队')}
       subtitle={team.name}
       onClose={() => {
         if (!busy) {
@@ -148,15 +151,17 @@ export function TeamUserCreateDialog({
     >
       {uncertain ? (
         <>
-          <Notice tone="amber">{message || '创建结果尚未确认。'}</Notice>
-          <Notice>关闭弹窗不会回滚已经完成的创建。用户名和团队权限需要核对后确认。</Notice>
+          <Notice tone="amber">{i18n.system(message) || i18n.text('创建结果尚未确认。')}</Notice>
+          <Notice>
+            {i18n.text('关闭弹窗不会回滚已经完成的创建。用户名和团队权限需要核对后确认。')}
+          </Notice>
           <DialogActions>
             <Button disabled={busy} onClick={onClose}>
-              关闭
+              {i18n.text('关闭')}
             </Button>
             {changedUser ? (
               <LinkButton page="admin-user" params={{ id: changedUser }}>
-                查看用户
+                {i18n.text('查看用户')}
               </LinkButton>
             ) : null}
             <Button
@@ -178,7 +183,7 @@ export function TeamUserCreateDialog({
                 }
               }}
             >
-              核对创建结果
+              {i18n.text('核对创建结果')}
             </Button>
           </DialogActions>
         </>
@@ -186,7 +191,7 @@ export function TeamUserCreateDialog({
         <Form
           columns
           busy={busy}
-          submitLabel="创建并加入团队"
+          submitLabel={i18n.text('创建并加入团队')}
           onSubmit={async (values: any) => {
             if (values.password !== values.confirmPassword) throw new Error('两次输入的密码不一致');
             const parsed = teamUserCreateSchema.safeParse({
@@ -205,25 +210,25 @@ export function TeamUserCreateDialog({
           }}
         >
           <Field
-            label="用户名"
+            label={i18n.text('用户名')}
             name="username"
             required
             maxLength={255}
             autoComplete="off"
-            help="全系统唯一，去除首尾空白并统一保存为小写。"
+            help={i18n.text('全系统唯一，去除首尾空白并统一保存为小写。')}
           />
-          <Field label="所属团队" value={team.name} readOnly />
+          <Field label={i18n.text('所属团队')} value={team.name} readOnly />
           <Field
-            label="初始密码"
+            label={i18n.text('初始密码')}
             name="password"
             type={showPassword ? 'text' : 'password'}
             required
             minLength={8}
             autoComplete="new-password"
-            help="至少 8 位，UTF-8 编码最多 72 字节。"
+            help={i18n.text('至少 8 位，UTF-8 编码最多 72 字节。')}
           />
           <Field
-            label="确认密码"
+            label={i18n.text('确认密码')}
             name="confirmPassword"
             type={showPassword ? 'text' : 'password'}
             required
@@ -231,36 +236,53 @@ export function TeamUserCreateDialog({
             autoComplete="new-password"
           />
           <Button aria-pressed={showPassword} onClick={() => setShowPassword(value => !value)}>
-            {showPassword ? '隐藏密码' : '显示密码'}
+            {showPassword ? i18n.text('隐藏密码') : i18n.text('显示密码')}
           </Button>
-          <Field label="系统角色" value="普通用户" readOnly />
+          <Field label={i18n.text('系统角色')} value={i18n.text('普通用户')} readOnly />
           <Select
-            label="团队角色"
+            label={i18n.text('团队角色')}
             name="teamRole"
             value={role}
             options={teamUserRoleChoices}
+            localizeLabels
             onChange={event => setRole(event.target.value)}
           />
           <Definition
             items={[
-              ['访问范围', '当前团队的可访问资源'],
+              [i18n.text('访问范围'), i18n.text('当前团队的可访问资源')],
               [
-                '网站权限',
-                role === 'team-view-only' ? '查看统计与配置' : '创建、修改、删除团队网站',
+                i18n.text('网站权限'),
+                role === 'team-view-only'
+                  ? i18n.text('查看统计与配置')
+                  : i18n.text('创建、修改、删除团队网站'),
               ],
-              ['成员管理', role === 'team-manager' ? '管理团队成员及只读成员' : '无'],
-              ['AI 分析', role === 'team-view-only' ? '查看已有记录' : '实例启用后可发起分析'],
               [
-                'AI 配置与蜘蛛控制',
-                role === 'team-manager' ? '具有管理权限，实际执行按功能规则核验' : '无',
+                i18n.text('成员管理'),
+                role === 'team-manager' ? i18n.text('管理团队成员及只读成员') : i18n.text('无'),
+              ],
+              [
+                i18n.text('AI 分析'),
+                role === 'team-view-only'
+                  ? i18n.text('查看已有记录')
+                  : i18n.text('实例启用后可发起分析'),
+              ],
+              [
+                i18n.text('AI 配置与蜘蛛控制'),
+                role === 'team-manager'
+                  ? i18n.text('具有管理权限，实际执行按功能规则核验')
+                  : i18n.text('无'),
               ],
             ]}
           />
           <Notice tone="amber">
-            团队成员包含删除团队网站的权限。团队只读限制当前团队，普通账户仍可在个人空间创建资源。
+            {i18n.text(
+              '团队成员包含删除团队网站的权限。团队只读限制当前团队，普通账户仍可在个人空间创建资源。',
+            )}
           </Notice>
           <Notice>
-            双重验证沿用全局和当前团队的安全策略。系统管理员及全局只读角色由系统用户管理配置。
+            {i18n.text(
+              '双重验证沿用全局和当前团队的安全策略。系统管理员及全局只读角色由系统用户管理配置。',
+            )}
           </Notice>
         </Form>
       )}

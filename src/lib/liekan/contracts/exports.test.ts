@@ -1,6 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { safeCsvCell, sanitizeExportValue, exportRequestSchema } from './exports';
 describe('real export constraints', () => {
+  it.each([
+    { format: 'zip', sections: ['summary'] },
+    { kind: 'source-keywords', format: 'csv' },
+    { kind: 'geography', format: 'csv' },
+  ])(
+    'accepts only explicit supported locales while retaining omitted-locale defaults for $kind',
+    body => {
+      const input = { ...body, startAt: 0, endAt: 1000 };
+      expect(exportRequestSchema.parse(input)).not.toHaveProperty('locale');
+      for (const locale of ['zh-CN', 'en-US'])
+        expect(exportRequestSchema.parse({ ...input, locale }).locale).toBe(locale);
+      for (const locale of ['', 'en-GB', 'zh-TW', null, {}, '=cmd()'])
+        expect(exportRequestSchema.safeParse({ ...input, locale }).success).toBe(false);
+    },
+  );
   it('redacts sensitive saved conditions and IPv6 without hiding ordinary paths', () => {
     expect(
       sanitizeExportValue({

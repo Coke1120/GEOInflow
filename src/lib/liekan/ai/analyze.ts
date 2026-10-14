@@ -34,10 +34,11 @@ export async function analyzeAiConversation(
   const parsed = aiConversationPostSchema.safeParse(input);
   if (!parsed.success) throw new AiError('invalid_request', '请确认问题、日期、时区与模型配置版本');
   const p = parsed.data;
+  const locale = p.locale || 'zh-CN';
   normalizeAiRange(p, new Date());
   const handle = await acceptAiRun(actor, { operation: 'analysis', targetId: id, ...p });
   return aiRunResponse(request, actor, handle, async ({ emit, signal }) => {
-    const greeting = localAiGreeting(p.question);
+    const greeting = localAiGreeting(p.question, locale);
     if (greeting) {
       const saved = await completeAiRun(
         actor,
@@ -67,10 +68,11 @@ export async function analyzeAiConversation(
               ? 'local_only'
               : 'no_connection'
             : 'empty',
+        locale,
       );
       const result = {
         ...answer,
-        actions: resolveAiActions(answer, context),
+        actions: resolveAiActions(answer, context, locale),
         metrics: context.metrics,
         contextId: context.id,
       };
@@ -85,6 +87,7 @@ export async function analyzeAiConversation(
       return;
     }
     const prepared = prepareAiPrompt({
+      locale,
       context,
       question: p.question,
       history: await completedHistory(actor, id),
@@ -150,7 +153,7 @@ export async function analyzeAiConversation(
     const answer = validateAiAnswer(response.output ?? response.text, prepared.allowedContexts);
     const result = {
       ...answer,
-      actions: resolveAiActions(answer, context),
+      actions: resolveAiActions(answer, context, locale),
       metrics: context.metrics,
       contextId: context.id,
     };

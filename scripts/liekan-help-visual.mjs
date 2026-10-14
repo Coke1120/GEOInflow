@@ -234,6 +234,28 @@ try {
     await page.getByRole('heading', { name: '猎看统计更新日志', exact: true }).waitFor();
   });
   await run('footer-across-authenticated-scopes', async () => {
+    const attributionResponse = await fetch(base + '/api/liekan/geography/attribution');
+    assert.equal(attributionResponse.status, 200);
+    const attribution = await attributionResponse.json();
+    const providerLinks = new Map([
+      ['IP Geolocation by DB-IP', 'https://db-ip.com'],
+      ['IP Geolocation by MaxMind', 'https://www.maxmind.com'],
+      ['已授权 IP 地理库', '/liekan/help?article=project-about'],
+      ['IP 查询：ip2region', 'https://github.com/lionsoul2014/ip2region'],
+    ]);
+    assert(
+      Array.isArray(attribution.links) && attribution.links.length > 0,
+      'Release fixture requires a city database attribution',
+    );
+    assert.equal(new Set(attribution.links.map(link => link.href)).size, attribution.links.length);
+    for (const link of attribution.links) {
+      assert(providerLinks.has(link.label), 'Known provider credit is required');
+      assert.equal(
+        providerLinks.get(link.label),
+        link.href,
+        'Provider credit must use the published label and official URL',
+      );
+    }
     const response = await fetch(base + '/api/me/websites', {
       headers: { authorization: 'Bearer ' + token },
     });
@@ -250,10 +272,11 @@ try {
       await page.goto(base + path);
       const footer = page.locator('[data-liekan-product-footer]');
       await footer.waitFor();
+      await page.waitForLoadState('networkidle');
       assert.equal(await footer.count(), 1, path);
-      assert.equal(await footer.getByRole('link').count(), 9, path);
+      assert.equal(await footer.getByRole('link').count(), 8 + attribution.links.length, path);
       for (const [label, href] of [
-        ['IP Geolocation by DB-IP', 'https://db-ip.com'],
+        ...attribution.links.map(link => [link.label, link.href]),
         ['地名数据：GeoNames（已整理）', 'https://www.geonames.org/'],
         ['地名数据许可：CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/'],
       ]) {

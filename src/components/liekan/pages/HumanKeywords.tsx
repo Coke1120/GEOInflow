@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useEffect, useState } from 'react';
 import {
   keywordConditionsSchema,
@@ -26,6 +28,7 @@ const headings = [
 ] as const;
 const control = 'chip text-[12px] focus-visible:outline-2 focus-visible:outline-brand';
 export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   const { keywords } = useReportActions();
   const conditions = keywords?.conditions || keywordConditionsSchema.parse({});
@@ -54,61 +57,64 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
         <div className="px-6 py-4 border-b border-line keyword-detail-header">
           <div className="flex items-center justify-between gap-3 keyword-heading">
             <div>
-              <h2 className="text-[14px] font-bold tracking-tight">来源关键词明细</h2>
+              <h2 className="text-[14px] font-bold tracking-tight">
+                {i18n.text('来源关键词明细')}
+              </h2>
               <p className="text-[11.5px] text-faint mt-0.5">
-                {rangeLabel} · 会话首次来源 · 每次会话计入一行
+                {i18n.system(rangeLabel)}
+                {i18n.fragment(' · 会话首次来源 · 每次会话计入一行', true, false)}
               </p>
             </div>
             <KeywordExport report={report} conditions={conditions} disabled={Boolean(busy)} />
           </div>
           <div className="flex flex-wrap gap-3 keyword-controls">
             <label className="text-[11.5px] text-sub">
-              搜索引擎
+              {i18n.fragment('搜索引擎', false, true)}
               <select
                 className={`${control} block mt-1`}
-                aria-label="搜索引擎"
+                aria-label={i18n.text('搜索引擎')}
                 value={conditions.engine}
                 disabled={busy}
                 onChange={e => change({ engine: e.target.value as KeywordConditions['engine'] })}
               >
-                <option value="">全部搜索引擎</option>
+                <option value="">{i18n.text('全部搜索引擎')}</option>
                 {keywordEngines.map(engine => (
                   <option key={engine}>{engine}</option>
                 ))}
               </select>
             </label>
             <label className="text-[11.5px] text-sub">
-              识别依据
+              {i18n.fragment('识别依据', false, true)}
               <select
                 className={`${control} block mt-1`}
-                aria-label="识别依据"
+                aria-label={i18n.text('识别依据')}
                 value={conditions.evidence}
                 disabled={busy}
                 onChange={e =>
                   change({ evidence: e.target.value as KeywordConditions['evidence'] })
                 }
               >
-                <option value="">全部依据</option>
+                <option value="">{i18n.text('全部依据')}</option>
                 {Object.entries(keywordEvidenceLabels).map(([value, label]) => (
                   <option key={value} value={value}>
-                    {label}
+                    {i18n.system(label)}
                   </option>
                 ))}
               </select>
             </label>
             <label className="text-[11.5px] text-sub">
-              关键词状态
+              {i18n.fragment('关键词状态', false, true)}
               <select
                 className={`${control} block mt-1`}
-                aria-label="关键词状态"
+                aria-label={i18n.text('关键词状态')}
                 value={conditions.status}
                 disabled={busy}
                 onChange={e => change({ status: e.target.value as KeywordConditions['status'] })}
               >
-                <option value="">全部状态</option>
+                <option value="">{i18n.text('全部状态')}</option>
                 {keywordStatuses.map(status => (
                   <option key={status} value={status}>
-                    {keywordStatusLabels[status]}
+                    {i18n.system(keywordStatusLabels[status])}
                   </option>
                 ))}
               </select>
@@ -121,18 +127,18 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
               }}
             >
               <label className="text-[11.5px] text-sub">
-                关键词查询
+                {i18n.fragment('关键词查询', false, true)}
                 <input
                   className={`${control} block mt-1 keyword-search`}
-                  aria-label="关键词查询"
+                  aria-label={i18n.text('关键词查询')}
                   maxLength={200}
-                  placeholder="输入关键词或状态"
+                  placeholder={i18n.text('输入关键词或状态')}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
               </label>
               <button type="submit" disabled={busy} className={control}>
-                查询
+                {i18n.text('查询')}
               </button>
             </form>
             <button
@@ -144,11 +150,11 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
                 change(keywordConditionsSchema.parse({}));
               }}
             >
-              重置筛选
+              {i18n.text('重置筛选')}
             </button>
           </div>
           <p className="text-[11.5px] text-faint">
-            指标卡与占比按所选搜索引擎统计；关键词、依据和状态筛选仅影响明细。
+            {i18n.text('指标卡与占比按所选搜索引擎统计；关键词、依据和状态筛选仅影响明细。')}
           </p>
         </div>
         <div className="overflow-x-auto" aria-busy={busy}>
@@ -182,7 +188,7 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
                         })
                       }
                     >
-                      {label}
+                      {i18n.system(label)}
                       {conditions.sort === key
                         ? conditions.direction === 'asc'
                           ? ' ↑'
@@ -207,11 +213,15 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
                   <tr key={String(row.id)} className="border-b border-line">
                     <td className="pl-6 pr-4 py-3 keyword-term">
                       {row.keyword ||
-                        keywordStatusLabels[row.status as keyof typeof keywordStatusLabels]}
+                        i18n.system(
+                          keywordStatusLabels[row.status as keyof typeof keywordStatusLabels],
+                        )}
                     </td>
                     <td className="px-4 py-3">{row.engine}</td>
                     <td className="px-4 py-3 text-sub">
-                      {keywordEvidenceLabels[row.evidence as keyof typeof keywordEvidenceLabels]}
+                      {i18n.system(
+                        keywordEvidenceLabels[row.evidence as keyof typeof keywordEvidenceLabels],
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right keyword-number">
                       {formatValue(row.sessions)}
@@ -230,7 +240,9 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
               ) : (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-faint">
-                    {report?.cards[0]?.value ? '当前筛选暂无匹配结果' : '当前范围暂无搜索渠道会话'}
+                    {report?.cards[0]?.value
+                      ? i18n.text('当前筛选暂无匹配结果')
+                      : i18n.text('当前范围暂无搜索渠道会话')}
                   </td>
                 </tr>
               )}
@@ -239,7 +251,11 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
         </div>
         <div className="px-6 py-3 flex items-center justify-between gap-3 keyword-heading text-[11.5px] text-sub">
           <span>
-            共 {formatValue(total)} 行 · 第 {page} / {count} 页 · 每页 20 行
+            {i18n.fragment('共 ', false, true)}
+            {formatValue(total)}
+            {i18n.fragment(' 行 · 第 ', true, true)}
+            {page} / {count}
+            {i18n.unit(' 页 · 每页 20 行', count, true, false)}
           </span>
           <div className="flex gap-3">
             <button
@@ -248,7 +264,7 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
               disabled={busy || page <= 1}
               onClick={() => keywords?.onPage(page - 1)}
             >
-              上一页
+              {i18n.text('上一页')}
             </button>
             <button
               type="button"
@@ -256,22 +272,28 @@ export function HumanKeywords({ report, rangeLabel }: ReportViewProps) {
               disabled={busy || page >= count}
               onClick={() => keywords?.onPage(page + 1)}
             >
-              下一页
+              {i18n.text('下一页')}
             </button>
           </div>
         </div>
       </section>
       <section className="rounded-xl bg-wash p-4 text-[12px] text-sub leading-relaxed space-y-1">
         <p>
-          来源未携带搜索词表示搜索词参数缺失或为空；跳转链接无可用搜索词表示来源为已识别的跳转链接，且没有非空的搜索词参数。
-          这些会话仍计入搜索流量，现有记录中缺失的搜索词无法恢复。
+          {i18n.text(
+            '来源未携带搜索词表示搜索词参数缺失或为空；跳转链接无可用搜索词表示来源为已识别的跳转链接，且没有非空的搜索词参数。 这些会话仍计入搜索流量，现有记录中缺失的搜索词无法恢复。',
+          )}
         </p>
         <p>
-          来源搜索词优先识别；UTM 关键词为手动标记，可通过推广链接的 utm_term 参数提供。
-          来源格式不支持、完整性无法确认、解析失败和脱敏状态分别显示。
-          {report?.meta.keywordHasGoals === false ? '尚未配置转化目标，转化率显示为空。' : ''}
+          {i18n.fragment(
+            '来源搜索词优先识别；UTM 关键词为手动标记，可通过推广链接的 utm_term 参数提供。 来源格式不支持、完整性无法确认、解析失败和脱敏状态分别显示。',
+            false,
+            true,
+          )}
+          {report?.meta.keywordHasGoals === false
+            ? i18n.text('尚未配置转化目标，转化率显示为空。')
+            : ''}
         </p>
-        <p>完整导出会读取新的统计快照；文件注明读取时间和筛选条件。</p>
+        <p>{i18n.text('完整导出会读取新的统计快照；文件注明读取时间和筛选条件。')}</p>
       </section>
     </main>
   );

@@ -1,4 +1,5 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { createContext, type ReactNode, useContext } from 'react';
 import styles from '@/styles/liekan/Loading.module.css';
 
@@ -14,12 +15,13 @@ export function DataLoading({
   label?: string;
   children: ReactNode;
 }) {
+  const i18n = useLiekanI18n();
   const inherited = useDataLoading();
   return (
     <LoadingContext.Provider value={loading}>
       {loading && !inherited && (
         <span className={styles.status} role="status">
-          {label}
+          {i18n.system(label)}
         </span>
       )}
       {children}

@@ -1,4 +1,7 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import { aiActionLabels, aiSpaceDisplayName } from '@/lib/liekan/contracts/ai-display';
+
 import {
   useManualQuery as useQuery,
   useManualInfiniteQuery as useInfiniteQuery,
@@ -67,6 +70,7 @@ function sourceLabel(value: string) {
 const conversationKey = (userId: string, siteId: string, conversationId: string) =>
   ['liekan-ai', userId, 'conversation', siteId, conversationId] as const;
 export function AiChatPage() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [siteId, setSiteId] = useState(c.query.aiSite || ''),
     [draft, setDraft] = useState(''),
@@ -75,7 +79,7 @@ export function AiChatPage() {
   const reading = useManualRefresh();
   const chooseSite = () => {
     setSelectionHint(true);
-    document.querySelector<HTMLSelectElement>('select[aria-label="分析网站"]')?.focus();
+    document.querySelector<HTMLSelectElement>('select[data-ai-site-selector]')?.focus();
   };
   useEffect(() => {
     const next = c.query.aiSite || '';
@@ -87,14 +91,14 @@ export function AiChatPage() {
   if (catalog.isPending)
     return (
       <div data-liekan-ai="ai-chat" className={`${styles.chatWorkspace} ${home.page}`}>
-        <AiNotice>正在读取 AI 能力与可访问网站…</AiNotice>
+        <AiNotice>{i18n.text('正在读取 AI 能力与可访问网站…')}</AiNotice>
       </div>
     );
   if (catalog.error && !catalog.data)
     return (
       <div data-liekan-ai="ai-chat" className={`${styles.chatWorkspace} ${home.page}`}>
         <AiNotice error>{aiError(catalog.error)}</AiNotice>
-        <AiButton onClick={() => void catalog.refetch()}>重新读取</AiButton>
+        <AiButton onClick={() => void catalog.refetch()}>{i18n.text('重新读取')}</AiButton>
       </div>
     );
   const data = catalog.data;
@@ -112,7 +116,11 @@ export function AiChatPage() {
     );
   };
   return (
-    <div data-liekan-ai="ai-chat" className={`${styles.chatWorkspace} ${home.page}`} lang="zh-CN">
+    <div
+      data-liekan-ai="ai-chat"
+      className={`${styles.chatWorkspace} ${home.page}`}
+      lang={i18n.locale}
+    >
       <ModuleNotice catalog={data} />
       <AiCatalogMore query={catalog} />
       {site && space ? (
@@ -126,7 +134,9 @@ export function AiChatPage() {
         />
       ) : (
         <>
-          {siteId && <AiNotice error>所选网站不可访问或归属已变更，请重新选择。</AiNotice>}
+          {siteId && (
+            <AiNotice error>{i18n.text('所选网站不可访问或归属已变更，请重新选择。')}</AiNotice>
+          )}
           <ChatWelcome />
           <ChatComposer
             question={draft}
@@ -141,8 +151,8 @@ export function AiChatPage() {
           />
           <p className={home.hint} role="status">
             {selectionHint
-              ? '请先选择要分析的网站，问题会为你保留。'
-              : '选择一个网站，结合你的统计数据开始分析。'}
+              ? i18n.text('请先选择要分析的网站，问题会为你保留。')
+              : i18n.text('选择一个网站，结合你的统计数据开始分析。')}
           </p>
           <ChatHome
             onPrompt={setDraft}
@@ -151,7 +161,9 @@ export function AiChatPage() {
             disabled={!data.module.enabled}
           />
           {!data.websites.length && (
-            <AiNotice>当前账户没有可访问的网站。请先在网站管理添加网站或获取团队权限。</AiNotice>
+            <AiNotice>
+              {i18n.text('当前账户没有可访问的网站。请先在网站管理添加网站或获取团队权限。')}
+            </AiNotice>
           )}
         </>
       )}
@@ -171,6 +183,7 @@ function SiteConversation({
   space: AiCatalog['spaces'][number];
   changeSite: (id: string, conversationId?: string) => void;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     client = useQueryClient(),
     timezone = c.range.timezone || 'Asia/Shanghai';
@@ -505,6 +518,7 @@ function SiteConversation({
         `/liekan/ai/conversations/${id}/messages`,
         {
           question: text,
+          locale: i18n.locale,
           ...(selected ? { connectionId: selected.id } : { localOnly: true }),
           expectedConfigVersion: selected?.configVersion || 1,
           startAt: new Date(start).toISOString(),
@@ -523,27 +537,33 @@ function SiteConversation({
     <>
       {!space.canUse && (
         <AiNotice>
-          当前网站所属空间为只读权限，无法执行 AI 分析或付费测试。可以查看你自己的可访问历史。
+          {i18n.text(
+            '当前网站所属空间为只读权限，无法执行 AI 分析或付费测试。可以查看你自己的可访问历史。',
+          )}
         </AiNotice>
       )}
       {conversationId && catalog.module.enabled && !conversationVerified && (
         <>
           <AiNotice error={!conversationInfo.isPending}>
             {conversationInfo.isPending
-              ? '正在确认对话所属网站…'
+              ? i18n.text('正在确认对话所属网站…')
               : conversationInfo.error
                 ? aiError(conversationInfo.error)
                 : conversationInfo.data?.id !== conversationId
-                  ? '对话信息与当前地址不匹配，读取与分析已暂停。请新建当前网站对话。'
-                  : '对话属于其他网站，当前网站已暂停读取与分析。请新建对话或切换到对话所属网站。'}
+                  ? i18n.text('对话信息与当前地址不匹配，读取与分析已暂停。请新建当前网站对话。')
+                  : i18n.text(
+                      '对话属于其他网站，当前网站已暂停读取与分析。请新建对话或切换到对话所属网站。',
+                    )}
           </AiNotice>
           {!conversationInfo.isPending && (
             <div className={styles.actions}>
               <AiButton disabled={busy} onClick={() => void selectConversation('')}>
-                新建当前网站对话
+                {i18n.text('新建当前网站对话')}
               </AiButton>
               {conversationInfo.error && (
-                <AiButton onClick={() => void conversationInfo.refetch()}>重新确认对话</AiButton>
+                <AiButton onClick={() => void conversationInfo.refetch()}>
+                  {i18n.text('重新确认对话')}
+                </AiButton>
               )}
               {realSite && realSite.id !== site.id && (
                 <AiButton
@@ -552,7 +572,8 @@ function SiteConversation({
                     if (await task.stop()) changeSite(realSite.id, conversationId);
                   }}
                 >
-                  切换到「{realSite.name}」
+                  {i18n.fragment('切换到「', false, true)}
+                  {realSite.name}」
                 </AiButton>
               )}
             </div>
@@ -562,21 +583,23 @@ function SiteConversation({
       {connections.error && (
         <>
           <AiNotice error>{aiError(connections.error)}</AiNotice>
-          <AiButton onClick={() => void connections.refetch()}>重新读取连接</AiButton>
+          <AiButton onClick={() => void connections.refetch()}>
+            {i18n.text('重新读取连接')}
+          </AiButton>
         </>
       )}
       {routePending && (
         <AiNotice error={!switching}>
           {switching
-            ? '正在确认原任务状态并切换对话…'
-            : '对话切换未完成，提交已暂停。请确认原任务状态后重试。'}
+            ? i18n.text('正在确认原任务状态并切换对话…')
+            : i18n.text('对话切换未完成，提交已暂停。请确认原任务状态后重试。')}
           {!switching && (
             <AiButton
               onClick={() =>
                 void selectConversation(pendingConversation ?? routeRef.current, 'route')
               }
             >
-              重试切换对话
+              {i18n.text('重试切换对话')}
             </AiButton>
           )}
         </AiNotice>
@@ -585,7 +608,7 @@ function SiteConversation({
         className={`${styles.conversationTools} ${home.conversationTools} ${isLanding ? home.landingTools : ''}`}
       >
         <AiButton disabled={busy} onClick={() => void selectConversation('')}>
-          新建对话
+          {i18n.text('新建对话')}
         </AiButton>
         <details
           data-ai-history="true"
@@ -596,16 +619,16 @@ function SiteConversation({
             }
           }}
         >
-          <summary>我的历史对话</summary>
+          <summary>{i18n.text('我的历史对话')}</summary>
           <div className={`${styles.history} ${home.historyPanel}`}>
             {!conversationVerified ? (
-              <p>请先确认对话所属网站后查看历史。</p>
+              <p>{i18n.text('请先确认对话所属网站后查看历史。')}</p>
             ) : history.error ? (
               <AiNotice error>{aiError(history.error)}</AiNotice>
             ) : history.isPending ? (
-              <p>正在读取历史…</p>
+              <p>{i18n.text('正在读取历史…')}</p>
             ) : !history.data?.pages.some(p => p.items.length) ? (
-              <p>当前网站暂无本人历史对话。</p>
+              <p>{i18n.text('当前网站暂无本人历史对话。')}</p>
             ) : (
               history.data.pages
                 .flatMap(p => p.items)
@@ -615,11 +638,11 @@ function SiteConversation({
                       {item.title} · {formatInTimeZone(item.updatedAt, timezone, 'MM-dd HH:mm')}
                     </AiButton>
                     <AiButton
-                      aria-label={`删除对话 ${item.title}`}
+                      aria-label={i18n.text('删除对话 {v0}', [item.title])}
                       disabled={busy}
                       onClick={() => setDeleting(item.id)}
                     >
-                      删除
+                      {i18n.text('删除')}
                     </AiButton>
                   </div>
                 ))
@@ -629,7 +652,7 @@ function SiteConversation({
                 disabled={history.isFetchingNextPage}
                 onClick={() => void history.fetchNextPage()}
               >
-                加载更多对话
+                {i18n.text('加载更多对话')}
               </AiButton>
             )}
           </div>
@@ -639,7 +662,7 @@ function SiteConversation({
       {conversationVerified && messages.error && (
         <>
           <AiNotice error>{aiError(messages.error)}</AiNotice>
-          <AiButton onClick={() => void selectConversation('')}>新建对话</AiButton>
+          <AiButton onClick={() => void selectConversation('')}>{i18n.text('新建对话')}</AiButton>
         </>
       )}
       {conversationVerified && messages.hasNextPage && (
@@ -647,7 +670,7 @@ function SiteConversation({
           disabled={messages.isFetchingNextPage}
           onClick={() => void messages.fetchNextPage()}
         >
-          加载更早消息
+          {i18n.text('加载更早消息')}
         </AiButton>
       )}
       <div className={`${styles.conversation} ${home.thread}`} hidden={isLanding}>
@@ -665,7 +688,7 @@ function SiteConversation({
           (sentQuestion || task.run || task.preview || task.busy) && (
             <>
               <div className={styles.userMessage} data-ai-user-message>
-                {sentQuestion || '正在恢复原任务，问题内容从历史读取。'}
+                {sentQuestion || i18n.text('正在恢复原任务，问题内容从历史读取。')}
               </div>
               <div className={styles.assistantMessage} data-ai-assistant-message>
                 <ChatAssistantHeading state={task.stage} />
@@ -695,28 +718,28 @@ function SiteConversation({
         !allMessages.some(message => message.runId === task.run?.id && task.run?.error) && (
           <AiNotice error>{task.error}</AiNotice>
         )}
-      {error && <AiNotice error>{error}</AiNotice>}
+      {error && <AiNotice error>{i18n.system(error)}</AiNotice>}
       {(task.error || task.run?.error) && !task.recoverable && !task.busy && sentQuestion && (
         <div className={styles.actions}>
           <AiButton
             onClick={() => {
               setQuestion(sentQuestion);
-              document
-                .querySelector<HTMLTextAreaElement>('textarea[aria-label="分析问题"]')
-                ?.focus();
+              document.querySelector<HTMLTextAreaElement>('textarea[data-ai-question]')?.focus();
             }}
           >
-            重新填写问题
+            {i18n.text('重新填写问题')}
           </AiButton>
-          <span className={styles.muted}>重新发起会创建新调用，可能产生费用。</span>
+          <span className={styles.muted}>{i18n.text('重新发起会创建新调用，可能产生费用。')}</span>
         </div>
       )}
       {task.recoverable && (
         <div className={styles.actions}>
           <AiButton disabled={task.busy} onClick={() => void task.recover()}>
-            回查原任务
+            {i18n.text('回查原任务')}
           </AiButton>
-          <span className={styles.muted}>刷新恢复仅查询原任务，不会重复调用模型。</span>
+          <span className={styles.muted}>
+            {i18n.text('刷新恢复仅查询原任务，不会重复调用模型。')}
+          </span>
         </div>
       )}
       <div
@@ -755,14 +778,16 @@ function SiteConversation({
               <details className={home.datePicker}>
                 <summary>
                   <CalendarDays size={15} aria-hidden="true" />
-                  {dates.start.slice(5)} 至 {dates.end.slice(5)}
+                  {dates.start.slice(5)}
+                  {i18n.fragment(' 至 ', true, true)}
+                  {dates.end.slice(5)}
                   <ChevronDown size={13} aria-hidden="true" />
                 </summary>
                 <div className={home.datePanel}>
                   <label>
-                    开始日期
+                    {i18n.fragment('开始日期', false, true)}
                     <input
-                      aria-label="分析开始日期"
+                      aria-label={i18n.text('分析开始日期')}
                       type="date"
                       value={dates.start}
                       disabled={busy}
@@ -770,9 +795,9 @@ function SiteConversation({
                     />
                   </label>
                   <label>
-                    结束日期
+                    {i18n.fragment('结束日期', false, true)}
                     <input
-                      aria-label="分析结束日期"
+                      aria-label={i18n.text('分析结束日期')}
                       type="date"
                       value={dates.end}
                       disabled={busy}
@@ -780,24 +805,28 @@ function SiteConversation({
                     />
                   </label>
                   <p>
-                    统计时区：{timezone} · 最长 {catalog.limits.maxDays} 天
+                    {i18n.fragment('统计时区：', false, true)}
+                    {timezone}
+                    {i18n.fragment(' · 最长 ', true, true)}
+                    {catalog.limits.maxDays}
+                    {i18n.fragment(' 天', true, false)}
                   </p>
                 </div>
               </details>
               <label className={home.scopeControl}>
                 <Sparkles size={14} aria-hidden="true" />
                 <select
-                  aria-label="分析模型"
+                  aria-label={i18n.text('分析模型')}
                   value={connectionId || selected?.id || ''}
                   disabled={busy || !space.canUse || !catalog.module.enabled}
                   onChange={e => setConnectionId(e.target.value)}
                 >
-                  <option value="">选择模型</option>
-                  <option value="local">本地接入指引 · 无模型调用</option>
+                  <option value="">{i18n.text('选择模型')}</option>
+                  <option value="local">{i18n.text('本地接入指引 · 无模型调用')}</option>
                   {usable.map(row => (
                     <option key={row.id} value={row.id}>
                       {row.name} · {row.model}
-                      {row.isDefault ? ' · 默认' : ''}
+                      {row.isDefault ? i18n.text(' · 默认') : ''}
                     </option>
                   ))}
                 </select>
@@ -809,30 +838,37 @@ function SiteConversation({
             needsSetup ? undefined : (
               <details className={home.callInfo}>
                 <summary>
-                  {selected ? '使用脱敏统计，模型调用可能产生费用' : '本地指引，0 次供应商调用'}
-                  <span>调用说明</span>
+                  {selected
+                    ? i18n.text('使用脱敏统计，模型调用可能产生费用')
+                    : i18n.text('本地指引，0 次供应商调用')}
+                  <span>{i18n.text('调用说明')}</span>
                 </summary>
-                <section className={styles.callDisclosure} aria-label="分析调用说明">
+                <section className={styles.callDisclosure} aria-label={i18n.text('分析调用说明')}>
                   {selected ? (
                     <>
                       <p>
-                        供应商：
+                        {i18n.fragment('供应商：', false, true)}
                         {catalog.templates.find(t => t.provider === selected.provider)?.name ||
-                          '自定义兼容接口'}{' '}
-                        · 模型：{selected.model}
+                          i18n.text('自定义兼容接口')}{' '}
+                        {i18n.fragment('· 模型：', true, true)}
+                        {selected.model}
                       </p>
                       <p>
-                        应用上下文窗口：
+                        {i18n.fragment('应用上下文窗口：', false, true)}
                         <ModelWindow catalog={catalog} configuration={selected} />
                       </p>
                       <p>
-                        将外发脱敏汇总、有限样本、本次问题与最多 6 轮历史；调用可能产生供应商费用。
+                        {i18n.text(
+                          '将外发脱敏汇总、有限样本、本次问题与最多 6 轮历史；调用可能产生供应商费用。',
+                        )}
                       </p>
                     </>
                   ) : (
-                    <p>本地统计指引 · 0 次供应商调用。统计依据与问题由当前实例处理。</p>
+                    <p>
+                      {i18n.text('本地统计指引 · 0 次供应商调用。统计依据与问题由当前实例处理。')}
+                    </p>
                   )}
-                  <p>请勿输入凭据、密钥或个人资料。</p>
+                  <p>{i18n.text('请勿输入凭据、密钥或个人资料。')}</p>
                 </section>
               </details>
             )
@@ -844,9 +880,9 @@ function SiteConversation({
           space.canUse &&
           needsSetup && (
             <p className={home.hint}>
-              配置 AI 后，就能结合网站数据获得分析。
+              {i18n.fragment('配置 AI 后，就能结合网站数据获得分析。', false, true)}
               <button type="button" onClick={openSetup}>
-                去配置
+                {i18n.text('去配置')}
               </button>
             </p>
           )}
@@ -863,7 +899,7 @@ function SiteConversation({
             }
           }}
           onChooseSite={() =>
-            document.querySelector<HTMLSelectElement>('select[aria-label="分析网站"]')?.focus()
+            document.querySelector<HTMLSelectElement>('select[data-ai-site-selector]')?.focus()
           }
           disabled={blocked}
           range={{
@@ -875,22 +911,32 @@ function SiteConversation({
       )}
       {setup && !testing && (
         <AiModal
-          title="配置 AI，开始分析"
-          subtitle={`为「${site.name}」连接模型，配置保存在${space.name}`}
+          title={i18n.text('配置 AI，开始分析')}
+          subtitle={i18n.text('为「{v0}」连接模型，配置保存在{v1}', [
+            site.name,
+            aiSpaceDisplayName(space, c.user.id, i18n.system),
+          ])}
           onClose={closeSetup}
           wide={space.canManage}
         >
           <div className={styles.modalBody}>
             {setupConnection ? (
               <>
-                <h3>{setupConnection.name} 已保存</h3>
-                <p>完成一次连接测试后，模型会自动生效。刚才的问题已保留。</p>
-                <p className={styles.muted}>测试会向供应商发送短文本，可能产生费用。</p>
+                <h3>
+                  {setupConnection.name}
+                  {i18n.fragment(' 已保存', true, false)}
+                </h3>
+                <p>{i18n.text('完成一次连接测试后，模型会自动生效。刚才的问题已保留。')}</p>
+                <p className={styles.muted}>
+                  {i18n.text('测试会向供应商发送短文本，可能产生费用。')}
+                </p>
                 <div className={styles.actions}>
                   <AiButton primary onClick={() => startSetupTest()}>
-                    测试连接并启用
+                    {i18n.text('测试连接并启用')}
                   </AiButton>
-                  <AiButton onClick={() => setSetupConnection(null)}>返回配置</AiButton>
+                  <AiButton onClick={() => setSetupConnection(null)}>
+                    {i18n.text('返回配置')}
+                  </AiButton>
                 </div>
               </>
             ) : space.canManage ? (
@@ -904,11 +950,13 @@ function SiteConversation({
                         startSetupTest(row);
                       }}
                     >
-                      测试并使用 {row.name}
+                      {i18n.fragment('测试并使用 ', false, true)}
+                      {row.name}
                     </AiButton>
                   ))}
                 {(connections.data?.items.length || 0) < catalog.limits.connectionsPerSpace ? (
                   <ConnectionForm
+                    currentUserId={c.user.id}
                     catalog={catalog}
                     space={space}
                     embedded
@@ -920,16 +968,24 @@ function SiteConversation({
                     }}
                   />
                 ) : (
-                  <p>当前空间的 API 数量已达上限，请在 AI配置器管理现有连接。</p>
+                  <p>{i18n.text('当前空间的 API 数量已达上限，请在 AI配置器管理现有连接。')}</p>
                 )}
               </>
             ) : (
-              <p>请联系{space.name}的管理员配置并测试模型，完成后请刷新页面读取可用连接。</p>
+              <p>
+                {i18n.fragment('请联系', false, true)}
+                {space.name}
+                {i18n.fragment(
+                  '的管理员配置并测试模型，完成后请刷新页面读取可用连接。',
+                  true,
+                  false,
+                )}
+              </p>
             )}
           </div>
           <div className={styles.modalFooter}>
             <a className={styles.button} href={c.href('ai-config', { aiSite: site.id })}>
-              打开 AI配置器
+              {i18n.text('打开 AI配置器')}
             </a>
             <AiButton
               onClick={() => {
@@ -937,7 +993,7 @@ function SiteConversation({
                 setConnectionId('local');
               }}
             >
-              先查看本地接入指引
+              {i18n.text('先查看本地接入指引')}
             </AiButton>
           </div>
         </AiModal>
@@ -964,13 +1020,13 @@ function SiteConversation({
         />
       )}
       {deleting && (
-        <AiModal title="删除历史对话" onClose={() => setDeleting(null)}>
+        <AiModal title={i18n.text('删除历史对话')} onClose={() => setDeleting(null)}>
           <div className={styles.modalBody}>
-            <p>确认删除该对话和生成时依据？删除后无法继续读取。</p>
-            {error && <AiNotice error>{error}</AiNotice>}
+            <p>{i18n.text('确认删除该对话和生成时依据？删除后无法继续读取。')}</p>
+            {error && <AiNotice error>{i18n.system(error)}</AiNotice>}
           </div>
           <div className={styles.modalFooter}>
-            <AiButton onClick={() => setDeleting(null)}>取消</AiButton>
+            <AiButton onClick={() => setDeleting(null)}>{i18n.text('取消')}</AiButton>
             <AiButton
               primary
               onClick={async () => {
@@ -986,7 +1042,7 @@ function SiteConversation({
                 }
               }}
             >
-              删除对话
+              {i18n.text('删除对话')}
             </AiButton>
           </div>
         </AiModal>
@@ -1005,6 +1061,7 @@ function HistoryMessage({
   onReference: (id: string) => void;
   error: string;
 }) {
+  const i18n = useLiekanI18n();
   return (
     <>
       <div className={styles.userMessage} data-ai-user-message>
@@ -1025,7 +1082,10 @@ function HistoryMessage({
             busy={false}
             preview=""
             error={
-              error || (message.state === 'failed' ? '这次分析未完成，可重新填写问题后再试。' : '')
+              error ||
+              (message.state === 'failed'
+                ? i18n.text('这次分析未完成，可重新填写问题后再试。')
+                : '')
             }
           />
         )}
@@ -1061,7 +1121,7 @@ function safeAction(input: unknown, siteId: string) {
       (url.pathname === `/liekan/tracking` && url.searchParams.get('websiteId') === siteId) ||
       url.pathname === sitePath ||
       url.pathname.startsWith(`${sitePath}/`);
-    return own ? { href: value.href, label: value.label } : null;
+    return own ? { href: value.href, label: value.label, action: String(value.action) } : null;
   } catch {
     return null;
   }
@@ -1077,6 +1137,7 @@ function Answer({
   siteId: string;
   onReference: (id: string) => void;
 }) {
+  const i18n = useLiekanI18n();
   const value = record(result);
   if (
     typeof value.summary !== 'string' ||
@@ -1084,7 +1145,7 @@ function Answer({
       Array.isArray(value[k]),
     )
   )
-    return <AiNotice error>已完成任务的结果格式无法展示，请回查原任务。</AiNotice>;
+    return <AiNotice error>{i18n.text('已完成任务的结果格式无法展示，请回查原任务。')}</AiNotice>;
   const refs = (input: unknown) =>
     Array.isArray(input)
       ? input.map((r, i) => {
@@ -1094,17 +1155,17 @@ function Answer({
               key={`${ref.contextId}:${String(ref.factId)}:${i}`}
               onClick={() => onReference(String(ref.contextId))}
             >
-              {ref.historical ? '历史依据' : '生成时依据'} ·{' '}
+              {ref.historical ? i18n.text('历史依据') : i18n.text('生成时依据')} ·{' '}
               {(
                 {
-                  summary: '概况',
-                  bots: 'AI 爬虫',
-                  'log-errors': '抓取日志',
-                  'ai-referrals': 'AI 引荐',
-                  pages: '页面',
-                  goals: '转化',
+                  summary: i18n.text('概况'),
+                  bots: i18n.text('AI 爬虫'),
+                  'log-errors': i18n.text('抓取日志'),
+                  'ai-referrals': i18n.text('AI 引荐'),
+                  pages: i18n.text('页面'),
+                  goals: i18n.text('转化'),
                 } as Record<string, string>
-              )[String(ref.factId)] || '统计'}
+              )[String(ref.factId)] || i18n.text('统计')}
             </AiButton>
           ) : null;
         })
@@ -1112,7 +1173,7 @@ function Answer({
   const items = (key: string, title: string) =>
     (value[key] as unknown[]).length > 0 && (
       <section className={styles.answerSection}>
-        <h3>{title}</h3>
+        <h3>{i18n.system(title)}</h3>
         <ul>
           {(value[key] as unknown[]).map((input, i) => {
             const item = record(input);
@@ -1130,10 +1191,10 @@ function Answer({
     <div className={styles.answer}>
       <span className={`${styles.badge} ${origin === 'local' ? styles.neutral : ''}`}>
         {origin === 'local'
-          ? '本地规则指引 · 未调用模型'
+          ? i18n.text('本地规则指引 · 未调用模型')
           : origin === 'provider'
-            ? 'AI 分析 · 已校验'
-            : '来源未知'}
+            ? i18n.text('AI 分析 · 已校验')
+            : i18n.text('来源未知')}
       </span>
       <p className={styles.answerSummary}>{value.summary}</p>
       {Array.isArray(value.metrics) && (
@@ -1142,21 +1203,27 @@ function Answer({
             const metric = record(input);
             return (
               <div key={i}>
-                <small>{typeof metric.label === 'string' ? metric.label : '统计指标'}</small>
+                <small>
+                  {typeof metric.label === 'string'
+                    ? i18n.system(metric.label)
+                    : i18n.text('统计指标')}
+                </small>
                 <strong>
-                  {typeof metric.value === 'number' ? metric.value.toLocaleString('zh-CN') : '未知'}
+                  {typeof metric.value === 'number'
+                    ? metric.value.toLocaleString(i18n.locale)
+                    : i18n.text('未知')}
                 </strong>
-                <small>{dataStateLabel(metric.state)}</small>
+                <small>{i18n.system(dataStateLabel(metric.state))}</small>
               </div>
             );
           })}
         </div>
       )}
-      {items('observations', '观察结果')}
-      {items('possibleCauses', '可能原因，尚待验证')}
-      {items('suggestions', '建议行动')}
+      {items('observations', i18n.text('观察结果'))}
+      {items('possibleCauses', i18n.text('可能原因，尚待验证'))}
+      {items('suggestions', i18n.text('建议行动'))}
       <details className={home.answerNotes}>
-        <summary>限制与范围</summary>
+        <summary>{i18n.text('限制与范围')}</summary>
         <ul>
           {(value.limitations as unknown[]).map((text, i) =>
             typeof text === 'string' ? <li key={i}>{text}</li> : null,
@@ -1176,7 +1243,9 @@ function Answer({
           ].join('\n\n')}
         />
         {typeof value.contextId === 'string' && uuid.test(value.contextId) && (
-          <AiButton onClick={() => onReference(String(value.contextId))}>查看生成时依据</AiButton>
+          <AiButton onClick={() => onReference(String(value.contextId))}>
+            {i18n.text('查看生成时依据')}
+          </AiButton>
         )}
       </div>
       {Array.isArray(value.actions) && (
@@ -1185,14 +1254,16 @@ function Answer({
             const action = safeAction(input, siteId);
             return action ? (
               <a className={styles.button} key={i} href={action.href}>
-                {action.label}
+                {i18n.text(i18n.system(aiActionLabels[action.action]) || action.label)}
               </a>
             ) : null;
           })}
         </div>
       )}
       {typeof value.contextId === 'string' && uuid.test(value.contextId) && (
-        <p className={home.answerCaution}>回答基于生成时统计快照，请结合数据覆盖范围判断。</p>
+        <p className={home.answerCaution}>
+          {i18n.text('回答基于生成时统计快照，请结合数据覆盖范围判断。')}
+        </p>
       )}
     </div>
   );
@@ -1206,6 +1277,7 @@ function ContextSnapshot({
   contextId: string;
   onClose: () => void;
 }) {
+  const i18n = useLiekanI18n();
   const visit = useId();
   const c = useFeature(),
     snapshot = useQuery({
@@ -1219,76 +1291,84 @@ function ContextSnapshot({
     clipping = record(budget.trimmed),
     model = record(extra.modelConfiguration);
   return (
-    <AiModal title="生成时依据" onClose={onClose} wide>
+    <AiModal title={i18n.text('生成时依据')} onClose={onClose} wide>
       <div className={styles.modalBody}>
         {snapshot.isPending ? (
-          <AiNotice>正在读取本次生成保存的统计快照…</AiNotice>
+          <AiNotice>{i18n.text('正在读取本次生成保存的统计快照…')}</AiNotice>
         ) : snapshot.error ? (
           <>
             <AiNotice error>{aiError(snapshot.error)}</AiNotice>
-            <AiButton onClick={() => void snapshot.refetch()}>重新读取依据</AiButton>
+            <AiButton onClick={() => void snapshot.refetch()}>{i18n.text('重新读取依据')}</AiButton>
           </>
         ) : facts ? (
           <>
             <dl className={styles.summary}>
-              <dt>网站</dt>
+              <dt>{i18n.text('网站')}</dt>
               <dd>{facts.website.name}</dd>
-              <dt>生成时间</dt>
+              <dt>{i18n.text('生成时间')}</dt>
               <dd>
-                {new Date(facts.generatedAt).toLocaleString('zh-CN', { timeZone: facts.timeZone })}
-              </dd>
-              <dt>统计期间</dt>
-              <dd>
-                {new Date(facts.currentRange.startAt).toLocaleString('zh-CN', {
-                  timeZone: facts.timeZone,
-                })}{' '}
-                至{' '}
-                {new Date(facts.currentRange.endAt).toLocaleString('zh-CN', {
+                {new Date(facts.generatedAt).toLocaleString(i18n.locale, {
                   timeZone: facts.timeZone,
                 })}
               </dd>
-              <dt>时区</dt>
+              <dt>{i18n.text('统计期间')}</dt>
+              <dd>
+                {new Date(facts.currentRange.startAt).toLocaleString(i18n.locale, {
+                  timeZone: facts.timeZone,
+                })}{' '}
+                {i18n.fragment('至', true, true)}{' '}
+                {new Date(facts.currentRange.endAt).toLocaleString(i18n.locale, {
+                  timeZone: facts.timeZone,
+                })}
+              </dd>
+              <dt>{i18n.text('时区')}</dt>
               <dd>{facts.timeZone}</dd>
-              <dt>日志覆盖</dt>
-              <dd>未经验证</dd>
-              <dt>输入裁剪</dt>
+              <dt>{i18n.text('日志覆盖')}</dt>
+              <dd>{i18n.text('未经验证')}</dd>
+              <dt>{i18n.text('输入裁剪')}</dt>
               <dd>
                 {typeof clipping.historyTurns === 'number' &&
                 typeof clipping.logSamples === 'number' &&
                 typeof clipping.topRows === 'number'
-                  ? `历史轮次 ${clipping.historyTurns} · 日志样本 ${clipping.logSamples} · 排名记录 ${clipping.topRows}`
-                  : '裁剪状态未记录'}
+                  ? i18n.text('历史轮次 {v0} · 日志样本 {v1} · 排名记录 {v2}', [
+                      clipping.historyTurns,
+                      clipping.logSamples,
+                      clipping.topRows,
+                    ])
+                  : i18n.text('裁剪状态未记录')}
               </dd>
               {typeof model.model === 'string' && (
                 <>
-                  <dt>分析模型</dt>
+                  <dt>{i18n.text('分析模型')}</dt>
                   <dd>
-                    {model.model} · 配置版本 {String(model.configVersion || '未知')}
+                    {model.model}
+                    {i18n.fragment(' · 配置版本 ', true, true)}
+                    {String(model.configVersion || i18n.text('未知'))}
                   </dd>
                 </>
               )}
-              <dt>快照到期</dt>
+              <dt>{i18n.text('快照到期')}</dt>
               <dd>
-                {new Date(snapshot.data.expiresAt).toLocaleString('zh-CN', {
+                {new Date(snapshot.data.expiresAt).toLocaleString(i18n.locale, {
                   timeZone: facts.timeZone,
                 })}
               </dd>
             </dl>
             <AiNotice>
-              这里展示生成时保存的依据。当前统计页会随新数据变化。
-              {facts.rangeNotes.currentDayIncomplete ? '当前日期数据尚未完整。' : ''}
-              {facts.rangeNotes.endClamped ? '结束时间已收束到生成时刻。' : ''}
+              {i18n.fragment('这里展示生成时保存的依据。当前统计页会随新数据变化。', false, true)}
+              {facts.rangeNotes.currentDayIncomplete ? i18n.text('当前日期数据尚未完整。') : ''}
+              {facts.rangeNotes.endClamped ? i18n.text('结束时间已收束到生成时刻。') : ''}
             </AiNotice>
             {Object.entries(facts.sourceStates).map(([source, state]) => (
               <span key={source} className={styles.badge}>
-                {sourceLabel(source)} · {dataStateLabel(state)}
+                {i18n.system(sourceLabel(source))} · {i18n.system(dataStateLabel(state))}
               </span>
             ))}
             <div className={styles.factList}>
               {facts.facts.map(fact => (
                 <details key={fact.id}>
                   <summary>
-                    {fact.label} · {dataStateLabel(fact.state)}
+                    {i18n.system(fact.label)} · {i18n.system(dataStateLabel(fact.state))}
                   </summary>
                   <pre>{JSON.stringify(fact.data, null, 2)}</pre>
                 </details>
@@ -1298,7 +1378,7 @@ function ContextSnapshot({
         ) : null}
       </div>
       <div className={styles.modalFooter}>
-        <AiButton onClick={onClose}>关闭依据</AiButton>
+        <AiButton onClick={onClose}>{i18n.text('关闭依据')}</AiButton>
       </div>
     </AiModal>
   );

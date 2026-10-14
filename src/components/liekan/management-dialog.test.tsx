@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { ManagementDrawer } from './ManagementDrawer';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const api = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), post: vi.fn() }));
 vi.mock('@/lib/liekan/upstream/client', () => ({ useApi: () => api }));
@@ -17,6 +18,14 @@ const rule = {
   extension: 'retained',
 };
 const settings = { robots: 'User-agent: *\nAllow: /', allowlist: [], rules: [rule] };
+it('localizes the submit control of a canonical range dialog', () => {
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <Mount action="统计范围" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('button', { name: 'Apply date range' })).toBeVisible();
+});
 afterEach(() => {
   cleanup();
   vi.useRealTimers();

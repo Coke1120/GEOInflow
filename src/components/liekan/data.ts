@@ -1,3 +1,4 @@
+import type { LiekanLocale } from '@/lib/liekan/i18n/locale';
 import type { DataState, Resource, Row } from './types';
 export const pages: Array<{
   path: string;
@@ -249,46 +250,81 @@ export const tableLimits: Record<string, number> = {
   pipeList: 5,
   journeyList: 6,
 };
-export function formatValue(value: unknown) {
+export function formatValue(value: unknown, locale: LiekanLocale = 'zh-CN') {
   return value == null || value === ''
     ? '–'
     : typeof value === 'number'
-      ? value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+      ? value.toLocaleString(locale, { maximumFractionDigits: 2 })
       : String(value);
 }
-export function formatPercentage(value: unknown) {
-  return value == null ? '–' : typeof value === 'number' ? `${formatValue(value)}%` : String(value);
+export function formatPercentage(value: unknown, locale: LiekanLocale = 'zh-CN') {
+  return value == null
+    ? '–'
+    : typeof value === 'number'
+      ? `${formatValue(value, locale)}%`
+      : String(value);
 }
-function formatDuration(value: number) {
+function formatDuration(value: number, locale: LiekanLocale = 'zh-CN') {
   const seconds = Math.round(value);
-  return `${Math.floor(seconds / 60)}分${seconds % 60}秒`;
+  return locale === 'en-US'
+    ? `${Math.floor(seconds / 60)}m ${seconds % 60}s`
+    : `${Math.floor(seconds / 60)}分${seconds % 60}秒`;
 }
-export function formatMetricValue(card: { value: unknown; unit?: string; label: string }) {
-  return typeof card.value === 'number' && card.unit === '秒' && /时长|停留/.test(card.label)
-    ? formatDuration(card.value)
-    : `${formatValue(card.value)}${card.value == null ? '' : card.unit || ''}`;
+export function formatMetricValue(
+  card: { value: unknown; unit?: string; label: string },
+  locale: LiekanLocale = 'zh-CN',
+  display: (source: string) => string = source => source,
+) {
+  if (typeof card.value === 'number' && card.unit === '秒' && /时长|停留/.test(card.label))
+    return formatDuration(card.value, locale);
+  let unit = card.unit ? display(card.unit) : '';
+  if (locale === 'en-US' && card.value === 1) {
+    const singular: Record<string, string> = {
+      times: 'time',
+      items: 'item',
+      pages: 'page',
+      visitors: 'visitor',
+      types: 'type',
+      seconds: 'second',
+      days: 'day',
+    };
+    unit = singular[unit.toLowerCase()] || unit;
+  }
+  return `${formatValue(card.value, locale)}${card.value == null ? '' : unit ? (locale === 'en-US' && unit !== '%' ? ' ' : '') + unit : ''}`;
 }
-export function formatCellValue(row: Row, field: string, table: string) {
+export function formatCellValue(
+  row: Row,
+  field: string,
+  table: string,
+  locale: LiekanLocale = 'zh-CN',
+  display: (source: string) => string = source => source,
+) {
   const value = row[field];
   if (value == null || value === '') return '–';
+  if (field === 'source' && row.sourceLabel === 'direct') return display('直接访问');
   if (table === 'botBody' && field === 'name')
-    return `${formatValue(value)}${row.vendor ? ` / ${row.vendor}` : ''}`;
+    return `${formatValue(value, locale)}${row.vendor ? ` / ${row.vendor}` : ''}`;
   if (table === 'logBody' && field === 'ipMasked')
-    return `${formatValue(value)}${row.location ? ` / ${row.location}` : ''}`;
-  if (table === 'logBody' && field === 'path') return `${row.method || '–'} ${formatValue(value)}`;
+    return `${formatValue(value, locale)}${row.location ? ` / ${row.location}` : ''}`;
+  if (table === 'logBody' && field === 'path')
+    return `${row.method || '–'} ${formatValue(value, locale)}`;
+  if (['channel', 'evaluation', 'classification', 'freshness'].includes(field))
+    return display(String(value));
   if (field === 'type')
-    return value === '训练' ? 'AI 训练' : value === '搜索' ? 'AI 搜索' : formatValue(value);
+    return display(
+      value === '训练' ? 'AI 训练' : value === '搜索' ? 'AI 搜索' : formatValue(value, locale),
+    );
   if (['share', 'categoryShare', 'bounceRate', 'conversionRate', 'rate'].includes(field))
-    return formatPercentage(value);
+    return formatPercentage(value, locale);
   if (field === 'trend' && typeof value === 'number')
-    return `${value > 0 ? '+' : ''}${formatValue(value)}%`;
-  if (field === 'duration' && typeof value === 'number') return formatDuration(value);
+    return `${value > 0 ? '+' : ''}${formatValue(value, locale)}%`;
+  if (field === 'duration' && typeof value === 'number') return formatDuration(value, locale);
   if (
     ['time', 'lastVisit', 'lastCrawled'].includes(field) &&
     typeof value === 'string' &&
     /^\d{4}-\d{2}-\d{2}T/.test(value)
   )
-    return new Intl.DateTimeFormat('zh-CN', {
+    return new Intl.DateTimeFormat(locale, {
       ...(field === 'time' ? {} : { month: '2-digit', day: '2-digit' }),
       hour: '2-digit',
       minute: '2-digit',
@@ -296,7 +332,7 @@ export function formatCellValue(row: Row, field: string, table: string) {
       hour12: false,
       timeZone: 'Asia/Shanghai',
     }).format(new Date(value));
-  return formatValue(value);
+  return formatValue(value, locale);
 }
 export function selectRows(
   rows: Row[],
@@ -380,12 +416,16 @@ export function tableCsv(
   sort: { label: string; direction: number },
   search = '',
   displayPath?: (value: unknown) => string | null,
+  locale: LiekanLocale = 'zh-CN',
+  display: (source: string) => string = source => source,
 ) {
   const fields = columns[table] || [];
   const selected = selectRows(rows, filter, sort, table, search, displayPath);
   return csvMatrix(
-    fields.map(([, label]) => label),
-    selected.map(row => fields.map(([field]) => formatCellValue(row, field, table))),
+    fields.map(([, label]) => display(label)),
+    selected.map(row =>
+      fields.map(([field]) => formatCellValue(row, field, table, locale, display)),
+    ),
   );
 }
 export function downloadFile(content: string, name: string, type = 'text/csv;charset=utf-8') {

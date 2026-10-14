@@ -108,6 +108,28 @@ test('uses the same full search and sort selection as the geography table', asyn
   expect(rows).toHaveLength(1);
   expect(rows[0]['城市']).toBe('西安');
 });
+
+test('English export changes display labels and retains selection, counts, IDs and formula protection', async () => {
+  const original = JSON.stringify(await mocks.facts());
+  const chinese = await read({ ...input, locale: 'zh-CN' } as any);
+  const omitted = await read();
+  expect(omitted.csv).toBe(chinese.csv);
+  const english = await read({ ...input, locale: 'en-US' } as any);
+  expect(english.rows).toHaveLength(chinese.rows.length);
+  expect(english.rows[0]).toMatchObject({
+    City: "Xi'an",
+    Sessions: '3',
+    'Average duration (seconds)': '20',
+  });
+  expect(english.csv).toContain("'=1+1");
+  expect(english.csv).toContain('Unlisted 43');
+  expect(english.file.manifest.selection).toEqual(chinese.file.manifest.selection);
+  expect(english.file.manifest.geographyVersion).toBe(chinese.file.manifest.geographyVersion);
+  const selected = await read({ ...input, locale: 'en-US', search: '西安' } as any);
+  expect(selected.rows).toHaveLength(1);
+  expect(selected.rows[0].City).toBe("Xi'an");
+  expect(JSON.stringify(await mocks.facts())).toBe(original);
+});
 test('validates capability, dates, timezone and cancellation before reading geography', async () => {
   const controller = new AbortController();
   controller.abort();

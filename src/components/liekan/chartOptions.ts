@@ -1,3 +1,5 @@
+import { translateText, translateSystemText } from '@/lib/liekan/i18n/text';
+import type { LiekanLocale } from '@/lib/liekan/i18n/locale';
 import { searchPlatforms } from '@/lib/liekan/contracts/search-engines';
 import type { ChartData } from './types';
 
@@ -31,11 +33,13 @@ function escapeChart(value: unknown) {
     value => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[value],
   );
 }
-function referenceChartOptions(id: string, chart: ChartData): any {
+function referenceChartOptions(id: string, chart: ChartData, locale: LiekanLocale = 'zh-CN'): any {
   switch (id) {
     case 'b1':
       return {
-        tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 次（{d}%）' }),
+        tooltip: Object.assign({}, TTi, {
+          formatter: translateText('{b}<br>{c} 次（{d}%）', locale),
+        }),
         legend: {
           bottom: 4,
           itemWidth: 10,
@@ -75,7 +79,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || '抓取次数',
+            name: chart.series[0]?.name || translateText('抓取次数', locale),
             type: 'bar',
             barWidth: 14,
             itemStyle: { color: PUR, borderRadius: [0, 4, 4, 0] },
@@ -104,21 +108,21 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         yAxis: {
           type: 'value',
-          name: '占比%',
+          name: translateText('占比%', locale),
           nameTextStyle: { color: FAINT, fontSize: 10 },
           splitLine: { lineStyle: { color: LINE } },
           axisLabel: { color: FAINT, fontSize: 10.5 },
         },
         series: [
           {
-            name: chart.series[0]?.name || 'AI 蜘蛛',
+            name: chart.series[0]?.name || translateText('AI 蜘蛛', locale),
             type: 'bar',
             barWidth: 14,
             itemStyle: { color: PUR, borderRadius: [4, 4, 0, 0] },
             data: chart.series[0]?.values || [],
           },
           {
-            name: chart.series[1]?.name || '人类访客',
+            name: chart.series[1]?.name || translateText('人类访客', locale),
             type: 'bar',
             barWidth: 14,
             itemStyle: { color: '#C7DBFF', borderRadius: [4, 4, 0, 0] },
@@ -131,25 +135,25 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         tooltip: Object.assign({}, TTi, {
           formatter: (p: any) =>
             escapeChart(p.data[3]) +
-            '<br>字数 ' +
+            translateText('<br>字数 ', locale) +
             p.data[0] +
-            ' · 结构化 ' +
+            translateText(' · 结构化 ', locale) +
             p.data[1] +
-            ' 分<br>抓取 ' +
+            translateText(' 分<br>抓取 ', locale) +
             p.data[2] +
-            ' 次',
+            translateText(' 次', locale),
         }),
         grid: { left: 48, right: 24, top: 26, bottom: 40 },
         xAxis: {
           type: 'value',
-          name: '字数',
+          name: translateText('字数', locale),
           nameTextStyle: { color: FAINT, fontSize: 10 },
           splitLine: { lineStyle: { color: LINE } },
           axisLabel: { color: FAINT, fontSize: 10 },
         },
         yAxis: {
           type: 'value',
-          name: '结构化评分',
+          name: translateText('结构化评分', locale),
           nameTextStyle: { color: FAINT, fontSize: 10 },
           splitLine: { lineStyle: { color: LINE } },
           axisLabel: { color: FAINT, fontSize: 10 },
@@ -258,7 +262,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || 'AI 占比',
+            name: chart.series[0]?.name || translateText('AI 占比', locale),
             type: 'bar',
             barWidth: 22,
             itemStyle: { color: B, borderRadius: [4, 4, 0, 0] },
@@ -285,7 +289,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || '抓取次数',
+            name: chart.series[0]?.name || translateText('抓取次数', locale),
             type: 'bar',
             barWidth: 9,
             itemStyle: {
@@ -298,7 +302,9 @@ function referenceChartOptions(id: string, chart: ChartData): any {
       };
     case 'a4':
       return {
-        tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 次（{d}%）' }),
+        tooltip: Object.assign({}, TTi, {
+          formatter: translateText('{b}<br>{c} 次（{d}%）', locale),
+        }),
         legend: {
           bottom: 4,
           itemWidth: 10,
@@ -340,14 +346,14 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || '发布内容 PV（7天）',
+            name: chart.series[0]?.name || translateText('发布内容 PV（7天）', locale),
             type: 'bar',
             barWidth: 18,
             itemStyle: { color: B, borderRadius: [4, 4, 0, 0] },
             data: chart.series[0]?.values || [],
           },
           {
-            name: chart.series[1]?.name || 'AI 抓取增量',
+            name: chart.series[1]?.name || translateText('AI 抓取增量', locale),
             type: 'line',
             smooth: true,
             symbol: 'circle',
@@ -360,7 +366,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
       };
     case 'f1':
       return {
-        tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 会话' }),
+        tooltip: Object.assign({}, TTi, { formatter: translateText('{b}<br>{c} 会话', locale) }),
         series: [
           {
             type: 'funnel',
@@ -412,7 +418,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || '转化率',
+            name: chart.series[0]?.name || translateText('转化率', locale),
             type: 'bar',
             barWidth: 24,
             itemStyle: { color: p => (p.dataIndex === 0 ? PUR : B), borderRadius: [4, 4, 0, 0] },
@@ -439,7 +445,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || '转化数',
+            name: chart.series[0]?.name || translateText('转化数', locale),
             type: 'line',
             smooth: true,
             symbol: 'none',
@@ -458,10 +464,10 @@ function referenceChartOptions(id: string, chart: ChartData): any {
             const rate = chart.rows?.[p.dataIndex]?.conversionRate;
             return (
               escapeChart(p.name) +
-              '<br>会话 ' +
+              translateText('<br>会话 ', locale) +
               p.value +
-              '<br>转化率 ' +
-              (rate == null ? '待配置目标' : `${rate}%`)
+              translateText('<br>转化率 ', locale) +
+              (rate == null ? translateText('待配置目标', locale) : `${rate}%`)
             );
           },
         }),
@@ -481,7 +487,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || '会话',
+            name: chart.series[0]?.name || translateText('会话', locale),
             type: 'bar',
             barWidth: 13,
             itemStyle: {
@@ -507,7 +513,9 @@ function referenceChartOptions(id: string, chart: ChartData): any {
       };
     case 'g2':
       return {
-        tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 会话（{d}%）' }),
+        tooltip: Object.assign({}, TTi, {
+          formatter: translateText('{b}<br>{c} 会话（{d}%）', locale),
+        }),
         legend: {
           bottom: 4,
           itemWidth: 10,
@@ -563,7 +571,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || '直接访问',
+            name: chart.series[0]?.name || translateText('直接访问', locale),
             type: 'bar',
             stack: 's',
             barWidth: 8,
@@ -571,21 +579,21 @@ function referenceChartOptions(id: string, chart: ChartData): any {
             data: chart.series[0]?.values || [],
           },
           {
-            name: chart.series[1]?.name || '传统搜索',
+            name: chart.series[1]?.name || translateText('传统搜索', locale),
             type: 'bar',
             stack: 's',
             itemStyle: { color: B2 },
             data: chart.series[1]?.values || [],
           },
           {
-            name: chart.series[2]?.name || '外部链接/社交',
+            name: chart.series[2]?.name || translateText('外部链接/社交', locale),
             type: 'bar',
             stack: 's',
             itemStyle: { color: TEAL },
             data: chart.series[2]?.values || [],
           },
           {
-            name: chart.series[3]?.name || 'AI 搜索引荐',
+            name: chart.series[3]?.name || translateText('AI 搜索引荐', locale),
             type: 'bar',
             stack: 's',
             itemStyle: { color: PUR, borderRadius: [3, 3, 0, 0] },
@@ -606,7 +614,11 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         tooltip: {
           ...TTi,
           formatter: (item: any) =>
-            `${escapeChart(item.name)}<br>${item.value} 会话（${share(item.value)}%）`,
+            translateText('{v0}<br>{v1} 会话（{v2}%）', locale, [
+              escapeChart(item.name),
+              item.value,
+              share(item.value),
+            ]),
         },
         legend: {
           type: 'scroll',
@@ -641,7 +653,9 @@ function referenceChartOptions(id: string, chart: ChartData): any {
     }
     case 's2':
       return {
-        tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 会话（{d}%）' }),
+        tooltip: Object.assign({}, TTi, {
+          formatter: translateText('{b}<br>{c} 会话（{d}%）', locale),
+        }),
         legend: {
           bottom: 4,
           itemWidth: 10,
@@ -720,7 +734,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
             data: chart.series[1]?.values || [],
           },
           {
-            name: chart.series[2]?.name || '跳出率',
+            name: chart.series[2]?.name || translateText('跳出率', locale),
             type: 'line',
             yAxisIndex: 1,
             smooth: true,
@@ -749,7 +763,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || '会话数',
+            name: chart.series[0]?.name || translateText('会话数', locale),
             type: 'bar',
             barWidth: 9,
             itemStyle: { color: B2, borderRadius: [3, 3, 0, 0] },
@@ -759,7 +773,9 @@ function referenceChartOptions(id: string, chart: ChartData): any {
       };
     case 'h3':
       return {
-        tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 会话（{d}%）' }),
+        tooltip: Object.assign({}, TTi, {
+          formatter: translateText('{b}<br>{c} 会话（{d}%）', locale),
+        }),
         legend: {
           bottom: 4,
           itemWidth: 10,
@@ -806,7 +822,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
         },
         series: [
           {
-            name: chart.series[0]?.name || '人类请求',
+            name: chart.series[0]?.name || translateText('人类请求', locale),
             type: 'bar',
             stack: 'a',
             barWidth: 8,
@@ -814,7 +830,7 @@ function referenceChartOptions(id: string, chart: ChartData): any {
             data: chart.series[0]?.values || [],
           },
           {
-            name: chart.series[1]?.name || 'AI 蜘蛛请求',
+            name: chart.series[1]?.name || translateText('AI 蜘蛛请求', locale),
             type: 'bar',
             stack: 'a',
             itemStyle: { color: B, borderRadius: [3, 3, 0, 0] },
@@ -824,7 +840,9 @@ function referenceChartOptions(id: string, chart: ChartData): any {
       };
     case 'd2':
       return {
-        tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 次（{d}%）' }),
+        tooltip: Object.assign({}, TTi, {
+          formatter: translateText('{b}<br>{c} 次（{d}%）', locale),
+        }),
         legend: {
           type: 'scroll',
           left: 16,
@@ -864,7 +882,9 @@ function referenceChartOptions(id: string, chart: ChartData): any {
       };
     case 'd3':
       return {
-        tooltip: Object.assign({}, TTi, { formatter: '{b}<br>{c} 会话（{d}%）' }),
+        tooltip: Object.assign({}, TTi, {
+          formatter: translateText('{b}<br>{c} 会话（{d}%）', locale),
+        }),
         legend: {
           bottom: 4,
           itemWidth: 10,
@@ -897,8 +917,18 @@ function referenceChartOptions(id: string, chart: ChartData): any {
   }
 }
 
-export function chartOptions(id: string, chart: ChartData): any {
-  const option = referenceChartOptions(id, chart);
+export function chartOptions(id: string, chart: ChartData, locale: LiekanLocale = 'zh-CN'): any {
+  const displayChart = {
+    ...chart,
+    labels: ['b1', 'h2', 's1', 'd3', 'f2'].includes(id)
+      ? chart.labels.map(value => translateSystemText(value, locale))
+      : chart.labels,
+    series: chart.series.map(series => ({
+      ...series,
+      name: id === 'a1' ? series.name : translateSystemText(series.name, locale),
+    })),
+  };
+  const option = referenceChartOptions(id, displayChart, locale);
   if (id === 'a1') option.series = option.series.slice(0, chart.series.length);
   return option;
 }

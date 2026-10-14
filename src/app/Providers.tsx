@@ -5,6 +5,11 @@ import { NextIntlClientProvider } from 'next-intl';
 import { Suspense, useEffect } from 'react';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useLocale } from '@/components/hooks';
+import { initializeLocale } from '@/components/hooks/useLocale';
+import { useState } from 'react';
+import { liekanMessages } from '@/lib/liekan/i18n/text';
+import { defaultLiekanLocale, type LiekanLocale } from '@/lib/liekan/i18n/locale';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
 import 'chartjs-adapter-date-fns';
 
@@ -19,8 +24,15 @@ const client = new QueryClient({
   },
 });
 
-function MessagesProvider({ children }) {
-  const { locale, messages, dir } = useLocale();
+function MessagesProvider({ children, initialLocale, storedLocale }) {
+  const current = useLocale();
+  const [initialized, setInitialized] = useState(false);
+  const locale = initialized ? current.locale : initialLocale;
+  const dir = initialized ? current.dir : 'ltr';
+  useEffect(() => {
+    initializeLocale(initialLocale);
+    setInitialized(true);
+  }, []);
 
   useEffect(() => {
     document.documentElement.setAttribute('dir', dir);
@@ -28,17 +40,38 @@ function MessagesProvider({ children }) {
   }, [locale, dir]);
 
   return (
-    <NextIntlClientProvider locale={locale} messages={messages[locale]} onError={() => null}>
-      {children}
+    <NextIntlClientProvider
+      locale={locale}
+      messages={{
+        ...current.messages[locale],
+        liekan: liekanMessages[defaultLiekanLocale(locale)],
+      }}
+      onError={() => null}
+    >
+      <LiekanLocaleContext.Provider value={defaultLiekanLocale(locale)}>
+        {initialized || storedLocale ? (
+          children
+        ) : (
+          <div aria-busy="true" style={{ minHeight: '100dvh', background: '#fafafa' }} />
+        )}
+      </LiekanLocaleContext.Provider>
     </NextIntlClientProvider>
   );
 }
 
-export function Providers({ children }) {
+export function Providers({
+  children,
+  initialLocale = 'zh-CN',
+  storedLocale = false,
+}: {
+  children: React.ReactNode;
+  initialLocale?: LiekanLocale;
+  storedLocale?: boolean;
+}) {
   return (
     <ZenProvider>
       <RouterProvider>
-        <MessagesProvider>
+        <MessagesProvider initialLocale={initialLocale} storedLocale={storedLocale}>
           <QueryClientProvider client={client}>
             <Suspense>
               <ManualRefreshProvider>

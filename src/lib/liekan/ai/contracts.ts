@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { liekanLocales } from '../i18n/locale';
 import { isValidAiWorkspaceId, validateAiConnectionConfig, validateAiEndpoint } from './templates';
 
 export const aiProtocolVersion = 1 as const;
@@ -245,6 +246,7 @@ export const aiRunSchema = z.strictObject({
 export type AiRun = z.infer<typeof aiRunSchema>;
 export const aiConversationPostSchema = z
   .strictObject({
+    locale: z.enum(liekanLocales).optional(),
     clientRequestId: aiUuidSchema,
     connectionId: aiUuidSchema.optional(),
     localOnly: z.boolean().optional(),

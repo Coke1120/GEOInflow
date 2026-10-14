@@ -8,12 +8,28 @@ import {
 } from '@/lib/liekan/contracts/navigation';
 import { AnalysisTabs } from './AnalysisTabs';
 import { featureNavigationHref } from './features/routes';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 vi.mock('next/link', () => ({
   useLinkStatus: () => ({ pending: false }),
   default: ({ children, prefetch: _, ...props }: any) => <a {...props}>{children}</a>,
 }));
 describe('website analysis families', () => {
+  it('localizes the controlled family accessible name and retains navigation identifiers', () => {
+    render(
+      <LiekanLocaleContext.Provider value="en-US">
+        <AnalysisTabs
+          route={{ page: 'event-detail', websiteId: 'site-a' }}
+          href={page => `/websites/site-a/${page}`}
+        />
+      </LiekanLocaleContext.Provider>,
+    );
+    expect(screen.getByRole('tablist', { name: 'Page event view' })).toBeVisible();
+    expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveAttribute(
+      'href',
+      '/websites/site-a/events',
+    );
+  });
   it.each([
     ['links', '链接追踪'],
     ['link-editor', '链接追踪'],

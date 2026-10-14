@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { Modal, ModalDescription, ModalTitle } from '@umami/react-zen';
 import {
   createContext,
@@ -49,6 +51,7 @@ export function LiekanDialog({
   className?: string;
   protectUnsaved?: boolean;
 }) {
+  const i18n = useLiekanI18n();
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const [footer, setFooter] = useState<HTMLElement | null>(null);
   const [actionCount, setActionCount] = useState(0);
@@ -131,7 +134,7 @@ export function LiekanDialog({
               <button
                 type="button"
                 className="btn dialog-close"
-                aria-label="关闭弹窗"
+                aria-label={i18n.text('关闭弹窗')}
                 onClick={requestClose}
               >
                 <svg
@@ -153,20 +156,24 @@ export function LiekanDialog({
               <footer className="dialog-footer" ref={setFooter} hidden={discarding}>
                 <div className="dialog-default-close" hidden={actionCount > 0}>
                   <button type="button" className="btn" onClick={requestClose}>
-                    关闭
+                    {i18n.text('关闭')}
                   </button>
                 </div>
               </footer>
             </DialogContext.Provider>
             {discarding && (
-              <div className="dialog-discard" role="group" aria-label="放弃未保存的修改？">
+              <div
+                className="dialog-discard"
+                role="group"
+                aria-label={i18n.text('放弃未保存的修改？')}
+              >
                 <div className="dialog-body">
-                  <h3>放弃未保存的修改？</h3>
-                  <p className="muted">关闭弹窗后，当前输入的修改将被放弃。</p>
+                  <h3>{i18n.text('放弃未保存的修改？')}</h3>
+                  <p className="muted">{i18n.text('关闭弹窗后，当前输入的修改将被放弃。')}</p>
                 </div>
                 <div className="dialog-footer form-actions">
                   <button ref={confirm} type="button" className="btn" onClick={requestClose}>
-                    继续编辑
+                    {i18n.text('继续编辑')}
                   </button>
                   <button
                     type="button"
@@ -175,7 +182,7 @@ export function LiekanDialog({
                       if (!isSubmitting()) close.current();
                     }}
                   >
-                    放弃修改并关闭
+                    {i18n.text('放弃修改并关闭')}
                   </button>
                 </div>
               </div>

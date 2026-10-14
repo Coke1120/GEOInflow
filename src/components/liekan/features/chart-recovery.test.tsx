@@ -21,7 +21,11 @@ beforeEach(() => {
 });
 it('retries an already-loaded runtime without deleting React-owned recovery controls', async () => {
   const { unmount } = render(
-    <Chart labels={['2026-10-04']} series={[{ name: '访问', values: [2] }]} />,
+    <Chart
+      interactionKey="recovery-fixture"
+      labels={['2026-10-04']}
+      series={[{ name: '访问', values: [2] }]}
+    />,
   );
   await screen.findByRole('group');
   fireEvent.click(screen.getByRole('button', { name: '重试图表' }));

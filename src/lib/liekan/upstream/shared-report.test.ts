@@ -14,7 +14,10 @@ vi.mock('@/lib/auth', () => ({ checkAuth: mocks.auth }));
 vi.mock('@/permissions/website', () => ({ canViewWebsite: vi.fn() }));
 vi.mock('./live-share', () => ({ loadShareEntity: mocks.entity }));
 vi.mock('../report', () => ({ buildReport: mocks.build }));
-vi.mock('./cache-context', async importOriginal => ({ ...(await importOriginal<typeof import('./cache-context')>()), withoutQueryCache: (work: () => unknown) => work() }));
+vi.mock('./cache-context', async importOriginal => ({
+  ...(await importOriginal<typeof import('./cache-context')>()),
+  withoutQueryCache: (work: () => unknown) => work(),
+}));
 vi.mock('./server', async () => ({
   ...(await import('./errors')),
   authorize: mocks.authorize,
@@ -105,6 +108,101 @@ it('removes every conversion result when the live share does not permit goals', 
   expect(report.states.goals).toBe('unsupported');
   expect(report.tables.cityBody.every(row => row.conversionRate === null)).toBe(true);
   expect(report.charts.g1.rows).toEqual([{ conversionRate: null }]);
+});
+it.each([true, false])(
+  'projects only retained geography display identities with aligned TOP12 rows when goals=%s',
+  async goals => {
+    const source = await mocks.build();
+    source.cards.push(
+      { key: 'top-city', label: 'TOP1 城市', value: '西安', state: 'available' },
+      { key: 'overseas-country', label: '海外 TOP1', value: '美国', state: 'available' },
+    );
+    source.tables.cityBody[0].city = '西安';
+    source.charts.g1.labels = ['陕西'];
+    source.charts.g2.labels = ['美国'];
+    const city = { country: 'CN', region: 'CN-61', city: '西安', cityId: 1790630 };
+    source.meta.geography = {
+      charts: {
+        g1: [
+          { ...city, ip: 'private-ip', conversionRate: 99 },
+          { ...city, city: 'private-extra-chart-city' },
+        ],
+        g2: [
+          { country: 'US', region: 'private-region', city: 'private-chart-city', cityId: 1790630 },
+        ],
+        a1: [{ ...city, city: 'private-chart' }],
+      },
+      tables: {
+        cityBody: source.tables.cityBody.map((row, i) => ({
+          ...city,
+          city: i > 11 ? `private-city-${i}` : row.city,
+          cityId: i === 0 ? 1790630 : null,
+          ip: 'private-ip',
+        })),
+        logBody: [{ ...city, city: 'private-log' }],
+      },
+      cards: {
+        'top-city': { ...city, ip: 'private-ip' },
+        'overseas-country': {
+          country: 'US',
+          region: 'private-region',
+          city: 'private-card-city',
+          cityId: 1790630,
+        },
+        private: { ...city, city: 'private-card' },
+        orphan: { ...city, city: 'private-orphan' },
+        visitors: { ...city, city: 'private-numeric-card' },
+      },
+    };
+    mocks.auth.mockResolvedValue(share({ overview: true, goals }));
+    mocks.build.mockResolvedValue(source);
+    const report = await readSharedReport(request(), id);
+    expect(report.meta.geography).toEqual({
+      charts: {
+        g1: [{ country: 'CN', region: 'CN-61', city: null, cityId: null }],
+        g2: [{ country: 'US', region: null, city: null, cityId: null }],
+      },
+      tables: {
+        cityBody: source.tables.cityBody
+          .slice(0, 12)
+          .map((row, i) => ({ ...city, city: row.city, cityId: i === 0 ? 1790630 : null })),
+      },
+      cards: {
+        'top-city': city,
+        'overseas-country': { country: 'US', region: null, city: null, cityId: null },
+      },
+    });
+    expect(report.meta.geography.tables.cityBody).toHaveLength(report.tables.cityBody.length);
+    expect(report.meta.geography.charts.g1).toHaveLength(report.charts.g1.labels.length);
+    expect(report.meta.geography.charts.g2).toHaveLength(report.charts.g2.labels.length);
+    expect(report.capabilities.goals).toBe(goals);
+    expect(JSON.stringify(report)).not.toMatch(/private-|hidden/);
+    expect(source.meta.geography.tables.cityBody).toHaveLength(15);
+    expect(source.meta.geography.charts.g1[0].ip).toBe('private-ip');
+  },
+);
+
+it('omits incomplete or oversized geography metadata while retaining the original shared aggregates', async () => {
+  const source = await mocks.build();
+  source.meta.geography = {
+    charts: { g1: [], g2: [{ country: 'US', region: null, city: null, cityId: null }] },
+    tables: {
+      cityBody: Array.from({ length: 11 }, () => ({
+        country: 'CN',
+        region: null,
+        city: 'unknown',
+        cityId: null,
+      })),
+    },
+    cards: { private: { country: 'CN', region: null, city: 'private-card', cityId: null } },
+  };
+  source.charts.g2.labels = Array.from({ length: 9 }, (_, i) => String(i));
+  mocks.build.mockResolvedValue(source);
+  const report = await readSharedReport(request(), id);
+  expect(report.meta.geography).toBeUndefined();
+  expect(report.tables.cityBody).toHaveLength(12);
+  expect(report.charts.g1.labels).toEqual(['A']);
+  expect(report.charts.g2.labels).toHaveLength(9);
 });
 it('coalesces viewers while rechecking permissions and redacting cached goal results after scope changes', async () => {
   await Promise.all([readSharedReport(request(), id), readSharedReport(request(), id)]);

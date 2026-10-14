@@ -131,7 +131,9 @@ const session = z.object({
 const realtime = z.object({
   totals: z.object({ active: z.number(), views: z.number(), events: z.number(), ai: z.number() }),
   pages: z.array(z.object({ name: z.string(), value: z.number() })),
-  sources: z.array(z.object({ name: z.string(), value: z.number() })),
+  sources: z.array(
+    z.object({ name: z.string(), value: z.number(), sourceLabel: z.literal('direct').optional() }),
+  ),
 });
 const performance = z.object(
   Object.fromEntries(

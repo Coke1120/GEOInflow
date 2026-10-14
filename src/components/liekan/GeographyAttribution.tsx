@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 export function GeographyAttribution() {
+  const i18n = useLiekanI18n();
   const [links, setLinks] = useState([
     { label: 'IP Geolocation by DB-IP', href: 'https://db-ip.com' },
   ]);
@@ -31,7 +33,7 @@ export function GeographyAttribution() {
     <>
       {links.map(link => (
         <a key={link.href} href={link.href} target="_blank" rel="noopener noreferrer">
-          {link.label}
+          {i18n.system(link.label)}
         </a>
       ))}
     </>

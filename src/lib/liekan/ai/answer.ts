@@ -3,6 +3,9 @@ import { featureHref } from '@/components/liekan/features/routes';
 import { aiUuidSchema } from './contracts';
 import { AiError } from './error';
 import type { AiFactsContext } from './facts-contracts';
+import type { LiekanLocale } from '../i18n/locale';
+import { translateText } from '../i18n/text';
+import { aiActionLabels } from '../contracts/ai-display';
 
 export const aiActionSchema = z.enum([
   'geo-ai',
@@ -112,18 +115,12 @@ export interface AiResolvedAction {
   label: string;
   href: string;
 }
-export function resolveAiActions(answer: AiAnswer, context: AiFactsContext): AiResolvedAction[] {
+export function resolveAiActions(
+  answer: AiAnswer,
+  context: AiFactsContext,
+  locale: LiekanLocale = 'zh-CN',
+): AiResolvedAction[] {
   aiUuidSchema.parse(context.website.id);
-  const labels = {
-    'geo-ai': '查看抓取总览',
-    'geo-bots': '查看 AI 爬虫',
-    'geo-ai-pages': '查看抓取页面',
-    'geo-logs': '查看日志监测',
-    'geo-sources': '查看来源渠道',
-    'geo-content': '查看页面与内容',
-    'geo-conversions': '查看转化分析',
-    tracking: '检查统计安装',
-  };
   const seen = new Set<string>();
   return answer.suggestions.flatMap(suggestion => {
     if (suggestion.action === undefined) return [];
@@ -139,28 +136,49 @@ export function resolveAiActions(answer: AiAnswer, context: AiFactsContext): AiR
             unit: 'day',
             ...(action === 'geo-logs' ? { filter: 'abnormal', live: '0' } : {}),
           };
-    return [{ action, label: labels[action], href: featureHref(action, params) }];
+    return [
+      {
+        action,
+        label: translateText(aiActionLabels[action], locale),
+        href: featureHref(action, params),
+      },
+    ];
   });
 }
-export function localAiGreeting(question: string): AiAnswer | null {
+function localizeGuidance(answer: AiAnswer, locale: LiekanLocale): AiAnswer {
+  return {
+    ...answer,
+    summary: translateText(answer.summary, locale),
+    suggestions: answer.suggestions.map(item => ({
+      ...item,
+      text: translateText(item.text, locale),
+    })),
+    limitations: answer.limitations.map(value => translateText(value, locale)),
+  };
+}
+export function localAiGreeting(question: string, locale: LiekanLocale = 'zh-CN'): AiAnswer | null {
   // Only a complete greeting bypasses statistics; a greeting with a question uses analysis.
   if (!/^(?:你好|您好|嗨|哈喽|早上好|下午好|晚上好|hi|hello)[\s!！。.?？]*$/i.test(question.trim()))
     return null;
-  return {
-    summary: '你好，我是猎看分析助手。你可以直接提问，我会结合所选网站的数据帮你分析。',
-    observations: [],
-    possibleCauses: [],
-    suggestions: [
-      { text: '分析最近 7 天的 AI 抓取趋势', refs: [] },
-      { text: '哪些页面值得优先优化？', refs: [] },
-      { text: '查看异常请求，给出排查建议', refs: [] },
-    ],
-    limitations: [],
-  };
+  return localizeGuidance(
+    {
+      summary: '你好，我是猎看分析助手。你可以直接提问，我会结合所选网站的数据帮你分析。',
+      observations: [],
+      possibleCauses: [],
+      suggestions: [
+        { text: '分析最近 7 天的 AI 抓取趋势', refs: [] },
+        { text: '哪些页面值得优先优化？', refs: [] },
+        { text: '查看异常请求，给出排查建议', refs: [] },
+      ],
+      limitations: [],
+    },
+    locale,
+  );
 }
 export function localAiGuidance(
   context: AiFactsContext,
   reason: 'no_connection' | 'empty' | 'unsupported' | 'local_only',
+  locale: LiekanLocale = 'zh-CN',
 ): AiAnswer {
   const summaries = {
     no_connection: '当前空间尚未配置可用的 AI 连接。',
@@ -169,21 +187,24 @@ export function localAiGuidance(
     unsupported: '当前统计存储暂不支持 AI 分析。',
   };
   const reference = context.facts.find(fact => fact.id === 'summary') ?? context.facts[0];
-  return {
-    summary: summaries[reason],
-    observations: [],
-    possibleCauses: [],
-    suggestions: [
-      {
-        text: '检查网站统计安装，并确认已接入的数据与统计范围。',
-        refs: reference ? [{ contextId: context.id, factId: reference.id }] : [],
-        action: 'tracking',
-      },
-    ],
-    limitations: [
-      '该提示由本地规则生成，未调用模型。',
-      '日志覆盖未经验证；业务背景尚未配置。',
-      ...(context.rangeNotes.currentDayIncomplete ? ['当前日期的数据尚未完整。'] : []),
-    ],
-  };
+  return localizeGuidance(
+    {
+      summary: summaries[reason],
+      observations: [],
+      possibleCauses: [],
+      suggestions: [
+        {
+          text: '检查网站统计安装，并确认已接入的数据与统计范围。',
+          refs: reference ? [{ contextId: context.id, factId: reference.id }] : [],
+          action: 'tracking',
+        },
+      ],
+      limitations: [
+        '该提示由本地规则生成，未调用模型。',
+        '日志覆盖未经验证；业务背景尚未配置。',
+        ...(context.rangeNotes.currentDayIncomplete ? ['当前日期的数据尚未完整。'] : []),
+      ],
+    },
+    locale,
+  );
 }

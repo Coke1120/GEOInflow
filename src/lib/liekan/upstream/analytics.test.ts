@@ -10,6 +10,43 @@ import { humanTotals, query } from './server';
 beforeEach(() => vi.resetAllMocks());
 
 describe('visit entry attribution', () => {
+  it('keeps generated direct traffic separate from a supplied source with the same name', async () => {
+    vi.mocked(humanTotals).mockResolvedValue({
+      pageviews: 10,
+      visitors: 10,
+      visits: 10,
+      bounces: 0,
+      totaltime: 0,
+    });
+    vi.mocked(query).mockImplementation(async sql =>
+      sql.includes('jsonb_build_object')
+        ? [
+            {
+              facts: {
+                sources: [
+                  { referrer: null, sessions: 3, pv: 3, duration: 10 },
+                  { referrer: '直接访问', sessions: 7, pv: 7, duration: 20 },
+                ],
+              },
+            },
+          ]
+        : [],
+    );
+    const facts = await getHumanFacts('site', new Date(0), new Date(1000), 'UTC', ['sources']);
+    expect(facts.sources).toHaveLength(2);
+    expect(facts.sources.find(row => row.sourceLabel === 'direct')).toMatchObject({
+      source: '直接访问',
+      sessions: 3,
+      referrer: null,
+    });
+    expect(facts.sources.find(row => row.referrer === '直接访问')).toMatchObject({
+      source: '直接访问',
+      sessions: 7,
+    });
+    expect(facts.sources.find(row => row.referrer === '直接访问')).not.toHaveProperty(
+      'sourceLabel',
+    );
+  });
   it('gives explicit UTM attribution priority and keeps unknown values conservative', () => {
     expect(classifyEntrySource({ utmSource: ' ChatGPT ', referrer: '' })).toEqual({
       source: 'chatgpt.com',
@@ -106,10 +143,12 @@ describe('saved funnel isolation', () => {
     expect(getFunnel).not.toHaveBeenCalled();
     configure({
       window: 30,
-      steps: [{ type: 'path', value: '/a' }, { type: 'event', value: 'download' }],
+      steps: [
+        { type: 'path', value: '/a' },
+        { type: 'event', value: 'download' },
+      ],
     });
     expect((await getHumanFacts('site', start, end, 'UTC', ['pages'])).funnelError).toBeNull();
     expect(getFunnel).not.toHaveBeenCalled();
   });
-
 });

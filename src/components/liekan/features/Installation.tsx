@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import Link from '@/components/liekan/Link';
 import { useEffect, useRef, useState } from 'react';
 import type { FeatureEntity } from '@/lib/liekan/contracts/features';
@@ -62,21 +64,36 @@ function tone(label: string) {
 }
 
 export function InstallationEntry({ site, browser }: { site: FeatureEntity; browser: any }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const query = useInstallation(site.id);
   const status = query.data;
   return (
-    <Panel title="数据接入" subtitle="获取安装代码、连接日志，或继续上次的检查。">
+    <Panel
+      title={i18n.text('数据接入')}
+      subtitle={i18n.text('获取安装代码、连接日志，或继续上次的检查。')}
+    >
       <Body>
         <QueryState query={query}>
           {status && (
             <div className={styles.summary}>
               <div>
-                <strong>{status.progress.completedAt ? '设置已完成' : '接入设置待完成'}</strong>
+                <strong>
+                  {status.progress.completedAt
+                    ? i18n.text('设置已完成')
+                    : i18n.text('接入设置待完成')}
+                </strong>
                 <p className="muted">
                   {status.progress.completedAt
-                    ? `保存于 ${dateLabel(status.progress.completedAt, c.range.timezone || 'Asia/Shanghai')}`
-                    : '检查可以延后，完成设置后可随时继续。'}
+                    ? i18n.text('保存于 {v0}', [
+                        i18n.system(
+                          dateLabel(
+                            status.progress.completedAt,
+                            c.range.timezone || 'Asia/Shanghai',
+                          ),
+                        ),
+                      ])
+                    : i18n.text('检查可以延后，完成设置后可随时继续。')}
                 </p>
               </div>
               <div className={styles.badges}>
@@ -86,32 +103,37 @@ export function InstallationEntry({ site, browser }: { site: FeatureEntity; brow
                   )}
                 >
                   JS ·{' '}
-                  {browserLabel(browser, status.progress.browserCheckDeferred, status.logs.demo)}
+                  {i18n.system(
+                    browserLabel(browser, status.progress.browserCheckDeferred, status.logs.demo),
+                  )}
                 </Badge>
-                <Badge tone={tone(logLabel(status))}>日志 · {logLabel(status)}</Badge>
+                <Badge tone={tone(logLabel(status))}>
+                  {i18n.fragment('日志 · ', false, true)}
+                  {i18n.system(logLabel(status))}
+                </Badge>
               </div>
             </div>
           )}
         </QueryState>
-        {status?.logs.demo && <Notice tone="amber">{demoCopy}</Notice>}
+        {status?.logs.demo && <Notice tone="amber">{i18n.system(demoCopy)}</Notice>}
         <div className="form-actions">
           <LinkButton page="website-settings" params={installationParams(site.id, 'js')}>
-            获取 JS 代码
+            {i18n.text('获取 JS 代码')}
           </LinkButton>
           <LinkButton
             page="website-settings"
             params={installationParams(site.id, 'logs', 'cloudflare')}
           >
-            授权连接页面
+            {i18n.text('授权连接页面')}
           </LinkButton>
           <LinkButton
             page="website-settings"
             params={installationParams(site.id, 'logs', 'server')}
           >
-            服务器安装页面
+            {i18n.text('服务器安装页面')}
           </LinkButton>
           <LinkButton page="website-settings" params={installationParams(site.id, 'check')}>
-            继续检查
+            {i18n.text('继续检查')}
           </LinkButton>
         </div>
       </Body>
@@ -130,6 +152,7 @@ export function Installation({
   manage: boolean;
   entry?: 'js' | 'check';
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const query = useInstallation(site.id);
   const action = useAction();
@@ -204,39 +227,45 @@ export function Installation({
   const summary = status && (
     <div className={styles.receipts}>
       <div>
-        <span className="muted">浏览采集</span>
+        <span className="muted">{i18n.text('浏览采集')}</span>
         <Badge tone={tone(browserState)}>{browserState}</Badge>
         <p className="muted">
           {browserReceived
-            ? `${browser.data.pageviews.toLocaleString()} 次页面访问${status.logs.demo ? '（含示例数据）' : ''}`
-            : 'JS 安装后，打开目标网站产生一次访问。'}
+            ? i18n.text('{v0} 次页面访问{v1}', [
+                browser.data.pageviews.toLocaleString(),
+                status.logs.demo ? i18n.text('（含示例数据）') : '',
+              ])
+            : i18n.text('JS 安装后，打开目标网站产生一次访问。')}
         </p>
       </div>
       <div>
-        <span className="muted">日志采集</span>
-        <Badge tone={tone(logLabel(status))}>{logLabel(status)}</Badge>
+        <span className="muted">{i18n.text('日志采集')}</span>
+        <Badge tone={tone(logLabel(status))}>{i18n.system(logLabel(status))}</Badge>
         <p className="muted">
           {logReceived
-            ? `${status.logs.total.toLocaleString()} 条日志 · ${status.logs.ai.toLocaleString()} 次 AI 蜘蛛匹配`
-            : '服务器或 CDN 日志用于统计 AI 蜘蛛请求。'}
+            ? i18n.text('{v0} 条日志 · {v1} 次 AI 蜘蛛匹配', [
+                status.logs.total.toLocaleString(),
+                status.logs.ai.toLocaleString(),
+              ])
+            : i18n.text('服务器或 CDN 日志用于统计 AI 蜘蛛请求。')}
         </p>
       </div>
     </div>
   );
-  const demoNotice = status?.logs.demo && <Notice tone="amber">{demoCopy}</Notice>;
+  const demoNotice = status?.logs.demo && <Notice tone="amber">{i18n.system(demoCopy)}</Notice>;
   const checks = status && (
     <div className={styles.checks}>
       <div className={styles.checkRow}>
         <div>
-          <strong>JS 浏览数据</strong>
+          <strong>{i18n.text('JS 浏览数据')}</strong>
           <p className="muted">
             {browserReceived && !status.logs.demo
-              ? '已收到页面访问；脚本加载仍可在目标网站核对。'
-              : '打开目标网站，确认脚本加载与网站标识，再检查访问是否到达。'}
+              ? i18n.text('已收到页面访问；脚本加载仍可在目标网站核对。')
+              : i18n.text('打开目标网站，确认脚本加载与网站标识，再检查访问是否到达。')}
           </p>
           {browser.error && (
             <p role="alert" className="field-error">
-              {browser.error.message || '浏览统计读取失败，请重试。'}
+              {i18n.system(browser.error.message) || i18n.text('浏览统计读取失败，请重试。')}
             </p>
           )}
         </div>
@@ -244,43 +273,53 @@ export function Installation({
       </div>
       <div className={styles.checkRow}>
         <div>
-          <strong>自动日志接入</strong>
+          <strong>{i18n.text('自动日志接入')}</strong>
           <p className="muted">
             {status.sources?.some(source => source.primary)
-              ? '主要来源已连接；真实接收与处理状态见日志接入设置。'
-              : '可从日志接入设置连接来源，检查可以延后。'}
+              ? i18n.text('主要来源已连接；真实接收与处理状态见日志接入设置。')
+              : i18n.text('可从日志接入设置连接来源，检查可以延后。')}
           </p>
         </div>
-        <Badge>{status.sources?.some(source => source.primary) ? '已配置' : '待配置'}</Badge>
+        <Badge>
+          {status.sources?.some(source => source.primary)
+            ? i18n.text('已配置')
+            : i18n.text('待配置')}
+        </Badge>
       </div>
       <div className={styles.checkRow}>
         <div>
-          <strong>日志接收</strong>
+          <strong>{i18n.text('日志接收')}</strong>
           <p className="muted">
             {logReceived
-              ? `最近日志：${dateLabel(status.logs.latestAt, timezone)}。`
-              : '连接自动来源或导入真实访问日志后，检查接收条数与时间。'}
+              ? i18n.text('最近日志：{v0}。', [
+                  i18n.system(dateLabel(status.logs.latestAt, timezone)),
+                ])
+              : i18n.text('连接自动来源或导入真实访问日志后，检查接收条数与时间。')}
           </p>
         </div>
-        <Badge tone={tone(logLabel(status))}>{logLabel(status)}</Badge>
+        <Badge tone={tone(logLabel(status))}>{i18n.system(logLabel(status))}</Badge>
       </div>
       <div className={styles.checkRow}>
         <div>
-          <strong>AI 蜘蛛匹配</strong>
+          <strong>{i18n.text('AI 蜘蛛匹配')}</strong>
           <p className="muted">
             {logReceived
               ? status.logs.ai
-                ? '根据日志中的请求特征匹配。身份核验结果可在日志中查看。'
-                : '日志已收到，暂未匹配到 AI 蜘蛛请求。'
-              : '收到有效日志后进行识别。'}
+                ? i18n.text('根据日志中的请求特征匹配。身份核验结果可在日志中查看。')
+                : i18n.text('日志已收到，暂未匹配到 AI 蜘蛛请求。')
+              : i18n.text('收到有效日志后进行识别。')}
           </p>
         </div>
         <Badge tone={logReceived ? 'blue' : 'gray'}>
-          {logReceived ? `${status.logs.ai.toLocaleString()} 次匹配` : '等待日志'}
+          {logReceived
+            ? i18n.text('{v0} 次匹配', [status.logs.ai.toLocaleString()])
+            : i18n.text('等待日志')}
         </Badge>
       </div>
       <p className="field-help">
-        检查范围：当前网站创建至今的浏览访问与所有已导入日志。延后检查会保留实际数据和错误状态。
+        {i18n.text(
+          '检查范围：当前网站创建至今的浏览访问与所有已导入日志。延后检查会保留实际数据和错误状态。',
+        )}
       </p>
       {demoNotice}
     </div>
@@ -294,22 +333,24 @@ export function Installation({
           <span className="muted">{site.domain}</span>
         </div>
         <LinkButton page="website-settings" params={{ websiteId: site.id }}>
-          返回网站设置
+          {i18n.text('返回网站设置')}
         </LinkButton>
       </div>
       <QueryState query={query}>
         {status && (
           <>
             {!canSave && (
-              <Notice tone="amber">当前角色可查看安装说明。保存接入进度需要网站管理权限。</Notice>
+              <Notice tone="amber">
+                {i18n.text('当前角色可查看安装说明。保存接入进度需要网站管理权限。')}
+              </Notice>
             )}
             {['js', 'logs', 'finish'].includes(step) && (
-              <nav className={styles.steps} aria-label="接入设置步骤">
+              <nav className={styles.steps} aria-label={i18n.text('接入设置步骤')}>
                 {(
                   [
-                    ['js', '安装 JS'],
-                    ['logs', '接入日志'],
-                    ['finish', '完成设置'],
+                    ['js', i18n.text('安装 JS')],
+                    ['logs', i18n.text('接入日志')],
+                    ['finish', i18n.text('完成设置')],
                   ] as const
                 ).map(([id, label], index) => (
                   <Link
@@ -319,7 +360,7 @@ export function Installation({
                     aria-current={step === id ? 'step' : undefined}
                   >
                     <span>{index + 1}</span>
-                    <strong>{label}</strong>
+                    <strong>{i18n.system(label)}</strong>
                   </Link>
                 ))}
               </nav>
@@ -327,38 +368,41 @@ export function Installation({
             {step === 'js' && (
               <div className={styles.layout}>
                 <Panel
-                  title="安装网站统计 JS"
-                  subtitle="将代码加入网站公共模板，覆盖需要统计的页面。"
+                  title={i18n.text('安装网站统计 JS')}
+                  subtitle={i18n.text('将代码加入网站公共模板，覆盖需要统计的页面。')}
                 >
                   <Body>
                     <TrackingCode websiteId={site.id} />
                     <div className={styles.inlineStatus}>
                       <Badge tone={tone(browserState)}>{browserState}</Badge>
                       <Button disabled={checking} onClick={recheck}>
-                        检查安装结果（可选）
+                        {i18n.text('检查安装结果（可选）')}
                       </Button>
                     </div>
                     {demoNotice}
                     <details className={styles.details}>
-                      <summary>安装说明与自定义事件</summary>
+                      <summary>{i18n.text('安装说明与自定义事件')}</summary>
                       <div className="stack">
                         <p>
-                          HTML 网站放在公共模板的 head 中；Next.js
-                          使用上方示例；标签管理器选择自定义 HTML 标签。
+                          {i18n.text(
+                            'HTML 网站放在公共模板的 head 中；Next.js 使用上方示例；标签管理器选择自定义 HTML 标签。',
+                          )}
                         </p>
                         <p>
-                          单页应用默认跟踪路由变化。内容安全策略需允许统计服务的脚本和采集地址。
+                          {i18n.text(
+                            '单页应用默认跟踪路由变化。内容安全策略需允许统计服务的脚本和采集地址。',
+                          )}
                         </p>
                         <Code>
                           {"umami.track('demo_submit', { plan: 'growth', placement: 'header' });"}
                         </Code>
                         <LinkButton page="recorder-settings" params={{ websiteId: site.id }}>
-                          回放与热力图设置
+                          {i18n.text('回放与热力图设置')}
                         </LinkButton>
                       </div>
                     </details>
                     <div className={styles.footer}>
-                      <span className="muted">可以先完成设置，稍后验证安装。</span>
+                      <span className="muted">{i18n.text('可以先完成设置，稍后验证安装。')}</span>
                       <div className="row">
                         {browserReceived &&
                           (canSave ? (
@@ -369,7 +413,7 @@ export function Installation({
                                 save({ action: 'continue', step: 'logs', method }, 'logs')
                               }
                             >
-                              下一步：接入日志
+                              {i18n.text('下一步：接入日志')}
                             </Button>
                           ) : (
                             <LinkButton
@@ -377,7 +421,7 @@ export function Installation({
                               params={installationParams(site.id, 'logs', method)}
                               primary
                             >
-                              下一步：接入日志
+                              {i18n.text('下一步：接入日志')}
                             </LinkButton>
                           ))}
                         <Button
@@ -385,29 +429,34 @@ export function Installation({
                           disabled={action.busy || !canSave}
                           onClick={() => save({ action: 'skip-browser' }, 'logs')}
                         >
-                          跳过检查，下一步
+                          {i18n.text('跳过检查，下一步')}
                         </Button>
                       </div>
                     </div>
                   </Body>
                 </Panel>
-                <Panel title="两种数据，一处接入" subtitle="根据分析目标选择接入方式。">
+                <Panel
+                  title={i18n.text('两种数据，一处接入')}
+                  subtitle={i18n.text('根据分析目标选择接入方式。')}
+                >
                   <Body>
                     <div className="stack">
                       <div>
-                        <h3>浏览访问与转化</h3>
+                        <h3>{i18n.text('浏览访问与转化')}</h3>
                         <p className="muted">
-                          网站 JS 采集页面访问和事件，支持来源、目标与漏斗分析。
+                          {i18n.text('网站 JS 采集页面访问和事件，支持来源、目标与漏斗分析。')}
                         </p>
                       </div>
                       <div>
-                        <h3>AI 蜘蛛与抓取</h3>
-                        <p className="muted">日志记录请求与蜘蛛访问。多数蜘蛛不会执行页面 JS。</p>
+                        <h3>{i18n.text('AI 蜘蛛与抓取')}</h3>
+                        <p className="muted">
+                          {i18n.text('日志记录请求与蜘蛛访问。多数蜘蛛不会执行页面 JS。')}
+                        </p>
                       </div>
                       <div>
-                        <h3>随时继续</h3>
+                        <h3>{i18n.text('随时继续')}</h3>
                         <p className="muted">
-                          每一步都可以延后检查，从网站设置回到当前网站的对应页面。
+                          {i18n.text('每一步都可以延后检查，从网站设置回到当前网站的对应页面。')}
                         </p>
                       </div>
                     </div>
@@ -416,10 +465,13 @@ export function Installation({
               </div>
             )}
             {step === 'logs' && (
-              <Panel title="接入 AI 蜘蛛日志" subtitle="选择日志来源；检查可以延后。">
+              <Panel
+                title={i18n.text('接入 AI 蜘蛛日志')}
+                subtitle={i18n.text('选择日志来源；检查可以延后。')}
+              >
                 <Body>
                   <fieldset className={styles.methods}>
-                    <legend>选择接入方式</legend>
+                    <legend>{i18n.text('选择接入方式')}</legend>
                     {(['cloudflare', 'server', 'manual'] as const).map(value => (
                       <label key={value}>
                         <input
@@ -433,19 +485,21 @@ export function Installation({
                           }}
                         />
                         <span>
-                          <strong>{logMethodLabels[value]}</strong>
+                          <strong>{i18n.system(logMethodLabels[value])}</strong>
                           <small>
                             {value === 'cloudflare'
-                              ? '覆盖 CDN 边缘请求'
+                              ? i18n.text('覆盖 CDN 边缘请求')
                               : value === 'server'
-                                ? '覆盖服务器回源请求'
-                                : '上传已有访问日志'}
+                                ? i18n.text('覆盖服务器回源请求')
+                                : i18n.text('上传已有访问日志')}
                           </small>
                         </span>
                         <Badge
                           tone={value === 'manual' || status.capabilities[value] ? 'blue' : 'gray'}
                         >
-                          {value === 'manual' || status.capabilities[value] ? '可用' : '待配置'}
+                          {value === 'manual' || status.capabilities[value]
+                            ? i18n.text('可用')
+                            : i18n.text('待配置')}
                         </Badge>
                       </label>
                     ))}
@@ -454,13 +508,19 @@ export function Installation({
                     <div className={styles.source}>
                       <div className={styles.sourceTitle}>
                         <Icon name={method === 'cloudflare' ? 'globe' : 'code'} />
-                        <h3>{logMethodLabels[method]}</h3>
-                        <Badge>{status.capabilities[method] ? '可用' : '实例待配置'}</Badge>
+                        <h3>{i18n.system(logMethodLabels[method])}</h3>
+                        <Badge>
+                          {status.capabilities[method]
+                            ? i18n.text('可用')
+                            : i18n.text('实例待配置')}
+                        </Badge>
                       </div>
                       <p>
                         {method === 'cloudflare'
-                          ? '授权后选择与当前网站匹配的域名，由 CDN 持续推送访问日志。'
-                          : '在网站服务器执行一次安装，采集服务持续发送该网站的访问日志。'}
+                          ? i18n.text('授权后选择与当前网站匹配的域名，由 CDN 持续推送访问日志。')
+                          : i18n.text(
+                              '在网站服务器执行一次安装，采集服务持续发送该网站的访问日志。',
+                            )}
                       </p>
                       <AutomaticLogSetup
                         key={`${site.id}:${method}`}
@@ -475,39 +535,46 @@ export function Installation({
                           disabled={action.busy || !canSave}
                           onClick={() => selectMethod('manual')}
                         >
-                          使用手动导入
+                          {i18n.text('使用手动导入')}
                         </Button>
                       </div>
                       <p className="field-help">
-                        覆盖范围：
+                        {i18n.fragment('覆盖范围：', false, true)}
                         {method === 'cloudflare'
-                          ? 'CDN 请求，可包含缓存命中；实际字段取决于账号能力。'
-                          : '源站请求；CDN 缓存命中与边缘拦截通常不进入源站日志。'}
+                          ? i18n.text('CDN 请求，可包含缓存命中；实际字段取决于账号能力。')
+                          : i18n.text('源站请求；CDN 缓存命中与边缘拦截通常不进入源站日志。')}
                       </p>
                     </div>
                   ) : (
                     <div className={styles.source}>
-                      <h3>导入当前网站的访问日志</h3>
+                      <h3>{i18n.text('导入当前网站的访问日志')}</h3>
                       <p>
-                        支持 Nginx / Apache Combined 与标准 JSON，导入后自动解析请求并匹配蜘蛛。
+                        {i18n.text(
+                          '支持 Nginx / Apache Combined 与标准 JSON，导入后自动解析请求并匹配蜘蛛。',
+                        )}
                       </p>
                       <p className="muted">
-                        原生 CDN 日志需转换为支持的字段格式。请确认日志属于 {site.domain}。
+                        {i18n.fragment(
+                          '原生 CDN 日志需转换为支持的字段格式。请确认日志属于 ',
+                          false,
+                          true,
+                        )}
+                        {site.domain}。
                       </p>
                       <div className="form-actions">
                         <Button primary disabled={!canSave} onClick={() => setImportOpen(true)}>
-                          导入网站日志
+                          {i18n.text('导入网站日志')}
                         </Button>
                         <LinkButton page="geo-logs" params={{ websiteId: site.id }}>
-                          查看该网站日志
+                          {i18n.text('查看该网站日志')}
                         </LinkButton>
                       </div>
                     </div>
                   )}
                   <div className={styles.inlineStatus}>
-                    <Badge tone={tone(logLabel(status))}>{logLabel(status)}</Badge>
+                    <Badge tone={tone(logLabel(status))}>{i18n.system(logLabel(status))}</Badge>
                     <Button disabled={checking} onClick={recheck}>
-                      检查日志接收（可选）
+                      {i18n.text('检查日志接收（可选）')}
                     </Button>
                   </div>
                   {demoNotice}
@@ -521,7 +588,7 @@ export function Installation({
                   />
                   <div className={styles.footer}>
                     <LinkButton page="website-settings" params={installationParams(site.id, 'js')}>
-                      上一步
+                      {i18n.text('上一步')}
                     </LinkButton>
                     <div className="row">
                       {logReceived &&
@@ -533,7 +600,7 @@ export function Installation({
                               save({ action: 'continue', step: 'finish', method }, 'finish')
                             }
                           >
-                            下一步：完成设置
+                            {i18n.text('下一步：完成设置')}
                           </Button>
                         ) : (
                           <LinkButton
@@ -541,7 +608,7 @@ export function Installation({
                             params={installationParams(site.id, 'finish', method)}
                             primary
                           >
-                            下一步：完成设置
+                            {i18n.text('下一步：完成设置')}
                           </LinkButton>
                         ))}
                       <Button
@@ -549,7 +616,7 @@ export function Installation({
                         disabled={action.busy || !canSave}
                         onClick={() => save({ action: 'skip-logs', method }, 'finish')}
                       >
-                        跳过检查，继续
+                        {i18n.text('跳过检查，继续')}
                       </Button>
                     </div>
                   </div>
@@ -557,17 +624,20 @@ export function Installation({
               </Panel>
             )}
             {step === 'finish' && (
-              <Panel title="完成接入设置" subtitle="确认当前网站的选择，检查结果可稍后补充。">
+              <Panel
+                title={i18n.text('完成接入设置')}
+                subtitle={i18n.text('确认当前网站的选择，检查结果可稍后补充。')}
+              >
                 <Body>
                   <Definition
                     items={[
-                      ['网站', `${site.name} · ${site.domain}`],
-                      ['日志接入方式', logMethodLabels[method]],
+                      [i18n.text('网站'), `${site.name} · ${site.domain}`],
+                      [i18n.text('日志接入方式'), i18n.system(logMethodLabels[method])],
                       [
-                        '自动接入',
+                        i18n.text('自动接入'),
                         status.sources?.some(source => source.primary)
-                          ? '主要来源已配置'
-                          : '等待连接',
+                          ? i18n.text('主要来源已配置')
+                          : i18n.text('等待连接'),
                       ],
                     ]}
                   />
@@ -581,14 +651,16 @@ export function Installation({
                     }
                   />
                   <Notice tone="blue">
-                    完成后会保存接入设置。尚未收到的数据仍显示等待，可从网站设置继续安装或检查。
+                    {i18n.text(
+                      '完成后会保存接入设置。尚未收到的数据仍显示等待，可从网站设置继续安装或检查。',
+                    )}
                   </Notice>
                   <details className={styles.details}>
-                    <summary>查看检查结果（可选）</summary>
+                    <summary>{i18n.text('查看检查结果（可选）')}</summary>
                     {checks}
                     <div className="form-actions">
                       <Button disabled={checking} onClick={recheck}>
-                        重新检查
+                        {i18n.text('重新检查')}
                       </Button>
                     </div>
                   </details>
@@ -597,14 +669,14 @@ export function Installation({
                       page="website-settings"
                       params={installationParams(site.id, 'logs', method)}
                     >
-                      上一步
+                      {i18n.text('上一步')}
                     </LinkButton>
                     <Button
                       primary
                       disabled={action.busy || !canSave}
                       onClick={() => save({ action: 'finish', method }, 'complete')}
                     >
-                      {action.busy ? '正在保存…' : '完成设置'}
+                      {action.busy ? i18n.text('正在保存…') : i18n.text('完成设置')}
                     </Button>
                   </div>
                 </Body>
@@ -612,8 +684,12 @@ export function Installation({
             )}
             {(step === 'complete' || step === 'overview') && (
               <Panel
-                title={status.progress.completedAt ? '设置已完成' : '接入设置待完成'}
-                subtitle="当前网站的安装、日志接入与检查入口。"
+                title={i18n.system(
+                  status.progress.completedAt
+                    ? i18n.text('设置已完成')
+                    : i18n.text('接入设置待完成'),
+                )}
+                subtitle={i18n.text('当前网站的安装、日志接入与检查入口。')}
               >
                 <Body>
                   {status.progress.completedAt && (
@@ -622,28 +698,28 @@ export function Installation({
                         <Icon name="check" />
                       </span>
                       <div>
-                        <h3>接入设置已保存</h3>
-                        <p className="muted">后续可随时调整安装方式并继续检查。</p>
+                        <h3>{i18n.text('接入设置已保存')}</h3>
+                        <p className="muted">{i18n.text('后续可随时调整安装方式并继续检查。')}</p>
                       </div>
                     </div>
                   )}
                   {summary}
                   <div className={styles.entryRow}>
                     <div>
-                      <strong>网站统计 JS</strong>
-                      <p className="muted">获取代码，或核对已安装的脚本。</p>
+                      <strong>{i18n.text('网站统计 JS')}</strong>
+                      <p className="muted">{i18n.text('获取代码，或核对已安装的脚本。')}</p>
                     </div>
                     <LinkButton page="website-settings" params={installationParams(site.id, 'js')}>
-                      获取 JS 代码
+                      {i18n.text('获取 JS 代码')}
                     </LinkButton>
                   </div>
                   <div className={styles.entryRow}>
                     <div>
-                      <strong>{logMethodLabels[method]}</strong>
+                      <strong>{i18n.system(logMethodLabels[method])}</strong>
                       <p className="muted">
                         {method === 'manual'
-                          ? '导入真实日志后查看蜘蛛请求。'
-                          : '查看连接状态、调整主要来源或继续安装。'}
+                          ? i18n.text('导入真实日志后查看蜘蛛请求。')
+                          : i18n.text('查看连接状态、调整主要来源或继续安装。')}
                       </p>
                     </div>
                     <LinkButton
@@ -651,38 +727,38 @@ export function Installation({
                       params={installationParams(site.id, 'logs', method)}
                     >
                       {method === 'cloudflare'
-                        ? '授权连接页面'
+                        ? i18n.text('授权连接页面')
                         : method === 'server'
-                          ? '服务器安装页面'
-                          : '日志导入页面'}
+                          ? i18n.text('服务器安装页面')
+                          : i18n.text('日志导入页面')}
                     </LinkButton>
                   </div>
                   <div className={styles.entryRow}>
                     <div>
-                      <strong>接入检查</strong>
-                      <p className="muted">浏览访问、日志接收与 AI 蜘蛛匹配。</p>
+                      <strong>{i18n.text('接入检查')}</strong>
+                      <p className="muted">{i18n.text('浏览访问、日志接收与 AI 蜘蛛匹配。')}</p>
                     </div>
                     <LinkButton
                       page="website-settings"
                       params={installationParams(site.id, 'check')}
                     >
-                      继续检查
+                      {i18n.text('继续检查')}
                     </LinkButton>
                   </div>
                   {demoNotice}
                   <div className="form-actions">
                     <LinkButton page="website-settings" params={{ websiteId: site.id }} primary>
-                      返回网站设置
+                      {i18n.text('返回网站设置')}
                     </LinkButton>
                     <LinkButton page="overview" params={{ websiteId: site.id }}>
-                      查看该网站统计
+                      {i18n.text('查看该网站统计')}
                     </LinkButton>
                     {!status.progress.completedAt && (
                       <LinkButton
                         page="website-settings"
                         params={installationParams(site.id, 'finish', method)}
                       >
-                        完成设置
+                        {i18n.text('完成设置')}
                       </LinkButton>
                     )}
                   </div>
@@ -691,11 +767,11 @@ export function Installation({
             )}
             {step === 'check' && (
               <Panel
-                title="接入检查"
-                subtitle="检查真实接收结果；每项检查均可延后。"
+                title={i18n.text('接入检查')}
+                subtitle={i18n.text('检查真实接收结果；每项检查均可延后。')}
                 actions={
                   <Button disabled={checking} onClick={recheck}>
-                    重新检查
+                    {i18n.text('重新检查')}
                   </Button>
                 }
               >
@@ -703,29 +779,29 @@ export function Installation({
                   {checks}
                   <div className="form-actions">
                     <LinkButton page="website-settings" params={installationParams(site.id, 'js')}>
-                      查看跟踪代码
+                      {i18n.text('查看跟踪代码')}
                     </LinkButton>
                     <LinkButton
                       page="website-settings"
                       params={installationParams(site.id, 'logs', method)}
                     >
-                      日志接入设置
+                      {i18n.text('日志接入设置')}
                     </LinkButton>
                     <LinkButton page="geo-logs" params={{ websiteId: site.id }}>
-                      查看该网站日志
+                      {i18n.text('查看该网站日志')}
                     </LinkButton>
                     <Button
                       primary
                       disabled={action.busy || !canSave}
                       onClick={() => save({ action: 'skip-checks', method }, 'finish')}
                     >
-                      跳过检查，继续设置
+                      {i18n.text('跳过检查，继续设置')}
                     </Button>
                   </div>
                 </Body>
               </Panel>
             )}
-            {action.error && <Notice tone="red">{action.error}</Notice>}
+            {action.error && <Notice tone="red">{i18n.system(action.error)}</Notice>}
             {importOpen && (
               <ManagementDrawer
                 key={site.id}

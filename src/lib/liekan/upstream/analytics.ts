@@ -1,7 +1,7 @@
 import { funnelParametersSchema } from '@/lib/analytics-schema';
 import { getPostgresCountrySQL, getPostgresRegionSQL } from '@/lib/country';
 import { getFunnel } from '@/queries/sql';
-import { classifyEntrySource } from '../contracts/sources';
+import { classifyEntrySource, classifyEntrySourceForDisplay } from '../contracts/sources';
 import { humanTotals, query, LiekanError } from './server';
 
 export { classifyEntrySource } from '../contracts/sources';
@@ -9,8 +9,13 @@ export { classifyEntrySource } from '../contracts/sources';
 function sourceFacts(rows: any[]) {
   const grouped = new Map<string, any>();
   for (const row of rows) {
-    const attribution = classifyEntrySource(row);
-    const key = JSON.stringify([row.day, attribution.source, attribution.channel]);
+    const attribution = classifyEntrySourceForDisplay(row);
+    const key = JSON.stringify([
+      row.day,
+      attribution.source,
+      attribution.channel,
+      attribution.sourceLabel ?? null,
+    ]);
     let group = grouped.get(key);
     if (!group) {
       group = {
@@ -266,7 +271,7 @@ export async function getHumanFacts(
     daily,
     geo,
     sources: sourceFacts(sources),
-    sourceEvidence: sources.map(row => ({ ...row, ...classifyEntrySource(row) })),
+    sourceEvidence: sources.map(row => ({ ...row, ...classifyEntrySourceForDisplay(row) })),
     environment,
     pages,
     heatmap,

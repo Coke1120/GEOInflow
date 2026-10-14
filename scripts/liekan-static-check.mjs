@@ -7,6 +7,7 @@ import { assertDialogContract } from './liekan-dialog-contract.mjs';
 import { assertManualReadPolicy } from './liekan-manual-read-contract.mjs';
 
 execFileSync(process.execPath, ['scripts/liekan-geography-catalog.mjs'], { stdio: 'inherit' });
+execFileSync(process.execPath, ['scripts/liekan-i18n-check.mjs'], { stdio: 'inherit' });
 assertDialogContract();
 assertManualReadPolicy();
 const geographyUI=JSON.parse(readFileSync('config/liekan/geography-ui.json','utf8'));

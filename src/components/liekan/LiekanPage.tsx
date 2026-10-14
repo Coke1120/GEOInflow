@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { EXPORT_MAX_BYTES, type ExportFrame } from '@/lib/liekan/contracts/exports';
 import { pageSearch, pageUrl } from '@/lib/liekan/contracts/page-url';
 import { useQueryClient } from '@tanstack/react-query';
@@ -61,6 +63,7 @@ import {
 } from './viewState';
 
 export function LiekanPage({ resource }: { resource: Resource }) {
+  const i18n = useLiekanI18n();
   const metadataLoading = useDataLoading();
   const reading = useManualRefresh();
   const api = useApi();
@@ -532,6 +535,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         report.website.id,
         {
           kind: 'geography',
+          locale: i18n.locale,
           format: 'csv',
           ...report.range,
           search: reportInput.search || '',
@@ -593,17 +597,24 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         return;
       }
       const content = table
-        ? tableCsv(table, report.tables[table] || [], filter, sort, search, value =>
-            pageUrl(value, report.website.domain),
+        ? tableCsv(
+            table,
+            report.tables[table] || [],
+            filter,
+            sort,
+            search,
+            value => pageUrl(value, report.website.domain),
+            i18n.locale,
+            source => i18n.label(source, 'pageviews'),
           )
         : csvMatrix(
-            ['指标', '数值', '状态'],
+            ['指标', '数值', '状态'].map(i18n.system),
             report.cards
               .filter(card => cardLabels[resource]?.includes(card.label))
               .map(card => [
-                card.label,
-                formatMetricValue(card),
-                stateLabels[card.state] || '已接入',
+                i18n.system(card.label),
+                formatMetricValue(card, i18n.locale, i18n.system),
+                i18n.system(stateLabels[card.state] || '已接入'),
               ]),
           );
       downloadFile(
@@ -660,24 +671,24 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   if (crawlerHidden && resource.startsWith('ai/') && !restricted && !metadataLoading)
     return (
       <div className={styles.notice}>
-        <h2 className="font-bold text-ink">AI 蜘蛛数据展示已关闭</h2>
-        <p className="mt-2">已有数据和采集配置会保留，可从网站设置重新开启。</p>
+        <h2 className="font-bold text-ink">{i18n.text('AI 蜘蛛数据展示已关闭')}</h2>
+        <p className="mt-2">{i18n.text('已有数据和采集配置会保留，可从网站设置重新开启。')}</p>
         {displayMismatch && (displayQuery.error || query.error) && (
           <div role="alert">
-            <p className="mt-2">展示设置读取失败，请重新同步。</p>
-            <button onClick={refresh}>重新读取设置与报表</button>
+            <p className="mt-2">{i18n.text('展示设置读取失败，请重新同步。')}</p>
+            <button onClick={refresh}>{i18n.text('重新读取设置与报表')}</button>
           </div>
         )}
         <div className="flex flex-wrap gap-4 mt-3 text-brand">
-          <Link href={href('overview')}>查看访客统计</Link>
-          <Link href={href('website-settings', { section: 'basic' })}>网站设置</Link>
+          <Link href={href('overview')}>{i18n.text('查看访客统计')}</Link>
+          <Link href={href('website-settings', { section: 'basic' })}>{i18n.text('网站设置')}</Link>
         </div>
       </div>
     );
   const period = chartPeriod === '24h' ? '24h' : chartPeriod === '7d' ? '7 天' : '30 天';
   const View = reportViews[resource];
   const headerActions = (
-    <div className={styles.headerActions}>
+    <div data-liekan-owned-actions className={styles.headerActions}>
       <QuickRangeButtons
         variant="chip"
         activeToken={activeQuickDateRange(params, '30day')}
@@ -700,18 +711,18 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         type="button"
         className="chip"
         onClick={() => setAction('统计范围')}
-        title={`统计时区：${timezone}`}
+        title={i18n.text('统计时区：{v0}', [timezone])}
       >
-        {rangeLabel}
+        {i18n.system(rangeLabel)}
       </button>
       <ManualRefreshControl />
       {page.actions.map(label => (
         <button key={label} type="button" className="chip" onClick={() => onAction(label)}>
           {label === '站点设置'
-            ? '网站设置'
+            ? i18n.text('网站设置')
             : label === 'UTM 管理'
-              ? 'UTM 活动'
-              : managementLabels[label] || label}
+              ? i18n.text('UTM 活动')
+              : i18n.system(managementLabels[label] || label)}
         </button>
       ))}
     </div>
@@ -756,10 +767,12 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       <div className={styles.header}>
         <div className={styles.headerInner}>
           <div>
-            <h1 className="text-[16px] font-bold tracking-tight">
-              {websiteAnalysisFamily(route)?.label ||
-                pageNavigation[route.page]?.title ||
-                page.title}
+            <h1 data-liekan-page-title className="text-[16px] font-bold tracking-tight">
+              {i18n.system(
+                websiteAnalysisFamily(route)?.label ||
+                  pageNavigation[route.page]?.title ||
+                  page.title,
+              )}
             </h1>
           </div>
           {!shell?.websiteActionsTarget && headerActions}
@@ -771,32 +784,34 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       <div className={styles.analysisTools}>
         {resource === 'logs' && (
           <span>
-            最近导入：
+            {i18n.fragment('最近导入：', false, true)}
             {report?.meta.latestImportAt
-              ? new Date(report.meta.latestImportAt).toLocaleString('zh-CN', { timeZone: timezone })
+              ? new Date(report.meta.latestImportAt).toLocaleString(i18n.locale, {
+                  timeZone: timezone,
+                })
               : query.isPending
-                ? '正在读取'
+                ? i18n.text('正在读取')
                 : query.isError
-                  ? '读取失败'
-                  : '尚未导入'}
+                  ? i18n.text('读取失败')
+                  : i18n.text('尚未导入')}
           </span>
         )}
         {resource === 'human/search-engines' ? (
-          <span>分别查看传统搜索与 AI 搜索引荐的平台占比和明细</span>
+          <span>{i18n.text('分别查看传统搜索与 AI 搜索引荐的平台占比和明细')}</span>
         ) : resource === 'human/keywords' ? (
-          <span>按搜索引擎查看关键词，支持完整筛选导出</span>
+          <span>{i18n.text('按搜索引擎查看关键词，支持完整筛选导出')}</span>
         ) : (
           <>
-            <Link href={href('filters')}>高级筛选</Link>
-            <Link href={href('annotations')}>图表注释</Link>
-            <Link href={href('exports')}>导出数据</Link>
-            <Link href={href('sharing', { context: 'website' })}>分享当前网站</Link>
+            <Link href={href('filters')}>{i18n.text('高级筛选')}</Link>
+            <Link href={href('annotations')}>{i18n.text('图表注释')}</Link>
+            <Link href={href('exports')}>{i18n.text('导出数据')}</Link>
+            <Link href={href('sharing', { context: 'website' })}>{i18n.text('分享当前网站')}</Link>
           </>
         )}
       </div>
       {invalidDate && (
         <div className={styles.tools} role="status">
-          日期参数无效，当前使用默认日期范围。
+          {i18n.fragment('日期参数无效，当前使用默认日期范围。', false, true)}
           <button
             onClick={() =>
               router.replace(
@@ -815,37 +830,39 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               )
             }
           >
-            重置日期
+            {i18n.text('重置日期')}
           </button>
         </div>
       )}
       {params.clearedFilters === '1' && (
-        <div className={styles.notice}>已清除当前页面不支持的筛选，统计采用页面显示的条件。</div>
+        <div className={styles.notice}>
+          {i18n.text('已清除当前页面不支持的筛选，统计采用页面显示的条件。')}
+        </div>
       )}
       {(query.isError || message || search) && (
         <div className={styles.notice} role="status">
           {query.isError
             ? report
-              ? '更新失败，当前显示上次读取的数据'
+              ? i18n.text('更新失败，当前显示上次读取的数据')
               : query.isStaleAggregate && !restricted
-                ? query.error?.message || '统计数据已过期，请重试读取。'
+                ? i18n.system(query.error?.message) || i18n.text('统计数据已过期，请重试读取。')
                 : resource === 'human/keywords'
-                  ? query.error?.message || '来源关键词读取失败'
-                  : '无法读取此范围的数据'
-            : message || `查询：${search}`}
+                  ? i18n.system(query.error?.message) || i18n.text('来源关键词读取失败')
+                  : i18n.text('无法读取此范围的数据')
+            : i18n.system(message) || i18n.text('查询：{v0}', [search])}
           {query.isError && (
             <button type="button" onClick={() => refresh()}>
-              重试
+              {i18n.text('重试')}
             </button>
           )}
           {query.isError && !report && !restricted && !liveLogs && (
             <>
-              <span>也可缩小时间范围后重试：</span>
+              <span>{i18n.text('也可缩小时间范围后重试：')}</span>
               {(
                 [
-                  ['24hour', '近 24 小时'],
-                  ['7day', '近 7 天'],
-                  ['30day', '近 30 天'],
+                  ['24hour', i18n.text('近 24 小时')],
+                  ['7day', i18n.text('近 7 天')],
+                  ['30day', i18n.text('近 30 天')],
                 ] as const
               ).map(([value, label]) => (
                 <button
@@ -866,7 +883,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                     })
                   }
                 >
-                  {label}
+                  {i18n.system(label)}
                 </button>
               ))}
             </>
@@ -884,25 +901,25 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                 })
               }
             >
-              清除查询
+              {i18n.text('清除查询')}
             </button>
           )}
         </div>
       )}
       {report && query.isFetching && (
         <div className={styles.notice} role="status">
-          正在更新统计数据
+          {i18n.text('正在更新统计数据')}
         </div>
       )}
       {report && query.isStaleAggregate && !query.isFetching && !query.error && (
         <div className={styles.notice} role="status">
-          统计待更新
+          {i18n.text('统计待更新')}
         </div>
       )}
       {displayMismatch && !restricted && (displayQuery.error || query.error) && (
         <div className={styles.notice} role="alert">
-          数据展示设置与报表暂未同步，请重试读取。
-          <button onClick={refresh}>重新读取设置与报表</button>
+          {i18n.fragment('数据展示设置与报表暂未同步，请重试读取。', false, true)}
+          <button onClick={refresh}>{i18n.text('重新读取设置与报表')}</button>
         </div>
       )}
       {resource === 'overview' &&
@@ -912,36 +929,40 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         (report.meta.logsConfigured === false ||
           (report.meta.logsConfigured === undefined && report.states.logs === 'not_connected')) && (
           <div className={styles.notice}>
-            尚未接入 AI 蜘蛛日志。暂不接入时，可仅展示访客统计。
+            {i18n.fragment('尚未接入 AI 蜘蛛日志。暂不接入时，可仅展示访客统计。', false, true)}
             <Link
               className="text-brand ml-3"
               href={href('website-settings', { section: 'install', step: 'logs' })}
             >
-              接入日志
+              {i18n.text('接入日志')}
             </Link>
             {report.meta.canManage ? (
               <button disabled={displaySaving} onClick={hideCrawlerDisplay}>
-                {displaySaving ? '正在保存…' : '仅展示访客统计'}
+                {displaySaving ? i18n.text('正在保存…') : i18n.text('仅展示访客统计')}
               </button>
             ) : (
               <Link
                 className="text-brand ml-3"
                 href={href('website-settings', { section: 'basic' })}
               >
-                数据展示设置
+                {i18n.text('数据展示设置')}
               </Link>
             )}
-            <button onClick={() => setPromptHidden(true)}>保留展示</button>
+            <button onClick={() => setPromptHidden(true)}>{i18n.text('保留展示')}</button>
           </div>
         )}
       {report ? (
         <View
           report={report}
           aiCrawlerEnabled={!crawlerHidden}
-          rangeLabel={rangeLabel}
+          rangeLabel={i18n.system(rangeLabel)}
           live={liveLogs}
           trendLabel={
-            chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
+            chartPeriod === '24h'
+              ? i18n.text('近 24 小时')
+              : chartPeriod === '7d'
+                ? i18n.text('近 7 天')
+                : i18n.text('近 30 天')
           }
         />
       ) : metadataLoading ||
@@ -955,9 +976,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         <AnalysisLoading
           resource={resource}
           aiCrawlerEnabled={!crawlerHidden}
-          rangeLabel={rangeLabel}
+          rangeLabel={i18n.system(rangeLabel)}
           trendLabel={
-            chartPeriod === '24h' ? '近 24 小时' : chartPeriod === '7d' ? '近 7 天' : '近 30 天'
+            chartPeriod === '24h'
+              ? i18n.text('近 24 小时')
+              : chartPeriod === '7d'
+                ? i18n.text('近 7 天')
+                : i18n.text('近 30 天')
           }
         />
       ) : null}
@@ -1010,7 +1035,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                       labels:
                         resource === 'overview' && report?.meta.aiCrawlerEnabled === false
                           ? ['访客数 UV', '浏览量 PV', '跳出率', '平均访问时长']
-                          : cardLabels[resource] || [],
+                          : i18n.system(cardLabels[resource]) || [],
                       error: previous.error,
                       fetching: previous.isFetching,
                       refetch: () => previous.refetch(),

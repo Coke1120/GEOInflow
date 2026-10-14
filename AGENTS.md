@@ -21,3 +21,5 @@ Liekan / 猎看统计 is an MIT derivative of Umami, with a separate GEO statist
 
 - Crawler control uses independent Zone credentials, durable preview/confirmation and per-Zone leases. Unknown provider results quarantine the Zone across disconnected/frozen connections. Read-only handoff reconciliation never transfers write authority; adoption requires a separate confirmed preview. See docs/crawler-control.md.
 - Crawler risk quality must distinguish missing input, unknown continuity, partial gaps and proved observed-file coverage. Preserve classification versions, epoch fencing, late-data correction and self-check exclusion.
+
+- UI language is zh-CN or en-US. Browser preference and the same-origin locale cookie persist after logout. Translate display text while preserving resource IDs, raw visitor/user content, snapshot identity and Monday-to-Sunday natural weeks. New AI runs and human-readable exports capture locale at submission. See docs/i18n.md.

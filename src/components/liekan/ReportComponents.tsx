@@ -1,7 +1,15 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { geographyEmptyText } from '@/lib/liekan/contracts/geography';
 import { useEffect, useRef, useState } from 'react';
 import styles from '@/styles/liekan/Shell.module.css';
+import {
+  countryName,
+  geographyLabel,
+  regionName,
+  type GeographyDisplay,
+} from '@/lib/liekan/contracts/geography';
 import { chartOptions } from './chartOptions';
 import { loadEcharts } from './chartRuntime';
 import { ChartLoading, LoadingLines, Skeleton, useDataLoading } from './DataLoading';
@@ -47,18 +55,27 @@ export function MetricCard({
   valueClass: string;
   report?: LiekanReport;
 }) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   const card = report?.cards.find(card => card.label === label);
-  const display = formatMetricValue(card || { value: null, label });
+  const place = report?.meta?.geography?.cards?.[label];
+  const display =
+    place && i18n.locale === 'en-US'
+      ? label === '海外 TOP1'
+        ? countryName(place.country, i18n.locale)
+        : geographyLabel(place, i18n.locale)
+      : formatMetricValue(card || { value: null, label }, i18n.locale, i18n.system);
   const pageMetric = ['入口页 TOP1', '退出页 TOP1'].includes(label);
   return (
     <div className={className} aria-busy={loading || undefined}>
-      <p className="text-[11.5px] text-sub">{label}</p>
+      <p data-liekan-metric-label className="text-[11.5px] text-sub">
+        {i18n.system(label)}
+      </p>
       <p className={`${valueClass} ${styles.metricValue} ${pageMetric ? styles.pageMetric : ''}`}>
         {loading ? (
           <Skeleton width="3.5em" />
         ) : pageMetric ? (
-          pageLink(card?.value, report?.website.domain, display)
+          pageLink(card?.value, report?.website.domain, display, undefined, i18n.locale)
         ) : (
           display
         )}
@@ -68,8 +85,9 @@ export function MetricCard({
           <Skeleton width="75%" />
         ) : (
           <>
-            {card?.detail || stateLabels[card?.state || 'not_connected'] || '当前统计范围'}
-            {card?.state === 'estimated' && card.detail ? ' · 估算' : ''}
+            {i18n.system(card?.detail || stateLabels[card?.state || 'not_connected']) ||
+              i18n.text('当前统计范围')}
+            {card?.state === 'estimated' && card.detail ? i18n.text(' · 估算') : ''}
           </>
         )}
       </p>
@@ -85,22 +103,54 @@ export function ReferenceChart({
   height: number;
   report?: LiekanReport;
 }) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   const container = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const chart = report?.charts[id];
+  const interaction = useRef<{ key: string; locale: string; option?: any }>(undefined);
+  const interactionKey = JSON.stringify([
+    id,
+    report?.website.id,
+    report?.range,
+    chart,
+    report?.meta.geography?.charts?.[id],
+    report?.states.logs,
+    report?.meta.aiCrawlerEnabled,
+  ]);
   const hasData =
     !!chart && (chart.series.some(s => s.values.length > 0) || (chart.rows?.length || 0) > 0);
   useEffect(() => {
     setFailed(false);
-    if (loading || !hasData || !container.current) return;
+    const previous = interaction.current;
+    const retained = {
+      key: interactionKey,
+      locale: i18n.locale,
+      option:
+        previous?.key === interactionKey && previous.locale !== i18n.locale
+          ? previous.option
+          : undefined,
+    };
+    interaction.current = retained;
+    if (loading || !hasData || !container.current) {
+      retained.option = undefined;
+      return;
+    }
     let disposed = false;
     let instance: any;
     let stopLayout: () => void;
-    const cleanup = () => {
+    const cleanup = (remember = false) => {
       stopLayout?.();
       stopLayout = undefined;
+      if (!remember) retained.option = undefined;
+      else if (instance) {
+        try {
+          retained.option = instance.getOption() ?? retained.option;
+        } catch {
+          retained.option = undefined;
+        }
+      }
       try {
         instance?.dispose();
       } catch {}
@@ -115,7 +165,19 @@ export function ReferenceChart({
       .then(echarts => {
         if (disposed || !container.current) return;
         instance = echarts.init(container.current);
-        const option = chartOptions(id, chart);
+        const places = report?.meta?.geography?.charts?.[id];
+        const displayChart =
+          places && i18n.locale === 'en-US'
+            ? {
+                ...chart,
+                labels: places.map(place =>
+                  id === 'g1'
+                    ? regionName(place.region, place.country, i18n.locale)
+                    : countryName(place.country, i18n.locale),
+                ),
+              }
+            : chart;
+        const option = chartOptions(id, displayChart, i18n.locale);
         if (
           id === 'd1' &&
           (report?.states.logs === 'not_connected' || report?.meta.aiCrawlerEnabled === false)
@@ -142,14 +204,24 @@ export function ReferenceChart({
           if (axis.min != null && min < axis.min) axis.min = Math.max(0, Math.floor(min * 0.8));
           if (axis.max != null && max > axis.max) axis.max = Math.ceil(max * 1.1);
         });
-        stopLayout = observeChartLayout(instance, container.current, option, fail);
+        stopLayout = observeChartLayout(instance, container.current, option, fail, retained.option);
       })
       .catch(fail);
     return () => {
       disposed = true;
-      cleanup();
+      cleanup(true);
     };
-  }, [id, chart, hasData, report?.states.logs, report?.meta.aiCrawlerEnabled, attempt, loading]);
+  }, [
+    id,
+    chart,
+    hasData,
+    report?.states.logs,
+    report?.meta.aiCrawlerEnabled,
+    attempt,
+    loading,
+    i18n.locale,
+    interactionKey,
+  ]);
   const state =
     chart?.state ||
     (id.startsWith('h') || id.startsWith('g') || id.startsWith('s')
@@ -160,34 +232,45 @@ export function ReferenceChart({
   return (
     <div
       id={id}
+      data-liekan-chart-state={loading ? 'loading' : failed ? 'failed' : hasData ? 'data' : 'empty'}
       style={{ height, position: 'relative' }}
       role={failed ? 'group' : 'img'}
       aria-busy={loading || undefined}
-      aria-label={`${id} 数据图表${loading ? ': 正在读取' : failed ? ': 加载失败' : hasData ? '' : `: ${stateLabels[state || 'not_connected']}`}`}
+      aria-label={i18n.text('{v0} 数据图表{v1}', [
+        id,
+        loading
+          ? i18n.text(': 正在读取')
+          : failed
+            ? i18n.text(': 加载失败')
+            : hasData
+              ? ''
+              : `: ${i18n.system(stateLabels[state || 'not_connected'])}`,
+      ])}
     >
       <div ref={container} style={{ width: '100%', height: '100%' }} />
       {hasData && failed && (
         <div className={`${styles.chartEmpty} ${styles.chartFailure}`} role="alert">
-          <span>图表加载失败</span>
+          <span>{i18n.text('图表加载失败')}</span>
           <button type="button" className="chip" onClick={() => setAttempt(value => value + 1)}>
-            重试图表
+            {i18n.text('重试图表')}
           </button>
         </div>
       )}
       {loading && <ChartLoading />}
       {!loading && !hasData && (
         <div className={styles.chartEmpty}>
-          {
+          {i18n.system(
             stateLabels[
               state === 'available' || state === 'estimated' ? 'empty' : state || 'not_connected'
-            ]
-          }
+            ],
+          )}
         </div>
       )}
     </div>
   );
 }
 export function FilterChip({ label }: { label: string }) {
+  const i18n = useLiekanI18n();
   const a = useReportActions();
   const loading = useDataLoading();
   const isPeriod = ['30 天', '7 天', '24h'].includes(label);
@@ -203,11 +286,12 @@ export function FilterChip({ label }: { label: string }) {
       disabled={loading}
       onClick={() => a.onFilter(label)}
     >
-      {label}
+      {i18n.system(label)}
     </button>
   );
 }
 export function SortHeading({ className, label }: { className: string; label: string }) {
+  const i18n = useLiekanI18n();
   const a = useReportActions();
   const loading = useDataLoading();
   return (
@@ -223,7 +307,7 @@ export function SortHeading({ className, label }: { className: string; label: st
         disabled={loading}
         onClick={() => a.onSort(label)}
       >
-        {label}
+        {i18n.system(label)}
         {a.sort.label === label ? (
           <span aria-hidden="true">{a.sort.direction === 1 ? ' ↑' : ' ↓'}</span>
         ) : null}
@@ -314,6 +398,7 @@ const cellClasses: Record<string, string[]> = {
   ],
 };
 function Badge({ value, field }: { value: unknown; field?: string }) {
+  const i18n = useLiekanI18n();
   const text =
     field === 'type' && value === '训练'
       ? 'AI 训练'
@@ -349,13 +434,13 @@ function Badge({ value, field }: { value: unknown; field?: string }) {
   return (
     <span
       className={`bd bd-${color}`}
-      title={
+      title={i18n.system(
         field === 'freshness'
-          ? '更新日期距统计结束日期，仅依据导入目录元数据；缺少更新日期时显示空值。'
-          : undefined
-      }
+          ? i18n.text('更新日期距统计结束日期，仅依据导入目录元数据；缺少更新日期时显示空值。')
+          : undefined,
+      )}
     >
-      {text}
+      {i18n.system(text)}
     </span>
   );
 }
@@ -366,14 +451,19 @@ function Cell({
   table,
   onCrawler,
   domain,
+  place,
 }: {
+  place?: GeographyDisplay;
   row: Row;
   field: string;
   table: string;
   onCrawler?: (name: string) => void;
   domain?: string;
 }) {
+  const i18n = useLiekanI18n();
   const value = row[field];
+  if (table === 'cityBody' && field === 'city' && place)
+    return <>{geographyLabel(place, i18n.locale)}</>;
   if (table === 'botBody' && field === 'name' && onCrawler)
     return (
       <span className="relative block group">
@@ -407,10 +497,10 @@ function Cell({
   if (table === 'logBody' && field === 'path')
     return (
       <>
-        {row.method || '–'} {pageLink(value, domain, formatValue(value))}
+        {row.method || '–'} {pageLink(value, domain, formatValue(value), undefined, i18n.locale)}
       </>
     );
-  if (field === 'path') return pageLink(value, domain, formatValue(value));
+  if (field === 'path') return pageLink(value, domain, formatValue(value), undefined, i18n.locale);
   if (['type', 'channel', 'evaluation', 'classification', 'freshness'].includes(field))
     return <Badge value={value} field={field} />;
   if (table === 'searchEngineBody' && field === 'share') return <>{percentage(value)}</>;
@@ -438,7 +528,7 @@ function Cell({
       </div>
     );
   }
-  return <>{formatCellValue(row, field, table)}</>;
+  return <>{formatCellValue(row, field, table, i18n.locale, i18n.system)}</>;
 }
 export function ReportRows({
   table,
@@ -453,6 +543,7 @@ export function ReportRows({
   pageSize?: number;
   onCrawler?: (name: string) => void;
 }) {
+  const i18n = useLiekanI18n();
   const a = useReportActions();
   const loading = useDataLoading();
   const fields = columns[table] || [];
@@ -537,7 +628,7 @@ export function ReportRows({
               {fields.map(([field], j) => (
                 <td
                   key={field}
-                  title={formatCellValue(row, field, table)}
+                  title={formatCellValue(row, field, table, i18n.locale, i18n.system)}
                   className={
                     (cellClasses[table]?.[j] || 'px-4 py-3') +
                     (field === 'trend'
@@ -571,6 +662,11 @@ export function ReportRows({
                     table={table}
                     onCrawler={onCrawler}
                     domain={report?.website.domain}
+                    place={
+                      report?.meta?.geography?.tables?.[table]?.[
+                        report?.tables[table]?.indexOf(row)
+                      ]
+                    }
                   />
                 </td>
               ))}
@@ -580,10 +676,12 @@ export function ReportRows({
           <tr>
             <td colSpan={fields.length} className={styles.emptyRow}>
               {table === 'cityBody'
-                ? geographyEmptyText(meta?.geographyCoverage, a.query)
+                ? i18n.system(geographyEmptyText(meta?.geographyCoverage, a.query))
                 : a.query
-                  ? '没有匹配的记录'
-                  : stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state]}
+                  ? i18n.text('没有匹配的记录')
+                  : i18n.system(
+                      stateLabels[state === 'available' || state === 'estimated' ? 'empty' : state],
+                    )}
             </td>
           </tr>
         )}
@@ -615,7 +713,7 @@ export function ReportRows({
                   }
                   label={
                     serverPage && table !== 'cityBody' && (a.filter || a.sort.label || a.query)
-                      ? '当前页内筛选'
+                      ? i18n.text('当前页内筛选')
                       : undefined
                   }
                   onPrev={
@@ -681,20 +779,26 @@ function Pager({
   onPrev: () => void;
   onNext: () => void;
 }) {
+  const i18n = useLiekanI18n();
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3" data-report-pager>
       <span className="text-[11px] text-faint">
-        {label ? `${label} · ` : ''}共 {formatValue(total)} 条
+        {label ? `${label} · ` : ''}
+        {i18n.fragment('共 ', true, true)}
+        {formatValue(total)}
+        {i18n.unit(' 条', formatValue(total), true, false)}
       </span>
       <div className="flex items-center gap-2">
         <span className="num text-[11px] text-faint">
-          第 {formatValue(page)} / {formatValue(pages)} 页
+          {i18n.fragment('第 ', false, true)}
+          {formatValue(page)} / {formatValue(pages)}
+          {i18n.unit(' 页', formatValue(pages), true, false)}
         </span>
         <Button disabled={disabled || page <= 1} onClick={onPrev}>
-          上一页
+          {i18n.text('上一页')}
         </Button>
         <Button disabled={disabled || page >= pages} onClick={onNext}>
-          下一页
+          {i18n.text('下一页')}
         </Button>
       </div>
     </div>
@@ -711,6 +815,7 @@ export function ReportList({
   report?: LiekanReport;
   pageSize?: number;
 }) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   const sourceRows = report?.tables[id] || [];
   const perPage = typeof pageSize === 'number' && pageSize > 0 ? pageSize : 0;
@@ -736,11 +841,11 @@ export function ReportList({
         : report?.states.logs;
   const empty = (
     <p className={styles.listEmpty}>
-      {
+      {i18n.system(
         stateLabels[
           state === 'available' || state === 'estimated' ? 'empty' : state || 'not_connected'
-        ]
-      }
+        ],
+      )}
     </p>
   );
   const step = (i: number) => (
@@ -752,9 +857,9 @@ export function ReportList({
     return (
       <div id={id} className={className} aria-busy="true">
         {id === 'envGrid' ? (
-          ['浏览器', '操作系统'].map(label => (
+          [i18n.text('浏览器'), i18n.text('操作系统')].map(label => (
             <div key={label}>
-              <p className="text-[11px] text-faint mb-2">{label}</p>
+              <p className="text-[11px] text-faint mb-2">{i18n.system(label)}</p>
               <LoadingLines />
             </div>
           ))
@@ -777,7 +882,7 @@ export function ReportList({
           ? categories.map(category => (
               <div key={category === 'browser' ? '浏览器' : '操作系统'}>
                 <p className="text-[11px] text-faint mb-2">
-                  {category === 'browser' ? '浏览器' : '操作系统'}
+                  {category === 'browser' ? i18n.text('浏览器') : i18n.text('操作系统')}
                 </p>
                 {rows
                   .filter(
@@ -822,7 +927,13 @@ export function ReportList({
                         : formatValue(row.time)}
                     </span>
                     <span className="num text-[11.5px] text-ink flex-1 min-w-0">
-                      {pageLink(row.path, report?.website.domain, formatValue(row.path))}
+                      {pageLink(
+                        row.path,
+                        report?.website.domain,
+                        formatValue(row.path),
+                        undefined,
+                        i18n.locale,
+                      )}
                     </span>
                     <span className="text-[10.5px] text-faint shrink-0">
                       {formatValue(row.status)}
@@ -833,10 +944,20 @@ export function ReportList({
                 return (
                   <div key={i} className="px-6 py-3 hover:bg-[#FAFBFD] transition-colors">
                     <p className="num text-[12px] font-medium text-ink">
-                      {pageLink(row.path, report?.website.domain, formatValue(row.path))}
+                      {pageLink(
+                        row.path,
+                        report?.website.domain,
+                        formatValue(row.path),
+                        undefined,
+                        i18n.locale,
+                      )}
                     </p>
-                    <p className="text-[11px] text-faint mt-1">{formatValue(row.reason)}</p>
-                    <p className="text-[11px] text-brand mt-0.5">{formatValue(row.suggestion)}</p>
+                    <p className="text-[11px] text-faint mt-1">
+                      {i18n.system(formatValue(row.reason))}
+                    </p>
+                    <p className="text-[11px] text-brand mt-0.5">
+                      {i18n.system(formatValue(row.suggestion))}
+                    </p>
                   </div>
                 );
               if (id === 'journeyList') {
@@ -852,10 +973,14 @@ export function ReportList({
                       <span
                         className={`num text-[11.5px] text-ink min-w-0 flex-1 ${styles.journeyPath}`}
                       >
-                        {pageSequence(String(row.path ?? '').split(' → '), report?.website.domain)}
+                        {pageSequence(
+                          String(row.path ?? '').split(' → '),
+                          report?.website.domain,
+                          i18n.locale,
+                        )}
                       </span>
                       <span className={`text-[10.5px] text-faint shrink-0 ${styles.journeyDepth}`}>
-                        {depth > 1 ? `${depth} 页` : '单页'}
+                        {depth > 1 ? i18n.text('{v0} 页', [depth]) : i18n.text('单页')}
                       </span>
                       <span className="w-[120px] h-1.5 rounded-full bg-brand/10 overflow-hidden shrink-0">
                         <span
@@ -868,9 +993,10 @@ export function ReportList({
                       </span>
                     </div>
                     <p className="text-[10.5px] text-faint mt-1" style={{ marginLeft: 32 }}>
-                      {formatValue(row.count)} 会话
+                      {formatValue(row.count)}
+                      {i18n.fragment(' 会话', true, true)}
                       {row.conversionRate != null
-                        ? ` · 转化 ${percentage(row.conversionRate)}`
+                        ? i18n.text(' · 转化 {v0}', [percentage(row.conversionRate)])
                         : ''}
                     </p>
                   </div>
@@ -889,9 +1015,13 @@ export function ReportList({
                 return (
                   <div key={i} className="flex items-center gap-3 rounded-lg bg-wash px-3 py-2.5">
                     <span className="text-[11.5px] font-bold text-brand shrink-0 w-[52px]">
-                      {formatValue(row.name)}
+                      {id === 'pipeList'
+                        ? i18n.label(String(row.name), 'crawler-identity')
+                        : formatValue(row.name)}
                     </span>
-                    <span className="text-[11.5px] text-sub flex-1">{formatValue(row.detail)}</span>
+                    <span className="text-[11.5px] text-sub flex-1">
+                      {i18n.system(formatValue(row.detail))}
+                    </span>
                   </div>
                 );
               return (
@@ -900,7 +1030,7 @@ export function ReportList({
                     {formatValue(row.bot)}
                   </span>
                   <span className="flex-1 text-[11.5px] text-sub">
-                    {formatValue(row.preference)}
+                    {i18n.system(formatValue(row.preference))}
                   </span>
                 </div>
               );
@@ -930,17 +1060,18 @@ export function InsightRows({
   report?: LiekanReport;
   variant?: 'rows' | 'paragraph';
 }) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   if (variant === 'paragraph')
     return (
       <p className={className || 'text-[12px] text-sub leading-relaxed'}>
-        <b className="text-ink">GEO 洞察：</b>
+        <b className="text-ink">{i18n.text('GEO 洞察：')}</b>
         {loading ? (
           <Skeleton width="70%" />
         ) : report?.insights.length ? (
-          report.insights.join(' ')
+          report.insights.map(i18n.system).join(' ')
         ) : (
-          '接入日志与页面目录后生成当前范围的 GEO 发现。'
+          i18n.text('接入日志与页面目录后生成当前范围的 GEO 发现。')
         )}
       </p>
     );
@@ -950,21 +1081,24 @@ export function InsightRows({
         <LoadingLines />
       ) : report?.insights.length ? (
         report.insights.map((insight, i) => (
-          <p key={insight} className="flex gap-2">
+          <p key={i} className="flex gap-2">
             <span
               className="w-1.5 h-1.5 rounded-full bg-brand mt-1.5 shrink-0"
               style={{ background: ['#0F62FE', '#009D9A', '#7C5CFC', '#B7791F'][i % 4] }}
             />
-            {insight}
+            {i18n.system(insight)}
           </p>
         ))
       ) : (
-        <p className={styles.listEmpty}>接入日志与页面目录后生成当前范围的 GEO 发现。</p>
+        <p className={styles.listEmpty}>
+          {i18n.text('接入日志与页面目录后生成当前范围的 GEO 发现。')}
+        </p>
       )}
     </div>
   );
 }
 export function LatestLog({ className, report }: { className: string; report?: LiekanReport }) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   const row = report?.tables.logBody?.[0];
   return (
@@ -975,15 +1109,24 @@ export function LatestLog({ className, report }: { className: string; report?: L
       {loading ? (
         <LoadingLines lines={3} />
       ) : row ? (
-        `${formatValue(row.ipMasked)} [${formatValue(row.time)}]\n"${row.method || 'GET'} ${formatValue(row.path)}" ${formatValue(row.status)}\n${formatValue(row.userAgent)}\n→ 判定: ${formatValue(row.classification)}`
+        i18n.text('{v0} [{v1}]\n"{v2} {v3}" {v4}\n{v5}\n→ 判定: {v6}', [
+          formatValue(row.ipMasked),
+          formatValue(row.time),
+          row.method || 'GET',
+          formatValue(row.path),
+          formatValue(row.status),
+          formatValue(row.userAgent),
+          formatValue(row.classification),
+        ])
       ) : (
-        '待导入访问日志\n支持 combined 格式和 JSON 记录\n导入后显示最近一条脱敏日志'
+        i18n.text('待导入访问日志\n支持 combined 格式和 JSON 记录\n导入后显示最近一条脱敏日志')
       )}
     </pre>
   );
 }
 
 export function LiveStatus({ report, live }: { report?: LiekanReport; live?: boolean }) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   const connected = ['available', 'empty', 'estimated'].includes(report?.states.logs);
   return (
@@ -994,13 +1137,19 @@ export function LiveStatus({ report, live }: { report?: LiekanReport; live?: boo
       />
       <span
         className="text-[11px] text-faint"
-        title={
+        title={i18n.system(
           live
-            ? '最近 30 天窗口固定于本次读取；主动刷新时重新计算。'
-            : '所选历史范围保持固定；主动刷新时重新读取。'
-        }
+            ? i18n.text('最近 30 天窗口固定于本次读取；主动刷新时重新计算。')
+            : i18n.text('所选历史范围保持固定；主动刷新时重新读取。'),
+        )}
       >
-        {loading ? '正在读取' : connected ? (live ? '本次快照' : '历史快照') : '待接入'}
+        {loading
+          ? i18n.text('正在读取')
+          : connected
+            ? live
+              ? i18n.text('本次快照')
+              : i18n.text('历史快照')
+            : i18n.text('待接入')}
       </span>
     </>
   );

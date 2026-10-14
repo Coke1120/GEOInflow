@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { hasClientFreshness } from '@/lib/liekan/upstream/client-freshness';
 import { useListState } from './listState';
 import { observeActiveTab } from '../tabVisibility';
@@ -54,6 +56,7 @@ export function Icon({ name = 'down' }: { name?: string }) {
   );
 }
 export function Button({ children, primary = false, danger = false, onClick, ...props }: any) {
+  const i18n = useLiekanI18n();
   const [error, setError] = useState('');
   const loading = useDataLoading();
   return (
@@ -76,7 +79,7 @@ export function Button({ children, primary = false, danger = false, onClick, ...
       </button>
       {error && (
         <span role="alert" className="field-error">
-          {error}
+          {i18n.system(error)}
         </span>
       )}
     </>
@@ -111,6 +114,7 @@ export function Panel({
   actions?: ReactNode;
   children: ReactNode;
 }) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   const [search, setSearch] = useListState('search', '');
   const [searchable, setSearchable] = useState(false);
@@ -128,8 +132,8 @@ export function Panel({
                 <label className="search">
                   <input
                     type="search"
-                    aria-label="搜索本页记录"
-                    placeholder="搜索本页记录"
+                    aria-label={i18n.text('搜索本页记录')}
+                    placeholder={i18n.text('搜索本页记录')}
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                   />
@@ -152,9 +156,10 @@ export const Notice = ({ children, tone = '' }: { children: ReactNode; tone?: st
     {children}
   </div>
 );
-export const Badge = ({ children, tone = 'gray' }: { children: ReactNode; tone?: string }) => (
-  <span className={`badge ${tone}`}>{children}</span>
-);
+export const Badge = ({ children, tone = 'gray' }: { children: ReactNode; tone?: string }) => {
+  const i18n = useLiekanI18n();
+  return <span className={`badge ${tone}`}>{i18n.system(children)}</span>;
+};
 export const Metrics = ({
   items,
   className = '',
@@ -216,6 +221,7 @@ export function Field({
   error,
   ...props
 }: InputHTMLAttributes<HTMLInputElement> & { label: string; help?: ReactNode; error?: string }) {
+  const i18n = useLiekanI18n();
   return (
     <label className="field">
       <span>
@@ -224,20 +230,23 @@ export function Field({
       </span>
       <input {...props} />
       {help && <small className="field-help">{help}</small>}
-      {error && <small className="field-error">{error}</small>}
+      {error && <small className="field-error">{i18n.system(error)}</small>}
     </label>
   );
 }
 export function Select({
   label,
   options,
+  localizeLabels = false,
   help,
   ...props
 }: SelectHTMLAttributes<HTMLSelectElement> & {
   label: string;
   options: (string | [string, string] | { value: string; label: string; disabled?: boolean })[];
   help?: ReactNode;
+  localizeLabels?: boolean;
 }) {
+  const i18n = useLiekanI18n();
   return (
     <label className="field">
       <span>{label}</span>
@@ -252,7 +261,7 @@ export function Select({
                 value={v}
                 disabled={typeof o === 'object' && !Array.isArray(o) && o.disabled}
               >
-                {l}
+                {localizeLabels ? i18n.system(l) : l}
               </option>
             );
           })}
@@ -298,6 +307,7 @@ export function Form({
   danger = false,
   columns = false,
 }: any) {
+  const i18n = useLiekanI18n();
   const [localError, setLocalError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const form = useRef<HTMLFormElement>(null);
@@ -310,7 +320,7 @@ export function Form({
       cloneElement(cancel as any, { onClick: dialog.requestClose })
     ) : (
       <Button disabled={busy || submitting} onClick={dialog.requestClose}>
-        取消
+        {i18n.text('取消')}
       </Button>
     )
   ) : (
@@ -371,7 +381,7 @@ export function Form({
       >
         <Fragment key={fieldsVersion.current}>{children}</Fragment>
       </fieldset>
-      {(error || localError) && <Notice tone="red">{error || localError}</Notice>}
+      {(error || localError) && <Notice tone="red">{i18n.system(error || localError)}</Notice>}
       <DialogActions>
         {dialog && cancelAction}
         <button
@@ -380,7 +390,7 @@ export function Form({
           form={formId}
           disabled={busy || submitting || disabled}
         >
-          {busy || submitting ? `正在${submitLabel}…` : submitLabel}
+          {busy || submitting ? i18n.text('正在{v0}…', [submitLabel]) : i18n.system(submitLabel)}
         </button>
         {!dialog && cancelAction}
       </DialogActions>
@@ -420,6 +430,15 @@ export const Code = ({ children }: { children: ReactNode }) => (
     <code>{children}</code>
   </pre>
 );
+/** Keep display text separate from the canonical value used for table ordering. */
+export const TableCell = ({
+  children,
+}: {
+  children: ReactNode;
+  sortValue: ReactNode;
+  searchValue?: ReactNode;
+}) => <>{children}</>;
+
 export function Table({
   className,
   columns,
@@ -455,6 +474,7 @@ export function Table({
   /** Whole-row shortcut; clicks on links, buttons and form fields stay local. */
   onRowClick?: (row: ReactNode[], index: number) => void;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const loading = useDataLoading();
   const panel = useContext(SearchContext);
@@ -473,20 +493,28 @@ export function Table({
     panel.register(true);
     return () => panel.register(false);
   }, [panel?.register, search]);
-  const flatten = (node: any, searchable = false): string =>
+  const flatten = (node: any, searchable = false, sortable = false): string =>
     node == null
       ? ''
       : typeof node === 'string' || typeof node === 'number'
         ? String(node)
         : Array.isArray(node)
-          ? node.map(child => flatten(child, searchable)).join('')
+          ? node.map(child => flatten(child, searchable, sortable)).join('')
           : isValidElement(node)
-            ? [
-                flatten((node.props as any).children, searchable),
-                searchable ? (node.props as any)['data-search-value'] : '',
-              ]
-                .filter(Boolean)
-                .join('\n')
+            ? sortable && node.type === TableCell
+              ? flatten((node.props as any).sortValue, false, true)
+              : [
+                  flatten((node.props as any).children, searchable, sortable),
+                  searchable ? (node.props as any)['data-search-value'] : '',
+                  searchable && node.type === TableCell
+                    ? flatten((node.props as any).sortValue, false, true)
+                    : '',
+                  searchable && node.type === TableCell
+                    ? flatten((node.props as any).searchValue)
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join('\n')
             : '';
   useEffect(() => {
     if (!c?.query) return;
@@ -506,8 +534,8 @@ export function Table({
       : rows;
   if (sort)
     filtered = [...filtered].sort((a, b) => {
-      const x = flatten(a[sort.column]),
-        y = flatten(b[sort.column]);
+      const x = flatten(a[sort.column], false, true),
+        y = flatten(b[sort.column], false, true);
       const d = numeric.includes(sort.column)
         ? Number(x.replace(/[^\d.-]/g, '')) - Number(y.replace(/[^\d.-]/g, ''))
         : x.localeCompare(y, 'zh-CN', { numeric: true });
@@ -518,17 +546,19 @@ export function Table({
       {search && !panel && (
         <label className="search">
           <input
-            aria-label="搜索本页记录"
-            placeholder="搜索本页记录"
+            aria-label={i18n.text('搜索本页记录')}
+            placeholder={i18n.text('搜索本页记录')}
             value={text}
             onChange={e => setText(e.target.value)}
           />
         </label>
       )}
       <p className={`table-scroll-hint${mobile ? ' resource-hint' : ''}`}>
-        <span className="table-pan-hint">左右滑动表格可查看全部列。</span>
+        <span className="table-pan-hint">{i18n.text('左右滑动表格可查看全部列。')}</span>
         {mobile && (
-          <span className="table-expand-hint">点按展开详情可查看全部字段，表头可排序。</span>
+          <span className="table-expand-hint">
+            {i18n.text('点按展开详情可查看全部字段，表头可排序。')}
+          </span>
         )}
       </p>
       <div
@@ -559,7 +589,7 @@ export function Table({
                   }
                 >
                   {staticColumns.includes(i) ? (
-                    <span className="table-sort">{x}</span>
+                    <span className="table-sort">{i18n.label(x, 'pageviews')}</span>
                   ) : (
                     <button
                       className="table-sort"
@@ -570,7 +600,7 @@ export function Table({
                         c?.updateQuery?.({ sort: x, direction: desc ? 'desc' : 'asc' });
                       }}
                     >
-                      {x}{' '}
+                      {i18n.label(x, 'pageviews')}{' '}
                       <span aria-hidden="true">
                         {sort?.column === i ? (sort.desc ? '↓' : '↑') : '↕'}
                       </span>
@@ -587,7 +617,7 @@ export function Table({
                   {columns.map((_, j) => (
                     <td
                       key={j}
-                      data-label={columns[j]}
+                      data-label={i18n.label(columns[j], 'pageviews')}
                       data-mobile-primary={(mobile && j === identity) || undefined}
                       data-mobile-detail={
                         (mobile &&
@@ -641,7 +671,7 @@ export function Table({
                       <td
                         key={j}
                         id={`${tableId}-${sourceIndex}-${j}`}
-                        data-label={columns[j]}
+                        data-label={i18n.label(columns[j], 'pageviews')}
                         data-mobile-primary={(mobile && j === identity) || undefined}
                         data-mobile-detail={(mobile && detailColumns.includes(j)) || undefined}
                         className={numeric.includes(j) ? 'numeric' : ''}
@@ -652,7 +682,10 @@ export function Table({
                             type="button"
                             className="resource-expand"
                             aria-expanded={open}
-                            aria-label={`${open ? '收起' : '展开'}${flatten(row[identity])}的详情`}
+                            aria-label={i18n.text('{v0}{v1}的详情', [
+                              open ? i18n.text('收起') : i18n.text('展开'),
+                              flatten(row[identity]),
+                            ])}
                             aria-controls={detailColumns
                               .map(j => `${tableId}-${sourceIndex}-${j}`)
                               .join(' ')}
@@ -665,7 +698,7 @@ export function Table({
                               })
                             }
                           >
-                            {open ? '收起详情' : '展开详情'}
+                            {open ? i18n.text('收起详情') : i18n.text('展开详情')}
                           </button>
                         )}
                       </td>
@@ -676,7 +709,7 @@ export function Table({
             ) : (
               <tr>
                 <td colSpan={columns.length}>
-                  <div className="state-box">{empty}</div>
+                  <div className="state-box">{i18n.system(empty)}</div>
                 </td>
               </tr>
             )}
@@ -685,7 +718,14 @@ export function Table({
       </div>
       <div className="table-footer">
         <span>
-          {loading ? <Skeleton width="8em" /> : <>{filtered.length} 条记录 · 表头可排序</>}
+          {loading ? (
+            <Skeleton width="8em" />
+          ) : (
+            <>
+              {filtered.length}
+              {i18n.unit(' 条记录 · 表头可排序', filtered.length, true, false)}
+            </>
+          )}
         </span>
         {!loading && pages > 1 ? (
           <div className="actions">
@@ -693,14 +733,14 @@ export function Table({
               {page} / {pages}
             </span>
             <Button disabled={page <= 1} onClick={() => onPage?.(page - 1)}>
-              上一页
+              {i18n.text('上一页')}
             </Button>
             <Button disabled={page >= pages} onClick={() => onPage?.(page + 1)}>
-              下一页
+              {i18n.text('下一页')}
             </Button>
           </div>
         ) : (
-          <span>本页展示当前记录</span>
+          <span>{i18n.text('本页展示当前记录')}</span>
         )}
       </div>
     </>
@@ -709,13 +749,14 @@ export function Table({
 Table.loadingLayout = true;
 
 export function MatrixTable({ headings, children }: { headings: string[]; children: ReactNode }) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   return (
     <table className="heat-matrix" aria-busy={loading || undefined}>
       <thead>
         <tr>
           {headings.map(label => (
-            <th key={label}>{label}</th>
+            <th key={label}>{i18n.system(label)}</th>
           ))}
         </tr>
       </thead>
@@ -775,6 +816,7 @@ export function QueryState({
   children: ReactNode;
   readOnly?: boolean;
 }) {
+  const i18n = useLiekanI18n();
   const inherited = useDataLoading();
   const restricted = [401, 403, 404].includes(query.error?.status);
   if (readOnly && !restricted && (!query.error || query.data != null)) {
@@ -784,13 +826,13 @@ export function QueryState({
         data-liekan-read-region
         aria-busy={inherited || query.isPending || query.isFetching || undefined}
       >
-        <DataLoading loading={inherited || !!query.isPending} label="正在读取数据">
+        <DataLoading loading={inherited || !!query.isPending} label={i18n.text('正在读取数据')}>
           {children}
         </DataLoading>
         {query.error && (
           <Notice tone="red">
-            更新失败，当前显示上次读取的数据。
-            <Button onClick={() => query.refetch?.()}>重试读取</Button>
+            {i18n.fragment('更新失败，当前显示上次读取的数据。', false, true)}
+            <Button onClick={() => query.refetch?.()}>{i18n.text('重试读取')}</Button>
           </Notice>
         )}
       </div>
@@ -798,7 +840,7 @@ export function QueryState({
   }
   if (inherited || (query.isPending && query.data == null))
     return (
-      <DataLoading loading label="正在读取数据">
+      <DataLoading loading label={i18n.text('正在读取数据')}>
         {pendingLayout(children) || <LoadingLines />}
       </DataLoading>
     );
@@ -809,35 +851,35 @@ export function QueryState({
       <div className="state-box" role="alert">
         <h3>
           {query.error.status === 401
-            ? '需要重新登录'
+            ? i18n.text('需要重新登录')
             : query.error.status === 403
-              ? '没有访问权限'
+              ? i18n.text('没有访问权限')
               : query.error.status === 404
-                ? '资源不存在或已删除'
-                : '读取失败'}
+                ? i18n.text('资源不存在或已删除')
+                : i18n.text('读取失败')}
         </h3>
-        <p>{query.error.message}</p>
+        <p>{i18n.system(query.error.message)}</p>
         {query.error.status === 401 ? (
           <a className="btn primary" href={`${process.env.basePath || ''}/login`}>
-            重新登录
+            {i18n.text('重新登录')}
           </a>
         ) : (
-          <Button onClick={() => query.refetch?.()}>重试读取</Button>
+          <Button onClick={() => query.refetch?.()}>{i18n.text('重试读取')}</Button>
         )}
       </div>
     );
   return (
     <>
       {query.isFetching && query.data != null && hasClientFreshness(query.data) && (
-        <Notice>正在更新统计数据</Notice>
+        <Notice>{i18n.text('正在更新统计数据')}</Notice>
       )}
       {query.isStaleAggregate && query.data != null && !query.isFetching && !cachedError && (
-        <Notice>统计待更新</Notice>
+        <Notice>{i18n.text('统计待更新')}</Notice>
       )}
       {cachedError && (
         <Notice tone="red">
-          更新失败，当前显示上次读取的数据。
-          <Button onClick={() => query.refetch?.()}>重试读取</Button>
+          {i18n.fragment('更新失败，当前显示上次读取的数据。', false, true)}
+          <Button onClick={() => query.refetch?.()}>{i18n.text('重试读取')}</Button>
         </Notice>
       )}
       {children}

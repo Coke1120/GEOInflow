@@ -1,4 +1,9 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import { useLiekanPageTitle } from '@/lib/liekan/i18n/client';
+import { LanguageSelector } from '../LanguageSelector';
+import localeStyles from '@/styles/liekan/LanguageSelector.module.css';
+
 import {
   useManualQuery as useQuery,
   useManualRefresh,
@@ -44,7 +49,8 @@ import { activeQuickDateRange, QuickRangeButtons } from '../date-quick-range';
 import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
 import { AiPages, aiPages } from './AiPages';
-import { HelpCenter } from './HelpCenter';
+import dynamic from 'next/dynamic';
+const HelpCenter = dynamic(() => import('./HelpCenter').then(module => module.HelpCenter));
 import { FeatureProvider, type WebsiteDeletedNotice } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
@@ -97,6 +103,7 @@ export function FeatureApp({
   route: FeatureRoute;
   forceSetup?: boolean;
 }) {
+  const i18n = useLiekanI18n();
   const [entity, setEntity] = useState<FeatureEntity>(null);
   const ownedEntity = entity?.id === requestedRoute.id ? entity : undefined;
   const scopedRoute = normalizeFeatureScope({
@@ -257,6 +264,11 @@ export function FeatureApp({
   const [segmentsOpen, setSegmentsOpen] = useState(false);
   const [websiteContextTarget, setWebsiteContextTarget] = useState<HTMLDivElement>(null);
   const page = featurePages.find(p => p.id === current.page);
+  useLiekanPageTitle(
+    current.id && /-editor$/.test(current.page)
+      ? (page?.title || '').replace(/^创建/, '编辑')
+      : page?.title || '网站管理',
+  );
   const href = useCallback(
     (page: string, params: Record<string, any> = {}) =>
       featureNavigationHref(route, nav.query, page, params),
@@ -350,7 +362,10 @@ export function FeatureApp({
   if (current.page === 'share-preview')
     return (
       <FeatureProvider value={value}>
-        <div data-liekan-features lang="zh-CN" style={{ minHeight: '100dvh' }}>
+        <div data-liekan-features lang={i18n.locale} style={{ minHeight: '100dvh' }}>
+          <div className={localeStyles.share} data-public-language>
+            <LanguageSelector />
+          </div>
           <WorkspacePages page="share-preview" />
         </div>
       </FeatureProvider>
@@ -374,8 +389,11 @@ export function FeatureApp({
     !!siteId;
   const rangeContext = datePage && (
     <div className="range-context">
-      统计期间：{formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
-      {formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')} · 统计时区：{timezone}
+      {i18n.fragment('统计期间：', false, true)}
+      {formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')}
+      {i18n.fragment(' 至', true, true)} {formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')}
+      {i18n.fragment(' · 统计时区：', true, true)}
+      {timezone}
     </div>
   );
   const analysisTabs = (
@@ -394,7 +412,7 @@ export function FeatureApp({
       <QueryState query={teamState}>{null}</QueryState>
     ) : !setup && websiteRequired && !siteId ? (
       <Notice>
-        请选择需要查看的网站。
+        {i18n.fragment('请选择需要查看的网站。', false, true)}
         <QueryState query={sitesQuery}>
           <div className="form-actions">
             {sites.map(item => (
@@ -408,7 +426,7 @@ export function FeatureApp({
             ))}
             {!sites.length && (
               <Link className="btn" href={featureHref('websites')}>
-                返回网站列表
+                {i18n.text('返回网站列表')}
               </Link>
             )}
           </div>
@@ -416,9 +434,9 @@ export function FeatureApp({
       </Notice>
     ) : !setup && websiteRequired && siteQuery.isSuccess && siteQuery.data === null ? (
       <Notice tone="red">
-        <p>此网站不存在或已删除。</p>
+        <p>{i18n.text('此网站不存在或已删除。')}</p>
         <Link className="btn" href={href('websites')}>
-          返回网站列表
+          {i18n.text('返回网站列表')}
         </Link>
       </Notice>
     ) : !setup && websiteRequired && siteQuery.error && !siteQuery.data ? (
@@ -429,14 +447,14 @@ export function FeatureApp({
       (sitesQuery.isPending || (sitesQuery.error && !sitesQuery.data)) ? (
       <QueryState query={sitesQuery}>{null}</QueryState>
     ) : invalidRange ? (
-      <Notice>日期范围上限 3 年，请调整日期后查看。</Notice>
+      <Notice>{i18n.text('日期范围上限 3 年，请调整日期后查看。')}</Notice>
     ) : (
       <FeaturePage key={pageKey} page={current.page} />
     );
   const dateControl = datePage && (
     <Button onClick={() => setDateOpen(true)}>
-      {formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')} 至{' '}
-      {formatInTimeZone(range.endAt, timezone, 'MM-dd')}
+      {formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')}
+      {i18n.fragment(' 至', true, true)} {formatInTimeZone(range.endAt, timezone, 'MM-dd')}
       <Icon name="down" />
     </Button>
   );
@@ -464,9 +482,9 @@ export function FeatureApp({
   if (setup)
     return (
       <FeatureProvider value={value}>
-        <div data-liekan-features lang="zh-CN" className="identity-flow">
+        <div data-liekan-features lang={i18n.locale} className="identity-flow">
           <main className="content" id="main-content" ref={mainContent} tabIndex={-1}>
-            <h1>{currentTitle}</h1>
+            <h1 data-liekan-page-title>{i18n.system(currentTitle)}</h1>
             <AnalysisTabs
               route={current}
               href={href}
@@ -477,7 +495,7 @@ export function FeatureApp({
           <ProductFooter />
           {toast && (
             <div className="toast" role="status">
-              {toast}
+              {i18n.system(toast)}
             </div>
           )}
         </div>
@@ -488,7 +506,7 @@ export function FeatureApp({
       <div
         data-liekan-features
         data-website-layout={websiteLayout || undefined}
-        lang="zh-CN"
+        lang={i18n.locale}
         style={
           {
             minHeight: '100dvh',
@@ -498,7 +516,7 @@ export function FeatureApp({
         }
       >
         <a className="skip" href="#main-content">
-          跳到主要内容
+          {i18n.text('跳到主要内容')}
         </a>
         <Navigation
           user={user}
@@ -517,7 +535,7 @@ export function FeatureApp({
           <header className="header">
             <div className="header-inner">
               <div>
-                <h1>{currentTitle}</h1>
+                <h1 data-liekan-page-title>{i18n.system(currentTitle)}</h1>
               </div>
               <div className="header-actions">
                 {current.page !== 'help' && (
@@ -529,9 +547,9 @@ export function FeatureApp({
                 {!websiteLayout && dateControl}
                 {resourceListPages.has(current.page) && meta.scope === 'global' && (
                   <label className="context-select">
-                    <span>所属空间</span>
+                    <span>{i18n.text('所属空间')}</span>
                     <select
-                      aria-label="所属空间"
+                      aria-label={i18n.text('所属空间')}
                       value={
                         route.teamId ||
                         (current.page === 'websites' && nav.query.scope === 'all' ? 'all' : '')
@@ -561,15 +579,17 @@ export function FeatureApp({
                         )
                       }
                     >
-                      <option value="">个人空间</option>
+                      <option value="">{i18n.text('个人空间')}</option>
                       {route.teamId && !teams.some(team => team.id === route.teamId) && (
                         <option value={route.teamId} disabled>
                           {teamsQuery.error || scopeTeamQuery.error
-                            ? '所选团队（无法访问）'
-                            : '正在确认团队空间'}
+                            ? i18n.text('所选团队（无法访问）')
+                            : i18n.text('正在确认团队空间')}
                         </option>
                       )}
-                      {current.page === 'websites' && <option value="all">全部可访问网站</option>}
+                      {current.page === 'websites' && (
+                        <option value="all">{i18n.text('全部可访问网站')}</option>
+                      )}
                       {teams.map(team => (
                         <option key={team.id} value={team.id}>
                           {team.name}
@@ -590,9 +610,9 @@ export function FeatureApp({
               <div className={`analysis-context ${shellStyles.analysisTools}`}>
                 {rangeContext}
                 <div className="analysis-tools">
-                  <Link href={href('filters')}>高级筛选</Link>
-                  <Link href={href('annotations')}>图表注释</Link>
-                  <Link href={href('exports')}>导出数据</Link>
+                  <Link href={href('filters')}>{i18n.text('高级筛选')}</Link>
+                  <Link href={href('annotations')}>{i18n.text('图表注释')}</Link>
+                  <Link href={href('exports')}>{i18n.text('导出数据')}</Link>
                 </div>
               </div>
             </>
@@ -600,7 +620,7 @@ export function FeatureApp({
           <main className="content" id="main-content" ref={mainContent} tabIndex={-1}>
             {datePage && invalidDate && (
               <Notice tone="amber">
-                日期参数无效，当前使用默认日期范围。
+                {i18n.fragment('日期参数无效，当前使用默认日期范围。', false, true)}
                 <Button
                   onClick={() =>
                     updateQuery({
@@ -612,13 +632,13 @@ export function FeatureApp({
                     })
                   }
                 >
-                  重置日期
+                  {i18n.text('重置日期')}
                 </Button>
               </Notice>
             )}
             {!showAnalysisTools && rangeContext}
             {websiteRequired && nav.query.clearedFilters === '1' && (
-              <Notice>已清除当前页面不支持的筛选，统计采用页面显示的条件。</Notice>
+              <Notice>{i18n.text('已清除当前页面不支持的筛选，统计采用页面显示的条件。')}</Notice>
             )}
             {!showAnalysisTools && analysisTabs}
             {content}
@@ -627,12 +647,12 @@ export function FeatureApp({
         </div>
         {toast && (
           <div className="toast" role="status">
-            {toast}
+            {i18n.system(toast)}
           </div>
         )}
         {websiteDeleted?.userId === user.id && current.page === 'websites' && (
           <LiekanDialog
-            title="网站删除成功"
+            title={i18n.text('网站删除成功')}
             size="wide"
             className="website-delete-success"
             protectUnsaved={false}
@@ -648,16 +668,16 @@ export function FeatureApp({
                   <p className="website-delete-result-domain">{websiteDeleted.notice.domain}</p>
                 )}
                 <p className="website-delete-result-description">
-                  该网站及其关联数据和设置已删除，无法恢复。
+                  {i18n.text('该网站及其关联数据和设置已删除，无法恢复。')}
                 </p>
                 <p className="website-delete-result-hint">
-                  其他网站的数据和设置保持不变。你可以继续管理网站，或添加新网站。
+                  {i18n.text('其他网站的数据和设置保持不变。你可以继续管理网站，或添加新网站。')}
                 </p>
               </div>
             </div>
             <DialogActions>
               <button type="button" className="btn primary" autoFocus onClick={closeWebsiteDeleted}>
-                知道了
+                {i18n.text('知道了')}
               </button>
             </DialogActions>
           </LiekanDialog>
@@ -665,14 +685,14 @@ export function FeatureApp({
         {segmentsOpen && <SavedSegments onClose={() => setSegmentsOpen(false)} />}
         {dateOpen && (
           <LiekanDialog
-            title="选择日期范围"
-            subtitle={timezone}
+            title={i18n.text('选择日期范围')}
+            subtitle={i18n.system(timezone)}
             protectUnsaved={false}
             onClose={() => setDateOpen(false)}
           >
             <Form
               trackUnsaved={false}
-              submitLabel="应用日期范围"
+              submitLabel={i18n.text('应用日期范围')}
               onSubmit={async d => {
                 const startAt = +fromZonedTime(`${d.start}T00:00:00.000`, timezone);
                 const endAt = +fromZonedTime(`${d.end}T23:59:59.999`, timezone);
@@ -693,14 +713,14 @@ export function FeatureApp({
             >
               <div className="form-grid">
                 <Field
-                  label="开始日期"
+                  label={i18n.text('开始日期')}
                   name="start"
                   type="date"
                   defaultValue={formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')}
                   required
                 />
                 <Field
-                  label="结束日期"
+                  label={i18n.text('结束日期')}
                   name="end"
                   type="date"
                   defaultValue={formatInTimeZone(range.endAt, timezone, 'yyyy-MM-dd')}
@@ -716,17 +736,18 @@ export function FeatureApp({
 }
 
 function FeaturePage({ page }: { page: string }) {
+  const i18n = useLiekanI18n();
   if (['access-denied', 'session-expired', 'not-found'].includes(page))
     return (
       <Notice>
         {page === 'access-denied'
-          ? '当前账户没有访问此资源的权限。'
+          ? i18n.text('当前账户没有访问此资源的权限。')
           : page === 'session-expired'
-            ? '请重新登录后继续。'
-            : '页面不存在或已被移除。'}
+            ? i18n.text('请重新登录后继续。')
+            : i18n.text('页面不存在或已被移除。')}
         <div className="form-actions">
           <Link className="btn" href={page === 'session-expired' ? '/login' : '/websites'}>
-            {page === 'session-expired' ? '重新登录' : '返回工作台'}
+            {page === 'session-expired' ? i18n.text('重新登录') : i18n.text('返回工作台')}
           </Link>
         </div>
       </Notice>

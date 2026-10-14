@@ -1,4 +1,7 @@
 'use client';
+import { TableCell } from './ui';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useTaskPolling } from '@/lib/liekan/contracts/manual-refresh';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import type { CrawlerAnalysisResponse } from '@/lib/liekan/contracts/crawler-analysis';
@@ -77,6 +80,7 @@ export function CrawlerDialog({
   range?: { startAt: number; endAt: number; timezone: string };
   controlPanel?: (permissions: CrawlerAnalysisResponse['permissions']) => ReactNode;
 }) {
+  const i18n = useLiekanI18n();
   const [data, setData] = useState<CrawlerAnalysisResponse | null>(null),
     [error, setError] = useState(''),
     [loading, setLoading] = useState(true),
@@ -241,7 +245,9 @@ export function CrawlerDialog({
       .map(value => crawlerPathSchema.parse({ value, match }));
   return (
     <LiekanDialog
-      title={botName ? `${botName} · 归因与风险` : 'AI 蜘蛛归因与控制'}
+      title={i18n.system(
+        botName ? i18n.text('{v0} · 归因与风险', [botName]) : i18n.text('AI 蜘蛛归因与控制'),
+      )}
       subtitle={websiteName}
       size="wide"
       onClose={onClose}
@@ -250,44 +256,48 @@ export function CrawlerDialog({
         active={tab}
         onChange={setTab}
         items={[
-          ['detail', '蜘蛛详情'],
-          ['risk', '风险证据'],
-          ['checks', '公开页面检查'],
-          ['control', '访问策略与导出'],
+          ['detail', i18n.text('蜘蛛详情')],
+          ['risk', i18n.text('风险证据')],
+          ['checks', i18n.text('公开页面检查')],
+          ['control', i18n.text('访问策略与导出')],
         ]}
       />
       <div className="row between">
-        <span className="muted">归因与风险按本次读取展示</span>
+        <span className="muted">{i18n.text('归因与风险按本次读取展示')}</span>
         <Button disabled={loading || busy} onClick={reload}>
-          重新读取归因与风险
+          {i18n.text('重新读取归因与风险')}
         </Button>
       </div>
-      {loading && <Notice>正在读取蜘蛛归因数据</Notice>}
+      {loading && <Notice>{i18n.text('正在读取蜘蛛归因数据')}</Notice>}
       {error && (
         <Notice tone="red">
-          {error}
-          <Button onClick={reload}>重试读取</Button>
+          {i18n.system(error)}
+          <Button onClick={reload}>{i18n.text('重试读取')}</Button>
         </Notice>
       )}
-      {status && <Notice>{status}</Notice>}
+      {status && <Notice>{i18n.system(status)}</Notice>}
       {data && (
         <>
           {data.quality.state !== 'complete' && (
             <Notice tone="amber">
-              采集覆盖
+              {i18n.fragment('采集覆盖', false, true)}
               {{
-                partial: '存在已知缺口',
-                unknown: '缺少连续性证据',
-                missing: '当前范围缺少输入',
-                unsupported: '当前来源暂不支持',
-              }[data.quality.state] || '尚未确认完整'}
-              。当前数字来自已接收日志，趋势结论与恢复判定等待完整证据。
+                partial: i18n.text('存在已知缺口'),
+                unknown: i18n.text('缺少连续性证据'),
+                missing: i18n.text('当前范围缺少输入'),
+                unsupported: i18n.text('当前来源暂不支持'),
+              }[data.quality.state] || i18n.text('尚未确认完整')}
+              {i18n.fragment(
+                '。当前数字来自已接收日志，趋势结论与恢复判定等待完整证据。',
+                true,
+                false,
+              )}
             </Notice>
           )}
           {tab === 'detail' && (
             <>
               <Select
-                label="蜘蛛"
+                label={i18n.text('蜘蛛')}
                 value={botId}
                 onChange={event => setBotId(event.target.value)}
                 options={data.directory.map(bot => [bot.id, bot.name])}
@@ -295,17 +305,20 @@ export function CrawlerDialog({
               {bot && (
                 <Definition
                   items={[
-                    ['平台与用途', `${bot.platformId} · ${labels[bot.type]}`],
                     [
-                      '匹配口径',
-                      bot.kind === 'robots_purpose'
-                        ? 'robots 用途控制项，无独立 HTTP UA'
-                        : '按声明 UA 分类，官方范围核验单独统计',
+                      i18n.text('平台与用途'),
+                      `${bot.platformId} · ${i18n.system(labels[bot.type])}`,
                     ],
                     [
-                      '官方说明',
+                      i18n.text('匹配口径'),
+                      bot.kind === 'robots_purpose'
+                        ? i18n.text('robots 用途控制项，无独立 HTTP UA')
+                        : i18n.text('按声明 UA 分类，官方范围核验单独统计'),
+                    ],
+                    [
+                      i18n.text('官方说明'),
                       <a href={bot.documentationUrl} target="_blank" rel="noreferrer">
-                        查看供应商说明
+                        {i18n.text('查看供应商说明')}
                       </a>,
                     ],
                   ]}
@@ -313,25 +326,30 @@ export function CrawlerDialog({
               )}
               {bot?.kind === 'robots_purpose' ? (
                 <Notice>
-                  Google-Extended 用于声明内容用途。这里不生成独立抓取量、HTTP
-                  屏蔽条件或搜索排名结论。
+                  {i18n.text(
+                    'Google-Extended 用于声明内容用途。这里不生成独立抓取量、HTTP 屏蔽条件或搜索排名结论。',
+                  )}
                 </Notice>
               ) : (
                 <>
                   <Definition
                     items={[
                       [
-                        '请求量 / 前期',
+                        i18n.text('请求量 / 前期'),
                         `${num(sum('requests'))} / ${num(data.previous.bots.filter(row => row.botId === botId).reduce((n, row) => n + row.requests, 0))}`,
                       ],
                       [
-                        '有效 GET / 目录页面',
+                        i18n.text('有效 GET / 目录页面'),
                         `${num(sum('successfulGets'))} / ${num(sum('successfulCatalogPages'))}`,
                       ],
-                      ['响应发送字节', num(sum('bytes'))],
+                      [i18n.text('响应发送字节'), num(sum('bytes'))],
                       [
-                        '身份核验',
-                        `官方范围匹配 ${num(sum('verifiedRange'))} · 未匹配 ${num(sum('rangeMismatch'))} · 未核验 ${num(sum('unverified'))}`,
+                        i18n.text('身份核验'),
+                        i18n.text('官方范围匹配 {v0} · 未匹配 {v1} · 未核验 {v2}', [
+                          num(sum('verifiedRange')),
+                          num(sum('rangeMismatch')),
+                          num(sum('unverified')),
+                        ]),
                       ],
                     ]}
                   />
@@ -354,67 +372,88 @@ export function CrawlerDialog({
                   />
                   {!metrics.length && (
                     <Notice>
-                      当前范围没有此蜘蛛的已映射请求。历史记录与自定义识别规则单列为未映射数据。
+                      {i18n.text(
+                        '当前范围没有此蜘蛛的已映射请求。历史记录与自定义识别规则单列为未映射数据。',
+                      )}
                     </Notice>
                   )}
                 </>
               )}
-              <h3>所属平台关联</h3>
+              <h3>{i18n.text('所属平台关联')}</h3>
               <p className="muted">
-                同一平台的引荐与转化只汇总一次，各蜘蛛详情引用同一份平台数据。抓取与引荐并列观察，单次转化的因果归属需要额外证据。
+                {i18n.text(
+                  '同一平台的引荐与转化只汇总一次，各蜘蛛详情引用同一份平台数据。抓取与引荐并列观察，单次转化的因果归属需要额外证据。',
+                )}
               </p>
-              <p className="muted">前期采用相同长度时间窗。覆盖未知时仅供并列观察。</p>
+              <p className="muted">
+                {i18n.text('前期采用相同长度时间窗。覆盖未知时仅供并列观察。')}
+              </p>
               <Definition
                 items={[
                   [
-                    '平台引荐会话 / 前期',
+                    i18n.text('平台引荐会话 / 前期'),
                     `${num(platform?.visits)} / ${num(data.previous.platforms.find(row => row.platformId === bot?.platformId)?.visits)}`,
                   ],
                   [
-                    '转化会话 / 目标事件',
-                    `${platform?.state === 'available' && platform.conversions == null ? '未配置目标' : num(platform?.conversions)} / ${platform?.state === 'available' && platform.goalEvents == null ? '未配置目标' : num(platform?.goalEvents)}`,
+                    i18n.text('转化会话 / 目标事件'),
+                    `${platform?.state === 'available' && platform.conversions == null ? i18n.text('未配置目标') : num(platform?.conversions)} / ${platform?.state === 'available' && platform.goalEvents == null ? i18n.text('未配置目标') : num(platform?.goalEvents)}`,
                   ],
                 ]}
               />
               <Table
                 columns={['原编码路径', 'GET + 2xx', '403 / 429', '本平台终止拦截', '规则匹配']}
                 rows={pages.map(row => [
-                  <span
-                    title={
-                      row.mergedPaths?.length > 1 ? '多个编码路径映射到同一浏览器路径' : undefined
-                    }
+                  <TableCell
+                    sortValue={pageLink(row.path, websiteDomain, undefined, undefined, 'zh-CN')}
+                    searchValue={pageLink(row.path, websiteDomain, undefined, undefined, 'en-US')}
                   >
-                    {pageLink(row.path, websiteDomain)}
-                  </span>,
+                    <span
+                      title={i18n.system(
+                        row.mergedPaths?.length > 1
+                          ? i18n.text('多个编码路径映射到同一浏览器路径')
+                          : undefined,
+                      )}
+                    >
+                      {pageLink(row.path, websiteDomain, undefined, undefined, i18n.locale)}
+                    </span>
+                  </TableCell>,
                   num(row.successfulGets),
                   num(row.denied403429),
                   num(row.ownedTerminatingBlocks),
                   num(row.ownedMatches),
                 ])}
                 numeric={[1, 2, 3, 4]}
-                empty="当前范围没有页面请求"
+                empty={i18n.text('当前范围没有页面请求')}
               />
               {data.pagesTruncated && (
-                <Notice>页面按请求量显示前 1,000 项，蜘蛛总量仍使用全部已接收日志。</Notice>
+                <Notice>
+                  {i18n.text('页面按请求量显示前 1,000 项，蜘蛛总量仍使用全部已接收日志。')}
+                </Notice>
               )}
               <Table
                 columns={['平台落地页', '引荐会话', '转化会话 / 目标事件']}
                 rows={(platform?.landingPages || []).map(row => [
-                  pageLink(row.path, websiteDomain),
+                  <TableCell
+                    sortValue={pageLink(row.path, websiteDomain, undefined, undefined, 'zh-CN')}
+                    searchValue={pageLink(row.path, websiteDomain, undefined, undefined, 'en-US')}
+                  >
+                    {pageLink(row.path, websiteDomain, undefined, undefined, i18n.locale)}
+                  </TableCell>,
                   num(row.visits),
                   `${num(row.conversions)} / ${num(row.goalEvents)}`,
                 ])}
-                empty="尚无平台落地页证据"
+                empty={i18n.text('尚无平台落地页证据')}
               />
               {platform?.landingPagesTruncated && (
-                <Notice>平台落地页按引荐量显示前 1,000 项。</Notice>
+                <Notice>{i18n.text('平台落地页按引荐量显示前 1,000 项。')}</Notice>
               )}
               <p className="muted">
-                本平台终止拦截要求终止动作为 block 且规则 ID
-                属于本平台；匹配数组单独计数。版本归因显示未知，源站日志无法观测 CDN 已拦请求。
+                {i18n.text(
+                  '本平台终止拦截要求终止动作为 block 且规则 ID 属于本平台；匹配数组单独计数。版本归因显示未知，源站日志无法观测 CDN 已拦请求。',
+                )}
               </p>
               <details>
-                <summary>未映射的历史与自定义记录</summary>
+                <summary>{i18n.text('未映射的历史与自定义记录')}</summary>
                 <Table
                   columns={['日志分类', '请求量', '历史分类版本缺失']}
                   rows={data.bots
@@ -427,68 +466,150 @@ export function CrawlerDialog({
           {tab === 'risk' && (
             <>
               <p className="muted">
-                等级与证据置信度分别展示。搜索可见性与平台处罚需要独立搜索数据；本页依据访问日志定位技术风险。
+                {i18n.text(
+                  '等级与证据置信度分别展示。搜索可见性与平台处罚需要独立搜索数据；本页依据访问日志定位技术风险。',
+                )}
               </p>
               <p>
-                最近计算：{date(data.analysis?.computedAt, data.range.timezone)}
-                {data.analysis?.errorCode ? ' · 更新失败，保留上次结果' : ''}
+                {i18n.fragment('最近计算：', false, true)}
+                {date(data.analysis?.computedAt, data.range.timezone)}
+                {data.analysis?.errorCode ? i18n.text(' · 更新失败，保留上次结果') : ''}
               </p>
               <Table
                 columns={['蜘蛛 / 路径组', '风险', '等级 / 置信度', '证据与窗口', '状态 / 操作']}
                 rows={findings.map(row => [
                   `${data.directory.find(bot => bot.id === row.botId)?.name || row.botId} · ${row.pathGroup}`,
-                  riskLabels[row.type],
-                  <>
-                    <Badge
-                      tone={
-                        row.grade === 'high' ? 'red' : row.grade === 'medium' ? 'amber' : 'gray'
-                      }
-                    >
-                      {gradeLabels[row.grade]}
-                    </Badge>{' '}
-                    {confidenceLabels[row.confidence]}
-                  </>,
-                  <>
-                    <span>
-                      {Object.entries(row.facts.evidence || {})
-                        .map(([key, value]) => `${evidenceLabels[key] || key}: ${value ?? '未知'}`)
-                        .join(' · ')}
-                    </span>
-                    <small className="field-help">
-                      累计 {row.occurrenceWindows} 个发生窗口 · 截至{' '}
-                      {date(row.facts.windowEnd, data.range.timezone)}
-                    </small>
-                  </>,
-                  <>
-                    {row.state === 'ignored'
-                      ? '已忽略'
-                      : row.state === 'resolved'
-                        ? '已解除'
-                        : row.facts.status === 'pending'
-                          ? '待观察'
-                          : '待处理'}
-                    {data.permissions.canDraft && (
-                      <Button
-                        disabled={busy}
-                        onClick={() =>
-                          run(async () => {
-                            await featureRequest('PATCH', `${base}/crawler-findings/${row.key}`, {
-                              ignored: row.state !== 'ignored',
-                            });
-                            reload();
-                          })
+                  <TableCell
+                    sortValue={riskLabels[row.type]}
+                    searchValue={i18n.english.system(riskLabels[row.type])}
+                  >
+                    {i18n.system(riskLabels[row.type])}
+                  </TableCell>,
+                  <TableCell
+                    sortValue={[gradeLabels[row.grade], ' ', confidenceLabels[row.confidence]]}
+                    searchValue={[
+                      i18n.english.system(i18n.english.system(gradeLabels[row.grade])),
+                      ' ',
+                      i18n.english.system(confidenceLabels[row.confidence]),
+                    ]}
+                  >
+                    <>
+                      <Badge
+                        tone={
+                          row.grade === 'high' ? 'red' : row.grade === 'medium' ? 'amber' : 'gray'
                         }
                       >
-                        {row.state === 'ignored' ? '恢复提醒' : '忽略'}
-                      </Button>
-                    )}
-                  </>,
+                        {i18n.system(gradeLabels[row.grade])}
+                      </Badge>{' '}
+                      {i18n.system(confidenceLabels[row.confidence])}
+                    </>
+                  </TableCell>,
+                  <TableCell
+                    sortValue={[
+                      Object.entries(row.facts.evidence || {})
+                        .map(
+                          ([key, value]) =>
+                            `${evidenceLabels[key] || key}: ${value ?? i18n.source('未知')}`,
+                        )
+                        .join(' · '),
+                      [
+                        i18n.source('累计 '),
+                        row.occurrenceWindows,
+                        i18n.source(' 个发生窗口 · 截至'),
+                        ' ',
+                        date(row.facts.windowEnd, data.range.timezone),
+                      ],
+                    ]}
+                    searchValue={[
+                      Object.entries(row.facts.evidence || {})
+                        .map(
+                          ([key, value]) =>
+                            `${i18n.english.system(evidenceLabels[key]) || key}: ${value ?? i18n.english.text('未知')}`,
+                        )
+                        .join(' · '),
+                      [
+                        i18n.english.fragment('累计 ', false, true),
+                        row.occurrenceWindows,
+                        i18n.english.fragment(' 个发生窗口 · 截至', true, true),
+                        ' ',
+                        date(row.facts.windowEnd, data.range.timezone),
+                      ],
+                    ]}
+                  >
+                    <>
+                      <span>
+                        {Object.entries(row.facts.evidence || {})
+                          .map(
+                            ([key, value]) =>
+                              `${i18n.system(evidenceLabels[key]) || key}: ${value ?? i18n.text('未知')}`,
+                          )
+                          .join(' · ')}
+                      </span>
+                      <small className="field-help">
+                        {i18n.fragment('累计 ', false, true)}
+                        {row.occurrenceWindows}
+                        {i18n.fragment(' 个发生窗口 · 截至', true, true)}{' '}
+                        {date(row.facts.windowEnd, data.range.timezone)}
+                      </small>
+                    </>
+                  </TableCell>,
+                  <TableCell
+                    sortValue={[
+                      row.state === 'ignored'
+                        ? i18n.source('已忽略')
+                        : row.state === 'resolved'
+                          ? i18n.source('已解除')
+                          : row.facts.status === 'pending'
+                            ? i18n.source('待观察')
+                            : i18n.source('待处理'),
+                      data.permissions.canDraft &&
+                        (row.state === 'ignored' ? i18n.source('恢复提醒') : i18n.source('忽略')),
+                    ]}
+                    searchValue={[
+                      row.state === 'ignored'
+                        ? i18n.english.text('已忽略')
+                        : row.state === 'resolved'
+                          ? i18n.english.text('已解除')
+                          : row.facts.status === 'pending'
+                            ? i18n.english.text('待观察')
+                            : i18n.english.text('待处理'),
+                      data.permissions.canDraft &&
+                        (row.state === 'ignored'
+                          ? i18n.english.text('恢复提醒')
+                          : i18n.english.text('忽略')),
+                    ]}
+                  >
+                    <>
+                      {row.state === 'ignored'
+                        ? i18n.text('已忽略')
+                        : row.state === 'resolved'
+                          ? i18n.text('已解除')
+                          : row.facts.status === 'pending'
+                            ? i18n.text('待观察')
+                            : i18n.text('待处理')}
+                      {data.permissions.canDraft && (
+                        <Button
+                          disabled={busy}
+                          onClick={() =>
+                            run(async () => {
+                              await featureRequest('PATCH', `${base}/crawler-findings/${row.key}`, {
+                                ignored: row.state !== 'ignored',
+                              });
+                              reload();
+                            })
+                          }
+                        >
+                          {row.state === 'ignored' ? i18n.text('恢复提醒') : i18n.text('忽略')}
+                        </Button>
+                      )}
+                    </>
+                  </TableCell>,
                 ])}
-                empty="尚无风险发现。异步计算完成后会显示证据；缺少数据时保持待观察。"
+                empty={i18n.text('尚无风险发现。异步计算完成后会显示证据；缺少数据时保持待观察。')}
               />
               <form data-unsaved={criticalDirty} onSubmit={event => event.preventDefault()}>
                 <label className="field">
-                  <span>公开且期望搜索可访问的关键路径，每行一项</span>
+                  <span>{i18n.text('公开且期望搜索可访问的关键路径，每行一项')}</span>
                   <textarea
                     value={critical}
                     disabled={!data.permissions.canDraft || busy}
@@ -499,7 +620,11 @@ export function CrawlerDialog({
                     }}
                     rows={4}
                   />
-                  <small>关键页面可用低流量规则检查：24 小时内至少 3 次已核验搜索请求受阻。</small>
+                  <small>
+                    {i18n.text(
+                      '关键页面可用低流量规则检查：24 小时内至少 3 次已核验搜索请求受阻。',
+                    )}
+                  </small>
                 </label>
                 <Button
                   disabled={!data.permissions.canDraft || busy}
@@ -518,7 +643,7 @@ export function CrawlerDialog({
                     })
                   }
                 >
-                  保存关键路径
+                  {i18n.text('保存关键路径')}
                 </Button>
               </form>
             </>
@@ -526,16 +651,19 @@ export function CrawlerDialog({
           {tab === 'checks' && (
             <>
               <p>
-                先验证当前域名，再检查 robots.txt 和指定公开页面。检查使用独立自检
-                UA，页面正文不会保存。
+                {i18n.text(
+                  '先验证当前域名，再检查 robots.txt 和指定公开页面。检查使用独立自检 UA，页面正文不会保存。',
+                )}
               </p>
               <Definition
                 items={[
-                  ['TXT 记录名称', domain?.name || '正在读取'],
-                  ['TXT 值', domain?.value || '创建挑战后显示'],
+                  [i18n.text('TXT 记录名称'), domain?.name || i18n.text('正在读取')],
+                  [i18n.text('TXT 值'), domain?.value || i18n.text('创建挑战后显示')],
                   [
-                    '验证状态',
-                    domain?.verifiedAt ? date(domain.verifiedAt, data.range.timezone) : '待验证',
+                    i18n.text('验证状态'),
+                    domain?.verifiedAt
+                      ? date(domain.verifiedAt, data.range.timezone)
+                      : i18n.text('待验证'),
                   ],
                 ]}
               />
@@ -552,7 +680,7 @@ export function CrawlerDialog({
                     })
                   }
                 >
-                  创建 TXT 挑战
+                  {i18n.text('创建 TXT 挑战')}
                 </Button>
                 <Button
                   disabled={busy || !data.permissions.canDraft}
@@ -567,11 +695,11 @@ export function CrawlerDialog({
                     })
                   }
                 >
-                  验证 TXT
+                  {i18n.text('验证 TXT')}
                 </Button>
               </div>
               <label className="field">
-                <span>检查路径，每行一项，最多 20 个</span>
+                <span>{i18n.text('检查路径，每行一项，最多 20 个')}</span>
                 <textarea value={paths} onChange={event => setPaths(event.target.value)} rows={4} />
               </label>
               <Button
@@ -591,7 +719,7 @@ export function CrawlerDialog({
                   })
                 }
               >
-                检查公开页面
+                {i18n.text('检查公开页面')}
               </Button>
               <Button
                 onClick={async () => {
@@ -599,27 +727,67 @@ export function CrawlerDialog({
                   follow.resume();
                 }}
               >
-                {follow.expired ? '回查检查结果' : '重新读取检查状态'}
+                {follow.expired ? i18n.text('回查检查结果') : i18n.text('重新读取检查状态')}
               </Button>
               <Table
                 columns={['创建时间', '状态', '结果']}
                 rows={checks.map(check => [
                   date(check.createdAt, data.range.timezone),
-                  {
-                    queued: '排队中',
-                    running: '检查中',
-                    completed: '已完成',
-                    failed: '失败',
-                    cancelled: '已取消',
-                  }[check.state] || check.state,
-                  check.result ? (
-                    <details>
-                      <summary>查看 robots 与响应证据</summary>
-                      <pre className="code-block">{JSON.stringify(check.result, null, 2)}</pre>
-                    </details>
-                  ) : (
-                    check.errorCode || '等待 worker 处理'
-                  ),
+                  <TableCell
+                    sortValue={
+                      {
+                        queued: i18n.source('排队中'),
+                        running: i18n.source('检查中'),
+                        completed: i18n.source('已完成'),
+                        failed: i18n.source('失败'),
+                        cancelled: i18n.source('已取消'),
+                      }[check.state] || check.state
+                    }
+                    searchValue={
+                      {
+                        queued: i18n.english.text('排队中'),
+                        running: i18n.english.text('检查中'),
+                        completed: i18n.english.text('已完成'),
+                        failed: i18n.english.text('失败'),
+                        cancelled: i18n.english.text('已取消'),
+                      }[check.state] || check.state
+                    }
+                  >
+                    {{
+                      queued: i18n.text('排队中'),
+                      running: i18n.text('检查中'),
+                      completed: i18n.text('已完成'),
+                      failed: i18n.text('失败'),
+                      cancelled: i18n.text('已取消'),
+                    }[check.state] || check.state}
+                  </TableCell>,
+                  <TableCell
+                    sortValue={
+                      check.result
+                        ? [
+                            i18n.source('查看 robots 与响应证据'),
+                            JSON.stringify(check.result, null, 2),
+                          ]
+                        : check.errorCode || i18n.source('等待 worker 处理')
+                    }
+                    searchValue={
+                      check.result
+                        ? [
+                            i18n.english.text('查看 robots 与响应证据'),
+                            JSON.stringify(check.result, null, 2),
+                          ]
+                        : check.errorCode || i18n.english.text('等待 worker 处理')
+                    }
+                  >
+                    {check.result ? (
+                      <details>
+                        <summary>{i18n.text('查看 robots 与响应证据')}</summary>
+                        <pre className="code-block">{JSON.stringify(check.result, null, 2)}</pre>
+                      </details>
+                    ) : (
+                      check.errorCode || i18n.text('等待 worker 处理')
+                    )}
+                  </TableCell>,
                 ])}
               />
             </>
@@ -632,36 +800,38 @@ export function CrawlerDialog({
                 <CrawlerPoliciesPanel websiteId={websiteId} permissions={data.permissions} />
               )}
               <details>
-                <summary>导出 robots.txt 与 Nginx 配置</summary>
+                <summary>{i18n.text('导出 robots.txt 与 Nginx 配置')}</summary>
                 <Select
-                  label="蜘蛛"
+                  label={i18n.text('蜘蛛')}
                   value={botId}
                   onChange={event => setBotId(event.target.value)}
                   options={data.directory.map(bot => [bot.id, bot.name])}
                 />
                 <Select
-                  label="导出动作"
+                  label={i18n.text('导出动作')}
                   value={exportAction}
                   onChange={event => setExportAction(event.target.value)}
                   options={[
-                    ['block', '禁止 / 屏蔽'],
-                    ['allow', 'robots 允许'],
-                    ['rate', 'Nginx 限速'],
+                    ['block', i18n.text('禁止 / 屏蔽')],
+                    ['allow', i18n.text('robots 允许')],
+                    ['rate', i18n.text('Nginx 限速')],
                   ]}
+                  localizeLabels
                 />
                 <Select
-                  label="路径匹配"
+                  label={i18n.text('路径匹配')}
                   value={exportMatch}
                   onChange={event => setExportMatch(event.target.value as 'exact' | 'prefix')}
                   options={[
-                    ['exact', '精确路径'],
-                    ['prefix', '目录段前缀'],
+                    ['exact', i18n.text('精确路径')],
+                    ['prefix', i18n.text('目录段前缀')],
                   ]}
+                  localizeLabels
                 />
                 {exportAction === 'rate' && (
                   <div>
                     <label className="field">
-                      <span>每 IP 每秒请求数</span>
+                      <span>{i18n.text('每 IP 每秒请求数')}</span>
                       <input
                         type="number"
                         min={1}
@@ -671,7 +841,7 @@ export function CrawlerDialog({
                       />
                     </label>
                     <label className="field">
-                      <span>突发请求数</span>
+                      <span>{i18n.text('突发请求数')}</span>
                       <input
                         type="number"
                         min={1}
@@ -681,13 +851,14 @@ export function CrawlerDialog({
                       />
                     </label>
                     <Notice>
-                      Nginx 片段按 IP 限速，初始为 dry-run。部署前核对真实 IP 与现有 limit_req
-                      配置。
+                      {i18n.text(
+                        'Nginx 片段按 IP 限速，初始为 dry-run。部署前核对真实 IP 与现有 limit_req 配置。',
+                      )}
                     </Notice>
                   </div>
                 )}
                 <label className="field">
-                  <span>原编码路径，每行一项</span>
+                  <span>{i18n.text('原编码路径，每行一项')}</span>
                   <textarea
                     value={paths}
                     onChange={event => setPaths(event.target.value)}
@@ -716,7 +887,7 @@ export function CrawlerDialog({
                       })
                     }
                   >
-                    生成 robots.txt 草稿
+                    {i18n.text('生成 robots.txt 草稿')}
                   </Button>
                   <Button
                     disabled={busy || bot?.kind === 'robots_purpose' || exportAction === 'allow'}
@@ -750,7 +921,7 @@ export function CrawlerDialog({
                       })
                     }
                   >
-                    生成 Nginx 配置片段
+                    {i18n.text('生成 Nginx 配置片段')}
                   </Button>
                   <Button
                     disabled={!fragment}
@@ -762,7 +933,7 @@ export function CrawlerDialog({
                       )
                     }
                   >
-                    下载当前草稿
+                    {i18n.text('下载当前草稿')}
                   </Button>
                 </div>
                 {fragment && <pre className="code-block">{fragment}</pre>}

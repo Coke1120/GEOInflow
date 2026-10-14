@@ -12,6 +12,7 @@ import {
   trackerSnippet,
 } from '@/lib/liekan/contracts/core';
 import { CorePages, FeatureAuthPage } from './CorePages';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 import { remainingFreshness, hasClientFreshness } from '@/lib/liekan/upstream/client-freshness';
 
 const mocks = vi.hoisted(() => ({
@@ -84,7 +85,11 @@ vi.mock('./context', () => ({
   useAction: () => {
     const [busy, setBusy] = useState(false);
     return {
-      run: async (action: () => Promise<any>, message?: string, options?: { navigateTo?: string }) => {
+      run: async (
+        action: () => Promise<any>,
+        message?: string,
+        options?: { navigateTo?: string },
+      ) => {
         setBusy(true);
         try {
           const result = await action();
@@ -160,6 +165,56 @@ beforeEach(() => {
 });
 
 describe('core API mappings', () => {
+  it('localizes website section tabs while retaining the form draft and canonical navigation', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    const page = (locale: 'zh-CN' | 'en-US') => (
+      <LiekanLocaleContext.Provider value={locale}>
+        <CorePages page="website-settings" />
+      </LiekanLocaleContext.Provider>
+    );
+    const view = render(page('en-US'));
+    expect(screen.getByRole('tab', { name: 'Basic information' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const name = screen.getByRole('textbox', { name: /Website name/ });
+    fireEvent.change(name, { target: { value: 'Raw draft 网站' } });
+    view.rerender(page('zh-CN'));
+    expect(name).toHaveValue('Raw draft 网站');
+    expect(screen.getByRole('tab', { name: '基本信息' })).toHaveAttribute('aria-selected', 'true');
+    view.rerender(page('en-US'));
+    await userEvent.click(screen.getByRole('tab', { name: 'Installation' }));
+    expect(mocks.context.navigate).toHaveBeenLastCalledWith('website-settings', {
+      websiteId: 'site-1',
+      section: 'install',
+    });
+  });
+  it('keeps bilingual website status and space searches stable across language changes', () => {
+    mocks.context.sites = [
+      { id: 'example', name: 'Example', domain: 'example.com', userId: 'user-1' },
+      { id: 'raw', name: '网站管理', domain: 'raw.example', userId: 'user-1' },
+    ];
+    mocks.query['website-management-stats'] = [{ id: 'example', received: true }];
+    const page = (locale: 'zh-CN' | 'en-US') => (
+      <LiekanLocaleContext.Provider value={locale}>
+        <CorePages page="websites" />
+      </LiekanLocaleContext.Provider>
+    );
+    const view = render(page('en-US'));
+    const search = screen.getByRole('searchbox');
+    for (const term of ['Personal space', 'Browsing data received']) {
+      fireEvent.change(search, { target: { value: term } });
+      expect(screen.getByText('Example')).toBeInTheDocument();
+      view.rerender(page('zh-CN'));
+      expect(search).toHaveValue(term);
+      expect(screen.getByText('Example')).toBeInTheDocument();
+      view.rerender(page('en-US'));
+    }
+    fireEvent.change(search, { target: { value: 'Website Management' } });
+    expect(screen.queryByText('网站管理', { selector: 'a' })).toBeNull();
+    fireEvent.change(search, { target: { value: '网站管理' } });
+    expect(screen.getByText('网站管理', { selector: 'a' })).toBeInTheDocument();
+  });
   it('restores the saved login at the login entry and resumes its internal return path', async () => {
     mocks.resumeLogin.mockResolvedValue('/websites');
     render(<FeatureAuthPage page="login" />);

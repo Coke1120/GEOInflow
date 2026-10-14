@@ -21,7 +21,8 @@ import {
   countryName,
   regionName,
   mergeGeography,
-  geographyTable,
+  geographyTableDisplay,
+  geographyDisplay,
   geographyLabel,
   geographyCoverage,
   knownChinaProvince,
@@ -66,6 +67,9 @@ function capTablePages(report: LiekanReport, tablePages: Record<string, number>,
         : (requested ?? 1);
     const start = (page - 1) * tablePageSize;
     report.tables[table] = rows.slice(start, start + tablePageSize);
+    const locations = report.meta.geography?.tables?.[table];
+    if (locations)
+      report.meta.geography.tables[table] = locations.slice(start, start + tablePageSize);
     report.meta.tablePages = {
       ...report.meta.tablePages,
       [table]: { page, pageSize: tablePageSize, total: rows.length },
@@ -258,29 +262,30 @@ export async function buildReport(
   }
   const knownCovered = l.catalog.filter(c => paths.has(c.path)).length,
     blind = l.catalog.filter(c => !paths.has(c.path));
-  const src: Row[] = h.sources.map(s => ({
-    source: s.source,
-    channel: channel(s),
-    utmSource: s.utmSource ?? null,
-    utmMedium: s.utmMedium ?? null,
-    utmCampaign: s.utmCampaign ?? null,
-    referrer: s.referrer ?? null,
-    sessions: s.sessions,
-    share: pct(s.sessions, t.visits),
-    bounceRate: pct(s.bounces, s.sessions),
-    conversionRate: h.goals.length ? pct(s.conversions, s.sessions) : null,
-    trend: h.previousSources.find(prev => prev.source === s.source && channel(prev) === channel(s))
-      ?.sessions
-      ? Math.round(
-          ((s.sessions -
-            h.previousSources.find(prev => prev.source === s.source && channel(prev) === channel(s))
-              .sessions) /
-            h.previousSources.find(prev => prev.source === s.source && channel(prev) === channel(s))
-              .sessions) *
-            10000,
-        ) / 100
-      : null,
-  }));
+  const src: Row[] = h.sources.map(s => {
+    const previous = h.previousSources.find(
+      prev =>
+        prev.source === s.source &&
+        channel(prev) === channel(s) &&
+        prev.sourceLabel === s.sourceLabel,
+    );
+    return {
+      source: s.source,
+      ...(s.sourceLabel === 'direct' ? { sourceLabel: 'direct' } : {}),
+      channel: channel(s),
+      utmSource: s.utmSource ?? null,
+      utmMedium: s.utmMedium ?? null,
+      utmCampaign: s.utmCampaign ?? null,
+      referrer: s.referrer ?? null,
+      sessions: s.sessions,
+      share: pct(s.sessions, t.visits),
+      bounceRate: pct(s.bounces, s.sessions),
+      conversionRate: h.goals.length ? pct(s.conversions, s.sessions) : null,
+      trend: previous?.sessions
+        ? Math.round(((s.sessions - previous.sessions) / previous.sessions) * 10000) / 100
+        : null,
+    };
+  });
   const aggregate = (rows: any[], key: string, value: string) => {
     const map = new Map<string, number>();
     for (const row of rows) {
@@ -345,12 +350,13 @@ export async function buildReport(
       ? `${Math.max(0, Math.floor((p.endAt - new Date(catalog.get(page.path).updatedAt).getTime()) / 86400000))} 天`
       : null,
   }));
-  r.tables.cityBody = geographyTable(
+  const cityTable = geographyTableDisplay(
     h.geo,
     t.visits,
     !!h.goals.length,
     p.resource === 'human/geo' ? p : {},
   );
+  r.tables.cityBody = cityTable.rows;
   r.tables.srcBody = src;
   const searchEngines = summarizeSearchEngines(
     h.sources.map(source => ({ ...source, channel: channel(source) })),
@@ -954,6 +960,34 @@ export async function buildReport(
       delete r.meta.previousCursor;
     }
   } else liekanReportSchema.parse(r);
+  const topCity = h.geo.find(g => g.city);
+  const geography: NonNullable<LiekanReport['meta']['geography']> = {
+    charts: {
+      ...(r.charts.g1
+        ? {
+            g1: regions
+              .slice(0, 10)
+              .map(g =>
+                geographyDisplay({ country: 'CN', region: g.name === '未知' ? null : g.name }),
+              ),
+          }
+        : {}),
+      ...(r.charts.g2
+        ? { g2: countries.slice(0, 8).map(g => geographyDisplay({ country: g.name })) }
+        : {}),
+    },
+    tables: r.tables.cityBody ? { cityBody: cityTable.locations } : {},
+    cards: {
+      ...(topCity && r.cards.some(card => card.key === 'TOP1 城市')
+        ? { 'TOP1 城市': geographyDisplay(topCity) }
+        : {}),
+      ...(countries[0] && r.cards.some(card => card.key === '海外 TOP1')
+        ? { '海外 TOP1': geographyDisplay({ country: countries[0].name }) }
+        : {}),
+    },
+  };
+  if (Object.values(geography).some(entries => Object.keys(entries).length))
+    r.meta.geography = geography;
   capTablePages(r, p.tablePages, pageOnly === true);
   return r;
 }

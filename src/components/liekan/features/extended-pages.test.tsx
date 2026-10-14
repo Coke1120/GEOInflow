@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { ExtendedPages } from './ExtendedPages';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const mocks = vi.hoisted(() => {
   let resolvePlayer!: () => void;
@@ -136,6 +137,27 @@ it.each(['html', 'body'])(
   },
 );
 
+it('preserves replay markers matching interface copy and localizes only an absent marker fallback', () => {
+  mocks.query.replay = {
+    events: [
+      ...replayEvents(),
+      { type: 5, timestamp: 3000, data: { tag: '页面访问' } },
+      { type: 5, timestamp: 4000, data: { tag: '行为标记' } },
+      { type: 5, timestamp: 5000, data: {} },
+    ],
+  };
+  const page = (locale: 'en-US' | 'zh-CN') => (
+    <LiekanLocaleContext.Provider value={locale}>
+      <ExtendedPages page="replay-player" />
+    </LiekanLocaleContext.Provider>
+  );
+  const view = render(page('en-US'));
+  expect(screen.getByRole('button', { name: '页面访问' })).toBeVisible();
+  expect(screen.getByRole('button', { name: '行为标记' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Behavior tag' })).toBeVisible();
+  view.rerender(page('zh-CN'));
+  expect(screen.getAllByRole('button', { name: '行为标记' })).toHaveLength(2);
+});
 it('retains a player loading error without presenting a missing-snapshot settings action', async () => {
   mocks.query.replay = { events: replayEvents() };
   mocks.construct.mockImplementationOnce(() => {
@@ -187,6 +209,41 @@ it('routes an empty replay list to the current website recorder settings', () =>
   render(<ExtendedPages page="replays" />);
   expect(screen.getByText(/会话是一次连续访问/)).toBeInTheDocument();
   expect(mocks.context.href).toHaveBeenCalledWith('recorder-settings', { websiteId: 'site' });
+});
+it('localizes generated replay visitor labels while keeping saved names and searches raw', () => {
+  mocks.query['replay-list'] = {
+    rows: [
+      { id: 'one', sessionId: 'session-111111', startedAt: null },
+      { id: 'two', sessionId: 'session-222222', name: '访客 111111', startedAt: null },
+      { id: 'three', sessionId: 'session-333333', name: '网站管理', startedAt: null },
+    ],
+    count: 3,
+  };
+  const page = (locale: 'en-US' | 'zh-CN') => (
+    <LiekanLocaleContext.Provider value={locale}>
+      <ExtendedPages page="replays" />
+    </LiekanLocaleContext.Provider>
+  );
+  const view = render(page('en-US'));
+  expect(screen.getByRole('cell', { name: /Visitor 111111/ })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '访客 111111' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '网站管理' })).toBeVisible();
+  const search = screen.getByRole('searchbox');
+  fireEvent.change(search, { target: { value: 'Visitor 111111' } });
+  expect(screen.getAllByRole('link', { name: 'Play →' })).toHaveLength(1);
+  view.rerender(page('zh-CN'));
+  expect(search).toHaveValue('Visitor 111111');
+  expect(screen.getAllByRole('link', { name: '播放 →' })).toHaveLength(1);
+});
+it('formats the replay player visitor prefix without changing its masked suffix', () => {
+  mocks.query.replay = { sessionId: 'session-abcdef', events: [] };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <ExtendedPages page="replay-player" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('heading', { name: /^Visitor abcdef ·/ })).toBeVisible();
+  expect(screen.queryByText('session-abcdef')).not.toBeInTheDocument();
 });
 
 it('shows measured zero revenue but preserves a missing amount as unavailable', () => {

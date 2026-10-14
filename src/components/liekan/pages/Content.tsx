@@ -1,3 +1,4 @@
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import {
   FilterChip,
   MetricCard,
@@ -10,6 +11,7 @@ import { formatValue, tableLimits } from '../data';
 import type { ReportViewProps } from '../types';
 
 export function Content({ report, aiCrawlerEnabled }: ReportViewProps) {
+  const i18n = useLiekanI18n();
   const crawlerEnabled = aiCrawlerEnabled !== false && report?.meta.aiCrawlerEnabled !== false;
   const journeyTotal = (report?.tables.journeyList ?? [])
     .slice(0, tableLimits.journeyList)
@@ -44,7 +46,9 @@ export function Content({ report, aiCrawlerEnabled }: ReportViewProps) {
       </section>
       <section className="card fade-in d2 overflow-hidden">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
-          <h2 className="text-[14px] font-bold tracking-tight">页面排行（人类访问）</h2>
+          <h2 className="text-[14px] font-bold tracking-tight">
+            {i18n.text('页面排行（人类访问）')}
+          </h2>
           <div className="flex items-center gap-2">
             <FilterChip label="按 PV" />
             <FilterChip label="按入口" />
@@ -75,14 +79,18 @@ export function Content({ report, aiCrawlerEnabled }: ReportViewProps) {
       <section className="card fade-in d2">
         <div className="px-6 pt-5 pb-2 flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-[14px] font-bold tracking-tight">站内访问路径 TOP6</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.text('站内访问路径 TOP6')}
+            </h2>
             <p className="text-[11.5px] text-faint mt-0.5">
-              会话中最常见的页面跳转序列 · 占比按 TOP6 会话合计
+              {i18n.text('会话中最常见的页面跳转序列 · 占比按 TOP6 会话合计')}
             </p>
           </div>
           {journeyTotal > 0 && (
             <span className="num text-[11px] text-faint shrink-0 mt-1">
-              TOP6 合计 {formatValue(journeyTotal)} 会话
+              {i18n.fragment('TOP6 合计 ', false, true)}
+              {formatValue(journeyTotal)}
+              {i18n.fragment(' 会话', true, false)}
             </span>
           )}
         </div>
@@ -90,8 +98,12 @@ export function Content({ report, aiCrawlerEnabled }: ReportViewProps) {
       </section>
       <section className="card fade-in d3">
         <div className="px-6 pt-5 pb-2">
-          <h2 className="text-[14px] font-bold tracking-tight">内容更新与流量响应</h2>
-          <p className="text-[11.5px] text-faint mt-0.5">发布/更新日期 × 随后 7 天流量</p>
+          <h2 className="text-[14px] font-bold tracking-tight">
+            {i18n.text('内容更新与流量响应')}
+          </h2>
+          <p className="text-[11.5px] text-faint mt-0.5">
+            {i18n.text('发布/更新日期 × 随后 7 天流量')}
+          </p>
         </div>
         <ReferenceChart id="c1" height={250} report={report} />
       </section>

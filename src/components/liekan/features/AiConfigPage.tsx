@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useManualQuery as useQuery } from '@/lib/liekan/contracts/manual-refresh';
 import { useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
@@ -26,7 +28,13 @@ import {
   useAiRun,
 } from './AiShared';
 import { useFeature } from './context';
+import {
+  aiSpaceDisplayName,
+  aiTemplateDisplayName,
+  aiRegionDisplayName,
+} from '@/lib/liekan/contracts/ai-display';
 export function AiConfigPage() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     catalog = useAiCatalog(),
     client = useQueryClient();
@@ -38,6 +46,12 @@ export function AiConfigPage() {
     [error, setError] = useState(''),
     [actionSpace, setActionSpace] = useState('');
   const data = catalog.data;
+  const providerLabels = new Map(
+    data?.templates.map(template => [
+      template.provider,
+      aiTemplateDisplayName(template, i18n.system),
+    ]),
+  );
   const requestedSite = data?.websites.find(s => s.id === c.query.aiSite);
   const space = data?.spaces.find(
     s =>
@@ -84,24 +98,25 @@ export function AiConfigPage() {
   if (catalog.isPending)
     return (
       <div data-liekan-ai="ai-config" className={styles.workspace}>
-        <AiNotice>正在读取 AI 能力与空间权限…</AiNotice>
+        <AiNotice>{i18n.text('正在读取 AI 能力与空间权限…')}</AiNotice>
       </div>
     );
   if (catalog.error && !catalog.data)
     return (
       <div data-liekan-ai="ai-config" className={styles.workspace}>
         <AiNotice error>{aiError(catalog.error)}</AiNotice>
-        <AiButton onClick={() => void catalog.refetch()}>重新读取</AiButton>
+        <AiButton onClick={() => void catalog.refetch()}>{i18n.text('重新读取')}</AiButton>
       </div>
     );
   if (!data) return null;
   return (
-    <div data-liekan-ai="ai-config" className={styles.workspace} lang="zh-CN">
+    <div data-liekan-ai="ai-config" className={styles.workspace} lang={i18n.locale}>
       <ModuleNotice catalog={data} />
       <AiCatalogMore query={catalog} />
-      {error && <AiNotice error>{error}</AiNotice>}
+      {error && <AiNotice error>{i18n.system(error)}</AiNotice>}
       {form && space && actionSpace === spaceKey ? (
         <ConnectionForm
+          currentUserId={c.user.id}
           key={`${spaceKey}:${form === true ? 'new' : form.id}`}
           catalog={data}
           space={space}
@@ -118,8 +133,8 @@ export function AiConfigPage() {
         <>
           <div className={styles.pageHeading}>
             <div>
-              <h2>AI配置器</h2>
-              <p>管理模型 API，为网站分析选择可用连接。</p>
+              <h2>{i18n.text('AI配置器')}</h2>
+              <p>{i18n.text('管理模型 API，为网站分析选择可用连接。')}</p>
             </div>
             <AiButton
               primary
@@ -130,64 +145,65 @@ export function AiConfigPage() {
               }
               onClick={() => selectAction(() => setForm(true))}
             >
-              新建 API
+              {i18n.text('新建 API')}
             </AiButton>
           </div>
           <div className={styles.scope}>
             <label>
-              所属空间
+              {i18n.fragment('所属空间', false, true)}
               <select
-                aria-label="AI 所属空间"
+                aria-label={i18n.text('AI 所属空间')}
                 value={space ? `${space.kind}:${space.id}` : ''}
                 onChange={e => {
                   setSpaceId(e.target.value);
                   setError('');
                 }}
               >
-                {!space && <option value="">请选择空间</option>}
+                {!space && <option value="">{i18n.text('请选择空间')}</option>}
                 {data.spaces.map(s => (
                   <option key={`${s.kind}:${s.id}`} value={`${s.kind}:${s.id}`}>
-                    {s.name}
-                    {s.kind === 'team' ? ' · 团队' : ' · 个人'}
+                    {aiSpaceDisplayName(s, c.user.id, i18n.system)}
+                    {s.kind === 'team' ? i18n.text(' · 团队') : i18n.text(' · 个人')}
                   </option>
                 ))}
               </select>
             </label>
             <span className={styles.badge}>
-              {rows.length} / {data.limits.connectionsPerSpace} 个连接
+              {rows.length} / {data.limits.connectionsPerSpace}
+              {i18n.fragment(' 个连接', true, false)}
             </span>
           </div>
           {!space?.canManage && (
             <AiNotice>
               {space?.canUse
-                ? '你可以使用已验证的连接。请联系空间管理员管理 API。'
-                : '当前空间为只读权限，无法执行实时测试与 AI 分析。'}
+                ? i18n.text('你可以使用已验证的连接。请联系空间管理员管理 API。')
+                : i18n.text('当前空间为只读权限，无法执行实时测试与 AI 分析。')}
             </AiNotice>
           )}
           {list.error ? (
             <>
               <AiNotice error>{aiError(list.error)}</AiNotice>
-              <AiButton onClick={() => void list.refetch()}>重新读取连接</AiButton>
+              <AiButton onClick={() => void list.refetch()}>{i18n.text('重新读取连接')}</AiButton>
             </>
           ) : list.isLoading ? (
-            <AiNotice>正在读取 API 连接…</AiNotice>
+            <AiNotice>{i18n.text('正在读取 API 连接…')}</AiNotice>
           ) : (
             data.module.enabled && (
               <section className={styles.panel}>
                 <div className={styles.panelHead}>
                   <div>
-                    <h3>API 列表</h3>
-                    <p>密钥只显示是否已配置。实时测试会向供应商发送短文本请求。</p>
+                    <h3>{i18n.text('API 列表')}</h3>
+                    <p>{i18n.text('密钥只显示是否已配置。实时测试会向供应商发送短文本请求。')}</p>
                   </div>
-                  <AiButton onClick={() => void list.refetch()}>刷新列表</AiButton>
+                  <AiButton onClick={() => void list.refetch()}>{i18n.text('刷新列表')}</AiButton>
                 </div>
                 {!rows.length ? (
                   <div className={styles.empty}>
-                    <h3>添加你的第一个模型 API</h3>
-                    <p>选择平台并填写 API Key，其他参数由模板自动填写。</p>
+                    <h3>{i18n.text('添加你的第一个模型 API')}</h3>
+                    <p>{i18n.text('选择平台并填写 API Key，其他参数由模板自动填写。')}</p>
                     {space?.canManage && (
                       <AiButton primary onClick={() => selectAction(() => setForm(true))}>
-                        添加 API
+                        {i18n.text('添加 API')}
                       </AiButton>
                     )}
                   </div>
@@ -196,10 +212,10 @@ export function AiConfigPage() {
                     <table className={styles.apiList}>
                       <thead>
                         <tr>
-                          <th>连接名称</th>
-                          <th>模型与接口</th>
-                          <th>连接状态</th>
-                          <th>操作</th>
+                          <th>{i18n.text('连接名称')}</th>
+                          <th>{i18n.text('模型与接口')}</th>
+                          <th>{i18n.text('连接状态')}</th>
+                          <th>{i18n.text('操作')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -208,16 +224,13 @@ export function AiConfigPage() {
                             <td>
                               <div className={styles.apiName}>
                                 <span className={styles.providerMark}>
-                                  {data.templates
-                                    .find(t => t.provider === row.provider)
-                                    ?.name.slice(0, 2) || 'API'}
+                                  {providerLabels.get(row.provider)?.slice(0, 2) || 'API'}
                                 </span>
                                 <div>
                                   <strong>{row.name}</strong>
                                   <small>
-                                    {data.templates.find(t => t.provider === row.provider)?.name ||
-                                      row.provider}
-                                    {row.isDefault ? ' · 默认分析模型' : ''}
+                                    {providerLabels.get(row.provider) || row.provider}
+                                    {row.isDefault ? i18n.text(' · 默认分析模型') : ''}
                                   </small>
                                 </div>
                               </div>
@@ -226,13 +239,11 @@ export function AiConfigPage() {
                               <strong className={styles.model}>{row.model}</strong>
                               <span className={styles.endpoint}>{row.baseUrl}</span>
                               <small>
-                                地域：
-                                {typeof record(row).region === 'string' && record(row).region
-                                  ? String(record(row).region)
-                                  : '未知'}
+                                {i18n.fragment('地域：', false, true)}
+                                {aiRegionDisplayName(data.templates, row, i18n.system)}
                               </small>
                               <small>
-                                应用上下文窗口：
+                                {i18n.fragment('应用上下文窗口：', false, true)}
                                 <ModelWindow catalog={data} configuration={row} />
                               </small>
                               <small>
@@ -246,27 +257,34 @@ export function AiConfigPage() {
                                 className={`${styles.badge} ${row.testState === 'connected' ? styles.success : ''}`}
                               >
                                 {!row.enabled
-                                  ? '已停用'
+                                  ? i18n.text('已停用')
                                   : {
-                                      untested: '尚未测试',
-                                      testing: '测试中',
-                                      connected: '已连通',
-                                      failed: '测试失败',
+                                      untested: i18n.text('尚未测试'),
+                                      testing: i18n.text('测试中'),
+                                      connected: i18n.text('已连通'),
+                                      failed: i18n.text('测试失败'),
                                     }[row.testState]}
                               </span>
-                              <small>{row.hasKey ? '密钥已配置' : '缺少密钥'}</small>
+                              <small>
+                                {row.hasKey ? i18n.text('密钥已配置') : i18n.text('缺少密钥')}
+                              </small>
                               <small>
                                 {row.testedAt
-                                  ? new Date(row.testedAt).toLocaleString('zh-CN', {
+                                  ? new Date(row.testedAt).toLocaleString(i18n.locale, {
                                       timeZone: c.range.timezone,
                                     })
-                                  : '尚无测试记录'}
+                                  : i18n.text('尚无测试记录')}
                               </small>
                               {space?.canManage && row.lastCall && (
                                 <details>
-                                  <summary>最近调用</summary>
+                                  <summary>{i18n.text('最近调用')}</summary>
                                   <span className={styles.endpoint}>
-                                    {lastCallText(row.lastCall, c.range.timezone)}
+                                    {lastCallText(
+                                      row.lastCall,
+                                      c.range.timezone,
+                                      i18n.locale,
+                                      i18n.system,
+                                    )}
                                   </span>
                                 </details>
                               )}
@@ -279,7 +297,7 @@ export function AiConfigPage() {
                                   }
                                   onClick={() => selectAction(() => setTest({ ...row }))}
                                 >
-                                  实时测试
+                                  {i18n.text('实时测试')}
                                 </AiButton>
                                 {space?.canManage && (
                                   <>
@@ -287,7 +305,7 @@ export function AiConfigPage() {
                                       disabled={busy}
                                       onClick={() => selectAction(() => setForm(row))}
                                     >
-                                      编辑
+                                      {i18n.text('编辑')}
                                     </AiButton>
                                     <AiButton
                                       disabled={busy}
@@ -301,7 +319,7 @@ export function AiConfigPage() {
                                         )
                                       }
                                     >
-                                      {row.enabled ? '停用' : '启用'}
+                                      {row.enabled ? i18n.text('停用') : i18n.text('启用')}
                                     </AiButton>
                                     <AiButton
                                       disabled={
@@ -321,13 +339,13 @@ export function AiConfigPage() {
                                         )
                                       }
                                     >
-                                      设为默认
+                                      {i18n.text('设为默认')}
                                     </AiButton>
                                     <AiButton
                                       disabled={busy}
                                       onClick={() => selectAction(() => setDeleting(row))}
                                     >
-                                      删除
+                                      {i18n.text('删除')}
                                     </AiButton>
                                   </>
                                 )}
@@ -340,20 +358,26 @@ export function AiConfigPage() {
                   </div>
                 )}
                 <div className={styles.listFooter}>
-                  修改接口、模型或密钥后，请重新测试，再设为默认分析模型。
+                  {i18n.text('修改接口、模型或密钥后，请重新测试，再设为默认分析模型。')}
                 </div>
               </section>
             )
           )}
           <div className={styles.bottom}>
             <div>
-              <h3>从配置到分析</h3>
-              <p>新建 API → 实时测试 → 设为默认。网站使用其所属个人或团队空间中的连接。</p>
+              <h3>{i18n.text('从配置到分析')}</h3>
+              <p>
+                {i18n.text(
+                  '新建 API → 实时测试 → 设为默认。网站使用其所属个人或团队空间中的连接。',
+                )}
+              </p>
             </div>
             <div>
-              <h3>密钥与调用</h3>
+              <h3>{i18n.text('密钥与调用')}</h3>
               <p>
-                密钥由服务端加密保存，页面无法读取原值。测试与分析可能产生供应商费用，用量以实际返回为准。
+                {i18n.text(
+                  '密钥由服务端加密保存，页面无法读取原值。测试与分析可能产生供应商费用，用量以实际返回为准。',
+                )}
               </p>
             </div>
           </div>
@@ -370,18 +394,22 @@ export function AiConfigPage() {
       )}
       {deleting && actionSpace === spaceKey && (
         <AiModal
-          title="删除 API 连接"
+          title={i18n.text('删除 API 连接')}
           onClose={() => {
             if (!busy) setDeleting(null);
           }}
         >
           <div className={styles.modalBody}>
-            <p>确认删除「{deleting.name}」？依赖这条连接的新分析将不可用。</p>
-            {error && <AiNotice error>{error}</AiNotice>}
+            <p>
+              {i18n.fragment('确认删除「', false, true)}
+              {deleting.name}
+              {i18n.fragment('」？依赖这条连接的新分析将不可用。', true, false)}
+            </p>
+            {error && <AiNotice error>{i18n.system(error)}</AiNotice>}
           </div>
           <div className={styles.modalFooter}>
             <AiButton disabled={busy} onClick={() => setDeleting(null)}>
-              取消
+              {i18n.text('取消')}
             </AiButton>
             <AiButton
               primary
@@ -393,7 +421,7 @@ export function AiConfigPage() {
                 }, 'API 连接已删除。')
               }
             >
-              删除连接
+              {i18n.text('删除连接')}
             </AiButton>
           </div>
         </AiModal>
@@ -401,7 +429,12 @@ export function AiConfigPage() {
     </div>
   );
 }
-function lastCallText(input: unknown, timezone: string) {
+function lastCallText(
+  input: unknown,
+  timezone: string,
+  locale = 'zh-CN',
+  display = (source: string) => source,
+) {
   const v = record(input);
   const states: Record<string, string> = {
     accepted: '请求已接受',
@@ -416,15 +449,22 @@ function lastCallText(input: unknown, timezone: string) {
     invalidated: '结果已失效',
   };
   const timestamp = (value: unknown) => {
-    if (typeof value !== 'string' || !Number.isFinite(new Date(value).getTime())) return '未知';
-    return new Date(value).toLocaleString('zh-CN', { timeZone: timezone, hour12: false });
+    if (typeof value !== 'string' || !Number.isFinite(new Date(value).getTime()))
+      return display('未知');
+    return new Date(value).toLocaleString(locale, { timeZone: timezone, hour12: false });
   };
   return [
-    v.operation === 'test' ? '连接测试' : v.operation === 'analysis' ? '网站分析' : '调用类型未知',
-    states[String(v.state)] || '状态未知',
-    `开始 ${timestamp(v.createdAt)}`,
-    `结束 ${timestamp(v.completedAt)}`,
-    ...(v.errorCode ? [aiError({ code: v.errorCode })] : []),
+    display(
+      v.operation === 'test'
+        ? '连接测试'
+        : v.operation === 'analysis'
+          ? '网站分析'
+          : '调用类型未知',
+    ),
+    display(states[String(v.state)] || '状态未知'),
+    display(`开始 ${timestamp(v.createdAt)}`),
+    display(`结束 ${timestamp(v.completedAt)}`),
+    ...(v.errorCode ? [display(aiError({ code: v.errorCode }))] : []),
   ].join(' · ');
 }
 function updatePayload(row: AiConnection, patch: Partial<AiConnection> = {}) {
@@ -454,6 +494,7 @@ type FormValues = {
 export function ConnectionForm({
   catalog,
   space,
+  currentUserId,
   existing,
   embedded = false,
   onClose,
@@ -462,12 +503,14 @@ export function ConnectionForm({
 }: {
   catalog: AiCatalog;
   space: AiSpaceOption;
+  currentUserId?: string;
   existing?: AiConnection;
   embedded?: boolean;
   onClose: () => void;
   onSave: (connection: AiConnection) => Promise<void>;
   onConflict: () => Promise<unknown>;
 }) {
+  const i18n = useLiekanI18n();
   const first = catalog.templates.find(t => t.id === 'deepseek') || catalog.templates[0];
   const [values, setValues] = useState<FormValues>(() =>
     existing
@@ -617,9 +660,9 @@ export function ConnectionForm({
   };
   const field = (name: keyof FormValues, label: string, type = 'text', help?: string) => (
     <label className={styles.field}>
-      <span>{label}</span>
+      <span>{i18n.system(label)}</span>
       <input
-        aria-label={label}
+        aria-label={i18n.system(label)}
         type={type}
         value={values[name]}
         maxLength={
@@ -631,10 +674,10 @@ export function ConnectionForm({
         aria-invalid={!!errors[name]}
         aria-describedby={errors[name] ? `ai-${name}-error` : undefined}
       />
-      {help && <small>{help}</small>}
+      {help && <small>{i18n.system(help)}</small>}
       {errors[name] && (
         <span id={`ai-${name}-error`} className={styles.fieldError}>
-          {errors[name]}
+          {i18n.system(errors[name])}
         </span>
       )}
     </label>
@@ -648,8 +691,18 @@ export function ConnectionForm({
     >
       <div className={styles.pageHeading}>
         <div>
-          <h2>{existing ? '编辑 API' : embedded ? '连接你的模型' : '新建 API'}</h2>
-          <p>所属空间：{space.name}。选择平台后，只需填写 API Key。</p>
+          <h2>
+            {existing
+              ? i18n.text('编辑 API')
+              : embedded
+                ? i18n.text('连接你的模型')
+                : i18n.text('新建 API')}
+          </h2>
+          <p>
+            {i18n.fragment('所属空间：', false, true)}
+            {aiSpaceDisplayName(space, currentUserId, i18n.system)}
+            {i18n.fragment('。选择平台后，只需填写 API Key。', true, false)}
+          </p>
         </div>
         <AiButton
           onClick={() => {
@@ -657,10 +710,10 @@ export function ConnectionForm({
             onClose();
           }}
         >
-          {embedded ? '稍后配置' : '返回 API 列表'}
+          {embedded ? i18n.text('稍后配置') : i18n.text('返回 API 列表')}
         </AiButton>
       </div>
-      <h3>选择模型平台</h3>
+      <h3>{i18n.text('选择模型平台')}</h3>
       <div className={styles.providerGrid}>
         {catalog.templates.map(t => (
           <label
@@ -674,10 +727,14 @@ export function ConnectionForm({
               checked={values.provider === t.provider}
               onChange={() => choose(t.id)}
             />
-            <span className={styles.providerMark}>{t.name.slice(0, 2)}</span>
+            <span className={styles.providerMark}>
+              {aiTemplateDisplayName(t, i18n.system).slice(0, 2)}
+            </span>
             <span>
-              <strong>{t.name}</strong>
-              <small>{t.id === 'custom' ? '自定义参数' : '官方直连接口'}</small>
+              <strong>{aiTemplateDisplayName(t, i18n.system)}</strong>
+              <small>
+                {t.id === 'custom' ? i18n.text('自定义参数') : i18n.text('官方直连接口')}
+              </small>
             </span>
           </label>
         ))}
@@ -685,30 +742,32 @@ export function ConnectionForm({
       <div className={styles.formLayout}>
         <section className={styles.panel}>
           <div className={styles.panelBody}>
-            {field('name', '连接名称')}
+            {field('name', i18n.text('连接名称'))}
             {field(
               'apiKey',
               'API Key',
               'password',
               existing
                 ? newKey
-                  ? '连接身份已变更，请重新填写 API Key。提交后输入框会清空。'
-                  : '留空保留已有密钥。提交后输入框会清空。'
-                : '密钥为只写字段，保存后无法读取原值。',
+                  ? i18n.text('连接身份已变更，请重新填写 API Key。提交后输入框会清空。')
+                  : i18n.text('留空保留已有密钥。提交后输入框会清空。')
+                : i18n.text('密钥为只写字段，保存后无法读取原值。'),
             )}
             {newKey && (
-              <AiNotice>供应商、协议、工作空间或接口域名已变更，请重新填写 API Key。</AiNotice>
+              <AiNotice>
+                {i18n.text('供应商、协议、工作空间或接口域名已变更，请重新填写 API Key。')}
+              </AiNotice>
             )}
             <dl className={styles.summary}>
-              <dt>模型</dt>
-              <dd>{values.model || '请填写模型标识'}</dd>
-              <dt>地址</dt>
-              <dd>{values.baseUrl || '请填写 API 地址'}</dd>
-              <dt>应用上下文窗口</dt>
+              <dt>{i18n.text('模型')}</dt>
+              <dd>{values.model || i18n.text('请填写模型标识')}</dd>
+              <dt>{i18n.text('地址')}</dt>
+              <dd>{values.baseUrl || i18n.text('请填写 API 地址')}</dd>
+              <dt>{i18n.text('应用上下文窗口')}</dt>
               <dd>
                 <ModelWindow catalog={catalog} configuration={values} />
               </dd>
-              <dt>协议</dt>
+              <dt>{i18n.text('协议')}</dt>
               <dd>
                 {values.protocol === 'anthropic-messages'
                   ? 'Anthropic Messages'
@@ -716,27 +775,29 @@ export function ConnectionForm({
               </dd>
             </dl>
             <details open={advanced} onToggle={e => setAdvanced(e.currentTarget.open)}>
-              <summary>高级配置</summary>
-              {field('baseUrl', 'API 地址')}
-              {field('model', '模型标识')}
+              <summary>{i18n.text('高级配置')}</summary>
+              {field('baseUrl', i18n.text('API 地址'))}
+              {field('model', i18n.text('模型标识'))}
               <label className={styles.field}>
-                <span>协议</span>
-                <select aria-label="协议" value={values.protocol} disabled>
+                <span>{i18n.text('协议')}</span>
+                <select aria-label={i18n.text('协议')} value={values.protocol} disabled>
                   <option value="openai-chat">OpenAI Chat Completions</option>
                   <option value="anthropic-messages">Anthropic Messages</option>
                 </select>
-                <small>协议由所选平台确定。</small>
+                <small>{i18n.text('协议由所选平台确定。')}</small>
               </label>
               {values.provider === 'anthropic' &&
                 field(
                   'workspaceId',
-                  'Claude 工作空间标识',
+                  i18n.text('Claude 工作空间标识'),
                   'text',
-                  '普通 Key 可留空；多空间 Key 填写 wrkspc_ 标识。',
+                  i18n.text('普通 Key 可留空；多空间 Key 填写 wrkspc_ 标识。'),
                 )}
             </details>
-            {existing && <AiNotice>保存配置将清除默认状态，请重新测试当前配置。</AiNotice>}
-            {error && <AiNotice error>{error}</AiNotice>}
+            {existing && (
+              <AiNotice>{i18n.text('保存配置将清除默认状态，请重新测试当前配置。')}</AiNotice>
+            )}
+            {error && <AiNotice error>{i18n.system(error)}</AiNotice>}
           </div>
           <div className={styles.modalFooter}>
             <AiButton
@@ -745,25 +806,27 @@ export function ConnectionForm({
                 onClose();
               }}
             >
-              取消
+              {i18n.text('取消')}
             </AiButton>
             <AiButton primary type="submit" disabled={busy}>
-              {busy ? '正在保存…' : '保存 API'}
+              {busy ? i18n.text('正在保存…') : i18n.text('保存 API')}
             </AiButton>
           </div>
         </section>
         <aside className={styles.formNote}>
-          <h3>接入说明</h3>
+          <h3>{i18n.text('接入说明')}</h3>
           {preset?.notes.map(note => (
-            <p key={note}>{note}</p>
+            <p data-ai-platform-note key={note}>
+              {i18n.system(note)}
+            </p>
           ))}
           {preset?.documentationUrls.map((url, i) => (
             <a key={url} href={url} target="_blank" rel="noopener noreferrer">
-              {i === 0 ? '查看官方文档' : '查看模型文档'}
+              {i === 0 ? i18n.text('查看官方文档') : i18n.text('查看模型文档')}
             </a>
           ))}
-          <p>Key 与接口需要来自同一平台和地域。连通性与模型权限以实时测试为准。</p>
-          <p>只支持文本分析。连接测试与分析可能产生供应商费用。</p>
+          <p>{i18n.text('Key 与接口需要来自同一平台和地域。连通性与模型权限以实时测试为准。')}</p>
+          <p>{i18n.text('只支持文本分析。连接测试与分析可能产生供应商费用。')}</p>
         </aside>
       </div>
     </form>
@@ -789,6 +852,7 @@ export function ConnectionTest({
   onFinished: (run: AiRun) => void;
   onTestStart?: () => void;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     task = useAiRun(`liekan-ai:${c.user.id}:test:${connection.id}`, onFinished),
     started = useRef(false);
@@ -830,32 +894,36 @@ export function ConnectionTest({
       : '未知';
   return (
     <AiModal
-      title="实时测试"
+      title={i18n.text('实时测试')}
       subtitle={`${connection.name} · ${connection.model}`}
       onClose={close}
       wide
     >
       <div className={styles.testBanner}>
         <RunStatus state={task.stage} />
-        <span>当前配置版本 {connection.configVersion} · 真实文本测试，可能产生费用</span>
+        <span>
+          {i18n.fragment('当前配置版本 ', false, true)}
+          {connection.configVersion}
+          {i18n.fragment(' · 真实文本测试，可能产生费用', true, false)}
+        </span>
       </div>
       <div className={styles.testGrid}>
         <aside className={styles.testSidebar}>
-          <h3>连接检查</h3>
-          <ol className={styles.stages} aria-label="连接检查阶段">
+          <h3>{i18n.text('连接检查')}</h3>
+          <ol className={styles.stages} aria-label={i18n.text('连接检查阶段')}>
             {phases.map((phase, i) => (
               <li key={phase.label} className={currentPhase === i ? styles.currentStage : ''}>
                 <span>{i + 1}</span>
                 <div>
-                  <strong>{phase.label}</strong>
+                  <strong>{i18n.system(phase.label)}</strong>
                   <small>
                     {task.run?.state === 'completed'
-                      ? '已完成'
+                      ? i18n.text('已完成')
                       : currentPhase === i
-                        ? '正在执行'
+                        ? i18n.text('正在执行')
                         : currentPhase > i
-                          ? '已完成'
-                          : '等待'}
+                          ? i18n.text('已完成')
+                          : i18n.text('等待')}
                   </small>
                 </div>
               </li>
@@ -864,65 +932,69 @@ export function ConnectionTest({
           <RunMetrics run={task.run} />
         </aside>
         <div className={styles.testOutput}>
-          <h3>请求摘要</h3>
+          <h3>{i18n.text('请求摘要')}</h3>
           <dl className={styles.summary}>
-            <dt>模型</dt>
+            <dt>{i18n.text('模型')}</dt>
             <dd>{connection.model}</dd>
-            <dt>地址</dt>
+            <dt>{i18n.text('地址')}</dt>
             <dd>{connection.baseUrl}</dd>
-            <dt>协议</dt>
+            <dt>{i18n.text('协议')}</dt>
             <dd>{connection.protocol}</dd>
-            <dt>应用上下文窗口</dt>
+            <dt>{i18n.text('应用上下文窗口')}</dt>
             <dd>
               <ModelWindow catalog={catalog} configuration={connection} />
             </dd>
-            <dt>认证</dt>
-            <dd>已配置密钥，原值不可读取</dd>
-            <dt>{task.run?.id || task.metadata?.runId ? '任务 ID' : '请求 ID'}</dt>
+            <dt>{i18n.text('认证')}</dt>
+            <dd>{i18n.text('已配置密钥，原值不可读取')}</dd>
+            <dt>
+              {task.run?.id || task.metadata?.runId ? i18n.text('任务 ID') : i18n.text('请求 ID')}
+            </dt>
             <dd>
               {task.run?.id ||
                 task.metadata?.runId ||
                 task.metadata?.clientRequestId ||
-                '等待接受请求'}
+                i18n.text('等待接受请求')}
             </dd>
-            <dt>供应商状态码</dt>
+            <dt>{i18n.text('供应商状态码')}</dt>
             <dd>{responseStatus}</dd>
-            <dt>供应商请求 ID</dt>
+            <dt>{i18n.text('供应商请求 ID')}</dt>
             <dd>{responseRequestId}</dd>
           </dl>
-          <h3>{valid ? '已校验的真实返回' : '实时预览 · 尚未校验'}</h3>
-          <p className={styles.testPrompt}>测试提问：请回复 LIEKAN_OK，连接成功。</p>
+          <h3>{valid ? i18n.text('已校验的真实返回') : i18n.text('实时预览 · 尚未校验')}</h3>
+          <p className={styles.testPrompt}>{i18n.text('测试提问：请回复 LIEKAN_OK，连接成功。')}</p>
           <div className={styles.testAnswer}>
-            {valid ? String(result.text) : task.preview || '等待模型返回…'}
+            {valid ? String(result.text) : task.preview || i18n.text('等待模型返回…')}
           </div>
-          <h3 className={styles.testLogHeading}>测试事件记录</h3>
-          <ol className={styles.testLog} aria-label="测试事件记录">
+          <h3 className={styles.testLogHeading}>{i18n.text('测试事件记录')}</h3>
+          <ol className={styles.testLog} aria-label={i18n.text('测试事件记录')}>
             {task.eventLogs.map((event, i) => (
               <li key={`${event.timestamp}:${i}`} data-ai-event-stage={event.stage}>
                 <time dateTime={event.timestamp}>
-                  {new Date(event.timestamp).toLocaleTimeString('zh-CN', {
+                  {new Date(event.timestamp).toLocaleTimeString(i18n.locale, {
                     timeZone: c.range.timezone,
                     hour12: false,
                   })}
                 </time>
-                <span>{event.label}</span>
+                <span>{i18n.system(event.label)}</span>
               </li>
             ))}
           </ol>
-          <p className={styles.muted}>记录仅保留当前页面的阶段与时间，关闭后清空。</p>
+          <p className={styles.muted}>
+            {i18n.text('记录仅保留当前页面的阶段与时间，关闭后清空。')}
+          </p>
           {task.error && <AiNotice error>{task.error}</AiNotice>}
           {task.run?.error && <AiNotice error>{aiError(task.run.error)}</AiNotice>}
         </div>
       </div>
       <div className={styles.modalFooter}>
-        <span>首字耗时由实际响应计算。非流式响应显示不适用，用量缺失显示未知。</span>
-        {task.busy && <AiButton onClick={() => void task.stop()}>停止测试</AiButton>}
+        <span>{i18n.text('首字耗时由实际响应计算。非流式响应显示不适用，用量缺失显示未知。')}</span>
+        {task.busy && <AiButton onClick={() => void task.stop()}>{i18n.text('停止测试')}</AiButton>}
         {task.recoverable && (
           <AiButton disabled={task.busy} onClick={() => void task.recover()}>
-            回查原任务
+            {i18n.text('回查原任务')}
           </AiButton>
         )}
-        <AiButton onClick={() => void close()}>关闭</AiButton>
+        <AiButton onClick={() => void close()}>{i18n.text('关闭')}</AiButton>
         {!task.busy && !task.recoverable && (
           <AiButton
             primary
@@ -934,7 +1006,7 @@ export function ConnectionTest({
               });
             }}
           >
-            重新测试，发起新调用
+            {i18n.text('重新测试，发起新调用')}
           </AiButton>
         )}
       </div>
