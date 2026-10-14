@@ -124,10 +124,20 @@ export function parseQualityRange(parameters: URLSearchParams) {
   return { ...parsed.data, startAt, endAt, timezone, page: parsed.data.page ?? 1 };
 }
 type Range = ReturnType<typeof parseQualityRange>;
+export function qualityReadTransaction<T>(work: (tx: any) => Promise<T>): Promise<T> {
+  return transaction(async tx => {
+    await tx.$executeRawUnsafe('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+    // Fresh imports can leave site cardinality severely underestimated. Avoid rescanning
+    // the policy view for every raw event; this preference lasts only for this read.
+    await tx.$executeRawUnsafe('SET LOCAL enable_nestloop = off');
+    return work(tx);
+  });
+}
 const scope = `e.website_id=$1::uuid AND e.created_at BETWEEN $2 AND $3
  AND ($4::text IS NULL OR COALESCE(q.classification,'unknown')=$4)
  AND ($5::text IS NULL OR q.source=$5) AND ($6::text IS NULL OR e.hostname=$6 OR q.hostname=$6)`;
-const joins = `FROM website_event e LEFT JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id
+const evidenceJoins = `FROM website_event e LEFT JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id`;
+const joins = `${evidenceJoins}
  LEFT JOIN liekan_effective_website_event effective ON effective.event_id=e.event_id AND effective.website_id=e.website_id`;
 const bindings = (id: string, range: Range) => [
   id,
@@ -159,7 +169,7 @@ export async function qualityTotals(
     `SELECT COUNT(*)::float8 AS "rawPV",COUNT(*) FILTER(WHERE ${included})::float8 AS "includedPV",
       COUNT(DISTINCT e.session_id)::float8 AS "rawUV",COUNT(DISTINCT e.session_id) FILTER(WHERE ${included})::float8 AS "includedUV",
       COUNT(*) FILTER(WHERE q.event_id IS NULL)::float8 AS "missingVerdictPV"
-      ${joins} ${extra} WHERE ${scope} AND e.event_type NOT IN (2,5)`,
+      ${proposed ? evidenceJoins : joins} ${extra} WHERE ${scope} AND e.event_type NOT IN (2,5)`,
     ...params,
   );
   return {
@@ -180,8 +190,7 @@ export async function previewTrafficPolicy(
   const range = parseQualityRange(
     new URLSearchParams(Object.entries(parsed.data.range).map(([k, v]) => [k, String(v)])),
   );
-  return transaction(async tx => {
-    await tx.$executeRawUnsafe('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+  return qualityReadTransaction(async tx => {
     await lockWritableWebsite(tx, websiteId, identity, 'share');
     const policy = await getTrafficPolicy(websiteId, tx);
     if (proposed.expectedRevision !== undefined && proposed.expectedRevision !== policy.revision)
@@ -200,8 +209,7 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
   if (process.env.CLICKHOUSE_URL)
     return { available: false, reason: '流量质量分析当前支持 PostgreSQL' };
   const range = parseQualityRange(parameters);
-  return transaction(async tx => {
-    await tx.$executeRawUnsafe('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+  return qualityReadTransaction(async tx => {
     const policy = await getTrafficPolicy(websiteId, tx);
     const values = bindings(websiteId, range);
     const signature = createHash('sha256')
@@ -229,7 +237,7 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
       websiteId,
     );
     const hosts = await tx.$queryRawUnsafe(
-      `SELECT COALESCE(q.hostname,e.hostname) AS hostname,COUNT(*)::float8 AS events,COUNT(*) FILTER(WHERE e.event_type=1)::float8 AS pageviews ${joins} WHERE ${scope} GROUP BY 1 ORDER BY events DESC,hostname NULLS LAST LIMIT 100`,
+      `SELECT COALESCE(q.hostname,e.hostname) AS hostname,COUNT(*)::float8 AS events,COUNT(*) FILTER(WHERE e.event_type=1)::float8 AS pageviews ${evidenceJoins} WHERE ${scope} GROUP BY 1 ORDER BY events DESC,hostname NULLS LAST LIMIT 100`,
       ...values,
     );
     const summary = await tx.$queryRawUnsafe(

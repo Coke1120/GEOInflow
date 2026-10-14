@@ -7,6 +7,7 @@ export async function measureCacheBrowser({
   base,
   token,
   site,
+  siteHandle = site,
   slug,
   range,
   canonicalShareRange,
@@ -24,6 +25,7 @@ export async function measureCacheBrowser({
   const outcomes = [];
   const publicOutcomes = [];
   const received = [];
+  const issued = [];
   const errors = [];
   const faultOutcomes = [];
   let faultProbe = false;
@@ -73,10 +75,15 @@ export async function measureCacheBrowser({
       received.push(record);
     };
     page.on('response', capture);
+    page.on('request', request => {
+      const url = new URL(request.url());
+      if (url.pathname === `/api/liekan/websites/${site}/page-report`)
+        issued.push({ path: url.pathname, parameters: Object.fromEntries(url.searchParams) });
+    });
     const chartReady = async (page, selector) => {
       await page.waitForFunction(selector => {
         const root = document.querySelector(selector);
-        if (!root || root.getAttribute('aria-busy') === 'true') return false;
+        if (!root?.getClientRects().length || root.getAttribute('aria-busy') === 'true') return false;
         const canvas = root.matches('canvas') ? root : root.querySelector('canvas');
         if (canvas?.width && canvas?.height) {
           const pixels = canvas
@@ -90,16 +97,19 @@ export async function measureCacheBrowser({
         () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),
       );
     };
+    const validateRange = (parameters, expected) => {
+      assert.equal(Number(parameters.startAt), expected.startAt);
+      assert.equal(Number(parameters.endAt), expected.endAt);
+      assert.equal(parameters.timezone, expected.timezone);
+    };
     const validateRanges = (requests, expected) =>
       requests.forEach(record => {
         assert.equal(record.status, 200);
-        assert.equal(Number(record.parameters.startAt), expected.startAt);
-        assert.equal(Number(record.parameters.endAt), expected.endAt);
-        assert.equal(record.parameters.timezone, expected.timezone);
+        validateRange(record.parameters, expected);
       });
     const human = `/websites/${site}/geo/human${suffix}`;
-    const sourcePath = `/websites/${site}/geo/human/sources`;
-    const humanPath = `/websites/${site}/geo/human`;
+    const sourcePath = `/websites/${siteHandle}/geo/human/sources`;
+    const humanPath = `/websites/${siteHandle}/geo/human`;
     const ready = async (heading, metric) => {
       await page.getByRole('heading', { name: heading, exact: true }).waitFor();
       await page.waitForFunction(
@@ -127,7 +137,9 @@ export async function measureCacheBrowser({
     };
     validateRanges(firstPrivate.requests, privateRange);
     const click = async (path, heading, metric) => {
+      await page.locator(`[data-navigation-primary] a[href^="${path}?"]`).waitFor();
       const responseStart = received.length;
+      const requestStart = issued.length;
       await page.evaluate(
         ({ path, heading }) => {
           const link = [...document.querySelectorAll('a[href]')].find(
@@ -163,8 +175,15 @@ export async function measureCacheBrowser({
         return result;
       });
       const requests = received.slice(responseStart);
+      const initiated = issued.slice(requestStart);
       validateRanges(requests, privateRange);
-      return { ...result, requests };
+      initiated.forEach(record => validateRange(record.parameters, privateRange));
+      assert.equal(initiated.length, 1, 'page reentry must issue exactly one report request');
+      assert.equal(
+        initiated[0].parameters.resource,
+        path === sourcePath ? 'human/sources' : 'human/overview',
+      );
+      return { ...result, requests, initiated };
     };
     await click(sourcePath, '渠道趋势（AI 搜索引荐单列）', 'AI 搜索引荐');
     await click(humanPath, '访客趋势（UV / PV / 跳出率）', '浏览量 PV');
@@ -217,6 +236,7 @@ export async function measureCacheBrowser({
       await shared.waitForFunction(() =>
         [...document.querySelectorAll('.metric')].some(
           card =>
+            card.getClientRects().length > 0 &&
             card.querySelector('.metric-label')?.textContent === '浏览量 PV' &&
             !card.hasAttribute('aria-busy') &&
             Number(
@@ -286,9 +306,12 @@ export async function measureCacheBrowser({
       uploadThroughput: 1250000,
     });
     const offlineBegan = performance.now();
-    await shared.waitForFunction(() => !document.querySelector('.metric-value'), undefined, {
-      timeout: 40000,
-    });
+    await shared.waitForFunction(
+      () =>
+        [...document.querySelectorAll('.metric-value')].every(node => !node.getClientRects().length),
+      undefined,
+      { timeout: 40000 },
+    );
     const offlineHideMs = performance.now() - offlineBegan;
     assert(
       offlineHideMs <= 31000,
@@ -355,7 +378,10 @@ export async function measureCacheBrowser({
         errors.length === 0 &&
         structureP95 <= 100 &&
         privateP95 <= 200 &&
-        outcomes.every(o => o.requests.length === 0) &&
+        // Reentry begins a new manual reading; each page reads its cached report once.
+        outcomes.every(
+          o => o.initiated.length === 1 && o.requests.length === 1 && o.requests[0].path.endsWith('/page-report'),
+        ) &&
         shareP95 <= 1000 &&
         publicOutcomes.every(o => o.coreTransferredBytes <= 512 * 1024),
     };
@@ -367,6 +393,7 @@ export async function measureCacheBrowser({
           privateOutcomes: outcomes,
           publicOutcomes,
           received,
+          issued,
           errors,
           faultOutcomes,
           reason: error instanceof Error ? error.message : 'Error',

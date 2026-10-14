@@ -90,6 +90,10 @@ export async function runTrafficQualityUpgradeChecks({
       auth: true,
       body: { id: riskSite, name: '行为观察验收（合成数据）', domain: 'risk-fixture.invalid' },
     });
+    // Keep the new site's cardinality absent from statistics throughout the bulk import.
+    await sql(`ANALYZE website_event; ANALYZE liekan_event_quality;
+      ALTER TABLE website_event SET (autovacuum_enabled=false);
+      ALTER TABLE liekan_event_quality SET (autovacuum_enabled=false);`);
     await sql(`INSERT INTO session(session_id,website_id,created_at,browser,os,device) VALUES('${session}','${riskSite}',now()-interval '10 minutes','chrome','mac','desktop');
     INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,hostname)
       SELECT gen_random_uuid(),'${riskSite}','${session}','${visit}',date_trunc('minute',now())-interval '5 minutes'+i*interval '2 seconds','/synthetic-observation',1,'risk-fixture.invalid' FROM generate_series(0,30) i;
@@ -158,7 +162,15 @@ export async function runTrafficQualityUpgradeChecks({
       assert.equal(latest.flagged, 0);
     });
     await test('quality cursor retains microsecond ordering and rejects changed scope', async () => {
+      const began = performance.now();
       const first = (await json(`${quality}?${riskRange}`, { auth: true })).body;
+      assert(
+        performance.now() - began < 5000,
+        'stale import statistics must not cause repeated scans',
+      );
+      assert.equal(first.totals.rawPV, 10032);
+      assert.equal(first.totals.includedPV, 10032);
+      assert.equal(first.totals.rawUV, 1);
       assert.equal(first.rows.length, 100);
       assert(first.nextCursor);
       const cursor = JSON.parse(Buffer.from(first.nextCursor, 'base64url').toString());

@@ -42,6 +42,7 @@ const baselineImage = args.includes('--baseline-image')
   : undefined;
 const extended = args.includes('--extended');
 const samples = smoke ? 20 : 200;
+const maximumRangeNonce = 800003;
 const scale = args.includes('--rows') ? Number(args[args.indexOf('--rows') + 1]) : undefined;
 if (scale !== undefined && ![1000000, 5000000, 10000000].includes(scale))
   throw new Error('--rows must be 1000000, 5000000 or 10000000');
@@ -1220,7 +1221,22 @@ try {
     Object.values(maxima).every(value => new Date(value as any).getTime() <= end),
     'frozen statistical seed must precede the original range end',
   );
-  report.seedRange = { endAt: end, timezone: 'Asia/Shanghai', sourceMaxima: maxima };
+  // Report coverage clamps future bounds to its read time. Wait until every nonce is
+  // historical so adjacent old/current requests describe the same frozen population.
+  const rangesReadyAt = end + maximumRangeNonce;
+  report.seedRange = {
+    endAt: end,
+    timezone: 'Asia/Shanghai',
+    sourceMaxima: maxima,
+    rangesReadyAt,
+    clockWaitMs: Math.max(0, rangesReadyAt - Date.now()),
+  };
+  if (Date.now() < rangesReadyAt) {
+    stage = 'frozen-fixture-clock-bound';
+    save();
+    console.log(`Waiting for synthetic range bounds: ${new Date(rangesReadyAt).toISOString()}`);
+    while (Date.now() < rangesReadyAt) await pause(Math.min(10000, rangesReadyAt - Date.now()));
+  }
   stage = 'GEO-initial-nonempty-today-and-ai-sources';
   for (const resource of ['overview', 'conversions']) {
     const parameters = new URLSearchParams({
@@ -1797,6 +1813,10 @@ try {
     base: first,
     token: authentication.token,
     site: sites[3],
+    siteHandle: String(
+      (await database.query('SELECT site_number FROM website WHERE website_id=$1', [sites[3]]))
+        .rows[0].site_number || sites[3],
+    ),
     slug,
     range,
     canonicalShareRange: sharedDateRange(),
@@ -1919,7 +1939,11 @@ try {
   assert(afterSpike.aggregateStatements - beforeSpike.aggregateStatements <= 2);
 
   stage = 'manual-refresh-publishes-normal-result';
-  const manualRange = { startAt: end - 86400000, endAt: end + 800003, timezone: range.timezone };
+  const manualRange = {
+    startAt: end - 86400000,
+    endAt: end + maximumRangeNonce,
+    timezone: range.timezone,
+  };
   const cardViews = (body: any) =>
     Number(
       String(body.cards.find((card: any) => card.label === '浏览量 PV').value).replace(

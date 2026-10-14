@@ -4,7 +4,7 @@ import {
   assessBrowserBehavior,
 } from '../traffic-quality/behavior';
 import { transaction } from './server';
-import { parseQualityRange, qualityTotals } from './traffic-quality';
+import { parseQualityRange, qualityReadTransaction, qualityTotals } from './traffic-quality';
 
 /** Bounded jobs hold website before progress locks, matching reset/delete lock order. */
 export async function processBrowserRisk() {
@@ -170,8 +170,7 @@ export async function browserRiskReport(websiteId: string, parameters: URLSearch
   if (process.env.CLICKHOUSE_URL)
     return { available: false, reason: '行为风险观察当前支持 PostgreSQL' };
   const range = parseQualityRange(parameters);
-  return transaction(async tx => {
-    await tx.$executeRawUnsafe('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+  return qualityReadTransaction(async tx => {
     const [state] = await tx.$queryRawUnsafe(
       'SELECT started_at AS "startedAt",computed_at AS "computedAt",next_window AS "nextWindow",error_code AS "errorCode",rule_version AS "ruleVersion" FROM liekan_browser_risk_state WHERE website_id=$1::uuid',
       websiteId,
