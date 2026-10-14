@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { GeographyDisplay } from './geography';
 export const dataStateSchema = z.enum([
   'available',
   'empty',
@@ -33,6 +34,11 @@ export interface LiekanReport {
   tables: Record<string, Row[]>;
   insights: string[];
   meta: {
+    geography?: {
+      charts?: Record<string, GeographyDisplay[]>;
+      tables?: Record<string, GeographyDisplay[]>;
+      cards?: Record<string, GeographyDisplay>;
+    };
     keywordSnapshot?: string;
     keywordReset?: boolean;
     keywordEngines?: string[];
@@ -60,6 +66,12 @@ const chartSchema = z.object({
   series: z.array(z.object({ name: z.string(), values: z.array(z.number().nullable()) })),
   rows: z.array(z.record(z.string(), z.unknown())).optional(),
   state: dataStateSchema.optional(),
+});
+const geographyDisplaySchema = z.object({
+  country: z.string().nullable(),
+  region: z.string().nullable(),
+  city: z.string().nullable(),
+  cityId: z.number().int().positive().nullable(),
 });
 export const chartIds = [
   'd1',
@@ -124,6 +136,13 @@ export const liekanReportSchema = z.object({
   ),
   insights: z.array(z.string()),
   meta: z.object({
+    geography: z
+      .object({
+        charts: z.record(z.string(), z.array(geographyDisplaySchema)).optional(),
+        tables: z.record(z.string(), z.array(geographyDisplaySchema)).optional(),
+        cards: z.record(z.string(), geographyDisplaySchema).optional(),
+      })
+      .optional(),
     keywordSnapshot: z.string().optional(),
     keywordReset: z.boolean().optional(),
     keywordEngines: z.array(z.string()).optional(),

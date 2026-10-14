@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { FeatureProvider } from './context';
 import { TeamUserCreateDialog } from './TeamUserCreateDialog';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 vi.mock('next/link', () => ({
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
 }));
@@ -40,6 +41,19 @@ function mount() {
   );
   return { ...render(view()), view };
 }
+it('localizes the fixed anonymous readonly role display without submitting a role value', () => {
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <FeatureProvider value={context() as any}>
+        <TeamUserCreateDialog team={team} onClose={close} onCreated={created} />
+      </FeatureProvider>
+    </LiekanLocaleContext.Provider>,
+  );
+  const field = screen.getByLabelText('System role');
+  expect(field).toHaveValue('Regular user');
+  expect(field).toHaveAttribute('readonly');
+  expect(field).not.toHaveAttribute('name');
+});
 async function fill(password = 'test-pass-1', confirmation = password) {
   const user = userEvent.setup();
   await user.type(screen.getByLabelText(/^用户名/), ' Example ');

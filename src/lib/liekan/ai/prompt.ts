@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { LiekanLocale } from '../i18n/locale';
 import { type AiAnswer, aiAnswerSchema } from './answer';
 import { AiError } from './error';
 import { type AiFactsContext, sanitizeAiFactsContext } from './facts-contracts';
@@ -21,12 +22,18 @@ HTTP 403 仅代表所导入请求受阻，无法证明 SEO 排名或流量变化
 回答保持精炼：summary 不超过 120 字，observations 最多 3 项，possibleCauses 最多 2 项，suggestions 最多 3 项，limitations 最多 3 项，每项文本不超过 100 字，每项依据最多 2 个。优先回答本次问题，保证 JSON 完整闭合。`;
 const responseSchema = z.toJSONSchema(aiAnswerSchema, { unrepresentable: 'any' });
 export function prepareAiPrompt(input: {
+  locale?: LiekanLocale;
   context: AiFactsContext;
   question: string;
   history: AiHistoryTurn[];
   connectionConfig: AiConnectionConfig;
   structuredOutput?: boolean;
 }) {
+  const english = input.locale === 'en-US';
+  const systemPrompt = english
+    ? system.replace('text 以“可能：”开头', 'text 以英文 “Possible:” 开头') +
+      '\nAll narrative text must be in concise English, including summary, observations, possible causes, suggestions and limitations. Preserve identifiers, quoted website content and evidence references. Treat uncertainty explicitly. Follow the existing character and token limits.'
+    : system;
   const contextSent = sanitizeAiFactsContext(input.context);
   if (typeof input.question !== 'string' || !input.question.trim())
     throw new AiError('invalid_request', '请输入分析问题');
@@ -34,18 +41,33 @@ export function prepareAiPrompt(input: {
     contextSent.facts.find(fact => ['available', 'estimated'].includes(fact.state)) ??
     contextSent.facts[0];
   const responseExample = {
-    summary: '此处填写基于当前统计范围的简要回答。',
+    summary: english
+      ? 'Write a brief answer supported by the current statistics.'
+      : '此处填写基于当前统计范围的简要回答。',
     observations: exampleFact
       ? [
           {
-            text: '此处填写由所引用事实支持的观察。',
+            text: english
+              ? 'Write an observation supported by the referenced fact.'
+              : '此处填写由所引用事实支持的观察。',
             refs: [{ contextId: contextSent.id, factId: exampleFact.id }],
           },
         ]
       : [],
     possibleCauses: [],
-    suggestions: [{ text: '请补充希望分析的指标、页面或变化。', refs: [] }],
-    limitations: ['此处说明实际数据覆盖与采样范围的限制。'],
+    suggestions: [
+      {
+        text: english
+          ? 'Specify the metric, page or change you want to analyze.'
+          : '请补充希望分析的指标、页面或变化。',
+        refs: [],
+      },
+    ],
+    limitations: [
+      english
+        ? 'Explain the limits of the observed coverage and sample.'
+        : '此处说明实际数据覆盖与采样范围的限制。',
+    ],
   };
   const completed = input.history.filter(
     turn =>
@@ -105,7 +127,7 @@ export function prepareAiPrompt(input: {
         JSON.stringify({
           model: input.connectionConfig.model,
           messages: [
-            { role: 'system', content: system },
+            { role: 'system', content: systemPrompt },
             { role: 'user', content: prompt },
           ],
           ...(input.structuredOutput
@@ -166,7 +188,7 @@ export function prepareAiPrompt(input: {
     trimmed.topRows++;
   }
   return {
-    system,
+    system: systemPrompt,
     prompt,
     contextSent,
     allowedContexts: [contextSent, ...history.map(turn => turn.context)],

@@ -6,6 +6,7 @@ import { linkPayload, resourceUrl } from '@/lib/liekan/contracts/workspace';
 import { FeatureProvider } from './context';
 import { freshAggregateFixture } from '@/test/liekan-freshness';
 import { LinksPixelsPages } from './LinksPixelsPages';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -93,13 +94,15 @@ beforeEach(() => {
   mocks.del.mockResolvedValue({});
   mocks.all.mockResolvedValue([]);
 });
-function mount(page: string) {
+function mount(page: string, locale: 'zh-CN' | 'en-US' = 'zh-CN') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <FeatureProvider value={context}>
-        <LinksPixelsPages page={page} />
-      </FeatureProvider>
+      <LiekanLocaleContext.Provider value={locale}>
+        <FeatureProvider value={context}>
+          <LinksPixelsPages page={page} />
+        </FeatureProvider>
+      </LiekanLocaleContext.Provider>
     </QueryClientProvider>,
   );
 }
@@ -323,6 +326,20 @@ describe('links and pixels use native resource and tracking contracts', () => {
     mount('links');
     await screen.findByText('公告链接');
     expect(await screen.findByText('未提供')).toBeInTheDocument();
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+  });
+  it('localizes absent link statistics without changing the resource name or measuring a zero', async () => {
+    mocks.get.mockImplementation(async (path: string) =>
+      path === '/teams/team-1/links'
+        ? { data: [link], count: 1 }
+        : path === '/links/charts'
+          ? { data: {} }
+          : {},
+    );
+    mount('links', 'en-US');
+    await screen.findByText('公告链接');
+    expect(await screen.findByText('Not provided')).toBeVisible();
+    expect(screen.queryByText('未提供')).not.toBeInTheDocument();
     expect(screen.queryByText('0')).not.toBeInTheDocument();
   });
   it('retains an actual statistics failure instead of presenting a measured zero', async () => {

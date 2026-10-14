@@ -42,6 +42,8 @@ describe('Liekan analysis boundaries', () => {
     expect(duration(3600)).toBe('1:00:00');
     expect(duration(45554)).toBe('12:39:14');
     expect(duration(45554 + 40 * 86400)).toBe('40 天 12 小时');
+    expect(duration(90000, 'en-US')).toBe('1d 1h');
+    expect(duration(90000, 'zh-CN')).toBe('1 天 1 小时');
   });
   it('excludes incomplete observation days and weights mature cohorts', () => {
     expect(completedObservationDate(Date.parse('2026-10-03T04:00Z'), 'Asia/Shanghai')).toBe(

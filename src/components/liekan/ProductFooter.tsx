@@ -1,10 +1,16 @@
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import Link from '@/components/liekan/Link';
 import { liekanFooterLinks, liekanProduct } from '@/lib/liekan/contracts/product';
 import styles from '@/styles/liekan/ProductFooter.module.css';
 
 export function ProductFooter() {
+  const i18n = useLiekanI18n();
   return (
-    <footer className={styles.footer} data-liekan-product-footer aria-label="猎看统计项目信息">
+    <footer
+      className={styles.footer}
+      data-liekan-product-footer
+      aria-label={i18n.text('猎看统计项目信息')}
+    >
       <div className={styles.inner}>
         <div className={styles.identity}>
           <Link className={styles.version} prefetch={false} href={liekanProduct.links.changelog}>
@@ -15,15 +21,15 @@ export function ProductFooter() {
             {liekanProduct.license}
           </a>
         </div>
-        <nav className={styles.links} aria-label="项目相关链接">
+        <nav className={styles.links} aria-label={i18n.text('项目相关链接')}>
           {liekanFooterLinks.map(({ label, href }) =>
             href.startsWith('https://') ? (
               <a key={label} href={href} target="_blank" rel="noopener noreferrer">
-                {label}
+                {i18n.system(label)}
               </a>
             ) : (
               <Link key={label} prefetch={false} href={href}>
-                {label}
+                {i18n.system(label)}
               </Link>
             ),
           )}

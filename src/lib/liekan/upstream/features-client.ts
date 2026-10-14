@@ -17,7 +17,8 @@ import { getClientAuthToken, removeClientAuthToken, setClientAuthToken } from '@
 import { DATE_RANGE_CONFIG, LOCALE_CONFIG, THEME_CONFIG, TIMEZONE_CONFIG } from '@/lib/constants';
 import { consumeReturnUrl } from '@/lib/return-url';
 import { getItem, setItem } from '@/lib/storage';
-import { setLocale, setTimezone, setUser } from '@/store/app';
+import { setLocale, setTimezone, setUser, useApp } from '@/store/app';
+import { defaultLiekanLocale, isLiekanLocale, readLocaleCookie } from '../i18n/locale';
 import type { ExportFrame, ExportRequest } from '../contracts/exports';
 export async function streamFeatureExport(
   websiteId: string,
@@ -236,10 +237,19 @@ export function featureAssetUrl(file: string) {
   return `${window.location.origin}${process.env.basePath || ''}/${file.replace(/^\/+/, '')}`;
 }
 export function getFeaturePreferences() {
+  let cookieLocale: ReturnType<typeof readLocaleCookie>;
+  try {
+    if (typeof document !== 'undefined') cookieLocale = readLocaleCookie(document.cookie);
+  } catch {
+    /* Browser policy can block cookie reads. */
+  }
+  const storedLocale = getItem(LOCALE_CONFIG);
   return {
     range: getItem(DATE_RANGE_CONFIG) || '24hour',
     timezone: getItem(TIMEZONE_CONFIG) || 'Asia/Shanghai',
-    language: getItem(LOCALE_CONFIG) || 'zh-CN',
+    language: defaultLiekanLocale(
+      cookieLocale || (isLiekanLocale(storedLocale) ? storedLocale : undefined),
+    ),
     theme: getItem(THEME_CONFIG) || 'light',
   };
 }
@@ -374,11 +384,11 @@ export async function getFeatureWebsiteSummary(
 export function saveFeaturePreferences(value: {
   range: string;
   timezone: string;
-  language: string;
+  language?: string;
   theme: string;
 }) {
-  if (value.language !== 'zh-CN' || value.theme !== 'light')
-    throw new FeatureApiError('当前新界面支持简体中文浅色主题', 400);
+  if ((value.language !== undefined && !isLiekanLocale(value.language)) || value.theme !== 'light')
+    throw new FeatureApiError('当前界面支持简体中文、English 和浅色主题', 400);
   try {
     new Intl.DateTimeFormat('zh-CN', { timeZone: value.timezone }).format();
   } catch {
@@ -386,10 +396,9 @@ export function saveFeaturePreferences(value: {
   }
   setItem(DATE_RANGE_CONFIG, value.range);
   setItem(TIMEZONE_CONFIG, value.timezone);
-  setItem(LOCALE_CONFIG, value.language);
   setItem(THEME_CONFIG, value.theme);
   setTimezone(value.timezone);
-  setLocale(value.language);
+  // Language is saved immediately by the shared selector. Other preferences do not overwrite it.
 }
 
 export async function mapFeatureRows<T, R>(

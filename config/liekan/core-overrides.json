@@ -1520,11 +1520,16 @@
     },
     {
       "path": "src/app/layout.tsx",
-      "purpose": "Liekan release, branding or compatibility integration",
-      "tests": ["pnpm liekan:verify", "Liekan Docker and visual acceptance"],
+      "purpose": "Liekan release, branding and compatibility integration with per-request Chinese/English rendering",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan Docker and visual acceptance",
+        "pnpm exec vitest run src/components/liekan/language.test.tsx src/lib/liekan/i18n/locale.test.ts",
+        "Liekan bilingual browser acceptance"
+      ],
       "owner": "Liekan interface integration",
-      "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
-      "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+      "constraint": "Preserve upstream behavior and protocols outside the recorded release, branding, compatibility and locale integration; isolate server locale by request and preserve selection after logout",
+      "removalCondition": "Remove when upstream extension points provide both the product integration and per-request locale behavior and all registered regression checks pass"
     },
     {
       "path": "src/app/login/LoginForm.tsx",
@@ -3767,11 +3772,16 @@
     },
     {
       "path": "src/app/Providers.tsx",
-      "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks",
-      "tests": ["pnpm liekan:verify", "Liekan manual refresh and authorization acceptance"],
+      "purpose": "Apply the ordinary manual-read policy with separate authorization checks and validated browser preference migration and resilient Chinese/English language persistence",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan manual refresh and authorization acceptance",
+        "pnpm exec vitest run src/components/liekan/language.test.tsx src/lib/liekan/i18n/locale.test.ts",
+        "Liekan bilingual browser acceptance"
+      ],
       "owner": "Liekan refresh compatibility",
-      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior",
-      "removalCondition": "Remove when upstream supplies the same explicit read lifecycle and regression checks pass"
+      "constraint": "Preserve tracker protocols, resource ownership and authorization behavior; keep upstream dictionaries compatible, isolate server locale by request and preserve selection after logout",
+      "removalCondition": "Remove when upstream supplies both the same explicit read lifecycle and browser-persistent per-request locale support and all registered regression checks pass"
     },
     {
       "path": "src/components/common/Link.tsx",
@@ -4062,6 +4072,30 @@
       "owner": "Liekan API compatibility",
       "constraint": "Preserve complete private authentication, cookieless collection and per-website fixture cleanup",
       "removalCondition": "Remove when upstream provides equivalent traffic quality API contracts"
+    },
+    {
+      "path": "src/components/hooks/useLocale.ts",
+      "owner": "Liekan localization maintenance",
+      "purpose": "Per-request Chinese/English rendering, validated browser preference migration and resilient language persistence",
+      "tests": [
+        "pnpm exec vitest run src/components/liekan/language.test.tsx src/lib/liekan/i18n/locale.test.ts",
+        "pnpm liekan:verify",
+        "Liekan bilingual browser acceptance"
+      ],
+      "constraint": "Keep upstream protocol names and existing dictionaries compatible; isolate server locale by request and preserve selection after logout",
+      "removalCondition": "Remove when upstream provides browser-persistent, per-request locale support with the same regression coverage"
+    },
+    {
+      "path": "src/lib/storage.ts",
+      "owner": "Liekan localization maintenance",
+      "purpose": "Per-request Chinese/English rendering, validated browser preference migration and resilient language persistence",
+      "tests": [
+        "pnpm exec vitest run src/components/liekan/language.test.tsx src/lib/liekan/i18n/locale.test.ts",
+        "pnpm liekan:verify",
+        "Liekan bilingual browser acceptance"
+      ],
+      "constraint": "Keep upstream protocol names and existing dictionaries compatible; isolate server locale by request and preserve selection after logout",
+      "removalCondition": "Remove when upstream provides browser-persistent, per-request locale support with the same regression coverage"
     }
   ]
 }

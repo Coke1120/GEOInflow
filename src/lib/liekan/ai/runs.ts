@@ -9,6 +9,7 @@ import {
 } from './contracts';
 import { AiError } from './error';
 import { hashAiRequest } from './request';
+import type { LiekanLocale } from '../i18n/locale';
 import { loadAiConnection, requireAiEnabled, type AiConnectionRow } from './connections';
 import { loadAiConversation } from './conversations';
 import { aiTransaction, type AiTx } from '../upstream/ai-db';
@@ -54,6 +55,7 @@ export interface AiRunRow {
   result_expires_at: Date;
 }
 export interface AiRunInput {
+  locale?: LiekanLocale;
   operation: 'test' | 'analysis';
   targetId: string;
   clientRequestId: string;

@@ -1,4 +1,7 @@
 'use client';
+import { TableCell } from './ui';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { pageLink } from '../PageLink';
 import { TeamUserCreateDialog } from './TeamUserCreateDialog';
 import { canAssignTeamUserRole, type TeamUserCreated } from '@/lib/liekan/contracts/team-users';
@@ -126,29 +129,33 @@ const date = (value: any) =>
 const role = (value: string) => workspaceRoleLabels[value] || value || '未提供';
 const pagesOf = (data: any, size = 20) =>
   Math.max(1, Math.ceil((data?.count || 0) / (data?.pageSize || size)));
-const readable = (value: any) => (value == null ? '未提供' : numberLabel(nativeMetric(value)));
+const readable = (value: any, display = (source: string) => source) =>
+  value == null ? display('未提供') : numberLabel(nativeMetric(value));
 const uid = () => crypto.randomUUID();
 
 function Forbidden() {
+  const i18n = useLiekanI18n();
   return (
     <Notice tone="amber">
-      当前账户没有系统管理权限。
+      {i18n.fragment('当前账户没有系统管理权限。', false, true)}
       <div className="form-actions">
-        <LinkButton page="websites">返回工作台</LinkButton>
+        <LinkButton page="websites">{i18n.text('返回工作台')}</LinkButton>
       </div>
     </Notice>
   );
 }
 function ReadOnly() {
-  return <Notice tone="amber">当前角色可以查看资源。修改配置需要管理权限。</Notice>;
+  const i18n = useLiekanI18n();
+  return <Notice tone="amber">{i18n.text('当前角色可以查看资源。修改配置需要管理权限。')}</Notice>;
 }
 function Search({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const i18n = useLiekanI18n();
   return (
     <label className="search">
       <input
         type="search"
-        aria-label="搜索资源"
-        placeholder="搜索名称"
+        aria-label={i18n.text('搜索资源')}
+        placeholder={i18n.text('搜索名称')}
         value={value}
         onChange={e => onChange(e.target.value)}
       />
@@ -164,14 +171,19 @@ function Confirm({
   message,
   navigateTo,
 }: any) {
+  const i18n = useLiekanI18n();
   const action = useAction();
   return (
-    <LiekanDialog protectUnsaved={false} title={title} onClose={() => !action.busy && onClose()}>
+    <LiekanDialog
+      protectUnsaved={false}
+      title={i18n.system(title)}
+      onClose={() => !action.busy && onClose()}
+    >
       <Form
         busy={action.busy}
         danger
         trackUnsaved={false}
-        submitLabel={title}
+        submitLabel={i18n.system(title)}
         onSubmit={async (values: any) => {
           if (values.confirmation !== word) throw new Error(`请输入 ${word} 确认`);
           await action.run(onConfirm, message, { navigateTo });
@@ -179,7 +191,12 @@ function Confirm({
         }}
       >
         <Notice tone="red">{children}</Notice>
-        <Field label={`输入 ${word} 确认`} name="confirmation" required autoComplete="off" />
+        <Field
+          label={i18n.text('输入 {v0} 确认', [word])}
+          name="confirmation"
+          required
+          autoComplete="off"
+        />
       </Form>
     </LiekanDialog>
   );
@@ -219,6 +236,7 @@ export function useWorkspaceEntities() {
 }
 
 function TeamCreate({ onClose }: { onClose: () => void }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   const users = useData(
@@ -227,11 +245,11 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
     !!c.user.isAdmin,
   );
   return (
-    <LiekanDialog title="创建团队" onClose={() => !action.busy && onClose()}>
+    <LiekanDialog title={i18n.text('创建团队')} onClose={() => !action.busy && onClose()}>
       <Form
         columns
         busy={action.busy}
-        submitLabel="创建团队"
+        submitLabel={i18n.text('创建团队')}
         onSubmit={async (values: any) => {
           await action.run(
             () =>
@@ -249,24 +267,25 @@ function TeamCreate({ onClose }: { onClose: () => void }) {
           onClose();
         }}
       >
-        <Field label="团队名称" name="name" maxLength={50} required />
+        <Field label={i18n.text('团队名称')} name="name" maxLength={50} required />
         {c.user.isAdmin ? (
           <QueryState query={users}>
             <Select
-              label="团队所有者"
+              label={i18n.text('团队所有者')}
               name="ownerId"
               defaultValue={c.user.id}
               options={(users.data || []).map((user: any) => [user.id, user.username])}
             />
           </QueryState>
         ) : (
-          <Definition items={[['团队所有者', c.user.username]]} />
+          <Definition items={[[i18n.text('团队所有者'), c.user.username]]} />
         )}
       </Form>
     </LiekanDialog>
   );
 }
 function TwoFactorBadge({ userId }: { userId: string }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     q = useData(
       ['user-2fa', userId],
@@ -274,16 +293,17 @@ function TwoFactorBadge({ userId }: { userId: string }) {
       !!c.user.isAdmin,
     );
   return q.error ? (
-    <span className="muted">未提供</span>
+    <span className="muted">{i18n.text('未提供')}</span>
   ) : q.isPending ? (
-    <span className="muted">读取中</span>
+    <span className="muted">{i18n.text('读取中')}</span>
   ) : (
     <Badge tone={q.data?.isEnabled ? 'green' : 'amber'}>
-      {q.data?.isEnabled ? '已启用' : '未启用'}
+      {q.data?.isEnabled ? i18n.text('已启用') : i18n.text('未启用')}
     </Badge>
   );
 }
 function Teams({ admin = false }: { admin?: boolean }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     [page, setPage] = useListState('page', 1),
     [search, setSearch] = useListState('search', ''),
@@ -318,22 +338,26 @@ function Teams({ admin = false }: { admin?: boolean }) {
         <Metrics
           loading={q.isPending}
           items={[
-            ['参与团队', myTeams.length, '当前账户'],
+            [i18n.text('参与团队'), myTeams.length, i18n.text('当前账户')],
             [
-              '团队网站',
+              i18n.text('团队网站'),
               myTeams.every(team => team._count?.websites != null)
                 ? myTeams.reduce((total, team) => total + team._count.websites, 0)
-                : '未提供',
-              '按团队汇总',
+                : i18n.text('未提供'),
+              i18n.text('按团队汇总'),
             ],
-            ['团队成员', readable(totalMembers), '按团队汇总'],
-            ['安全策略', '按团队设置', '沿用双重验证要求'],
+            [i18n.text('团队成员'), readable(totalMembers, i18n.system), i18n.text('按团队汇总')],
+            [i18n.text('安全策略'), i18n.text('按团队设置'), i18n.text('沿用双重验证要求')],
           ]}
         />
       )}
       <Panel
-        title={admin ? '全局团队' : '我的团队'}
-        subtitle={admin ? '系统管理员管理团队与所有者。' : '所有者管理团队，管理员管理资源与成员。'}
+        title={i18n.system(admin ? i18n.text('全局团队') : i18n.text('我的团队'))}
+        subtitle={i18n.system(
+          admin
+            ? i18n.text('系统管理员管理团队与所有者。')
+            : i18n.text('所有者管理团队，管理员管理资源与成员。'),
+        )}
         actions={
           <>
             <Search
@@ -343,10 +367,10 @@ function Teams({ admin = false }: { admin?: boolean }) {
                 setPage(1);
               }}
             />
-            {!admin && <LinkButton page="team-join">通过访问码加入</LinkButton>}
+            {!admin && <LinkButton page="team-join">{i18n.text('通过访问码加入')}</LinkButton>}
             <Button primary disabled={!canCreateResource(c.user)} onClick={() => setCreate(true)}>
               <Icon name="plus" />
-              创建团队
+              {i18n.fragment('创建团队', true, false)}
             </Button>
           </>
         }
@@ -363,25 +387,62 @@ function Teams({ admin = false }: { admin?: boolean }) {
             numeric={[2, 3]}
             rows={rows.map(team => [
               team.name,
-              admin ? (
-                team.members?.find((m: any) => m.role === 'team-owner')?.user?.username || '未提供'
-              ) : (
-                <Badge
-                  key="cell-badge-1"
-                  tone={workspaceTeamRole(c.user, team) === 'team-owner' ? 'blue' : 'gray'}
-                >
-                  {role(workspaceTeamRole(c.user, team))}
-                </Badge>
-              ),
-              team._count?.members ?? '未提供',
-              team._count?.websites ?? '未提供',
-              <LinkButton
-                key="cell-linkbutton-2"
-                page="team-detail"
-                params={{ id: team.id, teamId: team.id }}
+              <TableCell
+                sortValue={
+                  admin
+                    ? team.members?.find((m: any) => m.role === 'team-owner')?.user?.username ||
+                      i18n.source('未提供')
+                    : role(workspaceTeamRole(c.user, team))
+                }
+                searchValue={
+                  admin
+                    ? team.members?.find((m: any) => m.role === 'team-owner')?.user?.username ||
+                      i18n.english.text('未提供')
+                    : i18n.english.system(
+                        i18n.english.system(role(workspaceTeamRole(c.user, team))),
+                      )
+                }
               >
-                {canManageTeam(c.user, team) ? '管理' : '查看'}
-              </LinkButton>,
+                {admin ? (
+                  team.members?.find((m: any) => m.role === 'team-owner')?.user?.username ||
+                  i18n.text('未提供')
+                ) : (
+                  <Badge
+                    key="cell-badge-1"
+                    tone={workspaceTeamRole(c.user, team) === 'team-owner' ? 'blue' : 'gray'}
+                  >
+                    {i18n.system(role(workspaceTeamRole(c.user, team)))}
+                  </Badge>
+                )}
+              </TableCell>,
+              <TableCell
+                sortValue={team._count?.members ?? i18n.source('未提供')}
+                searchValue={team._count?.members ?? i18n.english.text('未提供')}
+              >
+                {team._count?.members ?? i18n.text('未提供')}
+              </TableCell>,
+              <TableCell
+                sortValue={team._count?.websites ?? i18n.source('未提供')}
+                searchValue={team._count?.websites ?? i18n.english.text('未提供')}
+              >
+                {team._count?.websites ?? i18n.text('未提供')}
+              </TableCell>,
+              <TableCell
+                sortValue={canManageTeam(c.user, team) ? i18n.source('管理') : i18n.source('查看')}
+                searchValue={
+                  canManageTeam(c.user, team)
+                    ? i18n.english.text('管理')
+                    : i18n.english.text('查看')
+                }
+              >
+                <LinkButton
+                  key="cell-linkbutton-2"
+                  page="team-detail"
+                  params={{ id: team.id, teamId: team.id }}
+                >
+                  {canManageTeam(c.user, team) ? i18n.text('管理') : i18n.text('查看')}
+                </LinkButton>
+              </TableCell>,
             ])}
             page={page}
             pages={pagesOf(q.data)}
@@ -402,6 +463,7 @@ function MemberDrawer({
   member?: any;
   onClose: () => void;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction(),
     [remove, setRemove] = useState(false);
@@ -418,7 +480,13 @@ function MemberDrawer({
   return (
     <LiekanDialog
       subtitle={team.name + (member ? ' · ' + (member.user?.username || member.userId) : '')}
-      title={remove ? '移除成员' : member ? '编辑成员角色' : '添加团队成员'}
+      title={i18n.system(
+        remove
+          ? i18n.text('移除成员')
+          : member
+            ? i18n.text('编辑成员角色')
+            : i18n.text('添加团队成员'),
+      )}
       protectUnsaved={!remove && !action.busy && !pending.current}
       onClose={() => !action.busy && !pending.current && onClose()}
     >
@@ -426,7 +494,13 @@ function MemberDrawer({
         columns
         busy={action.busy}
         danger={remove}
-        submitLabel={remove ? '移除成员' : member ? '保存成员角色' : '添加团队成员'}
+        submitLabel={i18n.system(
+          remove
+            ? i18n.text('移除成员')
+            : member
+              ? i18n.text('保存成员角色')
+              : i18n.text('添加团队成员'),
+        )}
         onSubmit={async (values: any) => {
           pending.current = true;
           try {
@@ -460,23 +534,31 @@ function MemberDrawer({
         {remove ? (
           <>
             <Notice tone="red">
-              成员“{member.user?.username || member.userId}”将失去团队“{team.name}
-              ”的资源访问权限，个人账户继续保留。
+              {i18n.fragment('成员“', false, true)}
+              {member.user?.username || member.userId}
+              {i18n.fragment('”将失去团队“', true, true)}
+              {team.name}
+              {i18n.fragment('”的资源访问权限，个人账户继续保留。', true, false)}
             </Notice>
-            <Field label="输入 REMOVE 确认" name="confirmation" required autoComplete="off" />
+            <Field
+              label={i18n.text('输入 REMOVE 确认')}
+              name="confirmation"
+              required
+              autoComplete="off"
+            />
           </>
         ) : (
           <>
             {member ? (
               <Field
-                label="用户名"
+                label={i18n.text('用户名')}
                 defaultValue={member.user?.username || member.userId}
                 readOnly
               />
             ) : c.user.isAdmin ? (
               <QueryState query={users}>
                 <Select
-                  label="用户名"
+                  label={i18n.text('用户名')}
                   name="userId"
                   required
                   options={(users.data || [])
@@ -486,23 +568,26 @@ function MemberDrawer({
               </QueryState>
             ) : (
               <Field
-                label="已有用户 ID"
+                label={i18n.text('已有用户 ID')}
                 name="userId"
                 required
                 pattern="[a-fA-F0-9-]{36}"
-                help="请向该用户取得账户 ID。现有接口仅向系统管理员开放全局用户名列表。"
+                help={i18n.text(
+                  '请向该用户取得账户 ID。现有接口仅向系统管理员开放全局用户名列表。',
+                )}
               />
             )}
             <Select
-              label="团队角色"
+              label={i18n.text('团队角色')}
               name="role"
               defaultValue={member?.role || 'team-member'}
               options={choices}
+              localizeLabels
             />
-            <Notice>添加使用本系统已有账户。</Notice>
+            <Notice>{i18n.text('添加使用本系统已有账户。')}</Notice>
             {member && (
               <Button danger disabled={action.busy} onClick={() => setRemove(true)}>
-                移除成员
+                {i18n.text('移除成员')}
               </Button>
             )}
           </>
@@ -512,6 +597,7 @@ function MemberDrawer({
   );
 }
 function TeamDetail() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     id = c.route.teamId || c.route.id,
     [tab, setTab] = useListState('tab', 'members'),
@@ -578,7 +664,8 @@ function TeamDetail() {
   if (!id)
     return (
       <Notice>
-        请选择一个团队。<LinkButton page="teams">我的团队</LinkButton>
+        {i18n.fragment('请选择一个团队。', false, true)}
+        <LinkButton page="teams">{i18n.text('我的团队')}</LinkButton>
       </Notice>
     );
   return (
@@ -588,16 +675,16 @@ function TeamDetail() {
           <div className="row between">
             <div>
               <h2>{team.name}</h2>
-              <p className="muted">{role(workspaceTeamRole(c.user, team))}</p>
+              <p className="muted">{i18n.system(role(workspaceTeamRole(c.user, team)))}</p>
             </div>
-            <LinkButton page="teams">返回团队列表</LinkButton>
+            <LinkButton page="teams">{i18n.text('返回团队列表')}</LinkButton>
           </div>
           <Tabs
             items={[
-              ['members', '成员'],
-              ['resources', '资源'],
-              ['security', '安全'],
-              ['settings', '设置'],
+              ['members', i18n.text('成员')],
+              ['resources', i18n.text('资源')],
+              ['security', i18n.text('安全')],
+              ['settings', i18n.text('设置')],
             ]}
             active={tab}
             onChange={value => {
@@ -610,20 +697,22 @@ function TeamDetail() {
             <>
               {activeCreated && (
                 <Notice tone="blue">
-                  用户“{activeCreated.user.username}”已创建并加入团队，角色为
-                  {role(activeCreated.member.role)}。
-                  {refreshError && <p>创建已完成，成员列表读取失败，请重新读取。</p>}
+                  {i18n.fragment('用户“', false, true)}
+                  {activeCreated.user.username}
+                  {i18n.fragment('”已创建并加入团队，角色为', true, true)}
+                  {i18n.system(role(activeCreated.member.role))}。
+                  {refreshError && <p>{i18n.text('创建已完成，成员列表读取失败，请重新读取。')}</p>}
                   <div className="form-actions">
-                    <Button onClick={refreshCreated}>重新读取</Button>
+                    <Button onClick={refreshCreated}>{i18n.text('重新读取')}</Button>
                     <LinkButton page="admin-user" params={{ id: activeCreated.user.id }}>
-                      查看用户
+                      {i18n.text('查看用户')}
                     </LinkButton>
                   </div>
                 </Notice>
               )}
               <Panel
-                title="团队成员"
-                subtitle="所有者、管理员、成员与只读角色分别保留。"
+                title={i18n.text('团队成员')}
+                subtitle={i18n.text('所有者、管理员、成员与只读角色分别保留。')}
                 actions={
                   <>
                     <Search
@@ -634,7 +723,7 @@ function TeamDetail() {
                       }}
                     />
                     <Button disabled={!management} onClick={() => setDrawer({ type: 'member' })}>
-                      添加已有用户
+                      {i18n.text('添加已有用户')}
                     </Button>
                     {c.user.isAdmin && (
                       <Button
@@ -642,7 +731,7 @@ function TeamDetail() {
                         onClick={() => setDrawer({ type: 'new-user', owner: c.user.id, team: id })}
                       >
                         <Icon name="plus" />
-                        新建用户
+                        {i18n.fragment('新建用户', true, false)}
                       </Button>
                     )}
                   </>
@@ -656,32 +745,60 @@ function TeamDetail() {
                     columns={['成员', '用户名', '角色', '双重验证', '加入时间', '操作']}
                     rows={rowsOf<any>(members.data).map(member => [
                       member.user?.username || member.userId,
-                      member.user?.username || '未提供',
-                      <Badge
-                        key="cell-badge-3"
-                        tone={member.role === 'team-owner' ? 'blue' : 'gray'}
+                      <TableCell
+                        sortValue={member.user?.username || i18n.source('未提供')}
+                        searchValue={member.user?.username || i18n.english.text('未提供')}
                       >
-                        {role(member.role)}
-                      </Badge>,
-                      c.user.isAdmin ? (
-                        <TwoFactorBadge key="cell-twofactorbadge-4" userId={member.userId} />
-                      ) : (
-                        '未提供'
-                      ),
-                      date(member.createdAt),
-                      member.role === 'team-owner' ? (
-                        <span key="cell-span-5" className="muted">
-                          所有者
-                        </span>
-                      ) : (
-                        <Button
-                          key="cell-button-6"
-                          disabled={!canManageMember(c.user, team, member)}
-                          onClick={() => setDrawer({ type: 'member', member })}
+                        {member.user?.username || i18n.text('未提供')}
+                      </TableCell>,
+                      <TableCell
+                        sortValue={role(member.role)}
+                        searchValue={i18n.english.system(i18n.english.system(role(member.role)))}
+                      >
+                        <Badge
+                          key="cell-badge-3"
+                          tone={member.role === 'team-owner' ? 'blue' : 'gray'}
                         >
-                          编辑角色
-                        </Button>
-                      ),
+                          {i18n.system(role(member.role))}
+                        </Badge>
+                      </TableCell>,
+                      <TableCell
+                        sortValue={c.user.isAdmin ? '' : i18n.source('未提供')}
+                        searchValue={c.user.isAdmin ? '' : i18n.english.text('未提供')}
+                      >
+                        {c.user.isAdmin ? (
+                          <TwoFactorBadge key="cell-twofactorbadge-4" userId={member.userId} />
+                        ) : (
+                          i18n.text('未提供')
+                        )}
+                      </TableCell>,
+                      date(member.createdAt),
+                      <TableCell
+                        sortValue={
+                          member.role === 'team-owner'
+                            ? i18n.source('所有者')
+                            : i18n.source('编辑角色')
+                        }
+                        searchValue={
+                          member.role === 'team-owner'
+                            ? i18n.english.text('所有者')
+                            : i18n.english.text('编辑角色')
+                        }
+                      >
+                        {member.role === 'team-owner' ? (
+                          <span key="cell-span-5" className="muted">
+                            {i18n.text('所有者')}
+                          </span>
+                        ) : (
+                          <Button
+                            key="cell-button-6"
+                            disabled={!canManageMember(c.user, team, member)}
+                            onClick={() => setDrawer({ type: 'member', member })}
+                          >
+                            {i18n.text('编辑角色')}
+                          </Button>
+                        )}
+                      </TableCell>,
                     ])}
                     page={page}
                     pages={pagesOf(members.data)}
@@ -692,18 +809,20 @@ function TeamDetail() {
             </>
           ) : tab === 'resources' ? (
             <Panel
-              title="团队资源"
-              subtitle="查看此团队所属的网站、看板、链接和像素。网站转移保留历史访问数据。"
+              title={i18n.text('团队资源')}
+              subtitle={i18n.text(
+                '查看此团队所属的网站、看板、链接和像素。网站转移保留历史访问数据。',
+              )}
               actions={
                 <>
                   <LinkButton page="boards" params={{ teamId: id }}>
-                    团队看板
+                    {i18n.text('团队看板')}
                   </LinkButton>
                   <LinkButton page="links" params={{ teamId: id }}>
-                    团队链接
+                    {i18n.text('团队链接')}
                   </LinkButton>
                   <LinkButton page="pixels" params={{ teamId: id }}>
-                    团队像素
+                    {i18n.text('团队像素')}
                   </LinkButton>
                   <Search
                     value={search}
@@ -714,7 +833,7 @@ function TeamDetail() {
                   />
                   {canCreateResource(c.user, team) && (
                     <LinkButton page="onboarding" params={{ teamId: id }} primary>
-                      添加网站
+                      {i18n.text('添加网站')}
                     </LinkButton>
                   )}
                 </>
@@ -728,14 +847,24 @@ function TeamDetail() {
                   rows={rowsOf<FeatureEntity>(resources.data).map(site => [
                     site.name,
                     site.domain,
-                    <Badge key="cell-badge-7">未提供接入状态</Badge>,
-                    <LinkButton
-                      key="cell-linkbutton-8"
-                      page="website-settings"
-                      params={{ websiteId: site.id, teamId: id }}
+                    <TableCell
+                      sortValue={i18n.source('未提供接入状态')}
+                      searchValue={i18n.english.system(i18n.english.text('未提供接入状态'))}
                     >
-                      设置
-                    </LinkButton>,
+                      <Badge key="cell-badge-7">{i18n.text('未提供接入状态')}</Badge>
+                    </TableCell>,
+                    <TableCell
+                      sortValue={i18n.source('设置')}
+                      searchValue={i18n.english.text('设置')}
+                    >
+                      <LinkButton
+                        key="cell-linkbutton-8"
+                        page="website-settings"
+                        params={{ websiteId: site.id, teamId: id }}
+                      >
+                        {i18n.text('设置')}
+                      </LinkButton>
+                    </TableCell>,
                   ])}
                   page={page}
                   pages={pagesOf(resources.data)}
@@ -744,7 +873,10 @@ function TeamDetail() {
               </QueryState>
             </Panel>
           ) : tab === 'security' ? (
-            <Panel title="团队双重验证" subtitle="团队要求覆盖个人自主设置。">
+            <Panel
+              title={i18n.text('团队双重验证')}
+              subtitle={i18n.text('团队要求覆盖个人自主设置。')}
+            >
               <Body>
                 <QueryState query={security}>
                   <Form
@@ -752,7 +884,7 @@ function TeamDetail() {
                     resetKey={String(team.twoFactorRequired)}
                     busy={action.busy}
                     disabled={!c.user.isAdmin || !security.data?.isConfigured}
-                    submitLabel="保存团队策略"
+                    submitLabel={i18n.text('保存团队策略')}
                     onSubmit={(values: any) =>
                       action.run(() =>
                         c.api.post(`/admin/teams/${id}/2fa`, {
@@ -762,26 +894,29 @@ function TeamDetail() {
                     }
                   >
                     <Switch
-                      label="要求团队成员启用双重验证"
+                      label={i18n.text('要求团队成员启用双重验证')}
                       name="required"
                       defaultChecked={team.twoFactorRequired}
-                      help="开启后未配置的成员需要完成绑定。"
+                      help={i18n.text('开启后未配置的成员需要完成绑定。')}
                     />
                     <Notice tone="amber">
                       {!c.user.isAdmin
-                        ? '团队安全策略由系统管理员设置。'
+                        ? i18n.text('团队安全策略由系统管理员设置。')
                         : !security.data?.isConfigured
-                          ? '服务缺少加密配置，暂时无法开启策略。'
+                          ? i18n.text('服务缺少加密配置，暂时无法开启策略。')
                           : team.twoFactorRequired
-                            ? '团队已要求双重验证，成员无法自行关闭。'
-                            : '成员当前可自主启用双重验证。'}
+                            ? i18n.text('团队已要求双重验证，成员无法自行关闭。')
+                            : i18n.text('成员当前可自主启用双重验证。')}
                     </Notice>
                   </Form>
                 </QueryState>
               </Body>
             </Panel>
           ) : (
-            <Panel title="团队设置" subtitle="访问码用于已登录用户加入团队。">
+            <Panel
+              title={i18n.text('团队设置')}
+              subtitle={i18n.text('访问码用于已登录用户加入团队。')}
+            >
               <Body>
                 {!management && <ReadOnly />}
                 <Form
@@ -789,22 +924,26 @@ function TeamDetail() {
                   resetKey={String(team.updatedAt)}
                   busy={action.busy}
                   disabled={!management}
-                  submitLabel="保存团队设置"
+                  submitLabel={i18n.text('保存团队设置')}
                   onSubmit={async (values: any) => {
                     await action.run(() => c.api.post(`/teams/${id}`, { name: values.name }));
                     await c.refresh();
                   }}
                 >
                   <Field
-                    label="团队名称"
+                    label={i18n.text('团队名称')}
                     name="name"
                     defaultValue={team.name}
                     maxLength={50}
                     required
                   />
-                  <Field label="团队 ID" value={team.id} readOnly />
+                  <Field label={i18n.text('团队 ID')} value={team.id} readOnly />
                   <div className="row">
-                    <Field label="团队访问码" value={team.accessCode || '未提供'} readOnly />
+                    <Field
+                      label={i18n.text('团队访问码')}
+                      value={team.accessCode || '未提供'}
+                      readOnly
+                    />
                     <Button
                       disabled={!team.accessCode}
                       onClick={async () => {
@@ -812,7 +951,7 @@ function TeamDetail() {
                         c.notify('访问码已复制');
                       }}
                     >
-                      复制访问码
+                      {i18n.text('复制访问码')}
                     </Button>
                     <Button
                       disabled={action.busy || !management}
@@ -826,26 +965,26 @@ function TeamDetail() {
                         );
                       }}
                     >
-                      重新生成
+                      {i18n.text('重新生成')}
                     </Button>
                   </div>
-                  <Notice tone="amber">新访问码生成后旧码失效。</Notice>
+                  <Notice tone="amber">{i18n.text('新访问码生成后旧码失效。')}</Notice>
                 </Form>
                 <hr className="divider" />
                 <div className="row">
                   <Button
                     disabled={owner || action.busy}
-                    title={owner ? '所有者需要先转移所有权' : undefined}
+                    title={i18n.system(owner ? i18n.text('所有者需要先转移所有权') : undefined)}
                     onClick={() => setDrawer({ type: 'leave' })}
                   >
-                    退出团队
+                    {i18n.text('退出团队')}
                   </Button>
                   <Button
                     danger
                     disabled={!canDelete || action.busy}
                     onClick={() => setDrawer({ type: 'delete' })}
                   >
-                    删除团队
+                    {i18n.text('删除团队')}
                   </Button>
                 </div>
               </Body>
@@ -874,11 +1013,15 @@ function TeamDetail() {
             )}
           {['delete', 'leave'].includes(drawer?.type) && (
             <Confirm
-              title={drawer.type === 'delete' ? '删除团队' : '退出团队'}
+              title={i18n.system(
+                drawer.type === 'delete' ? i18n.text('删除团队') : i18n.text('退出团队'),
+              )}
               word={drawer.type === 'delete' ? 'DELETE' : 'LEAVE'}
               onClose={() => setDrawer(null)}
               message={
-                drawer.type === 'delete' ? `「${team.name}」已删除` : `已退出「${team.name}」`
+                drawer.type === 'delete'
+                  ? i18n.source('「{v0}」已删除', [team.name])
+                  : i18n.source('已退出「{v0}」', [team.name])
               }
               navigateTo="teams"
               onConfirm={async () => {
@@ -888,8 +1031,8 @@ function TeamDetail() {
               }}
             >
               {drawer.type === 'delete'
-                ? '此操作会删除团队及关联链接、像素和看板。请先核对资源归属。'
-                : '退出后将失去该团队的资源访问权限。'}
+                ? i18n.text('此操作会删除团队及关联链接、像素和看板。请先核对资源归属。')
+                : i18n.text('退出后将失去该团队的资源访问权限。')}
             </Confirm>
           )}
         </>
@@ -898,16 +1041,17 @@ function TeamDetail() {
   );
 }
 function TeamJoin() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   return (
     <div className="wide-narrow">
-      <Panel title="通过访问码加入" subtitle="向团队管理者获取访问码。">
+      <Panel title={i18n.text('通过访问码加入')} subtitle={i18n.text('向团队管理者获取访问码。')}>
         <Body>
           <Form
             busy={action.busy}
-            submitLabel="验证并加入"
-            cancel={<LinkButton page="teams">取消</LinkButton>}
+            submitLabel={i18n.text('验证并加入')}
+            cancel={<LinkButton page="teams">{i18n.text('取消')}</LinkButton>}
             onSubmit={async (values: any) => {
               const result = await action.run(
                 () => c.api.post('/teams/join', { accessCode: values.accessCode }),
@@ -917,18 +1061,18 @@ function TeamJoin() {
               c.navigate('team-detail', { id: result.teamId, teamId: result.teamId });
             }}
           >
-            <Field label="访问码" name="accessCode" required maxLength={50} />
-            <Notice>加入使用已有登录账户。成功后显示团队名称与分配角色。</Notice>
+            <Field label={i18n.text('访问码')} name="accessCode" required maxLength={50} />
+            <Notice>{i18n.text('加入使用已有登录账户。成功后显示团队名称与分配角色。')}</Notice>
           </Form>
         </Body>
       </Panel>
-      <Panel title="角色说明" subtitle="权限来自团队管理者的角色设置。">
+      <Panel title={i18n.text('角色说明')} subtitle={i18n.text('权限来自团队管理者的角色设置。')}>
         <Body>
           <Definition
             items={[
-              ['管理员', '管理资源与成员'],
-              ['成员', '查看分析并管理授权资源'],
-              ['只读', '查看分析，无法修改配置'],
+              [i18n.text('管理员'), i18n.text('管理资源与成员')],
+              [i18n.text('成员'), i18n.text('查看分析并管理授权资源')],
+              [i18n.text('只读'), i18n.text('查看分析，无法修改配置')],
             ]}
           />
         </Body>
@@ -937,36 +1081,50 @@ function TeamJoin() {
   );
 }
 function CreateUser({ onClose }: { onClose: () => void }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   return (
-    <LiekanDialog title="创建系统用户" onClose={() => !action.busy && onClose()}>
+    <LiekanDialog title={i18n.text('创建系统用户')} onClose={() => !action.busy && onClose()}>
       <Form
         columns
         busy={action.busy}
-        submitLabel="创建用户"
+        submitLabel={i18n.text('创建用户')}
         onSubmit={async (values: any) => {
           await action.run(() => c.api.post('/users', values), '用户已创建');
           onClose();
         }}
       >
-        <Field label="用户名" name="username" required maxLength={255} autoComplete="off" />
         <Field
-          label="初始密码"
+          label={i18n.text('用户名')}
+          name="username"
+          required
+          maxLength={255}
+          autoComplete="off"
+        />
+        <Field
+          label={i18n.text('初始密码')}
           name="password"
           type="password"
           required
           minLength={8}
           maxLength={255}
           autoComplete="new-password"
-          help="密码至少 8 位。"
+          help={i18n.text('密码至少 8 位。')}
         />
-        <Select label="系统角色" name="role" options={userRoleOptions} defaultValue="user" />
+        <Select
+          label={i18n.text('系统角色')}
+          name="role"
+          options={userRoleOptions}
+          localizeLabels
+          defaultValue="user"
+        />
       </Form>
     </LiekanDialog>
   );
 }
 function AdminUsers() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     [page, setPage] = useListState('page', 1),
     [search, setSearch] = useListState('search', ''),
@@ -980,8 +1138,8 @@ function AdminUsers() {
   return (
     <>
       <Panel
-        title="系统用户"
-        subtitle="创建、查看角色和管理双重验证。"
+        title={i18n.text('系统用户')}
+        subtitle={i18n.text('创建、查看角色和管理双重验证。')}
         actions={
           <>
             <Search
@@ -993,7 +1151,7 @@ function AdminUsers() {
             />
             <Button primary onClick={() => setCreate(true)}>
               <Icon name="plus" />
-              创建用户
+              {i18n.fragment('创建用户', true, false)}
             </Button>
           </>
         }
@@ -1005,17 +1163,36 @@ function AdminUsers() {
             columns={['用户名', '系统角色', '团队', '双重验证', '状态', '操作']}
             rows={rowsOf<any>(q.data).map(user => [
               user.username,
-              <Badge key="cell-badge-9" tone={user.role === 'admin' ? 'blue' : 'gray'}>
-                {role(user.role)}
-              </Badge>,
-              user._count?.teams ?? '未提供',
+              <TableCell
+                sortValue={role(user.role)}
+                searchValue={i18n.english.system(i18n.english.system(role(user.role)))}
+              >
+                <Badge key="cell-badge-9" tone={user.role === 'admin' ? 'blue' : 'gray'}>
+                  {i18n.system(role(user.role))}
+                </Badge>
+              </TableCell>,
+              <TableCell
+                sortValue={user._count?.teams ?? i18n.source('未提供')}
+                searchValue={user._count?.teams ?? i18n.english.text('未提供')}
+              >
+                {user._count?.teams ?? i18n.text('未提供')}
+              </TableCell>,
               <TwoFactorBadge key="cell-twofactorbadge-10" userId={user.id} />,
-              <Badge key="cell-badge-11" tone={user.deletedAt ? 'gray' : 'green'}>
-                {user.deletedAt ? '已删除' : '正常'}
-              </Badge>,
-              <LinkButton key="cell-linkbutton-12" page="admin-user" params={{ id: user.id }}>
-                查看
-              </LinkButton>,
+              <TableCell
+                sortValue={user.deletedAt ? i18n.source('已删除') : i18n.source('正常')}
+                searchValue={i18n.english.system(
+                  user.deletedAt ? i18n.english.text('已删除') : i18n.english.text('正常'),
+                )}
+              >
+                <Badge key="cell-badge-11" tone={user.deletedAt ? 'gray' : 'green'}>
+                  {user.deletedAt ? i18n.text('已删除') : i18n.text('正常')}
+                </Badge>
+              </TableCell>,
+              <TableCell sortValue={i18n.source('查看')} searchValue={i18n.english.text('查看')}>
+                <LinkButton key="cell-linkbutton-12" page="admin-user" params={{ id: user.id }}>
+                  {i18n.text('查看')}
+                </LinkButton>
+              </TableCell>,
             ])}
             page={page}
             pages={pagesOf(q.data)}
@@ -1023,12 +1200,15 @@ function AdminUsers() {
           />
         </QueryState>
       </Panel>
-      <Notice>系统角色与团队角色独立。编辑当前管理员时，禁止修改自己的系统角色。</Notice>
+      <Notice>
+        {i18n.text('系统角色与团队角色独立。编辑当前管理员时，禁止修改自己的系统角色。')}
+      </Notice>
       {create && <CreateUser onClose={() => setCreate(false)} />}
     </>
   );
 }
 function AdminUser() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     id = c.route.id,
     action = useAction(),
@@ -1060,17 +1240,23 @@ function AdminUser() {
       {q.data && (
         <>
           <div className="row between">
-            <h2>用户 · {q.data.username}</h2>
-            <LinkButton page="admin-users">返回用户管理</LinkButton>
+            <h2>
+              {i18n.fragment('用户 · ', false, true)}
+              {q.data.username}
+            </h2>
+            <LinkButton page="admin-users">{i18n.text('返回用户管理')}</LinkButton>
           </div>
           <div className="two">
-            <Panel title="账户信息" subtitle="管理员可修改用户资料，密码留空表示保留。">
+            <Panel
+              title={i18n.text('账户信息')}
+              subtitle={i18n.text('管理员可修改用户资料，密码留空表示保留。')}
+            >
               <Body>
                 <Form
                   key={id}
                   resetKey={JSON.stringify([q.data.username, q.data.role])}
                   busy={action.busy}
-                  submitLabel="保存用户"
+                  submitLabel={i18n.text('保存用户')}
                   onSubmit={(values: any) =>
                     action.run(() =>
                       c.api.post(`/users/${id}`, {
@@ -1082,71 +1268,81 @@ function AdminUser() {
                   }
                 >
                   <Field
-                    label="用户名"
+                    label={i18n.text('用户名')}
                     name="username"
                     defaultValue={q.data.username}
                     required
                     maxLength={255}
                   />
                   <Field
-                    label="新密码（可选）"
+                    label={i18n.text('新密码（可选）')}
                     name="password"
                     type="password"
                     minLength={8}
                     maxLength={255}
                     autoComplete="new-password"
-                    help="留空保留当前密码，修改需至少 8 位。"
+                    help={i18n.text('留空保留当前密码，修改需至少 8 位。')}
                   />
                   <Select
-                    label="系统角色"
+                    label={i18n.text('系统角色')}
                     name="role"
                     options={userRoleOptions}
+                    localizeLabels
                     defaultValue={q.data.role}
                     disabled={id === c.user.id}
                   />
                 </Form>
               </Body>
             </Panel>
-            <Panel title="账户安全" subtitle="重置双重验证后，用户需要重新绑定。">
+            <Panel
+              title={i18n.text('账户安全')}
+              subtitle={i18n.text('重置双重验证后，用户需要重新绑定。')}
+            >
               <Body>
                 <QueryState query={security}>
                   <Definition
                     items={[
                       [
-                        '双重验证',
+                        i18n.text('双重验证'),
                         <Badge
                           key="cell-badge-13"
                           tone={security.data?.isEnabled ? 'green' : 'amber'}
                         >
-                          {security.data?.isEnabled ? '已启用' : '未启用'}
+                          {security.data?.isEnabled ? i18n.text('已启用') : i18n.text('未启用')}
                         </Badge>,
                       ],
-                      ['账户要求', q.data.twoFactorRequired ? '必须启用' : '自主选择'],
                       [
-                        '账户状态',
+                        i18n.text('账户要求'),
+                        q.data.twoFactorRequired ? i18n.text('必须启用') : i18n.text('自主选择'),
+                      ],
+                      [
+                        i18n.text('账户状态'),
                         <Badge key="cell-badge-14" tone="green">
-                          正常
+                          {i18n.text('正常')}
                         </Badge>,
                       ],
                     ]}
                   />
                   <div className="form-actions">
                     <Button disabled={action.busy} onClick={() => setConfirm('reset')}>
-                      重置双重验证
+                      {i18n.text('重置双重验证')}
                     </Button>
                     <Button
                       danger
                       disabled={id === c.user.id || action.busy}
                       onClick={() => setConfirm('delete')}
                     >
-                      删除用户
+                      {i18n.text('删除用户')}
                     </Button>
                   </div>
                 </QueryState>
               </Body>
             </Panel>
           </div>
-          <Panel title="用户资源" subtitle="管理员查看该账户的网站和团队。">
+          <Panel
+            title={i18n.text('用户资源')}
+            subtitle={i18n.text('管理员查看该账户的网站和团队。')}
+          >
             <QueryState query={resources}>
               <Table
                 mobile
@@ -1158,30 +1354,77 @@ function AdminUser() {
                 columns={['类型', '资源名称', '角色', '操作']}
                 rows={[
                   ...(resources.data?.teams || []).map((team: any) => [
-                    '团队',
-                    team.name,
-                    role(
-                      workspaceTeamRole({ id, username: q.data.username, role: q.data.role }, team),
-                    ),
-                    <LinkButton
-                      key="cell-linkbutton-15"
-                      page="team-detail"
-                      params={{ id: team.id, teamId: team.id }}
+                    <TableCell
+                      sortValue={i18n.source('团队')}
+                      searchValue={i18n.english.text('团队')}
                     >
-                      查看
-                    </LinkButton>,
+                      {i18n.text('团队')}
+                    </TableCell>,
+                    team.name,
+                    <TableCell
+                      sortValue={role(
+                        workspaceTeamRole(
+                          { id, username: q.data.username, role: q.data.role },
+                          team,
+                        ),
+                      )}
+                      searchValue={i18n.english.system(
+                        role(
+                          workspaceTeamRole(
+                            { id, username: q.data.username, role: q.data.role },
+                            team,
+                          ),
+                        ),
+                      )}
+                    >
+                      {i18n.system(
+                        role(
+                          workspaceTeamRole(
+                            { id, username: q.data.username, role: q.data.role },
+                            team,
+                          ),
+                        ),
+                      )}
+                    </TableCell>,
+                    <TableCell
+                      sortValue={i18n.source('查看')}
+                      searchValue={i18n.english.text('查看')}
+                    >
+                      <LinkButton
+                        key="cell-linkbutton-15"
+                        page="team-detail"
+                        params={{ id: team.id, teamId: team.id }}
+                      >
+                        {i18n.text('查看')}
+                      </LinkButton>
+                    </TableCell>,
                   ]),
                   ...(resources.data?.websites || []).map((site: any) => [
-                    '网站',
-                    site.name,
-                    '所有者',
-                    <LinkButton
-                      key="cell-linkbutton-16"
-                      page="website-settings"
-                      params={{ websiteId: site.id }}
+                    <TableCell
+                      sortValue={i18n.source('网站')}
+                      searchValue={i18n.english.text('网站')}
                     >
-                      查看
-                    </LinkButton>,
+                      {i18n.text('网站')}
+                    </TableCell>,
+                    site.name,
+                    <TableCell
+                      sortValue={i18n.source('所有者')}
+                      searchValue={i18n.english.text('所有者')}
+                    >
+                      {i18n.text('所有者')}
+                    </TableCell>,
+                    <TableCell
+                      sortValue={i18n.source('查看')}
+                      searchValue={i18n.english.text('查看')}
+                    >
+                      <LinkButton
+                        key="cell-linkbutton-16"
+                        page="website-settings"
+                        params={{ websiteId: site.id }}
+                      >
+                        {i18n.text('查看')}
+                      </LinkButton>
+                    </TableCell>,
                   ]),
                 ]}
               />
@@ -1189,18 +1432,22 @@ function AdminUser() {
           </Panel>
           {confirm && (
             <Confirm
-              title={confirm === 'reset' ? '重置用户双重验证' : '删除用户'}
+              title={i18n.system(
+                confirm === 'reset' ? i18n.text('重置用户双重验证') : i18n.text('删除用户'),
+              )}
               word={confirm === 'reset' ? 'RESET' : 'DELETE'}
               onClose={() => setConfirm('')}
-              message={confirm === 'reset' ? '用户双重验证已重置' : '用户已删除'}
+              message={
+                confirm === 'reset' ? i18n.source('用户双重验证已重置') : i18n.source('用户已删除')
+              }
               navigateTo={confirm === 'delete' ? 'admin-users' : undefined}
               onConfirm={async () => {
                 await c.api.del(confirm === 'reset' ? `/admin/users/${id}/2fa` : `/users/${id}`);
               }}
             >
               {confirm === 'reset'
-                ? '该用户需重新绑定验证器，现有恢复码将失效。'
-                : '此操作会删除该用户及其拥有的资源。请核对资源归属。'}
+                ? i18n.text('该用户需重新绑定验证器，现有恢复码将失效。')
+                : i18n.text('此操作会删除该用户及其拥有的资源。请核对资源归属。')}
             </Confirm>
           )}
         </>
@@ -1209,6 +1456,7 @@ function AdminUser() {
   );
 }
 function AdminWebsites() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     [page, setPage] = useListState('page', 1),
     [search, setSearch] = useListState('search', ''),
@@ -1233,8 +1481,8 @@ function AdminWebsites() {
   return (
     <>
       <Panel
-        title="全局网站"
-        subtitle="系统管理员检索资源及所属账户、团队。"
+        title={i18n.text('全局网站')}
+        subtitle={i18n.text('系统管理员检索资源及所属账户、团队。')}
         actions={
           <>
             <Search
@@ -1244,7 +1492,7 @@ function AdminWebsites() {
                 setPage(1);
               }}
             />
-            <Button onClick={() => setFilter(true)}>按空间筛选</Button>
+            <Button onClick={() => setFilter(true)}>{i18n.text('按空间筛选')}</Button>
           </>
         }
       >
@@ -1256,19 +1504,47 @@ function AdminWebsites() {
             rows={rowsOf<any>(q.data).map(site => [
               site.name,
               site.domain,
-              site.team?.name ||
-                c.teams.find(team => team.id === (site.teamId || space))?.name ||
-                (site.teamId ? '团队' : '个人空间'),
-              site.user?.username ||
-                site.team?.members?.find((member: any) => member.role === 'team-owner')?.userId ||
-                '未提供',
-              <LinkButton
-                key="cell-linkbutton-17"
-                page="website-settings"
-                params={{ websiteId: site.id, teamId: site.teamId || space || undefined }}
+              <TableCell
+                sortValue={
+                  site.team?.name ||
+                  c.teams.find(team => team.id === (site.teamId || space))?.name ||
+                  (site.teamId ? i18n.source('团队') : i18n.source('个人空间'))
+                }
+                searchValue={
+                  site.team?.name ||
+                  c.teams.find(team => team.id === (site.teamId || space))?.name ||
+                  (site.teamId ? i18n.english.text('团队') : i18n.english.text('个人空间'))
+                }
               >
-                设置
-              </LinkButton>,
+                {site.team?.name ||
+                  c.teams.find(team => team.id === (site.teamId || space))?.name ||
+                  (site.teamId ? i18n.text('团队') : i18n.text('个人空间'))}
+              </TableCell>,
+              <TableCell
+                sortValue={
+                  site.user?.username ||
+                  site.team?.members?.find((member: any) => member.role === 'team-owner')?.userId ||
+                  i18n.source('未提供')
+                }
+                searchValue={
+                  site.user?.username ||
+                  site.team?.members?.find((member: any) => member.role === 'team-owner')?.userId ||
+                  i18n.english.text('未提供')
+                }
+              >
+                {site.user?.username ||
+                  site.team?.members?.find((member: any) => member.role === 'team-owner')?.userId ||
+                  i18n.text('未提供')}
+              </TableCell>,
+              <TableCell sortValue={i18n.source('设置')} searchValue={i18n.english.text('设置')}>
+                <LinkButton
+                  key="cell-linkbutton-17"
+                  page="website-settings"
+                  params={{ websiteId: site.id, teamId: site.teamId || space || undefined }}
+                >
+                  {i18n.text('设置')}
+                </LinkButton>
+              </TableCell>,
             ])}
             page={page}
             pages={pagesOf(q.data)}
@@ -1277,10 +1553,10 @@ function AdminWebsites() {
         </QueryState>
       </Panel>
       {filter && (
-        <LiekanDialog title="按所属空间筛选" onClose={() => setFilter(false)}>
+        <LiekanDialog title={i18n.text('按所属空间筛选')} onClose={() => setFilter(false)}>
           <QueryState query={teams}>
             <Form
-              submitLabel="应用筛选"
+              submitLabel={i18n.text('应用筛选')}
               onSubmit={(values: any) => {
                 setSpace(values.space);
                 setPage(1);
@@ -1288,11 +1564,11 @@ function AdminWebsites() {
               }}
             >
               <Select
-                label="所属空间"
+                label={i18n.text('所属空间')}
                 name="space"
                 defaultValue={space}
                 options={[
-                  ['', '全部空间'],
+                  ['', i18n.text('全部空间')],
                   ...(teams.data || []).map((team: any) => ({ value: team.id, label: team.name })),
                 ]}
               />
@@ -1304,6 +1580,7 @@ function AdminWebsites() {
   );
 }
 function AdminSecurity() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction(),
     q = useData(
@@ -1315,13 +1592,16 @@ function AdminSecurity() {
   return (
     <QueryState query={q}>
       <div className="wide-narrow">
-        <Panel title="系统双重验证策略" subtitle="全局要求覆盖个人与团队的自主设置。">
+        <Panel
+          title={i18n.text('系统双重验证策略')}
+          subtitle={i18n.text('全局要求覆盖个人与团队的自主设置。')}
+        >
           <Body>
             <Form
               resetKey={String(q.data?.globalRequired)}
               busy={action.busy}
               disabled={!q.data?.isConfigured}
-              submitLabel="保存全局策略"
+              submitLabel={i18n.text('保存全局策略')}
               onSubmit={(values: any) =>
                 action.run(() =>
                   c.api.post('/admin/2fa/global', { required: values.required === 'on' }),
@@ -1329,32 +1609,35 @@ function AdminSecurity() {
               }
             >
               <Switch
-                label="所有用户必须启用双重验证"
+                label={i18n.text('所有用户必须启用双重验证')}
                 name="required"
                 defaultChecked={q.data?.globalRequired}
-                help="下次登录时引导尚未绑定的用户完成设置。"
+                help={i18n.text('下次登录时引导尚未绑定的用户完成设置。')}
               />
               <hr className="divider" />
               <Notice tone={q.data?.isConfigured ? 'blue' : 'red'}>
                 {q.data?.isConfigured
-                  ? '加密配置已就绪。开启前请确认管理员已保存恢复码。'
-                  : '服务缺少加密配置，暂时无法开启全局策略。请先完成服务端配置。'}
+                  ? i18n.text('加密配置已就绪。开启前请确认管理员已保存恢复码。')
+                  : i18n.text('服务缺少加密配置，暂时无法开启全局策略。请先完成服务端配置。')}
               </Notice>
             </Form>
           </Body>
         </Panel>
-        <Panel title="配置状态" subtitle="当前服务的配置与策略。">
+        <Panel title={i18n.text('配置状态')} subtitle={i18n.text('当前服务的配置与策略。')}>
           <Body>
             <Definition
               items={[
                 [
-                  '加密配置',
+                  i18n.text('加密配置'),
                   <Badge key="cell-badge-18" tone={q.data?.isConfigured ? 'green' : 'red'}>
-                    {q.data?.isConfigured ? '已配置' : '未配置'}
+                    {q.data?.isConfigured ? i18n.text('已配置') : i18n.text('未配置')}
                   </Badge>,
                 ],
-                ['全局要求', q.data?.globalRequired ? '开启' : '关闭'],
-                ['团队策略', '全局要求开启时，团队无法覆盖'],
+                [
+                  i18n.text('全局要求'),
+                  q.data?.globalRequired ? i18n.text('开启') : i18n.text('关闭'),
+                ],
+                [i18n.text('团队策略'), i18n.text('全局要求开启时，团队无法覆盖')],
               ]}
             />
           </Body>
@@ -1387,6 +1670,7 @@ export function ResourceAnalytics({
   range?: any;
   filters?: any;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     params = {
       ...(range || c?.range),
@@ -1462,49 +1746,87 @@ export function ResourceAnalytics({
             variant
               ? variant === 'board'
                 ? [
-                    ['访客', readable(q.data?.stats?.visitors), '当前期间'],
-                    ['AI 引荐', readable(q.data?.aiStats?.visitors), '已识别来源'],
                     [
-                      '预约转化',
-                      q.data?.appointment ? readable(q.data.appointment.conversions) : '未配置',
-                      '所选预约目标的事件触发次数',
+                      i18n.text('访客'),
+                      readable(q.data?.stats?.visitors, i18n.system),
+                      i18n.text('当前期间'),
                     ],
                     [
-                      '转化访客',
-                      q.data?.appointment ? readable(q.data.appointment.num) : '未配置',
-                      '独立转化访客',
+                      i18n.text('AI 引荐'),
+                      readable(q.data?.aiStats?.visitors, i18n.system),
+                      i18n.text('已识别来源'),
+                    ],
+                    [
+                      i18n.text('预约转化'),
+                      q.data?.appointment
+                        ? readable(q.data.appointment.conversions, i18n.system)
+                        : i18n.text('未配置'),
+                      i18n.text('所选预约目标的事件触发次数'),
+                    ],
+                    [
+                      i18n.text('转化访客'),
+                      q.data?.appointment
+                        ? readable(q.data.appointment.num, i18n.system)
+                        : i18n.text('未配置'),
+                      i18n.text('独立转化访客'),
                     ],
                   ]
                 : [
-                    ['访客', readable(q.data?.stats?.visitors), '当前期间'],
-                    ['访问次数', readable(q.data?.stats?.pageviews), '页面访问次数'],
-                    ['AI 引荐', readable(q.data?.aiStats?.visitors), '已识别来源'],
                     [
-                      '预约演示',
+                      i18n.text('访客'),
+                      readable(q.data?.stats?.visitors, i18n.system),
+                      i18n.text('当前期间'),
+                    ],
+                    [
+                      i18n.label('访问次数', 'pageviews'),
+                      readable(q.data?.stats?.pageviews, i18n.system),
+                      i18n.text('页面访问次数'),
+                    ],
+                    [
+                      i18n.text('AI 引荐'),
+                      readable(q.data?.aiStats?.visitors, i18n.system),
+                      i18n.text('已识别来源'),
+                    ],
+                    [
+                      i18n.text('预约演示'),
                       q.data?.appointment
-                        ? readable(q.data.appointment.conversions)
+                        ? readable(q.data.appointment.conversions, i18n.system)
                         : allowGoals
-                          ? '未配置'
-                          : '未授权',
-                      '所选预约目标的事件触发次数',
+                          ? i18n.text('未配置')
+                          : i18n.text('未授权'),
+                      i18n.text('所选预约目标的事件触发次数'),
                     ],
                   ]
               : [
                   [
-                    kind === 'link' ? '点击次数' : kind === 'pixel' ? '请求次数' : '页面访问',
-                    readable(q.data?.stats?.pageviews),
-                    '当前期间',
+                    kind === 'link'
+                      ? i18n.text('点击次数')
+                      : kind === 'pixel'
+                        ? i18n.text('请求次数')
+                        : i18n.text('页面访问'),
+                    readable(q.data?.stats?.pageviews, i18n.system),
+                    i18n.text('当前期间'),
                   ],
                   [
-                    '独立访客',
-                    readable(q.data?.stats?.visitors),
-                    kind === 'pixel' ? '请求访问标识聚合' : '访问标识聚合',
+                    i18n.text('独立访客'),
+                    readable(q.data?.stats?.visitors, i18n.system),
+                    kind === 'pixel' ? i18n.text('请求访问标识聚合') : i18n.text('访问标识聚合'),
                   ],
-                  ['访问次数', readable(q.data?.stats?.visits), '当前期间'],
                   [
-                    '统计口径',
-                    kind === 'pixel' ? '图片请求' : kind === 'link' ? '链接点击' : '网站访问',
-                    kind === 'pixel' ? '包括代理与缓存影响' : '按采集记录统计',
+                    i18n.text('访问次数'),
+                    readable(q.data?.stats?.visits, i18n.system),
+                    i18n.text('当前期间'),
+                  ],
+                  [
+                    i18n.text('统计口径'),
+                    kind === 'pixel'
+                      ? i18n.text('图片请求')
+                      : kind === 'link'
+                        ? i18n.text('链接点击')
+                        : i18n.text('网站访问'),
+                    kind === 'pixel'
+                      ? i18n.text('包括代理与缓存影响')
+                      : i18n.text('按采集记录统计'),
                   ],
                 ]
           }
@@ -1512,27 +1834,35 @@ export function ResourceAnalytics({
       )}
       {chartEnabled && variant !== 'board' && (
         <Chart
-          title={title}
-          subtitle="所选日期范围"
+          title={i18n.system(title)}
+          subtitle={i18n.text('所选日期范围')}
           labels={points.map((point: any) =>
             params.unit === 'day' ? String(point.x).slice(5, 10) : String(point.x),
           )}
           series={[
             {
-              name: kind === 'link' ? '点击次数' : kind === 'pixel' ? '请求次数' : '访客',
+              name:
+                kind === 'link'
+                  ? i18n.text('点击次数')
+                  : kind === 'pixel'
+                    ? i18n.text('请求次数')
+                    : i18n.text('访客'),
               values: (kind === 'website' ? sessions : points).map((point: any) =>
                 nativeMetric(point.y),
               ),
             },
             kind === 'website'
               ? {
-                  name: 'AI 引荐',
+                  name: i18n.text('AI 引荐'),
                   color: '#009D9A',
                   values: (q.data?.aiTrend?.sessions || []).map((point: any) =>
                     nativeMetric(point.y),
                   ),
                 }
-              : { name: '独立访客', values: sessions.map((point: any) => nativeMetric(point.y)) },
+              : {
+                  name: i18n.text('独立访客'),
+                  values: sessions.map((point: any) => nativeMetric(point.y)),
+                },
           ]}
         />
       )}
@@ -1540,6 +1870,7 @@ export function ResourceAnalytics({
   );
 }
 function Boards() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     [page, setPage] = useListState('page', 1),
     [search, setSearch] = useListState('search', '');
@@ -1555,8 +1886,8 @@ function Boards() {
   return (
     <>
       <Panel
-        title="自定义看板"
-        subtitle="按网站、链接、像素或多个资源组织分析。"
+        title={i18n.text('自定义看板')}
+        subtitle={i18n.text('按网站、链接、像素或多个资源组织分析。')}
         actions={
           <>
             <Search
@@ -1569,7 +1900,7 @@ function Boards() {
             {canCreateResource(c.user, team) && (
               <LinkButton page="board-editor" primary>
                 <Icon name="plus" />
-                创建看板
+                {i18n.fragment('创建看板', true, false)}
               </LinkButton>
             )}
           </>
@@ -1586,17 +1917,43 @@ function Boards() {
               return [
                 board.name,
                 <Badge key="cell-badge-19">{labels[board.type] || board.type}</Badge>,
-                entity.entityId
-                  ? entities.data
-                    ? resources.find(item => item.id === entity.entityId)?.name || '资源不存在'
-                    : entities.isPending
-                      ? '正在读取'
-                      : '—'
-                  : `${boardColumns(board.parameters).length} 个组件`,
+                <TableCell
+                  sortValue={
+                    entity.entityId
+                      ? entities.data
+                        ? resources.find(item => item.id === entity.entityId)?.name ||
+                          i18n.source('资源不存在')
+                        : entities.isPending
+                          ? i18n.source('正在读取')
+                          : '—'
+                      : i18n.source('{v0} 个组件', [boardColumns(board.parameters).length])
+                  }
+                  searchValue={
+                    entity.entityId
+                      ? entities.data
+                        ? resources.find(item => item.id === entity.entityId)?.name ||
+                          i18n.english.text('资源不存在')
+                        : entities.isPending
+                          ? i18n.english.text('正在读取')
+                          : '—'
+                      : i18n.english.text('{v0} 个组件', [boardColumns(board.parameters).length])
+                  }
+                >
+                  {entity.entityId
+                    ? entities.data
+                      ? resources.find(item => item.id === entity.entityId)?.name ||
+                        i18n.text('资源不存在')
+                      : entities.isPending
+                        ? i18n.text('正在读取')
+                        : '—'
+                    : i18n.text('{v0} 个组件', [boardColumns(board.parameters).length])}
+                </TableCell>,
                 date(board.updatedAt),
-                <LinkButton key="cell-linkbutton-20" page="board-view" params={{ id: board.id }}>
-                  打开
-                </LinkButton>,
+                <TableCell sortValue={i18n.source('打开')} searchValue={i18n.english.text('打开')}>
+                  <LinkButton key="cell-linkbutton-20" page="board-view" params={{ id: board.id }}>
+                    {i18n.text('打开')}
+                  </LinkButton>
+                </TableCell>,
               ];
             })}
             page={page}
@@ -1605,11 +1962,12 @@ function Boards() {
           />
         </QueryState>
       </Panel>
-      <Notice>看板包括基本信息、图表编排和只读分享。复制看板会保留布局。</Notice>
+      <Notice>{i18n.text('看板包括基本信息、图表编排和只读分享。复制看板会保留布局。')}</Notice>
     </>
   );
 }
 function BoardEditor({ board }: { board?: any }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction(),
     entities = useWorkspaceEntities(),
@@ -1617,15 +1975,18 @@ function BoardEditor({ board }: { board?: any }) {
   const selected = boardEntity(board?.parameters, board?.type),
     allowed = board ? canManageResource(c.user, board, c.teams) : canCreateResource(c.user);
   return (
-    <Panel title="看板信息" subtitle="资源类型沿用上游网站、像素、链接与混合看板。">
+    <Panel
+      title={i18n.text('看板信息')}
+      subtitle={i18n.text('资源类型沿用上游网站、像素、链接与混合看板。')}
+    >
       <Body>
         {!allowed && <ReadOnly />}
         <QueryState query={entities}>
           <Form
             busy={action.busy}
             disabled={!allowed}
-            submitLabel="保存并编排"
-            cancel={<LinkButton page="boards">取消</LinkButton>}
+            submitLabel={i18n.text('保存并编排')}
+            cancel={<LinkButton page="boards">{i18n.text('取消')}</LinkButton>}
             onSubmit={async (values: any) => {
               if (
                 !board &&
@@ -1657,20 +2018,21 @@ function BoardEditor({ board }: { board?: any }) {
               <Definition
                 items={[
                   [
-                    '所属空间',
+                    i18n.text('所属空间'),
                     board.teamId
-                      ? c.teams.find(team => team.id === board.teamId)?.name || '团队空间'
-                      : '个人空间',
+                      ? c.teams.find(team => team.id === board.teamId)?.name ||
+                        i18n.text('团队空间')
+                      : i18n.text('个人空间'),
                   ],
                 ]}
               />
             ) : (
               <Select
-                label="所属空间"
+                label={i18n.text('所属空间')}
                 name="owner"
                 defaultValue={c.route.teamId || ''}
                 options={[
-                  ['', '个人空间'],
+                  ['', i18n.text('个人空间')],
                   ...c.teams
                     .filter(team => canCreateResource(c.user, team))
                     .map(team => [team.id, team.name] as [string, string]),
@@ -1678,41 +2040,44 @@ function BoardEditor({ board }: { board?: any }) {
               />
             )}
             <Field
-              label="看板名称"
+              label={i18n.text('看板名称')}
               name="name"
               defaultValue={board?.name || ''}
               required
               maxLength={board ? 200 : 100}
             />
             <Textarea
-              label="说明"
+              label={i18n.text('说明')}
               name="description"
               defaultValue={board?.description || ''}
               maxLength={500}
             />
             <div className="form-grid">
               <Select
-                label="看板类型"
+                label={i18n.text('看板类型')}
                 name="type"
                 value={type}
                 onChange={e => setType(e.target.value)}
                 options={types}
+                localizeLabels
               />
               {type !== 'mixed' && (
                 <Select
                   key={type}
-                  label="关联资源"
+                  label={i18n.text('关联资源')}
                   name="entity"
                   defaultValue={selected.entityType === type ? selected.entityId : ''}
                   required
                   options={[
-                    ['', '请选择资源'],
+                    ['', i18n.text('请选择资源')],
                     ...(entities.data?.[type] || []).map((entity: any) => [entity.id, entity.name]),
                   ]}
                 />
               )}
             </div>
-            <Notice>网站、链接、像素看板需要选择对应资源。混合看板由各图表分别选择资源。</Notice>
+            <Notice>
+              {i18n.text('网站、链接、像素看板需要选择对应资源。混合看板由各图表分别选择资源。')}
+            </Notice>
           </Form>
         </QueryState>
       </Body>
@@ -1736,6 +2101,7 @@ function WidgetDrawer({
   onSave: (component: WorkspaceComponent, full: boolean) => void;
   onClose: () => void;
 }) {
+  const i18n = useLiekanI18n();
   const entities = useWorkspaceEntities(),
     [type, setType] = useState(column?.component?.type || 'WebsiteChart'),
     [entityType, setEntityType] = useState(column?.component?.entityType || 'website');
@@ -1744,11 +2110,15 @@ function WidgetDrawer({
     actualType = fixed ? boardResource.entityType : entityType,
     eventOnly = type === 'EventsChart';
   return (
-    <LiekanDialog size="wide" title={column ? '编辑看板组件' : '添加看板组件'} onClose={onClose}>
+    <LiekanDialog
+      size="wide"
+      title={i18n.system(column ? i18n.text('编辑看板组件') : i18n.text('添加看板组件'))}
+      onClose={onClose}
+    >
       <QueryState query={entities}>
         <Form
           columns
-          submitLabel={column ? '保存组件' : '添加组件'}
+          submitLabel={i18n.system(column ? i18n.text('保存组件') : i18n.text('添加组件'))}
           onSubmit={(values: any) => {
             const entityId = fixed ? boardResource.entityId : values.entityId;
             if (!entityId) throw new Error('请选择关联资源');
@@ -1775,14 +2145,14 @@ function WidgetDrawer({
           }}
         >
           <Field
-            label="组件标题"
+            label={i18n.text('组件标题')}
             name="title"
             defaultValue={column?.component?.title || ''}
             required
             maxLength={100}
           />
           <Select
-            label="图表类型"
+            label={i18n.text('图表类型')}
             name="type"
             options={[
               ...widgetTypes.filter(
@@ -1790,28 +2160,30 @@ function WidgetDrawer({
               ),
               ...(column?.component?.type &&
               !widgetTypes.some(([value]) => value === column.component.type)
-                ? [[column.component.type, '原有组件（保留配置）'] as [string, string]]
+                ? [[column.component.type, i18n.text('原有组件（保留配置）')] as [string, string]]
                 : []),
             ]}
+            localizeLabels
             value={type}
             onChange={e => setType(e.target.value)}
           />
           {!fixed && (
             <Select
-              label="资源类型"
+              label={i18n.text('资源类型')}
               value={entityType}
               onChange={e => {
                 setEntityType(e.target.value);
                 if (e.target.value !== 'website' && type === 'EventsChart') setType('WebsiteChart');
               }}
               options={types.filter(([value]) => value !== 'mixed')}
+              localizeLabels
             />
           )}
           {fixed ? (
             <Definition
               items={[
                 [
-                  '关联资源',
+                  i18n.text('关联资源'),
                   entities.data?.[actualType]?.find(
                     (entity: any) => entity.id === boardResource.entityId,
                   )?.name || boardResource.entityId,
@@ -1821,12 +2193,12 @@ function WidgetDrawer({
           ) : (
             <Select
               key={actualType}
-              label="关联资源"
+              label={i18n.text('关联资源')}
               name="entityId"
               required
               defaultValue={column?.component?.entityId || column?.component?.websiteId || ''}
               options={[
-                ['', '请选择资源'],
+                ['', i18n.text('请选择资源')],
                 ...(entities.data?.[actualType] || []).map((entity: any) => [
                   entity.id,
                   entity.name,
@@ -1836,20 +2208,21 @@ function WidgetDrawer({
           )}
           {type === 'MetricsTable' && (
             <Select
-              label="访问维度"
+              label={i18n.text('访问维度')}
               name="dimension"
               options={[
-                ['channel', '访问渠道'],
-                ['referrer', '来源'],
-                ['country', '国家 / 地区'],
-                ['browser', '浏览器'],
-                ['device', '设备'],
-                ['path', '页面'],
+                ['channel', i18n.text('访问渠道')],
+                ['referrer', i18n.text('来源')],
+                ['country', i18n.text('国家 / 地区')],
+                ['browser', i18n.text('浏览器')],
+                ['device', i18n.text('设备')],
+                ['path', i18n.text('页面')],
               ]}
+              localizeLabels
               defaultValue={column?.component?.props?.type || 'channel'}
             />
           )}
-          <Notice>组件保存后，请继续保存看板以保留本次配置。</Notice>
+          <Notice>{i18n.text('组件保存后，请继续保存看板以保留本次配置。')}</Notice>
           <Check
             name="full"
             defaultChecked={
@@ -1859,7 +2232,7 @@ function WidgetDrawer({
               (column.size ?? 100) > 50
             }
           >
-            占据整行
+            {i18n.text('占据整行')}
           </Check>
         </Form>
       </QueryState>
@@ -1877,6 +2250,7 @@ function NativeWidget({
   request?: any;
   range?: any;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     resolved = boardEntity(board.parameters, board.type),
     id = resolved.entityId || component?.entityId || component?.websiteId,
@@ -1929,7 +2303,7 @@ function NativeWidget({
     },
     { aggregate: true, endAt: params.endAt, timezone: params.timezone },
   );
-  if (!component) return <div className="state-box">尚未配置组件</div>;
+  if (!component) return <div className="state-box">{i18n.text('尚未配置组件')}</div>;
   if (component.type === 'TextBlock')
     return (
       <Body>
@@ -1938,11 +2312,12 @@ function NativeWidget({
         </p>
       </Body>
     );
-  if (!id) return <Notice tone="amber">组件尚未选择关联资源。</Notice>;
+  if (!id) return <Notice tone="amber">{i18n.text('组件尚未选择关联资源。')}</Notice>;
   if (conversion && !reportId)
     return (
       <Notice tone="amber">
-        此组件尚未选择已保存的{component.type === 'Goal' ? '目标' : '漏斗'}。
+        {i18n.fragment('此组件尚未选择已保存的', false, true)}
+        {component.type === 'Goal' ? i18n.text('目标') : i18n.text('漏斗')}。
       </Notice>
     );
   if (conversion)
@@ -1952,26 +2327,28 @@ function NativeWidget({
           <Metrics
             loading={q.isPending}
             items={[
-              ['转化访客', readable(q.data?.num), '独立访客'],
-              ['入组访客', readable(q.data?.total), '所选期间'],
+              [i18n.text('转化访客'), readable(q.data?.num, i18n.system), i18n.text('独立访客')],
+              [i18n.text('入组访客'), readable(q.data?.total, i18n.system), i18n.text('所选期间')],
               [
-                '转化率',
+                i18n.text('转化率'),
                 q.data?.total > 0
                   ? `${((q.data.num / q.data.total) * 100).toFixed(2)}%`
                   : q.data?.total === 0
-                    ? '无入组访客'
-                    : '未提供',
-                '转化访客 / 入组访客',
+                    ? i18n.text('无入组访客')
+                    : i18n.text('未提供'),
+                i18n.text('转化访客 / 入组访客'),
               ],
             ]}
           />
         ) : (
           <Chart
             type="bar"
-            labels={rowsOf<any>(q.data).map((step, index) => step.value || `步骤 ${index + 1}`)}
+            labels={rowsOf<any>(q.data).map(
+              (step, index) => step.value || i18n.text('步骤 {v0}', [index + 1]),
+            )}
             series={[
               {
-                name: '转化访客',
+                name: i18n.text('转化访客'),
                 values: rowsOf<any>(q.data).map(step => nativeMetric(step.visitors)),
               },
             ]}
@@ -1985,10 +2362,26 @@ function NativeWidget({
         <Metrics
           loading={q.isPending}
           items={[
-            ['事件次数', readable(q.data?.data?.events), '当前期间'],
-            ['触发访客', readable(q.data?.data?.visitors), '独立访客'],
-            ['触发访问', readable(q.data?.data?.visits), '当前期间'],
-            ['事件种类', readable(q.data?.data?.uniqueEvents), '当前期间'],
+            [
+              i18n.text('事件次数'),
+              readable(q.data?.data?.events, i18n.system),
+              i18n.text('当前期间'),
+            ],
+            [
+              i18n.text('触发访客'),
+              readable(q.data?.data?.visitors, i18n.system),
+              i18n.text('独立访客'),
+            ],
+            [
+              i18n.text('触发访问'),
+              readable(q.data?.data?.visits, i18n.system),
+              i18n.text('当前期间'),
+            ],
+            [
+              i18n.text('事件种类'),
+              readable(q.data?.data?.uniqueEvents, i18n.system),
+              i18n.text('当前期间'),
+            ],
           ]}
         />
       </QueryState>
@@ -2033,7 +2426,7 @@ function NativeWidget({
               },
               series: [
                 {
-                  name: '独立访客',
+                  name: i18n.text('独立访客'),
                   type: 'bar',
                   data: rowsOf<any>(q.data)
                     .map(row => nativeMetric(row.views ?? row.y))
@@ -2056,10 +2449,28 @@ function NativeWidget({
               '访客',
             ]}
             rows={rowsOf<any>(q.data).map(row => [
-              component.type === 'MetricsTable' && dimension === 'path'
-                ? pageLink(row.x, pageDomain)
-                : (row.utm ?? row.x ?? '直接访问'),
-              readable(row.views ?? row.y),
+              <TableCell
+                sortValue={
+                  component.type === 'MetricsTable' && dimension === 'path'
+                    ? pageLink(row.x, pageDomain, undefined, undefined, 'zh-CN')
+                    : (row.utm ?? row.x ?? i18n.source('直接访问'))
+                }
+                searchValue={
+                  component.type === 'MetricsTable' && dimension === 'path'
+                    ? pageLink(row.x, pageDomain, undefined, undefined, 'en-US')
+                    : (row.utm ?? row.x ?? i18n.english.text('直接访问'))
+                }
+              >
+                {component.type === 'MetricsTable' && dimension === 'path'
+                  ? pageLink(row.x, pageDomain, undefined, undefined, i18n.locale)
+                  : (row.utm ?? row.x ?? i18n.text('直接访问'))}
+              </TableCell>,
+              <TableCell
+                sortValue={readable(row.views ?? row.y, canonicalText => canonicalText)}
+                searchValue={readable(row.views ?? row.y, i18n.english.system)}
+              >
+                {readable(row.views ?? row.y, i18n.system)}
+              </TableCell>,
             ])}
             numeric={[1]}
           />
@@ -2069,7 +2480,9 @@ function NativeWidget({
   return (
     <Body>
       <Notice tone="amber">
-        此看板组件「{component.type}」的统计展示尚未接入新界面。现有配置会保留。
+        {i18n.fragment('此看板组件「', false, true)}
+        {component.type}
+        {i18n.fragment('」的统计展示尚未接入新界面。现有配置会保留。', true, false)}
       </Notice>
     </Body>
   );
@@ -2085,6 +2498,7 @@ function BoardCanvas({
   request?: any;
   range?: any;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction(),
     [parameters, setParameters] = useState<WorkspaceParameters>(board.parameters || {}),
@@ -2130,7 +2544,7 @@ function BoardCanvas({
       <div className="row between" data-unsaved={unsaved || undefined}>
         <div>
           <h2>{board.name}</h2>
-          <p className="muted">{board.description || '图表顺序与布局宽度均可调整。'}</p>
+          <p className="muted">{board.description || i18n.text('图表顺序与布局宽度均可调整。')}</p>
         </div>
         {!request && (
           <div className="actions">
@@ -2138,7 +2552,7 @@ function BoardCanvas({
               <>
                 <Button disabled={!allowed || action.busy} onClick={() => setDrawer({})}>
                   <Icon name="plus" />
-                  添加组件
+                  {i18n.fragment('添加组件', true, false)}
                 </Button>
                 <Button
                   primary
@@ -2158,25 +2572,25 @@ function BoardCanvas({
                     )
                   }
                 >
-                  {action.busy ? '保存中…' : '保存编排'}
+                  {action.busy ? i18n.text('保存中…') : i18n.text('保存编排')}
                 </Button>
                 <LinkButton page="board-view" params={{ id: board.id }}>
-                  预览
+                  {i18n.text('预览')}
                 </LinkButton>
               </>
             ) : (
               <>
                 <LinkButton page="board-editor" params={{ id: board.id }}>
-                  基本信息
+                  {i18n.text('基本信息')}
                 </LinkButton>
                 <LinkButton page="board-design" params={{ id: board.id }}>
-                  编排
+                  {i18n.text('编排')}
                 </LinkButton>
                 <LinkButton
                   page="sharing"
                   params={{ id: board.id, teamId: board.teamId || '', resource: 'board' }}
                 >
-                  分享
+                  {i18n.text('分享')}
                 </LinkButton>
                 {allowed && (
                   <>
@@ -2193,10 +2607,10 @@ function BoardCanvas({
                         c.navigate('board-editor', { id: result.id });
                       }}
                     >
-                      复制
+                      {i18n.text('复制')}
                     </Button>
                     <Button danger disabled={action.busy} onClick={() => setConfirm('delete')}>
-                      删除
+                      {i18n.text('删除')}
                     </Button>
                   </>
                 )}
@@ -2262,7 +2676,7 @@ function BoardCanvas({
                   >
                     {editing ? (
                       <div className="widget-tools">
-                        <strong>{column.component?.title || '未命名组件'}</strong>
+                        <strong>{column.component?.title || i18n.text('未命名组件')}</strong>
                         <div className="actions" style={{ marginLeft: 'auto' }}>
                           <Button
                             disabled={!allowed || action.busy || index === 0}
@@ -2272,7 +2686,7 @@ function BoardCanvas({
                               )
                             }
                           >
-                            上移
+                            {i18n.text('上移')}
                           </Button>
                           <Button
                             disabled={!allowed || action.busy}
@@ -2282,17 +2696,17 @@ function BoardCanvas({
                               )
                             }
                           >
-                            {full ? '半宽' : '全宽'}
+                            {full ? i18n.text('半宽') : i18n.text('全宽')}
                           </Button>
                           <Button
                             disabled={!allowed || action.busy}
                             onClick={() => setDrawer({ column })}
                           >
-                            编辑
+                            {i18n.text('编辑')}
                           </Button>
                           <Button
                             disabled={!allowed || action.busy}
-                            aria-label={`移除组件 ${column.component?.title || ''}`}
+                            aria-label={i18n.text('移除组件 {v0}', [column.component?.title || ''])}
                             onClick={() =>
                               setParameters(current => removeBoardColumn(current, column.id))
                             }
@@ -2303,7 +2717,7 @@ function BoardCanvas({
                       </div>
                     ) : (
                       <div className="panel-head">
-                        <h2>{column.component?.title || '统计组件'}</h2>
+                        <h2>{column.component?.title || i18n.text('统计组件')}</h2>
                       </div>
                     )}
                     <NativeWidget
@@ -2319,9 +2733,9 @@ function BoardCanvas({
           ))}
         </div>
       ) : (
-        <Notice>尚未添加看板组件。</Notice>
+        <Notice>{i18n.text('尚未添加看板组件。')}</Notice>
       )}
-      {editing && <Notice>保存后，图表顺序、组件配置和布局宽度会写入看板。</Notice>}
+      {editing && <Notice>{i18n.text('保存后，图表顺序、组件配置和布局宽度会写入看板。')}</Notice>}
       {drawer && (
         <WidgetDrawer
           board={{ ...board, parameters }}
@@ -2332,21 +2746,22 @@ function BoardCanvas({
       )}
       {confirm && (
         <Confirm
-          title="删除看板"
+          title={i18n.text('删除看板')}
           onClose={() => setConfirm('')}
-          message={`「${board.name}」已删除`}
+          message={i18n.source('「{v0}」已删除', [board.name])}
           navigateTo="boards"
           onConfirm={async () => {
             await c.api.del(`/boards/${board.id}`);
           }}
         >
-          看板及其分享链接会被删除，原始资源数据继续保留。
+          {i18n.text('看板及其分享链接会被删除，原始资源数据继续保留。')}
         </Confirm>
       )}
     </>
   );
 }
 function BoardPage({ page }: { page: string }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     id = c.route.id,
     q = useData(
@@ -2360,7 +2775,8 @@ function BoardPage({ page }: { page: string }) {
       <BoardEditor />
     ) : (
       <Notice>
-        请选择一个看板。<LinkButton page="boards">看板列表</LinkButton>
+        {i18n.fragment('请选择一个看板。', false, true)}
+        <LinkButton page="boards">{i18n.text('看板列表')}</LinkButton>
       </Notice>
     );
   return (
@@ -2386,6 +2802,7 @@ export function ShareDrawer({
   entity?: FeatureEntity & { kind?: string };
   onClose: () => void;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction(),
     entities = useWorkspaceEntities(),
@@ -2398,8 +2815,8 @@ export function ShareDrawer({
     permitted = entity ? canManageResource(c.user, entity, c.teams) : true;
   return (
     <LiekanDialog
-      title={share ? '编辑分享链接' : '创建分享链接'}
-      subtitle="设置分享资源、统计页面范围与访问保护。"
+      title={i18n.system(share ? i18n.text('编辑分享链接') : i18n.text('创建分享链接'))}
+      subtitle={i18n.text('设置分享资源、统计页面范围与访问保护。')}
       className="share-dialog"
       onClose={() => !action.busy && onClose()}
     >
@@ -2407,10 +2824,10 @@ export function ShareDrawer({
         <Form
           busy={action.busy}
           disabled={!permitted}
-          submitLabel={share ? '保存分享链接' : '创建分享链接'}
+          submitLabel={i18n.system(share ? i18n.text('保存分享链接') : i18n.text('创建分享链接'))}
           cancel={
             <Button disabled={action.busy} onClick={onClose}>
-              取消
+              {i18n.text('取消')}
             </Button>
           }
           onSubmit={async (values: any) => {
@@ -2440,31 +2857,32 @@ export function ShareDrawer({
             <div className="share-settings-column">
               <section className="share-settings-section">
                 <div className="share-section-heading">
-                  <h3>基本信息</h3>
-                  <p className="muted">选择要分享的资源，方便访客识别。</p>
+                  <h3>{i18n.text('基本信息')}</h3>
+                  <p className="muted">{i18n.text('选择要分享的资源，方便访客识别。')}</p>
                 </div>
                 <Field
-                  label="分享名称"
+                  label={i18n.text('分享名称')}
                   name="name"
                   defaultValue={share?.name || entity?.name || ''}
                   required
                   maxLength={200}
                 />
                 <Select
-                  label="分享类型"
+                  label={i18n.text('分享类型')}
                   value={kind}
                   onChange={e => setKind(e.target.value)}
                   disabled={!!share || !!entity}
                   options={Object.keys(shareTypes).map(key => [key, labels[key]])}
+                  localizeLabels
                 />
                 {!share && !entity ? (
                   <Select
                     key={kind}
-                    label="关联资源"
+                    label={i18n.text('关联资源')}
                     name="entityId"
                     required
                     options={[
-                      ['', '请选择资源'],
+                      ['', i18n.text('请选择资源')],
                       ...(entities.data?.[kind] || [])
                         .filter((resource: any) => canManageResource(c.user, resource, c.teams))
                         .map((resource: any) => [resource.id, resource.name]),
@@ -2472,7 +2890,7 @@ export function ShareDrawer({
                   />
                 ) : (
                   <Field
-                    label="关联资源"
+                    label={i18n.text('关联资源')}
                     readOnly
                     value={
                       entity?.name ||
@@ -2487,28 +2905,34 @@ export function ShareDrawer({
               </section>
               <section className="share-settings-section">
                 <div className="share-section-heading">
-                  <h3>访问保护</h3>
-                  <p className="muted">按需设置密码，控制分享页面的访问。</p>
+                  <h3>{i18n.text('访问保护')}</h3>
+                  <p className="muted">{i18n.text('按需设置密码，控制分享页面的访问。')}</p>
                 </div>
                 <Field
-                  label={parameters.hasPassword ? '修改分享密码（可选）' : '分享密码（可选）'}
+                  label={
+                    parameters.hasPassword
+                      ? i18n.text('修改分享密码（可选）')
+                      : i18n.text('分享密码（可选）')
+                  }
                   name="password"
                   type="password"
                   autoComplete="new-password"
-                  help={
+                  help={i18n.system(
                     parameters.hasPassword
-                      ? '留空保留当前密码。修改后访客需要重新验证。'
-                      : '设置后访客需要输入密码。'
-                  }
+                      ? i18n.text('留空保留当前密码。修改后访客需要重新验证。')
+                      : i18n.text('设置后访客需要输入密码。'),
+                  )}
                 />
-                {parameters.hasPassword && <Check name="removePassword">取消密码保护</Check>}
+                {parameters.hasPassword && (
+                  <Check name="removePassword">{i18n.text('取消密码保护')}</Check>
+                )}
               </section>
             </div>
             <div className="share-settings-column">
               <section className="share-settings-section">
                 <div className="share-section-heading">
-                  <h3>统计页面范围</h3>
-                  <p className="muted">访客只能查看已勾选的统计页面。</p>
+                  <h3>{i18n.text('统计页面范围')}</h3>
+                  <p className="muted">{i18n.text('访客只能查看已勾选的统计页面。')}</p>
                 </div>
                 <div className="share-page-options">
                   {shareSections.map(([key, label]) => (
@@ -2521,31 +2945,32 @@ export function ShareDrawer({
                           : ['overview', 'events'].includes(key)
                       }
                     >
-                      {label}
+                      {i18n.system(label)}
                     </Check>
                   ))}
                 </div>
               </section>
               <section className="share-settings-section">
                 <div className="share-section-heading">
-                  <h3>浏览设置</h3>
+                  <h3>{i18n.text('浏览设置')}</h3>
                 </div>
                 <Switch
                   name="allowFilter"
-                  label="允许访客调整筛选"
-                  help="访客可在分享范围内调整统计条件。"
+                  label={i18n.text('允许访客调整筛选')}
+                  help={i18n.text('访客可在分享范围内调整统计条件。')}
                   defaultChecked={parameters.allowFilter !== false}
                 />
                 <Select
-                  label="主题"
+                  label={i18n.text('主题')}
                   name="theme"
                   defaultValue="light"
-                  help="分享页面当前使用浅色主题。"
+                  help={i18n.text('分享页面当前使用浅色主题。')}
                   options={[
                     { value: 'light', label: '浅色' },
                     { value: 'dark', label: '深色（暂不支持）', disabled: true },
                     { value: 'system', label: '跟随系统（暂不支持）', disabled: true },
                   ]}
+                  localizeLabels
                 />
               </section>
             </div>
@@ -2566,6 +2991,7 @@ export function WebsiteSharing() {
   );
 }
 function Sharing() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     entities = useWorkspaceEntities(),
     action = useAction(),
@@ -2610,12 +3036,14 @@ function Sharing() {
   return (
     <>
       <Panel
-        title={c.route.context === 'website' ? '当前网站的分享链接' : '分享链接'}
-        subtitle={
+        title={i18n.system(
+          c.route.context === 'website' ? i18n.text('当前网站的分享链接') : i18n.text('分享链接'),
+        )}
+        subtitle={i18n.system(
           c.route.context === 'website'
-            ? `${c.site?.name || '当前网站'} · 仅管理此网站的分享链接。`
-            : '网站、看板、链接和像素的分享范围与访问保护。'
-        }
+            ? i18n.text('{v0} · 仅管理此网站的分享链接。', [c.site?.name || i18n.text('当前网站')])
+            : i18n.text('网站、看板、链接和像素的分享范围与访问保护。'),
+        )}
         actions={
           <>
             <Search
@@ -2627,7 +3055,7 @@ function Sharing() {
             />
             <Button primary disabled={!creatable} onClick={() => setEdit(null)}>
               <Icon name="plus" />
-              创建分享链接
+              {i18n.fragment('创建分享链接', true, false)}
             </Button>
           </>
         }
@@ -2639,73 +3067,169 @@ function Sharing() {
               rowKeys={rows.map((share: any) => share.id)}
               columns={['名称', '资源类型', '页面范围', '筛选权限', '状态', '操作', '分享链接']}
               rows={rows.map((share: any) => [
-                <div key="share-name">
-                  {share.name}
-                  <div className="muted">
-                    {share.entity.name} ·{' '}
-                    {share.entity.teamId
-                      ? c.teams.find(team => team.id === share.entity.teamId)?.name || '团队空间'
-                      : '个人空间'}
-                  </div>
-                </div>,
-                labels[share.entity.kind],
-                allowedShareSections(share.parameters)
-                  .map(([, label]) => label)
-                  .join('、') || '无统计页面',
-                share.parameters?.allowFilter === false ? '禁止' : '允许',
-                <Badge
-                  key="cell-badge-21"
-                  tone={share.parameters?.enabled === false ? 'gray' : 'green'}
+                <TableCell
+                  sortValue={[
+                    share.name,
+                    [
+                      share.entity.name,
+                      ' \u00B7',
+                      ' ',
+                      share.entity.teamId
+                        ? c.teams.find(team => team.id === share.entity.teamId)?.name ||
+                          i18n.source('团队空间')
+                        : i18n.source('个人空间'),
+                    ],
+                  ]}
+                  searchValue={[
+                    share.name,
+                    [
+                      share.entity.name,
+                      ' \u00B7',
+                      ' ',
+                      share.entity.teamId
+                        ? c.teams.find(team => team.id === share.entity.teamId)?.name ||
+                          i18n.english.text('团队空间')
+                        : i18n.english.text('个人空间'),
+                    ],
+                  ]}
                 >
-                  {share.parameters?.enabled === false ? '停用' : '启用'}
-                </Badge>,
-                <div key="cell-div-22" className="actions">
-                  <LinkButton page="share-preview" params={{ id: share.id, slug: share.slug }}>
-                    预览
-                  </LinkButton>
-                  <Button
-                    disabled={action.busy || !canManageResource(c.user, share.entity, c.teams)}
-                    onClick={() => setEdit(share)}
+                  <div key="share-name">
+                    {share.name}
+                    <div className="muted">
+                      {share.entity.name} ·{' '}
+                      {share.entity.teamId
+                        ? c.teams.find(team => team.id === share.entity.teamId)?.name ||
+                          i18n.text('团队空间')
+                        : i18n.text('个人空间')}
+                    </div>
+                  </div>
+                </TableCell>,
+                <TableCell
+                  sortValue={labels[share.entity.kind]}
+                  searchValue={i18n.english.system(labels[share.entity.kind])}
+                >
+                  {i18n.system(labels[share.entity.kind])}
+                </TableCell>,
+                <TableCell
+                  sortValue={
+                    allowedShareSections(share.parameters)
+                      .map(([, label]) => label)
+                      .join('、') || i18n.source('无统计页面')
+                  }
+                  searchValue={
+                    allowedShareSections(share.parameters)
+                      .map(([, label]) => i18n.english.system(label))
+                      .join('、') || i18n.english.text('无统计页面')
+                  }
+                >
+                  {allowedShareSections(share.parameters)
+                    .map(([, label]) => i18n.system(label))
+                    .join('、') || i18n.text('无统计页面')}
+                </TableCell>,
+                <TableCell
+                  sortValue={
+                    share.parameters?.allowFilter === false
+                      ? i18n.source('禁止')
+                      : i18n.source('允许')
+                  }
+                  searchValue={
+                    share.parameters?.allowFilter === false
+                      ? i18n.english.text('禁止')
+                      : i18n.english.text('允许')
+                  }
+                >
+                  {share.parameters?.allowFilter === false ? i18n.text('禁止') : i18n.text('允许')}
+                </TableCell>,
+                <TableCell
+                  sortValue={
+                    share.parameters?.enabled === false ? i18n.source('停用') : i18n.source('启用')
+                  }
+                  searchValue={i18n.english.system(
+                    share.parameters?.enabled === false
+                      ? i18n.english.text('停用')
+                      : i18n.english.text('启用'),
+                  )}
+                >
+                  <Badge
+                    key="cell-badge-21"
+                    tone={share.parameters?.enabled === false ? 'gray' : 'green'}
                   >
-                    编辑
-                  </Button>
-                  <Button
-                    disabled={action.busy || !canManageResource(c.user, share.entity, c.teams)}
-                    onClick={() =>
-                      action.run(
-                        () =>
-                          c.api.post(`/share/id/${share.id}`, {
-                            name: share.name,
-                            slug: share.slug,
-                            parameters: {
-                              ...share.parameters,
-                              enabled: share.parameters?.enabled === false,
-                            },
-                          }),
-                        '分享状态已更新',
-                      )
-                    }
-                  >
-                    {share.parameters?.enabled === false ? '启用' : '停用'}
-                  </Button>
-                </div>,
-                share.slug ? (
-                  <a
-                    key="share-visit"
-                    className="btn share-visit"
-                    href={`${process.env.basePath || ''}/share/${encodeURIComponent(share.slug)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`访问分享链接：${share.name}（新标签页）`}
-                  >
-                    访问分享链接
-                    <Icon name="external" />
-                  </a>
-                ) : (
-                  <span key="share-unavailable" className="muted">
-                    链接未生成
-                  </span>
-                ),
+                    {share.parameters?.enabled === false ? i18n.text('停用') : i18n.text('启用')}
+                  </Badge>
+                </TableCell>,
+                <TableCell
+                  sortValue={[
+                    i18n.source('预览'),
+                    i18n.source('编辑'),
+                    share.parameters?.enabled === false ? i18n.source('启用') : i18n.source('停用'),
+                  ]}
+                  searchValue={[
+                    i18n.english.text('预览'),
+                    i18n.english.text('编辑'),
+                    share.parameters?.enabled === false
+                      ? i18n.english.text('启用')
+                      : i18n.english.text('停用'),
+                  ]}
+                >
+                  <div key="cell-div-22" className="actions">
+                    <LinkButton page="share-preview" params={{ id: share.id, slug: share.slug }}>
+                      {i18n.text('预览')}
+                    </LinkButton>
+                    <Button
+                      disabled={action.busy || !canManageResource(c.user, share.entity, c.teams)}
+                      onClick={() => setEdit(share)}
+                    >
+                      {i18n.text('编辑')}
+                    </Button>
+                    <Button
+                      disabled={action.busy || !canManageResource(c.user, share.entity, c.teams)}
+                      onClick={() =>
+                        action.run(
+                          () =>
+                            c.api.post(`/share/id/${share.id}`, {
+                              name: share.name,
+                              slug: share.slug,
+                              parameters: {
+                                ...share.parameters,
+                                enabled: share.parameters?.enabled === false,
+                              },
+                            }),
+                          '分享状态已更新',
+                        )
+                      }
+                    >
+                      {share.parameters?.enabled === false ? i18n.text('启用') : i18n.text('停用')}
+                    </Button>
+                  </div>
+                </TableCell>,
+                <TableCell
+                  sortValue={
+                    share.slug ? [i18n.source('访问分享链接'), ''] : i18n.source('链接未生成')
+                  }
+                  searchValue={
+                    share.slug
+                      ? [i18n.english.fragment('访问分享链接', false, true), '']
+                      : i18n.english.text('链接未生成')
+                  }
+                >
+                  {share.slug ? (
+                    <a
+                      key="share-visit"
+                      className="btn share-visit"
+                      href={`${process.env.basePath || ''}/share/${encodeURIComponent(share.slug)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={i18n.text('访问分享链接：{v0}（新标签页）', [share.name])}
+                    >
+                      {i18n.fragment('访问分享链接', false, true)}
+                      <Icon name="external" />
+                    </a>
+                  ) : (
+                    <span key="share-unavailable" className="muted">
+                      {i18n.text('链接未生成')}
+                    </span>
+                  )}
+                </TableCell>,
               ])}
               page={page}
               pages={Math.max(1, Math.ceil(filtered.length / 20))}
@@ -2714,7 +3238,7 @@ function Sharing() {
           </QueryState>
         </QueryState>
       </Panel>
-      <Notice>公开视角只显示分享配置允许的统计页面。</Notice>
+      <Notice>{i18n.text('公开视角只显示分享配置允许的统计页面。')}</Notice>
       {edit !== undefined && (
         <ShareDrawer
           share={edit || undefined}
@@ -2761,6 +3285,7 @@ function PublicStats({
   dateControls?: ReactNode;
   onExpired: () => void;
 }) {
+  const i18n = useLiekanI18n();
   const id =
       share.websiteId ||
       share.linkId ||
@@ -2882,7 +3407,7 @@ function PublicStats({
       timezone: range.timezone,
     },
   );
-  if (!id && !share.boardId) return <Notice>分享资源尚未提供统计数据。</Notice>;
+  if (!id && !share.boardId) return <Notice>{i18n.text('分享资源尚未提供统计数据。')}</Notice>;
   if (active === 'overview' && share.websiteId && !share.boardId && !share.linkId && !share.pixelId)
     return (
       <SharedWebsiteOverview
@@ -2925,20 +3450,23 @@ function PublicStats({
       ) : active === 'goals' ? (
         <>
           <Chart
-            title="目标转化"
+            title={i18n.text('目标转化')}
             labels={(q.data?.results?.find((r: any) => r.kind === '目标')?.stats?.series || []).map(
               (r: any) => r.x,
             )}
             series={[
               {
-                name: '转化次数',
+                name: i18n.text('转化次数'),
                 values: (
                   q.data?.results?.find((r: any) => r.kind === '目标')?.stats?.series || []
                 ).map((r: any) => Number(r.y)),
               },
             ]}
           />
-          <Panel title="目标与漏斗" subtitle="分享允许的已保存配置与转化访客。">
+          <Panel
+            title={i18n.text('目标与漏斗')}
+            subtitle={i18n.text('分享允许的已保存配置与转化访客。')}
+          >
             <Table
               columns={['类型', '名称', '转化访客', '转化率']}
               numeric={[2, 3]}
@@ -2952,29 +3480,56 @@ function PublicStats({
                       ? nativeMetric(row.stats?.num)
                       : nativeMetric(row.stats?.at(-1)?.visitors);
                 return [
-                  row.kind,
+                  <TableCell sortValue={row.kind} searchValue={i18n.english.system(row.kind)}>
+                    {i18n.system(row.kind)}
+                  </TableCell>,
                   row.name,
-                  readable(last),
-                  first != null && last != null && first > 0
-                    ? `${((last / first) * 100).toFixed(2)}%`
-                    : first === 0
-                      ? '无入组访客'
-                      : '未提供',
+                  <TableCell
+                    sortValue={readable(last, canonicalText => canonicalText)}
+                    searchValue={readable(last, i18n.english.system)}
+                  >
+                    {readable(last, i18n.system)}
+                  </TableCell>,
+                  <TableCell
+                    sortValue={
+                      first != null && last != null && first > 0
+                        ? `${((last / first) * 100).toFixed(2)}%`
+                        : first === 0
+                          ? i18n.source('无入组访客')
+                          : i18n.source('未提供')
+                    }
+                    searchValue={
+                      first != null && last != null && first > 0
+                        ? `${((last / first) * 100).toFixed(2)}%`
+                        : first === 0
+                          ? i18n.english.text('无入组访客')
+                          : i18n.english.text('未提供')
+                    }
+                  >
+                    {first != null && last != null && first > 0
+                      ? `${((last / first) * 100).toFixed(2)}%`
+                      : first === 0
+                        ? i18n.text('无入组访客')
+                        : i18n.text('未提供')}
+                  </TableCell>,
                 ];
               })}
             />
           </Panel>
         </>
       ) : active === 'events' ? (
-        <Chart title="事件趋势" type="line" {...eventChartData(rowsOf<any>(q.data))} />
+        <Chart title={i18n.text('事件趋势')} type="line" {...eventChartData(rowsOf<any>(q.data))} />
       ) : (
         <Chart
-          title="UTM 来源"
+          title={i18n.text('UTM 来源')}
           type="bar"
           horizontal
-          labels={rowsOf<any>(q.data).map(row => row.utm || '未提供')}
+          labels={rowsOf<any>(q.data).map(row => row.utm || i18n.text('未提供'))}
           series={[
-            { name: '页面访问', values: rowsOf<any>(q.data).map(row => nativeMetric(row.views)) },
+            {
+              name: i18n.text('页面访问'),
+              values: rowsOf<any>(q.data).map(row => nativeMetric(row.views)),
+            },
           ]}
         />
       )}
@@ -2988,6 +3543,7 @@ export function ShareFeatureView({
   slug: string;
   initialPage?: string;
 }) {
+  const i18n = useLiekanI18n();
   const client = useQueryClient();
   const verification = useRef<{
     slug: string;
@@ -3197,11 +3753,11 @@ export function ShareFeatureView({
     !share.pixelId;
   const dateControls = authorizedShare?.token && share.parameters?.allowFilter !== false && (
     <div className={sharedStyles.filters}>
-      <div className="actions" aria-label="快捷日期范围">
+      <div className="actions" aria-label={i18n.text('快捷日期范围')}>
         {(
           [
-            ['30 天', 30],
-            ['7 天', 7],
+            [i18n.text('30 天'), 30],
+            [i18n.text('7 天'), 7],
             ['24h', 1],
           ] as const
         ).map(([label, days]) => (
@@ -3216,12 +3772,12 @@ export function ShareFeatureView({
               setPresetDays(days);
             }}
           >
-            {label}
+            {i18n.system(label)}
           </Button>
         ))}
       </div>
       <Field
-        label="开始日期"
+        label={i18n.text('开始日期')}
         type="date"
         value={formatInTimeZone(range.startAt, range.timezone, 'yyyy-MM-dd')}
         onChange={e => {
@@ -3233,7 +3789,7 @@ export function ShareFeatureView({
         }}
       />
       <Field
-        label="结束日期"
+        label={i18n.text('结束日期')}
         type="date"
         value={formatInTimeZone(range.endAt, range.timezone, 'yyyy-MM-dd')}
         onChange={e => {
@@ -3246,8 +3802,8 @@ export function ShareFeatureView({
       />
       {!websiteOverview && (
         <Field
-          label="页面路径"
-          placeholder="输入路径筛选"
+          label={i18n.text('页面路径')}
+          placeholder={i18n.text('输入路径筛选')}
           value={filters.path?.slice(3) || ''}
           onChange={e => setFilters(e.target.value ? { path: `eq.${e.target.value}` } : {})}
         />
@@ -3261,35 +3817,36 @@ export function ShareFeatureView({
         <div className="public-brand">
           <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
           <div>
-            <strong>猎看统计</strong>
+            <strong>{i18n.text('猎看统计')}</strong>
             <small style={{ display: 'block' }}>
-              {authorizedShare?.name || '公开分享'} · 只读分享
+              {authorizedShare?.name || i18n.text('公开分享')}
+              {i18n.fragment(' · 只读分享', true, false)}
             </small>
           </div>
         </div>
         <ManualRefreshControl beforeRefresh={() => q.refetch({ throwOnError: true })} />
-        <Badge>公开 · 只读</Badge>
+        <Badge>{i18n.text('公开 · 只读')}</Badge>
       </header>
       <div className="public-body">
         {share?.parameters?.theme && share.parameters.theme !== 'light' && (
           <Notice tone="amber">
             {share.parameters.hasPassword
-              ? '此密码保护分享当前使用浅色界面。'
-              : '此分享原有主题需要兼容界面查看。当前预览使用浅色。'}
+              ? i18n.text('此密码保护分享当前使用浅色界面。')
+              : i18n.text('此分享原有主题需要兼容界面查看。当前预览使用浅色。')}
             {!share.parameters.hasPassword && (
               <a
                 className="btn"
                 href={`${process.env.basePath || ''}/share/${encodeURIComponent(slug)}?legacy=1`}
               >
-                打开兼容界面
+                {i18n.text('打开兼容界面')}
               </a>
             )}
           </Notice>
         )}
         {closed ? (
           <div className="state-box">
-            <h2>分享已关闭</h2>
-            <p>此链接目前无法查看数据，请联系分享创建者。</p>
+            <h2>{i18n.text('分享已关闭')}</h2>
+            <p>{i18n.text('此链接目前无法查看数据，请联系分享创建者。')}</p>
           </div>
         ) : (
           <QueryState
@@ -3304,8 +3861,8 @@ export function ShareFeatureView({
             {(!authorizedQuery.data ||
               scopeChangedAt === `${reading?.page.token}:${reading?.page.round}`) && (
               <Notice>
-                正在核验分享权限，范围变更后请点击刷新读取。
-                {q.error && '权限暂时无法核验，请主动重试。'}
+                {i18n.fragment('正在核验分享权限，范围变更后请点击刷新读取。', false, true)}
+                {q.error && i18n.text('权限暂时无法核验，请主动重试。')}
               </Notice>
             )}
             <ManualAuthorizationBoundary
@@ -3321,12 +3878,15 @@ export function ShareFeatureView({
                 }
               >
                 {share?.requiresPassword && !verified ? (
-                  <Panel title="输入分享密码" subtitle="验证后查看允许的统计页面。">
+                  <Panel
+                    title={i18n.text('输入分享密码')}
+                    subtitle={i18n.text('验证后查看允许的统计页面。')}
+                  >
                     <Body>
                       <Form
                         busy={busy}
                         error={passwordError}
-                        submitLabel="验证并查看"
+                        submitLabel={i18n.text('验证并查看')}
                         onSubmit={async (values: any, form: HTMLFormElement) => {
                           const currentSlug = slug;
                           const controller = new AbortController();
@@ -3369,7 +3929,7 @@ export function ShareFeatureView({
                         }}
                       >
                         <Field
-                          label="分享密码"
+                          label={i18n.text('分享密码')}
                           name="password"
                           type="password"
                           required
@@ -3409,7 +3969,7 @@ export function ShareFeatureView({
                         }}
                       />
                     ) : (
-                      <Notice>此分享未开放统计页面。</Notice>
+                      <Notice>{i18n.text('此分享未开放统计页面。')}</Notice>
                     )}
                     <Button
                       onClick={async () => {
@@ -3418,11 +3978,11 @@ export function ShareFeatureView({
                         await q.refetch();
                       }}
                     >
-                      重新验证分享
+                      {i18n.text('重新验证分享')}
                     </Button>
                   </>
                 ) : (
-                  <Notice>分享数据未提供。</Notice>
+                  <Notice>{i18n.text('分享数据未提供。')}</Notice>
                 )}
               </div>
             </ManualAuthorizationBoundary>
@@ -3434,13 +3994,14 @@ export function ShareFeatureView({
           IP Geolocation by DB-IP
         </a>
         <a href="https://www.geonames.org/" target="_blank" rel="noopener noreferrer">
-          地名数据：GeoNames（已整理）
+          {i18n.text('地名数据：GeoNames（已整理）')}
         </a>
       </footer>
     </main>
   );
 }
 function SharePreview() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     q = useData(
       ['share-preview-record', c.route.id],
@@ -3453,7 +4014,8 @@ function SharePreview() {
   ) : (
     <QueryState query={q}>
       <Notice>
-        请选择一个分享。<LinkButton page="sharing">分享管理</LinkButton>
+        {i18n.fragment('请选择一个分享。', false, true)}
+        <LinkButton page="sharing">{i18n.text('分享管理')}</LinkButton>
       </Notice>
     </QueryState>
   );

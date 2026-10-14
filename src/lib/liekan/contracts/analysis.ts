@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { fromZonedTime, formatInTimeZone } from 'date-fns-tz';
+import type { LiekanLocale } from '../i18n/locale';
 export function completedObservationDate(endAt: number, timezone: string) {
   const day = formatInTimeZone(endAt, timezone, 'yyyy-MM-dd');
   const next = new Date(`${day}T00:00:00Z`);
@@ -138,11 +139,15 @@ export type JourneyData = {
 };
 export const percentage = (num: number, den: number) =>
   den ? `${((num / den) * 100).toFixed(2)}%` : '—';
-export function duration(seconds: number | null | undefined) {
+export function duration(seconds: number | null | undefined, locale: LiekanLocale = 'zh-CN') {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
   const s = Math.max(0, Math.round(seconds));
   // 会话身份按月加盐，可跨周延续；未封顶的 mm:ss 会渲染成 45554:15 这类不可读值。
-  if (s >= 86400) return `${Math.floor(s / 86400)} 天 ${Math.floor((s % 86400) / 3600)} 小时`;
+  if (s >= 86400) {
+    const days = Math.floor(s / 86400),
+      hours = Math.floor((s % 86400) / 3600);
+    return locale === 'en-US' ? `${days}d ${hours}h` : `${days} 天 ${hours} 小时`;
+  }
   const hh = Math.floor(s / 3600);
   const ss = String(s % 60).padStart(2, '0');
   const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0');

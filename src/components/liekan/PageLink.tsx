@@ -1,3 +1,5 @@
+import { translateText } from '@/lib/liekan/i18n/text';
+import type { LiekanLocale } from '@/lib/liekan/i18n/locale';
 import { Fragment } from 'react';
 import { pageUrl } from '@/lib/liekan/contracts/page-url';
 import styles from '@/styles/liekan/Shell.module.css';
@@ -8,9 +10,10 @@ export function pageLink(
   domain?: string,
   missing = '未提供',
   options?: { query?: string; hostname?: string },
+  locale: LiekanLocale = 'zh-CN',
 ) {
   const href = pageUrl(value, domain, options);
-  if (!href) return value == null || value === '' ? missing : String(value);
+  if (!href) return value == null || value === '' ? translateText(missing, locale) : String(value);
   return (
     <a
       className={styles.pageLink}
@@ -18,20 +21,20 @@ export function pageLink(
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      title={`${href}（新窗口打开）`}
+      title={translateText('{v0}（新窗口打开）', locale, [href])}
     >
       {href}
     </a>
   );
 }
 
-export function pageSequence(paths: string[], domain?: string) {
+export function pageSequence(paths: string[], domain?: string, locale: LiekanLocale = 'zh-CN') {
   return (
     <span className={styles.pageSequence} data-search-value={paths.join(' → ')}>
       {paths.map((path, i) => (
         <Fragment key={`${i}:${path}`}>
           {i > 0 && <span className={styles.pageArrow}> → </span>}
-          {pageLink(path, domain)}
+          {pageLink(path, domain, undefined, undefined, locale)}
         </Fragment>
       ))}
     </span>

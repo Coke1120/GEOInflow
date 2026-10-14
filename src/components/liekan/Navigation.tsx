@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useManualQuery as useQuery } from '@/lib/liekan/contracts/manual-refresh';
 import { skipToken, useQueryClient } from '@tanstack/react-query';
 import Link from '@/components/liekan/Link';
@@ -30,6 +32,7 @@ import {
 import styles from '@/styles/liekan/Navigation.module.css';
 import '@/styles/liekan/Features.module.css';
 import { shortWebsitePath, websiteHandle, websiteMatchesHandle } from '@/lib/liekan/website-handle';
+import { LanguageSelector } from './LanguageSelector';
 import { featureHref, featureWebsiteSwitchHref, safeReturnHref } from './features/routes';
 import { DialogActions, LiekanDialog, Icon, Notice, QueryState } from './features/ui';
 import { defaultDateRange } from './viewState';
@@ -70,6 +73,7 @@ export function Navigation({
   href?: (page: string, params?: Record<string, any>) => string;
   websiteContextTarget?: HTMLElement;
 }) {
+  const i18n = useLiekanI18n();
   const nav = useNavigation();
   const client = useQueryClient();
   useEffect(() => observeRequestPriority(client), [client]);
@@ -213,13 +217,13 @@ export function Navigation({
       });
   }, [website, currentSite?.id, currentSite?.siteNumber, nav.pathname, nav.query, nav.router]);
   const siteName = siteUnavailable
-    ? '网站不可用'
-    : currentSite?.name || (route.websiteId ? '正在加载网站' : '选择网站');
+    ? i18n.text('网站不可用')
+    : currentSite?.name || (route.websiteId ? i18n.text('正在加载网站') : i18n.text('选择网站'));
   const demo = currentSite?.demo === true || displaySettings.data?.isDemo === true;
   const displayName = demo ? siteName.replace(/[（(]示例数据[）)]/, '').trim() : siteName;
   const teamName =
     teamsQuery.data?.find(team => team.id === currentSite?.teamId)?.name ||
-    (currentSite?.teamId ? '团队空间' : '个人空间');
+    (currentSite?.teamId ? i18n.text('团队空间') : i18n.text('个人空间'));
   const activePage = activeNavigationPage(route);
   const ownerParams = website
     ? { websiteId: (currentSite && websiteHandle(currentSite)) || route.websiteId }
@@ -250,8 +254,8 @@ export function Navigation({
         prefetch={false}
         className={styles.back}
         href={websitesHref}
-        aria-label="返回网站列表"
-        title="返回网站列表"
+        aria-label={i18n.text('返回网站列表')}
+        title={i18n.text('返回网站列表')}
       >
         <Icon name="back" />
       </Link>
@@ -265,7 +269,7 @@ export function Navigation({
             setSiteSearch('');
             setSwitching(!switching);
           }}
-          aria-label={`切换网站，当前${siteName}`}
+          aria-label={i18n.text('切换网站，当前{v0}', [siteName])}
           aria-expanded={switching}
           aria-busy={!currentSite && !!route.websiteId}
           aria-controls="website-picker"
@@ -274,14 +278,14 @@ export function Navigation({
         >
           <Icon name="globe" />
           <strong className={styles.siteName}>{displayName}</strong>
-          {demo && <span className={styles.demoBadge}>示例</span>}
+          {demo && <span className={styles.demoBadge}>{i18n.text('示例')}</span>}
           <Icon name="down" />
         </button>
         {switching && (
           <div
             id="website-picker"
             role="dialog"
-            aria-label="切换网站"
+            aria-label={i18n.text('切换网站')}
             className={styles.sitePopover}
             onBlur={event => {
               if (
@@ -294,7 +298,7 @@ export function Navigation({
           >
             <div className={styles.siteCurrent}>
               <strong>{siteName}</strong>
-              <span>{currentSite?.domain || '正在确认网站信息'}</span>
+              <span>{currentSite?.domain || i18n.text('正在确认网站信息')}</span>
               {currentSite && <small>{teamName}</small>}
             </div>
             <label className={styles.siteSearch}>
@@ -302,8 +306,8 @@ export function Navigation({
               <input
                 ref={searchInput}
                 value={siteSearch}
-                aria-label="搜索网站"
-                placeholder="搜索网站名称或域名"
+                aria-label={i18n.text('搜索网站')}
+                placeholder={i18n.text('搜索网站名称或域名')}
                 onChange={event => setSiteSearch(event.target.value)}
                 onKeyDown={event => {
                   if (event.key === 'ArrowDown') {
@@ -326,7 +330,7 @@ export function Navigation({
                         key={item.id}
                         data-site-option
                         className={`${styles.siteOption} ${selected ? styles.selected : ''}`}
-                        aria-label={`选择网站 ${item.name}`}
+                        aria-label={i18n.text('选择网站 {v0}', [item.name])}
                         aria-current={selected ? 'true' : undefined}
                         onClick={() => {
                           if (selected) {
@@ -363,7 +367,9 @@ export function Navigation({
                   })}
                   {!matchingSites.length && (
                     <p className={styles.pickerEmpty}>
-                      {sitesQuery.data?.length ? '没有匹配的网站' : '当前没有可访问的网站'}
+                      {sitesQuery.data?.length
+                        ? i18n.text('没有匹配的网站')
+                        : i18n.text('当前没有可访问的网站')}
                     </p>
                   )}
                 </div>
@@ -371,7 +377,7 @@ export function Navigation({
             </div>
             <Link prefetch={false} href={websitesHref} className={styles.siteManage}>
               <Icon name="grid" />
-              全部网站
+              {i18n.fragment('全部网站', true, true)}
               <Icon name="chevron" />
             </Link>
           </div>
@@ -391,13 +397,13 @@ export function Navigation({
         onClick={() => setMobile(!mobile)}
       >
         <Icon name="menu" />
-        <span className={styles.srOnly}>页面导航</span>
+        <span className={styles.srOnly}>{i18n.text('页面导航')}</span>
       </button>
       {mobile && (
         <button
           type="button"
           className={styles.backdrop}
-          aria-label="关闭导航"
+          aria-label={i18n.text('关闭导航')}
           onClick={() => setMobile(false)}
         />
       )}
@@ -405,7 +411,13 @@ export function Navigation({
         ref={sidebar}
         className={`${styles.sidebar} ${mobile ? styles.open : ''} ${styles.preview}`}
         id="liekan-navigation"
-        aria-label={website ? '网站导航' : meta.scope === 'admin' ? '系统管理导航' : '全局导航'}
+        aria-label={i18n.system(
+          website
+            ? i18n.text('网站导航')
+            : meta.scope === 'admin'
+              ? i18n.text('系统管理导航')
+              : i18n.text('全局导航'),
+        )}
       >
         <Link
           prefetch={false}
@@ -414,17 +426,20 @@ export function Navigation({
         >
           <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
           <span>
-            猎看统计<small>LIEKAN GEO STATS</small>
+            {i18n.fragment('猎看统计', false, true)}
+            <small>LIEKAN GEO STATS</small>
           </span>
         </Link>
-        <nav className={styles.nav} aria-label="业务导航" data-navigation-primary>
-          {meta.scope === 'admin' && <div className={styles.caption}>系统管理</div>}
+        <nav className={styles.nav} aria-label={i18n.text('业务导航')} data-navigation-primary>
+          {meta.scope === 'admin' && <div className={styles.caption}>{i18n.text('系统管理')}</div>}
           {groups.map(group => (
             <div key={group.id} data-navigation-group={group.id}>
               {group.sectionLabel && (
                 <div className={styles.sectionLabel}>{group.sectionLabel}</div>
               )}
-              {group.children && <div className={styles.sectionLabel}>{group.label}</div>}
+              {group.children && (
+                <div className={styles.sectionLabel}>{i18n.system(group.label)}</div>
+              )}
               <div className={styles.expandedItems}>
                 {(group.children || [group]).map(item => (
                   <Link
@@ -441,7 +456,7 @@ export function Navigation({
                           : item.icon || group.icon
                       }
                     />
-                    <span>{item.label}</span>
+                    <span>{i18n.system(item.label)}</span>
                     <NavigationFeedback />
                   </Link>
                 ))}
@@ -455,7 +470,7 @@ export function Navigation({
               ref={accountButton}
               type="button"
               className={styles.accountToggle}
-              aria-label="个人账户"
+              aria-label={i18n.text('个人账户')}
               aria-expanded={account}
               aria-controls="account-navigation"
               onClick={event => {
@@ -474,8 +489,8 @@ export function Navigation({
               href={featureHref('websites', {
                 teamId: website ? currentSite?.teamId : route.teamId,
               })}
-              aria-label="网站列表"
-              title="网站列表"
+              aria-label={i18n.text('网站列表')}
+              title={i18n.text('网站列表')}
             >
               <Icon name="grid" />
             </Link>
@@ -485,8 +500,8 @@ export function Navigation({
                 className={`${styles.footerIcon} ${meta.section === 'website-settings' ? styles.selected : ''}`}
                 aria-current={meta.section === 'website-settings' ? 'page' : undefined}
                 href={safeHref('website-settings')}
-                aria-label="网站设置"
-                title="网站设置"
+                aria-label={i18n.text('网站设置')}
+                title={i18n.text('网站设置')}
               >
                 <Icon name="settings" />
               </Link>
@@ -495,8 +510,8 @@ export function Navigation({
                 prefetch={false}
                 className={styles.footerIcon}
                 href={featureHref('admin-users')}
-                aria-label="系统管理"
-                title="系统管理"
+                aria-label={i18n.text('系统管理')}
+                title={i18n.text('系统管理')}
               >
                 <Icon name="shield" />
               </Link>
@@ -505,15 +520,20 @@ export function Navigation({
                 prefetch={false}
                 className={styles.footerIcon}
                 href={featureHref('preferences')}
-                aria-label="偏好设置"
-                title="偏好设置"
+                aria-label={i18n.text('偏好设置')}
+                title={i18n.text('偏好设置')}
               >
                 <Icon name="settings" />
               </Link>
             )}
           </div>
           {account && (
-            <nav className={styles.accountMenu} id="account-navigation" aria-label="个人账户">
+            <nav
+              className={styles.accountMenu}
+              id="account-navigation"
+              aria-label={i18n.text('个人账户')}
+            >
+              <LanguageSelector />
               {accountNavigation.map(item => (
                 <Link
                   prefetch={false}
@@ -522,7 +542,7 @@ export function Navigation({
                   key={item.page}
                   href={featureHref(item.page)}
                 >
-                  {item.label}
+                  {i18n.system(item.label)}
                 </Link>
               ))}
               <button
@@ -539,7 +559,7 @@ export function Navigation({
                   nav.router.replace('/login');
                 }}
               >
-                {loggingOut ? '正在退出' : '退出登录'}
+                {loggingOut ? i18n.text('正在退出') : i18n.text('退出登录')}
               </button>
             </nav>
           )}
@@ -548,7 +568,7 @@ export function Navigation({
           className={styles.resizer}
           role="separator"
           tabIndex={0}
-          aria-label="调整侧栏宽度"
+          aria-label={i18n.text('调整侧栏宽度')}
           aria-orientation="vertical"
           aria-valuemin={180}
           aria-valuemax={320}
@@ -580,13 +600,13 @@ export function Navigation({
       {leaving && (
         <LiekanDialog
           protectUnsaved={false}
-          title="放弃未保存的修改？"
+          title={i18n.text('放弃未保存的修改？')}
           onClose={() => setLeaving('')}
         >
-          <Notice>切换网站会放弃当前表单中的修改。</Notice>
+          <Notice>{i18n.text('切换网站会放弃当前表单中的修改。')}</Notice>
           <DialogActions>
             <button type="button" className="btn" onClick={() => setLeaving('')}>
-              继续编辑
+              {i18n.text('继续编辑')}
             </button>
             <button
               type="button"
@@ -597,7 +617,7 @@ export function Navigation({
                 setSwitching(false);
               }}
             >
-              放弃修改并切换
+              {i18n.text('放弃修改并切换')}
             </button>
           </DialogActions>
         </LiekanDialog>

@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { AnalyticsPages } from './AnalyticsPages';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const mocks = vi.hoisted(() => ({
   context: null as any,
@@ -199,6 +200,58 @@ it('keeps the selected event property while its value query is pending', () => {
   expect(JSON.parse(screen.getByRole('img').textContent!).series[0].values).toEqual([3]);
 });
 
+it('localizes property types while retaining original property names and values', () => {
+  mocks.context.query.eventName = '网站管理';
+  mocks.query['event-detail'] = {
+    totals: { total: 6, visitors: 1 },
+    properties: [{ name: '网站名称', total: 6 }],
+    values: [null, '未提供', 17, true, '2026-10-14', '页面访问'].map((value, dataType) => ({
+      value,
+      dataType,
+      total: 1,
+    })),
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="event-detail" />
+    </LiekanLocaleContext.Provider>,
+  );
+  for (const type of ['Missing', 'String', 'Number', 'Boolean', 'Date', 'Array'])
+    expect(screen.getByRole('cell', { name: type })).toBeVisible();
+  expect(screen.getByRole('tab', { name: '网站名称' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '未提供' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '页面访问' })).toBeVisible();
+});
+it('localizes anonymous visitor labels and long durations while preserving their suffix and query identities', () => {
+  mocks.query['sessions-rich'] = {
+    rows: [{ id: 'anonymous-123456', views: 2, seconds: 90000 }],
+    count: 1,
+  };
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="sessions" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('cell', { name: 'Visitor 123456' })).toBeVisible();
+  expect(screen.getByRole('cell', { name: '1d 1h' })).toBeVisible();
+  expect(mocks.href).toHaveBeenCalledWith(
+    'session-detail',
+    expect.objectContaining({ id: 'anonymous-123456' }),
+  );
+});
+it('localizes the selected unavailable retention placeholder while keeping audience names and option values', () => {
+  mocks.context.filters = { segment: 'segment-a' };
+  mocks.pending['retention-audiences'] = true;
+  render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <AnalyticsPages page="retention" />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('option', { name: 'Selected segment (Loading)' })).toHaveValue(
+    'segment:segment-a',
+  );
+  expect(screen.getByRole('option', { name: 'Selected segment (Loading)' })).toBeDisabled();
+});
 it('shows the current dimension selection and enforces the three dimension limit', async () => {
   render(<AnalyticsPages page="breakdown" />);
   fireEvent.click(screen.getByRole('button', { name: '选择维度' }));

@@ -1,3 +1,4 @@
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import {
   FilterChip,
   InsightRows,
@@ -9,8 +10,15 @@ import {
 import type { ReportViewProps } from '../types';
 
 export function Overview({ report, rangeLabel, trendLabel, aiCrawlerEnabled }: ReportViewProps) {
+  const i18n = useLiekanI18n();
   if (aiCrawlerEnabled === false || report?.meta.aiCrawlerEnabled === false)
-    return <VisitorOverview report={report} rangeLabel={rangeLabel} trendLabel={trendLabel} />;
+    return (
+      <VisitorOverview
+        report={report}
+        rangeLabel={i18n.system(rangeLabel)}
+        trendLabel={i18n.system(trendLabel)}
+      />
+    );
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -42,9 +50,12 @@ export function Overview({ report, rangeLabel, trendLabel, aiCrawlerEnabled }: R
       <section className="card fade-in d2">
         <div className="px-6 pt-5 pb-2 flex items-center justify-between">
           <div>
-            <h2 className="text-[14px] font-bold tracking-tight">AI 蜘蛛 vs 人类访问趋势</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.text('AI 蜘蛛 vs 人类访问趋势')}
+            </h2>
             <p className="text-[11.5px] text-faint mt-0.5">
-              {trendLabel || rangeLabel} · 浏览器 PV / 日志 AI 请求
+              {trendLabel || rangeLabel}
+              {i18n.fragment(' · 浏览器 PV / 日志 AI 请求', true, false)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -58,21 +69,27 @@ export function Overview({ report, rangeLabel, trendLabel, aiCrawlerEnabled }: R
       <section className="grid grid-cols-3 gap-4">
         <div className="card fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">AI 蜘蛛构成</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 按请求量</p>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('AI 蜘蛛构成')}</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' · 按请求量', true, false)}
+            </p>
           </div>
           <ReferenceChart id="d2" height={250} report={report} />
         </div>
         <div className="card fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">人类来源渠道</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 按会话</p>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('人类来源渠道')}</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' · 按会话', true, false)}
+            </p>
           </div>
           <ReferenceChart id="d3" height={250} report={report} />
         </div>
         <div className="card fade-in d3">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">GEO 关键发现</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('GEO 关键发现')}</h2>
           </div>
           <InsightRows
             className="px-6 pb-5 space-y-2.5 text-[12px] text-sub leading-relaxed"
@@ -83,9 +100,12 @@ export function Overview({ report, rangeLabel, trendLabel, aiCrawlerEnabled }: R
       <section className="card fade-in d3 overflow-hidden">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between">
           <h2 className="text-[14px] font-bold tracking-tight">
-            页面双视角 TOP（AI 抓取 × 人类访问）
+            {i18n.text('页面双视角 TOP（AI 抓取 × 人类访问）')}
           </h2>
-          <span className="text-[11.5px] text-faint">{rangeLabel} · 按 PV / 抓取次数</span>
+          <span className="text-[11.5px] text-faint">
+            {i18n.system(rangeLabel)}
+            {i18n.fragment(' · 按 PV / 抓取次数', true, false)}
+          </span>
         </div>
         <table className="w-full text-[12.5px]">
           <thead>
@@ -106,6 +126,7 @@ export function Overview({ report, rangeLabel, trendLabel, aiCrawlerEnabled }: R
 }
 
 function VisitorOverview({ report, rangeLabel, trendLabel }: ReportViewProps) {
+  const i18n = useLiekanI18n();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4" data-visitor-overview>
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -122,9 +143,10 @@ function VisitorOverview({ report, rangeLabel, trendLabel }: ReportViewProps) {
       <section className="card fade-in d2">
         <div className="px-6 pt-5 pb-2 flex flex-wrap gap-3 items-center justify-between">
           <div>
-            <h2 className="text-[14px] font-bold tracking-tight">访客浏览趋势</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('访客浏览趋势')}</h2>
             <p className="text-[11.5px] text-faint mt-0.5">
-              {trendLabel || rangeLabel} · 浏览器 PV
+              {trendLabel || rangeLabel}
+              {i18n.fragment(' · 浏览器 PV', true, false)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -138,14 +160,17 @@ function VisitorOverview({ report, rangeLabel, trendLabel }: ReportViewProps) {
       <section className="grid grid-cols-2 gap-4">
         <div className="card fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">访客来源渠道</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 按会话</p>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('访客来源渠道')}</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' · 按会话', true, false)}
+            </p>
           </div>
           <ReferenceChart id="d3" height={250} report={report} />
         </div>
         <div className="card fade-in d3">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">访问概况</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('访问概况')}</h2>
           </div>
           <InsightRows
             className="px-6 pb-5 space-y-2.5 text-[12px] text-sub leading-relaxed"
@@ -155,8 +180,11 @@ function VisitorOverview({ report, rangeLabel, trendLabel }: ReportViewProps) {
       </section>
       <section className="card fade-in d3 overflow-hidden">
         <div className="px-6 py-4 border-b border-line flex flex-wrap gap-2 items-center justify-between">
-          <h2 className="text-[14px] font-bold tracking-tight">热门访问页面</h2>
-          <span className="text-[11.5px] text-faint">{rangeLabel} · 按浏览量</span>
+          <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('热门访问页面')}</h2>
+          <span className="text-[11.5px] text-faint">
+            {i18n.system(rangeLabel)}
+            {i18n.fragment(' · 按浏览量', true, false)}
+          </span>
         </div>
         <table className="w-full text-[12.5px]">
           <thead>

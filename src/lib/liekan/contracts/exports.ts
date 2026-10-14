@@ -1,10 +1,13 @@
 import { z } from 'zod';
 import { keywordConditionsSchema, keywordStatusVersion } from './keywords';
 import { geographySorts } from './geography';
+import { liekanLocales } from '../i18n/locale';
+const exportLocaleSchema = z.enum(liekanLocales).optional();
 export const exportSections = ['summary', 'dimensions', 'events', 'sessions', 'config'] as const;
 const standardExportRequestSchema = z
   .object({
     kind: z.never().optional(),
+    locale: exportLocaleSchema,
     startAt: z.number().int().nonnegative(),
     endAt: z.number().int().nonnegative(),
     timezone: z.string().max(80).default('Asia/Shanghai'),
@@ -18,6 +21,7 @@ const standardExportRequestSchema = z
 export const keywordExportRequestSchema = keywordConditionsSchema
   .extend({
     kind: z.literal('source-keywords'),
+    locale: exportLocaleSchema,
     keywordStatusVersion: z.literal(keywordStatusVersion).optional(),
     format: z.literal('csv'),
     startAt: z.number().int().nonnegative(),
@@ -31,6 +35,7 @@ export const exportRequestSchema = z.union([
   z
     .object({
       kind: z.literal('geography'),
+      locale: exportLocaleSchema,
       format: z.literal('csv'),
       startAt: z.number().int().nonnegative(),
       endAt: z.number().int().nonnegative(),

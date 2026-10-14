@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useTaskPolling } from '@/lib/liekan/contracts/manual-refresh';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -30,6 +32,7 @@ function ReceiverSetupGuide({
   available: boolean;
   refresh: () => Promise<unknown>;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [draft, setDraft] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
@@ -60,28 +63,34 @@ function ReceiverSetupGuide({
     if (active.current) c.notify('配置说明已复制');
   };
   return (
-    <section className={styles.setupGuide} aria-label="接收服务配置引导">
+    <section className={styles.setupGuide} aria-label={i18n.text('接收服务配置引导')}>
       <div>
-        <h3>配置日志接收服务</h3>
+        <h3>{i18n.text('配置日志接收服务')}</h3>
         <p className="muted">
-          由部署管理员配置一次，供本实例的所有网站使用。填写地址后，按下方步骤应用到部署环境。
+          {i18n.text(
+            '由部署管理员配置一次，供本实例的所有网站使用。填写地址后，按下方步骤应用到部署环境。',
+          )}
         </p>
         {!c.user?.isAdmin && (
           <Notice tone="amber">
-            请将配置说明交给部署管理员。你可以在这里查看要求，并在配置完成后重新检查。
+            {i18n.text(
+              '请将配置说明交给部署管理员。你可以在这里查看要求，并在配置完成后重新检查。',
+            )}
           </Notice>
         )}
         {!checks.length && (
           <Notice tone="amber">
-            当前服务尚未返回逐项检查结果。请重新检查，并由部署管理员确认已有配置后再修改。
+            {i18n.text(
+              '当前服务尚未返回逐项检查结果。请重新检查，并由部署管理员确认已有配置后再修改。',
+            )}
           </Notice>
         )}
       </div>
       <div className="stack">
-        <strong>1. 准备统计服务的公网地址</strong>
+        <strong>{i18n.text('1. 准备统计服务的公网地址')}</strong>
         <Field
-          label="统计服务公网地址"
-          aria-label="统计服务公网地址"
+          label={i18n.text('统计服务公网地址')}
+          aria-label={i18n.text('统计服务公网地址')}
           type="url"
           placeholder="https://stats.example.com"
           maxLength={255}
@@ -90,68 +99,79 @@ function ReceiverSetupGuide({
             setDraft(event.target.value);
             setChecked(false);
           }}
-          help="填写猎看统计的访问域名。域名需指向统计服务，配置有效的 HTTPS 证书，并允许外部访问日志接收接口。"
+          help={i18n.text(
+            '填写猎看统计的访问域名。域名需指向统计服务，配置有效的 HTTPS 证书，并允许外部访问日志接收接口。',
+          )}
           error={
             value && !origin
-              ? '请输入 HTTPS 根地址，使用公网域名，去掉路径、参数和账号信息。'
+              ? i18n.text('请输入 HTTPS 根地址，使用公网域名，去掉路径、参数和账号信息。')
               : undefined
           }
         />
         {origin && <Code>{`LIEKAN_PUBLIC_URL=${origin}`}</Code>}
         <div className="row">
           <Button disabled={!origin} onClick={() => copy(`LIEKAN_PUBLIC_URL=${origin}`)}>
-            复制地址配置
+            {i18n.text('复制地址配置')}
           </Button>
         </div>
         <p className="field-help">
-          Docker 部署：更新猎看部署目录的 .env
-          中对应项。其他部署：在托管平台的环境变量中更新。页面填写用于生成配置说明。
+          {i18n.text(
+            'Docker 部署：更新猎看部署目录的 .env 中对应项。其他部署：在托管平台的环境变量中更新。页面填写用于生成配置说明。',
+          )}
         </p>
         {capability?.publicUrl && (
-          <p className="field-help">当前运行地址：{capability.publicUrl}</p>
+          <p className="field-help">
+            {i18n.fragment('当前运行地址：', false, true)}
+            {capability.publicUrl}
+          </p>
         )}
       </div>
       {method === 'cloudflare' && (
         <div className="stack">
-          <strong>2. 配置 Cloudflare 授权应用</strong>
+          <strong>{i18n.text('2. 配置 Cloudflare 授权应用')}</strong>
           <p>
-            在 Cloudflare 账户的 Manage Account → OAuth clients 创建服务器端应用，使用 Authorization
-            Code 流程和 client_secret_basic，配置读取 Zone 与管理 Logpush 所需权限。
+            {i18n.text(
+              '在 Cloudflare 账户的 Manage Account → OAuth clients 创建服务器端应用，使用 Authorization Code 流程和 client_secret_basic，配置读取 Zone 与管理 Logpush 所需权限。',
+            )}
           </p>
           <a
             href="https://developers.cloudflare.com/fundamentals/oauth/create-an-oauth-client/"
             target="_blank"
             rel="noreferrer"
           >
-            查看 Cloudflare 官方配置指南 ↗
+            {i18n.text('查看 Cloudflare 官方配置指南 ↗')}
           </a>
-          <span className="field-help">将以下地址登记为应用的回调地址：</span>
+          <span className="field-help">{i18n.text('将以下地址登记为应用的回调地址：')}</span>
           {origin ? (
             <>
               <Code>{`${origin}/api/liekan/oauth/cloudflare/callback`}</Code>
               <div className="row">
                 <Button onClick={() => copy(`${origin}/api/liekan/oauth/cloudflare/callback`)}>
-                  复制回调地址
+                  {i18n.text('复制回调地址')}
                 </Button>
               </div>
             </>
           ) : (
-            <p className="muted">填写有效的公网地址后显示回调地址。</p>
+            <p className="muted">{i18n.text('填写有效的公网地址后显示回调地址。')}</p>
           )}
           {(missing('cloudflare-oauth') || missing('credentials-key')) && (
             <>
               <p className="field-help">
-                在部署环境补齐下列待配置项，用真实值替换占位文字；应用密钥和加密密钥由部署管理员保管。
+                {i18n.text(
+                  '在部署环境补齐下列待配置项，用真实值替换占位文字；应用密钥和加密密钥由部署管理员保管。',
+                )}
               </p>
               <Code>{credentialConfig}</Code>
               <div className="row">
-                <Button onClick={() => copy(credentialConfig)}>复制待配置项</Button>
+                <Button onClick={() => copy(credentialConfig)}>{i18n.text('复制待配置项')}</Button>
               </div>
               {missing('credentials-key') && (
                 <details>
-                  <summary>如何生成凭据加密密钥</summary>
+                  <summary>{i18n.text('如何生成凭据加密密钥')}</summary>
                   <p className="field-help">
-                    在部署服务器运行下方命令，将结果填入对应环境变量；已有密钥请保留，轮换需按部署文档执行。
+                    {i18n.text(
+                      '在部署服务器运行下方命令，将结果填入对应环境变量；已有密钥请保留，轮换需按部署文档执行。',
+                    )}
                   </p>
                   <Code>{`node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64'))"`}</Code>
                 </details>
@@ -161,18 +181,24 @@ function ReceiverSetupGuide({
         </div>
       )}
       <div className="stack">
-        <strong>{method === 'cloudflare' ? '3' : '2'}. 应用配置并重新检查</strong>
+        <strong>
+          {method === 'cloudflare' ? '3' : '2'}
+          {i18n.fragment('. 应用配置并重新检查', true, false)}
+        </strong>
         <p>
-          应用与日志处理服务需使用同一份配置。Docker
-          部署在猎看部署目录执行下方命令；其他部署请更新并重启这两个进程。
+          {i18n.text(
+            '应用与日志处理服务需使用同一份配置。Docker 部署在猎看部署目录执行下方命令；其他部署请更新并重启这两个进程。',
+          )}
         </p>
-        <p className="field-help">配置完成后，通过该公网域名打开猎看，再继续授权或安装。</p>
+        <p className="field-help">
+          {i18n.text('配置完成后，通过该公网域名打开猎看，再继续授权或安装。')}
+        </p>
         <Code>docker compose -f docker-compose.liekan.yml up -d --no-deps app log-worker</Code>
         {missing('queue') && (
           <details>
-            <summary>日志队列待初始化或无法读取</summary>
+            <summary>{i18n.text('日志队列待初始化或无法读取')}</summary>
             <p className="field-help">
-              确认数据库可连接、增量迁移已完成，再由部署管理员初始化队列。
+              {i18n.text('确认数据库可连接、增量迁移已完成，再由部署管理员初始化队列。')}
             </p>
             <Code>
               {
@@ -183,30 +209,33 @@ function ReceiverSetupGuide({
         )}
         {method === 'server' && missing('agent-package') && (
           <details>
-            <summary>准备采集器部署包</summary>
+            <summary>{i18n.text('准备采集器部署包')}</summary>
             <p className="field-help">
-              在受控构建环境设置 LIEKAN_AGENT_SIGNING_KEY_FILE，执行下方命令，再重新构建并部署包含
-              public/liekan-agent 的应用镜像。
+              {i18n.text(
+                '在受控构建环境设置 LIEKAN_AGENT_SIGNING_KEY_FILE，执行下方命令，再重新构建并部署包含 public/liekan-agent 的应用镜像。',
+              )}
             </p>
             <Code>pnpm liekan:build-agent</Code>
           </details>
         )}
-        <div className={styles.setupChecks} aria-label="当前运行配置">
+        <div className={styles.setupChecks} aria-label={i18n.text('当前运行配置')}>
           {checks.map(check => (
             <div key={check.id}>
-              <span>{setupLabels[check.id]}</span>
+              <span>{i18n.system(setupLabels[check.id])}</span>
               <Badge tone={check.state === 'ready' ? 'green' : 'gray'}>
                 {check.state === 'ready'
-                  ? '已就绪'
+                  ? i18n.text('已就绪')
                   : check.state === 'unverified'
-                    ? '未能读取'
-                    : '待配置'}
+                    ? i18n.text('未能读取')
+                    : i18n.text('待配置')}
               </Badge>
             </div>
           ))}
         </div>
         <p className="field-help">
-          检查核对运行中的配置、服务心跳和安装资产。公网连通性与真实日志到达可在连接后继续检查。
+          {i18n.text(
+            '检查核对运行中的配置、服务心跳和安装资产。公网连通性与真实日志到达可在连接后继续检查。',
+          )}
         </p>
         <div className="row">
           <Button
@@ -228,19 +257,19 @@ function ReceiverSetupGuide({
               }
             }}
           >
-            {checking ? '正在检查配置…' : '重新检查配置'}
+            {checking ? i18n.text('正在检查配置…') : i18n.text('重新检查配置')}
           </Button>
         </div>
         <div aria-live="polite">
           {checked && (
             <p className="field-help">
               {available
-                ? '接收服务已就绪，可以继续生成授权链接或安装命令。'
-                : '已重新读取运行配置，请继续完成上方待配置项。'}
+                ? i18n.text('接收服务已就绪，可以继续生成授权链接或安装命令。')
+                : i18n.text('已重新读取运行配置，请继续完成上方待配置项。')}
             </p>
           )}
         </div>
-        {error && <Notice tone="red">{error}</Notice>}
+        {error && <Notice tone="red">{i18n.system(error)}</Notice>}
       </div>
     </section>
   );
@@ -259,6 +288,7 @@ export function AutomaticLogSetup({
   manage: boolean;
   refresh: () => Promise<unknown>;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [busy, setBusy] = useState(false),
     [error, setError] = useState('');
@@ -353,41 +383,55 @@ export function AutomaticLogSetup({
   }, [flowId, websiteId, method, manage]);
   return (
     <>
-      {follow.expired && <Button onClick={() => follow.resume()}>回查接入结果</Button>}
-      <p className="muted">{available ? '按下方引导完成连接，检查可稍后进行。' : reason}</p>
+      {follow.expired && (
+        <Button onClick={() => follow.resume()}>{i18n.text('回查接入结果')}</Button>
+      )}
+      <p className="muted">
+        {available ? i18n.text('按下方引导完成连接，检查可稍后进行。') : i18n.system(reason)}
+      </p>
       {!available && (
         <p className="field-help">
-          先完成实例配置，再为当前网站连接日志来源。下方引导可直接查看待配置项和操作步骤。
+          {i18n.text(
+            '先完成实例配置，再为当前网站连接日志来源。下方引导可直接查看待配置项和操作步骤。',
+          )}
         </p>
       )}
       {method === 'server' && available && (
         <div className="stack">
           <label>
-            服务器安装方式
+            {i18n.fragment('服务器安装方式', false, true)}
             <select
-              aria-label="服务器安装方式"
+              aria-label={i18n.text('服务器安装方式')}
               value={runtime}
               onChange={event => setRuntimeChoice(event.target.value as 'docker' | 'systemd')}
             >
               <option value="docker" disabled={runtimes?.docker === false}>
-                Docker / 宝塔（推荐）
+                {i18n.text('Docker / 宝塔（推荐）')}
               </option>
               <option value="systemd" disabled={runtimes?.systemd === false}>
-                直接安装到系统
+                {i18n.text('直接安装到系统')}
               </option>
             </select>
           </label>
           <p className="field-help">
             {runtime === 'docker'
-              ? '在目标网站服务器运行一个采集容器。需要可用的 Docker 和 Compose V2；安装会检查日志读取权限、格式及 HTTPS 连接。'
-              : '支持 Ubuntu 22.04/24.04、Debian 12 和 systemd，读取 Nginx / Apache Combined 访问日志。'}
+              ? i18n.text(
+                  '在目标网站服务器运行一个采集容器。需要可用的 Docker 和 Compose V2；安装会检查日志读取权限、格式及 HTTPS 连接。',
+                )
+              : i18n.text(
+                  '支持 Ubuntu 22.04/24.04、Debian 12 和 systemd，读取 Nginx / Apache Combined 访问日志。',
+                )}
           </p>
         </div>
       )}
       <div className="form-actions">
         {!available ? (
           <Button primary aria-expanded={setupOpen} onClick={() => setSetupOpen(!setupOpen)}>
-            {setupOpen ? '收起配置引导' : c.user?.isAdmin ? '开始配置' : '查看配置说明'}
+            {setupOpen
+              ? i18n.text('收起配置引导')
+              : c.user?.isAdmin
+                ? i18n.text('开始配置')
+                : i18n.text('查看配置说明')}
           </Button>
         ) : (
           <>
@@ -407,7 +451,11 @@ export function AutomaticLogSetup({
                 })
               }
             >
-              {busy ? '正在处理…' : method === 'server' ? '生成一次安装命令' : '生成授权链接'}
+              {busy
+                ? i18n.text('正在处理…')
+                : method === 'server'
+                  ? i18n.text('生成一次安装命令')
+                  : i18n.text('生成授权链接')}
             </Button>
             {method === 'server' && runtime === 'docker' && (
               <Button
@@ -437,11 +485,11 @@ export function AutomaticLogSetup({
                   })
                 }
               >
-                下载 Docker 部署包
+                {i18n.text('下载 Docker 部署包')}
               </Button>
             )}
             <Button aria-expanded={setupOpen} onClick={() => setSetupOpen(!setupOpen)}>
-              {setupOpen ? '收起配置引导' : '查看接收服务配置'}
+              {setupOpen ? i18n.text('收起配置引导') : i18n.text('查看接收服务配置')}
             </Button>
           </>
         )}
@@ -458,15 +506,18 @@ export function AutomaticLogSetup({
         <div className="stack">
           <p>
             {runtime === 'docker'
-              ? '在宝塔终端或网站服务器执行。按提示填写该网站的访问日志路径，检查通过后自动配对并启动容器。'
-              : '在网站服务器执行。安装会询问当前网站的日志路径，并在本机校验读取权限。'}
+              ? i18n.text(
+                  '在宝塔终端或网站服务器执行。按提示填写该网站的访问日志路径，检查通过后自动配对并启动容器。',
+                )
+              : i18n.text('在网站服务器执行。安装会询问当前网站的日志路径，并在本机校验读取权限。')}
           </p>
           <Code>{command.command}</Code>
           <p className="field-help">
-            命令仅可配对一次，失效时间：{new Date(command.expiresAt).toLocaleTimeString('zh-CN')}。
+            {i18n.fragment('命令仅可配对一次，失效时间：', false, true)}
+            {new Date(command.expiresAt).toLocaleTimeString(i18n.locale)}。
             {runtime === 'docker'
-              ? 'Linux x64 / arm64，Docker Compose V2，Nginx / Apache Combined 日志。'
-              : '支持 Ubuntu 22.04/24.04、Debian 12，Nginx / Apache Combined 日志。'}
+              ? i18n.text('Linux x64 / arm64，Docker Compose V2，Nginx / Apache Combined 日志。')
+              : i18n.text('支持 Ubuntu 22.04/24.04、Debian 12，Nginx / Apache Combined 日志。')}
           </p>
           <Button
             onClick={async () => {
@@ -474,12 +525,12 @@ export function AutomaticLogSetup({
               c.notify('安装命令已复制');
             }}
           >
-            复制安装命令
+            {i18n.text('复制安装命令')}
           </Button>
           {runtime === 'docker' && command.pairingCode && (
             <div className="stack">
               <span className="field-help">
-                通过部署包安装时，环境检查完成后输入此一次性配对码：
+                {i18n.text('通过部署包安装时，环境检查完成后输入此一次性配对码：')}
               </span>
               <Code>{command.pairingCode}</Code>
               <Button
@@ -488,7 +539,7 @@ export function AutomaticLogSetup({
                   c.notify('配对码已复制');
                 }}
               >
-                复制配对码
+                {i18n.text('复制配对码')}
               </Button>
             </div>
           )}
@@ -497,23 +548,27 @@ export function AutomaticLogSetup({
       {method === 'server' && runtime === 'docker' && (
         <div className="stack">
           <p className="field-help">
-            宝塔访问日志通常位于
-            /www/wwwlogs/，请在当前网站的日志设置中确认。部署包上传并解压到公开访问目录之外，在宝塔终端执行包内
-            start.sh；文件上传后还需要启动采集容器。
+            {i18n.text(
+              '宝塔访问日志通常位于 /www/wwwlogs/，请在当前网站的日志设置中确认。部署包上传并解压到公开访问目录之外，在宝塔终端执行包内 start.sh；文件上传后还需要启动采集容器。',
+            )}
           </p>
           <p className="field-help">
-            先准备运行环境，再生成配对码。配对码过期时可重新生成；重复安装保留已有配对、缓存和采集进度。首次采集从启动后的新增日志开始，历史日志可手动导入。
+            {i18n.text(
+              '先准备运行环境，再生成配对码。配对码过期时可重新生成；重复安装保留已有配对、缓存和采集进度。首次采集从启动后的新增日志开始，历史日志可手动导入。',
+            )}
           </p>
           {deploymentCommand && (
             <>
               <ol className="field-help">
-                <li>上传并解压到非公开目录，例如 /opt/liekan-agent-package。</li>
-                <li>在宝塔管理员终端进入解压目录，执行下方启动命令。</li>
-                <li>环境检查通过后，点击“生成一次安装命令”，复制配对码并输入终端。</li>
+                <li>{i18n.text('上传并解压到非公开目录，例如 /opt/liekan-agent-package。')}</li>
+                <li>{i18n.text('在宝塔管理员终端进入解压目录，执行下方启动命令。')}</li>
+                <li>
+                  {i18n.text('环境检查通过后，点击“生成一次安装命令”，复制配对码并输入终端。')}
+                </li>
               </ol>
               <Code>sh start.sh</Code>
               <details>
-                <summary>通过命令准备运行环境（可选）</summary>
+                <summary>{i18n.text('通过命令准备运行环境（可选）')}</summary>
                 <Code>{deploymentCommand}</Code>
                 <Button
                   onClick={async () => {
@@ -521,7 +576,7 @@ export function AutomaticLogSetup({
                     c.notify('准备命令已复制');
                   }}
                 >
-                  复制准备命令
+                  {i18n.text('复制准备命令')}
                 </Button>
               </details>
             </>
@@ -530,18 +585,19 @@ export function AutomaticLogSetup({
       )}
       {authorization && (
         <div className="stack">
-          <p>前往 Cloudflare 选择账户并授权，返回后确认网站域名。</p>
+          <p>{i18n.text('前往 Cloudflare 选择账户并授权，返回后确认网站域名。')}</p>
           <Button primary onClick={() => window.location.assign(authorization)}>
-            前往 Cloudflare 授权
+            {i18n.text('前往 Cloudflare 授权')}
           </Button>
         </div>
       )}
       {zones && (
         <div className="stack">
           <label>
-            匹配网站域名：{zones.domain}
+            {i18n.fragment('匹配网站域名：', false, true)}
+            {zones.domain}
             <select
-              aria-label="Cloudflare 域名"
+              aria-label={i18n.text('Cloudflare 域名')}
               value={zone}
               onChange={event => setZone(event.target.value)}
             >
@@ -558,7 +614,11 @@ export function AutomaticLogSetup({
               checked={costs}
               onChange={event => setCosts(event.target.checked)}
             />
-            我已了解：Logpush 需要账户支持，供应商可能收费；连接成功后将成为主要日志来源。
+            {i18n.fragment(
+              '我已了解：Logpush 需要账户支持，供应商可能收费；连接成功后将成为主要日志来源。',
+              true,
+              false,
+            )}
           </label>
           <Button
             primary
@@ -577,7 +637,7 @@ export function AutomaticLogSetup({
               })
             }
           >
-            确认并连接
+            {i18n.text('确认并连接')}
           </Button>
         </div>
       )}
@@ -587,76 +647,92 @@ export function AutomaticLogSetup({
             <strong>{source.domain}</strong>{' '}
             <Badge tone={source.primary ? 'blue' : 'gray'}>
               {source.primary
-                ? '主要来源'
+                ? i18n.text('主要来源')
                 : {
-                    configuring: '配置中',
-                    paused: '已暂停',
-                    error: '需要处理',
-                    active: '已连接',
-                    disconnected: '正在断开',
+                    configuring: i18n.text('配置中'),
+                    paused: i18n.text('已暂停'),
+                    error: i18n.text('需要处理'),
+                    active: i18n.text('已连接'),
+                    disconnected: i18n.text('正在断开'),
                   }[source.state] || source.state}
             </Badge>
             <p className="muted">
-              {method === 'server' ? '采集服务：' : '连接：'}
+              {method === 'server' ? i18n.text('采集服务：') : i18n.text('连接：')}
               {source.lastHeartbeatAt
                 ? Date.now() - new Date(source.lastHeartbeatAt).getTime() > 180000
-                  ? '连接状态已过期'
-                  : '已连接'
-                : '等待连接'}{' '}
-              · 真实日志：{source.lastReceivedAt ? '已接收' : '等待接收'} · 处理：
-              {source.lastProcessedAt ? '已处理' : '等待处理'} · 积压 {source.backlog} 批
+                  ? i18n.text('连接状态已过期')
+                  : i18n.text('已连接')
+                : i18n.text('等待连接')}{' '}
+              {i18n.fragment('· 真实日志：', true, true)}
+              {source.lastReceivedAt ? i18n.text('已接收') : i18n.text('等待接收')}
+              {i18n.fragment(' · 处理：', true, true)}
+              {source.lastProcessedAt ? i18n.text('已处理') : i18n.text('等待处理')}
+              {i18n.fragment(' · 积压 ', true, true)}
+              {source.backlog}
+              {i18n.fragment(' 批', true, false)}
             </p>
             {method === 'server' &&
               source.health?.errorCode &&
               source.health.errorCode !== 'none' && (
                 <p role="alert">
                   {{
-                    unreadable: '访问日志无法读取，请检查文件及轮转目录权限。',
-                    'format-error': '存在无法识别的日志行，请检查 Combined 日志格式。',
-                    'buffer-full': '本地缓存已满，请检查连接并等待积压处理。',
-                    'rotation-gap': '日志轮转出现缺口，请检查日志保留时间与读取权限。',
-                    offline: '采集器曾报告连接异常，请检查容器网络与统计服务地址。',
+                    unreadable: i18n.text('访问日志无法读取，请检查文件及轮转目录权限。'),
+                    'format-error': i18n.text('存在无法识别的日志行，请检查 Combined 日志格式。'),
+                    'buffer-full': i18n.text('本地缓存已满，请检查连接并等待积压处理。'),
+                    'rotation-gap': i18n.text('日志轮转出现缺口，请检查日志保留时间与读取权限。'),
+                    offline: i18n.text('采集器曾报告连接异常，请检查容器网络与统计服务地址。'),
                   }[String(source.health.errorCode)] ||
-                    '采集器需要检查，请查看目标服务器的容器日志。'}
+                    i18n.text('采集器需要检查，请查看目标服务器的容器日志。')}
                 </p>
               )}
             {method === 'server' && (
               <p className="field-help">
-                本站 AI 蜘蛛匹配：
+                {i18n.fragment('本站 AI 蜘蛛匹配：', false, true)}
                 {status.logs?.total
                   ? status.logs.ai
-                    ? `${status.logs.ai.toLocaleString()} 次`
-                    : '日志已收到，暂未匹配到 AI 蜘蛛请求。'
+                    ? i18n.text('{v0} 次', [status.logs.ai.toLocaleString()])
+                    : i18n.text('日志已收到，暂未匹配到 AI 蜘蛛请求。')
                   : source.lastReceivedAt
-                    ? '日志已接收，等待处理后的匹配结果。'
-                    : '等待真实访问日志。'}
+                    ? i18n.text('日志已接收，等待处理后的匹配结果。')
+                    : i18n.text('等待真实访问日志。')}
               </p>
             )}
             {!!source.failed && (
               <p role="alert">
-                有 {source.failed}{' '}
-                批日志处理失败，请核对事件格式或来源配置。已接收的其他批次会继续处理。
+                {i18n.fragment('有 ', false, true)}
+                {source.failed}{' '}
+                {i18n.fragment(
+                  '批日志处理失败，请核对事件格式或来源配置。已接收的其他批次会继续处理。',
+                  true,
+                  false,
+                )}
               </p>
             )}
             {source.cleanupPending && (
               <p role="alert">
-                正在停用远端日志任务。若供应商授权已失效，请到 Cloudflare 核对停用结果。
+                {i18n.text(
+                  '正在停用远端日志任务。若供应商授权已失效，请到 Cloudflare 核对停用结果。',
+                )}
               </p>
             )}
             {source.errorCode && (
               <p role="alert">
                 {source.errorCode === 'confirmation-required'
-                  ? '主要来源已变更；确认后可将此连接设为主要来源。'
+                  ? i18n.text('主要来源已变更；确认后可将此连接设为主要来源。')
                   : source.errorCode === 'reauthorization-required'
-                    ? '授权或网站配置已变更，请重新连接。'
-                    : '日志推送暂时异常，请检查服务与权限。'}
+                    ? i18n.text('授权或网站配置已变更，请重新连接。')
+                    : i18n.text('日志推送暂时异常，请检查服务与权限。')}
               </p>
             )}
             {source.health?.gap === true && (
-              <p role="alert">采集器报告了日志轮转或重置缺口，请核对日志保留情况。</p>
+              <p role="alert">
+                {i18n.text('采集器报告了日志轮转或重置缺口，请核对日志保留情况。')}
+              </p>
             )}
             {source.health?.errorCode === 'buffer-full' && (
-              <p role="alert">本机缓冲已满或超过保留时间，读取已暂停；恢复连接后会继续发送。</p>
+              <p role="alert">
+                {i18n.text('本机缓冲已满或超过保留时间，读取已暂停；恢复连接后会继续发送。')}
+              </p>
             )}
           </div>
           {manage && (
@@ -677,13 +753,13 @@ export function AutomaticLogSetup({
                   })
                 }
               >
-                {source.primary ? '暂停' : '设为主要来源'}
+                {source.primary ? i18n.text('暂停') : i18n.text('设为主要来源')}
               </Button>
               <Button
                 disabled={busy}
                 onClick={() => setDisconnect({ id: source.id, domain: source.domain })}
               >
-                断开连接
+                {i18n.text('断开连接')}
               </Button>
             </div>
           )}
@@ -691,8 +767,8 @@ export function AutomaticLogSetup({
       ))}
       {disconnect && (
         <LiekanDialog
-          title="断开日志连接"
-          subtitle={disconnect.domain}
+          title={i18n.text('断开日志连接')}
+          subtitle={i18n.system(disconnect.domain)}
           protectUnsaved={false}
           onClose={() => !busy && setDisconnect(null)}
         >
@@ -700,10 +776,10 @@ export function AutomaticLogSetup({
             busy={busy}
             danger
             trackUnsaved={false}
-            submitLabel="断开连接"
+            submitLabel={i18n.text('断开连接')}
             cancel={
               <Button disabled={busy} onClick={() => setDisconnect(null)}>
-                保留连接
+                {i18n.text('保留连接')}
               </Button>
             }
             onSubmit={async () => {
@@ -723,20 +799,24 @@ export function AutomaticLogSetup({
             }}
           >
             <Notice tone="amber">
-              断开「{disconnect.domain}」的{method === 'server' ? '服务器采集' : 'Cloudflare'}
-              日志连接后，该来源将停止接收新日志。历史数据继续保留。
+              {i18n.fragment('断开「', false, true)}
+              {disconnect.domain}
+              {i18n.fragment('」的', true, true)}
+              {method === 'server' ? i18n.text('服务器采集') : 'Cloudflare'}
+              {i18n.fragment('日志连接后，该来源将停止接收新日志。历史数据继续保留。', true, false)}
             </Notice>
             {method === 'server' && (
-              <p className="muted">服务器采集服务可由管理员在对应服务器卸载。</p>
+              <p className="muted">{i18n.text('服务器采集服务可由管理员在对应服务器卸载。')}</p>
             )}
           </Form>
         </LiekanDialog>
       )}
-      {error && <Notice tone="red">{error}</Notice>}
+      {error && <Notice tone="red">{i18n.system(error)}</Notice>}
       {sources.length > 0 && (
         <p className="field-help">
-          每个网站使用一个主要自动来源；选择新来源会暂停之前的来源。同一时间的源站、CDN
-          与手动导入数据按生效区间统计。
+          {i18n.text(
+            '每个网站使用一个主要自动来源；选择新来源会暂停之前的来源。同一时间的源站、CDN 与手动导入数据按生效区间统计。',
+          )}
         </p>
       )}
     </>

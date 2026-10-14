@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import Link from '@/components/liekan/Link';
 import { useEffect, useRef } from 'react';
 import type { FeatureRoute } from '@/lib/liekan/contracts/features';
@@ -23,6 +25,7 @@ export function AnalysisTabs({
   href: (page: string) => string;
   onSegments?: () => void;
 }) {
+  const i18n = useLiekanI18n();
   const trackingPage = trackingSourcePage(route);
   const family = trackingPage
     ? globalNavigation
@@ -48,7 +51,7 @@ export function AnalysisTabs({
         className={styles.pageTabs}
         ref={links}
         role="tablist"
-        aria-label={`${family.label}视图`}
+        aria-label={i18n.text('{v0}视图', [i18n.system(family.label)])}
       >
         {tabs.map(tab => (
           <Link
@@ -73,14 +76,14 @@ export function AnalysisTabs({
               nodes[next]?.focus();
             }}
           >
-            {tab.label}
+            {i18n.system(tab.label)}
             <NavigationFeedback />
           </Link>
         ))}
       </div>
       {family.page === 'cohorts' && onSegments && (
         <button type="button" className={styles.segmentsButton} onClick={onSegments}>
-          已保存分群
+          {i18n.text('已保存分群')}
         </button>
       )}
     </div>

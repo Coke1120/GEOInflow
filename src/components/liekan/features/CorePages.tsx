@@ -1,4 +1,8 @@
 'use client';
+import { TableCell } from './ui';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
+import { LanguageSelector } from '../LanguageSelector';
 
 import { formatInTimeZone } from 'date-fns-tz';
 import Link from '@/components/liekan/Link';
@@ -88,11 +92,12 @@ function PasswordField({
   name: string;
   minLength?: number;
 }) {
+  const i18n = useLiekanI18n();
   const [visible, setVisible] = useState(false);
   return (
     <label className="field">
       <span>
-        {label} <span className="required">*</span>
+        {i18n.system(label)} <span className="required">*</span>
       </span>
       <span className="password-wrap">
         <input
@@ -106,7 +111,7 @@ function PasswordField({
         />
         <button
           type="button"
-          aria-label={visible ? '隐藏密码' : '显示密码'}
+          aria-label={i18n.system(visible ? i18n.text('隐藏密码') : i18n.text('显示密码'))}
           onClick={() => setVisible(!visible)}
         >
           <Icon name="eye" />
@@ -169,20 +174,24 @@ function canTransferSite(c: ReturnType<typeof useFeature>, site: FeatureEntity) 
   return site.userId === c.user.id && teamCandidates(c, 'transfer').length > 0;
 }
 function MissingWebsite() {
+  const i18n = useLiekanI18n();
   return (
     <Notice tone="amber">
-      请选择一个网站后继续。
+      {i18n.fragment('请选择一个网站后继续。', false, true)}
       <div className="form-actions">
-        <LinkButton page="websites">网站管理</LinkButton>
+        <LinkButton page="websites">{i18n.text('网站管理')}</LinkButton>
         <LinkButton page="onboarding" primary>
-          添加网站
+          {i18n.text('添加网站')}
         </LinkButton>
       </div>
     </Notice>
   );
 }
 function ReadonlyNotice() {
-  return <Notice tone="amber">当前角色可以查看此配置。保存操作需要网站管理权限。</Notice>;
+  const i18n = useLiekanI18n();
+  return (
+    <Notice tone="amber">{i18n.text('当前角色可以查看此配置。保存操作需要网站管理权限。')}</Notice>
+  );
 }
 const percentLabel = (value: number | null) => (value == null ? '—' : `${value.toFixed(2)}%`);
 const bounceRateLabel = (row: any) => {
@@ -205,6 +214,7 @@ function MetricRows({
   labels?: boolean;
   readAt: number;
 }) {
+  const i18n = useLiekanI18n();
   const estimate = kind === 'count' ? projectToday(today, timezone, readAt) : null;
   const trend = projectTrend(estimate, yesterday);
   return (
@@ -213,9 +223,9 @@ function MetricRows({
         {labels && (
           <span
             className="site-metric-label"
-            title={formatInTimeZone(readAt, timezone, 'yyyy-MM-dd')}
+            title={i18n.system(formatInTimeZone(readAt, timezone, 'yyyy-MM-dd'))}
           >
-            今日
+            {i18n.text('今日')}
           </span>
         )}
         <span className="site-metric-value">
@@ -223,7 +233,7 @@ function MetricRows({
         </span>
       </div>
       <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
-        {labels && <span className="site-metric-label">昨日</span>}
+        {labels && <span className="site-metric-label">{i18n.text('昨日')}</span>}
         <span className="site-metric-value">
           {kind === 'percent'
             ? percentLabel(yesterday)
@@ -233,16 +243,16 @@ function MetricRows({
         </span>
       </div>
       <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
-        {labels && <span className="site-metric-label">预计今日</span>}
+        {labels && <span className="site-metric-label">{i18n.text('预计今日')}</span>}
         <span className="site-metric-value">
           {estimate == null ? '—' : numberLabel(estimate)}
           {trend === 1 && (
-            <span className="metric-arrow metric-up" aria-label="预计高于昨日">
+            <span className="metric-arrow metric-up" aria-label={i18n.text('预计高于昨日')}>
               ▲
             </span>
           )}
           {trend === -1 && (
-            <span className="metric-arrow metric-down" aria-label="预计低于昨日">
+            <span className="metric-arrow metric-down" aria-label={i18n.text('预计低于昨日')}>
               ▼
             </span>
           )}
@@ -253,53 +263,56 @@ function MetricRows({
 }
 
 function InstallSteps({ query, websiteId }: { query: any; websiteId: string }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const received = !query.error && query.data?.pageviews > 0;
   return (
     <ul className="timeline">
       <li>
         <div className="row between">
-          <strong>脚本加载</strong>
+          <strong>{i18n.text('脚本加载')}</strong>
           <Badge key="badge" tone="gray">
-            需浏览器核对
+            {i18n.text('需浏览器核对')}
           </Badge>
         </div>
-        <p>在目标网站的网络面板检查 script.js 加载和采集请求。</p>
+        <p>{i18n.text('在目标网站的网络面板检查 script.js 加载和采集请求。')}</p>
       </li>
       <li>
         <div className="row between">
-          <strong>网站标识</strong>
+          <strong>{i18n.text('网站标识')}</strong>
           <Badge key="badge" tone="blue">
-            已生成
+            {i18n.text('已生成')}
           </Badge>
         </div>
         <p>
-          <code>{websiteId}</code>，请核对页面中的 data-website-id。
+          <code>{websiteId}</code>
+          {i18n.fragment('，请核对页面中的 data-website-id。', true, false)}
         </p>
       </li>
       <li>
         <div className="row between">
-          <strong>首条访问</strong>
+          <strong>{i18n.text('首条访问')}</strong>
           <Badge key="badge" tone={received ? 'green' : 'gray'}>
             {query.error
-              ? '读取失败'
+              ? i18n.text('读取失败')
               : query.isPending
-                ? '正在检查'
+                ? i18n.text('正在检查')
                 : received
-                  ? '已收到浏览数据'
-                  : '等待'}
+                  ? i18n.text('已收到浏览数据')
+                  : i18n.text('等待')}
           </Badge>
         </div>
         <p>
           {received
-            ? `最近接收：${formatDate(query.data.lastAt, c.range.timezone)}`
-            : '安装代码后打开目标网站，再检查首条页面访问。'}
+            ? i18n.text('最近接收：{v0}', [formatDate(query.data.lastAt, c.range.timezone)])
+            : i18n.text('安装代码后打开目标网站，再检查首条页面访问。')}
         </p>
       </li>
     </ul>
   );
 }
 function Websites() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const reading = useManualRefresh();
   const enteredAt = useRef(Date.now());
@@ -334,10 +347,12 @@ function Websites() {
   const ready = !query.isPending && !query.error && Array.isArray(query.data);
   const partial = ready && readable.length < c.sites.length;
   const scope = c.route.teamId
-    ? `${c.teams.find(team => team.id === c.route.teamId)?.name || '当前团队'}空间`
+    ? i18n.text('{v0}空间', [
+        c.teams.find(team => team.id === c.route.teamId)?.name || i18n.text('当前团队'),
+      ])
     : c.query.scope === 'all'
-      ? '全部可访问网站'
-      : '个人空间';
+      ? i18n.text('全部可访问网站')
+      : i18n.text('个人空间');
   const errorLabel = (error: any) =>
     error.status === 401 ? '需要重新登录' : error.status === 403 ? '无统计权限' : '读取失败';
   // 用户批准（2026-10-08）：页头沿用数据总览的指标卡模式，按当前空间所选网站汇总并对比前期。
@@ -351,40 +366,55 @@ function Websites() {
       : 'missing';
   };
   const cardValue = (value: number | 'missing' | null) =>
-    value == null ? '—' : value === 'missing' ? '未提供' : numberLabel(value);
+    value == null ? '—' : value === 'missing' ? i18n.text('未提供') : numberLabel(value);
   const changeLabel = (key: string) => {
     const current = cardSum(row => row[key]);
     const previous = cardSum(row => row.comparison?.[key]);
     return typeof current !== 'number' || typeof previous !== 'number'
-      ? '前期数据未提供'
-      : `前期 ${numberLabel(previous)} · 变化 ${numberLabel(current - previous)}`;
+      ? i18n.text('前期数据未提供')
+      : i18n.text('前期 {v0} · 变化 {v1}', [
+          numberLabel(previous),
+          numberLabel(current - previous),
+        ]);
   };
   const cardScope = partial
-    ? `已读取 ${readable.length}/${c.sites.length} 个网站`
-    : `所选 ${c.sites.length} 个网站`;
+    ? i18n.text('已读取 {v0}/{v1} 个网站', [readable.length, c.sites.length])
+    : i18n.text('所选 {v0} 个网站', [c.sites.length]);
   return (
     <>
       <Metrics
         loading={[query.isPending, query.isPending, query.isPending, false]}
         items={[
           [
-            '全部网站访客',
+            i18n.text('全部网站访客'),
             cardValue(cardSum(row => row.visitors)),
             `${cardScope} · ${changeLabel('visitors')}`,
           ],
-          ['页面访问', cardValue(cardSum(row => row.pageviews)), changeLabel('pageviews')],
-          ['AI 引荐访客', cardValue(cardSum(row => row.aiVisits)), '按网站累计，跨网站不去重'],
-          ['管理空间', c.route.teamId ? '团队' : '个人 / 团队', '跨网站快速访问'],
+          [
+            i18n.text('页面访问'),
+            cardValue(cardSum(row => row.pageviews)),
+            changeLabel('pageviews'),
+          ],
+          [
+            i18n.label('AI 引荐访客', 'ai-sessions'),
+            cardValue(cardSum(row => row.aiVisits)),
+            i18n.text('按网站累计，跨网站不去重'),
+          ],
+          [
+            i18n.text('管理空间'),
+            c.route.teamId ? i18n.text('团队') : i18n.text('个人 / 团队'),
+            i18n.text('跨网站快速访问'),
+          ],
         ]}
       />
       <Panel
-        title="网站列表"
-        subtitle={`管理${scope}中有权访问的网站。`}
+        title={i18n.text('网站列表')}
+        subtitle={i18n.text('管理{v0}中有权访问的网站。', [scope])}
         actions={
           c.user.role !== 'view-only' && (
             <LinkButton page="onboarding" primary>
               <Icon name="plus" />
-              添加网站
+              {i18n.fragment('添加网站', true, false)}
             </LinkButton>
           )
         }
@@ -424,28 +454,60 @@ function Websites() {
                   </Link>
                   <span className="table-meta">{site.domain}</span>
                 </>,
-                c.teams.find(team => team.id === site.teamId)?.name ||
-                  (site.teamId ? '团队空间' : '个人空间'),
-                <Badge
-                  key="badge"
-                  tone={
-                    stat?.error
-                      ? [401, 403].includes(stat.error.status)
-                        ? 'gray'
-                        : 'red'
-                      : stat?.received
-                        ? 'green'
-                        : 'amber'
+                <TableCell
+                  sortValue={
+                    c.teams.find(team => team.id === site.teamId)?.name ||
+                    (site.teamId ? i18n.source('团队空间') : i18n.source('个人空间'))
+                  }
+                  searchValue={
+                    c.teams.find(team => team.id === site.teamId)?.name ||
+                    (site.teamId ? i18n.english.text('团队空间') : i18n.english.text('个人空间'))
                   }
                 >
-                  {stat?.error
-                    ? errorLabel(stat.error)
-                    : stat?.received
-                      ? '已收到浏览数据'
-                      : stat
-                        ? '待验证'
-                        : '等待查询'}
-                </Badge>,
+                  {c.teams.find(team => team.id === site.teamId)?.name ||
+                    (site.teamId ? i18n.text('团队空间') : i18n.text('个人空间'))}
+                </TableCell>,
+                <TableCell
+                  sortValue={
+                    stat?.error
+                      ? errorLabel(stat.error)
+                      : stat?.received
+                        ? i18n.source('已收到浏览数据')
+                        : stat
+                          ? i18n.source('待验证')
+                          : i18n.source('等待查询')
+                  }
+                  searchValue={i18n.english.system(
+                    stat?.error
+                      ? errorLabel(stat.error)
+                      : stat?.received
+                        ? i18n.english.text('已收到浏览数据')
+                        : stat
+                          ? i18n.english.text('待验证')
+                          : i18n.english.text('等待查询'),
+                  )}
+                >
+                  <Badge
+                    key="badge"
+                    tone={
+                      stat?.error
+                        ? [401, 403].includes(stat.error.status)
+                          ? 'gray'
+                          : 'red'
+                        : stat?.received
+                          ? 'green'
+                          : 'amber'
+                    }
+                  >
+                    {stat?.error
+                      ? errorLabel(stat.error)
+                      : stat?.received
+                        ? i18n.text('已收到浏览数据')
+                        : stat
+                          ? i18n.text('待验证')
+                          : i18n.text('等待查询')}
+                  </Badge>
+                </TableCell>,
                 <MetricRows
                   key="views"
                   kind="count"
@@ -481,43 +543,55 @@ function Websites() {
                   today={dayRead ? dayRead.aiVisits : null}
                   yesterday={yesterday ? yesterday.aiVisits : null}
                 />,
-                <div className="actions" key="actions" onClick={event => event.stopPropagation()}>
-                  <LinkButton page="website-settings" params={{ websiteId: websiteHandle(site) }}>
-                    网站设置
-                  </LinkButton>
-                  <LinkButton page="overview" params={{ websiteId: websiteHandle(site) }}>
-                    查看统计
-                  </LinkButton>
-                </div>,
+                <TableCell
+                  sortValue={[i18n.source('网站设置'), i18n.source('查看统计')]}
+                  searchValue={[i18n.english.text('网站设置'), i18n.english.text('查看统计')]}
+                >
+                  <div className="actions" key="actions" onClick={event => event.stopPropagation()}>
+                    <LinkButton page="website-settings" params={{ websiteId: websiteHandle(site) }}>
+                      {i18n.text('网站设置')}
+                    </LinkButton>
+                    <LinkButton page="overview" params={{ websiteId: websiteHandle(site) }}>
+                      {i18n.text('查看统计')}
+                    </LinkButton>
+                  </div>
+                </TableCell>,
               ];
             })}
-            empty="还没有网站。添加网站后安装专用跟踪代码。"
+            empty={i18n.text('还没有网站。添加网站后安装专用跟踪代码。')}
           />
           <p className="metric-note">
-            口径：访问次数为页面浏览 PV；访客数与跳出率按会话统计；AI访问次数为 AI
-            搜索引荐会话；预计今日按当天已流逝进度折算，跳出率不提供预计值。 今日与预计今日对应{' '}
+            {i18n.fragment(
+              '口径：访问次数为页面浏览 PV；访客数与跳出率按会话统计；AI访问次数为 AI 搜索引荐会话；预计今日按当天已流逝进度折算，跳出率不提供预计值。 今日与预计今日对应',
+              false,
+              true,
+            )}{' '}
             {formatInTimeZone(readAt, c.range.timezone, 'yyyy-MM-dd')}。
           </p>
         </QueryState>
       </Panel>
       {partial && (
         <Notice tone="amber">
-          统计汇总尚未读全。卡片仅统计已读取的 {readable.length} / {c.sites.length}{' '}
-          个网站，未读取网站的数值显示“—”。
+          {i18n.fragment('统计汇总尚未读全。卡片仅统计已读取的 ', false, true)}
+          {readable.length} / {c.sites.length}{' '}
+          {i18n.fragment('个网站，未读取网站的数值显示“—”。', true, true)}
           <div className="form-actions">
             <Button disabled={query.isFetching} onClick={() => query.refetch()}>
-              重新读取统计
+              {i18n.text('重新读取统计')}
             </Button>
           </div>
         </Notice>
       )}
       <Notice>
-        浏览采集状态根据真实浏览访问展示。日志、内容目录与行为录制可在各网站的设置中分别检查。
+        {i18n.text(
+          '浏览采集状态根据真实浏览访问展示。日志、内容目录与行为录制可在各网站的设置中分别检查。',
+        )}
       </Notice>
     </>
   );
 }
 function Onboarding() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   const [created, setCreated] = useState<FeatureEntity>(null);
@@ -536,12 +610,12 @@ function Onboarding() {
     : '';
   return (
     <div className="wide-narrow">
-      <Panel title="接入一个新网站" subtitle="三步完成创建、安装与验证。">
+      <Panel title={i18n.text('接入一个新网站')} subtitle={i18n.text('三步完成创建、安装与验证。')}>
         <ol className="steps">
-          {['网站信息', '安装脚本', '验证接入'].map((title, i) => (
+          {[i18n.text('网站信息'), i18n.text('安装脚本'), i18n.text('验证接入')].map((title, i) => (
             <li key={title} className={i + 1 === step ? 'on' : i + 1 < step ? 'done' : ''}>
               <span className="step-number">{i + 1 < step ? '✓' : i + 1}</span>
-              {title}
+              {i18n.system(title)}
             </li>
           ))}
         </ol>
@@ -549,9 +623,9 @@ function Onboarding() {
           {created && (
             <Definition
               items={[
-                ['网站名称', created.name],
-                ['域名', created.domain],
-                ['所属空间', createdScope],
+                [i18n.text('网站名称'), created.name],
+                [i18n.text('域名'), created.domain],
+                [i18n.text('所属空间'), createdScope],
               ]}
             />
           )}
@@ -560,8 +634,8 @@ function Onboarding() {
               busy={action.busy}
               error={action.error}
               disabled={c.user.role === 'view-only'}
-              submitLabel="创建并继续"
-              cancel={<LinkButton page="websites">取消</LinkButton>}
+              submitLabel={i18n.text('创建并继续')}
+              cancel={<LinkButton page="websites">{i18n.text('取消')}</LinkButton>}
               onSubmit={async values => {
                 if (c.user.role === 'view-only') throw new Error('当前角色没有创建网站权限。');
                 const destination = teams.find(team => team.id === values.space);
@@ -588,60 +662,64 @@ function Onboarding() {
               }}
             >
               {c.user.role === 'view-only' && (
-                <Notice tone="amber">当前角色没有创建网站权限。</Notice>
+                <Notice tone="amber">{i18n.text('当前角色没有创建网站权限。')}</Notice>
               )}
               {requestedTeam && !permittedTeam && (
                 <Notice tone="amber">
-                  当前账户没有在所选团队创建网站的权限，所属空间已选为个人空间。请核对后继续。
+                  {i18n.text(
+                    '当前账户没有在所选团队创建网站的权限，所属空间已选为个人空间。请核对后继续。',
+                  )}
                 </Notice>
               )}
               <div className="form-grid">
                 <Field
-                  label="网站名称"
+                  label={i18n.text('网站名称')}
                   name="name"
                   required
                   maxLength={100}
-                  help="显示在侧栏和管理列表中。"
+                  help={i18n.text('显示在侧栏和管理列表中。')}
                 />
                 <Field
-                  label="域名"
+                  label={i18n.text('域名')}
                   name="domain"
                   required
                   maxLength={500}
-                  help="输入域名，如 example.com，无需 https://。"
+                  help={i18n.text('输入域名，如 example.com，无需 https://。')}
                 />
               </div>
               <Select
-                label="所属空间"
+                label={i18n.text('所属空间')}
                 name="space"
                 value={space}
                 onChange={event => setSpace(event.target.value)}
                 options={[
-                  ['', '个人空间'],
+                  ['', i18n.text('个人空间')],
                   ...teams.map(team => [team.id, team.name] as [string, string]),
                 ]}
               />
               <Notice tone="blue">
-                下一步会生成当前网站专用代码。网站名称和域名可在设置中修改。
+                {i18n.text('下一步会生成当前网站专用代码。网站名称和域名可在设置中修改。')}
               </Notice>
             </Form>
           ) : step === 2 ? (
             <>
               <Notice tone="blue">
-                网站已创建，浏览采集待验证。将下方脚本放入每个需要统计页面的 head 区域。
+                {i18n.text(
+                  '网站已创建，浏览采集待验证。将下方脚本放入每个需要统计页面的 head 区域。',
+                )}
               </Notice>
               <TrackingCode websiteId={created.id} />
               <div className="form-actions">
                 <LinkButton page="website-settings" params={{ websiteId: created.id }}>
-                  编辑网站信息
+                  {i18n.text('编辑网站信息')}
                 </LinkButton>
-                <Button onClick={() => setStep(3)}>检查安装（可选）</Button>
+                <Button onClick={() => setStep(3)}>{i18n.text('检查安装（可选）')}</Button>
                 <LinkButton
                   page="website-settings"
                   params={installationParams(created.id, 'js')}
                   primary
                 >
-                  继续接入设置
+                  {i18n.text('继续接入设置')}
                 </LinkButton>
               </div>
             </>
@@ -649,28 +727,28 @@ function Onboarding() {
             <>
               <Badge tone={install.error ? 'red' : received ? 'green' : 'amber'}>
                 {install.error
-                  ? '读取失败'
+                  ? i18n.text('读取失败')
                   : install.isPending
-                    ? '正在检查'
+                    ? i18n.text('正在检查')
                     : received
-                      ? '已收到浏览数据'
-                      : '待验证'}
+                      ? i18n.text('已收到浏览数据')
+                      : i18n.text('待验证')}
               </Badge>
               <hr className="divider" />
               <QueryState query={install}>
                 <InstallSteps query={install} websiteId={created.id} />
               </QueryState>
               <div className="form-actions">
-                <Button onClick={() => setStep(2)}>返回安装代码</Button>
+                <Button onClick={() => setStep(2)}>{i18n.text('返回安装代码')}</Button>
                 <LinkButton page="website-settings" params={installationParams(created.id, 'js')}>
-                  跳过检查，继续设置
+                  {i18n.text('跳过检查，继续设置')}
                 </LinkButton>
                 <Button primary disabled={install.isFetching} onClick={() => install.refetch()}>
-                  检查真实访问
+                  {i18n.text('检查真实访问')}
                 </Button>
                 {received && (
                   <LinkButton page="overview" params={{ websiteId: created.id }} primary>
-                    查看该网站统计
+                    {i18n.text('查看该网站统计')}
                   </LinkButton>
                 )}
               </div>
@@ -678,25 +756,28 @@ function Onboarding() {
           )}
         </Body>
       </Panel>
-      <Panel title="接入说明" subtitle="从访问统计开始，逐步开启行为采集。">
+      <Panel
+        title={i18n.text('接入说明')}
+        subtitle={i18n.text('从访问统计开始，逐步开启行为采集。')}
+      >
         <Body>
           <ol style={{ paddingLeft: 20 }} className="stack">
-            <li>HTML 和常见框架使用同一网站标识。</li>
-            <li>首次接入后打开网站，等待首条访问。</li>
-            <li>回放与热力图需另外开启行为采集。</li>
+            <li>{i18n.text('HTML 和常见框架使用同一网站标识。')}</li>
+            <li>{i18n.text('首次接入后打开网站，等待首条访问。')}</li>
+            <li>{i18n.text('回放与热力图需另外开启行为采集。')}</li>
           </ol>
           <hr className="divider" />
           {created ? (
             <div className="row">
               <LinkButton page="tracking" params={{ websiteId: created.id }}>
-                查看安装说明
+                {i18n.text('查看安装说明')}
               </LinkButton>
               <LinkButton page="recorder-settings" params={{ websiteId: created.id }}>
-                采集与隐私设置
+                {i18n.text('采集与隐私设置')}
               </LinkButton>
             </div>
           ) : (
-            <p className="muted">创建网站后可查看该网站的安装代码与采集设置。</p>
+            <p className="muted">{i18n.text('创建网站后可查看该网站的安装代码与采集设置。')}</p>
           )}
         </Body>
       </Panel>
@@ -755,6 +836,7 @@ function SetupStatus({
   report: any;
   site: FeatureEntity;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const received = !browser.error && browser.data?.pageviews > 0;
   const browserState = setupState(
@@ -764,45 +846,72 @@ function SetupStatus({
   );
   const config = site.replayConfig || {};
   return (
-    <Panel title="采集状态" subtitle="分别检查浏览访问、服务器日志、内容目录与行为录制。">
+    <Panel
+      title={i18n.text('采集状态')}
+      subtitle={i18n.text('分别检查浏览访问、服务器日志、内容目录与行为录制。')}
+    >
       <Body>
         <p className="field-help">
-          浏览采集核对网站创建至今的页面访问。日志统计期间：
-          {formatInTimeZone(c.range.startAt, c.range.timezone || 'Asia/Shanghai', 'yyyy-MM-dd')} 至{' '}
+          {i18n.fragment('浏览采集核对网站创建至今的页面访问。日志统计期间：', false, true)}
+          {formatInTimeZone(c.range.startAt, c.range.timezone || 'Asia/Shanghai', 'yyyy-MM-dd')}
+          {i18n.fragment(' 至', true, true)}{' '}
           {formatInTimeZone(c.range.endAt, c.range.timezone || 'Asia/Shanghai', 'yyyy-MM-dd')} ·{' '}
           {c.range.timezone}。
         </p>
         <Definition
           items={[
-            ['浏览采集', browserState === '当前范围无数据' ? '尚未收到浏览数据' : browserState],
             [
-              '日志采集',
-              setupState(report, report.data?.states?.logs, '已收到日志数据', '尚未导入日志'),
+              i18n.text('浏览采集'),
+              browserState === '当前范围无数据'
+                ? i18n.text('尚未收到浏览数据')
+                : i18n.system(browserState),
             ],
             [
-              '内容目录',
-              setupState(report, report.data?.states?.catalog, '已有内容目录', '尚未导入内容目录'),
+              i18n.text('日志采集'),
+              i18n.system(
+                setupState(
+                  report,
+                  report.data?.states?.logs,
+                  i18n.text('已收到日志数据'),
+                  i18n.text('尚未导入日志'),
+                ),
+              ),
             ],
             [
-              '行为录制',
-              `回放${config.replayEnabled === true ? '已启用' : '未启用'} · 热力图${config.heatmapEnabled === true ? '已启用' : '未启用'} · 数据状态未验证`,
+              i18n.text('内容目录'),
+              i18n.system(
+                setupState(
+                  report,
+                  report.data?.states?.catalog,
+                  i18n.text('已有内容目录'),
+                  i18n.text('尚未导入内容目录'),
+                ),
+              ),
+            ],
+            [
+              i18n.text('行为录制'),
+              i18n.text('回放{v0} · 热力图{v1} · 数据状态未验证', [
+                config.replayEnabled === true ? i18n.text('已启用') : i18n.text('未启用'),
+                config.heatmapEnabled === true ? i18n.text('已启用') : i18n.text('未启用'),
+              ]),
             ],
           ]}
         />
         {report.data?.meta?.latestImportAt && !report.error && (
           <p className="field-help">
-            最近导入日志：{formatDate(report.data.meta.latestImportAt, c.range.timezone)}
+            {i18n.fragment('最近导入日志：', false, true)}
+            {formatDate(report.data.meta.latestImportAt, c.range.timezone)}
           </p>
         )}
         {report.data?.meta?.demo && !report.error && (
-          <Notice tone="amber">日志与内容目录状态包含当前网站的演示数据。</Notice>
+          <Notice tone="amber">{i18n.text('日志与内容目录状态包含当前网站的演示数据。')}</Notice>
         )}
         <div className="form-actions">
           <Button
             disabled={browser.isFetching || report.isFetching}
             onClick={async () => Promise.all([browser.refetch(), report.refetch()])}
           >
-            重新检查采集状态
+            {i18n.text('重新检查采集状态')}
           </Button>
         </div>
       </Body>
@@ -810,6 +919,7 @@ function SetupStatus({
   );
 }
 function WebsiteSettings() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     query = useSiteRecord(),
     action = useAction();
@@ -853,7 +963,10 @@ function WebsiteSettings() {
           {section === 'basic' ? (
             <>
               <div className="two">
-                <Panel title="基本信息" subtitle="编辑名称和域名不改变网站标识。">
+                <Panel
+                  title={i18n.text('基本信息')}
+                  subtitle={i18n.text('编辑名称和域名不改变网站标识。')}
+                >
                   <Body>
                     {!manage && <ReadonlyNotice />}
                     <Form
@@ -862,7 +975,7 @@ function WebsiteSettings() {
                       busy={action.busy}
                       error={action.error}
                       disabled={!manage}
-                      submitLabel="保存网站设置"
+                      submitLabel={i18n.text('保存网站设置')}
                       onSubmit={async values => {
                         if (!manage) throw new Error('需要网站管理权限。');
                         await action.run(
@@ -876,14 +989,14 @@ function WebsiteSettings() {
                       }}
                     >
                       <Field
-                        label="网站 ID"
+                        label={i18n.text('网站 ID')}
                         name="id"
                         defaultValue={site.id}
                         readOnly
-                        help="当前网站的永久标识。"
+                        help={i18n.text('当前网站的永久标识。')}
                       />
                       <Field
-                        label="网站名称"
+                        label={i18n.text('网站名称')}
                         name="name"
                         defaultValue={site.name}
                         required
@@ -891,7 +1004,7 @@ function WebsiteSettings() {
                         maxLength={100}
                       />
                       <Field
-                        label="域名"
+                        label={i18n.text('域名')}
                         name="domain"
                         defaultValue={site.domain}
                         required
@@ -901,27 +1014,33 @@ function WebsiteSettings() {
                     </Form>
                   </Body>
                 </Panel>
-                <Panel title="网站归属" subtitle="在当前网站的设置中管理安装、采集与分享。">
+                <Panel
+                  title={i18n.text('网站归属')}
+                  subtitle={i18n.text('在当前网站的设置中管理安装、采集与分享。')}
+                >
                   <Body>
                     <Definition
                       items={[
                         [
-                          '所属空间',
+                          i18n.text('所属空间'),
                           c.teams.find(team => team.id === site.teamId)?.name ||
-                            (site.teamId ? '团队空间' : '个人空间'),
+                            (site.teamId ? i18n.text('团队空间') : i18n.text('个人空间')),
                         ],
-                        ['公开分享', site.shareId ? '已启用' : '未启用'],
+                        [
+                          i18n.text('公开分享'),
+                          site.shareId ? i18n.text('已启用') : i18n.text('未启用'),
+                        ],
                       ]}
                     />
                     <div className="form-actions">
                       <LinkButton page="overview" params={{ websiteId: site.id }}>
-                        查看该网站统计
+                        {i18n.text('查看该网站统计')}
                       </LinkButton>
                       <LinkButton
                         page="sharing"
                         params={{ websiteId: site.id, context: 'website' }}
                       >
-                        分享设置
+                        {i18n.text('分享设置')}
                       </LinkButton>
                     </div>
                   </Body>
@@ -941,51 +1060,65 @@ function WebsiteSettings() {
             <>
               <SetupStatus browser={install} report={report} site={site} />
               <div className="two">
-                <Panel title="行为采集" subtitle="管理回放、热力图、采样与隐私规则。">
+                <Panel
+                  title={i18n.text('行为采集')}
+                  subtitle={i18n.text('管理回放、热力图、采样与隐私规则。')}
+                >
                   <Body>
                     <p className="muted">
-                      采集开关显示保存的配置。数据是否已收到，需要在对应分析页面检查。
+                      {i18n.text(
+                        '采集开关显示保存的配置。数据是否已收到，需要在对应分析页面检查。',
+                      )}
                     </p>
                     <div className="form-actions">
                       <LinkButton page="recorder-settings" params={{ websiteId: site.id }}>
-                        回放与热力图设置
+                        {i18n.text('回放与热力图设置')}
                       </LinkButton>
                       <LinkButton page="replays" params={{ websiteId: site.id }}>
-                        查看会话回放
+                        {i18n.text('查看会话回放')}
                       </LinkButton>
                       <LinkButton page="heatmaps" params={{ websiteId: site.id }}>
-                        查看热力图
+                        {i18n.text('查看热力图')}
                       </LinkButton>
                     </div>
                   </Body>
                 </Panel>
-                <Panel title="日志与内容目录" subtitle="导入当前网站的日志和内容页面资料。">
+                <Panel
+                  title={i18n.text('日志与内容目录')}
+                  subtitle={i18n.text('导入当前网站的日志和内容页面资料。')}
+                >
                   <Body>
                     {!manage && <ReadonlyNotice />}
                     <div className="form-actions">
                       <Button disabled={!manage} onClick={() => setDrawer('导入日志')}>
-                        导入网站日志
+                        {i18n.text('导入网站日志')}
                       </Button>
                       <Button disabled={!manage} onClick={() => setDrawer('sitemap 管理')}>
-                        管理内容目录
+                        {i18n.text('管理内容目录')}
                       </Button>
                     </div>
                   </Body>
                 </Panel>
                 <Panel
-                  title="蜘蛛识别与访问策略"
-                  subtitle="管理当前网站的 robots.txt、CIDR 白名单和蜘蛛识别规则。"
+                  title={i18n.text('蜘蛛识别与访问策略')}
+                  subtitle={i18n.text('管理当前网站的 robots.txt、CIDR 白名单和蜘蛛识别规则。')}
                 >
                   <Body>
-                    <p className="muted">robots.txt 保存后可下载，由网站管理员部署到目标网站。</p>
+                    <p className="muted">
+                      {i18n.text('robots.txt 保存后可下载，由网站管理员部署到目标网站。')}
+                    </p>
                     <div className="form-actions">
                       {collectionActions.slice(2).map(item => (
                         <Button key={item} disabled={!manage} onClick={() => setDrawer(item)}>
-                          {managementLabels[item]}
+                          {i18n.system(managementLabels[item])}
                         </Button>
                       ))}
-                      <Button onClick={() => setDrawer('crawler')}>归因、风险与访问控制</Button>
-                      <Button onClick={() => setDrawer('traffic-quality')}>浏览流量质量</Button>
+                      <Button onClick={() => setDrawer('crawler')}>
+                        {i18n.text('归因、风险与访问控制')}
+                      </Button>
+                      <Button onClick={() => setDrawer('traffic-quality')}>
+                        {i18n.text('浏览流量质量')}
+                      </Button>
                     </div>
                   </Body>
                 </Panel>
@@ -995,34 +1128,47 @@ function WebsiteSettings() {
             <WebsiteSharing />
           ) : (
             <div className="two">
-              <Panel title="转移网站" subtitle="保留历史数据，变更资源所属空间。">
+              <Panel
+                title={i18n.text('转移网站')}
+                subtitle={i18n.text('保留历史数据，变更资源所属空间。')}
+              >
                 <Body>
-                  <p className="muted">只有拥有相应团队管理权限的成员可以转移网站。</p>
+                  <p className="muted">
+                    {i18n.text('只有拥有相应团队管理权限的成员可以转移网站。')}
+                  </p>
                   <div className="form-actions">
                     <Button disabled={!transfer} onClick={() => setDrawer('transfer')}>
-                      转移网站
+                      {i18n.text('转移网站')}
                     </Button>
                   </div>
                 </Body>
               </Panel>
-              <Panel title="清空访问数据" subtitle="保留网站标识、内容目录、策略与设置。">
+              <Panel
+                title={i18n.text('清空访问数据')}
+                subtitle={i18n.text('保留网站标识、内容目录、策略与设置。')}
+              >
                 <Body>
                   <p className="muted">
-                    清空浏览访问、事件、会话、回放、热力图、收入记录，以及 Liekan 日志与导入记录。
+                    {i18n.text(
+                      '清空浏览访问、事件、会话、回放、热力图、收入记录，以及 Liekan 日志与导入记录。',
+                    )}
                   </p>
                   <div className="form-actions">
                     <Button danger disabled={!manage} onClick={() => setDrawer('reset')}>
-                      清空访问数据
+                      {i18n.text('清空访问数据')}
                     </Button>
                   </div>
                 </Body>
               </Panel>
-              <Panel title="删除网站" subtitle="删除当前网站及其关联数据和设置。">
+              <Panel
+                title={i18n.text('删除网站')}
+                subtitle={i18n.text('删除当前网站及其关联数据和设置。')}
+              >
                 <Body>
-                  <p className="muted">删除后无法恢复，请先核对当前网站。</p>
+                  <p className="muted">{i18n.text('删除后无法恢复，请先核对当前网站。')}</p>
                   <div className="form-actions">
                     <Button danger disabled={!manage} onClick={() => setDrawer('delete')}>
-                      删除网站
+                      {i18n.text('删除网站')}
                     </Button>
                   </div>
                 </Body>
@@ -1066,13 +1212,13 @@ function WebsiteSettings() {
             drawer && (
               <LiekanDialog
                 subtitle={site.name + ' · ' + site.domain}
-                title={
+                title={i18n.system(
                   drawer === 'transfer'
-                    ? '转移网站所属空间'
+                    ? i18n.text('转移网站所属空间')
                     : drawer === 'reset'
-                      ? '清空访问数据'
-                      : '删除网站'
-                }
+                      ? i18n.text('清空访问数据')
+                      : i18n.text('删除网站'),
+                )}
                 onClose={() => setDrawer('')}
               >
                 <Form
@@ -1080,13 +1226,13 @@ function WebsiteSettings() {
                   error={action.error}
                   disabled={drawer === 'transfer' ? !transfer : !manage}
                   danger={drawer !== 'transfer'}
-                  submitLabel={
+                  submitLabel={i18n.system(
                     drawer === 'transfer'
-                      ? '转移网站'
+                      ? i18n.text('转移网站')
                       : drawer === 'reset'
-                        ? '清空访问数据'
-                        : '删除网站'
-                  }
+                        ? i18n.text('清空访问数据')
+                        : i18n.text('删除网站'),
+                  )}
                   onSubmit={async values => {
                     if (!manage) throw new Error('需要网站管理权限。');
                     if (drawer === 'transfer') {
@@ -1132,7 +1278,7 @@ function WebsiteSettings() {
                   {drawer === 'transfer' ? (
                     <>
                       <Field
-                        label="当前空间"
+                        label={i18n.text('当前空间')}
                         value={
                           site.teamId
                             ? c.teams.find(team => team.id === site.teamId)?.name || '团队空间'
@@ -1142,17 +1288,21 @@ function WebsiteSettings() {
                       />
                       {site.teamId ? (
                         <Notice tone="amber">
-                          网站将转移到当前账户的个人空间。网站标识和历史数据保持一致。
+                          {i18n.text(
+                            '网站将转移到当前账户的个人空间。网站标识和历史数据保持一致。',
+                          )}
                         </Notice>
                       ) : (
                         <>
                           <Select
-                            label="目标空间"
+                            label={i18n.text('目标空间')}
                             name="teamId"
                             options={teams.map(team => [team.id, team.name])}
                             required
                           />
-                          <Notice tone="amber">仅可转移到当前账户拥有管理权限的团队。</Notice>
+                          <Notice tone="amber">
+                            {i18n.text('仅可转移到当前账户拥有管理权限的团队。')}
+                          </Notice>
                         </>
                       )}
                     </>
@@ -1160,11 +1310,18 @@ function WebsiteSettings() {
                     <>
                       <Notice tone="red">
                         {drawer === 'reset'
-                          ? `将清空「${site.name}」的浏览访问、事件、会话、回放、热力图、收入记录，以及 Liekan 日志与导入记录。内容目录、策略、网站设置和安装标识继续保留。此操作无法恢复。`
-                          : `将删除「${site.name}」及其关联数据和设置。此操作无法恢复。`}
+                          ? i18n.text(
+                              '将清空「{v0}」的浏览访问、事件、会话、回放、热力图、收入记录，以及 Liekan 日志与导入记录。内容目录、策略、网站设置和安装标识继续保留。此操作无法恢复。',
+                              [site.name],
+                            )
+                          : i18n.text('将删除「{v0}」及其关联数据和设置。此操作无法恢复。', [
+                              site.name,
+                            ])}
                       </Notice>
                       <Field
-                        label={`输入 ${drawer === 'reset' ? 'RESET' : site.name} 确认`}
+                        label={i18n.text('输入 {v0} 确认', [
+                          drawer === 'reset' ? 'RESET' : site.name,
+                        ])}
                         name="confirmation"
                         required
                         autoComplete="off"
@@ -1181,6 +1338,7 @@ function WebsiteSettings() {
   );
 }
 function RecorderSettings() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     query = useSiteRecord(),
     action = useAction();
@@ -1189,7 +1347,10 @@ function RecorderSettings() {
   if (!c.siteId) return <MissingWebsite />;
   return (
     <div className="wide-narrow">
-      <Panel title="回放与热力图" subtitle="先选择采集能力，再设置采样与隐私规则。">
+      <Panel
+        title={i18n.text('回放与热力图')}
+        subtitle={i18n.text('先选择采集能力，再设置采样与隐私规则。')}
+      >
         <Body>
           <QueryState query={query}>
             {query.data && (
@@ -1199,7 +1360,7 @@ function RecorderSettings() {
                 busy={action.busy}
                 error={action.error}
                 disabled={!manage}
-                submitLabel="保存采集配置"
+                submitLabel={i18n.text('保存采集配置')}
                 onSubmit={async values => {
                   if (!manage) throw new Error('需要网站管理权限。');
                   await action.run(() => c.api.post(sitePath(c.siteId), recorderPayload(values)));
@@ -1207,22 +1368,22 @@ function RecorderSettings() {
               >
                 {!manage && <ReadonlyNotice />}
                 <Switch
-                  label="启用会话回放"
-                  help="录制访问过程，默认遮蔽输入内容。"
+                  label={i18n.text('启用会话回放')}
+                  help={i18n.text('录制访问过程，默认遮蔽输入内容。')}
                   name="replay"
                   defaultChecked={config.replayEnabled === true}
                   disabled={!manage}
                 />
                 <Switch
-                  label="启用热力图"
-                  help="记录点击与滚动，按页面聚合。"
+                  label={i18n.text('启用热力图')}
+                  help={i18n.text('记录点击与滚动，按页面聚合。')}
                   name="heatmap"
                   defaultChecked={config.heatmapEnabled === true}
                   disabled={!manage}
                 />
                 <div className="form-grid">
                   <Field
-                    label="回放采样率 (%)"
+                    label={i18n.text('回放采样率 (%)')}
                     name="replayRate"
                     type="number"
                     defaultValue={(config.sampleRate ?? 0.15) * 100}
@@ -1231,10 +1392,10 @@ function RecorderSettings() {
                     step={1}
                     required
                     readOnly={!manage}
-                    help="范围 5% 至 100%。"
+                    help={i18n.text('范围 5% 至 100%。')}
                   />
                   <Field
-                    label="热力图采样率 (%)"
+                    label={i18n.text('热力图采样率 (%)')}
                     name="heatRate"
                     type="number"
                     defaultValue={(config.heatmapSampleRate ?? 0.15) * 100}
@@ -1243,36 +1404,38 @@ function RecorderSettings() {
                     step={1}
                     required
                     readOnly={!manage}
-                    help="范围 5% 至 100%。"
+                    help={i18n.text('范围 5% 至 100%。')}
                   />
                   <Select
-                    label="隐私遮蔽级别"
+                    label={i18n.text('隐私遮蔽级别')}
                     name="mask"
                     options={[
-                      ['strict', '严格：遮蔽文字与输入'],
-                      ['moderate', '标准：遮蔽输入内容'],
+                      ['strict', i18n.text('严格：遮蔽文字与输入')],
+                      ['moderate', i18n.text('标准：遮蔽输入内容')],
                     ]}
+                    localizeLabels
                     defaultValue={config.maskLevel || 'moderate'}
                     disabled={!manage}
                   />
                   <Select
-                    label="最长录制时长"
+                    label={i18n.text('最长录制时长')}
                     name="duration"
                     options={[
-                      ['5', '5 分钟'],
-                      ['10', '10 分钟'],
-                      ['15', '15 分钟'],
-                      ['20', '20 分钟'],
+                      ['5', i18n.text('5 分钟')],
+                      ['10', i18n.text('10 分钟')],
+                      ['15', i18n.text('15 分钟')],
+                      ['20', i18n.text('20 分钟')],
                     ]}
+                    localizeLabels
                     defaultValue={String((config.maxDuration || 300000) / 60000)}
                     disabled={!manage}
                   />
                 </div>
                 <Field
-                  label="排除元素选择器"
+                  label={i18n.text('排除元素选择器')}
                   name="blockSelector"
                   defaultValue={config.blockSelector || ''}
-                  help="匹配元素不进入回放。"
+                  help={i18n.text('匹配元素不进入回放。')}
                   readOnly={!manage}
                 />
                 <TrackingCode websiteId={query.data.id} file="recorder.js" />
@@ -1281,22 +1444,23 @@ function RecorderSettings() {
           </QueryState>
         </Body>
       </Panel>
-      <Panel title="采集范围" subtitle="按保存后的采样与隐私配置采集。">
+      <Panel title={i18n.text('采集范围')} subtitle={i18n.text('按保存后的采样与隐私配置采集。')}>
         <Body>
           <Notice tone="amber">
-            新网站默认关闭行为采集。开启后安装
-            recorder.js，输入内容按配置遮蔽。数据在收到真实访问后展示。
+            {i18n.text(
+              '新网站默认关闭行为采集。开启后安装 recorder.js，输入内容按配置遮蔽。数据在收到真实访问后展示。',
+            )}
           </Notice>
           <hr className="divider" />
           <div className="stack">
             <LinkButton page="heatmaps" params={{ websiteId: c.siteId }}>
-              查看热力图
+              {i18n.text('查看热力图')}
             </LinkButton>
             <LinkButton page="replays" params={{ websiteId: c.siteId }}>
-              查看会话回放
+              {i18n.text('查看会话回放')}
             </LinkButton>
             <LinkButton page="tracking" params={{ websiteId: c.siteId }}>
-              跟踪代码
+              {i18n.text('跟踪代码')}
             </LinkButton>
           </div>
         </Body>
@@ -1306,6 +1470,7 @@ function RecorderSettings() {
 }
 
 export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' }) {
+  const i18n = useLiekanI18n();
   const router = useRouter(),
     search = useSearchParams();
   const [busy, setBusy] = useState(false),
@@ -1400,41 +1565,43 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
           <Link prefetch={false} className="auth-brand" href="/">
             <img src={`${basePath}/liekan/features/logo.svg`} alt="" />
             <span className="brand-name" style={{ color: 'var(--ink)' }}>
-              猎看统计<span className="brand-caption">LIEKAN GEO STATS</span>
+              {i18n.fragment('猎看统计', false, true)}
+              <span className="brand-caption">LIEKAN GEO STATS</span>
             </span>
           </Link>
           <div className="auth-intro">
             <h1>
-              从 AI 与搜索访问，
+              {i18n.fragment('从 AI 与搜索访问，', false, true)}
               <br />
-              看见内容的增长路径
+              {i18n.fragment('看见内容的增长路径', true, false)}
             </h1>
-            <p>把访问来源、内容表现和目标转化放在同一处，理解每一步增长。</p>
+            <p>{i18n.text('把访问来源、内容表现和目标转化放在同一处，理解每一步增长。')}</p>
             <div className="auth-feature">
-              AI 引荐 · 传统搜索 · 内容转化
+              {i18n.fragment('AI 引荐 · 传统搜索 · 内容转化', false, true)}
               <br />
-              猎看统计
+              {i18n.fragment('猎看统计', true, false)}
             </div>
           </div>
-          <small>Liekan · MIT 开源</small>
+          <small>{i18n.text('Liekan · MIT 开源')}</small>
         </aside>
         <main className="auth-main" id="main-content">
           <div className="auth-form">
             <Badge key="badge" tone="blue">
-              猎看统计
+              {i18n.text('猎看统计')}
             </Badge>
-            <h1>{title}</h1>
-            <p className="sub">{description}</p>
+            <h1>{i18n.system(title)}</h1>
+            <p className="sub">{i18n.system(description)}</p>
             {page === 'sso' ? (
               <>
                 <div style={{ margin: '24px 0' }}>
                   <Notice tone={error ? 'red' : 'blue'}>
-                    {error || (busy ? '正在验证登录凭据。' : '等待登录验证。')}
+                    {error ||
+                      (busy ? i18n.text('正在验证登录凭据。') : i18n.text('等待登录验证。'))}
                   </Notice>
                 </div>
                 <div className="stack">
                   <Link prefetch={false} className="btn" href="/login">
-                    返回用户名登录
+                    {i18n.text('返回用户名登录')}
                   </Link>
                 </div>
               </>
@@ -1443,8 +1610,8 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
                 {page === 'login-2fa' && (
                   <Tabs
                     items={[
-                      ['otp', '验证器验证码'],
-                      ['backup', '恢复码'],
+                      ['otp', i18n.text('验证器验证码')],
+                      ['backup', i18n.text('恢复码')],
                     ]}
                     active={method}
                     onChange={value => {
@@ -1455,31 +1622,40 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
                 )}
                 {locked && (
                   <Notice tone="amber">
-                    尝试次数过多，请在 {formatDate(lockedUntil)} 后重试。
+                    {i18n.fragment('尝试次数过多，请在 ', false, true)}
+                    {formatDate(lockedUntil)}
+                    {i18n.fragment(' 后重试。', true, false)}
                   </Notice>
                 )}
                 <Form
                   key={method}
                   onSubmit={submit}
                   busy={busy || locked || restoring}
-                  error={error}
-                  submitLabel={page === 'login' ? '登录' : '确认登录'}
+                  error={i18n.system(error)}
+                  submitLabel={i18n.system(
+                    page === 'login' ? i18n.text('登录') : i18n.text('确认登录'),
+                  )}
                   cancel={
                     page === 'login-2fa' ? (
                       <Link prefetch={false} className="btn" href="/login">
-                        返回登录
+                        {i18n.text('返回登录')}
                       </Link>
                     ) : undefined
                   }
                 >
                   {page === 'login' ? (
                     <>
-                      <Field label="用户名" name="username" autoComplete="username" required />
-                      <PasswordField label="密码" name="password" />
+                      <Field
+                        label={i18n.text('用户名')}
+                        name="username"
+                        autoComplete="username"
+                        required
+                      />
+                      <PasswordField label={i18n.text('密码')} name="password" />
                     </>
                   ) : (
                     <Field
-                      label={method === 'backup' ? '恢复码' : '6 位验证码'}
+                      label={method === 'backup' ? i18n.text('恢复码') : i18n.text('6 位验证码')}
                       name="token"
                       required
                       autoComplete={method === 'backup' ? 'off' : 'one-time-code'}
@@ -1488,19 +1664,19 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
                       minLength={method === 'backup' ? 1 : 6}
                       pattern={method === 'backup' ? undefined : '[0-9]{6}'}
                       className={method === 'backup' ? '' : 'otp'}
-                      help={
+                      help={i18n.system(
                         method === 'backup'
-                          ? '每个恢复码仅能使用一次。'
-                          : '输入验证器当前显示的验证码。'
-                      }
+                          ? i18n.text('每个恢复码仅能使用一次。')
+                          : i18n.text('输入验证器当前显示的验证码。'),
+                      )}
                     />
                   )}
                 </Form>
               </>
             )}
             <div className="auth-bottom">
-              <span>猎看统计</span>
-              <span>使用当前实例账户</span>
+              <span>{i18n.text('猎看统计')}</span>
+              <span>{i18n.text('使用当前实例账户')}</span>
             </div>
           </div>
         </main>
@@ -1510,6 +1686,7 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
 }
 
 function Account() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   const profile = useData(['account-profile'], signal => c.api.get('/me', undefined, signal));
@@ -1518,52 +1695,60 @@ function Account() {
   return (
     <>
       <div className="two">
-        <Panel title="账户信息" subtitle="当前身份与角色。">
+        <Panel title={i18n.text('账户信息')} subtitle={i18n.text('当前身份与角色。')}>
           <Body>
             <QueryState query={profile}>
               <Definition
                 items={[
-                  ['用户名', user.username],
+                  [i18n.text('用户名'), user.username],
                   [
-                    '角色',
+                    i18n.text('角色'),
                     <Badge key="badge" tone="blue">
                       {user.isAdmin
-                        ? '系统管理员'
+                        ? i18n.text('系统管理员')
                         : user.role === 'view-only'
-                          ? '只读用户'
-                          : '用户'}
+                          ? i18n.text('只读用户')
+                          : i18n.text('用户')}
                     </Badge>,
                   ],
-                  ['所属团队', c.teams.map(team => team.name).join('、') || '尚未加入团队'],
-                  ['账户来源', '当前实例账户'],
+                  [
+                    i18n.text('所属团队'),
+                    c.teams.map(team => team.name).join('、') || i18n.text('尚未加入团队'),
+                  ],
+                  [i18n.text('账户来源'), i18n.text('当前实例账户')],
                 ]}
               />
             </QueryState>
             <div className="form-actions">
               <Button disabled={!user.isAdmin} onClick={() => setDrawer('username')}>
-                修改用户名
+                {i18n.text('修改用户名')}
               </Button>
             </div>
-            {!user.isAdmin && <p className="field-help">用户名由系统管理员维护。</p>}
+            {!user.isAdmin && <p className="field-help">{i18n.text('用户名由系统管理员维护。')}</p>}
           </Body>
         </Panel>
-        <Panel title="登录密码" subtitle="已修改的密码会保留。">
+        <Panel title={i18n.text('登录密码')} subtitle={i18n.text('已修改的密码会保留。')}>
           <Body>
-            <p className="muted">修改时需要当前密码，新密码至少 8 位。</p>
+            <p className="muted">{i18n.text('修改时需要当前密码，新密码至少 8 位。')}</p>
             <div className="form-actions">
               <Button primary onClick={() => setDrawer('password')}>
-                修改密码
+                {i18n.text('修改密码')}
               </Button>
             </div>
           </Body>
         </Panel>
-        <Panel title="安全与偏好" subtitle="管理双重验证、API 密钥和显示偏好。">
+        <Panel
+          title={i18n.text('安全与偏好')}
+          subtitle={i18n.text('管理双重验证、API 密钥和显示偏好。')}
+        >
           <Body>
             <div className="row">
-              <LinkButton page="security">账户安全</LinkButton>
-              <LinkButton page="api-keys">API 密钥</LinkButton>
-              <LinkButton page="preferences">偏好设置</LinkButton>
-              <Button onClick={() => setDrawer('crawler-handoffs')}>蜘蛛规则交接记录</Button>
+              <LinkButton page="security">{i18n.text('账户安全')}</LinkButton>
+              <LinkButton page="api-keys">{i18n.text('API 密钥')}</LinkButton>
+              <LinkButton page="preferences">{i18n.text('偏好设置')}</LinkButton>
+              <Button onClick={() => setDrawer('crawler-handoffs')}>
+                {i18n.text('蜘蛛规则交接记录')}
+              </Button>
             </div>
           </Body>
         </Panel>
@@ -1573,14 +1758,18 @@ function Account() {
       ) : (
         drawer && (
           <LiekanDialog
-            subtitle={'当前账户：' + user.username}
-            title={drawer === 'username' ? '修改用户名' : '修改密码'}
+            subtitle={i18n.text('当前账户：') + user.username}
+            title={i18n.system(
+              drawer === 'username' ? i18n.text('修改用户名') : i18n.text('修改密码'),
+            )}
             onClose={() => setDrawer('')}
           >
             <Form
               busy={action.busy}
               error={action.error}
-              submitLabel={drawer === 'password' ? '保存密码' : '保存用户名'}
+              submitLabel={i18n.system(
+                drawer === 'password' ? i18n.text('保存密码') : i18n.text('保存用户名'),
+              )}
               onSubmit={async values => {
                 if (drawer === 'username') {
                   if (!user.isAdmin) throw new Error('用户名由系统管理员维护。');
@@ -1611,7 +1800,7 @@ function Account() {
             >
               {drawer === 'username' ? (
                 <Field
-                  label="用户名"
+                  label={i18n.text('用户名')}
                   name="username"
                   defaultValue={user.username}
                   required
@@ -1619,10 +1808,14 @@ function Account() {
                 />
               ) : (
                 <>
-                  <Notice>密码更新后需要重新登录。</Notice>
-                  <PasswordField label="当前密码" name="currentPassword" />
-                  <PasswordField label="新密码" name="newPassword" minLength={8} />
-                  <PasswordField label="确认新密码" name="confirmPassword" minLength={8} />
+                  <Notice>{i18n.text('密码更新后需要重新登录。')}</Notice>
+                  <PasswordField label={i18n.text('当前密码')} name="currentPassword" />
+                  <PasswordField label={i18n.text('新密码')} name="newPassword" minLength={8} />
+                  <PasswordField
+                    label={i18n.text('确认新密码')}
+                    name="confirmPassword"
+                    minLength={8}
+                  />
                 </>
               )}
             </Form>
@@ -1633,6 +1826,7 @@ function Account() {
   );
 }
 function Security() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   const status = useData('2fa-status', signal => c.api.get('/2fa/status', undefined, signal));
@@ -1643,21 +1837,26 @@ function Security() {
       {data && (
         <>
           <div className="wide-narrow">
-            <Panel title="双重验证" subtitle="在密码之外增加验证器验证码。">
+            <Panel
+              title={i18n.text('双重验证')}
+              subtitle={i18n.text('在密码之外增加验证器验证码。')}
+            >
               <Body>
                 <div className="row between">
-                  <strong>当前状态</strong>
+                  <strong>{i18n.text('当前状态')}</strong>
                   <Badge key="badge" tone={data.isEnabled ? 'green' : 'gray'}>
-                    {data.isEnabled ? '已启用' : '未启用'}
+                    {data.isEnabled ? i18n.text('已启用') : i18n.text('未启用')}
                   </Badge>
                 </div>
                 <hr className="divider" />
                 {data.isRequired ? (
                   <Notice tone="amber">
-                    当前系统、账户或团队要求启用双重验证，账户无法自行关闭。
+                    {i18n.text('当前系统、账户或团队要求启用双重验证，账户无法自行关闭。')}
                   </Notice>
                 ) : (
-                  <Notice>启用后，登录流程会要求验证码。恢复码用于无法访问验证器的情况。</Notice>
+                  <Notice>
+                    {i18n.text('启用后，登录流程会要求验证码。恢复码用于无法访问验证器的情况。')}
+                  </Notice>
                 )}
                 <div className="form-actions">
                   {data.isEnabled ? (
@@ -1665,42 +1864,45 @@ function Security() {
                       disabled={data.isRequired || !data.isConfigured}
                       onClick={() => setDisable(true)}
                     >
-                      关闭双重验证
+                      {i18n.text('关闭双重验证')}
                     </Button>
                   ) : data.isConfigured ? (
                     <LinkButton page="two-factor" primary>
-                      启用双重验证
+                      {i18n.text('启用双重验证')}
                     </LinkButton>
                   ) : (
-                    <Button disabled>启用双重验证</Button>
+                    <Button disabled>{i18n.text('启用双重验证')}</Button>
                   )}
                 </div>
               </Body>
             </Panel>
-            <Panel title="策略状态" subtitle="读取当前实例与账户的安全策略。">
+            <Panel
+              title={i18n.text('策略状态')}
+              subtitle={i18n.text('读取当前实例与账户的安全策略。')}
+            >
               <Body>
                 {!data.isConfigured ? (
                   <Notice tone="red">
-                    服务尚未配置双重验证加密密钥。请由系统管理员完成配置后启用。
+                    {i18n.text('服务尚未配置双重验证加密密钥。请由系统管理员完成配置后启用。')}
                   </Notice>
                 ) : (
                   <Definition
                     items={[
                       [
-                        '加密配置',
+                        i18n.text('加密配置'),
                         <Badge key="badge" tone="green">
-                          已配置
+                          {i18n.text('已配置')}
                         </Badge>,
                       ],
                       [
-                        '启用要求',
+                        i18n.text('启用要求'),
                         data.isRequired
                           ? data.requiredReason === 'team'
-                            ? '团队强制启用'
+                            ? i18n.text('团队强制启用')
                             : data.requiredReason === 'user'
-                              ? '账户强制启用'
-                              : '系统强制启用'
-                          : '自主选择',
+                              ? i18n.text('账户强制启用')
+                              : i18n.text('系统强制启用')
+                          : i18n.text('自主选择'),
                       ],
                     ]}
                   />
@@ -1709,13 +1911,13 @@ function Security() {
             </Panel>
           </div>
           {disable && (
-            <LiekanDialog title="关闭双重验证" onClose={() => setDisable(false)}>
+            <LiekanDialog title={i18n.text('关闭双重验证')} onClose={() => setDisable(false)}>
               <Form
                 busy={action.busy}
                 error={action.error}
                 danger
                 trackUnsaved={false}
-                submitLabel="关闭双重验证"
+                submitLabel={i18n.text('关闭双重验证')}
                 onSubmit={async values => {
                   if (data.isRequired) throw new Error('当前策略要求启用双重验证。');
                   await action.run(
@@ -1730,11 +1932,11 @@ function Security() {
                 }}
               >
                 <Notice tone="amber">
-                  关闭后登录只使用密码。系统、账户或团队强制要求时无法关闭。
+                  {i18n.text('关闭后登录只使用密码。系统、账户或团队强制要求时无法关闭。')}
                 </Notice>
-                <PasswordField label="当前密码" name="currentPassword" />
+                <PasswordField label={i18n.text('当前密码')} name="currentPassword" />
                 <Field
-                  label="6 位验证码"
+                  label={i18n.text('6 位验证码')}
                   name="token"
                   inputMode="numeric"
                   pattern="[0-9]{6}"
@@ -1752,6 +1954,7 @@ function Security() {
   );
 }
 function TwoFactor() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   const [setup, setSetup] = useState<any>(null);
@@ -1778,20 +1981,23 @@ function TwoFactor() {
   }
   const status = useData('2fa-status', signal => c.api.get('/2fa/status', undefined, signal));
   return (
-    <Panel title="设置验证器" subtitle="绑定、确认、保存恢复码。">
+    <Panel title={i18n.text('设置验证器')} subtitle={i18n.text('绑定、确认、保存恢复码。')}>
       <Body>
         <div className="steps">
-          <span className="blue">① 绑定验证器</span>
-          <span style={{ margin: '0 20px' }}>② 验证代码</span>
-          <span>③ 保存恢复码</span>
+          <span className="blue">{i18n.text('① 绑定验证器')}</span>
+          <span style={{ margin: '0 20px' }}>{i18n.text('② 验证代码')}</span>
+          <span>{i18n.text('③ 保存恢复码')}</span>
         </div>
         <QueryState query={status}>
           {status.data?.isEnabled ? (
             <Notice tone="blue">
-              双重验证已启用。<LinkButton page="security">返回账户安全</LinkButton>
+              {i18n.fragment('双重验证已启用。', false, true)}
+              <LinkButton page="security">{i18n.text('返回账户安全')}</LinkButton>
             </Notice>
           ) : !status.data?.isConfigured ? (
-            <Notice tone="red">服务尚未配置双重验证加密密钥。请由系统管理员完成配置后启用。</Notice>
+            <Notice tone="red">
+              {i18n.text('服务尚未配置双重验证加密密钥。请由系统管理员完成配置后启用。')}
+            </Notice>
           ) : !setup ? (
             <div className="form-actions">
               <Button
@@ -1812,10 +2018,10 @@ function TwoFactor() {
                   }
                 }}
               >
-                生成绑定信息
+                {i18n.text('生成绑定信息')}
               </Button>
               <Button disabled={action.busy} onClick={cancelSetup}>
-                取消
+                {i18n.text('取消')}
               </Button>
             </div>
           ) : (
@@ -1823,13 +2029,13 @@ function TwoFactor() {
               <div className="row" style={{ margin: '24px 0' }}>
                 <img
                   src={setup.qrCodeDataUrl}
-                  alt="用于绑定验证器的二维码"
+                  alt={i18n.text('用于绑定验证器的二维码')}
                   width={180}
                   height={180}
                 />
                 <div>
-                  <h3>使用验证器扫描</h3>
-                  <p className="muted">也可以在验证器中手动输入下方密钥。</p>
+                  <h3>{i18n.text('使用验证器扫描')}</h3>
+                  <p className="muted">{i18n.text('也可以在验证器中手动输入下方密钥。')}</p>
                   <p style={{ margin: '10px 0' }}>
                     <code>{setup.manualKey}</code>
                   </p>
@@ -1839,17 +2045,17 @@ function TwoFactor() {
                       c.notify('绑定密钥已复制');
                     }}
                   >
-                    复制密钥
+                    {i18n.text('复制密钥')}
                   </Button>
                 </div>
               </div>
               <Form
                 busy={action.busy}
                 error={action.error}
-                submitLabel="验证并继续"
+                submitLabel={i18n.text('验证并继续')}
                 cancel={
                   <Button disabled={action.busy} onClick={cancelSetup}>
-                    取消
+                    {i18n.text('取消')}
                   </Button>
                 }
                 onSubmit={async values => {
@@ -1869,7 +2075,7 @@ function TwoFactor() {
                 }}
               >
                 <Field
-                  label="6 位验证码"
+                  label={i18n.text('6 位验证码')}
                   name="token"
                   required
                   inputMode="numeric"
@@ -1878,7 +2084,7 @@ function TwoFactor() {
                   maxLength={6}
                   autoComplete="one-time-code"
                   className="otp"
-                  help="输入验证器当前显示的验证码。"
+                  help={i18n.text('输入验证器当前显示的验证码。')}
                 />
               </Form>
             </>
@@ -1889,6 +2095,7 @@ function TwoFactor() {
   );
 }
 function BackupCodes() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [codes] = useState(() => {
     return transientCodes.get(c.user.id) || [];
@@ -1898,12 +2105,12 @@ function BackupCodes() {
     transientCodes.delete(c.user.id);
   }, [c.user.id]);
   return (
-    <Panel title="双重验证已启用" subtitle="保存恢复码后完成设置。">
+    <Panel title={i18n.text('双重验证已启用')} subtitle={i18n.text('保存恢复码后完成设置。')}>
       <Body>
         {codes.length ? (
           <>
             <Notice tone="amber">
-              恢复码只在本次设置完成时展示。每个恢复码仅能使用一次，请妥善保管。
+              {i18n.text('恢复码只在本次设置完成时展示。每个恢复码仅能使用一次，请妥善保管。')}
             </Notice>
             <div className="backup-grid" style={{ margin: '20px 0' }}>
               {codes.map(code => (
@@ -1924,28 +2131,28 @@ function BackupCodes() {
                 URL.revokeObjectURL(url);
               }}
             >
-              下载恢复码
+              {i18n.text('下载恢复码')}
             </Button>
             <div style={{ marginTop: 16 }}>
               <Check
-                label="我已妥善保存恢复码"
+                label={i18n.text('我已妥善保存恢复码')}
                 checked={saved}
                 onChange={event => setSaved(event.target.checked)}
               />
             </div>
             <div className="form-actions">
               <Button primary disabled={!saved} onClick={() => c.navigate('security')}>
-                完成设置
+                {i18n.text('完成设置')}
               </Button>
             </div>
           </>
         ) : (
           <>
             <Notice tone="amber">
-              本次页面没有可展示的恢复码。恢复码仅在启用验证后的当前会话中展示。
+              {i18n.text('本次页面没有可展示的恢复码。恢复码仅在启用验证后的当前会话中展示。')}
             </Notice>
             <div className="form-actions">
-              <LinkButton page="security">返回账户安全</LinkButton>
+              <LinkButton page="security">{i18n.text('返回账户安全')}</LinkButton>
             </div>
           </>
         )}
@@ -1954,6 +2161,7 @@ function BackupCodes() {
   );
 }
 function ApiKeys() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   const query = useData('api-keys', signal => c.api.get('/me/api-keys', undefined, signal));
@@ -1973,9 +2181,14 @@ function ApiKeys() {
   };
   if ((query.error as any)?.status === 404)
     return (
-      <Panel title="API 密钥" subtitle="密钥继承账户权限，完整值仅在创建时显示一次。">
+      <Panel
+        title={i18n.text('API 密钥')}
+        subtitle={i18n.text('密钥继承账户权限，完整值仅在创建时显示一次。')}
+      >
         <Body>
-          <Notice tone="amber">当前实例未启用 API 密钥。请由系统管理员开启后使用。</Notice>
+          <Notice tone="amber">
+            {i18n.text('当前实例未启用 API 密钥。请由系统管理员开启后使用。')}
+          </Notice>
         </Body>
       </Panel>
     );
@@ -1987,8 +2200,8 @@ function ApiKeys() {
   return (
     <>
       <Panel
-        title="API 密钥"
-        subtitle="密钥继承账户权限，完整值仅在创建时显示一次。"
+        title={i18n.text('API 密钥')}
+        subtitle={i18n.text('密钥继承账户权限，完整值仅在创建时显示一次。')}
         actions={
           <Button
             primary
@@ -1996,7 +2209,7 @@ function ApiKeys() {
             onClick={() => open({ type: 'create' })}
           >
             <Icon name="plus" />
-            创建密钥
+            {i18n.fragment('创建密钥', true, false)}
           </Button>
         }
       >
@@ -2010,27 +2223,48 @@ function ApiKeys() {
               key.name,
               <code key="prefix">{key.keyPrefix}••••</code>,
               formatDate(key.createdAt, c.range.timezone),
-              key.lastUsedAt ? formatDate(key.lastUsedAt, c.range.timezone) : '尚未使用',
-              <Button key="revoke" onClick={() => open({ type: 'revoke', key })}>
-                撤销
-              </Button>,
+              <TableCell
+                sortValue={
+                  key.lastUsedAt
+                    ? formatDate(key.lastUsedAt, c.range.timezone)
+                    : i18n.source('尚未使用')
+                }
+                searchValue={
+                  key.lastUsedAt
+                    ? formatDate(key.lastUsedAt, c.range.timezone)
+                    : i18n.english.text('尚未使用')
+                }
+              >
+                {key.lastUsedAt
+                  ? formatDate(key.lastUsedAt, c.range.timezone)
+                  : i18n.text('尚未使用')}
+              </TableCell>,
+              <TableCell sortValue={i18n.source('撤销')} searchValue={i18n.english.text('撤销')}>
+                <Button key="revoke" onClick={() => open({ type: 'revoke', key })}>
+                  {i18n.text('撤销')}
+                </Button>
+              </TableCell>,
             ])}
-            empty="尚未创建 API 密钥。"
+            empty={i18n.text('尚未创建 API 密钥。')}
           />
         </QueryState>
       </Panel>
       <Notice tone="blue">
-        创建密钥后可复制一次，关闭弹窗后列表仅显示掩码。请将完整密钥保存到安全位置。
+        {i18n.text('创建密钥后可复制一次，关闭弹窗后列表仅显示掩码。请将完整密钥保存到安全位置。')}
       </Notice>
       {drawer && (
         <LiekanDialog
           protectUnsaved={false}
-          title={drawer.type === 'create' ? '创建 API 密钥' : '撤销 API 密钥'}
+          title={i18n.system(
+            drawer.type === 'create' ? i18n.text('创建 API 密钥') : i18n.text('撤销 API 密钥'),
+          )}
           onClose={close}
         >
           {createdKey ? (
             <>
-              <Notice tone="amber">完整密钥仅在此处展示一次。关闭后无法再次读取。</Notice>
+              <Notice tone="amber">
+                {i18n.text('完整密钥仅在此处展示一次。关闭后无法再次读取。')}
+              </Notice>
               <Code>{createdKey}</Code>
               <Button
                 onClick={async () => {
@@ -2038,11 +2272,11 @@ function ApiKeys() {
                   c.notify('密钥已复制');
                 }}
               >
-                复制密钥
+                {i18n.text('复制密钥')}
               </Button>
               <DialogActions>
                 <Button primary onClick={close}>
-                  已保存，关闭
+                  {i18n.text('已保存，关闭')}
                 </Button>
               </DialogActions>
             </>
@@ -2052,7 +2286,9 @@ function ApiKeys() {
               error={action.error}
               danger={drawer.type !== 'create'}
               trackUnsaved={false}
-              submitLabel={drawer.type === 'create' ? '创建 API 密钥' : '撤销 API 密钥'}
+              submitLabel={i18n.system(
+                drawer.type === 'create' ? i18n.text('创建 API 密钥') : i18n.text('撤销 API 密钥'),
+              )}
               onSubmit={async values => {
                 if (drawer.type === 'create') {
                   const key = await action.run(
@@ -2069,16 +2305,25 @@ function ApiKeys() {
             >
               {drawer.type === 'create' ? (
                 <Field
-                  label="密钥名称"
+                  label={i18n.text('密钥名称')}
                   name="name"
                   required
                   maxLength={255}
-                  help="如：研究报告集成。"
+                  help={i18n.text('如：研究报告集成。')}
                 />
               ) : (
                 <>
-                  <Notice tone="red">撤销「{drawer.key.name}」后对应集成将失去访问权限。</Notice>
-                  <Field label="输入 REVOKE 确认" name="confirmation" required autoComplete="off" />
+                  <Notice tone="red">
+                    {i18n.fragment('撤销「', false, true)}
+                    {drawer.key.name}
+                    {i18n.fragment('」后对应集成将失去访问权限。', true, false)}
+                  </Notice>
+                  <Field
+                    label={i18n.text('输入 REVOKE 确认')}
+                    name="confirmation"
+                    required
+                    autoComplete="off"
+                  />
                 </>
               )}
             </Form>
@@ -2089,21 +2334,24 @@ function ApiKeys() {
   );
 }
 function Preferences() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [prefs, setPrefs] = useState<any>(null);
   useEffect(() => setPrefs(getFeaturePreferences()), []);
   return (
-    <Panel title="显示与分析偏好" subtitle="设置默认时间范围、时区与界面语言。">
+    <Panel
+      title={i18n.text('显示与分析偏好')}
+      subtitle={i18n.text('设置默认时间范围、时区与界面语言。')}
+    >
       <Body>
         {prefs ? (
           <Form
             key={JSON.stringify(prefs)}
-            submitLabel="保存偏好"
+            submitLabel={i18n.text('保存偏好')}
             onSubmit={async values => {
               saveFeaturePreferences({
                 range: values.range,
                 timezone: values.timezone,
-                language: values.language,
                 theme: values.theme,
               });
               setPrefs(getFeaturePreferences());
@@ -2112,22 +2360,23 @@ function Preferences() {
           >
             <div className="form-grid">
               <Select
-                label="默认日期范围"
+                label={i18n.text('默认日期范围')}
                 name="range"
                 options={[
-                  ['0day', '今天'],
-                  ['24hour', '过去 24 小时'],
-                  ['7day', '过去 7 天'],
-                  ['30day', '过去 30 天'],
-                  ['0month', '本月'],
+                  ['0day', i18n.text('今天')],
+                  ['24hour', i18n.text('过去 24 小时')],
+                  ['7day', i18n.text('过去 7 天')],
+                  ['30day', i18n.text('过去 30 天')],
+                  ['0month', i18n.text('本月')],
                   ...(!['0day', '24hour', '7day', '30day', '0month'].includes(prefs.range)
-                    ? [[prefs.range, '当前已保存范围'] as [string, string]]
+                    ? [[prefs.range, i18n.text('当前已保存范围')] as [string, string]]
                     : []),
                 ]}
+                localizeLabels
                 defaultValue={prefs.range}
               />
               <Select
-                label="时区"
+                label={i18n.text('时区')}
                 name="timezone"
                 options={Array.from(
                   new Set(
@@ -2136,53 +2385,41 @@ function Preferences() {
                     ),
                   ),
                 )}
+                localizeLabels
                 defaultValue={prefs.timezone}
               />
+              <LanguageSelector field />
               <label className="field">
-                <span>语言</span>
-                <span className="select-wrap">
-                  <select name="language" defaultValue={prefs.language}>
-                    <option value="zh-CN">简体中文</option>
-                    <option value="en-US" disabled>
-                      English（当前不可用）
-                    </option>
-                    <option value="ja-JP" disabled>
-                      日本語（当前不可用）
-                    </option>
-                  </select>
-                  <Icon />
-                </span>
-                <small className="field-help">当前界面支持简体中文。</small>
-              </label>
-              <label className="field">
-                <span>主题</span>
+                <span>{i18n.text('主题')}</span>
                 <span className="select-wrap">
                   <select name="theme" defaultValue={prefs.theme}>
-                    <option value="light">浅色</option>
+                    <option value="light">{i18n.text('浅色')}</option>
                     <option value="dark" disabled>
-                      深色（当前不可用）
+                      {i18n.text('深色（当前不可用）')}
                     </option>
                     <option value="system" disabled>
-                      跟随系统（当前不可用）
+                      {i18n.text('跟随系统（当前不可用）')}
                     </option>
                   </select>
                   <Icon />
                 </span>
-                <small className="field-help">当前界面支持浅色主题。</small>
+                <small className="field-help">{i18n.text('当前界面支持浅色主题。')}</small>
               </label>
             </div>
-            <Notice>当前猎看界面使用已确认的浅色规范。分析时区和默认日期范围沿用账户偏好。</Notice>
+            <Notice>
+              {i18n.text('当前猎看界面使用已确认的浅色规范。分析时区和默认日期范围沿用账户偏好。')}
+            </Notice>
             <hr className="divider" />
             <Definition
               items={[
-                ['当前运行系统', `Liekan ${process.env.currentVersion || '0.1.2'}`],
-                ['界面版本', '猎看统计 UI v1'],
-                ['许可', 'MIT'],
+                [i18n.text('当前运行系统'), `Liekan ${process.env.currentVersion || '0.1.2'}`],
+                [i18n.text('界面版本'), i18n.text('猎看统计 UI v1')],
+                [i18n.text('许可'), 'MIT'],
               ]}
             />
           </Form>
         ) : (
-          <Notice>正在读取偏好设置。</Notice>
+          <Notice>{i18n.text('正在读取偏好设置。')}</Notice>
         )}
       </Body>
     </Panel>
@@ -2190,6 +2427,7 @@ function Preferences() {
 }
 
 function Goals() {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [page, setPage] = useState(1),
     [remove, setRemove] = useState<FeatureEntity>(null);
@@ -2258,36 +2496,39 @@ function Goals() {
         ]}
         items={[
           [
-            '目标数量',
+            i18n.text('目标数量'),
             query.isPending ? '—' : String(query.data?.count ?? goals.length),
-            '当前网站',
+            i18n.text('当前网站'),
           ],
           [
-            first?.name || '目标转化次数',
+            first?.name || i18n.text('目标转化次数'),
             firstResult && !firstResult.error ? numberLabel(firstResult.conversions) : '—',
-            '转化次数',
+            i18n.text('转化次数'),
             'blue',
           ],
           [
-            '目标转化率',
+            i18n.text('目标转化率'),
             firstResult && !firstResult.error
               ? conversionRate(firstResult.num, firstResult.total)
               : '—',
             firstResult && !firstResult.error
-              ? `${numberLabel(firstResult.num)} 位转化访客 / ${numberLabel(firstResult.total)} 位访客`
-              : '按独立转化访客计算',
+              ? i18n.text('{v0} 位转化访客 / {v1} 位访客', [
+                  numberLabel(firstResult.num),
+                  numberLabel(firstResult.total),
+                ])
+              : i18n.text('按独立转化访客计算'),
           ],
-          ['目标类型', '页面 / 事件', '保留原有目标条件'],
+          [i18n.text('目标类型'), i18n.text('页面 / 事件'), i18n.text('保留原有目标条件')],
         ]}
       />
       <Panel
-        title="网站目标"
-        subtitle="按页面访问或事件触发定义目标。"
+        title={i18n.text('网站目标')}
+        subtitle={i18n.text('按页面访问或事件触发定义目标。')}
         actions={
           manage && (
             <LinkButton page="goal-editor" primary>
               <Icon name="plus" />
-              创建目标
+              {i18n.fragment('创建目标', true, false)}
             </LinkButton>
           )
         }
@@ -2309,49 +2550,92 @@ function Goals() {
                   <span className="table-title">{goal.name}</span>
                   {goal.description && <span className="table-meta">{goal.description}</span>}
                 </>,
-                `${goal.parameters?.type === 'path' ? '页面' : '事件'} · ${goal.parameters?.value || '未配置'}`,
-                value?.error ? '读取失败' : value ? numberLabel(value.conversions) : '正在加载',
+                <TableCell
+                  sortValue={`${goal.parameters?.type === 'path' ? i18n.source('页面') : i18n.source('事件')} · ${goal.parameters?.value || i18n.source('未配置')}`}
+                  searchValue={`${goal.parameters?.type === 'path' ? i18n.english.text('页面') : i18n.english.text('事件')} · ${goal.parameters?.value || i18n.english.text('未配置')}`}
+                >{`${goal.parameters?.type === 'path' ? i18n.text('页面') : i18n.text('事件')} · ${goal.parameters?.value || i18n.text('未配置')}`}</TableCell>,
+                <TableCell
+                  sortValue={
+                    value?.error
+                      ? i18n.source('读取失败')
+                      : value
+                        ? numberLabel(value.conversions)
+                        : i18n.source('正在加载')
+                  }
+                  searchValue={
+                    value?.error
+                      ? i18n.english.text('读取失败')
+                      : value
+                        ? numberLabel(value.conversions)
+                        : i18n.english.text('正在加载')
+                  }
+                >
+                  {value?.error
+                    ? i18n.text('读取失败')
+                    : value
+                      ? numberLabel(value.conversions)
+                      : i18n.text('正在加载')}
+                </TableCell>,
                 value?.error ? '—' : value ? conversionRate(value.num, value.total) : '—',
-                <div className="actions" key="actions">
-                  <LinkButton page="goal-editor" params={{ id: goal.id }}>
-                    {manage ? '编辑' : '查看'}
-                  </LinkButton>
-                  {manage && <Button onClick={() => setRemove(goal)}>删除</Button>}
-                </div>,
+                <TableCell
+                  sortValue={[
+                    manage ? i18n.source('编辑') : i18n.source('查看'),
+                    manage && i18n.source('删除'),
+                  ]}
+                  searchValue={[
+                    manage ? i18n.english.text('编辑') : i18n.english.text('查看'),
+                    manage && i18n.english.text('删除'),
+                  ]}
+                >
+                  <div className="actions" key="actions">
+                    <LinkButton page="goal-editor" params={{ id: goal.id }}>
+                      {manage ? i18n.text('编辑') : i18n.text('查看')}
+                    </LinkButton>
+                    {manage && <Button onClick={() => setRemove(goal)}>{i18n.text('删除')}</Button>}
+                  </div>
+                </TableCell>,
               ];
             })}
-            empty="尚未创建目标。创建页面或事件目标后查看转化。"
+            empty={i18n.text('尚未创建目标。创建页面或事件目标后查看转化。')}
           />
         </QueryState>
       </Panel>
       {goals.length > 0 ? (
         <QueryState query={stats}>
           <Chart
-            title={`${first.name}的转化趋势`}
-            subtitle="当前所选期间"
+            title={i18n.text('{v0}的转化趋势', [first.name])}
+            subtitle={i18n.text('当前所选期间')}
             labels={(firstResult?.series || []).map(point => point.x)}
             series={[
-              { name: '转化次数', values: (firstResult?.series || []).map(point => point.y) },
+              {
+                name: i18n.text('转化次数'),
+                values: (firstResult?.series || []).map(point => point.y),
+              },
             ]}
           >
             {firstResult?.error && (
-              <Notice tone="red">该目标的转化统计读取失败：{firstResult.error.message}</Notice>
+              <Notice tone="red">
+                {i18n.fragment('该目标的转化统计读取失败：', false, true)}
+                {firstResult.error.message}
+              </Notice>
             )}
           </Chart>
         </QueryState>
       ) : (
-        <Chart title="目标转化趋势" subtitle="当前所选期间" />
+        <Chart title={i18n.text('目标转化趋势')} subtitle={i18n.text('当前所选期间')} />
       )}
       <Notice>
-        目标转化次数和独立转化访客分别展示。转化率按独立转化访客计算，没有访客时显示“—”。
+        {i18n.text(
+          '目标转化次数和独立转化访客分别展示。转化率按独立转化访客计算，没有访客时显示“—”。',
+        )}
       </Notice>
       {remove && (
-        <LiekanDialog title="删除目标" onClose={() => setRemove(null)}>
+        <LiekanDialog title={i18n.text('删除目标')} onClose={() => setRemove(null)}>
           <Form
             busy={action.busy}
             error={action.error}
             danger
-            submitLabel="删除目标"
+            submitLabel={i18n.text('删除目标')}
             onSubmit={async values => {
               if (values.confirmation !== remove.name) throw new Error('确认内容不匹配。');
               await action.run(
@@ -2362,9 +2646,15 @@ function Goals() {
             }}
           >
             <Notice tone="red">
-              删除「{remove.name}」的目标定义，已采集的访问与事件数据继续保留。
+              {i18n.fragment('删除「', false, true)}
+              {remove.name}
+              {i18n.fragment('」的目标定义，已采集的访问与事件数据继续保留。', true, false)}
             </Notice>
-            <Field label={`输入 ${remove.name} 确认`} name="confirmation" required />
+            <Field
+              label={i18n.text('输入 {v0} 确认', [remove.name])}
+              name="confirmation"
+              required
+            />
           </Form>
         </LiekanDialog>
       )}
@@ -2393,20 +2683,21 @@ function GoalEditor() {
   );
 }
 function GoalForm({ goal }: { goal?: FeatureEntity }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction(),
     manage = canManageSite(c, c.site);
   return (
     <div className="wide-narrow">
-      <Panel title="目标条件" subtitle="与上游页面或事件目标保持一致。">
+      <Panel title={i18n.text('目标条件')} subtitle={i18n.text('与上游页面或事件目标保持一致。')}>
         <Body>
           {!manage && <ReadonlyNotice />}
           <Form
             busy={action.busy}
             error={action.error}
             disabled={!manage}
-            submitLabel="保存目标"
-            cancel={<LinkButton page="goals">取消</LinkButton>}
+            submitLabel={i18n.text('保存目标')}
+            cancel={<LinkButton page="goals">{i18n.text('取消')}</LinkButton>}
             onSubmit={async values => {
               if (!manage) throw new Error('需要网站管理权限。');
               await action.run(
@@ -2421,7 +2712,7 @@ function GoalForm({ goal }: { goal?: FeatureEntity }) {
             }}
           >
             <Field
-              label="目标名称"
+              label={i18n.text('目标名称')}
               name="name"
               defaultValue={goal?.name || ''}
               required
@@ -2429,54 +2720,56 @@ function GoalForm({ goal }: { goal?: FeatureEntity }) {
               maxLength={200}
             />
             <Select
-              label="触发类型"
+              label={i18n.text('触发类型')}
               name="goalType"
               options={[
-                ['path', '访问页面'],
-                ['event', '触发事件'],
+                ['path', i18n.text('访问页面')],
+                ['event', i18n.text('触发事件')],
               ]}
+              localizeLabels
               defaultValue={goal?.parameters?.type || 'path'}
               disabled={!manage}
             />
             <Field
-              label="页面路径或事件名称"
+              label={i18n.text('页面路径或事件名称')}
               name="value"
               defaultValue={goal?.parameters?.value || ''}
               required
               readOnly={!manage}
-              help="页面填 /pricing，事件填自定义事件名称。"
+              help={i18n.text('页面填 /pricing，事件填自定义事件名称。')}
             />
             <Textarea
-              label="说明（可选）"
+              label={i18n.text('说明（可选）')}
               name="description"
               defaultValue={goal?.description || ''}
               maxLength={500}
               readOnly={!manage}
-              help="用于团队理解目标定义。"
+              help={i18n.text('用于团队理解目标定义。')}
             />
           </Form>
         </Body>
       </Panel>
-      <Panel title="口径说明" subtitle="一个目标对应一个行为条件。">
+      <Panel title={i18n.text('口径说明')} subtitle={i18n.text('一个目标对应一个行为条件。')}>
         <Body>
           <div className="stack">
             <div>
-              <h3>访问页面</h3>
-              <p className="muted">使用采集到的路径定义目标。</p>
+              <h3>{i18n.text('访问页面')}</h3>
+              <p className="muted">{i18n.text('使用采集到的路径定义目标。')}</p>
             </div>
             <div>
-              <h3>触发事件</h3>
-              <p className="muted">使用自定义事件名称定义目标。</p>
+              <h3>{i18n.text('触发事件')}</h3>
+              <p className="muted">{i18n.text('使用自定义事件名称定义目标。')}</p>
             </div>
           </div>
           <hr className="divider" />
-          <LinkButton page="events">查看事件属性</LinkButton>
+          <LinkButton page="events">{i18n.text('查看事件属性')}</LinkButton>
         </Body>
       </Panel>
     </div>
   );
 }
 function Funnels() {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction();
   const [page, setPage] = useState(1),
@@ -2528,21 +2821,21 @@ function Funnels() {
         ]}
         items={[
           [
-            '进入漏斗',
+            i18n.text('进入漏斗'),
             stats.isPending || stats.error ? '—' : numberLabel(first ?? 0),
-            '当前范围访客',
+            i18n.text('当前范围访客'),
           ],
           [
-            '完成路径',
+            i18n.text('完成路径'),
             stats.isPending || stats.error ? '—' : numberLabel(last ?? 0),
-            '完成访客',
+            i18n.text('完成访客'),
             'blue',
           ],
-          ['整体转化率', conversionRate(last, first), '相对首次进入'],
+          [i18n.text('整体转化率'), conversionRate(last, first), i18n.text('相对首次进入')],
           [
-            '步骤数量',
+            i18n.text('步骤数量'),
             funnel ? String(funnel.parameters?.steps?.length || 0) : '0',
-            '按已保存配置展示',
+            i18n.text('按已保存配置展示'),
           ],
         ]}
       />
@@ -2551,12 +2844,15 @@ function Funnels() {
           <>
             <Panel
               title={funnel.name}
-              subtitle={`${funnel.parameters?.steps?.length || 0} 步 · 同一访客 · ${funnel.parameters?.window} 分钟窗口`}
+              subtitle={i18n.text('{v0} 步 · 同一访客 · {v1} 分钟窗口', [
+                funnel.parameters?.steps?.length || 0,
+                funnel.parameters?.window,
+              ])}
               actions={
                 <div className="actions" key="actions">
                   {manage && (
                     <LinkButton page="funnel-editor" params={{ id: funnel.id }} primary>
-                      配置漏斗
+                      {i18n.text('配置漏斗')}
                     </LinkButton>
                   )}
                 </div>
@@ -2565,7 +2861,7 @@ function Funnels() {
               <Body>
                 {funnels.length > 1 && (
                   <Select
-                    label="已保存漏斗"
+                    label={i18n.text('已保存漏斗')}
                     value={funnel.id}
                     onChange={event => setSelected(event.target.value)}
                     options={funnels.map(funnel => [funnel.id, funnel.name])}
@@ -2606,13 +2902,13 @@ function Funnels() {
               </Body>
             </Panel>
             <Panel
-              title="网站漏斗"
-              subtitle="管理当前网站已保存的路径。"
+              title={i18n.text('网站漏斗')}
+              subtitle={i18n.text('管理当前网站已保存的路径。')}
               actions={
                 manage && (
                   <LinkButton page="funnel-editor" primary>
                     <Icon name="plus" />
-                    创建漏斗
+                    {i18n.fragment('创建漏斗', true, false)}
                   </LinkButton>
                 )
               }
@@ -2627,47 +2923,71 @@ function Funnels() {
                 rows={funnels.map(funnel => [
                   funnel.name,
                   String(funnel.parameters?.steps?.length || 0),
-                  `${funnel.parameters?.window} 分钟`,
-                  <div className="actions" key="actions">
-                    <Button onClick={() => setSelected(funnel.id)}>查看结果</Button>
-                    <LinkButton page="funnel-editor" params={{ id: funnel.id }}>
-                      {manage ? '编辑' : '查看'}
-                    </LinkButton>
-                    {manage && <Button onClick={() => setRemove(funnel)}>删除</Button>}
-                  </div>,
+                  <TableCell
+                    sortValue={i18n.source('{v0} 分钟', [funnel.parameters?.window])}
+                    searchValue={i18n.english.text('{v0} 分钟', [funnel.parameters?.window])}
+                  >
+                    {i18n.text('{v0} 分钟', [funnel.parameters?.window])}
+                  </TableCell>,
+                  <TableCell
+                    sortValue={[
+                      i18n.source('查看结果'),
+                      manage ? i18n.source('编辑') : i18n.source('查看'),
+                      manage && i18n.source('删除'),
+                    ]}
+                    searchValue={[
+                      i18n.english.text('查看结果'),
+                      manage ? i18n.english.text('编辑') : i18n.english.text('查看'),
+                      manage && i18n.english.text('删除'),
+                    ]}
+                  >
+                    <div className="actions" key="actions">
+                      <Button onClick={() => setSelected(funnel.id)}>
+                        {i18n.text('查看结果')}
+                      </Button>
+                      <LinkButton page="funnel-editor" params={{ id: funnel.id }}>
+                        {manage ? i18n.text('编辑') : i18n.text('查看')}
+                      </LinkButton>
+                      {manage && (
+                        <Button onClick={() => setRemove(funnel)}>{i18n.text('删除')}</Button>
+                      )}
+                    </div>
+                  </TableCell>,
                 ])}
               />
             </Panel>
           </>
         ) : (
           <Panel
-            title="网站漏斗"
-            subtitle="至少两步，最多八步。"
+            title={i18n.text('网站漏斗')}
+            subtitle={i18n.text('至少两步，最多八步。')}
             actions={
               manage && (
                 <LinkButton page="funnel-editor" primary>
                   <Icon name="plus" />
-                  创建漏斗
+                  {i18n.fragment('创建漏斗', true, false)}
                 </LinkButton>
               )
             }
           >
             <Body>
-              <Notice>尚未创建漏斗。配置并保存路径后查看真实转化结果。</Notice>
+              <Notice>{i18n.text('尚未创建漏斗。配置并保存路径后查看真实转化结果。')}</Notice>
             </Body>
           </Panel>
         )}
       </QueryState>
       <Notice>
-        步骤、名称、事件属性条件与窗口按保存配置计算。转化数量来自当前网站所选范围，没有访客时转化率显示“—”。
+        {i18n.text(
+          '步骤、名称、事件属性条件与窗口按保存配置计算。转化数量来自当前网站所选范围，没有访客时转化率显示“—”。',
+        )}
       </Notice>
       {remove && (
-        <LiekanDialog title="删除漏斗" onClose={() => setRemove(null)}>
+        <LiekanDialog title={i18n.text('删除漏斗')} onClose={() => setRemove(null)}>
           <Form
             busy={action.busy}
             error={action.error}
             danger
-            submitLabel="删除漏斗"
+            submitLabel={i18n.text('删除漏斗')}
             onSubmit={async values => {
               if (values.confirmation !== remove.name) throw new Error('确认内容不匹配。');
               await action.run(
@@ -2678,9 +2998,15 @@ function Funnels() {
             }}
           >
             <Notice tone="red">
-              删除「{remove.name}」的漏斗定义，已采集的访问与事件数据继续保留。
+              {i18n.fragment('删除「', false, true)}
+              {remove.name}
+              {i18n.fragment('」的漏斗定义，已采集的访问与事件数据继续保留。', true, false)}
             </Notice>
-            <Field label={`输入 ${remove.name} 确认`} name="confirmation" required />
+            <Field
+              label={i18n.text('输入 {v0} 确认', [remove.name])}
+              name="confirmation"
+              required
+            />
           </Form>
         </LiekanDialog>
       )}
@@ -2709,6 +3035,7 @@ function FunnelEditor() {
   );
 }
 function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
+  const i18n = useLiekanI18n();
   const c = useFeature(),
     action = useAction(),
     manage = canManageSite(c, c.site);
@@ -2736,15 +3063,18 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
     });
   return (
     <div className="wide-narrow">
-      <Panel title="漏斗配置" subtitle="至少两步，最多八步。事件步骤可设置属性条件。">
+      <Panel
+        title={i18n.text('漏斗配置')}
+        subtitle={i18n.text('至少两步，最多八步。事件步骤可设置属性条件。')}
+      >
         <Body>
           {!manage && <ReadonlyNotice />}
           <Form
             busy={action.busy}
             error={action.error}
             disabled={!manage}
-            submitLabel="保存漏斗"
-            cancel={<LinkButton page="funnels">取消</LinkButton>}
+            submitLabel={i18n.text('保存漏斗')}
+            cancel={<LinkButton page="funnels">{i18n.text('取消')}</LinkButton>}
             onSubmit={async values => {
               if (!manage) throw new Error('需要网站管理权限。');
               await action.run(
@@ -2759,7 +3089,7 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
             }}
           >
             <Field
-              label="漏斗名称"
+              label={i18n.text('漏斗名称')}
               name="name"
               defaultValue={funnel?.name || ''}
               required
@@ -2767,7 +3097,7 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
               readOnly={!manage}
             />
             <Field
-              label="转化窗口（分钟）"
+              label={i18n.text('转化窗口（分钟）')}
               name="window"
               type="number"
               defaultValue={funnel?.parameters?.window ?? ''}
@@ -2775,10 +3105,10 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
               min={1}
               step={1}
               readOnly={!manage}
-              help="大于 0，同一访客需要在窗口内按顺序完成。"
+              help={i18n.text('大于 0，同一访客需要在窗口内按顺序完成。')}
             />
             <Textarea
-              label="说明（可选）"
+              label={i18n.text('说明（可选）')}
               name="description"
               defaultValue={funnel?.description || ''}
               maxLength={500}
@@ -2788,24 +3118,27 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
               {steps.map((step, i) => (
                 <div className="step-editor" key={i}>
                   <div className="step-editor-head">
-                    <strong>步骤 {i + 1}</strong>
+                    <strong>
+                      {i18n.fragment('步骤 ', false, true)}
+                      {i + 1}
+                    </strong>
                     <div className="actions" key="actions">
                       <Button
-                        aria-label={`上移步骤 ${i + 1}`}
+                        aria-label={i18n.text('上移步骤 {v0}', [i + 1])}
                         disabled={!manage || i === 0}
                         onClick={() => move(i, -1)}
                       >
                         ↑
                       </Button>
                       <Button
-                        aria-label={`下移步骤 ${i + 1}`}
+                        aria-label={i18n.text('下移步骤 {v0}', [i + 1])}
                         disabled={!manage || i === steps.length - 1}
                         onClick={() => move(i, 1)}
                       >
                         ↓
                       </Button>
                       <Button
-                        aria-label={`移除步骤 ${i + 1}`}
+                        aria-label={i18n.text('移除步骤 {v0}', [i + 1])}
                         disabled={!manage || steps.length <= 2}
                         onClick={() =>
                           setSteps(current => current.filter((_, index) => index !== i))
@@ -2817,20 +3150,21 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
                   </div>
                   <div className="two">
                     <Select
-                      label="行为类型"
+                      label={i18n.text('行为类型')}
                       name={`step-type-${i}`}
                       value={step.type}
                       disabled={!manage}
                       options={[
-                        ['path', '访问页面'],
-                        ['event', '触发事件'],
+                        ['path', i18n.text('访问页面')],
+                        ['event', i18n.text('触发事件')],
                       ]}
+                      localizeLabels
                       onChange={event =>
                         update(i, { type: event.target.value as 'path' | 'event', filters: [] })
                       }
                     />
                     <Field
-                      label="路径或事件名称"
+                      label={i18n.text('路径或事件名称')}
                       name={`step-value-${i}`}
                       value={step.value}
                       required
@@ -2843,7 +3177,7 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
                       {step.filters.map((filter, j) => (
                         <div className="condition" key={j}>
                           <Field
-                            label="事件属性"
+                            label={i18n.text('事件属性')}
                             name={`property-${i}-${j}`}
                             value={filter.property}
                             required
@@ -2851,20 +3185,21 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
                             onChange={event => changeFilter(i, j, { property: event.target.value })}
                           />
                           <Select
-                            label="运算符"
+                            label={i18n.text('运算符')}
                             name={`operator-${i}-${j}`}
                             value={filter.operator}
                             disabled={!manage}
                             options={[
-                              ['eq', '等于'],
-                              ['neq', '不等于'],
-                              ['c', '包含'],
-                              ['dnc', '不包含'],
+                              ['eq', i18n.text('等于')],
+                              ['neq', i18n.text('不等于')],
+                              ['c', i18n.text('包含')],
+                              ['dnc', i18n.text('不包含')],
                             ]}
+                            localizeLabels
                             onChange={event => changeFilter(i, j, { operator: event.target.value })}
                           />
                           <Field
-                            label="属性值"
+                            label={i18n.text('属性值')}
                             name={`filtervalue-${i}-${j}`}
                             value={filter.value}
                             required
@@ -2872,7 +3207,7 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
                             onChange={event => changeFilter(i, j, { value: event.target.value })}
                           />
                           <Button
-                            aria-label="移除属性条件"
+                            aria-label={i18n.text('移除属性条件')}
                             disabled={!manage}
                             onClick={() =>
                               update(i, { filters: step.filters.filter((_, index) => index !== j) })
@@ -2890,7 +3225,7 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
                           })
                         }
                       >
-                        添加事件属性
+                        {i18n.text('添加事件属性')}
                       </Button>
                     </div>
                   )}
@@ -2903,23 +3238,27 @@ function FunnelForm({ funnel }: { funnel?: FeatureEntity }) {
               onClick={() => setSteps(current => [...current, blankStep()])}
             >
               <Icon name="plus" />
-              添加步骤
+              {i18n.fragment('添加步骤', true, false)}
             </Button>
-            <p className="field-help">已配置 {steps.length} / 8 步。</p>
+            <p className="field-help">
+              {i18n.fragment('已配置 ', false, true)}
+              {steps.length}
+              {i18n.fragment(' / 8 步。', true, false)}
+            </p>
           </Form>
         </Body>
       </Panel>
-      <Panel title="配置预览" subtitle="步骤顺序决定转化路径。">
+      <Panel title={i18n.text('配置预览')} subtitle={i18n.text('步骤顺序决定转化路径。')}>
         <Body>
           <ol className="timeline">
             {steps.map((step, i) => (
               <li key={i}>
                 <strong>
-                  {i + 1} · {step.value || '未填写'}
+                  {i + 1} · {step.value || i18n.text('未填写')}
                 </strong>
                 <p>
-                  {step.type === 'path' ? '页面访问' : '事件触发'}
-                  {step.filters.length ? ' · 带属性条件' : ''}
+                  {step.type === 'path' ? i18n.text('页面访问') : i18n.text('事件触发')}
+                  {step.filters.length ? i18n.text(' · 带属性条件') : ''}
                 </p>
               </li>
             ))}

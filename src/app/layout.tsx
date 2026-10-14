@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { defaultLiekanLocale, isLiekanLocale, localeCookie } from '@/lib/liekan/i18n/locale';
 import { Suspense } from 'react';
 import { getBaseUrl } from '@/lib/get-base-url';
 import { Providers } from './Providers';
@@ -14,7 +15,11 @@ const inter = localFont({
   variable: '--font-inter',
 });
 
-export default function ({ children }) {
+export default async function ({ children }) {
+  const stored = (await cookies()).get(localeCookie)?.value;
+  const initialLocale = isLiekanLocale(stored)
+    ? stored
+    : defaultLiekanLocale(process.env.DEFAULT_LOCALE);
   if (process.env.DISABLE_UI) {
     return (
       <html>
@@ -24,7 +29,7 @@ export default function ({ children }) {
   }
 
   return (
-    <html lang="zh-CN" className={`${inter.className} ${inter.variable}`}>
+    <html lang={initialLocale} className={`${inter.className} ${inter.variable}`}>
       <head>
         <link rel="icon" type="image/svg+xml" href="/liekan/favicon.svg" />
         <link rel="manifest" href="/site.webmanifest" crossOrigin="use-credentials" />
@@ -35,7 +40,9 @@ export default function ({ children }) {
       </head>
       <body>
         <Suspense>
-          <Providers>{children}</Providers>
+          <Providers initialLocale={initialLocale} storedLocale={isLiekanLocale(stored)}>
+            {children}
+          </Providers>
         </Suspense>
       </body>
     </html>
@@ -44,12 +51,15 @@ export default function ({ children }) {
 
 export async function generateMetadata(): Promise<Metadata> {
   const headerStore = await headers();
+  const stored = (await cookies()).get(localeCookie)?.value;
+  const locale = isLiekanLocale(stored) ? stored : defaultLiekanLocale(process.env.DEFAULT_LOCALE);
+  const name = locale === 'en-US' ? 'Liekan' : 'Liekan 猎看统计';
 
   return {
     metadataBase: getBaseUrl(headerStore),
     title: {
-      template: '%s | Liekan 猎看统计',
-      default: 'Liekan 猎看统计',
+      template: `%s | ${name}`,
+      default: name,
     },
   };
 }

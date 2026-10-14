@@ -1,8 +1,10 @@
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { Skeleton, useDataLoading } from '../DataLoading';
 import { InsightRows, MetricCard, ReferenceChart, ReportList } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
 export function AiPreference({ report, rangeLabel }: ReportViewProps) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
@@ -35,14 +37,19 @@ export function AiPreference({ report, rangeLabel }: ReportViewProps) {
       <section className="grid grid-cols-3 gap-4">
         <div className="card col-span-2 fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">内容类型偏好：AI vs 人类</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">{rangeLabel} · 请求占比对比</p>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.text('内容类型偏好：AI vs 人类')}
+            </h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' · 请求占比对比', true, false)}
+            </p>
           </div>
           <ReferenceChart id="pf1" height={260} report={report} />
         </div>
         <div className="card fade-in d3">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">各蜘蛛内容偏好</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('各蜘蛛内容偏好')}</h2>
           </div>
           <ReportList
             id="prefList"
@@ -55,14 +62,16 @@ export function AiPreference({ report, rangeLabel }: ReportViewProps) {
       <section className="grid grid-cols-2 gap-4">
         <div className="card fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">抓取路径分析（典型会话）</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.text('抓取路径分析（典型会话）')}
+            </h2>
             <p className="text-[11.5px] text-faint mt-0.5">
               {loading ? (
                 <Skeleton width="65%" />
               ) : report?.tables.pathList?.[0]?.bot ? (
-                `${report.tables.pathList[0].bot} 最近抓取顺序 · 会话估算`
+                i18n.text('{v0} 最近抓取顺序 · 会话估算', [report.tables.pathList[0].bot])
               ) : (
-                '会话未识别，显示最近 AI 抓取记录'
+                i18n.text('会话未识别，显示最近 AI 抓取记录')
               )}
             </p>
           </div>
@@ -70,9 +79,13 @@ export function AiPreference({ report, rangeLabel }: ReportViewProps) {
         </div>
         <div className="card fade-in d3">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">内容特征与抓取量相关性</h2>
+            <h2 className="text-[14px] font-bold tracking-tight">
+              {i18n.text('内容特征与抓取量相关性')}
+            </h2>
             <p className="text-[11.5px] text-faint mt-0.5">
-              字数 / 结构化程度 × {rangeLabel} 抓取量
+              {i18n.fragment('字数 / 结构化程度 × ', false, true)}
+              {i18n.system(rangeLabel)}
+              {i18n.fragment(' 抓取量', true, false)}
             </p>
           </div>
           <ReferenceChart id="pf2" height={250} report={report} />

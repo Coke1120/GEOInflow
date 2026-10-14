@@ -5,6 +5,7 @@ import { freshAggregateFixture } from '@/test/liekan-freshness';
 import { LiekanShell } from './LiekanShell';
 import type { LiekanReport } from './types';
 import { WebsiteLayout } from '@/app/(main)/websites/[websiteId]/WebsiteLayout';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const mocks = vi.hoisted(() => ({
   display: {} as { aiCrawlerEnabled?: boolean },
@@ -224,6 +225,34 @@ describe('analysis loading states', () => {
     );
     expect(screen.getByText('123')).toBeInTheDocument();
     expect(screen.queryByText('无法读取网站信息')).not.toBeInTheDocument();
+  });
+  it('keeps the comparison mode and values while switching English and Chinese', () => {
+    mocks.pathname = '/websites/site-a/geo/human';
+    mocks.params = { date: '30day', compareWeek: '1' };
+    const current = report();
+    current.cards = [
+      { key: 'duration', label: '平均访问时长', value: 60, unit: '秒', state: 'available' },
+    ];
+    const previous = freshAggregateFixture({
+      ...current,
+      cards: [{ ...current.cards[0], value: 120 }],
+    });
+    mocks.metadata = { ...mocks.metadata, data: mocks.website, isPending: false };
+    mocks.report = { ...mocks.report, data: current, isPending: false };
+    mocks.previous = { ...mocks.previous, data: previous };
+    const page = (locale: 'en-US' | 'zh-CN') => (
+      <LiekanLocaleContext.Provider value={locale}>
+        <LiekanPage resource="human/overview" />
+      </LiekanLocaleContext.Provider>
+    );
+    const view = render(page('en-US'));
+    expect(screen.getByRole('columnheader', { name: 'Metric' })).toBeVisible();
+    expect(screen.getByRole('cell', { name: '1m 0s' })).toBeVisible();
+    expect(screen.queryByRole('textbox', { name: 'Access log content' })).not.toBeInTheDocument();
+    view.rerender(page('zh-CN'));
+    expect(screen.getByRole('cell', { name: '1分0秒' })).toBeVisible();
+    view.rerender(page('en-US'));
+    expect(screen.getByRole('cell', { name: '2m 0s' })).toBeVisible();
   });
   it.each([401, 403, 404])('hides cached comparison values after access rejection %s', status => {
     mocks.pathname = '/websites/site-a/geo/human';

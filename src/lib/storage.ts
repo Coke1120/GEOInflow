@@ -6,7 +6,12 @@ export function setItem(key: string, data: any, session?: boolean) {
 
 export function getItem(key: string, session?: boolean): any {
   if (typeof window !== 'undefined') {
-    const value = (session ? sessionStorage : localStorage).getItem(key);
+    let value: string | null;
+    try {
+      value = (session ? sessionStorage : localStorage).getItem(key);
+    } catch {
+      return null;
+    }
 
     if (value !== 'undefined' && value !== null) {
       try {

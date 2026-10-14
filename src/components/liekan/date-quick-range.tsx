@@ -1,4 +1,5 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
 // 产品组件不能直接 import '@/lib/constants'（上游边界）；键名与默认值与
 // upstream useFeatureDateRange 的 DATE_RANGE_CONFIG / DEFAULT_DATE_RANGE_VALUE 保持一致。
@@ -27,7 +28,12 @@ export function activeQuickDateRange(
   }
   if (defaultToken) return defaultToken;
   // 与 upstream getItem 相同的 SSR 守卫；当前两个调用方都不会在服务端走到这里，防御未来新增调用。
-  const raw = typeof window === 'undefined' ? null : localStorage.getItem(STORED_DATE_RANGE_KEY);
+  let raw: string | null = null;
+  try {
+    raw = typeof window === 'undefined' ? null : localStorage.getItem(STORED_DATE_RANGE_KEY);
+  } catch {
+    return FALLBACK_DATE_RANGE_TOKEN;
+  }
   if (raw && raw !== 'undefined') {
     try {
       const value = JSON.parse(raw);
@@ -50,6 +56,7 @@ export function QuickRangeButtons({
   onSelect: (token: QuickDateRangeToken) => void;
   variant?: 'chip' | 'btn';
 }) {
+  const i18n = useLiekanI18n();
   return (
     <>
       {QUICK_DATE_RANGES.map(([token, label]) => {
@@ -62,7 +69,7 @@ export function QuickRangeButtons({
             aria-pressed={active}
             onClick={() => onSelect(token)}
           >
-            {label}
+            {i18n.system(label)}
           </button>
         );
       })}

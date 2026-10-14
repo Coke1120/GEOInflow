@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useEffect, useRef, useState } from 'react';
 import { Panel } from './ui';
 import { observeChartLayout } from '../mobileChart';
@@ -32,6 +34,7 @@ export function Chart({
   children?: any;
   onClick?: (params: any) => void;
 }) {
+  const i18n = useLiekanI18n();
   const loading = useDataLoading();
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -174,23 +177,25 @@ export function Chart({
       stopLayout?.();
       chart?.dispose();
     };
-  }, [JSON.stringify({ labels, series, type, horizontal, option }), loading, attempt]);
+  }, [JSON.stringify({ labels, series, type, horizontal, option }), loading, attempt, i18n.locale]);
   const content = (
     <>
       <div
         className="chart"
         style={{ height, position: 'relative' }}
         role={failed ? 'group' : 'img'}
-        aria-label={`${title || '统计图表'}${loading ? ': 正在读取' : ''}`}
+        aria-label={i18n.system(
+          `${title || i18n.text('统计图表')}${loading ? i18n.text(': 正在读取') : ''}`,
+        )}
         aria-busy={loading || undefined}
       >
         <div ref={ref} style={{ width: '100%', height: '100%' }} />
         {loading && <ChartLoading />}
         {failed && (
           <div className="chart-failure" role="alert">
-            图表加载失败
+            {i18n.fragment('图表加载失败', false, true)}
             <button className="btn" type="button" onClick={() => setAttempt(value => value + 1)}>
-              重试图表
+              {i18n.text('重试图表')}
             </button>
           </div>
         )}
@@ -199,13 +204,13 @@ export function Chart({
         {loading ? (
           <Skeleton width="12em" />
         ) : !option && !series.some(s => s.values.some(v => v != null)) ? (
-          '当前范围没有数据'
+          i18n.text('当前范围没有数据')
         ) : type === 'sankey' ? (
-          '点按或悬停查看访客量，点击节点查看路径详情'
+          i18n.text('点按或悬停查看访客量，点击节点查看路径详情')
         ) : horizontal ? (
-          '点按或悬停查看数值，右侧同时显示数量'
+          i18n.text('点按或悬停查看数值，右侧同时显示数量')
         ) : (
-          '点按或悬停查看数值，点击图例切换序列'
+          i18n.text('点按或悬停查看数值，点击图例切换序列')
         )}
       </div>
       {!loading && children}

@@ -21,6 +21,7 @@ import { ManualRefreshControl } from '../ManualRefreshControl';
 import { freshAggregateFixture } from '@/test/liekan-freshness';
 import { clientRequestOptions } from '@/lib/liekan/upstream/client-freshness';
 import { ResourceAnalytics, ShareFeatureView, WorkspacePages } from './WorkspacePages';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -124,24 +125,110 @@ function expectHiddenText(text: string | RegExp) {
   const element = screen.queryByText(text);
   expect(!element || !!element.closest('[hidden]')).toBe(true);
 }
+it('stores a canonical team notification when language changes during completion', async () => {
+  const user = userEvent.setup();
+  context.route = { page: 'team-detail', teamId: 'team-1' };
+  let finish: (value: unknown) => void;
+  mocks.del.mockImplementation(
+    () =>
+      new Promise(resolve => {
+        finish = resolve;
+      }),
+  );
+  const view = mount(<WorkspacePages page="team-detail" />, true, 'en-US');
+  await user.click(await screen.findByRole('tab', { name: 'Settings' }));
+  await user.click(screen.getByRole('button', { name: 'Delete team' }));
+  const dialog = within(screen.getByRole('dialog', { name: 'Delete team' }));
+  await user.type(dialog.getByRole('textbox'), 'DELETE');
+  await user.click(dialog.getByRole('button', { name: 'Delete team' }));
+  await waitFor(() => expect(mocks.del).toHaveBeenCalledTimes(1));
+  view.changeLanguage('zh-CN');
+  await act(async () => finish({}));
+  await waitFor(() => expect(mocks.notify).toHaveBeenCalledWith('「增长团队」已删除'));
+});
 
-function mount(children: ReactNode, provide = true) {
+it('preserves canonical role sorting when the interface language changes', async () => {
+  context.user = { ...owner, isAdmin: true };
+  context.query = { sort: '系统角色', direction: 'asc' };
+  const users = [
+    { id: 'ordinary', username: 'Ordinary', role: 'user' },
+    { id: 'readonly', username: 'Readonly', role: 'view-only' },
+  ];
+  mocks.get.mockImplementation(async (path: string) =>
+    path === '/admin/users' ? { data: users, count: 2 } : { isEnabled: false },
+  );
+  const view = mount(<WorkspacePages page="admin-users" />);
+  await screen.findByText('Ordinary');
+  const order = () =>
+    within(screen.getByRole('table'))
+      .getAllByRole('row')
+      .slice(1)
+      .map(
+        row =>
+          within(row)
+            .getAllByRole('cell')[0]
+            .textContent.match(/^(Ordinary|Readonly)/)?.[0],
+      );
+  expect(order()).toEqual(['Ordinary', 'Readonly']);
+  view.changeLanguage('en-US');
+  expect(order()).toEqual(['Ordinary', 'Readonly']);
+  expect(context.query.sort).toBe('系统角色');
+});
+
+it('keeps team and website owner roles tied when sorting the actual administrator resource table', async () => {
+  context.user = { ...owner, isAdmin: true };
+  context.route = { page: 'admin-user', id: 'target' };
+  context.query = { sort: '角色', direction: 'desc' };
+  mocks.get.mockImplementation(async (path: string) =>
+    path === '/users/target'
+      ? { id: 'target', username: 'Target', role: 'user' }
+      : { isEnabled: false },
+  );
+  mocks.all.mockImplementation(async (path: string) =>
+    path.endsWith('/teams')
+      ? [{ id: 'team', name: 'TeamResource', members: [{ userId: 'target', role: 'team-owner' }] }]
+      : [{ id: 'site', name: 'SiteResource', userId: 'target' }],
+  );
+  const view = mount(<WorkspacePages page="admin-user" />);
+  await screen.findByText('TeamResource');
+  const order = () =>
+    within(screen.getByRole('table'))
+      .getAllByRole('row')
+      .slice(1)
+      .map(
+        row =>
+          within(row)
+            .getAllByRole('cell')[1]
+            .textContent.match(/^(TeamResource|SiteResource)/)?.[0],
+      );
+  expect(order()).toEqual(['TeamResource', 'SiteResource']);
+  view.changeLanguage('en-US');
+  expect(order()).toEqual(['TeamResource', 'SiteResource']);
+});
+
+function mount(children: ReactNode, provide = true, locale: 'zh-CN' | 'en-US' = 'zh-CN') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   const value = () => (
     <QueryClientProvider client={client}>
-      {provide ? (
-        <FeatureProvider value={context}>{children}</FeatureProvider>
-      ) : (
-        <ManualRefreshProvider>{children}</ManualRefreshProvider>
-      )}
+      <LiekanLocaleContext.Provider value={locale}>
+        {provide ? (
+          <FeatureProvider value={context}>{children}</FeatureProvider>
+        ) : (
+          <ManualRefreshProvider>{children}</ManualRefreshProvider>
+        )}
+      </LiekanLocaleContext.Provider>
     </QueryClientProvider>
   );
   const view = render(value());
   return {
     ...view,
     client,
+    changeLanguage(language: 'zh-CN' | 'en-US') {
+      locale = language;
+      view.rerender(value());
+    },
     updateContext(next: any) {
       context = next;
       view.rerender(value());

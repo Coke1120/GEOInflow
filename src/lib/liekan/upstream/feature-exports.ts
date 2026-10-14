@@ -21,7 +21,9 @@ import { LiekanError, reportSnapshot } from './server';
 import { analyticsGate } from './analytics-budget';
 import { readKeywordFacts, validateKeywordRange } from './keywords';
 import { getHumanFacts } from './analytics';
-import { geographyTable, geographyVersion } from '../contracts/geography';
+import { countryName, geographyTable, geographyVersion } from '../contracts/geography';
+import type { LiekanLocale } from '../i18n/locale';
+import { DATA_TYPES } from '@/lib/constants';
 import {
   selectKeywords,
   supportsKeywordRedirect,
@@ -30,6 +32,101 @@ import {
   keywordEvidenceLabels,
   redactKeywordTerm,
 } from '../contracts/keywords';
+
+const englishExportLabels: Record<string, string> = {
+  统计读取时间: 'Statistics read at',
+  开始时间: 'Start time',
+  结束时间: 'End time',
+  时区: 'Timezone',
+  筛选条件: 'Filters',
+  一致性: 'Consistency',
+  '关键词/状态': 'Keyword / status',
+  搜索引擎: 'Search engine',
+  识别依据: 'Evidence',
+  会话数: 'Sessions',
+  '搜索渠道占比(%)': 'Search channel share (%)',
+  '跳出率(%)': 'Bounce rate (%)',
+  '转化率(%)': 'Conversion rate (%)',
+  城市: 'City',
+  会话: 'Sessions',
+  '占比(%)': 'Share (%)',
+  '平均时长(秒)': 'Average duration (seconds)',
+  已识别: 'Identified',
+  来源未携带搜索词: 'Source has no search term',
+  跳转链接无可用搜索词: 'Redirect link has no usable search term',
+  无法解析: 'Unable to parse',
+  来源格式不支持: 'Unsupported source format',
+  证据冲突: 'Conflicting evidence',
+  完整性无法确认: 'Completeness unconfirmed',
+  已脱敏: 'Redacted',
+  来源搜索词: 'Referrer search term',
+  'UTM 手动标记': 'Manual UTM tag',
+  无可用关键词: 'No usable keyword',
+  百度: 'Baidu',
+  搜狗: 'Sogou',
+  '360 搜索': '360 Search',
+  神马: 'Shenma',
+};
+const exportLabel = (source: string, locale?: LiekanLocale) =>
+  locale === 'en-US' && Object.hasOwn(englishExportLabels, source)
+    ? englishExportLabels[source]
+    : source;
+const englishFieldLabels: Record<string, string> = {
+  pageviews: 'Pageviews',
+  visitors: 'Visitors',
+  visits: 'Sessions',
+  bounces: 'Bounces',
+  totaltime: 'Total duration (seconds)',
+  id: 'Visitor ID',
+  firstAt: 'First seen',
+  lastAt: 'Last seen',
+  views: 'Pageviews',
+  events: 'Events',
+  browser: 'Browser',
+  device: 'Device',
+  country: 'Country / region',
+  name: 'Name',
+  triggers: 'Triggers',
+  event: 'Event',
+  property: 'Property',
+  type: 'Type',
+  value: 'Value',
+};
+function csvFieldLabel(file: string, field: string, locale?: LiekanLocale) {
+  if (locale !== 'en-US') return field;
+  if (field === 'name')
+    return (
+      {
+        'pages.csv': 'Page',
+        'sources.csv': 'Referrer',
+        'browsers.csv': 'Browser',
+        'devices.csv': 'Device',
+        'countries.csv': 'Country / region',
+        'events.csv': 'Event',
+      }[file] || 'Name'
+    );
+  return Object.hasOwn(englishFieldLabels, field) ? englishFieldLabels[field] : field;
+}
+function csvDisplayValue(file: string, field: string, value: unknown, locale?: LiekanLocale) {
+  if (locale !== 'en-US') return value;
+  if (
+    typeof value === 'string' &&
+    (field === 'country' || (file === 'countries.csv' && field === 'name'))
+  )
+    return countryName(value, locale);
+  if (
+    typeof value === 'string' &&
+    (field === 'device' || (file === 'devices.csv' && field === 'name'))
+  ) {
+    const devices = { desktop: 'Desktop', laptop: 'Laptop', mobile: 'Mobile', tablet: 'Tablet' };
+    return Object.hasOwn(devices, value) ? devices[value] : value;
+  }
+  if (file === 'event-properties.csv' && field === 'type')
+    return Object.hasOwn(DATA_TYPES, String(value))
+      ? DATA_TYPES[value as keyof typeof DATA_TYPES]
+      : value;
+  return value;
+}
 
 export async function prepareFeatureExport(
   website: { id: string; name: string; domain: string },
@@ -115,6 +212,7 @@ async function prepareSnapshot(
   let bytes = 0,
     rows = 0;
   const add = (name: string, data: any[], format: 'csv' | 'json' = 'csv') => {
+    const displayLocale = p.format === 'json' ? undefined : p.locale;
     rows += data.length;
     if (rows > EXPORT_MAX_ROWS)
       throw new LiekanError('导出明细超过 100,000 行，请缩小日期范围或数据范围', 413);
@@ -130,13 +228,13 @@ async function prepareSnapshot(
         ? JSON.stringify(safe)
         : Papa.unparse(
             {
-              fields: fields.map(safeCsvCell),
+              fields: fields.map(key => safeCsvCell(csvFieldLabel(name, key, displayLocale))),
               data: safe.map(row =>
                 fields.map(key =>
                   safeCsvCell(
                     typeof row[key] === 'object' && row[key] !== null
                       ? JSON.stringify(row[key])
-                      : row[key],
+                      : csvDisplayValue(name, key, row[key], displayLocale),
                   ),
                 ),
               ),
@@ -235,7 +333,7 @@ async function prepareSnapshot(
   }
   aborted();
   const manifest = {
-    product: 'Liekan 猎看统计',
+    product: p.locale === 'en-US' && p.format !== 'json' ? 'Liekan Analytics' : 'Liekan 猎看统计',
     createdAt: new Date().toISOString(),
     website: { name: website.name, domain: website.domain },
     range: { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
@@ -244,8 +342,18 @@ async function prepareSnapshot(
     format: p.format,
     consistency: 'repeatable-read',
     limits: { rows: EXPORT_MAX_ROWS, bytes: EXPORT_MAX_BYTES },
-    privacy: '会话标识在本文件内脱敏；不包含原始 IP、账户凭据、密钥或备份代码',
-    files: files.map(({ name, rows, fields }) => ({ name, rows, fields })),
+    privacy:
+      p.locale === 'en-US' && p.format !== 'json'
+        ? 'Session identifiers are anonymized within this file. Raw IP addresses, account credentials, keys and backup codes are excluded.'
+        : '会话标识在本文件内脱敏；不包含原始 IP、账户凭据、密钥或备份代码',
+    files: files.map(({ name, rows, fields }) => ({
+      name,
+      rows,
+      fields,
+      ...(p.locale === 'en-US' && p.format !== 'json' && name.endsWith('.csv')
+        ? { displayFields: fields.map(field => csvFieldLabel(name, field, p.locale)) }
+        : {}),
+    })),
   };
   const manifestContent = JSON.stringify(manifest, null, 2);
   bytes += Buffer.byteLength(manifestContent);
@@ -275,7 +383,11 @@ function exportFilesResponse(
           controller.enqueue(new TextEncoder().encode(JSON.stringify(frame) + '\n'));
         };
         try {
-          emit({ type: 'progress', stage: '已完成数据查询与范围校验', percent: 0 });
+          emit({
+            type: 'progress',
+            stage: '已完成数据查询与范围校验',
+            percent: 0,
+          });
           let file: Buffer;
           if (format === 'zip') {
             const zip = new JSZip();
@@ -378,7 +490,7 @@ async function prepareKeywordSnapshot(
     ['时区', p.timezone],
     ['筛选条件', JSON.stringify(safeConditions)],
     ['一致性', 'repeatable-read'],
-  ];
+  ].map(([label, value]) => [exportLabel(label, p.locale), value]);
   const fields = [
     '关键词/状态',
     '搜索引擎',
@@ -387,11 +499,11 @@ async function prepareKeywordSnapshot(
     '搜索渠道占比(%)',
     '跳出率(%)',
     '转化率(%)',
-  ];
+  ].map(label => exportLabel(label, p.locale));
   const data = selected.rows.map(row => [
-    row.keyword || keywordStatusLabels[row.status],
-    row.engine,
-    keywordEvidenceLabels[row.evidence],
+    row.keyword || exportLabel(keywordStatusLabels[row.status], p.locale),
+    exportLabel(row.engine, p.locale),
+    exportLabel(keywordEvidenceLabels[row.evidence], p.locale),
     row.sessions,
     row.share,
     row.bounceRate,
@@ -450,10 +562,12 @@ async function prepareGeographySnapshot(
     { rows: EXPORT_MAX_ROWS, bytes: EXPORT_MAX_BYTES },
   );
   aborted();
-  const rows = geographyTable(facts.geo, facts.totals.visits, !!facts.goals.length, p);
+  const rows = geographyTable(facts.geo, facts.totals.visits, !!facts.goals.length, p, p.locale);
   if (rows.length > EXPORT_MAX_ROWS)
     throw new LiekanError('地域导出超过 100,000 行，请缩小范围', 413);
-  const fields = ['城市', '会话', '占比(%)', '平均时长(秒)', '跳出率(%)', '转化率(%)'];
+  const fields = ['城市', '会话', '占比(%)', '平均时长(秒)', '跳出率(%)', '转化率(%)'].map(label =>
+    exportLabel(label, p.locale),
+  );
   const safeRows = sanitizeExportValue(rows) as typeof rows;
   const content =
     '\ufeff' +

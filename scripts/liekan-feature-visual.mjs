@@ -1,3 +1,4 @@
+import { checkEnglishExperience } from './liekan-i18n-visual.mjs';
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 import { checkMobileExperience } from './liekan-mobile-visual.mjs';
 import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
@@ -521,6 +522,47 @@ try {
     partial,
     journey,
     token: adminToken,
+  });
+  const geoRoutes = [
+    '',
+    '/ai',
+    '/ai/bots',
+    '/ai/pages',
+    '/ai/preference',
+    '/human',
+    '/human/geo',
+    '/human/sources',
+    '/human/search-engines',
+    '/human/keywords',
+    '/content',
+    '/conversions',
+    '/logs',
+  ];
+  const englishRoutes = manifest.pages.map(p => ({
+    id: p.id,
+    path:
+      p.id === 'login'
+        ? '/login'
+        : p.id === 'login-2fa'
+          ? '/login/two-factor'
+          : p.id === 'sso'
+            ? '/sso'
+            : `/liekan/${p.id}?${params(p.id)}`,
+  }));
+  englishRoutes.push(
+    ...geoRoutes.map((suffix, index) => ({
+      id: `geo-${index}`,
+      path: `/websites/${seed.website.id}/geo${suffix}?${params('overview')}`,
+    })),
+    { id: 'help', path: '/liekan/help' },
+  );
+  report.english = await checkEnglishExperience({
+    browser,
+    base,
+    seed,
+    token: adminToken,
+    partial,
+    routes: englishRoutes,
   });
   report.passed = true;
 } catch (error) {

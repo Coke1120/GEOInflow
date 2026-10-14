@@ -13,6 +13,7 @@ vi.mock('@/lib/request', () => ({ getQueryFilters: vi.fn() }));
 vi.mock('@/queries/sql', () => ({ getWebsiteStats: vi.fn() }));
 vi.mock('@/queries/prisma', () => ({ getWebsiteSegment: vi.fn() }));
 import { prepareFeatureExport } from './feature-exports';
+import Papa from 'papaparse';
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.execute.mockResolvedValue(0);
@@ -193,4 +194,59 @@ it('redacts credential-shaped filters in both CSV metadata and the manifest', as
   expect(JSON.stringify(frames.find(f => f.type === 'file').manifest)).not.toContain(
     'synthetic-secret',
   );
+});
+
+it('localizes keyword display and metadata while retaining raw terms, conditions and privacy protections', async () => {
+  const facts = {
+    hasGoals: false,
+    readAt: 1000,
+    rows: [
+      { id: 'known', keyword: '来源未携带搜索词', status: 'available', evidence: 'referrer' },
+      { id: 'missing', keyword: null, status: 'missing', evidence: 'none' },
+      { id: 'formula', keyword: '=1+1', status: 'available', evidence: 'utm' },
+    ].map(row => ({ ...row, engine: '百度', sessions: 1, bounces: 0, conversions: 0 })),
+  };
+  mocks.facts.mockResolvedValue(facts);
+  const input = {
+    kind: 'source-keywords',
+    format: 'csv',
+    startAt: 0,
+    endAt: 1000,
+    keywordStatusVersion: '2',
+    engine: '百度',
+  };
+  const read = async (locale?: string) => {
+    const response = await prepareFeatureExport(
+      { id: 'site', name: '客户原名', domain: 'fixture.test' },
+      { ...input, ...(locale ? { locale } : {}) },
+      new AbortController().signal,
+    );
+    const frames = (await response.text())
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line));
+    expect(frames.at(-1).type).toBe('complete');
+    return {
+      csv: Buffer.concat(
+        frames.filter(f => f.type === 'chunk').map(f => Buffer.from(f.data, 'base64')),
+      ).toString(),
+      manifest: frames.find(f => f.type === 'file').manifest,
+    };
+  };
+  const omitted = await read();
+  expect((await read('zh-CN')).csv).toBe(omitted.csv);
+  const english = await read('en-US');
+  expect(english.csv).toContain('Statistics read at,1970-01-01T00:00:01.000Z');
+  const rows = Papa.parse(english.csv.split('\r\n\r\n')[1], { header: true }).data as Record<
+    string,
+    string
+  >[];
+  expect(rows).toHaveLength(3);
+  expect(rows.map(row => row['Keyword / status'])).toContain('来源未携带搜索词');
+  expect(rows.map(row => row['Keyword / status'])).toContain('Source has no search term');
+  expect(rows.map(row => row['Keyword / status'])).toContain("'=1+1");
+  expect(rows.every(row => row['Search engine'] === 'Baidu')).toBe(true);
+  expect(english.manifest.conditions).toEqual(omitted.manifest.conditions);
+  expect(english.manifest.website.name).toBe('客户原名');
+  expect(facts.rows[0].keyword).toBe('来源未携带搜索词');
 });

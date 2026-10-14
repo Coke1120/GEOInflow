@@ -51,40 +51,52 @@ export function searchText(query: string, fields: string[]) {
   const haystack = fields.join(' ').normalize('NFKC').toLowerCase();
   return terms.every(term => haystack.includes(term));
 }
-export function searchArticles(query: string, section?: string) {
+export function searchArticles(query: string, section?: string, display = (text: string) => text) {
   return helpArticles.filter(
     article =>
       (!section || article.section === section) &&
-      searchText(query, [
-        article.title,
-        article.summary,
-        ...article.keywords,
-        ...article.blocks.flatMap(block => [
-          block.title,
-          ...block.paragraphs,
-          block.code?.text || '',
-        ]),
-      ]),
+      searchText(
+        query,
+        [
+          article.title,
+          article.summary,
+          ...article.keywords,
+          ...article.blocks.flatMap(block => [
+            block.title,
+            ...block.paragraphs,
+            block.code?.text || '',
+          ]),
+        ].flatMap(text => [text, display(text)]),
+      ),
   );
 }
-export function searchCrawlers(query: string, purpose = '', vendor = '', kind = '') {
+export function searchCrawlers(
+  query: string,
+  purpose = '',
+  vendor = '',
+  kind = '',
+  display = (text: string) => text,
+) {
   return helpCrawlers.filter(
     crawler =>
       (!purpose || crawler.purposes.includes(purpose as any)) &&
       (!vendor || crawler.vendor === vendor) &&
       (!kind || crawler.kind === kind) &&
-      searchText(query, [
-        crawler.name,
-        crawler.vendor,
-        crawler.token,
-        crawler.robotsToken || '',
-        crawler.ua || '',
-        crawler.summary,
-        ...crawler.aliases,
-        ...crawler.purposes,
-        ...crawler.feeds.map(feed => feed.url),
-        crawler.verification,
-      ]),
+      searchText(
+        query,
+        [
+          crawler.name,
+          crawler.vendor,
+          crawler.token,
+          crawler.robotsToken || '',
+          crawler.ua || '',
+          crawler.summary,
+          ...crawler.aliases,
+          ...crawler.purposes,
+          ...crawler.feeds.map(feed => feed.url),
+          crawler.verification,
+        ].flatMap(text => [text, display(text)]),
+      ),
   );
 }
 export function crawlerRobotsDraft(crawler: Crawler): string | undefined {

@@ -64,3 +64,7 @@ ClickHouse 补充回归运行 `pnpm exec tsx scripts/liekan-geography-clickhouse
 - [Plausible 定位采集](https://github.com/plausible/analytics/blob/master/lib/plausible/ingestion/geolocation.ex) 保存城市 GeoNames ID 与 ISO 地域编码，其 [Location 地名库](https://github.com/plausible/location) 独立提供地名数据。猎看现有记录仅有名称，因此查询时结合国家、省份与审核别名确定身份，保留缺失依据。
 - [Matomo GeoIP2 地域处理](https://github.com/matomo-org/matomo/blob/5.x-dev/plugins/GeoIp2/LocationProvider/GeoIp2.php) 明确区分 FIPS 与 ISO 编码，并支持 DB-IP 与 MaxMind 数据库。猎看的目录更新也保留来源编码对照与定位库能力边界。
 - [GeoNames 数据格式](https://download.geonames.org/export/dump/readme.txt) 提供语言、历史名称、地物类别与行政编码元数据；审核城市目录时保留对应地域身份与明确别名。
+
+## Display language
+
+Geographic labels accept an optional `zh-CN` or `en-US` display locale. Country and region codes and catalog city IDs determine the label. English city names use the catalog's existing English aliases. Unknown names retain the supplied text. Identity keys, aliases, merges, sorting, filters, counts and rates stay independent of display language. Optional report metadata carries the geographic identities for retained cards, charts and paginated rows. Geography CSV captures the requested locale; omitted locale retains the existing Chinese output.

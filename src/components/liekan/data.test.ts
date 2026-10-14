@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { csvText, isLiekanRoute, isWebsiteLanding, selectRows, tableCsv } from './data';
+import { translateText } from '@/lib/liekan/i18n/text';
 
 describe('Liekan route boundary', () => {
   it('recognizes all geo paths and team-scoped variants', () => {
@@ -17,6 +18,25 @@ it('redirects only the exact website landing and preserves the settings route', 
   expect(isWebsiteLanding(`/websites/${id}/geo`)).toBe(false);
 });
 describe('report selection and CSV export', () => {
+  it('exports English headers and durations while preserving raw names, selection and legacy output', () => {
+    const rows = [
+      { city: '未审核城镇', sessions: 1, duration: 75 },
+      { city: '另一城市', sessions: 5, duration: 120 },
+    ];
+    const sort = { label: '会话', direction: -1 };
+    const original = JSON.stringify(rows);
+    const english = tableCsv('cityBody', rows, '全部', sort, '未审核', undefined, 'en-US', source =>
+      translateText(source, 'en-US'),
+    );
+    expect(english).toContain('"City"');
+    expect(english).toContain('"未审核城镇"');
+    expect(english).toContain('"1m 15s"');
+    expect(english).not.toContain('另一城市');
+    const legacy = tableCsv('cityBody', rows, '全部', sort, '未审核');
+    expect(legacy).toContain('"城市"');
+    expect(legacy).toContain('"1分15秒"');
+    expect(JSON.stringify(rows)).toBe(original);
+  });
   it('filters classifications and sorts numeric values without mutating data', () => {
     const rows = [
       { name: 'GPTBot', type: 'AI 训练', requests: 3 },

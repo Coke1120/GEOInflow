@@ -30,6 +30,7 @@ import { liekanReportSchema } from './contracts/report';
 import { pageReportParts, type ReportResource } from './contracts/page-report';
 import { buildReport } from './report';
 import { sharedReportParts } from './contracts/shared-report';
+import { geographyLabel, regionName } from './contracts/geography';
 
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
@@ -111,6 +112,42 @@ beforeEach(() => {
   mocks.months.mockResolvedValue([]);
 });
 describe('report evidence states', () => {
+  it('accepts existing report contracts without geography display metadata and validates stable city IDs when provided', async () => {
+    const report = await buildReport(website, false, params);
+    expect(liekanReportSchema.safeParse(report).success).toBe(true);
+    const legacy = structuredClone(report);
+    delete legacy.meta.geography;
+    expect(liekanReportSchema.safeParse(legacy).success).toBe(true);
+    const invalid = structuredClone(report);
+    invalid.meta.geography.cards = {
+      test: { country: 'CN', region: 'CN-61', city: '西安', cityId: '1790630' as any },
+    };
+    expect(liekanReportSchema.safeParse(invalid).success).toBe(false);
+  });
+  it('retains a missing province as unknown display metadata without synthesizing a region code', async () => {
+    const human = await mocks.human();
+    human.totals.visits = 1;
+    human.geo = [
+      {
+        country: 'CN',
+        region: null,
+        city: 'Unlisted Town',
+        sessions: 1,
+        duration: 0,
+        bounces: 0,
+        conversions: 0,
+      },
+    ];
+    mocks.human.mockResolvedValue(human);
+    const report = await buildReport(website, false, { ...params, resource: 'human/geo' }, true);
+    expect(report.charts.g1.labels).toEqual(['未知']);
+    expect(report.charts.g1.series[0].values).toEqual([1]);
+    expect(report.meta.geography.charts.g1).toEqual([
+      { country: 'CN', region: null, city: null, cityId: null },
+    ]);
+    const location = report.meta.geography.charts.g1[0];
+    expect(regionName(location.region, location.country, 'en-US')).toBe('Unknown');
+  });
   it('merges historical geography before ranking, search and server pagination', async () => {
     const human = await mocks.human();
     human.totals.visits = 39;
@@ -137,6 +174,14 @@ describe('report evidence states', () => {
     expect(report.charts.g1.series[0].values).toEqual([39]);
     expect(report.meta.tablePages.cityBody).toMatchObject({ total: 27, page: 1 });
     expect(report.tables.cityBody).toHaveLength(20);
+    expect(report.meta.geography.charts.g1).toEqual([
+      { country: 'CN', region: 'CN-61', city: null, cityId: null },
+    ]);
+    expect(report.meta.geography.cards['TOP1 城市'].cityId).toBe(1790630);
+    expect(report.meta.geography.tables.cityBody).toHaveLength(20);
+    report.tables.cityBody.forEach((row, index) =>
+      expect(geographyLabel(report.meta.geography.tables.cityBody[index])).toBe(row.city),
+    );
     const searched = await buildReport(
       website,
       false,
@@ -145,6 +190,8 @@ describe('report evidence states', () => {
     );
     expect(searched.meta.tablePages.cityBody.total).toBe(1);
     expect(searched.tables.cityBody[0]).toMatchObject({ city: '西安', sessions: 6, share: 15.38 });
+    expect(searched.meta.geography.tables.cityBody).toHaveLength(1);
+    expect(geographyLabel(searched.meta.geography.tables.cityBody[0], 'en-US')).toBe("Xi'an");
     const narrowed = await buildReport(
       website,
       false,
@@ -160,6 +207,7 @@ describe('report evidence states', () => {
       true,
     );
     expect(empty.meta.tablePages.cityBody).toMatchObject({ total: 0, page: 1 });
+    expect(empty.meta.geography.tables.cityBody).toEqual([]);
     const last = await buildReport(
       website,
       false,
@@ -167,6 +215,10 @@ describe('report evidence states', () => {
       true,
     );
     expect(last.tables.cityBody).toHaveLength(7);
+    expect(last.meta.geography.tables.cityBody).toHaveLength(7);
+    last.tables.cityBody.forEach((row, index) =>
+      expect(geographyLabel(last.meta.geography.tables.cityBody[index])).toBe(row.city),
+    );
   });
   it('excludes private funnel configuration diagnostics from the public share profile', async () => {
     const human = await mocks.human();

@@ -8,6 +8,7 @@ import { AiClientError } from '@/lib/liekan/upstream/ai-client';
 import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
 import { ManualRefreshControl } from '../ManualRefreshControl';
 import { setTestUrl } from '@/test/navigation';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const id = '11111111-1111-4111-8111-111111111111';
 const siteId = '22222222-2222-4222-8222-222222222222';
@@ -105,15 +106,24 @@ const connection = () => ({
   testedAt: null,
   capabilities: { keyVerified: { text: true, stream: true } },
 });
-function mount(page = 'ai-config') {
+function mount(page = 'ai-config', locale: 'zh-CN' | 'en-US' = 'zh-CN') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = () => (
     <QueryClientProvider client={client}>
-      <AiPages page={page} />
+      <LiekanLocaleContext.Provider value={locale}>
+        <AiPages page={page} />
+      </LiekanLocaleContext.Provider>
     </QueryClientProvider>
   );
   const result = render(view());
-  return { ...result, refreshContext: () => result.rerender(view()) };
+  return {
+    ...result,
+    refreshContext: () => result.rerender(view()),
+    changeLanguage: (value: 'zh-CN' | 'en-US') => {
+      locale = value;
+      result.rerender(view());
+    },
+  };
 }
 beforeEach(() => {
   vi.clearAllMocks();
@@ -140,6 +150,55 @@ beforeEach(() => {
   }));
 });
 describe('Liekan AI production interactions', () => {
+  it('localizes controlled recent-call metadata while retaining its original operation and state', async () => {
+    const user = userEvent.setup();
+    const lastCall = {
+      operation: 'test',
+      state: 'completed',
+      createdAt: '2026-10-14T00:00:00Z',
+      completedAt: '2026-10-14T00:00:01Z',
+    };
+    const original = JSON.stringify(lastCall);
+    mocks.connections.mockResolvedValue({ items: [{ ...connection(), lastCall }] });
+    mount('ai-config', 'en-US');
+    await user.click(await screen.findByText('Last call'));
+    const detail = screen.getByText('Last call').closest('details');
+    expect(detail).toHaveTextContent(/Connection test.*Completed.*Start.*End/);
+    expect(detail.textContent).not.toMatch(/连接测试|已完成|开始|结束/);
+    expect(JSON.stringify(lastCall)).toBe(original);
+  });
+  it('localizes personal-space metadata and owned validation while preserving team names and request identity', async () => {
+    const user = userEvent.setup();
+    const data = catalog();
+    data.spaces.push({
+      kind: 'team',
+      id: 'team-raw',
+      name: '个人空间',
+      canManage: true,
+      canUse: true,
+    });
+    mocks.catalog.mockResolvedValue(data);
+    const view = mount('ai-config', 'en-US');
+    await screen.findByRole('combobox', { name: 'AI space' });
+    expect(screen.getByRole('option', { name: 'Personal space · Personal' })).toHaveValue(
+      `personal:${id}`,
+    );
+    expect(screen.getByRole('option', { name: '个人空间 · Team' })).toHaveValue('team:team-raw');
+    await user.click(screen.getByRole('button', { name: 'New API' }));
+    expect(screen.getByText(/^Space: Personal space/)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Save API' }));
+    expect(screen.getByLabelText('API Key')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('API Key')).toHaveAccessibleDescription(
+      'Please fill in the API Key of the current interface.',
+    );
+    expect(screen.queryByText('请填写当前接口的 API Key。')).not.toBeInTheDocument();
+    expect(mocks.createConnection).not.toHaveBeenCalled();
+    view.changeLanguage('zh-CN');
+    expect(screen.getByLabelText('API Key')).toHaveAccessibleDescription(
+      '请填写当前接口的 API Key。',
+    );
+    expect(mocks.createConnection).not.toHaveBeenCalled();
+  });
   it.each([null, answer.contextId])(
     'shows statistics attribution only for a saved snapshot with context=%s',
     async contextId => {
@@ -195,6 +254,34 @@ describe('Liekan AI production interactions', () => {
 });
 
 describe('AI scope, cancellation and recovery', () => {
+  it('captures the analysis language once and keeps an active request intact through UI language changes', async () => {
+    const user = userEvent.setup();
+    mocks.context.query = { aiSite: siteId };
+    let complete: (value: any) => void;
+    mocks.stream.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          complete = resolve;
+        }),
+    );
+    const view = mount('ai-chat', 'en-US');
+    await user.type(await screen.findByLabelText('Analysis question'), '分析原始问题：页面访问');
+    await user.selectOptions(screen.getByLabelText('Analysis model'), 'local');
+    await user.click(screen.getByRole('button', { name: 'Start analysis' }));
+    await waitFor(() => expect(mocks.stream).toHaveBeenCalledTimes(1));
+    expect(mocks.stream.mock.calls[0][1]).toMatchObject({
+      locale: 'en-US',
+      question: '分析原始问题：页面访问',
+    });
+    const signal = mocks.stream.mock.calls[0][2];
+    view.changeLanguage('zh-CN');
+    view.changeLanguage('en-US');
+    expect(mocks.stream).toHaveBeenCalledTimes(1);
+    expect(mocks.cancel).not.toHaveBeenCalled();
+    expect(signal.aborted).toBe(false);
+    await act(async () => complete(completed({ result: answer })));
+    expect(await screen.findByText(answer.summary)).toBeVisible();
+  });
   it('requires an explicit website and suggestion buttons only fill the question', async () => {
     const user = userEvent.setup();
     mount('ai-chat');

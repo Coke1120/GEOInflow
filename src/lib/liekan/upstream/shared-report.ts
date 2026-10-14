@@ -1,4 +1,5 @@
-import { geographyVersion } from '../contracts/geography';
+import { geographyVersion, type GeographyDisplay } from '../contracts/geography';
+import type { LiekanReport } from '../contracts/report';
 import { checkAuth } from '@/lib/auth';
 import { ENTITY_TYPE } from '@/lib/constants';
 import { canViewWebsiteSection } from '@/permissions/share';
@@ -122,14 +123,16 @@ function projectSharedReport(
   goals: boolean,
 ): SharedReport {
   // Publish only the aggregate fields consumed by the shared dashboard.
+  const cards = report.cards.filter(
+    card =>
+      (sharedReportParts.cards as readonly string[]).includes(card.label) &&
+      (report.meta.aiCrawlerEnabled !== false || card.label !== 'AI 蜘蛛请求'),
+  );
+  const geography = projectSharedGeography(report, cards);
   const result = sharedReportSchema.parse({
     ...report,
     website,
-    cards: report.cards.filter(
-      card =>
-        (sharedReportParts.cards as readonly string[]).includes(card.label) &&
-        (report.meta.aiCrawlerEnabled !== false || card.label !== 'AI 蜘蛛请求'),
-    ),
+    cards,
     charts: Object.fromEntries(
       sharedReportParts.charts.map(id => {
         const { labels, series, state } = report.charts[id];
@@ -177,8 +180,55 @@ function projectSharedReport(
       canManage: false,
       latestImportAt: null,
       ruleCount: 0,
+      ...(geography && { geography }),
     },
     capabilities: { goals },
   });
   return result as SharedReport;
+}
+
+function projectSharedGeography(
+  report: LiekanReport,
+  cards: LiekanReport['cards'],
+): LiekanReport['meta']['geography'] {
+  const source = report.meta.geography;
+  if (!source) return undefined;
+  const place = (
+    value: GeographyDisplay,
+    scope: 'country' | 'region' | 'city',
+  ): GeographyDisplay => ({
+    country: value.country,
+    region: scope === 'country' ? null : value.region,
+    city: scope === 'city' ? value.city : null,
+    cityId: scope === 'city' ? value.cityId : null,
+  });
+  const geography: NonNullable<LiekanReport['meta']['geography']> = {
+    charts: {},
+    tables: {},
+    cards: {},
+  };
+  for (const [id, limit] of [
+    ['g1', 10],
+    ['g2', 8],
+  ] as const) {
+    const count = report.charts[id]?.labels.length;
+    const locations = source.charts?.[id];
+    if (count <= limit && locations && locations.length >= count)
+      geography.charts[id] = locations
+        .slice(0, count)
+        .map(value => place(value, id === 'g1' ? 'region' : 'country'));
+  }
+  const count = Math.min(12, report.tables.cityBody.length);
+  const locations = source.tables?.cityBody;
+  if (locations && locations.length >= count)
+    geography.tables.cityBody = locations.slice(0, count).map(value => place(value, 'city'));
+  for (const card of cards) {
+    if (card.label !== 'TOP1 城市' && card.label !== '海外 TOP1') continue;
+    const value = source.cards?.[card.key];
+    if (value)
+      geography.cards[card.key] = place(value, card.label === '海外 TOP1' ? 'country' : 'city');
+  }
+  return Object.values(geography).some(entries => Object.keys(entries).length)
+    ? geography
+    : undefined;
 }

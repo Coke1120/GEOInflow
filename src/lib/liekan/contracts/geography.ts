@@ -1,11 +1,28 @@
 import catalog from './geography-catalog.json' with { type: 'json' };
 import { normalizeCountryCode, normalizeRegionCode } from '../upstream/geography-codes';
 import countries from '../../../../public/intl/country/zh-CN.json' with { type: 'json' };
+import englishCountries from '../../../../public/intl/country/en-US.json' with { type: 'json' };
 import regions from '../../../../public/iso-3166-2.json' with { type: 'json' };
+import type { LiekanLocale } from '../i18n/locale';
 
 export const geographyVersion = `geo-${catalog.version}-rules-2`;
 export const provinceDefinitions = catalog.provinces;
 export const cityDefinitions = catalog.cities;
+const citiesById = new Map(cityDefinitions.map(city => [city.id, city]));
+// Display names reuse the reviewed aliases attached to each stable GeoNames ID.
+const englishCityNames = new Map(
+  cityDefinitions.map(city => [
+    city.id,
+    city.id === 1529102
+      ? city.aliases.find(alias => alias === 'Urumqi')
+      : city.aliases.find(alias => /^[\p{Script=Latin}\p{Mark}\s.'’\-]+$/u.test(alias)),
+  ]),
+);
+const englishProvinceNames: Record<string, string> = {
+  'CN-71': 'Taiwan',
+  'CN-91': 'Hong Kong',
+  'CN-92': 'Macao',
+};
 export const geographyAlias = (value: string) => value.normalize('NFC').trim().toLowerCase();
 export const requiresRegion = (country: string, alias: string) =>
   country === 'CN' &&
@@ -37,12 +54,17 @@ export function geographyRegion(region?: string | null, country?: string | null)
   return provinceCodes.get(normalized) || normalized || null;
 }
 
-export function countryName(code?: string | null) {
+export function countryName(code?: string | null, locale: LiekanLocale = 'zh-CN') {
   const country = normalizeCountryCode(code?.trim());
-  return countries[country] || country || '未知';
+  const names = locale === 'en-US' ? englishCountries : countries;
+  return names[country] || country || (locale === 'en-US' ? 'Unknown' : '未知');
 }
 
-export function regionName(code?: string | null, country?: string | null) {
+export function regionName(
+  code?: string | null,
+  country?: string | null,
+  locale: LiekanLocale = 'zh-CN',
+) {
   const region = geographyRegion(code, country);
   if (
     region?.includes('-') &&
@@ -50,9 +72,14 @@ export function regionName(code?: string | null, country?: string | null) {
     normalizeCountryCode(region.split('-')[0]) !== normalizeCountryCode(country.trim())
   )
     return region;
-  return (
-    provinceDefinitions.find(p => p.code === region)?.name || regions[region] || region || '未知'
-  );
+  const province = provinceDefinitions.find(p => p.code === region);
+  return locale === 'en-US'
+    ? englishProvinceNames[region] ||
+        regions[province?.alias || region] ||
+        regions[region] ||
+        region ||
+        'Unknown'
+    : province?.name || regions[region] || region || '未知';
 }
 
 export function regionAliases(code?: string | null, country?: string | null) {
@@ -105,6 +132,12 @@ export function cityValueOptions(
 }
 
 export type Geography = { country?: string | null; region?: string | null; city?: string | null };
+export type GeographyDisplay = {
+  country: string | null;
+  region: string | null;
+  city: string | null;
+  cityId: number | null;
+};
 export function identifyCity(value: Geography) {
   const country = normalizeCountryCode(value.country?.trim());
   const region = geographyRegion(value.region, value.country);
@@ -135,24 +168,49 @@ export function identifyCity(value: Geography) {
   };
 }
 
-export function geographyLabel(value: Geography) {
-  const city = identifyCity(value);
-  if (city.name) return city.name;
-  if (city.region) return `${regionName(city.region, city.country)} · 城市未知`;
-  if (city.country) return `${countryName(city.country)} · 城市未知`;
-  return '地域未知';
+export function geographyDisplay(value: Geography): GeographyDisplay {
+  const { country, region, city, cityId } = identifyCity(value);
+  return { country, region, city, cityId };
 }
 
-export function visitorGeographyLabel(value: Geography) {
+export function cityName(
+  value: Geography & { cityId?: number | null },
+  locale: LiekanLocale = 'zh-CN',
+) {
+  const identity = identifyCity(value);
+  const cityId = value.cityId ?? identity.cityId;
+  return locale === 'en-US'
+    ? englishCityNames.get(cityId) || identity.city
+    : citiesById.get(cityId)?.name || identity.name;
+}
+
+export function geographyLabel(
+  value: Geography & { cityId?: number | null },
+  locale: LiekanLocale = 'zh-CN',
+) {
   const city = identifyCity(value);
-  if (!city.name) return geographyLabel(value);
+  const name = cityName(value, locale);
+  if (name) return name;
+  const unknown = locale === 'en-US' ? 'Unknown city' : '城市未知';
+  if (city.region) return `${regionName(city.region, city.country, locale)} · ${unknown}`;
+  if (city.country) return `${countryName(city.country, locale)} · ${unknown}`;
+  return locale === 'en-US' ? 'Unknown location' : '地域未知';
+}
+
+export function visitorGeographyLabel(
+  value: Geography & { cityId?: number | null },
+  locale: LiekanLocale = 'zh-CN',
+) {
+  const city = identifyCity(value);
+  const name = cityName(value, locale);
+  if (!name) return geographyLabel(value, locale);
   return [
-    city.name,
-    city.region ? regionName(city.region, city.country) : null,
-    city.country ? countryName(city.country) : null,
+    name,
+    city.region ? regionName(city.region, city.country, locale) : null,
+    city.country ? countryName(city.country, locale) : null,
   ]
     .filter(Boolean)
-    .join('，');
+    .join(locale === 'en-US' ? ', ' : '，');
 }
 
 export type GeographyFact = Geography & {
@@ -215,6 +273,17 @@ export function geographyTable(
   visits: number,
   hasGoals: boolean,
   selection: GeographySelection = {},
+  locale: LiekanLocale = 'zh-CN',
+) {
+  return geographyTableDisplay(rows, visits, hasGoals, selection, locale).rows;
+}
+
+export function geographyTableDisplay(
+  rows: GeographyFact[],
+  visits: number,
+  hasGoals: boolean,
+  selection: GeographySelection = {},
+  locale: LiekanLocale = 'zh-CN',
 ) {
   const percent = (count: number, total: number) =>
     total ? Math.round((count / total) * 10000) / 100 : null;
@@ -224,10 +293,12 @@ export function geographyTable(
       !query ||
       [
         geographyLabel(row),
+        geographyLabel(row, 'en-US'),
         row.city,
         ...regionAliases(row.region, row.country),
         regionName(row.region, row.country),
         countryName(row.country),
+        countryName(row.country, 'en-US'),
         ...(cityDefinitions.find(city => city.id === row.cityId)?.aliases || []),
       ].some(value => value && geographyAlias(value).includes(query)),
   );
@@ -239,20 +310,26 @@ export function geographyTable(
     bounceRate: percent(row.bounces, row.sessions),
     conversionRate: hasGoals ? percent(row.conversions, row.sessions) : null,
     key: row.key,
+    location: geographyDisplay(row),
   }));
   const field = selection.geoSort || 'sessions',
     direction = selection.direction === 'asc' ? 1 : -1;
-  return selected
-    .sort((a, b) => {
-      const left = a[field],
-        right = b[field];
-      if (left == null || right == null)
-        return left == null && right == null ? a.key.localeCompare(b.key) : left == null ? 1 : -1;
-      return (
-        (typeof left === 'string' && typeof right === 'string'
-          ? left.localeCompare(right, 'zh-CN')
-          : Number(left) - Number(right)) * direction || a.key.localeCompare(b.key)
-      );
-    })
-    .map(({ key, ...row }) => row);
+  selected.sort((a, b) => {
+    const left = a[field],
+      right = b[field];
+    if (left == null || right == null)
+      return left == null && right == null ? a.key.localeCompare(b.key) : left == null ? 1 : -1;
+    return (
+      (typeof left === 'string' && typeof right === 'string'
+        ? left.localeCompare(right, 'zh-CN')
+        : Number(left) - Number(right)) * direction || a.key.localeCompare(b.key)
+    );
+  });
+  return {
+    rows: selected.map(({ key, location, ...row }) => ({
+      ...row,
+      city: locale === 'en-US' ? geographyLabel(location, locale) : row.city,
+    })),
+    locations: selected.map(row => row.location),
+  };
 }

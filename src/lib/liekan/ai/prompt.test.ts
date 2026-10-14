@@ -628,3 +628,27 @@ it('excludes credential query values embedded in outbound website labels', () =>
   expect(prepared.prompt).not.toContain('canarySecretValue');
   expect(prepared.prompt).not.toContain('private-fragment');
 });
+
+it('instructs new English answers while preserving raw website, question, facts and history', () => {
+  const question = '请分析 页面访问';
+  const history = [
+    {
+      state: 'completed',
+      context,
+      question: '旧问题',
+      answer: { ...answer, summary: '历史回答保持原样' },
+    },
+  ];
+  const prepared = prepareAiPrompt({
+    context,
+    question,
+    history,
+    connectionConfig,
+    locale: 'en-US',
+  });
+  expect(prepared.system).toMatch(/English/);
+  expect(prepared.system).toContain('Possible:');
+  expect(prepared.prompt).toContain(question);
+  expect(prepared.prompt).toContain('测试演示网站');
+  expect(prepared.prompt).toContain('历史回答保持原样');
+});

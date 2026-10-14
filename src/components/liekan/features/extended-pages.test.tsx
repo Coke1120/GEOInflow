@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { ExtendedPages } from './ExtendedPages';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const mocks = vi.hoisted(() => {
   let resolvePlayer!: () => void;
@@ -136,6 +137,27 @@ it.each(['html', 'body'])(
   },
 );
 
+it('preserves replay markers matching interface copy and localizes only an absent marker fallback', () => {
+  mocks.query.replay = {
+    events: [
+      ...replayEvents(),
+      { type: 5, timestamp: 3000, data: { tag: '页面访问' } },
+      { type: 5, timestamp: 4000, data: { tag: '行为标记' } },
+      { type: 5, timestamp: 5000, data: {} },
+    ],
+  };
+  const page = (locale: 'en-US' | 'zh-CN') => (
+    <LiekanLocaleContext.Provider value={locale}>
+      <ExtendedPages page="replay-player" />
+    </LiekanLocaleContext.Provider>
+  );
+  const view = render(page('en-US'));
+  expect(screen.getByRole('button', { name: '页面访问' })).toBeVisible();
+  expect(screen.getByRole('button', { name: '行为标记' })).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Behavior tag' })).toBeVisible();
+  view.rerender(page('zh-CN'));
+  expect(screen.getAllByRole('button', { name: '行为标记' })).toHaveLength(2);
+});
 it('retains a player loading error without presenting a missing-snapshot settings action', async () => {
   mocks.query.replay = { events: replayEvents() };
   mocks.construct.mockImplementationOnce(() => {

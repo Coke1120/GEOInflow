@@ -1,4 +1,6 @@
 'use client';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useEffect, useState } from 'react';
 import { trackerSnippet } from '@/lib/liekan/contracts/core';
 import { useFeature } from './context';
@@ -11,6 +13,7 @@ export function TrackingCode({
   websiteId: string;
   file?: string;
 }) {
+  const i18n = useLiekanI18n();
   const c = useFeature();
   const [tab, setTab] = useState('html');
   const [origin, setOrigin] = useState('');
@@ -24,12 +27,12 @@ export function TrackingCode({
         items={[
           ['html', 'HTML'],
           ['next', 'Next.js'],
-          ['gtm', '标签管理器'],
+          ['gtm', i18n.text('标签管理器')],
         ]}
         active={tab}
         onChange={setTab}
       />
-      <Code>{snippet || '正在生成安装代码…'}</Code>
+      <Code>{snippet || i18n.text('正在生成安装代码…')}</Code>
       <div className="row">
         <Button
           disabled={!snippet}
@@ -39,9 +42,9 @@ export function TrackingCode({
           }}
         >
           <Icon name="copy" />
-          复制安装代码
+          {i18n.fragment('复制安装代码', true, false)}
         </Button>
-        <span className="muted">使用当前网站标识与本实例地址。</span>
+        <span className="muted">{i18n.text('使用当前网站标识与本实例地址。')}</span>
       </div>
     </>
   );

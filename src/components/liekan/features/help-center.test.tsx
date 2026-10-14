@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HelpCenter } from './HelpCenter';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const mocks = vi.hoisted(() => ({ query: {} as Record<string, string>, clipboard: vi.fn() }));
 vi.mock('./context', () => ({ useFeature: () => ({ query: mocks.query }) }));
@@ -8,6 +9,28 @@ vi.mock('next/link', () => ({
   default: ({ children, prefetch: _prefetch, ...props }: any) => <a {...props}>{children}</a>,
 }));
 describe('help center reading and drafts', () => {
+  it('retains English search results and query when the display language changes', () => {
+    const view = render(
+      <LiekanLocaleContext.Provider value="en-US">
+        <HelpCenter />
+      </LiekanLocaleContext.Provider>,
+    );
+    const search = screen.getByRole('searchbox');
+    fireEvent.change(search, { target: { value: 'security' } });
+    const links = () =>
+      [...view.container.querySelectorAll('a[href*="article="]')].map(link =>
+        link.getAttribute('href'),
+      );
+    const before = links();
+    expect(before.length).toBeGreaterThan(0);
+    view.rerender(
+      <LiekanLocaleContext.Provider value="zh-CN">
+        <HelpCenter />
+      </LiekanLocaleContext.Provider>,
+    );
+    expect(search).toHaveValue('security');
+    expect(links()).toEqual(before);
+  });
   beforeEach(() => {
     mocks.query = {};
     mocks.clipboard.mockReset().mockResolvedValue(undefined);

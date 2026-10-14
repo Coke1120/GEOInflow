@@ -1,4 +1,7 @@
 'use client';
+import { TableCell } from './ui';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+
 import { useTaskPolling } from '@/lib/liekan/contracts/manual-refresh';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import type {
@@ -95,6 +98,7 @@ export function CrawlerPoliciesPanel({
   websiteId: string;
   permissions: Permissions;
 }) {
+  const i18n = useLiekanI18n();
   const base = `/liekan/websites/${websiteId}`;
   const [list, setList] = useState<List | null>(null),
     [error, setError] = useState(''),
@@ -255,9 +259,9 @@ export function CrawlerPoliciesPanel({
   }
   return (
     <section>
-      <h3>Cloudflare 访问控制</h3>
-      {error && <Notice tone="red">{error}</Notice>}
-      {status && <Notice>{status}</Notice>}
+      <h3>{i18n.text('Cloudflare 访问控制')}</h3>
+      {error && <Notice tone="red">{i18n.system(error)}</Notice>}
+      {status && <Notice>{i18n.system(status)}</Notice>}
       {!list && (
         <Button
           disabled={busy}
@@ -267,17 +271,23 @@ export function CrawlerPoliciesPanel({
             })
           }
         >
-          重新读取访问策略
+          {i18n.text('重新读取访问策略')}
         </Button>
       )}
       {!canControl && (
         <Notice>
-          当前身份可以查看策略。网站所有者、团队负责人或管理员可以管理连接及远端规则。
+          {i18n.text(
+            '当前身份可以查看策略。网站所有者、团队负责人或管理员可以管理连接及远端规则。',
+          )}
         </Notice>
       )}
       {list?.controlPaused && (
         <Notice tone="amber">
-          系统控制任务已暂停。平台管理员核对当前连接和待确认操作后，可以恢复新操作。
+          {i18n.fragment(
+            '系统控制任务已暂停。平台管理员核对当前连接和待确认操作后，可以恢复新操作。',
+            false,
+            true,
+          )}
           {rights.isAdmin && (
             <Button
               disabled={busy}
@@ -289,43 +299,98 @@ export function CrawlerPoliciesPanel({
                 })
               }
             >
-              核对并恢复控制任务
+              {i18n.text('核对并恢复控制任务')}
             </Button>
           )}
         </Notice>
       )}
       <p className="muted">
-        网站流量需要经过 Cloudflare 代理。请使用仅限当前 Zone 的独立 Token，包含 Zone 读取和 WAF
-        规则写入权限。连接测试读取元数据，写入能力在首次确认发布后验证。
+        {i18n.text(
+          '网站流量需要经过 Cloudflare 代理。请使用仅限当前 Zone 的独立 Token，包含 Zone 读取和 WAF 规则写入权限。连接测试读取元数据，写入能力在首次确认发布后验证。',
+        )}
       </p>
       <Table
         columns={['域名 / Zone', '连接状态', '能力与规则配额', '管理']}
         rows={(list?.connections || []).map(connection => [
           `${connection.domain} · ${connection.zoneId}`,
-          states[connection.state],
-          <>
-            <span>
-              {String(connection.capabilities.plan || '套餐待核对')} ·{' '}
-              {String(connection.capabilities.used ?? '?')} /{' '}
-              {String(connection.capabilities.quota ?? '?')}
-            </span>
-            <small className="field-help">
-              写入：{connection.capabilities.writeVerified ? '已验证' : '待验证'} · 真实命中需要有效
-              Cloudflare 日志
-            </small>
-          </>,
-          <Button
-            disabled={busy || !canControl || connection.state === 'disconnected'}
-            onClick={() =>
-              run(async () => {
-                await featureRequest('DELETE', `${base}/control-connections/${connection.id}`, {});
-                setStatus('本地凭据已销毁。远端规则保留，请在 Cloudflare 撤销不用的 Token。');
-                await read();
-              })
-            }
+          <TableCell
+            sortValue={states[connection.state]}
+            searchValue={i18n.english.system(states[connection.state])}
           >
-            断开并保留规则
-          </Button>,
+            {i18n.system(states[connection.state])}
+          </TableCell>,
+          <TableCell
+            sortValue={[
+              [
+                String(connection.capabilities.plan || i18n.source('套餐待核对')),
+                ' \u00B7',
+                ' ',
+                String(connection.capabilities.used ?? '?'),
+                ' /',
+                ' ',
+                String(connection.capabilities.quota ?? '?'),
+              ],
+              [
+                i18n.source('写入：'),
+                connection.capabilities.writeVerified
+                  ? i18n.source('已验证')
+                  : i18n.source('待验证'),
+                i18n.source(' · 真实命中需要有效 Cloudflare 日志'),
+              ],
+            ]}
+            searchValue={[
+              [
+                String(connection.capabilities.plan || i18n.english.text('套餐待核对')),
+                ' \u00B7',
+                ' ',
+                String(connection.capabilities.used ?? '?'),
+                ' /',
+                ' ',
+                String(connection.capabilities.quota ?? '?'),
+              ],
+              [
+                i18n.english.fragment('写入：', false, true),
+                connection.capabilities.writeVerified
+                  ? i18n.english.text('已验证')
+                  : i18n.english.text('待验证'),
+                i18n.english.fragment(' · 真实命中需要有效 Cloudflare 日志', true, false),
+              ],
+            ]}
+          >
+            <>
+              <span>
+                {String(connection.capabilities.plan || i18n.text('套餐待核对'))} ·{' '}
+                {String(connection.capabilities.used ?? '?')} /{' '}
+                {String(connection.capabilities.quota ?? '?')}
+              </span>
+              <small className="field-help">
+                {i18n.fragment('写入：', false, true)}
+                {connection.capabilities.writeVerified ? i18n.text('已验证') : i18n.text('待验证')}
+                {i18n.fragment(' · 真实命中需要有效 Cloudflare 日志', true, false)}
+              </small>
+            </>
+          </TableCell>,
+          <TableCell
+            sortValue={i18n.source('断开并保留规则')}
+            searchValue={i18n.english.text('断开并保留规则')}
+          >
+            <Button
+              disabled={busy || !canControl || connection.state === 'disconnected'}
+              onClick={() =>
+                run(async () => {
+                  await featureRequest(
+                    'DELETE',
+                    `${base}/control-connections/${connection.id}`,
+                    {},
+                  );
+                  setStatus('本地凭据已销毁。远端规则保留，请在 Cloudflare 撤销不用的 Token。');
+                  await read();
+                })
+              }
+            >
+              {i18n.text('断开并保留规则')}
+            </Button>
+          </TableCell>,
         ])}
       />
       {canControl && (
@@ -357,7 +422,7 @@ export function CrawlerPoliciesPanel({
             onChange={event => setZoneId(event.target.value)}
           />
           <Field
-            label="独立 API Token"
+            label={i18n.text('独立 API Token')}
             value={token}
             type="password"
             required
@@ -367,32 +432,48 @@ export function CrawlerPoliciesPanel({
             onChange={event => setToken(event.target.value)}
           />
           <button type="submit" className="btn" disabled={busy || !zoneId || !token}>
-            读取并连接当前 Zone
+            {i18n.text('读取并连接当前 Zone')}
           </button>
         </form>
       )}
-      <h3>访问策略</h3>
+      <h3>{i18n.text('访问策略')}</h3>
       <p className="muted">
-        观察只在猎看内分析；屏蔽会发布到 Cloudflare。按声明 UA
-        匹配，隐藏身份抓取需要现有安全系统继续判断。
+        {i18n.text(
+          '观察只在猎看内分析；屏蔽会发布到 Cloudflare。按声明 UA 匹配，隐藏身份抓取需要现有安全系统继续判断。',
+        )}
       </p>
       <Table
         columns={['策略', '本地版本 / 远端版本', '状态', '操作']}
         rows={(list?.policies || []).map(policy => [
           policy.name,
-          `${policy.version} / ${policy.appliedVersion ?? '尚未发布'}`,
-          states[policy.state],
-          <Button disabled={busy} onClick={() => select(policy)}>
-            查看与操作
-          </Button>,
+          <TableCell
+            sortValue={`${policy.version} / ${policy.appliedVersion ?? i18n.source('尚未发布')}`}
+            searchValue={`${policy.version} / ${policy.appliedVersion ?? i18n.english.text('尚未发布')}`}
+          >{`${policy.version} / ${policy.appliedVersion ?? i18n.text('尚未发布')}`}</TableCell>,
+          <TableCell
+            sortValue={states[policy.state]}
+            searchValue={i18n.english.system(states[policy.state])}
+          >
+            {i18n.system(states[policy.state])}
+          </TableCell>,
+          <TableCell
+            sortValue={i18n.source('查看与操作')}
+            searchValue={i18n.english.text('查看与操作')}
+          >
+            <Button disabled={busy} onClick={() => select(policy)}>
+              {i18n.text('查看与操作')}
+            </Button>
+          </TableCell>,
         ])}
       />
       {canDraft && (
         <details open={!!editing}>
-          <summary>{editing ? `编辑 ${editing.name}` : '创建本地草稿'}</summary>
+          <summary>
+            {editing ? i18n.text('编辑 {v0}', [editing.name]) : i18n.text('创建本地草稿')}
+          </summary>
           <form data-unsaved={dirty} aria-busy={busy} onSubmit={save}>
             <Field
-              label="策略名称"
+              label={i18n.text('策略名称')}
               value={draft.name}
               required
               maxLength={80}
@@ -403,7 +484,7 @@ export function CrawlerPoliciesPanel({
               }}
             />
             <fieldset>
-              <legend>蜘蛛，最多 10 个</legend>
+              <legend>{i18n.text('蜘蛛，最多 10 个')}</legend>
               {crawlerDirectory
                 .filter(bot => bot.kind === 'http_crawler')
                 .map(bot => (
@@ -429,46 +510,49 @@ export function CrawlerPoliciesPanel({
                 ))}
             </fieldset>
             <Select
-              label="本地意图"
+              label={i18n.text('本地意图')}
               value={draft.action}
               disabled={busy}
               options={[
-                ['observe', '观察'],
-                ['block', '屏蔽'],
+                ['observe', i18n.text('观察')],
+                ['block', i18n.text('屏蔽')],
               ]}
+              localizeLabels
               onChange={event => {
                 setDraft({ ...draft, action: event.target.value as any });
                 setDirty(true);
               }}
             />
             <Select
-              label="期望访问状态"
+              label={i18n.text('期望访问状态')}
               value={draft.expectedAccess}
               disabled={busy}
               options={[
-                ['allow', '期望可访问'],
-                ['block', '期望被屏蔽'],
+                ['allow', i18n.text('期望可访问')],
+                ['block', i18n.text('期望被屏蔽')],
               ]}
+              localizeLabels
               onChange={event => {
                 setDraft({ ...draft, expectedAccess: event.target.value as any });
                 setDirty(true);
               }}
             />
             <Select
-              label="路径匹配"
+              label={i18n.text('路径匹配')}
               value={match}
               disabled={busy}
               options={[
-                ['exact', '精确路径'],
-                ['prefix', '目录段前缀'],
+                ['exact', i18n.text('精确路径')],
+                ['prefix', i18n.text('目录段前缀')],
               ]}
+              localizeLabels
               onChange={event => {
                 setMatch(event.target.value as any);
                 setDirty(true);
               }}
             />
             <label className="field">
-              <span>原编码路径，每行一项，最多 10 项</span>
+              <span>{i18n.text('原编码路径，每行一项，最多 10 项')}</span>
               <textarea
                 value={pathText}
                 disabled={busy}
@@ -478,11 +562,13 @@ export function CrawlerPoliciesPanel({
                   setDirty(true);
                 }}
               />
-              <small>保留大小写、尾斜杠和编码。目录 /docs 包含 /docs 与其后代。</small>
+              <small>
+                {i18n.text('保留大小写、尾斜杠和编码。目录 /docs 包含 /docs 与其后代。')}
+              </small>
             </label>
             <div className="form-actions">
               <button type="submit" className="btn primary" disabled={busy}>
-                保存草稿
+                {i18n.text('保存草稿')}
               </button>
               {editing && (
                 <Button
@@ -495,7 +581,7 @@ export function CrawlerPoliciesPanel({
                     setDirty(false);
                   }}
                 >
-                  新建草稿
+                  {i18n.text('新建草稿')}
                 </Button>
               )}
             </div>
@@ -507,20 +593,22 @@ export function CrawlerPoliciesPanel({
           <h3>{selected.name}</h3>
           <Definition
             items={[
-              ['规则身份', selected.ref],
-              ['远端规则', selected.remoteRuleId || '尚无远端规则'],
-              ['配置状态', states[selected.state]],
+              [i18n.text('规则身份'), selected.ref],
+              [i18n.text('远端规则'), selected.remoteRuleId || i18n.text('尚无远端规则')],
+              [i18n.text('配置状态'), i18n.system(states[selected.state])],
             ]}
           />
           {!contextCurrent && (
             <Notice tone="amber">
-              此策略属于此前的网站归属。先核对旧操作结果，再明确接管原规则；接管后才能管理远端配置。
+              {i18n.text(
+                '此策略属于此前的网站归属。先核对旧操作结果，再明确接管原规则；接管后才能管理远端配置。',
+              )}
             </Notice>
           )}
           <div className="form-actions">
             {canControl && selected.remoteRuleId && (
               <Button disabled={busy || list?.controlPaused} onClick={() => prepare('adopt')}>
-                预览接管原规则
+                {i18n.text('预览接管原规则')}
               </Button>
             )}
             {canDraft && (
@@ -540,7 +628,7 @@ export function CrawlerPoliciesPanel({
                   setDirty(false);
                 }}
               >
-                编辑草稿
+                {i18n.text('编辑草稿')}
               </Button>
             )}
             <Button
@@ -551,76 +639,93 @@ export function CrawlerPoliciesPanel({
               }
               onClick={() => prepare('deploy')}
             >
-              预览启用
+              {i18n.text('预览启用')}
             </Button>
             <Button
               disabled={busy || !canControl || list?.controlPaused || !selected.remoteRuleId}
               onClick={() => prepare('stop')}
             >
-              预览停用
+              {i18n.text('预览停用')}
             </Button>
             <Button
               danger
               disabled={busy || !canControl || list?.controlPaused || !selected.remoteRuleId}
               onClick={() => prepare('cleanup')}
             >
-              预览移除本平台规则
+              {i18n.text('预览移除本平台规则')}
             </Button>
           </div>
           <Select
-            label="恢复此前版本"
+            label={i18n.text('恢复此前版本')}
             value={targetVersion}
             disabled={busy || !canControl}
             options={[
-              ['', '选择明确版本'],
+              ['', i18n.text('选择明确版本')],
               ...versions
                 .filter(row => row.version !== selected.version)
                 .map(row => [String(row.version), `版本 ${row.version}`] as [string, string]),
             ]}
+            localizeLabels
             onChange={event => setTargetVersion(event.target.value)}
           />
           <Button
             disabled={busy || !canControl || list?.controlPaused || !targetVersion}
             onClick={() => prepare('rollback')}
           >
-            预览恢复版本
+            {i18n.text('预览恢复版本')}
           </Button>
         </section>
       )}
       {preview && (
         <section>
-          <h3>{preview.mode === 'adopt' ? '确认规则接管' : '确认操作差异'}</h3>
+          <h3>
+            {preview.mode === 'adopt' ? i18n.text('确认规则接管') : i18n.text('确认操作差异')}
+          </h3>
           <Definition
             items={[
-              ['域名 / 版本', `${preview.hostname} · ${preview.policyVersion}`],
-              ['操作', preview.operation],
+              [i18n.text('域名 / 版本'), `${preview.hostname} · ${preview.policyVersion}`],
+              [i18n.text('操作'), preview.operation],
               [
-                '历史预计匹配请求',
+                i18n.text('历史预计匹配请求'),
                 preview.impact.historicalRequests7d.requests == null
-                  ? '缺少日志'
-                  : `${preview.impact.historicalRequests7d.requests.toLocaleString('zh-CN')}（7 天估算，未分类 ${preview.impact.historicalRequests7d.unclassified}）`,
+                  ? i18n.text('缺少日志')
+                  : i18n.text('{v0}（7 天估算，未分类 {v1}）', [
+                      preview.impact.historicalRequests7d.requests.toLocaleString('zh-CN'),
+                      preview.impact.historicalRequests7d.unclassified,
+                    ]),
               ],
-              ['搜索蜘蛛影响', preview.impact.searchBots.join('、') || '没有选择搜索蜘蛛'],
-              ['范围', preview.impact.fullSite ? '全站范围' : '指定路径'],
-              ['执行层', preview.localOnly ? '本地观察' : 'Cloudflare WAF'],
-              ['预览有效期', new Date(preview.expiresAt).toLocaleString('zh-CN')],
+              [
+                i18n.text('搜索蜘蛛影响'),
+                preview.impact.searchBots.join('、') || i18n.text('没有选择搜索蜘蛛'),
+              ],
+              [
+                i18n.text('范围'),
+                preview.impact.fullSite ? i18n.text('全站范围') : i18n.text('指定路径'),
+              ],
+              [i18n.text('执行层'), preview.localOnly ? i18n.text('本地观察') : 'Cloudflare WAF'],
+              [i18n.text('预览有效期'), new Date(preview.expiresAt).toLocaleString(i18n.locale)],
             ]}
           />
           {preview.transfer && (
             <Notice tone="amber">
-              登记将从连接 {preview.transfer.previous.connectionId}（归属版本{' '}
-              {preview.transfer.previous.generation}）转入连接 {preview.transfer.next.connectionId}
-              （归属版本 {preview.transfer.next.generation}）。
+              {i18n.fragment('登记将从连接 ', false, true)}
+              {preview.transfer.previous.connectionId}
+              {i18n.fragment('（归属版本', true, true)} {preview.transfer.previous.generation}
+              {i18n.fragment('）转入连接 ', true, true)}
+              {preview.transfer.next.connectionId}
+              {i18n.fragment('（归属版本 ', true, true)}
+              {preview.transfer.next.generation}）。
               {preview.mode === 'adopt' &&
-                '本次只读核验远端并更新本地登记。后续修改规则需另行预览确认。'}
+                i18n.text('本次只读核验远端并更新本地登记。后续修改规则需另行预览确认。')}
             </Notice>
           )}
           <p className="muted">
-            历史预计匹配按 UA 与路径回放。其他 WAF 规则的遮蔽影响需要结合 Cloudflare
-            实际规则核对；配置回读与真实拦截分别验证。
+            {i18n.text(
+              '历史预计匹配按 UA 与路径回放。其他 WAF 规则的遮蔽影响需要结合 Cloudflare 实际规则核对；配置回读与真实拦截分别验证。',
+            )}
           </p>
           <details>
-            <summary>发布前后表达式与配置</summary>
+            <summary>{i18n.text('发布前后表达式与配置')}</summary>
             <pre className="code-block">
               {JSON.stringify(
                 { before: preview.before, after: preview.after, expression: preview.expression },
@@ -636,7 +741,7 @@ export function CrawlerPoliciesPanel({
               disabled={busy || !!confirmed}
               onChange={event => setAcknowledged(event.target.checked)}
             />
-            我已核对域名、蜘蛛、路径和访问影响，确认执行此操作。
+            {i18n.fragment('我已核对域名、蜘蛛、路径和访问影响，确认执行此操作。', true, false)}
           </label>
           <Button
             danger={!preview.localOnly}
@@ -646,16 +751,16 @@ export function CrawlerPoliciesPanel({
             }
             onClick={confirm}
           >
-            确认
+            {i18n.fragment('确认', false, true)}
             {preview.mode === 'adopt'
-              ? '接管'
+              ? i18n.text('接管')
               : preview.operation === 'deploy'
-                ? '启用'
+                ? i18n.text('启用')
                 : preview.operation === 'stop'
-                  ? '停用'
+                  ? i18n.text('停用')
                   : preview.operation === 'rollback'
-                    ? '恢复版本'
-                    : '移除规则'}
+                    ? i18n.text('恢复版本')
+                    : i18n.text('移除规则')}
           </Button>
         </section>
       )}
@@ -669,19 +774,26 @@ export function CrawlerPoliciesPanel({
                 : ''
           }
         >
-          操作 {confirmed.id} · {states[confirmed.state]}
-          {follow.expired && <Button onClick={() => follow.resume()}>回查执行结果</Button>}
+          {i18n.fragment('操作 ', false, true)}
+          {confirmed.id} · {i18n.system(states[confirmed.state])}
+          {follow.expired && (
+            <Button onClick={() => follow.resume()}>{i18n.text('回查执行结果')}</Button>
+          )}
           {confirmed.errorCode && ` · ${confirmed.errorCode}`}
           {confirmed.state === 'confirmed' && (
             <p>
               {(confirmed as any).mode === 'adopt'
-                ? '原规则已核验，本地接管登记已完成。后续修改需要重新预览确认。'
-                : '配置已回读一致。真实规则匹配与本规则拦截需要后续日志证据。'}
+                ? i18n.text('原规则已核验，本地接管登记已完成。后续修改需要重新预览确认。')
+                : i18n.text('配置已回读一致。真实规则匹配与本规则拦截需要后续日志证据。')}
             </p>
           )}
           {confirmed.state === 'unknown' && (
             <>
-              <p>结果未知期间暂停重复创建和反向操作。先读取远端状态，再核对本次操作是否执行。</p>
+              <p>
+                {i18n.text(
+                  '结果未知期间暂停重复创建和反向操作。先读取远端状态，再核对本次操作是否执行。',
+                )}
+              </p>
               {canControl &&
                 list?.connections.some(connection => connection.state === 'active') && (
                   <label className="check">
@@ -690,7 +802,11 @@ export function CrawlerPoliciesPanel({
                       checked={handoffAck}
                       onChange={event => setHandoffAck(event.target.checked)}
                     />
-                    使用当前连接核对此前归属的操作结果，保留原规则归属登记。
+                    {i18n.fragment(
+                      '使用当前连接核对此前归属的操作结果，保留原规则归属登记。',
+                      true,
+                      false,
+                    )}
                   </label>
                 )}
               <Button
@@ -717,7 +833,7 @@ export function CrawlerPoliciesPanel({
                   })
                 }
               >
-                重新核对远端结果
+                {i18n.text('重新核对远端结果')}
               </Button>
               <label className="check">
                 <input
@@ -725,7 +841,11 @@ export function CrawlerPoliciesPanel({
                   checked={resolveAck}
                   onChange={event => setResolveAck(event.target.checked)}
                 />
-                已确认远端仍保持操作前状态，请核对并结束本次待确认操作。
+                {i18n.fragment(
+                  '已确认远端仍保持操作前状态，请核对并结束本次待确认操作。',
+                  true,
+                  false,
+                )}
               </label>
               <Button
                 disabled={busy || !canControl || !resolveAck}
@@ -752,36 +872,49 @@ export function CrawlerPoliciesPanel({
                   })
                 }
               >
-                核对未执行并结束待确认
+                {i18n.text('核对未执行并结束待确认')}
               </Button>
             </>
           )}
         </Notice>
       )}
       <details>
-        <summary>近期操作与交接记录</summary>
+        <summary>{i18n.text('近期操作与交接记录')}</summary>
         <Table
           columns={['策略 / 操作', '状态', '记录']}
           rows={(list?.deployments || []).map(item => [
-            `${item.policyId} · ${(item as any).mode === 'adopt' ? '接管' : item.operation}`,
-            states[item.state],
-            <Button
-              disabled={busy}
-              onClick={() =>
-                run(async () => {
-                  setResolveAck(false);
-                  setHandoffAck(false);
-                  setConfirmed(
-                    await featureRequest<CrawlerDeployment>(
-                      'GET',
-                      `${base}/crawler-deployments/${item.id}`,
-                    ),
-                  );
-                })
-              }
+            <TableCell
+              sortValue={`${item.policyId} · ${(item as any).mode === 'adopt' ? i18n.source('接管') : item.operation}`}
+              searchValue={`${item.policyId} · ${(item as any).mode === 'adopt' ? i18n.english.text('接管') : item.operation}`}
+            >{`${item.policyId} · ${(item as any).mode === 'adopt' ? i18n.text('接管') : item.operation}`}</TableCell>,
+            <TableCell
+              sortValue={states[item.state]}
+              searchValue={i18n.english.system(states[item.state])}
             >
-              查看执行记录
-            </Button>,
+              {i18n.system(states[item.state])}
+            </TableCell>,
+            <TableCell
+              sortValue={i18n.source('查看执行记录')}
+              searchValue={i18n.english.text('查看执行记录')}
+            >
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    setResolveAck(false);
+                    setHandoffAck(false);
+                    setConfirmed(
+                      await featureRequest<CrawlerDeployment>(
+                        'GET',
+                        `${base}/crawler-deployments/${item.id}`,
+                      ),
+                    );
+                  })
+                }
+              >
+                {i18n.text('查看执行记录')}
+              </Button>
+            </TableCell>,
           ])}
         />
       </details>

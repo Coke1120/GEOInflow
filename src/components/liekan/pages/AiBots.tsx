@@ -1,15 +1,19 @@
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { FilterChip, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 import { useReportActions } from '../ReportContext';
 
 export function AiBots({ report, rangeLabel }: ReportViewProps) {
+  const i18n = useLiekanI18n();
   const actions = useReportActions();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="card fade-in d1 overflow-hidden">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
           <h2 className="text-[14px] font-bold tracking-tight">
-            AI 蜘蛛台账（{rangeLabel} 抓取量排序）
+            {i18n.fragment('AI 蜘蛛台账（', false, true)}
+            {i18n.system(rangeLabel)}
+            {i18n.fragment(' 抓取量排序）', true, false)}
           </h2>
           <div className="flex items-center gap-2">
             <FilterChip label="全部" />
@@ -42,26 +46,29 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
       <section className="grid grid-cols-2 gap-4">
         <div className="card fade-in d2">
           <div className="px-6 pt-5 pb-2">
-            <h2 className="text-[14px] font-bold tracking-tight">蜘蛛类型构成</h2>
-            <p className="text-[11.5px] text-faint mt-0.5">AI 训练 / AI 搜索 / 传统搜索</p>
+            <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('蜘蛛类型构成')}</h2>
+            <p className="text-[11.5px] text-faint mt-0.5">
+              {i18n.text('AI 训练 / AI 搜索 / 传统搜索')}
+            </p>
           </div>
           <ReferenceChart id="b1" height={230} report={report} />
         </div>
         <div className="card fade-in d3 p-5">
-          <h2 className="text-[14px] font-bold tracking-tight">识别口径</h2>
+          <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('识别口径')}</h2>
           <div className="mt-3 space-y-2.5 text-[12px] text-sub leading-relaxed">
             <p>
-              依据导入日志的 User-Agent
-              特征分类。匹配结果标记为估算，来源身份验证信息仅在有证据时显示。
+              {i18n.text(
+                '依据导入日志的 User-Agent 特征分类。匹配结果标记为估算，来源身份验证信息仅在有证据时显示。',
+              )}
             </p>
-            <p>管理特征库可以调整本地识别规则。</p>
+            <p>{i18n.text('管理特征库可以调整本地识别规则。')}</p>
             <p>
               <button
                 type="button"
                 className="text-blue hover:underline focus-visible:ring-2"
                 onClick={() => actions.onAction('蜘蛛归因与控制')}
               >
-                查看归因、风险与访问策略
+                {i18n.text('查看归因、风险与访问策略')}
               </button>
             </p>
           </div>

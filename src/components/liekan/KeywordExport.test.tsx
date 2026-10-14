@@ -4,6 +4,7 @@ import { KeywordExport } from './KeywordExport';
 import { keywordConditionsSchema } from '@/lib/liekan/contracts/keywords';
 import type { ExportFrame } from '@/lib/liekan/contracts/exports';
 import type { LiekanReport } from './types';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const { stream } = vi.hoisted(() => ({ stream: vi.fn() }));
 vi.mock('@/lib/liekan/upstream/features-client', () => ({ streamFeatureExport: stream }));
@@ -83,4 +84,27 @@ it('shows cancellation for the current request and allows another export', async
   await act(async () => current.reject(new DOMException('Aborted', 'AbortError')));
   expect(screen.getByRole('status')).toHaveTextContent('导出已取消');
   expect(screen.getByRole('button', { name: '导出全部筛选结果' })).toBeEnabled();
+});
+
+it('captures the submission locale and keeps an active export when the display locale changes', async () => {
+  const current = pendingExport();
+  const view = render(
+    <LiekanLocaleContext.Provider value="en-US">
+      <KeywordExport report={report} conditions={google} disabled={false} />
+    </LiekanLocaleContext.Provider>,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Export all filtered results' }));
+  expect(stream.mock.calls[0][1]).toMatchObject({ locale: 'en-US', engine: 'Google' });
+  view.rerender(
+    <LiekanLocaleContext.Provider value="zh-CN">
+      <KeywordExport report={report} conditions={google} disabled={false} />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(current.signal.aborted).toBe(false);
+  expect(stream).toHaveBeenCalledTimes(1);
+  await act(async () => current.reject(new Error('fixture failure')));
+  const next = pendingExport();
+  fireEvent.click(screen.getByRole('button', { name: '导出全部筛选结果' }));
+  expect(stream.mock.calls[1][1]).toMatchObject({ locale: 'zh-CN' });
+  await act(async () => next.reject(new Error('fixture failure')));
 });
