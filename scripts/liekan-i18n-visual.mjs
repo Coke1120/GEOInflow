@@ -94,7 +94,11 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     report.checks.push({ name: 'server-cookie-request-isolation', passed: true });
     for (const width of [1440, 390]) {
       const authenticated = await context(width, token),
-        auth = await context(width, partial);
+        auth = await context(width);
+      await auth.addInitScript(
+        value => sessionStorage.setItem('umami.partial-token', value),
+        partial,
+      );
       const actual = await authenticated.newPage(),
         login = await auth.newPage();
       for (const page of [actual, login])
@@ -104,6 +108,21 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
         try {
           await page.goto(base + route.path);
           await settled(page);
+          if (['login', 'login-2fa', 'sso'].includes(route.id)) {
+            assert.equal(new URL(page.url()).pathname, new URL(base + route.path).pathname);
+            await page
+              .getByRole('heading', {
+                name: label(
+                  route.id === 'login'
+                    ? '欢迎回来'
+                    : route.id === 'login-2fa'
+                      ? '验证登录'
+                      : '单点登录',
+                ),
+                exact: true,
+              })
+              .waitFor();
+          }
           const state = await geometry(page);
           assert(!state.empty, `${route.id}: empty page`);
           assert.equal(state.overflow, 0, `${route.id} ${width}px page overflow`);
