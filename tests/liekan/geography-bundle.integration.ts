@@ -20,6 +20,7 @@ if (sources.some(file => !file))
   );
 const names = ['city.mmdb', 'ipv4.xdb', 'ipv6.xdb'];
 const now = Date.now;
+const expiresAt = now() + 86400000;
 const check = (ok: boolean, label: string) => {
   if (!ok) throw new Error(label);
   console.log(`PASS ${label}`);
@@ -39,7 +40,7 @@ try {
         source: 'public-research-fixture',
         license: 'temporary-read-only-capability-test',
         authorized: true,
-        expiresAt: '2026-10-15T00:00:00Z',
+        expiresAt: new Date(expiresAt).toISOString(),
         buildTime: null,
         downloadedAt: new Date().toISOString(),
       };
@@ -102,7 +103,7 @@ try {
     ),
     'concurrent refresh readers observe one complete generation',
   );
-  clock = +new Date('2026-10-16T00:00:00Z');
+  clock = expiresAt + 1;
   check(
     (await geographyBundle()) === null,
     'expired data authorization disables the previous generation',
