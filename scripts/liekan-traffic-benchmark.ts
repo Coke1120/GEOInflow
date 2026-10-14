@@ -66,8 +66,49 @@ export async function measureTrafficQuality({
     ).rows[0].count,
   );
   assert(result.volumeQualityRows > 0, 'volume quality fixtures must actually exist');
+  const maintenanceStarted = performance.now();
+  // Finish fixture maintenance before either collector's timed requests begin.
+  await database.query('VACUUM (ANALYZE) liekan_event_quality');
+  result.fixtureMaintenanceMs = performance.now() - maintenanceStarted;
   const current = await create(),
     old = baseline ? await create() : undefined;
+  result.collectorPreparation = [];
+  for (const [label, target, site] of [
+    ...(baseline && old ? [['baseline', baseline, old]] : []),
+    ['candidate', base, current],
+  ]) {
+    const started = performance.now();
+    const response = await fetch(`${target}/api/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': browser },
+      body: JSON.stringify({
+        type: 'event',
+        payload: {
+          website: site,
+          eventId: randomUUID(),
+          hostname: 'traffic-benchmark.invalid',
+          url: '/synthetic/preparation',
+        },
+      }),
+      signal: AbortSignal.timeout(40000),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.has('set-cookie'), false);
+    const body: any = await response.json();
+    assert(typeof body.sessionId === 'string' && body.sessionId.length > 0);
+    assert(typeof body.visitId === 'string' && body.visitId.length > 0);
+    result.collectorPreparation.push({ label, elapsedMs: performance.now() - started });
+  }
+  const diagnosticAttempts = async () =>
+    Number(
+      (
+        await database.query(
+          'SELECT COALESCE(sum(written+duplicate),0)::float8 AS attempts FROM liekan_collection_diagnostic WHERE website_id=$1',
+          [current],
+        )
+      ).rows[0].attempts,
+    );
+  const diagnosticBefore = await diagnosticAttempts();
   const durationMs = smoke ? 1000 : 10000;
   async function load(target: string, site: string, rate: number, background: boolean) {
     const attempts = Math.floor((rate * durationMs) / 1000),
@@ -304,16 +345,14 @@ export async function measureTrafficQuality({
     };
   }
   const accepted = result.rates.reduce((n: number, r: any) => n + r.candidate.success, 0);
-  const diagnostic = (
-    await database.query(
-      'SELECT COALESCE(sum(written+duplicate),0)::float8 AS attempts FROM liekan_collection_diagnostic WHERE website_id=$1',
-      [current],
-    )
-  ).rows[0];
-  assert(
-    Number(diagnostic.attempts) >= accepted,
-    'committed diagnostics cover acknowledged attempts',
-  );
+  const diagnosticAfter = await diagnosticAttempts();
+  result.diagnostics = {
+    before: diagnosticBefore,
+    after: diagnosticAfter,
+    delta: diagnosticAfter - diagnosticBefore,
+    acknowledged: accepted,
+  };
+  assert(result.diagnostics.delta >= accepted, 'committed diagnostics cover acknowledged attempts');
   for (const days of [30, 90, 365]) {
     const endAt = Date.now(),
       startAt = endAt - days * 86400000,
