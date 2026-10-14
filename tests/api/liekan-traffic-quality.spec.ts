@@ -110,3 +110,92 @@ test('rejects public, share and unrelated identities for private collection qual
     await deleteWebsite(admin, website.id);
   }
 });
+
+test('previews policies without writing and rejects stale saves while preserving legacy clients', async ({
+  admin,
+}) => {
+  const website = await createWebsite(admin, { domain: 'quality-preview.test' });
+  const endpoint = `/api/liekan/websites/${website.id}/traffic-quality`;
+  try {
+    const before = await admin.get(endpoint);
+    const revision = before.body.policy.revision;
+    const range = {
+      startAt: Date.now() - 60000,
+      endAt: Date.now() + 1000,
+      timezone: 'Asia/Shanghai',
+    };
+    const preview = await admin.post(`${endpoint}/preview`, {
+      policy: {
+        mode: 'strict',
+        allowedHostnames: ['WWW.Quality-Preview.Test:443'],
+        expectedRevision: revision,
+      },
+      range,
+    });
+    expect(preview.status).toBe(200);
+    expect(preview.body.proposed.allowedHostnames).toEqual(['quality-preview.test']);
+    const unchanged = await admin.get(endpoint);
+    expect(unchanged.body.policy).toEqual(before.body.policy);
+    expect(unchanged.body.history).toHaveLength(0);
+    const saved = await admin.put(endpoint, {
+      mode: 'strict',
+      allowedHostnames: [],
+      expectedRevision: revision,
+    });
+    expect(saved.status).toBe(200);
+    expect(
+      (await admin.put(endpoint, { mode: 'raw', allowedHostnames: [], expectedRevision: revision }))
+        .status,
+    ).toBe(409);
+    expect(
+      (
+        await admin.post(`${endpoint}/preview`, {
+          policy: { mode: 'raw', allowedHostnames: [], expectedRevision: revision },
+          range,
+        })
+      ).status,
+    ).toBe(409);
+    const audit = await admin.get(endpoint);
+    expect(audit.body.history).toHaveLength(1);
+    expect(audit.body.history[0].before.revision).toBe(revision);
+    expect(audit.body.history[0].after.revision).toBe(saved.body.revision);
+    expect((await admin.put(endpoint, { mode: 'standard', allowedHostnames: [] })).status).toBe(
+      200,
+    );
+    const risk = await admin.get(`${endpoint}/risk`);
+    expect(risk.status).toBe(200);
+    expect(risk.body.mode).toBe('observe');
+    expect(risk.body.state).toBeNull();
+  } finally {
+    await deleteWebsite(admin, website.id);
+  }
+});
+
+test('new preview and risk reads retain private website authorization', async ({
+  admin,
+  api,
+  user,
+  share,
+}) => {
+  const website = await createWebsite(admin);
+  const endpoint = `/api/liekan/websites/${website.id}/traffic-quality`;
+  try {
+    for (const [client, status] of [
+      [api, 401],
+      [await share(), 401],
+      [user, 403],
+    ] as const) {
+      expect((await client.get(`${endpoint}/risk`)).status).toBe(status);
+      expect(
+        (
+          await client.post(`${endpoint}/preview`, {
+            policy: { mode: 'raw', allowedHostnames: [] },
+            range: {},
+          })
+        ).status,
+      ).toBe(status);
+    }
+  } finally {
+    await deleteWebsite(admin, website.id);
+  }
+});

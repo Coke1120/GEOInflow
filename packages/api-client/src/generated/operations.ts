@@ -977,6 +977,23 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
+  getLiekanBrowserRisk: {
+    operationId: 'getLiekanBrowserRisk',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/traffic-quality/risk',
+    pathParams: ['websiteId'],
+    queryParams: [
+      'startAt',
+      'endAt',
+      'timezone',
+      'classification',
+      'source',
+      'hostname',
+      'page',
+      'cursor',
+    ],
+    hasBody: false,
+  },
   getLiekanFeatureAnalytics: {
     operationId: 'getLiekanFeatureAnalytics',
     method: 'get',
@@ -1166,7 +1183,16 @@ export const operations = {
     method: 'get',
     path: '/api/liekan/websites/{websiteId}/traffic-quality',
     pathParams: ['websiteId'],
-    queryParams: ['startAt', 'endAt', 'classification', 'page'],
+    queryParams: [
+      'startAt',
+      'endAt',
+      'timezone',
+      'classification',
+      'source',
+      'hostname',
+      'page',
+      'cursor',
+    ],
     hasBody: false,
   },
   getLiekanWebsiteSummary: {
@@ -3301,6 +3327,14 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  previewLiekanTrafficPolicy: {
+    operationId: 'previewLiekanTrafficPolicy',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/traffic-quality/preview',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
   putLiekanCatalog: {
     operationId: 'putLiekanCatalog',
     method: 'put',
@@ -4388,6 +4422,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getLiekanAiRun'>> {
     return this.execute('getLiekanAiRun', input, options);
+  }
+
+  /**
+   * Read browser behavior observations
+   * `GET /api/liekan/websites/{websiteId}/traffic-quality/risk`
+   */
+  getLiekanBrowserRisk(
+    input: OperationInput<'getLiekanBrowserRisk'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanBrowserRisk'>> {
+    return this.execute('getLiekanBrowserRisk', input, options);
   }
 
   /**
@@ -5619,6 +5664,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'postLiekanLogsImport'>> {
     return this.execute('postLiekanLogsImport', input, options);
+  }
+
+  /**
+   * Preview traffic policy impact
+   * `POST /api/liekan/websites/{websiteId}/traffic-quality/preview`
+   */
+  previewLiekanTrafficPolicy(
+    input: OperationInput<'previewLiekanTrafficPolicy'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'previewLiekanTrafficPolicy'>> {
+    return this.execute('previewLiekanTrafficPolicy', input, options);
   }
 
   /**

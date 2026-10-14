@@ -1,4 +1,6 @@
-import { execFileSync, spawnSync } from 'node:child_process';
+import { measureTrafficQuality } from './liekan-traffic-benchmark';
+import { promisify } from 'node:util';
+import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -40,7 +42,11 @@ const baselineImage = args.includes('--baseline-image')
   : undefined;
 const extended = args.includes('--extended');
 const samples = smoke ? 20 : 200;
-const rows = smoke ? 10000 : extended ? 5000000 : 1000000;
+const maximumRangeNonce = 800003;
+const scale = args.includes('--rows') ? Number(args[args.indexOf('--rows') + 1]) : undefined;
+if (scale !== undefined && ![1000000, 5000000, 10000000].includes(scale))
+  throw new Error('--rows must be 1000000, 5000000 or 10000000');
+const rows = smoke ? 10000 : (scale ?? (extended ? 5000000 : 1000000));
 const stamp = `liekan-cache-${Date.now()}-${randomBytes(6).toString('hex')}`;
 const network = `${stamp}-net`,
   volume = `${stamp}-data`,
@@ -1215,7 +1221,22 @@ try {
     Object.values(maxima).every(value => new Date(value as any).getTime() <= end),
     'frozen statistical seed must precede the original range end',
   );
-  report.seedRange = { endAt: end, timezone: 'Asia/Shanghai', sourceMaxima: maxima };
+  // Report coverage clamps future bounds to its read time. Wait until every nonce is
+  // historical so adjacent old/current requests describe the same frozen population.
+  const rangesReadyAt = end + maximumRangeNonce;
+  report.seedRange = {
+    endAt: end,
+    timezone: 'Asia/Shanghai',
+    sourceMaxima: maxima,
+    rangesReadyAt,
+    clockWaitMs: Math.max(0, rangesReadyAt - Date.now()),
+  };
+  if (Date.now() < rangesReadyAt) {
+    stage = 'frozen-fixture-clock-bound';
+    save();
+    console.log(`Waiting for synthetic range bounds: ${new Date(rangesReadyAt).toISOString()}`);
+    while (Date.now() < rangesReadyAt) await pause(Math.min(10000, rangesReadyAt - Date.now()));
+  }
   stage = 'GEO-initial-nonempty-today-and-ai-sources';
   for (const resource of ['overview', 'conversions']) {
     const parameters = new URLSearchParams({
@@ -1792,6 +1813,10 @@ try {
     base: first,
     token: authentication.token,
     site: sites[3],
+    siteHandle: String(
+      (await database.query('SELECT site_number FROM website WHERE website_id=$1', [sites[3]]))
+        .rows[0].site_number || sites[3],
+    ),
     slug,
     range,
     canonicalShareRange: sharedDateRange(),
@@ -1914,7 +1939,11 @@ try {
   assert(afterSpike.aggregateStatements - beforeSpike.aggregateStatements <= 2);
 
   stage = 'manual-refresh-publishes-normal-result';
-  const manualRange = { startAt: end - 86400000, endAt: end + 800003, timezone: range.timezone };
+  const manualRange = {
+    startAt: end - 86400000,
+    endAt: end + maximumRangeNonce,
+    timezone: range.timezone,
+  };
   const cardViews = (body: any) =>
     Number(
       String(body.cards.find((card: any) => card.label === '浏览量 PV').value).replace(
@@ -2245,11 +2274,58 @@ try {
     body: JSON.stringify({ username: 'custom-benchmark-admin', password: memberPassword }),
   });
   assert(customLogin.ok);
+  const restoredAuthentication = (await customLogin.json()) as any;
+  assert.equal(typeof restoredAuthentication.token, 'string');
+  // The restore fixture changes the password in both copies, invalidating the previous session.
+  headers.authorization = `Bearer ${restoredAuthentication.token}`;
   report.checks.push({
     name: 'migration-11-to-12-and-restored-data-custom-credentials',
     countsPreserved: true,
     customLogin: customLogin.status,
   });
+  stage = 'traffic-quality-collection-and-background-observation';
+  report.trafficQuality = await measureTrafficQuality({
+    base: first,
+    baseline: oldBase,
+    headers,
+    database,
+    ownerId: authentication.user.id,
+    smoke,
+    volumeSites: sites,
+    observe: async () => {
+      const resourceScript = `const fs=require('node:fs');
+        const counters=path=>Object.fromEntries(fs.readFileSync(path,'utf8').trim().split('\\n').map(line=>{const [key,value]=line.split(/\\s+/);return [key,Number(value)]}));
+        console.log(JSON.stringify({cpu:counters('/sys/fs/cgroup/cpu.stat'),memoryEvents:counters('/sys/fs/cgroup/memory.events'),memoryPeakBytes:Number(fs.readFileSync('/sys/fs/cgroup/memory.peak','utf8'))}));`;
+      const resources = async () =>
+        JSON.parse(
+          (await promisify(execFile)('docker', ['exec', workerName, 'node', '-e', resourceScript]))
+            .stdout,
+        );
+      const before = await resources();
+      await promisify(execFile)(
+        'docker',
+        ['exec', workerName, 'node', 'dist/liekan-worker.mjs', '--observe-browser-risk-once'],
+        { timeout: 180000 },
+      );
+      const after = await resources();
+      const difference = (key: 'cpu' | 'memoryEvents') =>
+        Object.fromEntries(
+          Object.keys(after[key]).map(name => [name, after[key][name] - before[key][name]]),
+        );
+      const memoryEvents = difference('memoryEvents');
+      assert.equal(memoryEvents.oom, 0, 'background observation must fit its memory budget');
+      assert.equal(memoryEvents.oom_kill, 0, 'background observation must not kill a worker');
+      return {
+        container: workerName,
+        before,
+        after,
+        delta: { cpu: difference('cpu'), memoryEvents },
+        memoryPeakMeaning: 'container lifetime peak before and after this observation',
+      };
+    },
+  });
+  save();
+  assert(report.trafficQuality.passed, 'collector throughput or latency regression');
   stage = 'post-timing-heavy-query-execution-plans';
   const { collectHeavyExplains } = await import('./liekan-cache-explain');
   report.heavyExplain = await collectHeavyExplains({
@@ -2362,6 +2438,7 @@ try {
   }
   report.passed =
     report.correctnessPassed &&
+    report.trafficQuality.passed &&
     report.faultsPassed &&
     report.browser.passed &&
     report.performance.every((entry: any) => entry.passed) &&

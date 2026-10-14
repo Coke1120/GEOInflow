@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Run only against resources created by this process. The candidate image is built separately.
+import { runTrafficQualityUpgradeChecks } from './traffic-quality-upgrade.mjs';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
@@ -1430,6 +1431,21 @@ try {
     );
     same(await counts(), before, 'Repeat migrations must preserve collected and historical data');
     await verifySurfaces('standard', ['quality.example', 'xn--fsqu00a.xn--0zwm56d']);
+  });
+  await runTrafficQualityUpgradeChecks({
+    base,
+    token,
+    test,
+    sql,
+    sqlJson,
+    docker,
+    json,
+    http,
+    names,
+    websiteId,
+    qualityPath,
+    nativePath,
+    window,
   });
   await test('own-site reset removes receipts and quality with analytics', async () => {
     await http(`${nativePath}/reset`, { method: 'POST', auth: true });

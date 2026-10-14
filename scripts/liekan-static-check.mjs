@@ -10,9 +10,16 @@ execFileSync(process.execPath, ['scripts/liekan-geography-catalog.mjs'], { stdio
 assertDialogContract();
 assertManualReadPolicy();
 const teamUserUI = JSON.parse(readFileSync('config/liekan/team-user-ui.json', 'utf8'));
-if (teamUserUI.systemRole !== 'user' || teamUserUI.defaultTeamRole !== 'team-view-only' || teamUserUI.dialogSize !== 'standard')
+if (
+  teamUserUI.systemRole !== 'user' ||
+  teamUserUI.defaultTeamRole !== 'team-view-only' ||
+  teamUserUI.dialogSize !== 'standard'
+)
   throw new Error('Approved team user role and dialog rules changed');
-const teamUserDialog = readFileSync('src/components/liekan/features/TeamUserCreateDialog.tsx', 'utf8');
+const teamUserDialog = readFileSync(
+  'src/components/liekan/features/TeamUserCreateDialog.tsx',
+  'utf8',
+);
 for (const text of [teamUserUI.dialogTitle, teamUserUI.submitLabel])
   if (!teamUserDialog.includes(text)) throw new Error(`Team user dialog contract missing: ${text}`);
 
@@ -60,7 +67,15 @@ if (hash(JSON.stringify(aiUI.chatHome.sha256)) !== baseline.aiChatHomeUiManifest
 for (const [file, digest] of Object.entries(aiUI.chatHome.sha256))
   if (hash(readFileSync(`${aiUI.chatHome.referenceRoot}/${file}`)) !== digest)
     throw new Error(`AI homepage reference drift: ${file}`);
+const qualityUI = JSON.parse(readFileSync('config/liekan/traffic-quality-ui.json', 'utf8'));
+if (hash(JSON.stringify(qualityUI.files)) !== baseline.trafficQualityUiManifestSha256)
+  throw new Error('Traffic quality UI fingerprint changed');
+for (const [file, digest] of Object.entries(qualityUI.files))
+  if (hash(readFileSync(`${qualityUI.directory}/${file}`)) !== digest)
+    throw new Error(`Traffic quality UI reference drift: ${file}`);
 const migrationLock = JSON.parse(readFileSync('config/liekan/migrations.json', 'utf8'));
+if (baseline.liekanMigration !== Object.keys(migrationLock).length)
+  throw new Error('Release migration count and immutable register differ');
 if (
   JSON.stringify(
     readdirSync('db/liekan/migrations')

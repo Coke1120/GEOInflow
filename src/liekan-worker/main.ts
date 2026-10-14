@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { processBrowserRisk } from '../lib/liekan/upstream/browser-risk';
 import { writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { PgBoss } from 'pg-boss';
@@ -9,6 +10,7 @@ import {
   LOG_QUEUE,
   PROVIDER_QUEUE,
   RANGE_QUEUE,
+  BROWSER_RISK_QUEUE,
   CRAWLER_ANALYSIS_QUEUE,
   CRAWLER_CHECK_QUEUE,
   CRAWLER_CONTROL_QUEUE,
@@ -87,6 +89,12 @@ async function reconcile() {
   }
 }
 async function main() {
+  if (process.argv.includes('--observe-browser-risk-once')) {
+    await processBrowserRisk();
+    await prisma.client.$disconnect();
+    console.log('Browser risk observation batch completed');
+    return;
+  }
   if (process.argv.includes('--pause-crawler-control')) {
     console.log(JSON.stringify(await pauseRestoredCrawlerControl()));
     await prisma.client.$disconnect();
@@ -186,6 +194,29 @@ async function main() {
       await processCrawlerDeployment(workerId);
     },
   );
+  await boss.work(
+    BROWSER_RISK_QUEUE,
+    { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: 2 },
+    async () => {
+      await processBrowserRisk();
+    },
+  );
+  const wakeBrowserRisk = () =>
+    boss.send(
+      BROWSER_RISK_QUEUE,
+      {},
+      {
+        singletonKey: 'observe',
+        singletonSeconds: 10,
+        expireInSeconds: 300,
+        retentionSeconds: 3600,
+        retryLimit: 2,
+      },
+    );
+  void wakeBrowserRisk().catch(() => {});
+  const browserRiskTimer = setInterval(() => {
+    void wakeBrowserRisk().catch(() => {});
+  }, 10000);
   const wakeCrawlers = async () => {
     for (const queue of [CRAWLER_ANALYSIS_QUEUE, CRAWLER_CHECK_QUEUE, CRAWLER_CONTROL_QUEUE])
       await boss.send(
@@ -271,6 +302,7 @@ async function main() {
     clearInterval(heartbeat);
     clearInterval(ranges);
     clearInterval(crawlerTimer);
+    clearInterval(browserRiskTimer);
     await boss.stop({ graceful: true, timeout: 30000 });
     await transaction(tx =>
       tx.$executeRawUnsafe('DELETE FROM liekan_worker_state WHERE id=$1', workerId),

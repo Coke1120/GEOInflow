@@ -52,7 +52,12 @@ try {
       deadLetter: 'liekan-dead-letter',
     });
   }
-  for (const name of ['liekan-crawler-analysis', 'liekan-crawler-check', 'liekan-crawler-control'])
+  for (const name of [
+    'liekan-browser-risk',
+    'liekan-crawler-analysis',
+    'liekan-crawler-check',
+    'liekan-crawler-control',
+  ])
     await boss.createQueue(name, {
       policy: 'short',
       retryLimit: 2,

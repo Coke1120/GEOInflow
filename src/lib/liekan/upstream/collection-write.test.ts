@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   data: [] as any[],
   revenue: [] as any[],
   quality: [] as any[],
+  diagnostics: [] as any[],
   queries: [] as { sql: string; values: unknown[] }[],
   primaryOptions: [] as unknown[],
   schema: 'collection_fixture',
@@ -51,6 +52,7 @@ vi.mock('@/lib/prisma', () => {
         data: [] as any[],
         revenue: [] as any[],
         quality: [] as any[],
+        diagnostics: [] as any[],
       };
       const receipts = new Map<string, { payload_hash: string; event_id: string | null }>();
       const releases: (() => void)[] = [];
@@ -87,6 +89,12 @@ vi.mock('@/lib/prisma', () => {
         $executeRawUnsafe: async (sql: string, ...values: unknown[]) => {
           state.queries.push({ sql, values });
           if (/SET LOCAL search_path/i.test(sql)) return 0;
+          if (/INSERT INTO liekan_collection_diagnostic_state/i.test(sql)) return 1;
+          if (/INSERT INTO liekan_collection_diagnostic\(/i.test(sql)) {
+            if (state.failAt === 'diagnostic') throw new Error('diagnostic-write-failed');
+            pending.diagnostics.push(values);
+            return 1;
+          }
           if (/INSERT INTO liekan_event_quality/i.test(sql)) {
             if (state.failAt === 'quality') throw new Error('quality-write-failed');
             pending.quality.push({
@@ -114,6 +122,7 @@ vi.mock('@/lib/prisma', () => {
         state.data.push(...pending.data);
         state.revenue.push(...pending.revenue);
         state.quality.push(...pending.quality);
+        state.diagnostics.push(...pending.diagnostics);
         for (const [key, value] of receipts) state.receipts.set(key, value);
         return result;
       } catch (error) {
@@ -182,6 +191,7 @@ beforeEach(() => {
   state.data = [];
   state.revenue = [];
   state.quality = [];
+  state.diagnostics = [];
   state.queries = [];
   state.primaryOptions = [];
   state.transactions = 0;
@@ -299,7 +309,7 @@ describe('atomic collection writes', () => {
     expect(state.receipts.size).toBe(2);
   });
 
-  it.each(['event', 'data', 'revenue', 'quality', 'receipt_link'])(
+  it.each(['event', 'data', 'revenue', 'quality', 'receipt_link', 'diagnostic'])(
     'rolls back all writes on %s failure and permits retry',
     async failure => {
       state.failAt = failure;
@@ -391,4 +401,20 @@ describe('atomic collection writes', () => {
     expect(callback).not.toHaveBeenCalled();
     expect(state.transactions).toBe(0);
   });
+});
+
+it('records committed attempts and UUID coverage without counting rejected conflicts', async () => {
+  await withCollectionWrite(collection(), () => saveEvent(args()));
+  await Promise.all(
+    Array.from({ length: 8 }, () => withCollectionWrite(collection(), () => saveEvent(args()))),
+  );
+  await withCollectionWrite(collection({ eventId: undefined }), () => saveEvent(args()));
+  await expect(
+    withCollectionWrite(collection({ fingerprint: 'changed' }), () => saveEvent(args())),
+  ).rejects.toThrow();
+  expect(state.diagnostics).toHaveLength(10);
+  expect(state.diagnostics.reduce((n, r) => n + Number(r[2]), 0)).toBe(2);
+  expect(state.diagnostics.reduce((n, r) => n + Number(r[3]), 0)).toBe(1);
+  expect(state.diagnostics.reduce((n, r) => n + Number(r[4]), 0)).toBe(8);
+  expect(state.diagnostics.every(r => Number(r[1]) >= 0 && Number(r[1]) < 32)).toBe(true);
 });

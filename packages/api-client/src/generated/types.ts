@@ -1574,6 +1574,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/websites/{websiteId}/traffic-quality/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview traffic policy impact */
+    post: operations['previewLiekanTrafficPolicy'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/traffic-quality/risk': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read browser behavior observations */
+    get: operations['getLiekanBrowserRisk'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/websites/summary': {
     parameters: {
       query?: never;
@@ -20120,12 +20154,18 @@ export interface operations {
     parameters: {
       query?: {
         classification?: 'browser' | 'automated' | 'suspected' | 'unknown';
+        cursor?: string;
         /** @description End of the date range as a Unix timestamp in milliseconds. */
         endAt?: number;
+        /** @description Hostname on which the activity occurred. */
+        hostname?: string;
         /** @description Page number, starting at 1. */
         page?: number;
+        source?: 'browser' | 'authenticated_server' | 'legacy_override';
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt?: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
       };
       header?: never;
       path: {
@@ -20143,7 +20183,111 @@ export interface operations {
         };
         content: {
           'application/json': {
-            [key: string]: unknown;
+            available: boolean;
+            diagnostics?: {
+              bucketEndAt: number;
+              bucketStartAt: number;
+              /** @enum {string} */
+              coverage: 'missing' | 'partial' | 'complete';
+              duplicate: number | null;
+              duplicateFraction: number | null;
+              observedFrom: number | null;
+              observedUntil: number | null;
+              retainedFrom: string;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              uuidCoverage: number | null;
+              withUuid: number | null;
+              written: number | null;
+            };
+            domainAudit?: {
+              expectedHostname: string | null;
+              hosts: {
+                events: number;
+                /** @description Hostname on which the activity occurred. */
+                hostname: string | null;
+                /** @description Pageview counts for the selected period. */
+                pageviews: number;
+              }[];
+            };
+            history?: {
+              actorId: string;
+              after: {
+                allowedHostnames: string[];
+                /** @enum {string} */
+                mode: 'standard' | 'strict' | 'raw';
+                revision: string;
+                ruleVersion: string;
+              };
+              before: {
+                allowedHostnames: string[];
+                /** @enum {string} */
+                mode: 'standard' | 'strict' | 'raw';
+                revision: string;
+                ruleVersion: string;
+              };
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              /** @description Unique identifier of the resource. */
+              id: string;
+            }[];
+            nextCursor?: string | null;
+            /** @description Page number, starting at 1. */
+            page?: number;
+            /** @description Number of results per page. */
+            pageSize?: number;
+            policy?: {
+              allowedHostnames: string[];
+              /** @enum {string} */
+              mode: 'standard' | 'strict' | 'raw';
+              revision: string;
+              ruleVersion: string;
+            };
+            range?: {
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            };
+            reason?: string;
+            rows?: {
+              classification: string;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              /** @description ID of the event. */
+              eventId: string;
+              /** @description Hostname on which the activity occurred. */
+              hostname: string | null;
+              included: boolean;
+              normalizedHostname: string | null;
+              path: string | null;
+              rangeStatus: string | null;
+              rangeVersion: string | null;
+              reasons: string[];
+              ruleVersion: string | null;
+              source: string | null;
+            }[];
+            summary?: {
+              classification: string;
+              events: number;
+              included: number;
+              missing_verdict: number;
+              /** @description Pageview counts for the selected period. */
+              pageviews: number;
+              /** @description Unique visitor counts for the selected period. */
+              visitors: number;
+            }[];
+            totals?: {
+              excludedPV: number;
+              fullyExcludedUV: number;
+              includedPV: number;
+              includedUV: number;
+              missingVerdictPV: number;
+              rawPV: number;
+              rawUV: number;
+            };
           };
         };
       };
@@ -20235,20 +20379,25 @@ export interface operations {
       content: {
         'application/json': {
           allowedHostnames: string[];
+          expectedRevision?: string;
           /** @enum {string} */
           mode: 'standard' | 'strict' | 'raw';
         };
       };
     };
     responses: {
-      /** @description Site traffic policy and bounded quality audit */
+      /** @description Saved site policy */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
           'application/json': {
-            [key: string]: unknown;
+            allowedHostnames: string[];
+            /** @enum {string} */
+            mode: 'standard' | 'strict' | 'raw';
+            revision: string;
+            ruleVersion: string;
           };
         };
       };
@@ -20323,6 +20472,371 @@ export interface operations {
            */
           'application/json': components['schemas']['ApiError'];
         };
+      };
+      /** @description Policy revision conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unsupported analytics backend */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  previewLiekanTrafficPolicy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          policy: {
+            allowedHostnames: string[];
+            expectedRevision?: string;
+            /** @enum {string} */
+            mode: 'standard' | 'strict' | 'raw';
+          };
+          range: {
+            /** @enum {string} */
+            classification?: 'browser' | 'automated' | 'suspected' | 'unknown';
+            /** @description End of the date range as a Unix timestamp in milliseconds. */
+            endAt?: number;
+            /** @description Hostname on which the activity occurred. */
+            hostname?: string;
+            /** @enum {string} */
+            source?: 'browser' | 'authenticated_server' | 'legacy_override';
+            /** @description Start of the date range as a Unix timestamp in milliseconds. */
+            startAt?: number;
+            /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+            timezone?: string;
+          };
+        };
+      };
+    };
+    responses: {
+      /** @description Quality analysis */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            current: {
+              excludedPV: number;
+              fullyExcludedUV: number;
+              includedPV: number;
+              includedUV: number;
+              missingVerdictPV: number;
+              rawPV: number;
+              rawUV: number;
+            };
+            policy: {
+              allowedHostnames: string[];
+              /** @enum {string} */
+              mode: 'standard' | 'strict' | 'raw';
+              revision: string;
+              ruleVersion: string;
+            };
+            preview: {
+              excludedPV: number;
+              fullyExcludedUV: number;
+              includedPV: number;
+              includedUV: number;
+              missingVerdictPV: number;
+              rawPV: number;
+              rawUV: number;
+            };
+            proposed: {
+              allowedHostnames: string[];
+              expectedRevision?: string;
+              /** @enum {string} */
+              mode: 'standard' | 'strict' | 'raw';
+            };
+            range: {
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            };
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Policy revision conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unsupported analytics backend */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanBrowserRisk: {
+    parameters: {
+      query?: {
+        classification?: 'browser' | 'automated' | 'suspected' | 'unknown';
+        cursor?: string;
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt?: number;
+        /** @description Hostname on which the activity occurred. */
+        hostname?: string;
+        /** @description Page number, starting at 1. */
+        page?: number;
+        source?: 'browser' | 'authenticated_server' | 'legacy_override';
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt?: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Quality analysis */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            available: boolean;
+            coverage?: {
+              firstWindow: string | null;
+              lastWindow: string | null;
+              partialWindows: number;
+              windows: number;
+            };
+            findings?: {
+              computedAt: string;
+              features: {
+                durationMs: number;
+                medianGapMs: number | null;
+                /** @description Pageview counts for the selected period. */
+                pageviews: number;
+                peakMinute: number;
+                relativeMad: number | null;
+                repeatFraction: number;
+                timingConcentration: number | null;
+              };
+              reasons: string[];
+              /** @description ID of the visitor session. */
+              sessionId: string;
+              /** @description ID of the visit. */
+              visitId: string;
+              windowEnd: string;
+            }[];
+            impact?: {
+              flaggedPV: number;
+              fullyExcludedUV: number;
+              includedPV: number;
+              includedUV: number;
+            };
+            /** @constant */
+            mode?: 'observe';
+            range?: {
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+            };
+            reason?: string;
+            retentionDays?: number;
+            ruleVersion?: string;
+            state?: {
+              computedAt: string | null;
+              errorCode: string | null;
+              nextWindow: string;
+              ruleVersion: string;
+              /** @description Date and time the recording started. */
+              startedAt: string;
+            } | null;
+            /** @constant */
+            timeBasis?: 'server-received';
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Policy revision conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unsupported analytics backend */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

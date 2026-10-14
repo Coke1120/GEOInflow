@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { defineOperation } from '@/openapi/operation';
-import { trafficPolicySchema } from '@/lib/liekan/contracts/traffic-quality';
+import {
+  trafficPolicySchema,
+  savedTrafficPolicySchema,
+  trafficAuditSchema,
+  qualityRangeSchema,
+} from '@/lib/liekan/contracts/traffic-quality';
 import {
   badRequestResponse,
   notFoundResponse,
@@ -11,7 +16,7 @@ import {
 const responses = {
   '200': {
     description: 'Site traffic policy and bounded quality audit',
-    content: { 'application/json': { schema: z.record(z.string(), z.unknown()) } },
+    content: { 'application/json': { schema: trafficAuditSchema } },
   },
   '400': badRequestResponse,
   '401': unauthorizedResponse,
@@ -30,12 +35,7 @@ export const operations = [
       tags: ['Liekan'],
       requestParams: {
         path: z.object({ websiteId: z.uuid() }),
-        query: z.object({
-          startAt: z.coerce.number().int().optional(),
-          endAt: z.coerce.number().int().optional(),
-          classification: z.enum(['browser', 'automated', 'suspected', 'unknown']).optional(),
-          page: z.coerce.number().int().min(1).max(10000).optional(),
-        }),
+        query: qualityRangeSchema,
       },
       responses,
     },
@@ -54,7 +54,15 @@ export const operations = [
         required: true,
         content: { 'application/json': { schema: trafficPolicySchema } },
       },
-      responses,
+      responses: {
+        ...responses,
+        '200': {
+          description: 'Saved site policy',
+          content: { 'application/json': { schema: savedTrafficPolicySchema } },
+        },
+        '409': { description: 'Policy revision conflict' },
+        '501': { description: 'Unsupported analytics backend' },
+      },
     },
   }),
 ] as const;

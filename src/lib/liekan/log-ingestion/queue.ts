@@ -3,6 +3,7 @@ import { LiekanError } from '../upstream/errors';
 export const QUEUE_SCHEMA = 'liekan_jobs';
 export const LOG_QUEUE = 'liekan-log-ingest';
 export const PROVIDER_QUEUE = 'liekan-provider-maintenance';
+export const BROWSER_RISK_QUEUE = 'liekan-browser-risk';
 export const RANGE_QUEUE = 'liekan-range-refresh';
 export const CRAWLER_ANALYSIS_QUEUE = 'liekan-crawler-analysis';
 export const CRAWLER_CHECK_QUEUE = 'liekan-crawler-check';
