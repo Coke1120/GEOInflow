@@ -262,6 +262,27 @@ describe('website navigation transitions', () => {
         .at(-1),
     ).toHaveFocus();
   });
+  it('reaches the account language selector by keyboard inside the mobile sidebar', () => {
+    render(
+      <Navigation
+        user={{ id: 'user', username: 'member' } as any}
+        route={{ page: 'events', websiteId: 'site-a' }}
+        site={{ id: 'site-a', name: '网站 A', domain: 'a.test' }}
+        width={228}
+        onWidth={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '页面导航' }));
+    fireEvent.click(screen.getByRole('button', { name: '个人账户' }));
+    const language = screen.getByRole('combobox', { name: 'Language / 语言' });
+    for (let step = 0; step < 50 && document.activeElement !== language; step++)
+      fireEvent.keyDown(document, { key: 'Tab' });
+    expect(language).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(screen.getByRole('link', { name: '账户资料' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Tab', shiftKey: true });
+    expect(language).toHaveFocus();
+  });
   it('releases navigation focus and page scrolling when an open mobile menu becomes desktop', () => {
     let change: () => void;
     const media = {

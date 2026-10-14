@@ -1834,6 +1834,17 @@ export function ResourceAnalytics({
       )}
       {chartEnabled && variant !== 'board' && (
         <Chart
+          interactionKey={JSON.stringify([
+            'resource',
+            request ? (request as any).shareCacheKey : c?.user?.id,
+            id,
+            kind,
+            params,
+            metrics,
+            variant,
+            allowGoals,
+            q.data,
+          ])}
           title={i18n.system(title)}
           subtitle={i18n.text('所选日期范围')}
           labels={points.map((point: any) =>
@@ -2342,6 +2353,16 @@ function NativeWidget({
           />
         ) : (
           <Chart
+            interactionKey={JSON.stringify([
+              'widget',
+              request ? request.shareCacheKey : c?.user?.id,
+              board.id,
+              id,
+              kind,
+              component,
+              params,
+              q.data,
+            ])}
             type="bar"
             labels={rowsOf<any>(q.data).map(
               (step, index) => step.value || i18n.text('步骤 {v0}', [index + 1]),
@@ -2402,9 +2423,32 @@ function NativeWidget({
     return (
       <QueryState query={q}>
         {events ? (
-          <Chart {...eventChartData(rowsOf<any>(q.data))} type="line" />
+          <Chart
+            interactionKey={JSON.stringify([
+              'widget',
+              request ? request.shareCacheKey : c?.user?.id,
+              board.id,
+              id,
+              kind,
+              component,
+              params,
+              q.data,
+            ])}
+            {...eventChartData(rowsOf<any>(q.data))}
+            type="line"
+          />
         ) : component?.props?.liekanDisplay === 'bar' ? (
           <Chart
+            interactionKey={JSON.stringify([
+              'widget',
+              request ? request.shareCacheKey : c?.user?.id,
+              board.id,
+              id,
+              kind,
+              component,
+              params,
+              q.data,
+            ])}
             type="bar"
             option={{
               grid: { left: 96, right: 56, top: 34, bottom: 26 },
@@ -3450,6 +3494,16 @@ function PublicStats({
       ) : active === 'goals' ? (
         <>
           <Chart
+            interactionKey={JSON.stringify([
+              'public',
+              share.cacheKey,
+              active,
+              id,
+              kind,
+              range,
+              filters,
+              q.data,
+            ])}
             title={i18n.text('目标转化')}
             labels={(q.data?.results?.find((r: any) => r.kind === '目标')?.stats?.series || []).map(
               (r: any) => r.x,
@@ -3518,9 +3572,33 @@ function PublicStats({
           </Panel>
         </>
       ) : active === 'events' ? (
-        <Chart title={i18n.text('事件趋势')} type="line" {...eventChartData(rowsOf<any>(q.data))} />
+        <Chart
+          interactionKey={JSON.stringify([
+            'public',
+            share.cacheKey,
+            active,
+            id,
+            kind,
+            range,
+            filters,
+            q.data,
+          ])}
+          title={i18n.text('事件趋势')}
+          type="line"
+          {...eventChartData(rowsOf<any>(q.data))}
+        />
       ) : (
         <Chart
+          interactionKey={JSON.stringify([
+            'public',
+            share.cacheKey,
+            active,
+            id,
+            kind,
+            range,
+            filters,
+            q.data,
+          ])}
           title={i18n.text('UTM 来源')}
           type="bar"
           horizontal

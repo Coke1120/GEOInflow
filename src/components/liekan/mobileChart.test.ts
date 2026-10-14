@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { mobileChartOptions, observeChartLayout } from './mobileChart';
+import { mobileChartOptions, observeChartLayout, restoreChartInteractions } from './mobileChart';
 const source = {
   tooltip: { trigger: 'axis' },
   legend: { top: 2 },
@@ -135,4 +135,74 @@ it('formats complete timestamps with seconds and offsets', () => {
   ).xAxis;
   expect(axis.axisLabel.formatter(labels[0], 0)).toBe('09:00');
   expect(axis.axisLabel.formatter(labels[1], 1)).toBe('10:30');
+});
+
+it('restores translated pie selections, scrolling and zoom without mutating raw options', () => {
+  const next = {
+    legend: { type: 'scroll' },
+    dataZoom: [{ start: 0, end: 100 }],
+    series: [
+      {
+        type: 'pie',
+        data: [
+          { name: 'Known', value: 3 },
+          { name: 'Unknown', value: 2 },
+        ],
+      },
+    ],
+  };
+  const current = {
+    legend: [{ selected: { 未知: false }, scrollDataIndex: 1 }],
+    dataZoom: [{ start: 20, end: 80 }],
+    series: [
+      {
+        type: 'pie',
+        data: [
+          { name: '已知', value: 3 },
+          { name: '未知', value: 2 },
+        ],
+        selectedMap: { 已知: true },
+      },
+    ],
+  };
+  const before = JSON.stringify([next, current]);
+  const restored = restoreChartInteractions(next, current, true);
+  expect(restored.legend).toMatchObject({ selected: { Unknown: false }, scrollDataIndex: 1 });
+  expect(restored.dataZoom).toEqual([{ start: 20, end: 80 }]);
+  expect(restored.series[0].selectedMap).toEqual({ Known: true });
+  expect(restored.series[0].data).toBe(next.series[0].data);
+  expect(JSON.stringify([next, current])).toBe(before);
+});
+
+it('waits for a measurable container before restoring translated interactions', () => {
+  const element = document.createElement('div');
+  let width = 0;
+  let resize!: () => void;
+  Object.defineProperty(element, 'clientWidth', { get: () => width });
+  const disconnect = vi.fn();
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      constructor(callback: () => void) {
+        resize = callback;
+      }
+      observe() {}
+      disconnect = disconnect;
+    },
+  );
+  const next = { ...source, series: [{ ...source.series[0], name: 'Visitors' }] };
+  const previous = { legend: [{ selected: { 访客: false } }], series: source.series };
+  const instance = { setOption: vi.fn(), resize: vi.fn(), getOption: vi.fn() };
+  try {
+    const stop = observeChartLayout(instance, element, next, undefined, previous);
+    expect(instance.setOption).not.toHaveBeenCalled();
+    width = 320;
+    resize();
+    expect(instance.setOption.mock.calls[0][0].legend.selected).toEqual({ Visitors: false });
+    expect(instance.getOption).not.toHaveBeenCalled();
+    stop();
+    expect(disconnect).toHaveBeenCalledOnce();
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

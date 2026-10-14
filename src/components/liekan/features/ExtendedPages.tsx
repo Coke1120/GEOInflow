@@ -153,6 +153,7 @@ function Performance() {
       >
         <QueryState query={chart}>
           <Chart
+            interactionKey={JSON.stringify(['performance', c.user.id, c.siteId, scope, chart.data])}
             labels={points.map((r: any) => r.t)}
             series={['p50', 'p75', 'p95'].map(p => ({
               name: p,
@@ -311,6 +312,14 @@ function Revenue() {
       >
         <QueryState query={chart}>
           <Chart
+            interactionKey={JSON.stringify([
+              'revenue',
+              c.user.id,
+              c.siteId,
+              scope,
+              mode,
+              chart.data,
+            ])}
             labels={labels}
             series={[{ name: currency, values: series }]}
             option={{

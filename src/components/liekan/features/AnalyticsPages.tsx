@@ -283,6 +283,7 @@ function Realtime() {
       >
         <QueryState query={timeline}>
           <Chart
+            interactionKey={JSON.stringify(['realtime', c.user.id, c.siteId, scope, timeline.data])}
             type="bar"
             labels={series.map((r: any) => r.x)}
             series={[{ name: i18n.text('访客'), values: series.map((r: any) => Number(r.y)) }]}
@@ -365,6 +366,7 @@ function Events() {
       <Panel title={i18n.text('事件触发趋势')} subtitle={i18n.text('日期范围与下方明细一致。')}>
         <QueryState query={timeline}>
           <Chart
+            interactionKey={JSON.stringify(['events', c.user.id, c.siteId, scope, timeline.data])}
             labels={labels}
             series={names.map(name => ({
               name,
@@ -480,6 +482,13 @@ function EventDetail() {
             }
           >
             <Chart
+              interactionKey={JSON.stringify([
+                'event-property',
+                c.user.id,
+                c.siteId,
+                scope,
+                query.data,
+              ])}
               type="bar"
               horizontal
               labels={values.map(r => r.value ?? i18n.text('未提供'))}
@@ -1970,6 +1979,14 @@ function Journeys({ detail = false }: { detail?: boolean }) {
         <QueryState query={query}>
           {rows.length ? (
             <Chart
+              interactionKey={JSON.stringify([
+                'journeys',
+                c.user.id,
+                c.siteId,
+                scope,
+                page,
+                query.data,
+              ])}
               type="sankey"
               height={400}
               labels={[]}
@@ -2134,6 +2151,14 @@ function UTM() {
       <QueryState query={query}>
         <div className="two">
           <Chart
+            interactionKey={JSON.stringify([
+              'utm',
+              c.user.id,
+              c.siteId,
+              scope,
+              dimension,
+              query.data,
+            ])}
             title={i18n.text('utm_{v0} 分布', [dimension])}
             subtitle={i18n.text('按当前维度的访问次数排序。')}
             type="bar"
@@ -2263,6 +2288,7 @@ function Attribution() {
       {settings.step ? (
         <QueryState query={query}>
           <Chart
+            interactionKey={JSON.stringify(['attribution', c.user.id, c.siteId, scope, query.data])}
             title={i18n.text('渠道贡献')}
             subtitle={i18n.text('按所选模型分配转化访客。')}
             type="bar"
@@ -2351,6 +2377,14 @@ function Breakdown() {
       </div>
       <QueryState query={query}>
         <Chart
+          interactionKey={JSON.stringify([
+            'breakdown',
+            c.user.id,
+            c.siteId,
+            scope,
+            fields,
+            query.data,
+          ])}
           title={i18n.text('{v0}的访问次数', [labels.map(i18n.system).join(' × ')])}
           subtitle={i18n.text('维度组合按访问次数排序。')}
           option={{ grid: { left: 150, right: 56, top: 34, bottom: 26 } }}
@@ -2369,11 +2403,21 @@ function Breakdown() {
             search
             columns={[...labels, '访问次数', '访客', '操作']}
             rows={rows.map((r, i) => [
-              ...fields.map(f =>
-                f === 'path'
-                  ? pageLink(r[f], c.site?.domain, undefined, undefined, i18n.locale)
-                  : r[f] || i18n.text('未提供'),
-              ),
+              ...fields.map(f => (
+                <TableCell
+                  key={f}
+                  sortValue={f === 'path' ? pageLink(r[f], c.site?.domain) : r[f] || '未提供'}
+                  searchValue={
+                    f === 'path'
+                      ? pageLink(r[f], c.site?.domain, undefined, undefined, 'en-US')
+                      : r[f] || i18n.english.text('未提供')
+                  }
+                >
+                  {f === 'path'
+                    ? pageLink(r[f], c.site?.domain, undefined, undefined, i18n.locale)
+                    : r[f] || i18n.text('未提供')}
+                </TableCell>
+              )),
               n(r.views),
               n(r.visitors),
               <TableCell sortValue={i18n.source('访问')} searchValue={i18n.english.text('访问')}>
@@ -2572,6 +2616,14 @@ function Compare() {
           ]}
         />
         <Chart
+          interactionKey={JSON.stringify([
+            'compare',
+            c.user.id,
+            c.siteId,
+            scope,
+            comparison,
+            query.data,
+          ])}
           title={i18n.text('同期访问趋势')}
           subtitle={i18n.text('对照序列按相对天数对齐，使用同一单位。')}
           labels={Array.from({ length: count }, (_, i) => i18n.text('第 {v0} 天', [i + 1]))}
@@ -2719,6 +2771,14 @@ function Annotations() {
       <Panel title={i18n.text('访问趋势')} subtitle={i18n.text('日期注释显示在相应时间节点。')}>
         <QueryState query={chart}>
           <Chart
+            interactionKey={JSON.stringify([
+              'annotations',
+              c.user.id,
+              c.siteId,
+              scope,
+              chart.data,
+              query.data,
+            ])}
             labels={dates}
             series={[{ name: i18n.text('访问'), values: points.map((r: any) => Number(r.y)) }]}
             option={{

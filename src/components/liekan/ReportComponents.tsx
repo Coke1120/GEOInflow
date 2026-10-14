@@ -109,17 +109,48 @@ export function ReferenceChart({
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const chart = report?.charts[id];
+  const interaction = useRef<{ key: string; locale: string; option?: any }>(undefined);
+  const interactionKey = JSON.stringify([
+    id,
+    report?.website.id,
+    report?.range,
+    chart,
+    report?.meta.geography?.charts?.[id],
+    report?.states.logs,
+    report?.meta.aiCrawlerEnabled,
+  ]);
   const hasData =
     !!chart && (chart.series.some(s => s.values.length > 0) || (chart.rows?.length || 0) > 0);
   useEffect(() => {
     setFailed(false);
-    if (loading || !hasData || !container.current) return;
+    const previous = interaction.current;
+    const retained = {
+      key: interactionKey,
+      locale: i18n.locale,
+      option:
+        previous?.key === interactionKey && previous.locale !== i18n.locale
+          ? previous.option
+          : undefined,
+    };
+    interaction.current = retained;
+    if (loading || !hasData || !container.current) {
+      retained.option = undefined;
+      return;
+    }
     let disposed = false;
     let instance: any;
     let stopLayout: () => void;
-    const cleanup = () => {
+    const cleanup = (remember = false) => {
       stopLayout?.();
       stopLayout = undefined;
+      if (!remember) retained.option = undefined;
+      else if (instance) {
+        try {
+          retained.option = instance.getOption() ?? retained.option;
+        } catch {
+          retained.option = undefined;
+        }
+      }
       try {
         instance?.dispose();
       } catch {}
@@ -173,12 +204,12 @@ export function ReferenceChart({
           if (axis.min != null && min < axis.min) axis.min = Math.max(0, Math.floor(min * 0.8));
           if (axis.max != null && max > axis.max) axis.max = Math.ceil(max * 1.1);
         });
-        stopLayout = observeChartLayout(instance, container.current, option, fail);
+        stopLayout = observeChartLayout(instance, container.current, option, fail, retained.option);
       })
       .catch(fail);
     return () => {
       disposed = true;
-      cleanup();
+      cleanup(true);
     };
   }, [
     id,
@@ -189,6 +220,7 @@ export function ReferenceChart({
     attempt,
     loading,
     i18n.locale,
+    interactionKey,
   ]);
   const state =
     chart?.state ||

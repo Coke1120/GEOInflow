@@ -148,16 +148,14 @@ export function Navigation({
     if (!mobile) return;
     const before = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    sidebar.current?.querySelector<HTMLElement>('a,button')?.focus();
+    const focusable =
+      'a[href]:not([tabindex="-1"]),button:not(:disabled):not([tabindex="-1"]),input:not(:disabled):not([type="hidden"]):not([tabindex="-1"]),select:not(:disabled):not([tabindex="-1"]),textarea:not(:disabled):not([tabindex="-1"])';
+    sidebar.current?.querySelector<HTMLElement>(focusable)?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && !sidebar.current?.querySelector('#account-navigation'))
         setMobile(false);
       if (event.key !== 'Tab') return;
-      const nodes = Array.from(
-        sidebar.current?.querySelectorAll<HTMLElement>(
-          'a[href]:not([tabindex="-1"]),button:not(:disabled):not([tabindex="-1"])',
-        ) || [],
-      );
+      const nodes = Array.from(sidebar.current?.querySelectorAll<HTMLElement>(focusable) || []);
       if (!nodes.length) return;
       const current = nodes.indexOf(document.activeElement as HTMLElement);
       const next = event.shiftKey

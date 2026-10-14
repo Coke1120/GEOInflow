@@ -2603,6 +2603,15 @@ function Goals() {
       {goals.length > 0 ? (
         <QueryState query={stats}>
           <Chart
+            interactionKey={JSON.stringify([
+              'goal',
+              c.user.id,
+              c.siteId,
+              c.range,
+              c.filters,
+              first,
+              firstResult,
+            ])}
             title={i18n.text('{v0}的转化趋势', [first.name])}
             subtitle={i18n.text('当前所选期间')}
             labels={(firstResult?.series || []).map(point => point.x)}
@@ -2622,7 +2631,11 @@ function Goals() {
           </Chart>
         </QueryState>
       ) : (
-        <Chart title={i18n.text('目标转化趋势')} subtitle={i18n.text('当前所选期间')} />
+        <Chart
+          interactionKey={JSON.stringify(['goals-empty', c.user.id, c.siteId, c.range, c.filters])}
+          title={i18n.text('目标转化趋势')}
+          subtitle={i18n.text('当前所选期间')}
+        />
       )}
       <Notice>
         {i18n.text(

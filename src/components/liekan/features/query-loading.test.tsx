@@ -48,7 +48,7 @@ describe('module loading', () => {
     const view = render(
       <QueryState query={{ isPending: true }}>
         <div className="two">
-          <Chart title="访问趋势" height={260} />
+          <Chart interactionKey="loading-fixture" title="访问趋势" height={260} />
           <Panel title="来源明细">
             <Table columns={['来源', '访客']} rows={[]} />
           </Panel>
@@ -125,16 +125,27 @@ describe('module loading', () => {
       const [value, setValue] = useState('已保存');
       return <input value={value} onChange={event => setValue(event.target.value)} />;
     }
-    const view = render(<QueryState query={{ data: {} }}><Editor /></QueryState>);
+    const view = render(
+      <QueryState query={{ data: {} }}>
+        <Editor />
+      </QueryState>,
+    );
     const editor = screen.getByRole('textbox');
     fireEvent.change(editor, { target: { value: '尚未保存的修改' } });
-    view.rerender(<QueryState query={{ data: {}, error: { status: 500 } }}><Editor /></QueryState>);
+    view.rerender(
+      <QueryState query={{ data: {}, error: { status: 500 } }}>
+        <Editor />
+      </QueryState>,
+    );
     expect(screen.getByRole('textbox')).toBe(editor);
     expect(editor).toHaveValue('尚未保存的修改');
-    view.rerender(<QueryState query={{ data: {} }}><Editor /></QueryState>);
+    view.rerender(
+      <QueryState query={{ data: {} }}>
+        <Editor />
+      </QueryState>,
+    );
     expect(screen.getByRole('textbox')).toBe(editor);
     expect(editor).toHaveValue('尚未保存的修改');
     expect(screen.queryByText(/更新失败/)).not.toBeInTheDocument();
   });
-
 });

@@ -172,6 +172,68 @@ it('orders the breakdown chart by views and emits explicit missing-dimension dri
   );
 });
 
+it.each(['path', 'country'])(
+  'keeps missing %s dimension rows in the same sort order through language changes',
+  field => {
+    mocks.context.site.domain = 'example.test';
+    mocks.query.breakdown = [
+      { path: '/known', country: 'CN', views: 2, visitors: 1 },
+      { path: field === 'path' ? null : '/missing', country: null, views: 5, visitors: 2 },
+    ];
+    const view = render(
+      <LiekanLocaleContext.Provider value="zh-CN">
+        <AnalyticsPages page="breakdown" />
+      </LiekanLocaleContext.Provider>,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: field === 'path' ? /页面路径/ : /国家 \/ 地区/ }),
+    );
+    const counts = () =>
+      screen
+        .getAllByRole('row')
+        .slice(1)
+        .map(row => row.children[2].textContent);
+    const order = counts();
+    expect(order).toHaveLength(2);
+    view.rerender(
+      <LiekanLocaleContext.Provider value="en-US">
+        <AnalyticsPages page="breakdown" />
+      </LiekanLocaleContext.Provider>,
+    );
+    expect(counts()).toEqual(order);
+  },
+);
+
+it.each(['未提供', 'Not provided'])(
+  'keeps the bilingual missing-dimension search %s through language changes',
+  term => {
+    mocks.query.breakdown = [
+      { path: '/known', country: 'CN', views: 2, visitors: 1 },
+      { path: '/missing', country: null, views: 5, visitors: 2 },
+    ];
+    const view = render(
+      <LiekanLocaleContext.Provider value="zh-CN">
+        <AnalyticsPages page="breakdown" />
+      </LiekanLocaleContext.Provider>,
+    );
+    fireEvent.change(screen.getByRole('searchbox', { name: '搜索本页记录' }), {
+      target: { value: term },
+    });
+    expect(screen.getAllByRole('cell').map(cell => cell.textContent)).toContain('/missing');
+    expect(screen.queryByRole('cell', { name: '/known' })).not.toBeInTheDocument();
+    view.rerender(
+      <LiekanLocaleContext.Provider value="en-US">
+        <AnalyticsPages page="breakdown" />
+      </LiekanLocaleContext.Provider>,
+    );
+    expect(screen.getByRole('searchbox', { name: 'Search records on this page' })).toHaveValue(
+      term,
+    );
+    expect(screen.getAllByRole('cell').map(cell => cell.textContent)).toContain('/missing');
+    expect(screen.queryByRole('cell', { name: '/known' })).not.toBeInTheDocument();
+  },
+);
+
 it('keeps the selected event property while its value query is pending', () => {
   mocks.context.query.eventName = 'signup';
   const keys: string[] = [];
