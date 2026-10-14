@@ -329,6 +329,44 @@ test('identifies source keywords through real collection, scopes access, pages a
     expect(csv).toContain('word24');
     expect(csv).toContain('统计读取时间');
     expect(csv).not.toContain('person@example.test');
+    const englishExport = await admin.post(`${base}/exports`, {
+      kind: 'source-keywords',
+      format: 'csv',
+      startAt: params.startAt,
+      endAt: params.endAt,
+      timezone: 'UTC',
+      search: 'word',
+      sort: 'keyword',
+      direction: 'asc',
+      locale: 'en-US',
+    });
+    expect(englishExport.status, englishExport.text).toBe(200);
+    const englishFrames = englishExport.text
+      .trim()
+      .split('\n')
+      .map(line => JSON.parse(line));
+    expect(englishFrames.at(-1).type).toBe('complete');
+    expect(englishFrames.find(frame => frame.type === 'file').manifest.rows).toBe(25);
+    const englishCsv = Buffer.concat(
+      englishFrames.filter(f => f.type === 'chunk').map(f => Buffer.from(f.data, 'base64')),
+    ).toString();
+    expect(englishCsv).toContain('Statistics read at');
+    expect(englishCsv).toContain('Keyword / status');
+    expect(englishCsv).toContain('word00');
+    expect(englishCsv).toContain('word24');
+    expect(englishCsv).not.toContain('统计读取时间');
+    expect(englishCsv).not.toContain('person@example.test');
+    expect(
+      (
+        await admin.post(`${base}/exports`, {
+          kind: 'source-keywords',
+          format: 'csv',
+          startAt: params.startAt,
+          endAt: params.endAt,
+          locale: 'fr-FR',
+        })
+      ).status,
+    ).toBe(400);
   } finally {
     await deleteWebsite(admin, website.id);
   }
@@ -367,6 +405,11 @@ test('keeps the deployed shared overview scoped and aggregate-only', async ({
       canManage: false,
       latestImportAt: null,
       ruleCount: 0,
+      geography: {
+        cards: {},
+        charts: { g1: [], g2: [] },
+        tables: { cityBody: [{ country: null, region: null, city: null, cityId: null }] },
+      },
     });
     expect((await client.get(path, { params: { ...params, resource: 'logs' } })).status).toBe(400);
   }
