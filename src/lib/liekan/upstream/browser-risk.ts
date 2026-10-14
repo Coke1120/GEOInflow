@@ -71,17 +71,25 @@ export async function processBrowserRisk() {
           Math.max(+state.next_window, Math.floor((Date.now() - 30 * 86400000) / 60000) * 60000),
         );
         const rows = await tx.$queryRawUnsafe(
-          `SELECT e.session_id,e.visit_id,e.url_path,q.created_at AS observed_at
-         FROM liekan_event_quality q JOIN website_event e ON e.event_id=q.event_id AND e.website_id=q.website_id
-         WHERE q.website_id=$1::uuid AND q.created_at>$2::timestamptz-interval '5 minutes' AND q.created_at<=$2
-         AND e.event_type=1 ORDER BY q.created_at,q.event_id LIMIT $3`,
+          `WITH candidates AS MATERIALIZED (
+           SELECT event_id,created_at FROM liekan_event_quality
+           WHERE website_id=$1::uuid AND created_at>$2::timestamptz-interval '5 minutes' AND created_at<=$2
+           ORDER BY created_at,event_id LIMIT $3
+         )
+         SELECT e.session_id,e.visit_id,e.url_path,e.event_type,q.created_at AS observed_at
+         FROM candidates q LEFT JOIN LATERAL (
+           SELECT session_id,visit_id,url_path,event_type FROM website_event e
+           WHERE e.event_id=q.event_id AND e.website_id=$1::uuid LIMIT 1
+         ) e ON true ORDER BY q.created_at,q.event_id`,
           id,
           end,
           BROWSER_RISK_WINDOW_LIMIT + 1,
         );
         const complete = rows.length <= BROWSER_RISK_WINDOW_LIMIT;
+        // The input budget covers all event types; behavior uses only the sampled pageviews.
+        const pageviews = rows.slice(0, BROWSER_RISK_WINDOW_LIMIT).filter(row => row.event_type === 1);
         const visits = new Map<string, any[]>();
-        for (const row of rows.slice(0, BROWSER_RISK_WINDOW_LIMIT)) {
+        for (const row of pageviews) {
           const key = row.session_id + ':' + row.visit_id;
           const group = visits.get(key) || [];
           group.push(row);
@@ -104,7 +112,7 @@ export async function processBrowserRisk() {
           state.epoch,
           BROWSER_RISK_VERSION,
           complete ? 'observed' : 'partial',
-          Math.min(rows.length, BROWSER_RISK_WINDOW_LIMIT),
+          pageviews.length,
           visits.size,
           findings.filter(f => f.state === 'insufficient').length,
           findings.filter(f => f.state === 'review').length,

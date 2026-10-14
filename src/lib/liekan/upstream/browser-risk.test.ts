@@ -39,6 +39,7 @@ vi.mock('./server', () => ({
             session_id: 'session',
             visit_id: 'visit',
             url_path: '/same',
+            event_type: 1,
             observed_at: new Date(Date.now() - 300000 + i * 2000),
           }));
         }

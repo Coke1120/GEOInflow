@@ -291,6 +291,35 @@ export async function runTrafficQualityUpgradeChecks({
       );
       assert.deepEqual(counts, [0, 0, 0, 0]);
     });
+    await test('non-PV bursts consume the observation budget and retain partial coverage', async () => {
+      const freshSession = randomUUID(),
+        freshVisit = randomUUID();
+      await sql(`INSERT INTO session(session_id,website_id) VALUES('${freshSession}','${riskSite}');
+        INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name)
+        SELECT gen_random_uuid(),'${riskSite}','${freshSession}','${freshVisit}',date_trunc('minute',now())-interval '5 minutes'+i*interval '1 microsecond','/synthetic-custom',2,'synthetic-custom'
+        FROM generate_series(0,10000) i;
+        INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type)
+        SELECT gen_random_uuid(),'${riskSite}','${freshSession}','${freshVisit}',date_trunc('minute',now())-interval '4 minutes'+i*interval '2 seconds','/synthetic-after-budget',1
+        FROM generate_series(0,30) i;
+        INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,created_at)
+        SELECT event_id,website_id,'browser','browser','{}','traffic-quality-v1','untrusted',created_at FROM website_event WHERE website_id='${riskSite}';
+        INSERT INTO liekan_browser_risk_state(website_id,epoch,next_window,rule_version)
+        VALUES('${riskSite}',COALESCE((SELECT epoch FROM liekan_log_state WHERE website_id='${riskSite}'),1),date_trunc('minute',now())-interval '2 minutes','browser-behavior-v1');`);
+      await docker(
+        ['exec', names.application, 'node', 'dist/liekan-worker.mjs', '--observe-browser-risk-once'],
+        { timeout: 180000 },
+      );
+      const latest = await sqlJson(
+        `SELECT row_to_json(t) FROM (SELECT coverage,events,flagged FROM liekan_browser_risk_window WHERE website_id='${riskSite}' ORDER BY window_end DESC LIMIT 1) t;`,
+      );
+      assert.equal(latest.coverage, 'partial');
+      assert.equal(latest.events, 0);
+      assert.equal(latest.flagged, 0);
+      const report = (await json(`${quality}/risk?${riskRange}`, { auth: true })).body;
+      assert.equal(report.findings.length, 0);
+      assert.equal(report.impact.includedPV, 31);
+      assert.equal(report.impact.flaggedPV, 0);
+    });
   } finally {
     await http(native, { method: 'DELETE', auth: true });
   }

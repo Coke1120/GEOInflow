@@ -140,7 +140,8 @@ const scope = `e.website_id=$1::uuid AND e.created_at BETWEEN $2 AND $3
  AND ($5::text IS NULL OR q.source=$5) AND ($6::text IS NULL OR e.hostname=$6 OR q.hostname=$6)`;
 const evidenceJoins = `FROM website_event e LEFT JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id`;
 const joins = `${evidenceJoins}
- LEFT JOIN liekan_effective_website_event effective ON effective.event_id=e.event_id AND effective.website_id=e.website_id`;
+ LEFT JOIN liekan_effective_website_event effective ON effective.event_id=e.event_id AND effective.website_id=e.website_id
+ AND effective.created_at BETWEEN $2 AND $3`;
 const bindings = (id: string, range: Range) => [
   id,
   new Date(range.startAt),
@@ -270,7 +271,7 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
     const bucketStartAt = Math.floor(range.startAt / 60000) * 60000,
       bucketEndAt = Math.floor(range.endAt / 60000) * 60000 + 60000;
     const [state] = await tx.$queryRawUnsafe(
-      'SELECT s.started_at,clock_timestamp() AS read_at FROM (SELECT 1) t LEFT JOIN liekan_collection_diagnostic_state s ON s.website_id=$1::uuid',
+      'SELECT (SELECT started_at FROM liekan_collection_diagnostic_state WHERE website_id=$1::uuid) AS started_at,clock_timestamp() AS read_at',
       websiteId,
     );
     const coverage = diagnosticCoverage(
