@@ -381,11 +381,14 @@ it('rereads the public overview when explicitly returning from events without re
       throw new Error(`Unexpected public request ${path}`);
     },
   );
-  mount(<ShareFeatureView slug="section-share" />, false);
+  const view = mount(<ShareFeatureView slug="section-share" />, false, 'en-US');
   await screen.findByRole('heading', { name: '分区验收站' });
   const reports = () => mocks.request.mock.calls.filter(call => call[1].endsWith('/shared-report'));
   expect(reports()).toHaveLength(1);
-  await userEvent.click(screen.getByRole('tab', { name: '事件' }));
+  expect(screen.getByRole('tab', { name: 'Overview' })).toHaveAttribute('aria-selected', 'true');
+  await userEvent.click(screen.getByRole('tab', { name: 'Event' }));
+  view.changeLanguage('zh-CN');
+  expect(screen.getByRole('tab', { name: '事件' })).toHaveAttribute('aria-selected', 'true');
   await screen.findByRole('heading', { name: '事件趋势' });
   await userEvent.click(screen.getByRole('tab', { name: '总览' }));
   await screen.findByRole('heading', { name: '分区验收站' });

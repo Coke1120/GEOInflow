@@ -3942,7 +3942,7 @@ export function ShareFeatureView({
                   <>
                     {allowed.length > 1 && (
                       <Tabs
-                        items={allowed}
+                        items={allowed.map(([id, label]) => [id, i18n.system(label)])}
                         active={selected || ''}
                         onChange={section => {
                           if (section === selected) return;

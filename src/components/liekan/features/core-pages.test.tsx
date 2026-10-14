@@ -165,6 +165,30 @@ beforeEach(() => {
 });
 
 describe('core API mappings', () => {
+  it('localizes website section tabs while retaining the form draft and canonical navigation', async () => {
+    mocks.query['site-record'] = mocks.context.site;
+    const page = (locale: 'zh-CN' | 'en-US') => (
+      <LiekanLocaleContext.Provider value={locale}>
+        <CorePages page="website-settings" />
+      </LiekanLocaleContext.Provider>
+    );
+    const view = render(page('en-US'));
+    expect(screen.getByRole('tab', { name: 'Basic information' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    const name = screen.getByRole('textbox', { name: /Website name/ });
+    fireEvent.change(name, { target: { value: 'Raw draft 网站' } });
+    view.rerender(page('zh-CN'));
+    expect(name).toHaveValue('Raw draft 网站');
+    expect(screen.getByRole('tab', { name: '基本信息' })).toHaveAttribute('aria-selected', 'true');
+    view.rerender(page('en-US'));
+    await userEvent.click(screen.getByRole('tab', { name: 'Installation' }));
+    expect(mocks.context.navigate).toHaveBeenLastCalledWith('website-settings', {
+      websiteId: 'site-1',
+      section: 'install',
+    });
+  });
   it('keeps bilingual website status and space searches stable across language changes', () => {
     mocks.context.sites = [
       { id: 'example', name: 'Example', domain: 'example.com', userId: 'user-1' },

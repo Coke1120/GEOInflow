@@ -956,7 +956,7 @@ function WebsiteSettings() {
       {site && (
         <>
           <Tabs
-            items={websiteSections}
+            items={websiteSections.map(([id, label]) => [id, i18n.system(label)])}
             active={section}
             onChange={next => c.navigate('website-settings', { websiteId: site.id, section: next })}
           />
