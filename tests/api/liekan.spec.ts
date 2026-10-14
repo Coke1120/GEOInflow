@@ -343,6 +343,10 @@ test('keeps the deployed shared overview scoped and aggregate-only', async ({
 }) => {
   const path = `/api/liekan/websites/${seed.website.id}/shared-report`;
   const params = { ...seed.range, timezone: 'Asia/Shanghai', chartPeriod: '30d' };
+  const privateReport = await admin.get(`/api/liekan/websites/${seed.website.id}/report`, {
+    params: { ...params, resource: 'human/geo' },
+  });
+  expect(privateReport.status).toBe(200);
   expect((await api.get(path, { params })).status).toBe(401);
   expect((await user.get(path, { params })).status).toBe(403);
   for (const client of [admin, await share()]) {
@@ -362,6 +366,7 @@ test('keeps the deployed shared overview scoped and aggregate-only', async ({
       'h3',
     ]);
     expect(result.body.meta).toEqual({
+      geographyCoverage: privateReport.body.meta.geographyCoverage,
       aiCrawlerEnabled: true,
       demo: false,
       canManage: false,
