@@ -193,6 +193,21 @@ try {
     failed && orphaned === 1,
     'real geography storage failure rolls back its event and receipt',
   );
+  const orphanId = uuid();
+  await db.query(
+    "INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,event_type,url_path) VALUES($1,$2,$3,$4,now(),1,'/orphan-fixture')",
+    [orphanId, site, uuid(), uuid()],
+  );
+  const orphan = await db.query(
+    withTrafficPolicy(
+      'SELECT count(*)::int AS count FROM website_event WHERE website_id=$1 AND event_id=$2',
+    ),
+    [site, orphanId],
+  );
+  check(
+    orphan.rows[0].count === 1,
+    'missing historical session metadata preserves eligible event collection presence',
+  );
 } finally {
   await db.query('ROLLBACK').catch(() => {});
   await db.query('DELETE FROM website_event WHERE website_id=$1', [site]);
