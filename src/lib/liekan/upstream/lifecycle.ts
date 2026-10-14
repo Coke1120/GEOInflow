@@ -7,6 +7,7 @@ export async function resetLiekanStatistics(tx: any, websiteId: string, identity
   await lockWritableWebsite(tx, websiteId, identity);
   await clearAiWebsiteInTransaction(tx, websiteId);
   for (const table of [
+    'liekan_geography_ingress',
     'liekan_collection_diagnostic',
     'liekan_collection_diagnostic_state',
     'liekan_browser_risk_window',
@@ -103,6 +104,7 @@ export async function stopWebsiteSources(tx: any, websiteId: string, deleted = f
   );
   if (deleted) {
     for (const table of [
+      'liekan_geography_ingress',
       'liekan_browser_risk_window',
       'liekan_browser_risk_state',
       'liekan_collection_diagnostic',

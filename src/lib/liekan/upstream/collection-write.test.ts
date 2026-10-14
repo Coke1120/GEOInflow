@@ -8,6 +8,7 @@ const state = vi.hoisted(() => ({
   data: [] as any[],
   revenue: [] as any[],
   quality: [] as any[],
+  geography: [] as any[],
   diagnostics: [] as any[],
   queries: [] as { sql: string; values: unknown[] }[],
   primaryOptions: [] as unknown[],
@@ -52,6 +53,7 @@ vi.mock('@/lib/prisma', () => {
         data: [] as any[],
         revenue: [] as any[],
         quality: [] as any[],
+        geography: [] as any[],
         diagnostics: [] as any[],
       };
       const receipts = new Map<string, { payload_hash: string; event_id: string | null }>();
@@ -95,6 +97,12 @@ vi.mock('@/lib/prisma', () => {
             pending.diagnostics.push(values);
             return 1;
           }
+          if (/INSERT INTO liekan_event_geography/i.test(sql)) {
+            if (state.failAt === 'geography') throw new Error('geography-write-failed');
+            pending.geography.push(values);
+            return 1;
+          }
+          if (/INSERT INTO liekan_analytics_revision/i.test(sql)) return 1;
           if (/INSERT INTO liekan_event_quality/i.test(sql)) {
             if (state.failAt === 'quality') throw new Error('quality-write-failed');
             pending.quality.push({
@@ -122,6 +130,7 @@ vi.mock('@/lib/prisma', () => {
         state.data.push(...pending.data);
         state.revenue.push(...pending.revenue);
         state.quality.push(...pending.quality);
+        state.geography.push(...pending.geography);
         state.diagnostics.push(...pending.diagnostics);
         for (const [key, value] of receipts) state.receipts.set(key, value);
         return result;
@@ -191,6 +200,7 @@ beforeEach(() => {
   state.data = [];
   state.revenue = [];
   state.quality = [];
+  state.geography = [];
   state.diagnostics = [];
   state.queries = [];
   state.primaryOptions = [];
@@ -417,4 +427,36 @@ it('records committed attempts and UUID coverage without counting rejected confl
   expect(state.diagnostics.reduce((n, r) => n + Number(r[3]), 0)).toBe(1);
   expect(state.diagnostics.reduce((n, r) => n + Number(r[4]), 0)).toBe(8);
   expect(state.diagnostics.every(r => Number(r[1]) >= 0 && Number(r[1]) < 32)).toBe(true);
+});
+
+it('geography failure rolls back event, properties, revenue and UUID receipt together', async () => {
+  const geography: any = {
+    location: { country: 'CN', region: 'CN-44', city: '广州' },
+    source: 'mmdb',
+    trust: 'trusted_ingress',
+    ipFamily: 'ipv4',
+    precision: 'city',
+    reason: 'city_present',
+    ruleVersion: 'g1',
+    dataVersion: 'd1',
+    cityId: '1',
+    accuracyRadius: 20,
+    countryBasis: 'located',
+    processedAt: '2026-10-14T00:00:00Z',
+    shadow: null,
+  };
+  state.failAt = 'geography';
+  await expect(
+    withCollectionWrite(collection({ geography }), () => saveEvent(args())),
+  ).rejects.toThrow('geography-write-failed');
+  expect(state.events).toHaveLength(0);
+  expect(state.data).toHaveLength(0);
+  expect(state.revenue).toHaveLength(0);
+  expect(state.receipts.size).toBe(0);
+  state.failAt = '';
+  await withCollectionWrite(collection({ geography }), () => saveEvent(args()));
+  await withCollectionWrite(collection({ geography }), () => saveEvent(args()));
+  expect(state.geography).toHaveLength(1);
+  expect(state.events).toHaveLength(1);
+  expect(JSON.stringify(state.geography)).not.toContain('userAgent');
 });

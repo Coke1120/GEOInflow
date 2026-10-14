@@ -23,6 +23,9 @@ import {
   mergeGeography,
   geographyTable,
   geographyLabel,
+  geographyCoverage,
+  knownChinaProvince,
+  isCountryCode,
 } from './contracts/geography';
 import {
   getContentImpact,
@@ -175,6 +178,9 @@ export async function buildReport(
     tables: {},
     insights: [],
     meta: {
+      ...(!parts || parts.human?.includes('geo' as never)
+        ? { geographyCoverage: geographyCoverage(h.geo, t.visits) }
+        : {}),
       demo: settings.isDemo,
       aiCrawlerEnabled: settings.aiCrawlerEnabled ?? true,
       logsConfigured: settings.logsConfigured ?? (!settings.isDemo && !!l.latest),
@@ -637,12 +643,12 @@ export async function buildReport(
     l.latest ? scatter : [],
   );
   const regions = aggregate(
-      h.geo.filter(g => g.country === 'CN'),
+      h.geo.filter(g => g.country === 'CN' && knownChinaProvince(g.region)),
       'region',
       'sessions',
     ),
     countries = aggregate(
-      h.geo.filter(g => g.country && g.country !== 'CN'),
+      h.geo.filter(g => isCountryCode(g.country) && g.country !== 'CN'),
       'country',
       'sessions',
     );

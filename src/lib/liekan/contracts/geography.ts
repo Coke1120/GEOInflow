@@ -3,7 +3,8 @@ import { normalizeCountryCode, normalizeRegionCode } from '../upstream/geography
 import countries from '../../../../public/intl/country/zh-CN.json' with { type: 'json' };
 import regions from '../../../../public/iso-3166-2.json' with { type: 'json' };
 
-export const geographyVersion = `geo-${catalog.version}-rules-2`;
+export const geographyDisplayRuleVersion = 'city-known-1';
+export const geographyVersion = `geo-${catalog.version}-rules-5-${geographyDisplayRuleVersion}`;
 export const provinceDefinitions = catalog.provinces;
 export const cityDefinitions = catalog.cities;
 export const geographyAlias = (value: string) => value.normalize('NFC').trim().toLowerCase();
@@ -35,6 +36,20 @@ export function geographyRegion(region?: string | null, country?: string | null)
   if (prefix && cc && prefix !== cc) return region.trim().toUpperCase();
   const normalized = normalizeRegionCode(region?.trim().toUpperCase(), country?.trim());
   return provinceCodes.get(normalized) || normalized || null;
+}
+
+export function isCountryCode(code?: string | null) {
+  return !!countries[normalizeCountryCode(code?.trim())];
+}
+export function knownChinaProvince(region?: string | null) {
+  return provinceDefinitions.some(p => p.code === geographyRegion(region, 'CN'));
+}
+export function cityNameValue(value?: string | null) {
+  const text = value?.normalize('NFC').trim();
+  return !text ||
+    ['0', 'unknown', '未知', '城市未知', '未知城市', 'n/a', '-'].includes(text.toLowerCase())
+    ? null
+    : text;
 }
 
 export function countryName(code?: string | null) {
@@ -114,7 +129,7 @@ export function identifyCity(value: Geography) {
       : country === 'CN' && region === 'CN-92'
         ? 'MO'
         : country;
-  const rawCity = value.city?.normalize('NFC').trim() || null;
+  const rawCity = cityNameValue(value.city);
   const candidates = rawCity
     ? (cityAliases.get(JSON.stringify([catalogueCountry, geographyAlias(rawCity)])) || []).filter(
         city =>
@@ -164,6 +179,69 @@ export type GeographyFact = Geography & {
   durationTotal?: number;
   durationSamples?: number;
 };
+
+export type GeographyCoverage = {
+  displayRuleVersion: string;
+  totalVisits: number;
+  cityKnownVisits: number;
+  cityUnknownVisits: number;
+  cityCoverage: number | null;
+  chinaVisits: number;
+  chinaProvinceKnownVisits: number;
+  chinaProvinceUnknownVisits: number;
+  chinaProvinceCoverage: number | null;
+  cityDisplayState: 'empty' | 'unidentified' | 'available';
+  provinceDisplayState: 'empty' | 'unidentified' | 'available';
+};
+
+export function geographyCoverage(rows: GeographyFact[], totalVisits: number): GeographyCoverage {
+  const count = (predicate: (row: GeographyFact) => boolean) =>
+    rows.reduce(
+      (sum, row) => sum + (predicate(row) ? Math.max(0, Number(row.sessions) || 0) : 0),
+      0,
+    );
+  const total = Math.max(0, totalVisits);
+  const cityKnownVisits = Math.min(
+    total,
+    count(row => !!identifyCity(row).city),
+  );
+  const chinaVisits = count(row => normalizeCountryCode(row.country) === 'CN');
+  const chinaProvinceKnownVisits = count(
+    row => normalizeCountryCode(row.country) === 'CN' && knownChinaProvince(row.region),
+  );
+  const percent = (a: number, b: number) => (b ? Math.round((a / b) * 10000) / 100 : null);
+  return {
+    displayRuleVersion: geographyDisplayRuleVersion,
+    totalVisits: total,
+    cityKnownVisits,
+    cityUnknownVisits: total - cityKnownVisits,
+    cityCoverage: percent(cityKnownVisits, total),
+    chinaVisits,
+    chinaProvinceKnownVisits,
+    chinaProvinceUnknownVisits: chinaVisits - chinaProvinceKnownVisits,
+    chinaProvinceCoverage: percent(chinaProvinceKnownVisits, chinaVisits),
+    cityDisplayState: !total ? 'empty' : cityKnownVisits ? 'available' : 'unidentified',
+    provinceDisplayState: !chinaVisits
+      ? 'empty'
+      : chinaProvinceKnownVisits
+        ? 'available'
+        : 'unidentified',
+  };
+}
+
+export function geographyCoverageText(coverage?: GeographyCoverage) {
+  const rule = '仅展示有城市信息的访问，占比按全部有效访问计算。';
+  if (!coverage) return `${rule} 城市覆盖情况暂不可用`;
+  if (!coverage.totalVisits) return `${rule} 当前期间暂无访问数据`;
+  return `${rule} 城市覆盖 ${coverage.cityCoverage}% · ${coverage.cityUnknownVisits.toLocaleString('zh-CN')} 次访问城市未识别`;
+}
+
+export function geographyEmptyText(coverage?: GeographyCoverage, search = '') {
+  if (!coverage) return '城市覆盖情况暂不可用';
+  if (!coverage.totalVisits) return '当前期间暂无访问数据';
+  if (!coverage.cityKnownVisits) return '已收到访问数据，城市信息尚未识别';
+  return search ? '没有匹配的城市' : '当前期间暂无城市记录';
+}
 export function mergeGeography(rows: GeographyFact[]) {
   const groups = new Map<
     string,
@@ -219,18 +297,20 @@ export function geographyTable(
   const percent = (count: number, total: number) =>
     total ? Math.round((count / total) * 10000) / 100 : null;
   const query = geographyAlias(selection.search || '');
-  const facts = mergeGeography(rows).filter(
-    row =>
-      !query ||
-      [
-        geographyLabel(row),
-        row.city,
-        ...regionAliases(row.region, row.country),
-        regionName(row.region, row.country),
-        countryName(row.country),
-        ...(cityDefinitions.find(city => city.id === row.cityId)?.aliases || []),
-      ].some(value => value && geographyAlias(value).includes(query)),
-  );
+  const facts = mergeGeography(rows)
+    .filter(row => !!row.city)
+    .filter(
+      row =>
+        !query ||
+        [
+          geographyLabel(row),
+          row.city,
+          ...regionAliases(row.region, row.country),
+          regionName(row.region, row.country),
+          countryName(row.country),
+          ...(cityDefinitions.find(city => city.id === row.cityId)?.aliases || []),
+        ].some(value => value && geographyAlias(value).includes(query)),
+    );
   const selected = facts.map(row => ({
     city: geographyLabel(row),
     sessions: row.sessions,

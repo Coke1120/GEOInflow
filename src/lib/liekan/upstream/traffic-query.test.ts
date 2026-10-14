@@ -12,14 +12,14 @@ describe('one relational traffic policy', () => {
     const sql =
       'select website_event.session_id from website_event join session s on s.session_id=website_event.session_id where exists(select 1 from website_event e where e.event_id=website_event.event_id)';
     expect(withTrafficPolicy(sql)).toBe(
-      `WITH website_event AS NOT MATERIALIZED (SELECT * FROM liekan_effective_website_event) ${sql}`,
+      `WITH website_event AS NOT MATERIALIZED (SELECT * FROM liekan_geographic_website_event) ${sql}`,
     );
   });
   it('covers properties and revenue sharing a session with an excluded event', () => {
     const sql =
       'WITH selected AS(select * from website_event) select * from event_data d join revenue r on r.event_id=d.website_event_id';
     expect(withTrafficPolicy(sql)).toContain(
-      'website_event AS NOT MATERIALIZED (SELECT * FROM liekan_effective_website_event), event_data AS NOT MATERIALIZED (SELECT * FROM liekan_effective_event_data), revenue AS NOT MATERIALIZED (SELECT * FROM liekan_effective_revenue), selected',
+      'website_event AS NOT MATERIALIZED (SELECT * FROM liekan_geographic_website_event), event_data AS NOT MATERIALIZED (SELECT * FROM liekan_effective_event_data), revenue AS NOT MATERIALIZED (SELECT * FROM liekan_effective_revenue), selected',
     );
   });
   it('preserves recursive WITH, comments, quoted table names and values', () => {
@@ -42,4 +42,23 @@ describe('one relational traffic policy', () => {
       withTrafficPolicy('WITH website_event AS (select 1) SELECT * FROM website_event'),
     ).toThrow('conflicts');
   });
+});
+
+it('geography and filters use the same complete visit tuple through scoped aliases', () => {
+  const sql = withTrafficPolicy(
+    `WITH visits AS (SELECT s.city AS city,s.country AS country,s.region AS region FROM website_event e JOIN session s ON s.session_id=e.session_id WHERE s.city=$1 GROUP BY s.city,s.country,s.region) SELECT * FROM visits`,
+  );
+  expect(sql).toContain('liekan_geographic_website_event');
+  expect(sql).toContain('e.liekan_city AS city');
+  expect(sql).toContain('WHERE e.liekan_city=$1');
+  expect(sql).toContain('GROUP BY e.liekan_city,e.liekan_country,e.liekan_region');
+  expect(
+    withTrafficPolicy(
+      'SELECT session.city AS city FROM session JOIN website_event ON website_event.session_id=session.session_id',
+    ),
+  ).toContain('website_event.liekan_city AS city');
+  const nested = withTrafficPolicy(
+    'SELECT s.city AS city FROM website_event e JOIN session s ON s.session_id=e.session_id WHERE EXISTS(SELECT 1 FROM session s WHERE s.city=$1)',
+  );
+  expect(nested).toContain('WHERE s.city=$1');
 });

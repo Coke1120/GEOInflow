@@ -1,3 +1,5 @@
+import { analyticsCache, websiteCacheTag } from './query-cache';
+import type { GeographyEvidence } from '../geography/evidence';
 import { randomInt } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import prisma, { getRawQueryClient, getSchema } from '@/lib/prisma';
@@ -9,6 +11,7 @@ export interface CollectionWriteInput {
   eventId?: string;
   fingerprint: string;
   quality?: CollectionQuality;
+  geography?: GeographyEvidence;
 }
 export type CollectionWriteResult<T> =
   | { status: 'written'; value: T }
@@ -21,6 +24,7 @@ export class CollectionConflictError extends Error {
 }
 interface CollectionWriteContext extends CollectionWriteInput {
   client: typeof prisma.client;
+  invalidateGeography?: boolean;
 }
 interface CollectionPrimary {
   $transaction<T>(
@@ -46,6 +50,47 @@ export async function recordEventQuality(
   if (!context) return;
   if (context.client !== tx || context.websiteId !== websiteId)
     throw new Error('Collection context does not match event');
+  if (context.geography) {
+    const g = context.geography;
+    await tx.$executeRawUnsafe(
+      `INSERT INTO liekan_event_geography(event_id,website_id,country,region,city,source,trust,ip_family,precision,reason,rule_version,data_version,city_id,accuracy_radius,country_basis,processed_at,shadow)
+       VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::timestamptz,$17::jsonb)`,
+      eventId,
+      websiteId,
+      g.location.country || null,
+      g.location.region || null,
+      g.location.city?.slice(0, 80) || null,
+      g.source,
+      g.trust,
+      g.ipFamily,
+      g.precision,
+      g.reason,
+      g.ruleVersion,
+      g.dataVersion,
+      g.cityId,
+      g.accuracyRadius,
+      g.countryBasis,
+      g.processedAt,
+      g.shadow ? JSON.stringify(g.shadow) : null,
+    );
+  }
+  if (context.geography) {
+    // Live data retains the existing short TTL. Late data and earlier visit anchors invalidate closed windows.
+    const changed = await tx.$executeRawUnsafe(
+      `INSERT INTO liekan_analytics_revision(resource_type,resource_id,revision)
+       SELECT 'website',$1::uuid,1 WHERE EXISTS(
+         SELECT 1 FROM website_event current WHERE current.event_id=$2::uuid AND current.website_id=$1::uuid AND
+           (current.created_at<clock_timestamp()-interval '60 seconds' OR EXISTS(
+             SELECT 1 FROM website_event later WHERE later.website_id=current.website_id
+             AND later.session_id=current.session_id AND later.visit_id=current.visit_id AND later.event_type NOT IN(2,5)
+             AND (later.created_at,later.event_id)>(current.created_at,current.event_id)
+           ))
+       ) ON CONFLICT(resource_type,resource_id) DO UPDATE SET revision=liekan_analytics_revision.revision+1,updated_at=now()`,
+      websiteId,
+      eventId,
+    );
+    context.invalidateGeography = changed > 0;
+  }
   const quality = context.quality;
   if (quality) {
     await tx.$executeRawUnsafe(
@@ -104,7 +149,8 @@ export async function withCollectionWrite<T>(
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema))
     throw new Error('Invalid collection database schema');
   const primary = getRawQueryClient(prisma.client, { write: true }) as unknown as CollectionPrimary;
-  return primary.$transaction<CollectionWriteResult<T>>(
+  let invalidateGeography = false;
+  const result = await primary.$transaction<CollectionWriteResult<T>>(
     async tx => {
       await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
       if (input.eventId) {
@@ -146,13 +192,19 @@ export async function withCollectionWrite<T>(
       const quality = input.quality
         ? { ...input.quality, reasons: [...input.quality.reasons] }
         : undefined;
-      const value = await writes.run(
-        { ...input, quality, client: tx as typeof prisma.client },
-        work,
-      );
+      const context: CollectionWriteContext = {
+        ...input,
+        quality,
+        client: tx as typeof prisma.client,
+      };
+      const value = await writes.run(context, work);
+      invalidateGeography = !!context.invalidateGeography;
       await recordDiagnostic(tx, input, false);
       return { status: 'written', value };
     },
     { isolationLevel: 'ReadCommitted', maxWait: 10000, timeout: 30000 },
   );
+  if (result.status === 'written' && invalidateGeography)
+    analyticsCache.invalidate(websiteCacheTag(input.websiteId));
+  return result;
 }

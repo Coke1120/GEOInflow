@@ -13,6 +13,15 @@ import {
   getClickHouseRegionSQL,
 } from '@/lib/country';
 
+// PostgreSQL event reads expose the complete eligible visit anchor through the traffic policy.
+export function postgresVisitGeographyColumn(name: string) {
+  const country = 'website_event.liekan_country';
+  if (name === 'country') return getPostgresCountrySQL(country);
+  if (name === 'region') return getPostgresRegionSQL(country, 'website_event.liekan_region');
+  if (name === 'city') return 'website_event.liekan_city';
+  return name;
+}
+
 // These literals come exclusively from the reviewed, bundled catalogue. Request values stay parameters.
 const literal = (value: string) => `'${value.replaceAll("'", "''").replaceAll('\\', '\\\\')}'`;
 // Match String.trim() at the lookup boundary; stored values and unknown output remain intact.

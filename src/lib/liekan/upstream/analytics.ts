@@ -47,16 +47,17 @@ function sourceFacts(rows: any[]) {
 
 // All knowledge of upstream storage and metric semantics is confined here.
 export function humanVisitsSql(keywords = false) {
-  return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country,s.region,s.city,s.browser,s.os,s.device FROM website_event e
-  JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
+  return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country AS country,s.region AS region,s.city AS city,s.browser,s.os,s.device FROM website_event e
+  LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
   WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz AND e.event_type != 5 AND $4::text IS NOT NULL),
+visit_geography AS (SELECT DISTINCT ON (visit_id,session_id) visit_id,session_id,country,region,city FROM events WHERE event_type NOT IN(2,5) ORDER BY visit_id,session_id,created_at,event_id),
 visit_totals AS (SELECT visit_id,session_id,count(*) FILTER(WHERE event_type NOT IN(2,5))::int AS pv,
   bool_or(event_type=2)::int AS custom, min(created_at) FILTER(WHERE event_type NOT IN(2,5)) AS started,
   extract(epoch FROM max(created_at) FILTER(WHERE event_type NOT IN(2,5))-min(created_at) FILTER(WHERE event_type NOT IN(2,5)))::float AS duration,
-  max(country) AS country,max(region) AS region,max(city) AS city,max(browser) AS browser,max(os) AS os,max(device) AS device
+  max(browser) AS browser,max(os) AS os,max(device) AS device
   FROM events GROUP BY visit_id,session_id HAVING count(*) FILTER(WHERE event_type NOT IN(2,5))>0),
-visits AS (SELECT v.*,entry.referrer_domain AS referrer,entry.utm_source AS "utmSource",entry.utm_medium AS "utmMedium",entry.utm_campaign AS "utmCampaign"${keywords ? ' ,entry.referrer_path AS "referrerPath",entry.referrer_query AS "referrerQuery",entry.utm_term AS "utmTerm"' : ''}
-  FROM visit_totals v LEFT JOIN LATERAL (
+visits AS (SELECT v.*,geography.country,geography.region,geography.city,entry.referrer_domain AS referrer,entry.utm_source AS "utmSource",entry.utm_medium AS "utmMedium",entry.utm_campaign AS "utmCampaign"${keywords ? ' ,entry.referrer_path AS "referrerPath",entry.referrer_query AS "referrerQuery",entry.utm_term AS "utmTerm"' : ''}
+  FROM visit_totals v JOIN visit_geography geography USING(visit_id,session_id) LEFT JOIN LATERAL (
     SELECT e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign${keywords ? ',e.referrer_path,e.referrer_query,e.utm_term' : ''} FROM website_event e
     WHERE e.website_id=$1::uuid AND e.visit_id=v.visit_id AND e.session_id=v.session_id
       AND e.created_at<=$3::timestamptz AND e.event_type NOT IN(2,5)

@@ -24,7 +24,7 @@ test('missing city database preserves collection metadata with missing geography
   open.mockRejectedValue(Object.assign(new Error('missing'), { code: 'ENOENT' }));
   const { getClientInfo } = await import('@/lib/detect');
   const result = await getClientInfo(new Request('https://example.test/api/send'), {
-    ip: '192.0.2.1',
+    ip: '223.5.5.5',
     userAgent: 'Mozilla/5.0',
     device: 'desktop',
   });
@@ -40,7 +40,7 @@ test('missing city database preserves collection metadata with missing geography
 test('concurrent lookups share one open attempt and retry after the database becomes available', async () => {
   open.mockRejectedValue(new Error('invalid MMDB'));
   const { getLocation } = await import('@/lib/detect');
-  const locate = () => getLocation('192.0.2.1', new Headers(), true);
+  const locate = () => getLocation('223.5.5.5', new Headers(), true);
   expect(await Promise.all(Array.from({ length: 20 }, locate))).toEqual(Array(20).fill(null));
   expect(open).toHaveBeenCalledTimes(1);
   expect(warn).toHaveBeenCalledTimes(1);
@@ -62,7 +62,7 @@ test('provider geography headers continue to work when the local database is una
   const { getLocation } = await import('@/lib/detect');
   expect(
     await getLocation(
-      '192.0.2.1',
+      '223.5.5.5',
       new Headers({ 'cf-ipcountry': 'CN', 'cf-region-code': '11', 'cf-ipcity': 'Beijing' }),
       false,
     ),
@@ -81,7 +81,7 @@ test('fills partial provider geography only from a consistent local city result'
   const { getLocation } = await import('@/lib/detect');
   expect(
     await getLocation(
-      '192.0.2.1',
+      '223.5.5.5',
       new Headers({ 'cf-ipcountry': 'CN', 'cf-region-code': 'SD' }),
       false,
     ),
@@ -104,7 +104,7 @@ test.each([
     const { getLocation } = await import('@/lib/detect');
     expect(
       await getLocation(
-        '192.0.2.1',
+        '223.5.5.5',
         new Headers({ 'cf-ipcountry': 'CN', 'cf-region-code': 'SD' }),
         false,
       ),
@@ -115,7 +115,7 @@ test.each([
 test('retains a country-only header when the city database is unavailable', async () => {
   open.mockRejectedValue(new Error('missing'));
   const { getLocation } = await import('@/lib/detect');
-  expect(await getLocation('192.0.2.1', new Headers({ 'cf-ipcountry': 'CN' }), false)).toEqual({
+  expect(await getLocation('223.5.5.5', new Headers({ 'cf-ipcountry': 'CN' }), false)).toEqual({
     country: 'CN',
     region: null,
     city: null,
@@ -131,7 +131,7 @@ test('fills a country-only header without changing the supplied country or raw c
     }),
   });
   const { getLocation } = await import('@/lib/detect');
-  expect(await getLocation('192.0.2.1', new Headers({ 'cf-ipcountry': 'CN' }), false)).toEqual({
+  expect(await getLocation('223.5.5.5', new Headers({ 'cf-ipcountry': 'CN' }), false)).toEqual({
     country: 'CN',
     region: 'CN-37',
     city: 'Jinan',
@@ -147,7 +147,7 @@ test('a damaged lookup tree also preserves collection and enters the bounded ret
   const { getClientInfo } = await import('@/lib/detect');
   const collect = () =>
     getClientInfo(new Request('https://example.test/api/send'), {
-      ip: '2001:db8::1',
+      ip: '2400:3200::1',
       device: 'desktop',
     });
   expect(await collect()).toMatchObject({ device: 'desktop', country: undefined });
@@ -169,7 +169,7 @@ test.each(['country', 'region', 'city'])(
     const { getClientInfo } = await import('@/lib/detect');
     const collect = () =>
       getClientInfo(new Request('https://example.test/api/send'), {
-        ip: '192.0.2.1',
+        ip: '223.5.5.5',
         device: 'desktop',
       });
     expect(await collect()).toMatchObject({
@@ -183,3 +183,84 @@ test.each(['country', 'region', 'city'])(
     expect(warn).toHaveBeenCalledTimes(1);
   },
 );
+
+test('records provider province conflicts without filling or losing collection metadata', async () => {
+  open.mockResolvedValue({
+    get: () => ({
+      country: { iso_code: 'CN' },
+      subdivisions: [{ iso_code: '44' }],
+      city: { names: { en: 'Guangzhou' } },
+    }),
+  });
+  const { getClientInfo } = await import('@/lib/detect');
+  const request = new Request('https://example.test/api/send', {
+    headers: { 'x-real-ip': '223.5.5.5', 'cf-ipcountry': 'CN', 'cf-region-code': 'SD' },
+  });
+  const result = await getClientInfo(request, { device: 'desktop' });
+  expect(result).toMatchObject({
+    country: 'CN',
+    region: 'CN-SD',
+    city: null,
+    geographyEvidence: {
+      reason: 'province_conflict',
+      precision: 'province',
+      countryBasis: 'header',
+    },
+  });
+});
+
+test('ignores unknown country header markers and oversized province codes', async () => {
+  open.mockResolvedValue({
+    get: () => ({
+      country: { iso_code: 'CN' },
+      subdivisions: [{ iso_code: '44' }],
+      city: { names: { en: 'Guangzhou' } },
+    }),
+  });
+  const { getLocation } = await import('@/lib/detect');
+  expect(
+    await getLocation('223.5.5.5', new Headers({ 'cf-ipcountry': 'XX' }), false),
+  ).toMatchObject({ country: 'CN', city: 'Guangzhou' });
+  expect(
+    await getLocation(
+      '223.5.5.5',
+      new Headers({ 'cf-ipcountry': 'CN', 'cf-region-code': 'ABCDEFGHIJKLMNOPQRST' }),
+      false,
+    ),
+  ).toMatchObject({ region: 'CN-44', city: 'Guangzhou' });
+});
+
+test.each([
+  ['223%252E5%252E5%252E5', '223.5.5.5'],
+  ['2400%253A3200%253A%253A1', '2400:3200::1'],
+  ['Mozilla%252F5.0', 'Mozilla/5.0'],
+])('uses the sanitized evidence city without decoding it again (%s)', async (encoded, raw) => {
+  const { getClientInfo } = await import('@/lib/detect');
+  const result = await getClientInfo(
+    new Request('https://example.test/api/send', {
+      headers: {
+        'x-real-ip': '223.6.6.6',
+        'cf-ipcountry': 'CN',
+        'cf-region-code': 'GD',
+        'cf-ipcity': encoded,
+      },
+    }),
+    {},
+  );
+  expect(result.city).toBe(result.geographyEvidence.location.city);
+  expect(result.city).not.toBe(raw);
+});
+
+test('managed reader corruption retains the precise reason and preserves collection', async () => {
+  const { getLocation } = await import('@/lib/detect');
+  const trace: any = {};
+  const bundle: any = {
+    mmdb: {
+      get: () => {
+        throw new Error('fixture-corrupt');
+      },
+    },
+  };
+  expect(await getLocation('223.5.5.5', new Headers(), true, bundle, trace)).toBeNull();
+  expect(trace.reason).toBe('database_corrupt');
+});

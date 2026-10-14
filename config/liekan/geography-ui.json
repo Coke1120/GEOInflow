@@ -1,0 +1,15 @@
+{
+  "version": "city-known-1",
+  "approvedPlan": "2026-10-14 IP识别与过滤迭代方案-最终版-v2",
+  "cityColumns": ["城市", "会话", "占比", "平均时长", "跳出率", "转化率"],
+  "shareLimit": 12,
+  "provinceLimit": 10,
+  "cityRule": "merge-filter-search-sort-page-limit",
+  "denominator": "all-eligible-visits",
+  "subtitle": "仅展示有城市信息的访问，占比按全部有效访问计算。",
+  "empty": "当前期间暂无访问数据",
+  "unidentified": "已收到访问数据，城市信息尚未识别",
+  "searchEmpty": "没有匹配的城市",
+  "legacy": "城市覆盖情况暂不可用",
+  "preserve": ["original-reference-manifests", "charts", "table-fields", "spacing", "colors"]
+}

@@ -1,3 +1,4 @@
+import { recordGeographyIngress } from '@/lib/liekan/upstream/geography-ingress';
 import { startOfHour } from 'date-fns';
 import { isbot } from 'isbot';
 import { z } from 'zod';
@@ -152,10 +153,18 @@ export async function POST(request: Request) {
     let sessionLinkId = cache?.sessionLinkId;
 
     // Client info
-    const { ip, userAgent, device, browser, os, country, region, city } = await getClientInfo(
-      request,
-      payload,
-    );
+    const {
+      ip,
+      userAgent,
+      device,
+      browser,
+      os,
+      country,
+      region,
+      city,
+      geographyEvidence,
+      ipEvidence,
+    } = await getClientInfo(request, payload, isAuthenticatedCollection(request));
 
     const qualityEnabled = Boolean(websiteId && !clickhouse.enabled);
     // Liekan keeps evidence with raw website events; the shared read policy filters automation.
@@ -163,8 +172,12 @@ export async function POST(request: Request) {
       return json({ beep: 'boop' });
     }
 
+    if (qualityEnabled && ipEvidence?.invalidInput)
+      await recordGeographyIngress(websiteId, 'invalid_ip');
+
     // IP block
     if (hasBlockedIp(ip)) {
+      if (qualityEnabled) await recordGeographyIngress(websiteId, 'blocked_ip');
       return forbidden();
     }
 
@@ -410,6 +423,7 @@ export async function POST(request: Request) {
           eventId: payload.eventId,
           fingerprint: collectionFingerprint(type, payload),
           quality,
+          geography: geographyEvidence,
         },
         collect,
       );

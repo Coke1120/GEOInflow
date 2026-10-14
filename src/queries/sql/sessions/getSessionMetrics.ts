@@ -1,14 +1,10 @@
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
-import {
-  getClickHouseCountrySQL,
-  getClickHouseRegionSQL,
-  getPostgresCountrySQL,
-  getPostgresRegionSQL,
-} from '@/lib/country';
+import { getClickHouseCountrySQL, getClickHouseRegionSQL } from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
+import { postgresVisitGeographyColumn } from '@/lib/liekan/upstream/geography-query';
 
 const FUNCTION_NAME = 'getSessionMetrics';
 
@@ -50,12 +46,14 @@ async function relationalQuery(
   if (type === 'language') {
     column = `lower(left(${type}, 2))`;
   }
-  const countryColumn = getPostgresCountrySQL('country');
+  const countryColumn = postgresVisitGeographyColumn('country');
 
   if (type === 'country') {
     column = countryColumn;
   } else if (type === 'region') {
-    column = getPostgresRegionSQL('country', column);
+    column = postgresVisitGeographyColumn('region');
+  } else if (type === 'city') {
+    column = postgresVisitGeographyColumn('city');
   }
 
   return rawQuery(

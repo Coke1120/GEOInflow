@@ -13,7 +13,7 @@ it('applies the shared policy to crawler referral reads while preserving mutatio
     'fixture-site',
   );
   expect(raw.$queryRawUnsafe.mock.calls[0][0]).toContain(
-    'website_event AS NOT MATERIALIZED (SELECT * FROM liekan_effective_website_event)',
+    'website_event AS NOT MATERIALIZED (SELECT * FROM liekan_geographic_website_event)',
   );
   expect(raw.$queryRawUnsafe.mock.calls[0][1]).toBe('fixture-site');
   await tx.query('UPDATE website SET name=$1 RETURNING *', 'name');

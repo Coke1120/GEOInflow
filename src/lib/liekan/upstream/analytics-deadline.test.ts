@@ -43,3 +43,52 @@ it('does not run queued statements after an active query has failed and settled'
   expect(results.every(result => result.status === 'rejected')).toBe(true);
   expect(query).toHaveBeenCalledOnce();
 });
+
+it.each([
+  [800, 5000],
+  [5000, 800],
+])('nested proxies share the executor and preserve both budgets (%s, %s)', async (outer, inner) => {
+  vi.useFakeTimers();
+  vi.setSystemTime(10000);
+  const execute = vi.fn(async () => 0),
+    query = vi.fn(async () => []);
+  const parent = timedAnalyticsClient(
+    { $executeRawUnsafe: execute, $queryRawUnsafe: query },
+    Date.now() + outer,
+  );
+  const child = timedAnalyticsClient(parent, Date.now() + inner);
+  await child.$queryRawUnsafe('nested');
+  expect(execute).toHaveBeenCalledExactlyOnceWith('SET LOCAL statement_timeout = 800');
+  expect(query).toHaveBeenCalledExactlyOnceWith('nested');
+});
+
+it('a nested query keeps serialization with parallel parent work', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(10000);
+  const order: string[] = [];
+  const parent = timedAnalyticsClient(
+    {
+      $executeRawUnsafe: async (sql: string) => {
+        order.push(sql);
+      },
+      $queryRawUnsafe: (sql: string) =>
+        new Promise(resolve =>
+          setTimeout(() => {
+            order.push(sql);
+            resolve([]);
+          }, 50),
+        ),
+    },
+    Date.now() + 1000,
+  );
+  const child = timedAnalyticsClient(parent, Date.now() + 800);
+  const result = Promise.all([parent.$queryRawUnsafe('parent'), child.$queryRawUnsafe('child')]);
+  await vi.advanceTimersByTimeAsync(100);
+  await result;
+  expect(order).toEqual([
+    'SET LOCAL statement_timeout = 1000',
+    'parent',
+    'SET LOCAL statement_timeout = 750',
+    'child',
+  ]);
+});

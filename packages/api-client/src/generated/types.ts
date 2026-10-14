@@ -838,6 +838,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/geography/attribution': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read public geography provider attribution */
+    get: operations['getLiekanGeographyAttribution'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/links/{linkId}/sources': {
     parameters: {
       query?: never;
@@ -1292,6 +1309,23 @@ export interface paths {
      * @description 返回 NDJSON：progress 为实际文件生成/传输进度，file 为文件元数据与字段清单，chunk 为顺序 Base64 数据，complete 为完成。普通 CSV/JSON 使用 summary；ZIP 使用勾选范围；kind=source-keywords 的 CSV 导出全部筛选关键词及搜索引擎，包含读取时间与条件。取消请求终止传输。查询阶段超过 100000 明细行或 50 MiB 返回 413；传输阶段错误为 error 帧。
      */
     post: operations['createLiekanExport'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/geography/diagnostics': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Inspect aggregate geography coverage and evidence */
+    get: operations['getLiekanGeographyDiagnostics'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -11086,6 +11120,32 @@ export interface operations {
       };
     };
   };
+  getLiekanGeographyAttribution: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Provider credit links without configuration or analytics */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @description Tracked links associated with the user. */
+            links: {
+              href: string;
+              label: string;
+            }[];
+          };
+        };
+      };
+    };
+  };
   getLiekanLinkSources: {
     parameters: {
       query: {
@@ -17265,6 +17325,203 @@ export interface operations {
       };
     };
   };
+  getLiekanGeographyDiagnostics: {
+    parameters: {
+      query?: {
+        /** @description End of the date range as a Unix timestamp in milliseconds. */
+        endAt?: number;
+        /** @description Start of the date range as a Unix timestamp in milliseconds. */
+        startAt?: number;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone?: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Private aggregate geography diagnostics */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            available: boolean;
+            configuration?: {
+              ignoreRuleCount: number;
+              invalidIgnoreRuleCount: number;
+              trustedIngressConfigured: boolean;
+            };
+            coverage?: {
+              chinaProvinceCoverage: number | null;
+              chinaProvinceKnownVisits: number;
+              chinaProvinceUnknownVisits: number;
+              chinaVisits: number;
+              cityCoverage: number | null;
+              /** @enum {string} */
+              cityDisplayState: 'empty' | 'unidentified' | 'available';
+              cityKnownVisits: number;
+              cityUnknownVisits: number;
+              displayRuleVersion: string;
+              /** @enum {string} */
+              provinceDisplayState: 'empty' | 'unidentified' | 'available';
+              totalVisits: number;
+            };
+            evidence?: {
+              dataVersion: string | null;
+              events: number;
+              ipFamily: string;
+              precision: string;
+              reason: string;
+              ruleVersion: string | null;
+              shadowPrecision: string | null;
+              shadowReason: string | null;
+              source: string;
+              trust: string;
+            }[];
+            ingress?: {
+              /** @description Number of matching records. */
+              count: number;
+              reason: string;
+            }[];
+            range?: {
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            };
+            reason?: string;
+            runtime?: {
+              chinaMode: string;
+              dataAvailable: boolean;
+              providers: string[];
+              version: string | null;
+            };
+            versions?: {
+              anchor: string;
+              dictionary: string;
+              rule: string;
+            };
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Payload too large. */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "payload-too-large",
+           *         "message": "Payload too large.",
+           *         "status": 413
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Service unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "service-unavailable",
+           *         "message": "Service unavailable.",
+           *         "status": 503
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
   getLiekanGoalAnalytics: {
     parameters: {
       query: {
@@ -19023,6 +19280,21 @@ export interface operations {
               /** @description Date and time the credential expires. */
               expiresAt: number;
               generatedAt: number;
+              geographyCoverage?: {
+                chinaProvinceCoverage: number | null;
+                chinaProvinceKnownVisits: number;
+                chinaProvinceUnknownVisits: number;
+                chinaVisits: number;
+                cityCoverage: number | null;
+                /** @enum {string} */
+                cityDisplayState: 'empty' | 'unidentified' | 'available';
+                cityKnownVisits: number;
+                cityUnknownVisits: number;
+                displayRuleVersion: string;
+                /** @enum {string} */
+                provinceDisplayState: 'empty' | 'unidentified' | 'available';
+                totalVisits: number;
+              };
               keywordEngines?: string[];
               keywordHasGoals?: boolean;
               keywordReadAt?: number;
@@ -19564,6 +19836,21 @@ export interface operations {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
+              geographyCoverage?: {
+                chinaProvinceCoverage: number | null;
+                chinaProvinceKnownVisits: number;
+                chinaProvinceUnknownVisits: number;
+                chinaVisits: number;
+                cityCoverage: number | null;
+                /** @enum {string} */
+                cityDisplayState: 'empty' | 'unidentified' | 'available';
+                cityKnownVisits: number;
+                cityUnknownVisits: number;
+                displayRuleVersion: string;
+                /** @enum {string} */
+                provinceDisplayState: 'empty' | 'unidentified' | 'available';
+                totalVisits: number;
+              };
               keywordEngines?: string[];
               keywordHasGoals?: boolean;
               keywordReadAt?: number;
@@ -20011,6 +20298,21 @@ export interface operations {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
               demo: boolean;
+              geographyCoverage?: {
+                chinaProvinceCoverage: number | null;
+                chinaProvinceKnownVisits: number;
+                chinaProvinceUnknownVisits: number;
+                chinaVisits: number;
+                cityCoverage: number | null;
+                /** @enum {string} */
+                cityDisplayState: 'empty' | 'unidentified' | 'available';
+                cityKnownVisits: number;
+                cityUnknownVisits: number;
+                displayRuleVersion: string;
+                /** @enum {string} */
+                provinceDisplayState: 'empty' | 'unidentified' | 'available';
+                totalVisits: number;
+              };
               keywordEngines?: string[];
               keywordHasGoals?: boolean;
               keywordReadAt?: number;

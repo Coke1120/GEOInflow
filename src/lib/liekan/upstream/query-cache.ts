@@ -1,3 +1,5 @@
+import { geographyVersion } from '../contracts/geography';
+import { GEOGRAPHY_ANCHOR_VERSION } from '../geography/evidence';
 import { analyticsCacheLimits } from './cache-policy';
 import { createHash } from 'node:crypto';
 import { deserialize, serialize } from 'node:v8';
@@ -200,6 +202,7 @@ export function invalidateWebsiteAnalytics(...ids: string[]) {
     .catch(() => {});
 }
 export function analyticsCacheKey(namespace: string, value: unknown) {
+  namespace = `${namespace}:${geographyVersion}:${GEOGRAPHY_ANCHOR_VERSION}`;
   const canonical = (item: any): any => {
     if (item instanceof Date) return item.toISOString();
     if (typeof item === 'bigint') return { bigint: String(item) };

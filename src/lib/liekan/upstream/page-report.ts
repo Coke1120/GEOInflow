@@ -81,7 +81,7 @@ export async function readPageReport(
     ? undefined
     : (
         await query(
-          'SELECT data_revision::text AS data,policy_revision::text AS policy FROM liekan_log_state WHERE website_id=$1::uuid',
+          `SELECT coalesce((SELECT data_revision::text FROM liekan_log_state WHERE website_id=$1::uuid),'0') AS data,coalesce((SELECT policy_revision::text FROM liekan_log_state WHERE website_id=$1::uuid),'0') AS policy,coalesce((SELECT revision::text FROM liekan_analytics_revision WHERE resource_type='website' AND resource_id=$1::uuid),'0') AS geography`,
           website.id,
         )
       )[0] || { data: '0', policy: '0' };

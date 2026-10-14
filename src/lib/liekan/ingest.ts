@@ -1,3 +1,4 @@
+import type { GeographyEvidence } from './geography/evidence';
 import { createHash, createHmac } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import Papa from 'papaparse';
@@ -16,6 +17,8 @@ export interface LogRecord {
   ipHash: string;
   userAgent: string;
   location: string;
+  declaredLocation?: string | null;
+  geography?: GeographyEvidence;
   bot: string;
   vendor: string;
   type: string;
@@ -81,6 +84,7 @@ export function parseLogInput(
   secret: string,
   rules: BotRule[] = BOT_RULES,
   snapshots?: VerificationSnapshots,
+  observe?: (ip:string, record:LogRecord) => void,
 ) {
   const serialized = input.content ?? JSON.stringify(input.records ?? []);
   if (Buffer.byteLength(serialized) > MAX_BYTES) throw new Error('文件上限 10 MiB');
@@ -163,6 +167,7 @@ export function parseLogInput(
         id: createHash('sha256').update(`${fingerprint}:${occurrence}`).digest('hex'),
         ...normalized,
       });
+      observe?.(ip, records[records.length-1]);
     } catch {
       errors.push({ line: index + 1, reason: '格式、时间、IP 或站点 URL 无效' });
     }
