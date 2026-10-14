@@ -5,8 +5,9 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/mcp/package.json ./packages/mcp/
 COPY packages/mcp/bin ./packages/mcp/bin/
-RUN --mount=type=cache,id=liekan-pnpm-store,target=/pnpm/store \
-    pnpm install --frozen-lockfile --store-dir=/pnpm/store --network-concurrency=8 --fetch-timeout=300000
+# Keep the frozen installation inside the dependency layer. Native pnpm cache mounts
+# can expose incomplete package manifests while linking on Docker overlay filesystems.
+RUN pnpm install --frozen-lockfile --store-dir=/pnpm/store --network-concurrency=8 --fetch-timeout=300000
 FROM dependencies AS builder
 COPY . .
 COPY docker/proxy.ts ./src/proxy.ts
