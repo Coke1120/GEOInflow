@@ -1,4 +1,8 @@
-import { citySearchSQL, regionSearchSQL } from '@/lib/liekan/upstream/geography-query';
+import {
+  citySearchSQL,
+  regionSearchSQL,
+  postgresVisitGeographyColumn,
+} from '@/lib/liekan/upstream/geography-query';
 import clickhouse from '@/lib/clickhouse';
 import { FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import {
@@ -28,15 +32,21 @@ export async function getValues(
 
 async function relationalQuery(websiteId: string, column: string, filters: QueryFilters) {
   const { rawQuery } = prisma;
+  const visitGeography = ['country', 'region', 'city'].includes(column);
+  const country = visitGeography ? 'website_event.liekan_country' : 'country';
+  const region = visitGeography ? 'website_event.liekan_region' : 'region';
+  const city = visitGeography ? 'website_event.liekan_city' : 'city';
   const getSearchSQL = (field: string, key = 'search') =>
     column === 'city'
-      ? `and ${citySearchSQL('country', 'region', 'city', 'postgres', 'c', `{{${key}}}`)}`
+      ? `and ${citySearchSQL(country, region, city, 'postgres', 'c', `{{${key}}}`)}`
       : column === 'region'
-        ? `and ${regionSearchSQL('country', 'region', 'postgres', 'c', `{{${key}}}`)}`
+        ? `and ${regionSearchSQL(country, region, 'postgres', 'c', `{{${key}}}`)}`
         : prisma.getSearchSQL(field, key);
   const params = {};
   const { startDate, endDate, search } = filters;
-  const valueColumn = getValueColumn(column, 'postgres');
+  const valueColumn = visitGeography
+    ? postgresVisitGeographyColumn(column)
+    : getValueColumn(column, 'postgres');
 
   let searchQuery = '';
   let excludeDomain = '';
@@ -62,6 +72,24 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
     } else {
       searchQuery = getSearchSQL(valueColumn);
     }
+  }
+
+  if (visitGeography) {
+    return rawQuery(
+      `select ${valueColumn} as "value",
+        ${column === 'city' ? `${postgresVisitGeographyColumn('country')} AS country,${postgresVisitGeographyColumn('region')} AS region,` : ''}
+        count(distinct website_event.session_id) as "count"
+      from website_event
+      where website_event.website_id = {{websiteId::uuid}}
+        and website_event.created_at between {{startDate}} and {{endDate}}
+        and website_event.event_type NOT IN (2,5)
+        ${searchQuery}
+      group by 1${column === 'city' ? ',2,3' : ''}
+      order by "count" desc, "value"
+      limit 10`,
+      { websiteId, startDate, endDate, search: `%${search}%`, ...params },
+      FUNCTION_NAME,
+    );
   }
 
   if (SESSION_DB_COLUMNS.has(column)) {

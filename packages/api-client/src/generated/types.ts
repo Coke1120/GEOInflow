@@ -17484,6 +17484,42 @@ export interface operations {
           'application/json': components['schemas']['ApiError'];
         };
       };
+      /** @description Payload too large. */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "payload-too-large",
+           *         "message": "Payload too large.",
+           *         "status": 413
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Service unavailable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "service-unavailable",
+           *         "message": "Service unavailable.",
+           *         "status": 503
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
     };
   };
   getLiekanGoalAnalytics: {

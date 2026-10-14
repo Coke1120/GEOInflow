@@ -1,14 +1,10 @@
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
-import {
-  getClickHouseCountrySQL,
-  getClickHouseRegionSQL,
-  getPostgresCountrySQL,
-  getPostgresRegionSQL,
-} from '@/lib/country';
+import { getClickHouseCountrySQL, getClickHouseRegionSQL } from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
+import { postgresVisitGeographyColumn } from '@/lib/liekan/upstream/geography-query';
 
 export interface BreakdownParameters {
   startDate: Date;
@@ -95,7 +91,7 @@ async function relationalQuery(
       where website_event.website_id = {{websiteId::uuid}}
         and website_event.created_at between {{startDate}} and {{endDate}}
         ${filterQuery}
-      group by ${parseFieldsByName(fields)},
+      group by ${fields.map((_, index) => index + 1).join(',')},
         website_event.session_id, website_event.visit_id
     ) as t
     ${visitEventsJoin}
@@ -103,7 +99,8 @@ async function relationalQuery(
     order by 2 desc, 1 desc
     limit 500
     `,
-    queryParams, 'getBreakdown',
+    queryParams,
+    'getBreakdown',
   );
 }
 
@@ -167,7 +164,8 @@ async function clickhouseQuery(
     order by 2 desc, 1 desc
     limit 500
     `,
-    queryParams, 'getBreakdown',
+    queryParams,
+    'getBreakdown',
   );
 }
 
@@ -182,16 +180,15 @@ function parseFieldsByName(fields: string[]) {
 function getFieldColumn(name: string, database: 'postgres' | 'clickhouse') {
   const column = FILTER_COLUMNS[name];
 
+  if (database === 'postgres' && ['country', 'region', 'city'].includes(name))
+    return postgresVisitGeographyColumn(name);
+
   if (name === 'country') {
-    return database === 'postgres'
-      ? getPostgresCountrySQL(column)
-      : getClickHouseCountrySQL('website_event.country');
+    return getClickHouseCountrySQL('website_event.country');
   }
 
   if (name === 'region') {
-    return database === 'postgres'
-      ? getPostgresRegionSQL('country', column)
-      : getClickHouseRegionSQL('website_event.country', 'website_event.region');
+    return getClickHouseRegionSQL('website_event.country', 'website_event.region');
   }
 
   return column;

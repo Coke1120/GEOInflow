@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { expect, test } from 'vitest';
-import { consistentFill, parseXdbRegion, providerText } from './evidence';
+import { consistentFill, geographyPrecision, parseXdbRegion, providerText } from './evidence';
 import { activationAllowed, bundleManifestSchema, enrichChina } from './bundle';
 
 test('explicit mainland provider adaptation preserves ambiguous and unknown real names', () => {
@@ -54,3 +54,26 @@ test('shadow lookup is default and cannot activate from a mode variable alone', 
 test('manifest rejects unapproved data and path traversal', () => {
   expect(bundleManifestSchema.safeParse({ format: 1, version: '../outside' }).success).toBe(false);
 });
+
+test('display and evidence agree on city missing markers and permit shadow lookup', async () => {
+  const city = providerText('城市未知');
+  expect(city).toBeNull();
+  const base = { country: 'CN', region: 'CN-44', city };
+  expect(geographyPrecision(base)).toBe('province');
+  const fake: any = {
+    manifest: {},
+    readers: [{ search: () => '中国|广东省|广州市|移动|CN' }],
+  };
+  expect((await enrichChina(base, '223.5.5.5', fake)).shadow?.precision).toBe('city');
+});
+
+test.each(['香港', '澳门', '台北', '广州市', '未收录镇'])(
+  'missing province cannot establish a mainland city (%s)',
+  city => {
+    expect(parseXdbRegion(`中国|0|${city}|0|CN`)).toEqual({
+      country: 'CN',
+      region: null,
+      city: null,
+    });
+  },
+);

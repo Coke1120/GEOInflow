@@ -9,16 +9,12 @@ import {
   SOCIAL_DOMAINS,
   VIDEO_DOMAINS,
 } from '@/lib/constants';
-import {
-  getClickHouseCountrySQL,
-  getClickHouseRegionSQL,
-  getPostgresCountrySQL,
-  getPostgresRegionSQL,
-} from '@/lib/country';
+import { getClickHouseCountrySQL, getClickHouseRegionSQL } from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
 import type { RevenuParameters } from './getRevenueChart';
+import { postgresVisitGeographyColumn } from '@/lib/liekan/upstream/geography-query';
 
 export interface RevenueMetricsResult {
   country: { name: string; value: number }[];
@@ -74,7 +70,7 @@ async function relationalQuery(
   `;
   const filteredRevenueQuery = `
     filtered_revenue as (
-      select revenue.website_id, revenue.session_id, revenue.created_at, revenue.revenue
+      select revenue.website_id, revenue.session_id, revenue.event_id, revenue.created_at, revenue.revenue
       from revenue
       join filtered_sessions
         on filtered_sessions.website_id = revenue.website_id
@@ -103,16 +99,17 @@ async function relationalQuery(
       ${filteredSessionsQuery},
       ${filteredRevenueQuery}
       select
-        ${getPostgresCountrySQL('session.country')} as "name",
+        ${postgresVisitGeographyColumn('country')} as "name",
         sum(filtered_revenue.revenue) as "value"
       from filtered_revenue
-      join session
-        on session.website_id = filtered_revenue.website_id
-          and session.session_id = filtered_revenue.session_id
+      join website_event
+        on website_event.website_id = filtered_revenue.website_id
+          and website_event.event_id = filtered_revenue.event_id
       group by 1
       order by value desc
       `,
-      queryParams, 'getRevenueMetrics',
+      queryParams,
+      'getRevenueMetrics',
     );
   }
 
@@ -123,17 +120,18 @@ async function relationalQuery(
       ${filteredSessionsQuery},
       ${filteredRevenueQuery}
       select
-        ${getPostgresCountrySQL('session.country')} as country,
-        ${getPostgresRegionSQL('session.country', 'session.region')} as "name",
+        ${postgresVisitGeographyColumn('country')} as country,
+        ${postgresVisitGeographyColumn('region')} as "name",
         sum(filtered_revenue.revenue) as "value"
       from filtered_revenue
-      join session
-        on session.website_id = filtered_revenue.website_id
-          and session.session_id = filtered_revenue.session_id
+      join website_event
+        on website_event.website_id = filtered_revenue.website_id
+          and website_event.event_id = filtered_revenue.event_id
       group by 1, 2
       order by value desc
       `,
-      queryParams, 'getRevenueMetrics',
+      queryParams,
+      'getRevenueMetrics',
     );
   }
 
@@ -167,7 +165,8 @@ async function relationalQuery(
       group by we.referrer_domain
       order by value desc
       `,
-      queryParams, 'getRevenueMetrics',
+      queryParams,
+      'getRevenueMetrics',
     );
   }
 
@@ -231,7 +230,8 @@ async function relationalQuery(
     group by name
     order by value desc
     `,
-    queryParams, 'getRevenueMetrics',
+    queryParams,
+    'getRevenueMetrics',
   );
 }
 
@@ -324,7 +324,8 @@ async function clickhouseQuery(
       group by 1
       order by value desc
       `,
-      queryParams, 'getRevenueMetrics',
+      queryParams,
+      'getRevenueMetrics',
     );
   }
 
@@ -345,7 +346,8 @@ async function clickhouseQuery(
       group by 1, 2
       order by value desc
       `,
-      queryParams, 'getRevenueMetrics',
+      queryParams,
+      'getRevenueMetrics',
     );
   }
 
@@ -380,7 +382,8 @@ async function clickhouseQuery(
       group by 1
       order by value desc
       `,
-      queryParams, 'getRevenueMetrics',
+      queryParams,
+      'getRevenueMetrics',
     );
   }
 
@@ -448,7 +451,8 @@ async function clickhouseQuery(
     group by 1
     order by value desc;
     `,
-    queryParams, 'getRevenueMetrics',
+    queryParams,
+    'getRevenueMetrics',
   );
 }
 

@@ -7,6 +7,7 @@ import { GEOGRAPHY_ANCHOR_VERSION, GEOGRAPHY_RULE_VERSION } from '../geography/e
 import { geographyBundle, geographyRuntimeStatus } from '../geography/bundle';
 import { ipConfigurationStatus } from '@/lib/ip';
 import { z } from 'zod';
+import { analyticsGate } from './analytics-budget';
 export const geographyDiagnosticQuery = z
   .object({
     startAt: z.coerce.number().int().nonnegative().optional(),
@@ -35,39 +36,51 @@ export async function geographyDiagnostics(id: string, input: URLSearchParams) {
   }
   await geographyBundle();
   await geographyAttribution();
-  return reportSnapshot(async () => {
-    const facts = await getHumanFacts(id, new Date(startAt), new Date(endAt), timezone, ['geo']);
-    const evidence = await query(
-      `SELECT coalesce(g.precision,'historical_unknown') AS precision,coalesce(g.reason,'historical_evidence_missing') AS reason,
+  const deadline = Date.now() + 60000;
+  return analyticsGate.run(
+    () =>
+      reportSnapshot(async () => {
+        const facts = await getHumanFacts(
+          id,
+          new Date(startAt),
+          new Date(endAt),
+          timezone,
+          ['geo'],
+          { rows: 100000, bytes: 50 * 1024 * 1024 },
+        );
+        const evidence = await query(
+          `SELECT coalesce(g.precision,'historical_unknown') AS precision,coalesce(g.reason,'historical_evidence_missing') AS reason,
         coalesce(g.source,'historical_unknown') AS source,coalesce(g.trust,'historical_unknown') AS trust,
         coalesce(g.ip_family,'missing') AS "ipFamily",g.data_version AS "dataVersion",g.rule_version AS "ruleVersion",
         g.shadow->>'precision' AS "shadowPrecision",g.shadow->>'reason' AS "shadowReason",count(*)::int AS events
        FROM liekan_raw_website_event e LEFT JOIN liekan_event_geography g ON g.event_id=e.event_id AND g.website_id=e.website_id
        WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz
        GROUP BY 1,2,3,4,5,6,7,8,9 ORDER BY events DESC`,
-      id,
-      new Date(startAt),
-      new Date(endAt),
-    );
-    const ingress = await query(
-      `SELECT reason,sum(count)::float8 AS count FROM liekan_geography_ingress WHERE website_id=$1::uuid AND bucket BETWEEN $2::timestamptz AND $3::timestamptz GROUP BY reason`,
-      id,
-      new Date(startAt),
-      new Date(endAt),
-    );
-    return {
-      available: true,
-      ingress,
-      range: { startAt, endAt, timezone },
-      coverage: geographyCoverage(facts.geo, facts.totals.visits),
-      evidence,
-      versions: {
-        dictionary: geographyVersion,
-        rule: GEOGRAPHY_RULE_VERSION,
-        anchor: GEOGRAPHY_ANCHOR_VERSION,
-      },
-      runtime: geographyRuntimeStatus(),
-      configuration: ipConfigurationStatus(),
-    };
-  });
+          id,
+          new Date(startAt),
+          new Date(endAt),
+        );
+        const ingress = await query(
+          `SELECT reason,sum(count)::float8 AS count FROM liekan_geography_ingress WHERE website_id=$1::uuid AND bucket BETWEEN $2::timestamptz AND $3::timestamptz GROUP BY reason`,
+          id,
+          new Date(startAt),
+          new Date(endAt),
+        );
+        return {
+          available: true,
+          ingress,
+          range: { startAt, endAt, timezone },
+          coverage: geographyCoverage(facts.geo, facts.totals.visits),
+          evidence,
+          versions: {
+            dictionary: geographyVersion,
+            rule: GEOGRAPHY_RULE_VERSION,
+            anchor: GEOGRAPHY_ANCHOR_VERSION,
+          },
+          runtime: geographyRuntimeStatus(),
+          configuration: ipConfigurationStatus(),
+        };
+      }, deadline),
+    deadline,
+  );
 }

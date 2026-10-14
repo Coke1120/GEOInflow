@@ -4,7 +4,7 @@ import countries from '../../../../public/intl/country/zh-CN.json' with { type: 
 import regions from '../../../../public/iso-3166-2.json' with { type: 'json' };
 
 export const geographyDisplayRuleVersion = 'city-known-1';
-export const geographyVersion = `geo-${catalog.version}-rules-4-${geographyDisplayRuleVersion}`;
+export const geographyVersion = `geo-${catalog.version}-rules-5-${geographyDisplayRuleVersion}`;
 export const provinceDefinitions = catalog.provinces;
 export const cityDefinitions = catalog.cities;
 export const geographyAlias = (value: string) => value.normalize('NFC').trim().toLowerCase();

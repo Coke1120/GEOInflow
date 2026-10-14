@@ -195,7 +195,12 @@ export async function enrichChina(
       reason: filled.reason,
       cityId: identifyCitySafe(filled.location),
     },
-    source: active && filled.reason === 'compatible_fill' ? 'mmdb+ip2region' : 'mmdb',
+    source:
+      active && filled.reason === 'compatible_fill'
+        ? base?.country || base?.region || base?.city
+          ? 'mmdb+ip2region'
+          : 'ip2region'
+        : 'mmdb',
   };
 }
 import { identifyCity } from '../contracts/geography';

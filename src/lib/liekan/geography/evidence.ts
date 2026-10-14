@@ -4,11 +4,12 @@ import {
   identifyCity,
   provinceDefinitions,
   cityDefinitions,
+  cityNameValue,
   type Geography,
 } from '../contracts/geography';
 import { normalizeCountryCode } from '../upstream/geography-codes';
 
-export const GEOGRAPHY_RULE_VERSION = 'geography-evidence-1';
+export const GEOGRAPHY_RULE_VERSION = 'geography-evidence-2';
 export const GEOGRAPHY_ANCHOR_VERSION = 'first-eligible-pv-1';
 export type GeographyEvidence = {
   location: Geography;
@@ -41,9 +42,7 @@ export function providerText(value: unknown): string | null {
     )
   )
     return null;
-  return !text || ['0', 'unknown', '未知', '未知城市', 'n/a', '-'].includes(text.toLowerCase())
-    ? null
-    : text;
+  return cityNameValue(text);
 }
 const provinceNames = new Map(
   provinceDefinitions.flatMap(p => {
@@ -77,6 +76,8 @@ export function parseXdbRegion(raw: unknown): Geography | null {
   const region = provinceNames.get(province) || null;
   if (province && !region) return null;
   if (['CN-71', 'CN-91', 'CN-92'].includes(region)) return null;
+  // A city candidate requires a recognized mainland province from the same record.
+  if (!region) return { country: 'CN', region: null, city: null };
   const known =
     city &&
     cityDefinitions.filter(
