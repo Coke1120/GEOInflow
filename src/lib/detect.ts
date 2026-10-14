@@ -13,7 +13,6 @@ import { browserName, detectOS } from 'detect-browser';
 import maxmind from 'maxmind';
 import { normalizeCountryCode, normalizeRegionCode } from '@/lib/country';
 import { normalizeIp, resolveClientIp, hasIgnoredIp, isGeolocatable } from '@/lib/ip';
-import { safeDecodeURIComponent } from '@/lib/url';
 
 const MAXMIND = 'maxmind';
 let locationRetryAt = 0;
@@ -168,7 +167,7 @@ export async function getLocation(
         if (header.region && header.city) return header;
         const database = await getLocation(cleanIp, headers, true, bundle, trace);
         if (!database) {
-          if (trace) trace.reason = 'database_unavailable';
+          if (trace) trace.reason ??= 'database_unavailable';
           return header;
         }
         if (database.country !== header.country) {
@@ -204,6 +203,7 @@ export async function getLocation(
     try {
       return readLocation(bundle.mmdb, cleanIp, trace);
     } catch {
+      if (trace) trace.reason = 'database_corrupt';
       return null;
     }
   }
@@ -298,16 +298,21 @@ export async function getGeographyEvidence(
         };
   const location = filled.location;
   const usedHeader = !!trace.usedHeader;
+  const usedXdb = ['mmdb+ip2region', 'ip2region'].includes(filled.source);
   const countryBasis: GeographyEvidence['countryBasis'] = usedHeader
     ? 'header'
-    : trace.countryBasis || 'missing';
+    : usedXdb && !baseline?.country && location.country
+      ? 'located'
+      : trace.countryBasis || 'missing';
   const radius = trace.accuracyRadius ?? null;
   return {
     location,
     source: usedHeader
-      ? trace.usedDatabase
-        ? 'ingress_header+mmdb'
-        : 'ingress_header'
+      ? [
+          'ingress_header',
+          ...(trace.usedDatabase ? ['mmdb'] : []),
+          ...(usedXdb ? ['ip2region'] : []),
+        ].join('+')
       : ['mmdb+ip2region', 'ip2region'].includes(filled.source)
         ? filled.source
         : location.country || location.city
@@ -358,9 +363,9 @@ export async function getClientInfo(
     !!payload?.ip && ipEvidence.source !== 'trusted_ingress',
   );
   const location = geographyEvidence.location;
-  const country = normalizeCountryCode(safeDecodeURIComponent(location?.country));
-  const region = normalizeRegionCode(safeDecodeURIComponent(location?.region), country);
-  const city = safeDecodeURIComponent(location?.city);
+  const country = normalizeCountryCode(location?.country);
+  const region = normalizeRegionCode(location?.region, country);
+  const city = location?.city;
   const browser = payload?.browser ?? browserName(userAgent);
   const os = payload?.os ?? (detectOS(userAgent) as string);
   const device = payload?.device ?? getDevice(userAgent, payload?.screen);

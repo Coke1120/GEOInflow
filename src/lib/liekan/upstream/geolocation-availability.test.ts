@@ -229,3 +229,38 @@ test('ignores unknown country header markers and oversized province codes', asyn
     ),
   ).toMatchObject({ region: 'CN-44', city: 'Guangzhou' });
 });
+
+test.each([
+  ['223%252E5%252E5%252E5', '223.5.5.5'],
+  ['2400%253A3200%253A%253A1', '2400:3200::1'],
+  ['Mozilla%252F5.0', 'Mozilla/5.0'],
+])('uses the sanitized evidence city without decoding it again (%s)', async (encoded, raw) => {
+  const { getClientInfo } = await import('@/lib/detect');
+  const result = await getClientInfo(
+    new Request('https://example.test/api/send', {
+      headers: {
+        'x-real-ip': '223.6.6.6',
+        'cf-ipcountry': 'CN',
+        'cf-region-code': 'GD',
+        'cf-ipcity': encoded,
+      },
+    }),
+    {},
+  );
+  expect(result.city).toBe(result.geographyEvidence.location.city);
+  expect(result.city).not.toBe(raw);
+});
+
+test('managed reader corruption retains the precise reason and preserves collection', async () => {
+  const { getLocation } = await import('@/lib/detect');
+  const trace: any = {};
+  const bundle: any = {
+    mmdb: {
+      get: () => {
+        throw new Error('fixture-corrupt');
+      },
+    },
+  };
+  expect(await getLocation('223.5.5.5', new Headers(), true, bundle, trace)).toBeNull();
+  expect(trace.reason).toBe('database_corrupt');
+});

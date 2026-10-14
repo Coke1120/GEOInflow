@@ -3348,8 +3348,9 @@
     },
     {
       "path": "src/queries/sql/breakdown/getBreakdown.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
       "tests": [
+        "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "scripts/liekan-data-regression.mjs"
@@ -3419,8 +3420,9 @@
     },
     {
       "path": "src/queries/sql/getValues.ts",
-      "purpose": "Inherited device/geography compatibility; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; restrict session filter candidates to the same eligible traffic population",
+      "purpose": "Inherited device/geography compatibility; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; restrict session filter candidates to the same eligible traffic population; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
       "tests": [
+        "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "src/lib/liekan/contracts/geography.test.ts",
@@ -3572,8 +3574,9 @@
     },
     {
       "path": "src/queries/sql/revenue/getRevenueMetrics.ts",
-      "purpose": "Preserve inherited geography compatibility, apply bounce exclusion consistently and resolve one deterministic first event per session for revenue attribution",
+      "purpose": "Preserve inherited geography compatibility, apply bounce exclusion consistently and resolve one deterministic first event per session for revenue attribution; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
       "tests": [
+        "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "src/queries/sql/revenue/getRevenue.test.ts",
@@ -3622,8 +3625,9 @@
     },
     {
       "path": "src/queries/sql/sessions/getSessionExpandedMetrics.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
       "tests": [
+        "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "scripts/liekan-data-regression.mjs"
@@ -3634,8 +3638,9 @@
     },
     {
       "path": "src/queries/sql/sessions/getSessionMetrics.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
       "tests": [
+        "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "scripts/liekan-data-regression.mjs"

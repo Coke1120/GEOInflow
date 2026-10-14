@@ -13,7 +13,12 @@ import {
   runCacheAuthorization,
   cacheHeadersEnabled,
 } from './cache-context';
-import { primaryMetadataClient } from './analytics-deadline';
+import {
+  primaryMetadataClient,
+  timedAnalyticsClient,
+  analyticsRemaining,
+} from './analytics-deadline';
+import { AnalyticsUnavailable } from './analytics-budget';
 import { withTrafficPolicy } from './traffic-query';
 export { LiekanError } from './errors';
 const WEBSITE_ID_PATTERN =
@@ -128,17 +133,38 @@ export async function sourceWebsite(tx: any, id: string, identity: WriteIdentity
     )
   )[0];
 }
-export async function reportSnapshot<T>(work: () => Promise<T>): Promise<T> {
-  if (getQuerySnapshot()) return work();
+export async function reportSnapshot<T>(work: () => Promise<T>, deadline?: number): Promise<T> {
+  const snapshot = getQuerySnapshot();
   const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new LiekanError('数据库 schema 无效', 500);
-  return primary().$transaction(
-    async tx => {
-      await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
-      return withinQuerySnapshot(tx, work);
-    },
-    { isolationLevel: 'RepeatableRead', timeout: 60000, maxWait: 10000 },
-  );
+  try {
+    if (snapshot)
+      return await (deadline === undefined
+        ? work()
+        : withinQuerySnapshot(timedAnalyticsClient(snapshot, deadline), work));
+    return await primary().$transaction(
+      async tx => {
+        await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+        return withinQuerySnapshot(
+          deadline === undefined ? tx : timedAnalyticsClient(tx, deadline),
+          work,
+        );
+      },
+      {
+        isolationLevel: 'RepeatableRead',
+        timeout: deadline === undefined ? 60000 : analyticsRemaining(deadline),
+        maxWait: deadline === undefined ? 10000 : Math.min(10000, analyticsRemaining(deadline)),
+      },
+    );
+  } catch (error) {
+    if (
+      deadline !== undefined &&
+      ((error as any)?.code === 'P2028' ||
+        /statement timeout/.test(String((error as any)?.message)))
+    )
+      throw new AnalyticsUnavailable('统计查询超时，请缩小时间范围后重试');
+    throw error;
+  }
 }
 export async function transaction<T>(work: (tx: any) => Promise<T>): Promise<T> {
   const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';

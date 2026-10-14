@@ -955,8 +955,9 @@ try {
       properties: 0,
       missingVerdict: true,
     });
-    // Stable native country metrics must not depend on optional geography data in the image.
+    // Synthetic country fixtures cover both legacy metadata and event geography anchors.
     await sql(`UPDATE session SET country='US' WHERE website_id=${websiteSql};`);
+    await sql(`UPDATE liekan_event_geography SET country='US',region=NULL,city=NULL,precision='country',reason='synthetic_fixture' WHERE website_id=${websiteSql};`);
     same(
       await counts(),
       expectedCounts(),

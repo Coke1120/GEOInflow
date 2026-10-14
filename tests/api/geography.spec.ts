@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { UNKNOWN_UUID } from './helpers/constants';
+import { randomUUID } from 'node:crypto';
 
 test('publishes geography provider credit without analytics or private configuration', async ({
   api,
@@ -17,6 +18,56 @@ test('publishes geography provider credit without analytics or private configura
       'https://github.com/lionsoul2014/ip2region',
       '/liekan/help?article=project-about',
     ]).toContain(link.href);
+  }
+});
+
+test('collection persists the sanitized header city consistently without decoding it again', async ({
+  admin,
+  api,
+  seed,
+}) => {
+  test.skip(seed.db === 'clickhouse', 'PostgreSQL event geography evidence');
+  for (const [encoded, sanitized] of [
+    ['223%252E5%252E5%252E5', '223%2E5%2E5%2E5'],
+    ['2400%253A3200%253A%253A1', '2400%3A3200%3A%3A1'],
+    ['Mozilla%252F5.0', 'Mozilla%2F5.0'],
+  ]) {
+    const created = await admin.post('/api/websites', {
+      name: `Geography privacy fixture ${randomUUID()}`,
+      domain: 'geography-fixture.example',
+    });
+    expect(created.status).toBe(200);
+    const id = created.body.id;
+    try {
+      const sent = await api.post(
+        '/api/send',
+        {
+          type: 'event',
+          payload: { website: id, hostname: 'geography-fixture.example', url: '/fixture' },
+        },
+        {
+          headers: {
+            'x-real-ip': '223.6.6.6',
+            'cf-ipcountry': 'CN',
+            'cf-region-code': 'GD',
+            'cf-ipcity': encoded,
+          },
+        },
+      );
+      expect(sent.status).toBe(200);
+      expect(sent.body.sessionId).toBeTruthy();
+      const session = await admin.get(`/api/websites/${id}/sessions/${sent.body.sessionId}`);
+      expect(session.status).toBe(200);
+      expect(session.body.country).toBe('CN');
+      expect(session.body.city).toBe(sanitized);
+      const diagnostics = await admin.get(`/api/liekan/websites/${id}/geography/diagnostics`);
+      expect(diagnostics.status).toBe(200);
+      expect(diagnostics.body.evidence).toEqual(
+        expect.arrayContaining([expect.objectContaining({ source: 'ingress_header', events: 1 })]),
+      );
+    } finally {
+      expect((await admin.del(`/api/websites/${id}`)).status).toBe(200);
+    }
   }
 });
 

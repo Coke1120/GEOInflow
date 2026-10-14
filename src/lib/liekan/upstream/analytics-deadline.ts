@@ -14,25 +14,38 @@ export function analyticsRemaining(deadline: number) {
 }
 
 /** Serialize timeout + statement as one operation, including concurrent snapshot loaders. */
+const timedClients = processSingleton(
+  'analytics-timed-clients',
+  () =>
+    new WeakMap<
+      object,
+      {
+        state: { tx: any; tail: Promise<void>; failure?: unknown };
+        deadline: number;
+      }
+    >(),
+);
 export function timedAnalyticsClient(tx: any, deadline: number) {
-  let tail = Promise.resolve();
-  let failure: unknown;
+  const parent = timedClients.get(tx);
+  const state = parent?.state || { tx, tail: Promise.resolve(), failure: undefined };
+  deadline = Math.min(deadline, parent?.deadline ?? Infinity);
+  tx = state.tx;
   const run = <T>(work: () => Promise<T>): Promise<T> => {
-    const next = tail.then(async () => {
-      if (failure) throw failure;
+    const next = state.tail.then(async () => {
+      if (state.failure) throw state.failure;
       await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = ${analyticsRemaining(deadline)}`);
       return work();
     });
-    tail = next.then(
+    state.tail = next.then(
       () => {},
       error => {
-        failure = error;
+        state.failure = error;
       },
     );
     return next;
   };
   const models = new Map<PropertyKey, any>();
-  return new Proxy(tx, {
+  const client = new Proxy(tx, {
     get(target, property) {
       const value = Reflect.get(target, property);
       if (property === '$queryRawUnsafe' || property === '$executeRawUnsafe')
@@ -60,4 +73,6 @@ export function timedAnalyticsClient(tx: any, deadline: number) {
       return typeof value === 'function' ? value.bind(target) : value;
     },
   });
+  timedClients.set(client, { state, deadline });
+  return client;
 }

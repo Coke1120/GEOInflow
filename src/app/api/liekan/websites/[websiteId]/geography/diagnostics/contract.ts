@@ -7,6 +7,8 @@ import {
   notFoundResponse,
   unauthorizedResponse,
   forbiddenResponse,
+  payloadTooLargeResponse,
+  serviceUnavailableResponse,
 } from '@/openapi/schemas';
 const count = z.number().int().nonnegative();
 export const geographyDiagnosticSchema = z.object({
@@ -68,6 +70,8 @@ export const operations = [
         '401': unauthorizedResponse,
         '403': forbiddenResponse,
         '404': notFoundResponse,
+        '413': payloadTooLargeResponse,
+        '503': serviceUnavailableResponse,
       },
     },
   }),

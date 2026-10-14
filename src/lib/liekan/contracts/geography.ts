@@ -6,7 +6,7 @@ import regions from '../../../../public/iso-3166-2.json' with { type: 'json' };
 import type { LiekanLocale } from '../i18n/locale';
 
 export const geographyDisplayRuleVersion = 'city-known-1';
-export const geographyVersion = `geo-${catalog.version}-rules-4-${geographyDisplayRuleVersion}`;
+export const geographyVersion = `geo-${catalog.version}-rules-5-${geographyDisplayRuleVersion}`;
 export const provinceDefinitions = catalog.provinces;
 export const cityDefinitions = catalog.cities;
 const citiesById = new Map(cityDefinitions.map(city => [city.id, city]));
