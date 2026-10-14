@@ -46,12 +46,21 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     await page.waitForLoadState('domcontentloaded');
     await page.waitForFunction(() => document.documentElement.lang === 'en-US');
     await page.waitForSelector('[data-liekan-features], [data-help-center], main, article');
+    await page.waitForLoadState('networkidle');
     await page.waitForFunction(
       () => !document.querySelector('[aria-busy="true"]'),
       {},
       { timeout: 30000 },
     );
     await page.evaluate(() => document.fonts.ready);
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('.chart')].every(el => el.querySelector('canvas,svg')),
+      {},
+      { timeout: 15000 },
+    );
+    await page.evaluate(
+      () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+    );
   };
   const geometry = async page =>
     page.evaluate(() => ({
@@ -59,6 +68,10 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       width: innerWidth,
       title: document.title,
       empty: !document.body.textContent.trim(),
+      contentLength: (
+        document.querySelector('#main-content,main,article,.identity-flow')?.textContent || ''
+      ).trim().length,
+      analyticsCards: document.querySelectorAll('main .metric-label').length,
       untranslatedOwned: [
         ...document.querySelectorAll(
           '[data-liekan-page-title],[data-liekan-owned-actions] button,[data-liekan-product-footer] nav a,[data-navigation-section],[data-ai-suggested-question],[data-ai-platform-note]',
@@ -132,6 +145,9 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
           }
           const state = await geometry(page);
           assert(!state.empty, `${route.id}: empty page`);
+          assert(state.contentLength > 0, `${route.id}: missing page body`);
+          if (route.id.startsWith('geo-'))
+            assert(state.analyticsCards > 0, `${route.id}: missing analytics cards`);
           assert.equal(state.overflow, 0, `${route.id} ${width}px page overflow`);
           // User-defined labels remain original; known application labels must localize.
           const leftovers = state.untranslated.filter(
@@ -264,7 +280,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
 
     await page.goto(base + '/liekan/help');
     await settled(page);
-    await page.getByRole('searchbox').fill('GPTBot');
+    await page.getByRole('searchbox').fill('Automated crawling');
     const results = page.getByRole('region', { name: label('蜘蛛结果'), exact: true });
     await results.locator('a[href*="crawler=gptbot"]').waitFor();
     assert(
