@@ -285,7 +285,9 @@ it.each([false, true])(
       redis,
     );
     const load = vi.fn(async () => {
-      const [row] = await getQuerySnapshot().$queryRawUnsafe('SELECT * FROM liekan_log_state');
+      const [row] = (await getQuerySnapshot().$queryRawUnsafe(
+        'SELECT * FROM liekan_log_state',
+      )) as { data: string }[];
       return { revision: row.data };
     });
     for (const revision of ['1', '2']) {
