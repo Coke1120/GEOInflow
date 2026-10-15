@@ -468,7 +468,7 @@ export async function buildReport(
       detail: l.latest ? '导入完成，主动刷新读取' : '支持 combined / JSON 单批导入',
       state: l.latest ? '已接入' : '待接入',
     },
-    { name: '身份验证', detail: '6 类官方 IP 范围核验；历史或过期依据保留未核验', state: '已接入' },
+    { name: '身份验证', detail: '官方 IP 范围核验；历史或过期依据保留未核验', state: '已接入' },
     {
       name: '内容目录',
       detail: `${l.catalog.length} 条目录记录`,

@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useApi } from '@/lib/liekan/upstream/client';
 import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
 import { managementLabels, parseEditableAllowlist } from '@/lib/liekan/contracts/management';
+import { CrawlerCandidatesPanel } from './features/CrawlerCandidatesPanel';
 import { CrawlerRulesEditor } from './features/CrawlerRulesEditor';
 import { parseRuleEditorDraft, ruleEditorConfiguration } from '@/lib/liekan/rules/editor';
 import type { CrawlerRuleConfiguration } from '@/lib/liekan/rules/configuration';
@@ -621,15 +622,18 @@ export function ManagementDrawer({
                   </label>
                 )}
                 {isRules ? (
-                  <CrawlerRulesEditor
-                    content={content}
-                    onConversionConfirmed={() => setConversionConfirmed(true)}
-                    disabled={!canManage || busy || !settings}
-                    onChange={value => {
-                      setContent(value);
-                      setDirty(true);
-                    }}
-                  />
+                  <>
+                    <CrawlerRulesEditor
+                      content={content}
+                      onConversionConfirmed={() => setConversionConfirmed(true)}
+                      disabled={!canManage || busy || !settings}
+                      onChange={value => {
+                        setContent(value);
+                        setDirty(true);
+                      }}
+                    />
+                    <CrawlerCandidatesPanel websiteId={websiteId} />
+                  </>
                 ) : (
                   <label>
                     {action === 'robots.txt 编辑'

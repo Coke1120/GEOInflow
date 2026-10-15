@@ -11,6 +11,8 @@ import {
   LOG_QUEUE,
   PROVIDER_QUEUE,
   RANGE_QUEUE,
+  DOCUMENT_QUEUE,
+  CRAWLER_SOURCE_RETRY,
   BROWSER_RISK_QUEUE,
   CRAWLER_ANALYSIS_QUEUE,
   CRAWLER_CHECK_QUEUE,
@@ -23,6 +25,8 @@ import { cleanupExpiredAuthorizations } from '../lib/liekan/log-ingestion/cloudf
 import { maintainProvider } from '../lib/liekan/log-ingestion/provider';
 import { sealPlatformSecret, openPlatformSecret } from '../lib/liekan/log-ingestion/secrets';
 import { refreshRanges } from '../lib/liekan/log-ingestion/ranges';
+import { refreshDocumentSources } from '../lib/liekan/upstream/crawler-maintenance';
+import { DOCUMENT_JOB_SECONDS } from '../lib/liekan/crawlers/document-sources';
 import { processCrawlerAnalysis } from '../lib/liekan/crawlers/worker';
 import { processCrawlerCheck } from '../lib/liekan/crawler-control/diagnostics';
 import { maintainCrawlerRecords } from '../lib/liekan/crawler-control/retention';
@@ -181,6 +185,10 @@ async function main() {
       await refreshRanges();
     });
   if (!crawlerMaintenancePaused)
+    await boss.work(DOCUMENT_QUEUE, { batchSize: 1, localConcurrency: 1 }, async () => {
+      await refreshDocumentSources();
+    });
+  if (!crawlerMaintenancePaused)
     await boss.work(
       CRAWLER_ANALYSIS_QUEUE,
       { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: 2 },
@@ -251,8 +259,32 @@ async function main() {
     await boss.send(
       RANGE_QUEUE,
       {},
-      { singletonKey: 'official', singletonSeconds: 3600, expireInSeconds: 600 },
+      {
+        singletonKey: 'official',
+        singletonSeconds: 3600,
+        expireInSeconds: 600,
+        ...CRAWLER_SOURCE_RETRY,
+      },
     );
+  // Startup and hourly wakeups catch missed jobs; persisted document due dates stay seven days apart.
+  const wakeDocuments = async () => {
+    if (crawlerMaintenancePaused || stopped) return;
+    await boss.send(
+      DOCUMENT_QUEUE,
+      {},
+      {
+        singletonKey: 'documents',
+        singletonSeconds: 3600,
+        expireInSeconds: DOCUMENT_JOB_SECONDS,
+        retentionSeconds: 7 * 86400,
+        ...CRAWLER_SOURCE_RETRY,
+      },
+    );
+  };
+  await wakeDocuments();
+  const documents = setInterval(() => {
+    void wakeDocuments().catch(() => {});
+  }, 3600000);
   let checkingPermissions = false;
   let recovering = false;
   const recovery = async () => {
@@ -309,7 +341,12 @@ async function main() {
       .send(
         RANGE_QUEUE,
         {},
-        { singletonKey: 'official', singletonSeconds: 3600, expireInSeconds: 600 },
+        {
+          singletonKey: 'official',
+          singletonSeconds: 3600,
+          expireInSeconds: 600,
+          ...CRAWLER_SOURCE_RETRY,
+        },
       )
       .catch(() => {});
   }, 3600000);
@@ -322,6 +359,7 @@ async function main() {
     clearInterval(health);
     clearInterval(heartbeat);
     clearInterval(ranges);
+    clearInterval(documents);
     clearInterval(crawlerTimer);
     clearInterval(browserRiskTimer);
     await boss.stop({ graceful: true, timeout: 30000 });

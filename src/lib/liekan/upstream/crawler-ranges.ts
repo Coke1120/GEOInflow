@@ -72,7 +72,7 @@ async function observe(tx: AiTx, content: RangeContent, observedAt: string) {
   );
 }
 async function mirror(tx: AiTx, content: RangeContent, observedAt: string) {
-  // The phase-A compatibility candidate reads this table during a coordinated rollback.
+  // The phase-B compatibility candidate reads this table during a coordinated rollback.
   for (const name of content.names)
     await tx.execute(
       `INSERT INTO liekan_bot_snapshot(bot,source_url,prefixes,retrieved_at,version) VALUES($1,$2,$3::jsonb,$4::timestamptz,$5)
@@ -164,8 +164,66 @@ function initialize() {
   return initialized;
 }
 
-async function claim(source: RangeSource, force: boolean): Promise<Lease | null> {
+export class CrawlerSourceBusyError extends Error {
+  readonly code = 'crawler_source_maintenance_busy';
+  constructor() {
+    super('crawler_source_maintenance_busy');
+    this.name = 'CrawlerSourceBusyError';
+  }
+}
+
+export type CrawlerSourceLease = { token: string; epoch: string };
+
+/** IP and documentation refreshes share this durable network-capacity lease. */
+export async function acquireCrawlerSourceLease(seconds = 300): Promise<CrawlerSourceLease | null> {
+  const token = randomUUID();
+  const [state] = await aiTransaction(async tx => {
+    await tx.execute(
+      "INSERT INTO liekan_crawler_range_source(source_id) VALUES('__refresh__') ON CONFLICT DO NOTHING",
+    );
+    return tx.query(
+      `UPDATE liekan_crawler_range_source SET lease_token=$1::uuid,
+      lease_until=clock_timestamp()+$2*interval '1 second',lease_epoch=lease_epoch+1
+      WHERE source_id='__refresh__' AND (lease_until IS NULL OR lease_until<=clock_timestamp()) RETURNING lease_epoch`,
+      token,
+      seconds,
+    );
+  });
+  return state ? { token, epoch: String(state.lease_epoch) } : null;
+}
+export async function crawlerSourceLeaseOwned(
+  tx: AiTx,
+  lease: CrawlerSourceLease,
+  reserveSeconds = 0,
+  lock = false,
+) {
+  const rows = await tx.query(
+    `SELECT source_id FROM liekan_crawler_range_source WHERE source_id='__refresh__'
+    AND lease_token=$1::uuid AND lease_epoch=$2::bigint AND lease_until>clock_timestamp()+$3*interval '1 second'
+    ${lock ? 'FOR SHARE' : ''}`,
+    lease.token,
+    lease.epoch,
+    reserveSeconds,
+  );
+  return rows.length > 0;
+}
+export async function releaseCrawlerSourceLease(lease: CrawlerSourceLease) {
+  await aiTransaction(tx =>
+    tx.execute(
+      "UPDATE liekan_crawler_range_source SET lease_token=NULL,lease_until=NULL WHERE source_id='__refresh__' AND lease_token=$1::uuid AND lease_epoch=$2::bigint",
+      lease.token,
+      lease.epoch,
+    ),
+  );
+}
+
+async function claim(
+  source: RangeSource,
+  force: boolean,
+  sharedLease?: CrawlerSourceLease,
+): Promise<Lease | null> {
   return aiTransaction(async tx => {
+    if (sharedLease && !(await crawlerSourceLeaseOwned(tx, sharedLease, 30, true))) return null;
     const token = randomUUID();
     const [state] = await tx.query(
       `UPDATE liekan_crawler_range_source SET lease_token=$2::uuid,lease_epoch=lease_epoch+1,
@@ -198,12 +256,12 @@ async function claim(source: RangeSource, force: boolean): Promise<Lease | null>
 
 export async function refreshRangeSource(
   sourceId: string,
-  options: { force?: boolean; fetcher?: typeof fetch } = {},
+  options: { force?: boolean; fetcher?: typeof fetch; sharedLease?: CrawlerSourceLease } = {},
 ) {
   const source = rangeSources.find(source => source.id === sourceId);
   if (!source) throw new Error('Unknown range source');
   await initialize();
-  const lease = await claim(source, options.force === true);
+  const lease = await claim(source, options.force === true, options.sharedLease);
   if (!lease) return 'skipped' as const;
   let result: Awaited<ReturnType<typeof checkRangeSource>> | undefined;
   let errorCode: string | null = null;
@@ -213,6 +271,8 @@ export async function refreshRangeSource(
     errorCode = rangeCheckErrorCode(error);
   }
   return aiTransaction(async tx => {
+    if (options.sharedLease && !(await crawlerSourceLeaseOwned(tx, options.sharedLease, 0, true)))
+      return 'superseded' as const;
     const [state] = await tx.query(
       `SELECT * FROM liekan_crawler_range_source WHERE source_id=$1 AND lease_token=$2::uuid
       AND lease_epoch=$3::bigint AND lease_until>clock_timestamp() FOR UPDATE`,
@@ -255,46 +315,26 @@ export async function refreshRangeSource(
 
 export async function refreshRangeSources(options: { fetcher?: typeof fetch } = {}) {
   await initialize();
-  const token = randomUUID();
-  const acquired = await aiTransaction(async tx => {
-    await tx.execute(
-      "INSERT INTO liekan_crawler_range_source(source_id) VALUES('__refresh__') ON CONFLICT DO NOTHING",
-    );
-    return tx.query(
-      `UPDATE liekan_crawler_range_source SET lease_token=$1::uuid,lease_until=clock_timestamp()+interval '5 minutes',lease_epoch=lease_epoch+1
-      WHERE source_id='__refresh__' AND (lease_until IS NULL OR lease_until<=clock_timestamp()) RETURNING source_id`,
-      token,
-    );
-  });
-  if (!acquired.length) return;
+  const sharedLease = await acquireCrawlerSourceLease();
+  if (!sharedLease) throw new CrawlerSourceBusyError();
   try {
     let cursor = 0;
     const outcomes = await Promise.allSettled(
       Array.from({ length: 2 }, async () => {
         while (cursor < rangeSources.length) {
           const source = rangeSources[cursor++];
-          const owned = await aiTransaction(
-            tx =>
-              tx.query(
-                "SELECT source_id FROM liekan_crawler_range_source WHERE source_id='__refresh__' AND lease_token=$1::uuid AND lease_until>clock_timestamp()+interval '30 seconds'",
-                token,
-              ),
-            { readOnly: true },
-          );
-          if (!owned.length) return;
-          await refreshRangeSource(source.id, options);
+          const owned = await aiTransaction(tx => crawlerSourceLeaseOwned(tx, sharedLease, 30), {
+            readOnly: true,
+          });
+          if (!owned) return;
+          await refreshRangeSource(source.id, { ...options, sharedLease });
         }
       }),
     );
     if (outcomes.some(outcome => outcome.status === 'rejected'))
       throw new Error('Range refresh persistence unavailable');
   } finally {
-    await aiTransaction(tx =>
-      tx.execute(
-        "UPDATE liekan_crawler_range_source SET lease_token=NULL,lease_until=NULL WHERE source_id='__refresh__' AND lease_token=$1::uuid",
-        token,
-      ),
-    );
+    await releaseCrawlerSourceLease(sharedLease);
   }
 }
 
@@ -372,8 +412,8 @@ export async function restoreRangeSnapshot(sourceId: string, version: string) {
   });
 }
 
-export async function rangeSourceHealth(now = Date.now()) {
-  await initialize();
+export async function rangeSourceHealth(now = Date.now(), options: { initialize?: boolean } = {}) {
+  if (options.initialize !== false) await initialize();
   const rows = await aiTransaction(
     tx =>
       tx.query(

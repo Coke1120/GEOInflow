@@ -186,7 +186,9 @@ describe.skipIf(!enabled)('durable official source observations', () => {
     }) as typeof fetch;
     const running = refreshRangeSources({ fetcher: fake });
     await started;
-    await refreshRangeSources({ fetcher: fake });
+    await expect(refreshRangeSources({ fetcher: fake })).rejects.toMatchObject({
+      code: 'crawler_source_maintenance_busy',
+    });
     release();
     await running;
     expect(calls).toBe(16);

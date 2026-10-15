@@ -217,9 +217,12 @@ headers.push({
 });
 const crawlerPrivatePaths = [
   '/liekan/crawler-handoffs/:path*',
+  '/liekan/admin/crawler-sources/:path*',
   ...[
     'control-connections',
     'crawler-analysis',
+    'crawler-recognition',
+    'crawler-candidates',
     'crawler-checks',
     'crawler-deployments',
     'crawler-domain-verification',

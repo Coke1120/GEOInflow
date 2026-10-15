@@ -102,16 +102,16 @@ describe('help scope and evidence', () => {
     });
     expect(crawlerCapabilities(get('Googlebot-Image'))).toMatchObject({
       rule: { name: 'Googlebot-Image' },
-      ip: false,
+      ip: true,
     });
     expect(crawlerCapabilities(get('ClaudeBot'))).toMatchObject({
       rule: { name: 'ClaudeBot' },
-      ip: false,
+      ip: true,
     });
     expect(get('ClaudeBot').feeds[0].url).toBe('https://claude.com/crawling/bots.json');
     expect(crawlerCapabilities(get('OAI-AdsBot'))).toMatchObject({
       rule: { name: 'OAI-AdsBot' },
-      ip: false,
+      ip: true,
     });
     expect(crawlerRobotsDraft(get('Bytespider'))).toBeUndefined();
     expect(crawlerRobotsDraft(get('PetalBot'))).toBeUndefined();
@@ -124,6 +124,7 @@ describe('help scope and evidence', () => {
     expect(snapshotState(range, fetched + 7 * 86400000)).toBe('fresh');
     expect(snapshotState(range, fetched + 7 * 86400000 + 1)).toBe('stale');
     expect(snapshotState(range, fetched - 8 * 86400000)).toBe('stale');
+    expect(snapshotState(range, fetched - 1)).toBe('stale');
     expect(snapshotState({ ...range, retrievedAt: 'invalid' })).toBe('stale');
     expect(snapshotState(undefined)).toBe('missing');
   });

@@ -530,6 +530,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/admin/crawler-sources': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerSources */
+    get: operations['getLiekanCrawlerSources'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/ai/catalog': {
     parameters: {
       query?: never;
@@ -1036,6 +1053,23 @@ export interface paths {
     patch: operations['patchLiekanCrawlerAnalysis'];
     trace?: never;
   };
+  '/api/liekan/websites/{websiteId}/crawler-candidates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerCandidates */
+    get: operations['getLiekanCrawlerCandidates'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/websites/{websiteId}/crawler-checks': {
     parameters: {
       query?: never;
@@ -1289,6 +1323,23 @@ export interface paths {
     put?: never;
     /** postLiekanCrawlerStop */
     post: operations['postLiekanCrawlerStop'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-recognition': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerRecognition */
+    get: operations['getLiekanCrawlerRecognition'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -7489,6 +7540,176 @@ export interface operations {
             ok: boolean;
           };
         };
+      };
+    };
+  };
+  getLiekanCrawlerSources: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            catalogVersion: string;
+            /** Format: date-time */
+            checkedAt: string;
+            documents: {
+              baselineHash: string | null;
+              consecutiveFailures: number;
+              currentHash: string | null;
+              errorCode: string | null;
+              /** @description Unique identifier of the resource. */
+              id: string;
+              label: string;
+              lastAttemptAt: string | null;
+              lastSuccessAt: string | null;
+              names: string[];
+              nextCheckAt: string | null;
+              /** Format: date */
+              reviewedAt: string;
+              reviewOverdue: boolean;
+              /** @enum {string} */
+              status: 'missing' | 'review_required' | 'warning' | 'update_failed' | 'healthy';
+              /**
+               * Format: uri
+               * @description URL associated with the resource.
+               */
+              url: string;
+            }[];
+            ipSources: {
+              candidateVersion: string | null;
+              consecutiveFailures: number;
+              crawlerIds: string[];
+              errorCode: string | null;
+              /** @description Unique identifier of the resource. */
+              id: string;
+              lastAttemptAt: string | null;
+              lastSuccessAt: string | null;
+              names: string[];
+              nextCheckAt: string | null;
+              observedAt: string | null;
+              /** Format: date */
+              reviewedAt: string;
+              reviewOverdue: boolean;
+              /** @enum {string} */
+              status:
+                | 'missing'
+                | 'stale'
+                | 'review_required'
+                | 'warning'
+                | 'update_failed'
+                | 'healthy';
+              /**
+               * Format: uri
+               * @description URL associated with the resource.
+               */
+              url: string;
+              version: string | null;
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };
@@ -14072,6 +14293,144 @@ export interface operations {
       };
     };
   };
+  getLiekanCrawlerCandidates: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: {
+              /** @description Number of matching records. */
+              count: number;
+              /** Format: date-time */
+              firstSeen: string;
+              /** Format: date-time */
+              lastSeen: string;
+              token: string;
+            }[];
+            partial: boolean;
+            /** @constant */
+            scanLimit: 100000;
+            scannedEnd: string | null;
+            scannedRows: number;
+            scannedStart: string | null;
+            /** @enum {string} */
+            state: 'ready' | 'unavailable';
+            /** Format: date-time */
+            windowEnd: string;
+            /** Format: date-time */
+            windowStart: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getLiekanCrawlerChecks: {
     parameters: {
       query?: never;
@@ -17328,6 +17687,128 @@ export interface operations {
              * @description ID of the website.
              */
             websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanCrawlerRecognition: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            classificationVersion: string;
+            enabledIds: string[];
+            /** @enum {string} */
+            mode: 'official' | 'disabled' | 'legacy';
+            rulesRevision: number;
           };
         };
       };

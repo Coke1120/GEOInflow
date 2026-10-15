@@ -3,8 +3,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HelpCenter } from './HelpCenter';
 import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
-const mocks = vi.hoisted(() => ({ query: {} as Record<string, string>, clipboard: vi.fn() }));
-vi.mock('./context', () => ({ useFeature: () => ({ query: mocks.query }) }));
+const mocks = vi.hoisted(() => ({
+  query: {} as Record<string, string>,
+  clipboard: vi.fn(),
+  admin: false,
+  recognition: undefined as any,
+  health: undefined as any,
+  calls: [] as any[],
+}));
+vi.mock('./context', () => ({
+  useFeature: () => ({
+    query: mocks.query,
+    user: { id: 'reader', isAdmin: mocks.admin },
+    sites: [{ id: 'site-a', name: 'Website A' }],
+  }),
+  useData: (key: string[], _load: unknown, enabled: boolean) => {
+    mocks.calls.push({ key, enabled });
+    return {
+      data: enabled
+        ? key[0] === 'help-crawler-recognition'
+          ? mocks.recognition
+          : mocks.health
+        : undefined,
+      error: null,
+    };
+  },
+}));
 vi.mock('next/link', () => ({
   default: ({ children, prefetch: _prefetch, ...props }: any) => <a {...props}>{children}</a>,
 }));
@@ -33,11 +57,38 @@ describe('help center reading and drafts', () => {
   });
   beforeEach(() => {
     mocks.query = {};
+    mocks.admin = false;
+    mocks.recognition = undefined;
+    mocks.health = undefined;
+    mocks.calls = [];
     mocks.clipboard.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: mocks.clipboard },
     });
+  });
+  it('shows actual enabled IDs only after website selection and restricts runtime health to administrators', () => {
+    mocks.query = { crawler: 'gptbot' };
+    mocks.recognition = { enabledIds: ['gptbot'], classificationVersion: 'fixture-version' };
+    const view = render(<HelpCenter />);
+    expect(screen.getByText('当前网站启用：未选择网站')).toBeVisible();
+    expect(screen.getByText('当前范围健康：仅系统管理员可查看')).toBeVisible();
+    expect(
+      mocks.calls
+        .filter(call => call.key[0] === 'help-crawler-sources')
+        .every(call => !call.enabled),
+    ).toBe(true);
+    fireEvent.change(screen.getByRole('combobox', { name: '查看网站启用状态' }), {
+      target: { value: 'site-a' },
+    });
+    expect(screen.getByText('当前网站启用：已启用')).toBeVisible();
+    mocks.recognition = { enabledIds: [], classificationVersion: 'disabled-version' };
+    view.rerender(<HelpCenter />);
+    expect(screen.getByText('当前网站启用：未启用')).toBeVisible();
+    mocks.admin = true;
+    mocks.health = { ipSources: [{ crawlerIds: ['gptbot'], status: 'warning' }] };
+    view.rerender(<HelpCenter />);
+    expect(screen.getByText('当前范围健康：更新异常')).toBeVisible();
   });
   it('opens without a website and exposes the five categories with global links', () => {
     render(<HelpCenter />);
@@ -130,15 +181,15 @@ describe('help center reading and drafts', () => {
     );
   });
   it('renders missing official ranges explicitly and handles clipboard failure without a false success', async () => {
-    mocks.query = { crawler: 'mistralai-index' };
+    mocks.query = { crawler: 'mistralai-training' };
     mocks.clipboard.mockRejectedValue(new Error('denied'));
     render(<HelpCenter />);
     expect(screen.getByText('可核验范围：尚未配置')).toBeInTheDocument();
-    expect(screen.getByText(/范围数据尚未随本版附带/)).toBeInTheDocument();
+    expect(screen.getByText(/本条尚无随附的可下载官方 IP feed/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '复制' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('复制未完成'));
     expect(mocks.clipboard).toHaveBeenCalledWith(
-      expect.stringContaining('User-agent: MistralAI-Index'),
+      expect.stringContaining('User-agent: MistralAI-Training'),
     );
     expect(screen.queryByText('已复制配置草稿')).toBeNull();
   });

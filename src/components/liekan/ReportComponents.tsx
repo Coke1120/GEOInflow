@@ -1,4 +1,5 @@
 'use client';
+import { verificationReasonLabel } from '@/lib/liekan/rules/verification-labels';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
 import { geographyEmptyText } from '@/lib/liekan/contracts/geography';
@@ -501,6 +502,18 @@ function Cell({
       </>
     );
   if (field === 'path') return pageLink(value, domain, formatValue(value), undefined, i18n.locale);
+  if (table === 'logBody' && field === 'classification')
+    return (
+      <span
+        title={i18n.text('核验依据：{v0}；观测时间：{v1}；版本：{v2}', [
+          i18n.system(verificationReasonLabel(row.verificationReason)),
+          row.verificationObservedAt || i18n.text('历史未记录'),
+          row.verificationVersion || i18n.text('历史未记录'),
+        ])}
+      >
+        <Badge value={value} field={field} />
+      </span>
+    );
   if (['type', 'channel', 'evaluation', 'classification', 'freshness'].includes(field))
     return <Badge value={value} field={field} />;
   if (table === 'searchEngineBody' && field === 'share') return <>{percentage(value)}</>;

@@ -1,4 +1,5 @@
 'use client';
+import { CrawlerSourcesPanel } from './CrawlerSourcesPanel';
 import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
@@ -1590,60 +1591,63 @@ function AdminSecurity() {
     );
   if (!c.user.isAdmin) return <Forbidden />;
   return (
-    <QueryState query={q}>
-      <div className="wide-narrow">
-        <Panel
-          title={i18n.text('系统双重验证策略')}
-          subtitle={i18n.text('全局要求覆盖个人与团队的自主设置。')}
-        >
-          <Body>
-            <Form
-              resetKey={String(q.data?.globalRequired)}
-              busy={action.busy}
-              disabled={!q.data?.isConfigured}
-              submitLabel={i18n.text('保存全局策略')}
-              onSubmit={(values: any) =>
-                action.run(() =>
-                  c.api.post('/admin/2fa/global', { required: values.required === 'on' }),
-                )
-              }
-            >
-              <Switch
-                label={i18n.text('所有用户必须启用双重验证')}
-                name="required"
-                defaultChecked={q.data?.globalRequired}
-                help={i18n.text('下次登录时引导尚未绑定的用户完成设置。')}
+    <>
+      <QueryState query={q}>
+        <div className="wide-narrow">
+          <Panel
+            title={i18n.text('系统双重验证策略')}
+            subtitle={i18n.text('全局要求覆盖个人与团队的自主设置。')}
+          >
+            <Body>
+              <Form
+                resetKey={String(q.data?.globalRequired)}
+                busy={action.busy}
+                disabled={!q.data?.isConfigured}
+                submitLabel={i18n.text('保存全局策略')}
+                onSubmit={(values: any) =>
+                  action.run(() =>
+                    c.api.post('/admin/2fa/global', { required: values.required === 'on' }),
+                  )
+                }
+              >
+                <Switch
+                  label={i18n.text('所有用户必须启用双重验证')}
+                  name="required"
+                  defaultChecked={q.data?.globalRequired}
+                  help={i18n.text('下次登录时引导尚未绑定的用户完成设置。')}
+                />
+                <hr className="divider" />
+                <Notice tone={q.data?.isConfigured ? 'blue' : 'red'}>
+                  {q.data?.isConfigured
+                    ? i18n.text('加密配置已就绪。开启前请确认管理员已保存恢复码。')
+                    : i18n.text('服务缺少加密配置，暂时无法开启全局策略。请先完成服务端配置。')}
+                </Notice>
+              </Form>
+            </Body>
+          </Panel>
+          <Panel title={i18n.text('配置状态')} subtitle={i18n.text('当前服务的配置与策略。')}>
+            <Body>
+              <Definition
+                items={[
+                  [
+                    i18n.text('加密配置'),
+                    <Badge key="cell-badge-18" tone={q.data?.isConfigured ? 'green' : 'red'}>
+                      {q.data?.isConfigured ? i18n.text('已配置') : i18n.text('未配置')}
+                    </Badge>,
+                  ],
+                  [
+                    i18n.text('全局要求'),
+                    q.data?.globalRequired ? i18n.text('开启') : i18n.text('关闭'),
+                  ],
+                  [i18n.text('团队策略'), i18n.text('全局要求开启时，团队无法覆盖')],
+                ]}
               />
-              <hr className="divider" />
-              <Notice tone={q.data?.isConfigured ? 'blue' : 'red'}>
-                {q.data?.isConfigured
-                  ? i18n.text('加密配置已就绪。开启前请确认管理员已保存恢复码。')
-                  : i18n.text('服务缺少加密配置，暂时无法开启全局策略。请先完成服务端配置。')}
-              </Notice>
-            </Form>
-          </Body>
-        </Panel>
-        <Panel title={i18n.text('配置状态')} subtitle={i18n.text('当前服务的配置与策略。')}>
-          <Body>
-            <Definition
-              items={[
-                [
-                  i18n.text('加密配置'),
-                  <Badge key="cell-badge-18" tone={q.data?.isConfigured ? 'green' : 'red'}>
-                    {q.data?.isConfigured ? i18n.text('已配置') : i18n.text('未配置')}
-                  </Badge>,
-                ],
-                [
-                  i18n.text('全局要求'),
-                  q.data?.globalRequired ? i18n.text('开启') : i18n.text('关闭'),
-                ],
-                [i18n.text('团队策略'), i18n.text('全局要求开启时，团队无法覆盖')],
-              ]}
-            />
-          </Body>
-        </Panel>
-      </div>
-    </QueryState>
+            </Body>
+          </Panel>
+        </div>
+      </QueryState>
+      <CrawlerSourcesPanel />
+    </>
   );
 }
 
