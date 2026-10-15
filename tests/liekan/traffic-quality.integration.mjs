@@ -5,10 +5,12 @@ import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
 import { createServer } from 'node:net';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import { gzipSync, inflateRawSync } from 'node:zlib';
-import { transformSync } from 'esbuild';
+import { buildSync, transformSync } from 'esbuild';
+import ipaddr from 'ipaddr.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const runId = randomUUID().replaceAll('-', '');
@@ -31,7 +33,8 @@ const browserUa =
 const botUa =
   'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.0; +https://openai.com/gptbot)';
 const normalIp = '192.0.2.17';
-const rangeIp = '198.51.100.23';
+// Synthetic request address within a reviewed, GPTBot-exclusive public range.
+const rangeIp = '20.125.66.81';
 const fixtures = [];
 let base,
   token,
@@ -662,17 +665,82 @@ try {
     reason: 'official_range_match',
   };
 
+  let rangeFixture;
+  const rangeFixtureState = () =>
+    sqlJson(`SELECT row_to_json(t) FROM (
+      SELECT s.current_version AS version,s.current_observed_at AS "observedAt",
+        s.last_success_at AS "lastSuccessAt",r.source_url AS source,r.parser_version AS parser,
+        r.names,r.crawler_ids AS "crawlerIds",r.prefixes,r.published_at AS "publishedAt",
+        r.observed_at AS "archivedAt",EXISTS(SELECT 1 FROM liekan_crawler_range_observation o
+          WHERE o.source_id=s.source_id AND o.version=s.current_version
+          AND o.observed_at=s.current_observed_at) AS "hasObservation"
+      FROM liekan_crawler_range_source s JOIN liekan_crawler_range_snapshot r
+        ON r.source_id=s.source_id AND r.version=s.current_version
+      WHERE s.source_id='openai-gpt') t;`);
   await test('fresh official range fixture precedes intake cache', async () => {
-    const official = JSON.parse(
-      await readFile(new URL('../../config/liekan/bot-ranges.json', import.meta.url), 'utf8'),
-    );
+    const module = { exports: {} };
+    const built = buildSync({
+      stdin: {
+        contents: `export { rangeBaselines,isQualifiedRangeContent } from './src/lib/liekan/crawlers/range-check';
+          export { rangeSources } from './src/lib/liekan/crawlers/range-sources';`,
+        resolveDir: root,
+      },
+      bundle: true,
+      platform: 'node',
+      format: 'cjs',
+      packages: 'external',
+      write: false,
+    });
+    runInNewContext(built.outputFiles[0].text, {
+      module,
+      exports: module.exports,
+      require: createRequire(import.meta.url),
+    });
+    const { rangeBaselines, rangeSources, isQualifiedRangeContent } = module.exports;
+    const source = rangeSources.find(source => source.id === 'openai-gpt');
+    const baseline = rangeBaselines[source.id];
+    const { content } = baseline;
     ensure(
-      official.GPTBot.source === 'https://openai.com/gptbot.json',
-      'Official range provenance changed; review this fixture',
+      source.url === 'https://openai.com/gptbot.json' && isQualifiedRangeContent(source, content),
+      'Official range fixture must retain reviewed provenance and qualified content',
     );
-    const version = createHash('sha256').update('isolated-traffic-range-fixture').digest('hex');
-    await sql(
-      `INSERT INTO liekan_bot_snapshot(bot,source_url,prefixes,retrieved_at,version) VALUES('GPTBot','https://openai.com/gptbot.json','["198.51.100.0/24"]'::jsonb,now()-interval '10 seconds','${version}') ON CONFLICT(bot) DO UPDATE SET source_url=EXCLUDED.source_url,prefixes=EXCLUDED.prefixes,retrieved_at=EXCLUDED.retrieved_at,version=EXCLUDED.version,error_code=NULL;`,
+    const matchingSources = Object.entries(rangeBaselines).filter(([, snapshot]) =>
+      snapshot.content.prefixes.some(prefix => {
+        const [network, bits] = ipaddr.parseCIDR(prefix);
+        const address = ipaddr.parse(rangeIp);
+        return address.kind() === network.kind() && address.match(network, bits);
+      }),
+    );
+    same(
+      matchingSources.map(([id]) => id),
+      [source.id],
+      'Official range fixture must match exactly one reviewed source',
+    );
+    const observedAt = new Date(Date.now() - 10000).toISOString();
+    ensure(
+      Date.parse(observedAt) > Date.parse(baseline.observedAt),
+      'Fixture observation must be newer than its immutable baseline',
+    );
+    const literal = value => `'${String(value).replaceAll("'", "''")}'`;
+    const encoded = value => `${literal(JSON.stringify(value))}::jsonb`;
+    await sql(`BEGIN;
+      INSERT INTO liekan_crawler_range_snapshot(source_id,version,source_url,parser_version,names,crawler_ids,prefixes,address_families,published_at,observed_at)
+        VALUES(${literal(source.id)},${literal(content.version)},${literal(content.sourceUrl)},${literal(content.parserVersion)},
+          ${encoded(content.names)},${encoded(content.crawlerIds)},${encoded(content.prefixes)},
+          ${encoded([...new Set(content.prefixes.map(prefix => (prefix.includes(':') ? 'ipv6' : 'ipv4')))])},
+          ${content.publishedAt ? literal(content.publishedAt) : 'NULL'}::timestamptz,${literal(baseline.observedAt)}::timestamptz)
+        ON CONFLICT(source_id,version) DO NOTHING;
+      INSERT INTO liekan_crawler_range_observation(source_id,version,observed_at)
+        VALUES(${literal(source.id)},${literal(content.version)},${literal(observedAt)}::timestamptz);
+      INSERT INTO liekan_crawler_range_source(source_id,current_version,current_observed_at,last_success_at)
+        VALUES(${literal(source.id)},${literal(content.version)},${literal(observedAt)}::timestamptz,${literal(observedAt)}::timestamptz)
+        ON CONFLICT(source_id) DO UPDATE SET current_version=EXCLUDED.current_version,
+          current_observed_at=EXCLUDED.current_observed_at,last_success_at=EXCLUDED.last_success_at;
+      COMMIT;`);
+    rangeFixture = await rangeFixtureState();
+    ensure(
+      rangeFixture.version === content.version && rangeFixture.hasObservation,
+      'Qualified fixture must have an active version and matching observation',
     );
   });
   await test('server intake and quality policy require complete private authentication', async () => {
@@ -708,6 +776,18 @@ try {
       data: { currency: 'USD', revenue: 12.5, marker: 'race' },
     });
     const replies = await Promise.all(Array.from({ length: 20 }, () => collect(body)));
+    same(
+      await rangeFixtureState(),
+      rangeFixture,
+      'First intake initialization must preserve qualified content and its newer observation',
+    );
+    const initializedRange = await sqlJson(
+      "SELECT json_build_object('version',baseline_version,'observed',baseline_observed_at IS NOT NULL) FROM liekan_crawler_range_source WHERE source_id='openai-gpt';",
+    );
+    ensure(
+      initializedRange.version === rangeFixture.version && initializedRange.observed,
+      'First intake must initialize the reviewed baseline without replacing the fixture',
+    );
     ensure(
       replies.every(reply => reply.sessionId === replies[0].sessionId),
       'Duplicate replies must retain the same session',
@@ -957,7 +1037,9 @@ try {
     });
     // Synthetic country fixtures cover both legacy metadata and event geography anchors.
     await sql(`UPDATE session SET country='US' WHERE website_id=${websiteSql};`);
-    await sql(`UPDATE liekan_event_geography SET country='US',region=NULL,city=NULL,precision='country',reason='synthetic_fixture' WHERE website_id=${websiteSql};`);
+    await sql(
+      `UPDATE liekan_event_geography SET country='US',region=NULL,city=NULL,precision='country',reason='synthetic_fixture' WHERE website_id=${websiteSql};`,
+    );
     same(
       await counts(),
       expectedCounts(),
@@ -1407,10 +1489,51 @@ try {
         { auth: true },
       )
     ).body;
+    const supported = [
+      'openai',
+      'anthropic',
+      'perplexity',
+      'bytedance',
+      'google',
+      'baidu',
+      'microsoft',
+    ];
+    const unsupported = [
+      'apple',
+      'amazon',
+      'mistral',
+      'duckduckgo',
+      'common-crawl',
+      'ai2',
+      'sogou',
+      '360',
+      'yandex',
+      'naver',
+      'seznam',
+      'qwant',
+      'mojeek',
+      'meta',
+      'ahrefs',
+      'semrush',
+      'majestic',
+      'petal',
+    ];
+    same(
+      analysis.platforms.map(row => row.platformId).sort(),
+      [...supported, ...unsupported].sort(),
+      'Crawler referral rows must retain every independently expected platform exactly once',
+    );
     ensure(
-      analysis.platforms.length > 0 &&
-        analysis.platforms.every(row => row.state === 'available' && row.visits === 0),
-      'Crawler referrals must preserve raw connection state with zero eligible visits',
+      analysis.platforms.every(row =>
+        supported.includes(row.platformId)
+          ? row.state === 'available' && row.visits === 0
+          : row.state === 'unsupported' &&
+            row.visits === null &&
+            row.conversions === null &&
+            row.goalEvents === null &&
+            row.landingPages.length === 0,
+      ),
+      'Mapped crawler referrals must preserve raw connection state with zero eligible visits; unsupported attribution must stay null',
     );
     same(
       await counts(),
