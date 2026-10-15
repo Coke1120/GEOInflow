@@ -1,9 +1,31 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { AiBots } from './pages/AiBots';
+import { AiPreference } from './pages/AiPreference';
 import { ReportContext } from './ReportContext';
+import { ReportList } from './ReportComponents';
 import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 import type { LiekanReport } from './types';
+
+it.each(['zh-CN', 'en-US'] as const)(
+  'identifies the custom crawler in the %s crawl sequence caption',
+  locale => {
+    render(
+      <LiekanLocaleContext.Provider value={locale}>
+        <AiPreference
+          rangeLabel="7 天"
+          report={{
+            ...report,
+            tables: { pathList: [{ bot: 'GPTBot', botId: null, path: '/custom', status: 200 }] },
+          }}
+        />
+      </LiekanLocaleContext.Provider>,
+    );
+    expect(screen.getByText(/GPTBot/)).toHaveTextContent(
+      locale === 'zh-CN' ? '自定义／历史未映射' : 'Custom / historical unmapped',
+    );
+  },
+);
 
 const report: LiekanReport = {
   contractVersion: 2,
@@ -15,8 +37,8 @@ const report: LiekanReport = {
   insights: [],
   tables: {
     botBody: [
-      { name: 'GPTBot', botId: 'gptbot', type: '训练', requests: 9 },
-      { name: 'GPTBot', botId: null, type: '搜索', requests: 3 },
+      { name: 'GPTBot', vendor: 'OpenAI', botId: 'gptbot', type: '训练', requests: 9 },
+      { name: 'GPTBot', vendor: 'OpenAI', botId: null, type: '搜索', requests: 3 },
     ],
   },
   meta: {
@@ -64,7 +86,18 @@ it.each(['zh-CN', 'en-US'] as const)(
         name: locale === 'zh-CN' ? '所选期间抓取' : 'Crawls in selected period',
       }),
     ).toBeVisible();
-    const rows = screen.getAllByRole('button', { name: 'GPTBot' });
+    expect(
+      screen.getByText(locale === 'zh-CN' ? 'OpenAI · 官方身份' : 'OpenAI · Official identity'),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        locale === 'zh-CN'
+          ? 'OpenAI · 自定义／历史未映射'
+          : 'OpenAI · Custom / historical unmapped',
+      ),
+    ).toBeVisible();
+    const rows = screen.getAllByRole('button', { name: /^GPTBot/ });
+    expect(rows[0]).not.toHaveAccessibleName(rows[1].getAttribute('aria-label'));
     fireEvent.click(rows[0]);
     expect(onAction).toHaveBeenLastCalledWith('蜘蛛详情:{"name":"GPTBot","botId":"gptbot"}');
     fireEvent.click(rows[1]);
@@ -78,5 +111,38 @@ it.each(['zh-CN', 'en-US'] as const)(
       }),
     );
     expect(onAction).toHaveBeenLastCalledWith('未知请求日志');
+  },
+);
+
+it.each(['zh-CN', 'en-US'] as const)(
+  'keeps same-name content preferences attached to their identities in %s',
+  locale => {
+    const { container } = render(
+      <LiekanLocaleContext.Provider value={locale}>
+        <ReportList
+          id="prefList"
+          className=""
+          report={{
+            ...report,
+            tables: {
+              prefList: [
+                { bot: 'GPTBot', botId: 'gptbot', preference: '/cases' },
+                { bot: 'GPTBot', botId: null, preference: '/articles' },
+                { bot: 'LegacyBot', preference: '/legacy' },
+              ],
+            },
+          }}
+        />
+      </LiekanLocaleContext.Provider>,
+    );
+    const rows = container.querySelectorAll('#prefList > div');
+    expect(rows).toHaveLength(3);
+    expect(rows[0]).toHaveTextContent(locale === 'zh-CN' ? '官方身份' : 'Official identity');
+    expect(rows[0]).toHaveTextContent('/cases');
+    expect(rows[1]).toHaveTextContent(
+      locale === 'zh-CN' ? '自定义／历史未映射' : 'Custom / historical unmapped',
+    );
+    expect(rows[1]).toHaveTextContent('/articles');
+    expect(rows[2].textContent).toBe('LegacyBot/legacy');
   },
 );

@@ -111,6 +111,13 @@ describe.skipIf(!enabled)('crawler qualification across real statistics queries'
         site,
       );
       const facts = await getLogFacts(site, start, end, 'UTC');
+      expect(facts.recent.find(row => row.userAgent === 'GPTBot/1.0')).toMatchObject({
+        botId: 'gptbot',
+      });
+      expect(facts.recent.find(row => row.userAgent === 'MyBot/1.0')).toMatchObject({
+        botId: null,
+      });
+      expect(facts.recent.find(row => row.path === '/legacy')).toMatchObject({ botId: null });
       expect(facts.summary).toMatchObject({
         requests: 14,
         ai: 6,

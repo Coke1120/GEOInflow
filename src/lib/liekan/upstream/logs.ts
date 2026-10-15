@@ -107,7 +107,7 @@ async function readLogFacts(
         : Promise.resolve([]),
       needs('recent')
         ? read(
-            `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,bot_type AS "botType",verification,${crawlerAiSql()} AS "aiEligible",recognition_state AS "recognitionState",verification_version AS "verificationVersion",verification_observed_at AS "verificationObservedAt",verification_reason AS "verificationReason" ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT 100${paginationSql}`,
+            `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,e.crawler_id AS "botId",bot_type AS "botType",verification,${crawlerAiSql()} AS "aiEligible",recognition_state AS "recognitionState",verification_version AS "verificationVersion",verification_observed_at AS "verificationObservedAt",verification_reason AS "verificationReason" ${identityBase}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT 100${paginationSql}`,
             ...args,
             search,
             ...(cursor ? boundary : [(page - 1) * 100]),

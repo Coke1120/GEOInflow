@@ -16,6 +16,7 @@ import { loadEcharts } from './chartRuntime';
 import { ChartLoading, LoadingLines, Skeleton, useDataLoading } from './DataLoading';
 import {
   columns,
+  crawlerIdentityLabel,
   formatCellValue,
   formatMetricValue,
   formatPercentage,
@@ -465,29 +466,39 @@ function Cell({
   const value = row[field];
   if (table === 'cityBody' && field === 'city' && place)
     return <>{geographyLabel(place, i18n.locale)}</>;
-  if (table === 'botBody' && field === 'name' && onCrawler)
+  if (table === 'botBody' && field === 'name' && onCrawler) {
+    const identity = crawlerIdentityLabel(row, i18n.text);
     return (
       <span className="relative block group">
         <span className="block num font-medium text-[12px] text-ink group-hover:underline">
           {formatValue(value)}
         </span>
-        <span className="block text-[10.5px] text-faint">{formatValue(row.vendor)}</span>
+        <span className="block text-[10.5px] text-faint">
+          {formatValue(row.vendor)}
+          {identity ? ` · ${identity}` : ''}
+        </span>
         <button
           type="button"
-          aria-label={String(value)}
+          aria-label={`${value}${identity ? ` · ${identity}` : ''}`}
           className="absolute inset-0 border-0 bg-transparent focus-visible:ring-2"
           style={{ minHeight: 44, minWidth: 44 }}
           onClick={() => onCrawler(String(value), row.botId as string | null | undefined)}
         />
       </span>
     );
-  if (table === 'botBody' && field === 'name')
+  }
+  if (table === 'botBody' && field === 'name') {
+    const identity = crawlerIdentityLabel(row, i18n.text);
     return (
       <>
         <span className="block num font-medium text-[12px] text-ink">{formatValue(value)}</span>
-        <span className="block text-[10.5px] text-faint">{formatValue(row.vendor)}</span>
+        <span className="block text-[10.5px] text-faint">
+          {formatValue(row.vendor)}
+          {identity ? ` · ${identity}` : ''}
+        </span>
       </>
     );
+  }
   if (table === 'logBody' && field === 'ipMasked')
     return (
       <>
@@ -1037,10 +1048,14 @@ export function ReportList({
                     </span>
                   </div>
                 );
+              const identity = id === 'prefList' ? crawlerIdentityLabel(row, i18n.text) : '';
               return (
                 <div key={i} className="flex items-center gap-2.5 rounded-lg bg-wash px-3 py-2.5">
                   <span className="num text-[11.5px] font-semibold text-ink shrink-0 w-[110px]">
                     {formatValue(row.bot)}
+                    {identity && (
+                      <span className="block text-[10.5px] font-normal text-faint">{identity}</span>
+                    )}
                   </span>
                   <span className="flex-1 text-[11.5px] text-sub">
                     {i18n.system(formatValue(row.preference))}

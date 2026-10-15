@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { crawlerDirectory } from './directory';
 import {
   checkRobotsAccess,
   mergeRobotsPolicy,
@@ -12,6 +13,70 @@ const blockDocs = {
   paths: [{ value: '/docs', match: 'prefix' as const }],
   action: 'block' as const,
 };
+
+describe('reviewed directory robots tokens', () => {
+  it.each(['AI2Bot', 'Sogou web spider', 'Sogou inst spider', '360Spider', 'MJ12bot'])(
+    'parses and evaluates the exact reviewed %s token with wildcard fallback',
+    token => {
+      const text = `User-agent: *\nDisallow: /fallback\nUser-agent: ${token}\nDisallow: /private\n`;
+      expect(parseRobots(text).issues).toEqual([]);
+      expect(checkRobotsAccess(text, token.toUpperCase(), '/private').allowed).toBe(false);
+      expect(checkRobotsAccess(text, token, '/fallback').allowed).toBe(true);
+      expect(
+        checkRobotsAccess('User-agent: *\nDisallow: /fallback', token, '/fallback').allowed,
+      ).toBe(false);
+    },
+  );
+
+  it('evaluates and round-trips drafts for every supported directory entry', () => {
+    const entries = crawlerDirectory.filter(bot => bot.robotsToken !== null);
+    expect(entries.length).toBeGreaterThan(50);
+    for (const bot of entries) {
+      expect(
+        checkRobotsAccess('User-agent: *\nDisallow: /private', bot.robotsToken, '/private').allowed,
+        bot.id,
+      ).toBe(false);
+      const result = mergeRobotsPolicy('User-agent: *\nDisallow: /private\n', {
+        ...blockDocs,
+        botIds: [bot.id],
+      });
+      expect(result.safe, bot.id).toBe(true);
+      expect(parseRobots(result.content).issues, bot.id).toEqual([]);
+      expect(checkRobotsAccess(result.content, bot.robotsToken, '/private').allowed, bot.id).toBe(
+        false,
+      );
+      expect(
+        checkRobotsAccess(result.content, bot.robotsToken, '/docs/child').allowed,
+        bot.id,
+      ).toBe(false);
+      expect(checkRobotsAccess(result.content, bot.robotsToken, '/public').allowed, bot.id).toBe(
+        true,
+      );
+    }
+  });
+
+  it.each([
+    'Other123Bot',
+    'Other Bot',
+    'Sogou  web spider',
+    'Sogou\tweb spider',
+    'AI2Bot/1',
+    'AI2Bot\nDisallow: /',
+    'GPTBot\n',
+    'MJ12bot\u0085',
+  ])('rejects unreviewed or control-bearing evaluation token %j', token => {
+    expect(() => checkRobotsAccess('', token, '/')).toThrow();
+  });
+
+  it('keeps malformed group boundaries separate while accepting reviewed tokens', () => {
+    const document = parseRobots(
+      'User-agent: AI2Bot\nDisallow: /private\nUser-agent: Other123Bot\nDisallow: /public',
+    );
+    expect(document.issues).toEqual([{ line: 3, reason: 'Invalid user-agent token' }]);
+    expect(checkRobotsAccess(document, 'AI2Bot', '/private').allowed).toBe(false);
+    expect(checkRobotsAccess(document, 'AI2Bot', '/public').allowed).toBe(true);
+  });
+});
 
 describe('RFC 9309 access checks', () => {
   it('matches the complete product token and keeps unrelated short tokens separate', () => {

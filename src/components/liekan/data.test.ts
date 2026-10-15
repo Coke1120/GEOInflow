@@ -25,6 +25,66 @@ it('redirects only the exact website landing and preserves the settings route', 
   expect(isWebsiteLanding(`/websites/${id}/geo`)).toBe(false);
 });
 describe('report selection and CSV export', () => {
+  it.each(['topBody', 'apBody'])(
+    'retains the main crawler identity in %s display and CSV',
+    table => {
+      const display = (value: string) => translateText(value, 'en-US');
+      const rows = [
+        { path: '/official', bot: 'GPTBot', botId: 'gptbot' },
+        { path: '/custom', bot: 'GPTBot', botId: null },
+      ];
+      expect(formatCellValue(rows[0], 'bot', table, 'en-US', display)).toBe(
+        'GPTBot / Official identity',
+      );
+      expect(formatCellValue(rows[1], 'bot', table, 'en-US', display)).toBe(
+        'GPTBot / Custom / historical unmapped',
+      );
+      expect(formatCellValue({ bot: 'GPTBot' }, 'bot', table, 'en-US', display)).toBe('GPTBot');
+      const csv = tableCsv(
+        table,
+        rows,
+        '全部',
+        { label: '', direction: 1 },
+        '',
+        undefined,
+        'en-US',
+        display,
+      );
+      expect(csv).toContain('GPTBot / Official identity');
+      expect(csv).toContain('GPTBot / Custom / historical unmapped');
+    },
+  );
+  it.each(['zh-CN', 'en-US'] as const)(
+    'distinguishes same-name official and custom identities in %s CSV',
+    locale => {
+      const row = { name: 'GPTBot', vendor: 'OpenAI', type: '训练', requests: 9 };
+      const rows = [
+        { ...row, botId: 'gptbot' },
+        { ...row, botId: null },
+      ];
+      const original = JSON.stringify(rows);
+      const display = (value: string) => translateText(value, locale);
+      const csv = tableCsv(
+        'botBody',
+        rows,
+        '全部',
+        { label: '', direction: 1 },
+        '',
+        undefined,
+        locale,
+        display,
+      );
+      const lines = csv.split('\r\n');
+      expect(lines).toHaveLength(3);
+      expect(lines[1]).toContain('GPTBot / OpenAI');
+      expect(lines[2]).toContain('GPTBot / OpenAI');
+      expect(lines[1]).toContain(display('官方身份'));
+      expect(lines[2]).toContain(display('自定义／历史未映射'));
+      expect(lines[1]).not.toBe(lines[2]);
+      expect(formatCellValue(row, 'name', 'botBody', locale, display)).toBe('GPTBot / OpenAI');
+      expect(JSON.stringify(rows)).toBe(original);
+    },
+  );
   it('formats only provenance-marked source labels and keeps the marker outside CSV columns', () => {
     const owned = { source: '直接访问', sourceLabel: 'direct', sessions: 3 };
     const supplied = { source: '直接访问', referrer: '直接访问', sessions: 7 };

@@ -13,6 +13,7 @@ vi.mock('node:dns/promises', () => ({
 }));
 vi.mock('./public-probe', () => ({ publicCrawlerProbe: mocks.probe }));
 import { changeCrawlerDomain, queueCrawlerCheck, processCrawlerCheck } from './diagnostics';
+import { crawlerDirectory } from '../crawlers/directory';
 const enabled = process.env.LIEKAN_CRAWLER_TEST === '1';
 describe.skipIf(!enabled)('public diagnostics with isolated PostgreSQL authorization', () => {
   const owner = randomUUID(),
@@ -122,5 +123,32 @@ describe.skipIf(!enabled)('public diagnostics with isolated PostgreSQL authoriza
     expect(
       (await q('SELECT state,result FROM liekan_crawler_check WHERE id=$1::uuid', job.id))[0],
     ).toMatchObject({ state: 'failed', result: null });
+  });
+  it('completes a successful public check for every supported robots token', async () => {
+    await verified();
+    const job = await queueCrawlerCheck(actor, site, { paths: ['/private'] });
+    mocks.probe
+      .mockResolvedValueOnce({
+        status: 200,
+        body: 'User-agent: *\nDisallow: /private\nUser-agent: AI2Bot\nAllow: /private',
+      })
+      .mockResolvedValueOnce({ status: 200, path: '/private' });
+    await processCrawlerCheck(randomUUID());
+    expect(mocks.probe).toHaveBeenCalledTimes(2);
+    const [stored] = await q(
+      'SELECT state,result,error_code FROM liekan_crawler_check WHERE id=$1::uuid',
+      job.id,
+    );
+    expect(stored).toMatchObject({ state: 'completed', error_code: null });
+    expect(stored.result.pages).toHaveLength(1);
+    const results = stored.result.pages[0].robots;
+    expect(results.map(row => row.botId)).toEqual(
+      crawlerDirectory.filter(bot => bot.robotsToken !== null).map(bot => bot.id),
+    );
+    expect(results.find(row => row.botId === 'ai2bot')).toMatchObject({ allowed: true });
+    for (const token of ['360Spider', 'MJ12bot', 'Sogou web spider', 'Sogou inst spider']) {
+      const id = crawlerDirectory.find(bot => bot.robotsToken === token).id;
+      expect(results.find(row => row.botId === id)).toMatchObject({ allowed: false });
+    }
   });
 });

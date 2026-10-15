@@ -1,4 +1,5 @@
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import { crawlerIdentityLabel } from '../data';
 import { Skeleton, useDataLoading } from '../DataLoading';
 import { InsightRows, MetricCard, ReferenceChart, ReportList } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
@@ -6,6 +7,8 @@ import type { ReportViewProps } from '../types';
 export function AiPreference({ report, rangeLabel }: ReportViewProps) {
   const i18n = useLiekanI18n();
   const loading = useDataLoading();
+  const pathBot = report?.tables.pathList?.[0];
+  const pathIdentity = pathBot ? crawlerIdentityLabel(pathBot, i18n.text) : '';
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -68,8 +71,10 @@ export function AiPreference({ report, rangeLabel }: ReportViewProps) {
             <p className="text-[11.5px] text-faint mt-0.5">
               {loading ? (
                 <Skeleton width="65%" />
-              ) : report?.tables.pathList?.[0]?.bot ? (
-                i18n.text('{v0} 最近抓取顺序 · 会话估算', [report.tables.pathList[0].bot])
+              ) : pathBot?.bot ? (
+                i18n.text('{v0} 最近抓取顺序 · 会话估算', [
+                  `${pathBot.bot}${pathIdentity ? ` · ${pathIdentity}` : ''}`,
+                ])
               ) : (
                 i18n.text('会话未识别，显示最近 AI 抓取记录')
               )}

@@ -293,6 +293,14 @@ export function formatMetricValue(
   }
   return `${formatValue(card.value, locale)}${card.value == null ? '' : unit ? (locale === 'en-US' && unit !== '%' ? ' ' : '') + unit : ''}`;
 }
+export function crawlerIdentityLabel(
+  row: Row,
+  display: (source: string) => string = source => source,
+) {
+  if (typeof row.botId === 'string' && row.botId) return display('官方身份');
+  if (row.botId === null) return display('自定义／历史未映射');
+  return '';
+}
 export function formatCellValue(
   row: Row,
   field: string,
@@ -303,8 +311,14 @@ export function formatCellValue(
   const value = row[field];
   if (value == null || value === '') return '–';
   if (field === 'source' && row.sourceLabel === 'direct') return display('直接访问');
-  if (table === 'botBody' && field === 'name')
-    return `${formatValue(value, locale)}${row.vendor ? ` / ${row.vendor}` : ''}`;
+  if (table === 'botBody' && field === 'name') {
+    const identity = crawlerIdentityLabel(row, display);
+    return `${formatValue(value, locale)}${row.vendor ? ` / ${row.vendor}` : ''}${identity ? ` / ${identity}` : ''}`;
+  }
+  if (field === 'bot' && ['topBody', 'apBody'].includes(table)) {
+    const identity = crawlerIdentityLabel(row, display);
+    return `${formatValue(value, locale)}${identity ? ` / ${identity}` : ''}`;
+  }
   if (table === 'logBody' && field === 'ipMasked')
     return `${formatValue(value, locale)}${row.location ? ` / ${row.location}` : ''}`;
   if (table === 'logBody' && field === 'path')

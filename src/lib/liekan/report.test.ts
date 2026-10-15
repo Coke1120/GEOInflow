@@ -35,6 +35,61 @@ import { geographyLabel, regionName } from './contracts/geography';
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
 
+it.each(['gptbot', null])(
+  'keeps the selected %s identity separate in the estimated crawl sequence',
+  async botId => {
+    const logs = await mocks.logs();
+    const selected = {
+      bot: 'GPTBot',
+      botId,
+      path: '/selected',
+      time: '1970-01-01T01:00:00Z',
+      status: 200,
+    };
+    mocks.logs.mockResolvedValue({
+      ...logs,
+      latest: selected.time,
+      recent: [
+        selected,
+        { ...selected, botId: botId === null ? 'gptbot' : null, path: '/other-identity' },
+        { ...selected, path: '/earlier', time: '1970-01-01T00:30:00Z' },
+      ],
+    });
+    const report = await buildReport(website, false, { ...params, resource: 'ai/preference' });
+    expect(report.tables.pathList.map(row => row.path)).toEqual(['/earlier', '/selected']);
+    expect(report.tables.pathList.every(row => row.botId === botId)).toBe(true);
+  },
+);
+
+it.each(['gptbot', null])(
+  'retains the winning %s crawler identity in page summaries',
+  async botId => {
+    const human = await mocks.human(),
+      logs = await mocks.logs();
+    mocks.human.mockResolvedValue({
+      ...human,
+      pages: [{ path: '/a', pv: 4, uv: 4, entries: 4, duration: null, bounces: 0 }],
+    });
+    mocks.logs.mockResolvedValue({
+      ...logs,
+      latest: '1970-01-01T01:00:00Z',
+      pages: [
+        {
+          path: '/a',
+          bot: 'GPTBot',
+          botId: botId === null ? 'gptbot' : null,
+          requests: 1,
+          lastCrawled: '1970-01-01T01:00:00Z',
+        },
+        { path: '/a', bot: 'GPTBot', botId, requests: 9, lastCrawled: '1970-01-01T01:00:00Z' },
+      ],
+    });
+    const report = await buildReport(website, false, params);
+    expect(report.tables.apBody[0]).toMatchObject({ bot: 'GPTBot', botId, bots: 2, requests: 10 });
+    expect(report.tables.topBody[0]).toMatchObject({ bot: 'GPTBot', botId, aiRequests: 10 });
+  },
+);
+
 it('matches generated and supplied direct-source trends by their distinct display identities', async () => {
   const human = await mocks.human();
   mocks.human.mockResolvedValue({

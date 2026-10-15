@@ -250,6 +250,7 @@ export async function buildReport(
       requests: 0,
       bots: 0,
       bot: row.bot,
+      botId: row.botId,
       lastCrawled: row.lastCrawled,
       main: 0,
     };
@@ -257,19 +258,29 @@ export async function buildReport(
     old.bots++;
     if (row.requests > old.main) {
       old.bot = row.bot;
+      old.botId = row.botId;
       old.main = row.requests;
     }
     if (row.lastCrawled > old.lastCrawled) old.lastCrawled = row.lastCrawled;
     paths.set(row.path, old);
   }
   const aiPages = Array.from(paths.values()).sort((a, b) => b.requests - a.requests);
-  const humanAiPages = new Map<string, { requests: number; bot: string; main: number }>();
+  const humanAiPages = new Map<
+    string,
+    { requests: number; bot: string; botId?: string | null; main: number }
+  >();
   for (const page of aiPages) {
     const key = humanPathFromEncoded(page.path);
-    const previous = humanAiPages.get(key) ?? { requests: 0, bot: page.bot, main: 0 };
+    const previous = humanAiPages.get(key) ?? {
+      requests: 0,
+      bot: page.bot,
+      botId: page.botId,
+      main: 0,
+    };
     previous.requests += page.requests;
     if (page.requests > previous.main) {
       previous.bot = page.bot;
+      previous.botId = page.botId;
       previous.main = page.requests;
     }
     humanAiPages.set(key, previous);
@@ -338,6 +349,9 @@ export async function buildReport(
     aiRequests: l.latest ? (humanAiPages.get(page.path)?.requests ?? 0) : null,
     ratio: l.latest ? ratio(humanAiPages.get(page.path)?.requests ?? 0, page.pv) : null,
     bot: humanAiPages.get(page.path)?.bot ?? null,
+    ...(humanAiPages.get(page.path)?.botId !== undefined && {
+      botId: humanAiPages.get(page.path).botId,
+    }),
     evaluation: !l.latest
       ? '待接入日志'
       : humanAiPages.has(page.path)
@@ -383,6 +397,7 @@ export async function buildReport(
     heat: pct(page.requests, aiPages[0]?.requests ?? 0),
     repeatRate: null,
     bot: page.bot,
+    ...(page.botId !== undefined && { botId: page.botId }),
     lastCrawled: page.lastCrawled,
     freshness: catalog.get(page.path)?.updatedAt
       ? `${Math.max(0, Math.floor((p.endAt - new Date(catalog.get(page.path).updatedAt).getTime()) / 86400000))} 天`
@@ -445,13 +460,20 @@ export async function buildReport(
     reason: '已收录目录，所选范围无 AI 抓取',
   }));
   const pathBot =
-    l.recent.find(row => row.bot === 'GPTBot')?.bot ??
-    l.recent.find(row => row.bot !== '其他')?.bot;
+    l.recent.find(row => row.bot === 'GPTBot') ?? l.recent.find(row => row.bot !== '其他');
   r.tables.pathList = l.recent
-    .filter(row => row.bot === pathBot)
+    .filter(row =>
+      pathBot?.botId ? row.botId === pathBot.botId : !row.botId && row.bot === pathBot?.bot,
+    )
     .slice(0, 7)
     .reverse()
-    .map(row => ({ bot: row.bot, time: row.time, path: row.path, status: row.status }));
+    .map(row => ({
+      bot: row.bot,
+      ...(row.botId !== undefined && { botId: row.botId }),
+      time: row.time,
+      path: row.path,
+      status: row.status,
+    }));
   r.tables.robotsList = [...settings.rules, { name: 'Applebot-Extended' }].map(rule => ({
     bot: rule.name,
     policy: settings.robots ? '已保存本地策略' : '未设置',

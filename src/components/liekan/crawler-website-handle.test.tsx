@@ -35,7 +35,14 @@ vi.mock('./AnalysisLoading', async () => {
   }
   return {
     AnalysisLoading: View,
-    reportViews: { 'ai/overview': View, 'ai/preference': View, 'ai/bots': View, 'ai/pages': View, overview: View, content: View },
+    reportViews: {
+      'ai/overview': View,
+      'ai/preference': View,
+      'ai/bots': View,
+      'ai/pages': View,
+      overview: View,
+      content: View,
+    },
   };
 });
 vi.mock('./features/CrawlerDialog', () => ({
@@ -143,11 +150,20 @@ it.each([
     const rows = content.slice(1).split('\r\n');
     expect(rows[0].split(',')).toHaveLength(8);
     expect(rows[0]).toContain(locale === 'zh-CN' ? '所选期间抓取' : 'Crawls in selected period');
-    expect(rows[1].split(',')[0]).toBe('"GPTBot / OpenAI"');
+    expect(rows[1].split(',')[0]).toBe(
+      locale === 'zh-CN' ? '"GPTBot / OpenAI / 官方身份"' : '"GPTBot / OpenAI / Official identity"',
+    );
     expect(rows).toHaveLength(2);
   },
 );
-it.each(['overview', 'ai/overview', 'ai/bots', 'ai/pages', 'ai/preference', 'content'] as Resource[])(
+it.each([
+  'overview',
+  'ai/overview',
+  'ai/bots',
+  'ai/pages',
+  'ai/preference',
+  'content',
+] as Resource[])(
   'shows mixed classification definitions on the shared %s analytics surface',
   async resource => {
     state.resource = resource;
