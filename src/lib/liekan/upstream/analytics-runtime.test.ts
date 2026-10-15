@@ -267,6 +267,50 @@ it('returns a log snapshot with no freshness when ingestion advances during comp
   });
   expect(result.expiresAt).toBe(result.generatedAt);
 });
+it.each([false, true])(
+  'returns an uncached log snapshot when ingestion advances before snapshot acquisition (prepared=%s)',
+  async prepared => {
+    const cache = new QueryCache();
+    const putLocal = vi.spyOn(cache, 'putLocal');
+    const redis = new MemoryRedis('');
+    const connection = primary();
+    installAnalyticsRuntime(
+      cache,
+      () => ({
+        $transaction: async (work: (tx: any) => Promise<any>, options: any) => {
+          if (options?.isolationLevel === 'RepeatableRead') data++;
+          return connection.$transaction(work, options);
+        },
+      }),
+      redis,
+    );
+    const load = vi.fn(async () => {
+      const [row] = await getQuerySnapshot().$queryRawUnsafe('SELECT * FROM liekan_log_state');
+      return { revision: row.data };
+    });
+    for (const revision of ['1', '2']) {
+      let result: CachedResult<{ revision: string }>;
+      const read = async () => {
+        result = await cache.read('ingestion-before-snapshot', 30000, tags, load);
+        return Response.json(result.value);
+      };
+      const response = prepared
+        ? await withQueryCacheHeaders(async () => {
+            await prepareAnalyticsVersions(tags);
+            return read();
+          })
+        : await read();
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ revision });
+      expect(result.expiresAt).toBe(result.generatedAt);
+    }
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(strong).toBe(0);
+    expect(data).toBe(2);
+    expect(putLocal).not.toHaveBeenCalled();
+    expect(redis.publishes.mock.calls).toEqual([['unshareable'], ['unshareable']]);
+  },
+);
 it('restarts the whole request when a definition changed after resolving filters', async () => {
   const cache = new QueryCache();
   installAnalyticsRuntime(cache, primary, disabled());
