@@ -21,7 +21,9 @@ vi.mock('./context', () => ({
     mocks.calls.push({ key, enabled });
     return {
       data: enabled
-        ? key[0] === 'help-crawler-recognition'
+        ? key[0] === 'help-crawler-websites'
+          ? [{ id: 'site-a', name: 'Website A' }]
+          : key[0] === 'help-crawler-recognition'
           ? mocks.recognition
           : mocks.health
         : undefined,

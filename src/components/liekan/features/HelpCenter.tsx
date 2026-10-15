@@ -31,6 +31,8 @@ import type {
   CrawlerSourcesResponse,
 } from '@/lib/liekan/contracts/crawler-maintenance';
 import { crawlerSourceStatus } from './CrawlerSourcesPanel';
+import { getFeatureSites } from '@/lib/liekan/upstream/features-client';
+import type { FeatureEntity } from '@/lib/liekan/contracts/features';
 import { featureHref } from './routes';
 import { Icon } from './ui';
 
@@ -494,6 +496,12 @@ function HelpBody() {
   const [kind, setKind] = useState('');
   const [limit, setLimit] = useState(20);
   const searching = search.trim().length > 0;
+  const showWebsiteSelector = !!(location.section === 'crawlers' || location.crawler || searching);
+  const websites = useData<FeatureEntity[]>(
+    ['help-crawler-websites', c.user?.id],
+    signal => getFeatureSites(signal, undefined, 'all'),
+    showWebsiteSelector && !!c.user?.id,
+  );
   const detail = !searching && (location.article || location.crawler);
   const category = searching ? undefined : location.section;
   const articles = searchArticles(
@@ -580,23 +588,34 @@ function HelpBody() {
             </Link>
           ))}
         </nav>
-        {(location.section === 'crawlers' || location.crawler || searching) && (
+        {showWebsiteSelector && (
           <div className={styles.filters}>
             <label>
               {i18n.text('查看网站启用状态')}
               <select
                 aria-label={i18n.text('查看网站启用状态')}
                 value={selected}
+                disabled={websites.isPending || !!websites.error}
                 onChange={event => setSelected(event.target.value)}
               >
-                <option value="">{i18n.text('未选择网站')}</option>
-                {(c.sites || []).map(site => (
+                <option value="">
+                  {i18n.text(websites.isPending ? '正在读取数据' : '未选择网站')}
+                </option>
+                {(websites.error ? [] : websites.data || []).map(site => (
                   <option key={site.id} value={site.id}>
                     {site.name}
                   </option>
                 ))}
               </select>
             </label>
+            {websites.error && (
+              <div role="alert">
+                <span>{i18n.text('读取数据失败，请重试')}</span>{' '}
+                <button type="button" onClick={() => websites.refetch()}>
+                  {i18n.text('重试')}
+                </button>
+              </div>
+            )}
             {selected && recognition.data && !recognition.error && (
               <small style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
                 {i18n.text('当前网站规则版本：{v0}', [recognition.data.classificationVersion])}
