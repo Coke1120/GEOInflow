@@ -941,6 +941,27 @@ try {
       { userAgent: botUa },
     );
   });
+  await test('v2 browser automation and public UA masking retain auditable raw events', async () => {
+    await record(event('/webdriver', { timestamp, webdriver: true }), {
+      classification: 'automated',
+      source: 'browser',
+      reason: 'browser_webdriver',
+    });
+    await record(event('/webdriver-false', { timestamp, webdriver: false }), browserQuality);
+    await record(
+      event('/masked-request-ua', { timestamp, userAgent: browserUa }),
+      { classification: 'automated', source: 'legacy_override', reason: 'request_ua_bot' },
+      { userAgent: 'python-requests/2.31.0' },
+    );
+    await record(
+      event('/server-transport-ua', { timestamp, userAgent: browserUa }),
+      serverQuality,
+      { authenticated: true, userAgent: 'python-requests/2.31.0' },
+    );
+    const before = await counts();
+    await collect(event('/invalid-webdriver', { timestamp, webdriver: 'true' }), { expected: 400 });
+    same(await counts(), before, 'Invalid automation evidence must not write any analytics rows');
+  });
   await test('public overrides remain suspected and Bearer header does not upgrade', async () => {
     await record(
       event('/public-overrides', { timestamp, ip: normalIp, userAgent: browserUa }),
@@ -1119,7 +1140,7 @@ try {
         );
       else {
         ensure(
-          row.ruleVersion === 'traffic-quality-v1' && row.reasons.includes(match.reason),
+          row.ruleVersion === 'traffic-quality-v2' && row.reasons.includes(match.reason),
           'Audit must preserve the classification rule and reason',
         );
         if (row.path === '/official-range')
@@ -1420,7 +1441,7 @@ try {
       })
     ).body;
     ensure(
-      result.mode === mode && result.ruleVersion === 'traffic-quality-v1',
+      result.mode === mode && result.ruleVersion === 'traffic-quality-v2',
       'Policy response must retain versioned semantics',
     );
     const after = await sql(

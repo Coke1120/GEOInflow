@@ -18,6 +18,9 @@ export type TrackedProperties = {
    */
   eventId?: string;
 
+  /** Positive browser automation signal; false or absence does not establish human identity. */
+  webdriver?: boolean;
+
   /**
    * Browser language
    *
@@ -451,6 +454,9 @@ type MetricEntry = PerformanceEntry & {
     }
 
     if (!payload) return;
+
+    // Preserve observed automation even when a before-send hook replaces the payload.
+    if (window.navigator.webdriver === true) payload = { ...payload, webdriver: true };
 
     if (!validEventId(payload.eventId)) {
       payload = { ...payload, eventId };

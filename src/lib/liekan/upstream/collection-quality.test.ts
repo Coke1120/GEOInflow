@@ -61,6 +61,47 @@ beforeEach(() => {
 });
 
 describe('collection quality evidence', () => {
+  it('excludes an automation-controlled browser even when its UA is ordinary Chrome', () => {
+    expect(classifyCollection(input({ payload: { webdriver: true } }))).toMatchObject({
+      classification: 'automated',
+      reasons: ['browser_webdriver'],
+    });
+  });
+
+  it('retains public request bot evidence when the payload declares a browser UA', () => {
+    const request = new Request('https://collector.test/api/send', {
+      headers: { 'user-agent': 'python-requests/2.31.0' },
+    });
+    expect(classifyCollection(input({ request, payload: { userAgent: browser } }))).toMatchObject({
+      classification: 'automated',
+      reasons: ['request_ua_bot'],
+    });
+  });
+
+  it('keeps an authenticated collector transport UA separate from its visitor UA', () => {
+    const request = new Request('https://collector.test/api/liekan/collect', {
+      headers: { 'user-agent': 'python-requests/2.31.0' },
+    });
+    expect(
+      classifyCollection(input({ request, authenticated: true, snapshots: {} })),
+    ).toMatchObject({ classification: 'browser', source: 'authenticated_server' });
+  });
+
+  it.each([false, undefined, 'true', 1])(
+    'does not infer automation from webdriver=%j',
+    webdriver => {
+      expect(classifyCollection(input({ payload: { webdriver } })).classification).toBe('browser');
+    },
+  );
+
+  it('preserves the explicit bot-check opt-out for browser automation evidence', () => {
+    vi.stubEnv('DISABLE_BOT_CHECK', '1');
+    expect(classifyCollection(input({ payload: { webdriver: true } }))).toMatchObject({
+      classification: 'unknown',
+      reasons: ['bot_check_disabled'],
+    });
+  });
+
   it('describes browser-compatible requests without persisting IP, UA or URL', () => {
     vi.stubEnv('CLIENT_IP_HEADER', '');
     vi.stubEnv('CLOUD_MODE', '');

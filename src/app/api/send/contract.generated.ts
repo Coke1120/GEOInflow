@@ -45,6 +45,9 @@ const operation1 = defineOperation({
                     format: 'uuid',
                     description: 'ID of the event.',
                   },
+                  webdriver: {
+                    type: 'boolean',
+                  },
                   data: {
                     type: 'object',
                     additionalProperties: true,

@@ -24928,6 +24928,7 @@ export interface operations {
             /** @description URL associated with the resource. */
             url?: string;
             userAgent?: string;
+            webdriver?: boolean;
             /** Format: uuid */
             website?: string;
           };

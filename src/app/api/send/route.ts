@@ -53,6 +53,7 @@ const schema = z.object({
       link: z.uuid().optional(),
       pixel: z.uuid().optional(),
       eventId: z.uuid().optional(),
+      webdriver: z.boolean().optional(),
       data: anyObjectParam.optional(),
       hostname: z.string().optional(),
       language: z.string().optional(),
