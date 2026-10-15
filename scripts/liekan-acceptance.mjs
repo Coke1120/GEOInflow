@@ -641,14 +641,9 @@ try {
       .filter(line => line.startsWith('{'))
       .at(-1),
   );
-  await run(
-    process.execPath,
-    ['--experimental-strip-types', 'scripts/liekan-visual.mjs'],
-    'visual',
-    {
-      env: { ...process.env, LIEKAN_URL: baseUrl },
-    },
-  );
+  await run(process.execPath, ['--import', 'tsx', 'scripts/liekan-visual.mjs'], 'visual', {
+    env: { ...process.env, LIEKAN_URL: baseUrl },
+  });
   report.visual = JSON.parse(fs.readFileSync('test-results/liekan-visual/geometry.json', 'utf8'));
   if (!report.visual.passed || report.visual.head !== head)
     throw new Error('Visual evidence is not bound to the candidate');

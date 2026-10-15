@@ -6,11 +6,17 @@ import { createHash } from 'node:crypto';
 import { chromium } from '@playwright/test';
 import { columns, pages as allPages } from '../src/components/liekan/data.ts';
 
-const pages = allPages.filter(page => !['human/keywords', 'human/search-engines'].includes(page.resource));
+const pages = allPages.filter(
+  page => !['human/keywords', 'human/search-engines'].includes(page.resource),
+);
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3002';
 if (!['127.0.0.1', 'localhost'].includes(new URL(base).hostname))
   throw new Error('Use an isolated local candidate');
 const navigationBaseline = JSON.parse(fs.readFileSync('config/liekan/navigation-ui.json', 'utf8'));
+const crawlerRecognitionBaseline = JSON.parse(
+  fs.readFileSync('config/liekan/crawler-recognition-ui.json', 'utf8'),
+);
+assert.equal(crawlerRecognitionBaseline.baselineVersion, 'liekan-crawler-recognition-v1');
 assert.equal(
   navigationBaseline.baselineVersion,
   'liekan-navigation-v0.2.3',
@@ -534,11 +540,37 @@ try {
       refGeometry.cards.length,
       `${name} original panel count changed`,
     );
+    const crawlerUiApproval = crawlerRecognitionBaseline.pages[name];
+    for (const oldLabel of Object.keys(crawlerUiApproval?.columnRenames || {}))
+      assert.equal(
+        refGeometry.columns.flat().filter(label => label === oldLabel).length,
+        1,
+        `${name} approved column must occur once in the original reference`,
+      );
     assert.deepEqual(
       geometry.columns,
-      refGeometry.columns,
-      `${name} original table columns changed`,
+      refGeometry.columns.map(row =>
+        row.map(label => crawlerUiApproval?.columnRenames[label] || label),
+      ),
+      `${name} original columns with approved crawler copy`,
     );
+    if (crawlerUiApproval) {
+      assert.deepEqual(
+        await reference.locator('main .chip').allTextContents(),
+        crawlerUiApproval.originalFilters,
+        `${name} original crawler filters`,
+      );
+      assert.deepEqual(
+        await actual.locator('main .chip').allTextContents(),
+        crawlerUiApproval.filters,
+        `${name} approved crawler filters`,
+      );
+      assert.deepEqual(
+        await actual.locator('main .chip.on').allTextContents(),
+        [crawlerUiApproval.filters[0]],
+        `${name} default crawler filter`,
+      );
+    }
     assert.deepEqual(
       geometry.charts.map(c => c.id),
       refGeometry.charts.map(c => c.id),
@@ -728,7 +760,23 @@ try {
         pageUrlChecks.push({ table, rowIndex, href });
       }
     }
-    const expectedReference = `${out}/${name}-page-urls-reference.png`;
+    // Preserve the original comparison above, then apply only approved crawler copy and chips.
+    if (crawlerUiApproval)
+      await reference.evaluate(approval => {
+        for (const header of document.querySelectorAll('main table th')) {
+          const replacement = approval.columnRenames[header.textContent.trim()];
+          if (replacement) header.textContent = replacement;
+        }
+        const original = [...document.querySelectorAll('main .chip')];
+        for (const [index, label] of approval.filters.entries()) {
+          const chip = original[0].cloneNode(true);
+          chip.textContent = label;
+          chip.classList.toggle('on', index === 0);
+          original[0].before(chip);
+        }
+        for (const chip of original) chip.remove();
+      }, crawlerUiApproval);
+    const expectedReference = `${out}/${name}-approved-reference.png`;
     await reference.screenshot({ path: expectedReference, fullPage: true, style: screenshotStyle });
     const textExemptions = [
       ...(await exemptions(reference)),
@@ -780,6 +828,7 @@ try {
       fullPagePixels,
       textExemptions,
       approvedNavigationRegions,
+      crawlerUiApproval: crawlerUiApproval || null,
       navigation,
       verticalOffset,
       refGeometry,
@@ -794,6 +843,7 @@ try {
         head,
         viewport: 1440,
         navigationBaseline: navigationBaseline.baselineVersion,
+        crawlerRecognitionBaseline: crawlerRecognitionBaseline.baselineVersion,
         originalReferenceHashesVerified: Object.keys(referenceHashes).length,
         errors,
         fixture: 'frozen prototype data intercepted in isolated browser; no writes to analytics',
