@@ -248,7 +248,11 @@ async function main() {
   await recordHealth();
   void reconcile().catch(() => console.error('Liekan worker maintenance unavailable'));
   if (!crawlerMaintenancePaused)
-    await boss.send(RANGE_QUEUE, {}, { singletonKey: 'official', singletonSeconds: 3600 });
+    await boss.send(
+      RANGE_QUEUE,
+      {},
+      { singletonKey: 'official', singletonSeconds: 3600, expireInSeconds: 600 },
+    );
   let checkingPermissions = false;
   let recovering = false;
   const recovery = async () => {
@@ -302,7 +306,11 @@ async function main() {
   const ranges = setInterval(() => {
     if (crawlerMaintenancePaused) return;
     void boss
-      .send(RANGE_QUEUE, {}, { singletonKey: 'official', singletonSeconds: 3600 })
+      .send(
+        RANGE_QUEUE,
+        {},
+        { singletonKey: 'official', singletonSeconds: 3600, expireInSeconds: 600 },
+      )
       .catch(() => {});
   }, 3600000);
   const shutdown = async () => {

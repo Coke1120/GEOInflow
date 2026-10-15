@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ipaddr from 'ipaddr.js';
-import snapshots from '../../../../config/liekan/bot-ranges.json';
+import { bundledVerificationSnapshots as snapshots, verifyBotIpEvidence } from './verify';
 import { verifyBotIp } from './verify';
 
 afterEach(() => {
@@ -8,6 +8,33 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('official IP evidence lifetime', () => {
+  it('retains separate reasons for unverified evidence and never trusts ambiguous tokens', () => {
+    const now = Date.now(),
+      time = new Date(now).toISOString();
+    const valid = { GPTBot: { retrievedAt: time, prefixes: ['192.0.2.0/24'] } };
+    const verify = (ua: string, bot = 'GPTBot', data = valid) =>
+      verifyBotIpEvidence('192.0.2.1', bot, ua, time, data, { now });
+    expect(verify('GPTBot/1.0 ClaudeBot/1.0').reason).toBe('ambiguous_name');
+    expect(verify('FakeGPTBot/1.0').reason).toBe('unmapped_identity');
+    expect(verify('Bytespider/1.0', 'Bytespider').reason).toBe('no_official_source');
+    expect(verify('GPTBot/1.0', 'GPTBot', {} as typeof valid).reason).toBe('missing_snapshot');
+    expect(
+      verifyBotIpEvidence('192.0.2.1', 'GPTBot', 'GPTBot', time, valid, { trustedIp: false, now })
+        .reason,
+    ).toBe('untrusted_ip');
+    for (const retrievedAt of ['invalid', new Date(now + 1).toISOString()])
+      expect(
+        verify('GPTBot', 'GPTBot', { GPTBot: { ...valid.GPTBot, retrievedAt } }),
+      ).toMatchObject({ status: 'unverified', reason: 'invalid_snapshot', observedAt: null });
+    expect(
+      verify('GPTBot', 'GPTBot', { GPTBot: { ...valid.GPTBot, prefixes: ['invalid'] } }).reason,
+    ).toBe('invalid_snapshot');
+    expect(
+      verify('GPTBot', 'GPTBot', {
+        GPTBot: { ...valid.GPTBot, retrievedAt: new Date(now - 8 * 86400000).toISOString() },
+      }).reason,
+    ).toBe('stale_snapshot');
+  });
   it('reuses compiled ranges on the hot path and observes changed prefixes', () => {
     vi.useFakeTimers();
     const time = new Date().toISOString();

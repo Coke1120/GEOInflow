@@ -47,11 +47,12 @@ try {
       retryLimit: 12,
       retryDelay: 5,
       retryBackoff: true,
-      expireInSeconds: 120,
+      expireInSeconds: name === 'liekan-range-refresh' ? 600 : 120,
       retentionSeconds: 7 * 86400,
       deadLetter: 'liekan-dead-letter',
     });
   }
+  await boss.updateQueue('liekan-range-refresh', { expireInSeconds: 600 });
   for (const name of [
     'liekan-browser-risk',
     'liekan-crawler-analysis',

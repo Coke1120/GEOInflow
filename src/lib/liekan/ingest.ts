@@ -5,7 +5,7 @@ import Papa from 'papaparse';
 import { BOT_RULES, type BotRule, classifyBot } from './rules/bots';
 import {
   bundledVerificationSnapshots,
-  verifyBotIp,
+  verifyBotIpEvidence,
   type VerificationSnapshots,
 } from './rules/verify';
 import { parseCombinedDate, parseStrictDate } from './strict-date';
@@ -151,10 +151,14 @@ export function parseLogInput(
       const userAgent = safeText(obj.userAgent ?? obj.user_agent, 500);
       const bot = classifyBot(userAgent, rules);
       const crawlerId = crawlerIdForRule(bot);
-      const snapshot = crawlerId ? snapshots?.[bot.name] : undefined;
       const verification = crawlerId
-        ? verifyBotIp(ip, bot.name, userAgent, time.toISOString(), snapshots)
-        : 'unverified';
+        ? verifyBotIpEvidence(ip, bot.name, userAgent, time.toISOString(), snapshots)
+        : {
+            status: 'unverified',
+            version: null,
+            observedAt: null,
+            reason: bot.recognition === 'ambiguous' ? 'ambiguous_name' : 'unmapped_identity',
+          };
       const ipHash = createHmac('sha256', secret)
         .update(ipaddr.process(ip).toString())
         .digest('hex');
@@ -171,15 +175,10 @@ export function parseLogInput(
         bot: bot.name,
         vendor: bot.vendor,
         type: bot.type,
-        verification,
-        verificationVersion: snapshot?.version ?? null,
-        verificationObservedAt: snapshot?.retrievedAt ?? null,
-        verificationReason:
-          verification === 'unverified'
-            ? crawlerId
-              ? 'missing_or_stale_snapshot'
-              : 'unmapped_identity'
-            : verification,
+        verification: verification.status,
+        verificationVersion: verification.version,
+        verificationObservedAt: verification.observedAt,
+        verificationReason: verification.reason,
         aiEligible: bot.aiEligible ?? ['训练', '搜索', '用户触发'].includes(bot.type),
         recognitionState:
           bot.recognition ?? (crawlerId ? 'recognized' : bot.pattern ? 'custom' : 'unknown'),

@@ -3,8 +3,9 @@ import { createHash } from 'node:crypto';
 import { browserName } from 'detect-browser';
 import ipaddr from 'ipaddr.js';
 import { isbot } from 'isbot';
+import { rangeSources } from '../crawlers/range-sources';
 import officialSnapshots from '../../../../config/liekan/bot-ranges.json';
-import type { VerificationSnapshots } from '../rules/verify';
+import { rangeContainsAddress, type VerificationSnapshots } from '../rules/verify';
 
 export const COLLECTION_RULE_VERSION = 'traffic-quality-v1';
 export type CollectionClassification = 'browser' | 'automated' | 'suspected' | 'unknown';
@@ -108,10 +109,12 @@ function rangeEvidence(input: CollectionInput): RangeEvidence {
   const available: CollectionRangeStatus[] = [];
   const matching: { status: 'fresh' | 'stale'; version: string }[] = [];
   for (const [bot, snapshot] of entries) {
+    // Browser quality retains the six independently reviewed original trust bindings.
     const official = Object.hasOwn(officialSnapshots, bot)
       ? officialSnapshots[bot as keyof typeof officialSnapshots]
       : null;
     if (!official) {
+      if (rangeSources.some(source => source.names.includes(bot))) continue;
       available.push('untrusted');
       continue;
     }
@@ -125,29 +128,28 @@ function rangeEvidence(input: CollectionInput): RangeEvidence {
         typeof snapshot.retrievedAt !== 'string'
       )
         throw new Error('Invalid range snapshot');
-      if ('source' in snapshot && snapshot.source !== official.source) {
+      if (
+        snapshot.source &&
+        snapshot.source !== official.source &&
+        !(
+          bot === 'Googlebot' &&
+          snapshot.source ===
+            'https://developers.google.com/static/crawling/ipranges/common-crawlers.json'
+        )
+      ) {
         available.push('untrusted');
         continue;
       }
       const retrievedAt = +new Date(snapshot.retrievedAt);
       if (!Number.isFinite(retrievedAt) || retrievedAt > timestamp)
         throw new Error('Invalid range time');
-      const prefixes = snapshot.prefixes.map(prefix => {
-        if (typeof prefix !== 'string') throw new Error('Invalid CIDR');
-        return ipaddr.parseCIDR(prefix);
-      });
       const status =
         timestamp - retrievedAt <= RANGE_MAX_AGE &&
         Math.abs(eventTimestamp - retrievedAt) <= RANGE_MAX_AGE
           ? 'fresh'
           : 'stale';
       available.push(status);
-      if (
-        prefixes.some(
-          ([network, bits]) =>
-            network.kind() === clientAddress.kind() && clientAddress.match(network, bits),
-        )
-      ) {
+      if (rangeContainsAddress(snapshot.prefixes, clientAddress)) {
         const version =
           typeof snapshot.version === 'string' && snapshot.version
             ? snapshot.version
@@ -160,6 +162,7 @@ function rangeEvidence(input: CollectionInput): RangeEvidence {
       available.push('invalid');
     }
   }
+  if (!available.length) return empty('missing');
   const fresh = matching.filter(match => match.status === 'fresh');
   const used = fresh.length ? fresh : matching;
   const status = used.length
