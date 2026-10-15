@@ -7,7 +7,7 @@ import { rangeSources } from '../crawlers/range-sources';
 import officialSnapshots from '../../../../config/liekan/bot-ranges.json';
 import { rangeContainsAddress, type VerificationSnapshots } from '../rules/verify';
 
-export const COLLECTION_RULE_VERSION = 'traffic-quality-v1';
+export const COLLECTION_RULE_VERSION = 'traffic-quality-v2';
 export type CollectionClassification = 'browser' | 'automated' | 'suspected' | 'unknown';
 export type CollectionSource = 'browser' | 'authenticated_server' | 'legacy_override';
 export type CollectionRangeStatus = 'fresh' | 'stale' | 'missing' | 'untrusted' | 'invalid';
@@ -196,7 +196,13 @@ export function classifyCollection(input: CollectionInput): CollectionQuality {
       : 'browser';
   const ranges = rangeEvidence(input);
   const ua = typeof input.userAgent === 'string' ? input.userAgent : '';
-  const automated = ranges.freshMatches > 0 || isbot(ua);
+  const uaBot = isbot(ua);
+  // An authorized server reports the visitor UA separately from its HTTP client.
+  // Public payload overrides cannot erase automation evidence in the request UA.
+  const requestUaBot = !input.authenticated && isbot(input.request.headers.get('user-agent') || '');
+  // A positive client declaration can exclude automation. Absence/false proves no human identity.
+  const webdriver = input.payload?.webdriver === true;
+  const automated = ranges.freshMatches > 0 || uaBot || requestUaBot || webdriver;
   let classification: CollectionClassification;
   let reasons: string[];
   if (automated && process.env.DISABLE_BOT_CHECK) {
@@ -205,9 +211,15 @@ export function classifyCollection(input: CollectionInput): CollectionQuality {
   } else if (ranges.freshMatches) {
     classification = 'automated';
     reasons = [ranges.freshMatches > 1 ? 'official_range_ambiguous' : 'official_range_match'];
-  } else if (automated) {
+  } else if (uaBot) {
     classification = 'automated';
     reasons = ['ua_bot'];
+  } else if (requestUaBot) {
+    classification = 'automated';
+    reasons = ['request_ua_bot'];
+  } else if (webdriver) {
+    classification = 'automated';
+    reasons = ['browser_webdriver'];
   } else if (source === 'legacy_override') {
     classification = 'suspected';
     reasons = ['legacy_payload_override'];

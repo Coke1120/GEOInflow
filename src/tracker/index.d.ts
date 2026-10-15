@@ -15,6 +15,8 @@ export type TrackedProperties = {
    * Custom payloads may supply their own valid UUID.
    */
   eventId?: string;
+  /** Positive browser automation signal; false or absence does not establish human identity. */
+  webdriver?: boolean;
   /**
    * Browser language
    *

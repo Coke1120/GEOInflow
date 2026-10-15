@@ -71,6 +71,17 @@ const call = (payload: any = {}, headers: Record<string, string> = {}) =>
   );
 
 describe('compatible collection quality intake', () => {
+  it('passes browser automation evidence through validation into the quality verdict', async () => {
+    const response = await call({ webdriver: true });
+    expect(response.status).toBe(200);
+    expect(mocks.classify.mock.calls[0][0].payload.webdriver).toBe(true);
+  });
+
+  it.each(['true', 1, {}])('rejects malformed automation evidence %j', async webdriver => {
+    expect((await call({ webdriver })).status).toBe(400);
+    expect(mocks.saveEvent).not.toHaveBeenCalled();
+  });
+
   it('verifies ranges against the actual accepted event time including legacy timestamp zero', async () => {
     const before = Date.now() / 1000;
     await call({ timestamp: 0 });

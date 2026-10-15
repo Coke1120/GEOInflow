@@ -93,6 +93,35 @@ afterEach(() => {
   for (const browser of browsers.splice(0)) browser.close();
 });
 
+test('carries positive browser automation evidence across initial and manual events', async () => {
+  const browser = createBrowser();
+  Object.defineProperty(browser.window.navigator, 'webdriver', { value: true });
+  browser.load();
+  await browser.window.umami.track('checkout');
+  expect(browser.requests()).toHaveLength(2);
+  for (const request of browser.requests()) expect(request.payload.webdriver).toBe(true);
+});
+
+test('before-send hooks cannot erase observed browser automation evidence', async () => {
+  const browser = createBrowser();
+  Object.defineProperty(browser.window.navigator, 'webdriver', { value: true });
+  (browser.window as any).customize = (_type: string, payload: any) => ({
+    ...payload,
+    webdriver: false,
+  });
+  browser.load({ 'before-send': 'customize', 'auto-track': 'false' });
+  await browser.window.umami.track();
+  expect(browser.requests()[0].payload.webdriver).toBe(true);
+});
+
+test('ordinary browsers retain the existing payload without an automation claim', () => {
+  const browser = createBrowser();
+  Object.defineProperty(browser.window.navigator, 'webdriver', { value: false });
+  browser.load();
+  expect(browser.requests()).toHaveLength(1);
+  expect(browser.requests()[0].payload.webdriver).toBeUndefined();
+});
+
 test('identifies data-distinct-id before the initial page view', async () => {
   const browser = createBrowser();
   browser.load({ 'distinct-id': 'visitor-id' });

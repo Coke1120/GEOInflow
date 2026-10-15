@@ -4478,13 +4478,13 @@
     },
     {
       "path": "src/app/api/send/route.ts",
-      "purpose": "Preserve cookieless Umami collection while verifying exact event deduplication and uniform traffic quality",
+      "purpose": "Preserve cookieless collection, exact event deduplication and uniform quality; retain positive WebDriver and public request UA automation evidence",
       "tests": [
         "pnpm liekan:verify",
         "Isolated traffic quality database integration"
       ],
       "owner": "Liekan collection compatibility",
-      "constraint": "Preserve existing SDK fields, response shapes, legitimate refreshes and original raw analytics rows",
+      "constraint": "Preserve old SDK payloads, response shapes, legitimate refreshes, authorized server transport and original raw analytics; missing automation evidence never proves human identity",
       "removalCondition": "Remove when upstream provides equivalent versioned quality and idempotency extension points"
     },
     {
@@ -4500,46 +4500,46 @@
     },
     {
       "path": "src/app/api/send/route.quality.test.ts",
-      "purpose": "Preserve cookieless Umami collection while verifying exact event deduplication and uniform traffic quality",
+      "purpose": "Preserve cookieless collection, exact event deduplication and uniform quality; retain positive WebDriver and public request UA automation evidence",
       "tests": [
         "pnpm liekan:verify",
         "Isolated traffic quality database integration"
       ],
       "owner": "Liekan collection compatibility",
-      "constraint": "Preserve existing SDK fields, response shapes, legitimate refreshes and original raw analytics rows",
+      "constraint": "Preserve old SDK payloads, response shapes, legitimate refreshes, authorized server transport and original raw analytics; missing automation evidence never proves human identity",
       "removalCondition": "Remove when upstream provides equivalent versioned quality and idempotency extension points"
     },
     {
       "path": "src/tracker/index.ts",
-      "purpose": "Preserve cookieless Umami collection while verifying exact event deduplication and uniform traffic quality",
+      "purpose": "Preserve cookieless collection, exact event deduplication and uniform quality; retain positive WebDriver and public request UA automation evidence",
       "tests": [
         "pnpm liekan:verify",
         "Isolated traffic quality database integration"
       ],
       "owner": "Liekan collection compatibility",
-      "constraint": "Preserve existing SDK fields, response shapes, legitimate refreshes and original raw analytics rows",
+      "constraint": "Preserve old SDK payloads, response shapes, legitimate refreshes, authorized server transport and original raw analytics; missing automation evidence never proves human identity",
       "removalCondition": "Remove when upstream provides equivalent versioned quality and idempotency extension points"
     },
     {
       "path": "src/tracker/index.test.ts",
-      "purpose": "Preserve cookieless Umami collection while verifying exact event deduplication and uniform traffic quality",
+      "purpose": "Preserve cookieless collection, exact event deduplication and uniform quality; retain positive WebDriver and public request UA automation evidence",
       "tests": [
         "pnpm liekan:verify",
         "Isolated traffic quality database integration"
       ],
       "owner": "Liekan collection compatibility",
-      "constraint": "Preserve existing SDK fields, response shapes, legitimate refreshes and original raw analytics rows",
+      "constraint": "Preserve old SDK payloads, response shapes, legitimate refreshes, authorized server transport and original raw analytics; missing automation evidence never proves human identity",
       "removalCondition": "Remove when upstream provides equivalent versioned quality and idempotency extension points"
     },
     {
       "path": "src/tracker/index.d.ts",
-      "purpose": "Preserve cookieless Umami collection while verifying exact event deduplication and uniform traffic quality",
+      "purpose": "Preserve cookieless collection, exact event deduplication and uniform quality; retain positive WebDriver and public request UA automation evidence",
       "tests": [
         "pnpm liekan:verify",
         "Isolated traffic quality database integration"
       ],
       "owner": "Liekan collection compatibility",
-      "constraint": "Preserve existing SDK fields, response shapes, legitimate refreshes and original raw analytics rows",
+      "constraint": "Preserve old SDK payloads, response shapes, legitimate refreshes, authorized server transport and original raw analytics; missing automation evidence never proves human identity",
       "removalCondition": "Remove when upstream provides equivalent versioned quality and idempotency extension points"
     },
     {
@@ -4566,7 +4566,7 @@
     },
     {
       "path": "src/app/api/send/contract.generated.ts",
-      "purpose": "Expose optional collection UUID and conflict responses in the compatible generated contract",
+      "purpose": "Expose optional collection UUID, boolean WebDriver evidence and conflict responses in the compatible generated contract",
       "tests": [
         "pnpm build:openapi",
         "pnpm openapi:check --explicit",
