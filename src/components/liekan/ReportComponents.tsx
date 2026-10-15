@@ -470,7 +470,10 @@ function Cell({
     const identity = crawlerIdentityLabel(row, i18n.text);
     return (
       <span className="relative block group">
-        <span className="block num font-medium text-[12px] text-ink group-hover:underline">
+        <span
+          className="block num font-medium text-[12px] text-ink group-hover:underline"
+          style={{ minWidth: identity ? 112 : undefined }}
+        >
           {formatValue(value)}
         </span>
         <span className="block text-[10.5px] text-faint">
@@ -491,7 +494,12 @@ function Cell({
     const identity = crawlerIdentityLabel(row, i18n.text);
     return (
       <>
-        <span className="block num font-medium text-[12px] text-ink">{formatValue(value)}</span>
+        <span
+          className="block num font-medium text-[12px] text-ink"
+          style={{ minWidth: identity ? 112 : undefined }}
+        >
+          {formatValue(value)}
+        </span>
         <span className="block text-[10.5px] text-faint">
           {formatValue(row.vendor)}
           {identity ? ` · ${identity}` : ''}
