@@ -81,11 +81,13 @@ export async function persistCrawlerEvidence(
     crawlerId: row.crawlerId ?? null,
     ...(row.crawlerEvidence ?? {}),
   }));
+  // Keep the indexed event lookup batch-bounded while enforcing import ownership.
   await tx.$executeRawUnsafe(
     `INSERT INTO liekan_crawler_evidence(website_id,log_id,classification_version,crawler_id,security_action,terminating_rule_id,matched_rule_ids,cache_status,duration_ms)
      SELECT $1::uuid,r.id,r."classificationVersion",r."crawlerId",r."securityAction",r."terminatingRuleId",r."matchedRuleIds",r."cacheStatus",r."durationMs"
      FROM jsonb_to_recordset($3::jsonb) AS r(id text,"classificationVersion" text,"crawlerId" text,"securityAction" text,"terminatingRuleId" text,"matchedRuleIds" jsonb,"cacheStatus" text,"durationMs" double precision)
-     JOIN liekan_log l ON l.website_id=$1::uuid AND l.id=r.id AND l.import_id=$2::uuid
+     JOIN LATERAL (SELECT 1 FROM liekan_log l
+       WHERE l.website_id=$1::uuid AND l.id=r.id AND l.import_id=$2::uuid OFFSET 0) l ON true
      ON CONFLICT(website_id,log_id) DO NOTHING`,
     websiteId,
     importId,

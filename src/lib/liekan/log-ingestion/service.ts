@@ -307,8 +307,13 @@ export async function processBatch(batchId: string) {
     const rows: AutomaticRecord[] = batch.payload || [];
     const resetAt = live.resetAt ? +new Date(live.resetAt) : 0;
     const valid = rows.filter(row => +new Date(row.time) >= resetAt);
+    // Keep each incoming event as the lookup driver while table statistics catch up.
+    // OFFSET 0 fences join reordering around the unique website/event lookup.
     const conflicting = await tx.$queryRawUnsafe(
-      'SELECT 1 FROM liekan_log l JOIN jsonb_to_recordset($2::jsonb) AS r(id text,"eventDigest" text) ON l.id=r.id WHERE l.website_id=$1::uuid AND l.event_digest IS DISTINCT FROM r."eventDigest" LIMIT 1',
+      `SELECT 1 FROM jsonb_to_recordset($2::jsonb) AS r(id text,"eventDigest" text)
+       JOIN LATERAL (SELECT event_digest FROM liekan_log l
+         WHERE l.website_id=$1::uuid AND l.id=r.id OFFSET 0) l ON true
+       WHERE l.event_digest IS DISTINCT FROM r."eventDigest" LIMIT 1`,
       first.website_id,
       JSON.stringify(valid),
     );
