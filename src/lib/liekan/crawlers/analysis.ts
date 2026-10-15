@@ -14,7 +14,7 @@ import { LiekanError } from '../upstream/errors';
 import { humanPathFromEncoded } from '../upstream/paths';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from '../upstream/query-cache';
 import { noteCacheResult } from '../upstream/cache-context';
-import { crawlerDirectory } from './directory';
+import { crawlerDirectoryForObserved } from './directory';
 import { crawlerOwnedBlock, crawlerOwnedMatch } from './execution';
 
 const DAY = 86_400_000;
@@ -145,7 +145,7 @@ const platformHosts = {
 function platformForSource(source: string) {
   return (
     crawlerPlatformIds.find(id =>
-      platformHosts[id].some(host => source === host || source.endsWith(`.${host}`)),
+      (platformHosts[id] || []).some(host => source === host || source.endsWith(`.${host}`)),
     ) || null
   );
 }
@@ -166,7 +166,7 @@ export async function crawlerAnalysis(
     };
   });
   const cached = await analyticsCache.read(
-    analyticsCacheKey('crawler-analysis-v2', { websiteId, ...range, ...access.version }),
+    analyticsCacheKey('crawler-analysis-v3', { websiteId, ...range, ...access.version }),
     30000,
     [websiteCacheTag(websiteId)],
     () =>
@@ -185,10 +185,10 @@ export async function crawlerAnalysis(
             ...args,
           );
           const pages = await tx.query<CrawlerAnalyzedPage>(
-            `SELECT e.crawler_id AS "botId",path,${crawlerCountColumns},sum(bytes)::float8 AS bytes,
+            `SELECT e.crawler_id AS "botId",path,l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes,
       count(*) FILTER(WHERE ${crawlerOwnedBlock})::int AS "ownedTerminatingBlocks",
       count(*) FILTER(WHERE ${crawlerOwnedMatch})::int AS "ownedMatches"
-      ${crawlerBase} AND (e.crawler_id IS NOT NULL OR l.bot!='其他') GROUP BY 1,2 ORDER BY requests DESC,path LIMIT 1001`,
+      ${crawlerBase} AND (e.crawler_id IS NOT NULL OR l.bot!='其他') GROUP BY 1,2,3 ORDER BY requests DESC,path LIMIT 1001`,
             ...args,
           );
           const duration = endAt - startAt;
@@ -198,7 +198,7 @@ export async function crawlerAnalysis(
             timezone,
           };
           const previousBots = await tx.query(
-            `SELECT e.crawler_id AS "botId",${crawlerCountColumns},sum(bytes)::float8 AS bytes ${crawlerBase} GROUP BY 1`,
+            `SELECT e.crawler_id AS "botId",l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes ${crawlerBase} GROUP BY 1,2`,
             websiteId,
             new Date(previousRange.startAt),
             new Date(previousRange.endAt),
@@ -234,6 +234,7 @@ export async function crawlerAnalysis(
           );
           const summarizePlatforms = (rows: Awaited<ReturnType<typeof crawlerReferralRows>>) =>
             crawlerPlatformIds.map(platformId => {
+              const supported = Boolean(platformHosts[platformId]?.length);
               const matching = rows.filter(row => {
                 const source = classifyEntrySource(row);
                 return (
@@ -267,14 +268,21 @@ export async function crawlerAnalysis(
               }
               return {
                 platformId,
-                state: browser.connected ? ('available' as const) : ('missing' as const),
-                visits: browser.connected ? matching.reduce((n, row) => n + row.visits, 0) : null,
+                state: !supported
+                  ? ('unsupported' as const)
+                  : browser.connected
+                    ? ('available' as const)
+                    : ('missing' as const),
+                visits:
+                  supported && browser.connected
+                    ? matching.reduce((n, row) => n + row.visits, 0)
+                    : null,
                 conversions:
-                  browser.connected && goals.count
+                  supported && browser.connected && goals.count
                     ? matching.reduce((n, row) => n + row.conversions, 0)
                     : null,
                 goalEvents:
-                  browser.connected && goals.count
+                  supported && browser.connected && goals.count
                     ? matching.reduce((n, row) => n + (row.goalEvents || 0), 0)
                     : null,
                 landingPages: [...landing.values()]
@@ -304,7 +312,9 @@ export async function crawlerAnalysis(
           return {
             range,
             quality,
-            directory: crawlerDirectory,
+            directory: crawlerDirectoryForObserved(
+              [...bots, ...previousBots, ...findings].map(row => row.botId).filter(Boolean),
+            ),
             bots,
             pagesTruncated: pages.length > 1000,
             pages: pages.slice(0, 1000).map(row => ({

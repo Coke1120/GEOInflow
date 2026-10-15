@@ -53,6 +53,10 @@ export async function resetLiekanStatistics(tx: any, websiteId: string, identity
   );
   await tx.$executeRawUnsafe('DELETE FROM liekan_log WHERE website_id=$1::uuid', websiteId);
   await tx.$executeRawUnsafe('DELETE FROM liekan_import WHERE website_id=$1::uuid', websiteId);
+  await tx.$executeRawUnsafe(
+    'DELETE FROM liekan_crawler_rule_version WHERE website_id=$1::uuid',
+    websiteId,
+  );
 }
 export async function stopWebsiteSources(tx: any, websiteId: string, deleted = false) {
   const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
@@ -104,6 +108,7 @@ export async function stopWebsiteSources(tx: any, websiteId: string, deleted = f
   );
   if (deleted) {
     for (const table of [
+      'liekan_crawler_rule_version',
       'liekan_geography_ingress',
       'liekan_browser_risk_window',
       'liekan_browser_risk_state',

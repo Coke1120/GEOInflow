@@ -252,7 +252,7 @@ describe.skipIf(!enabled)('collector coverage evidence on isolated PostgreSQL', 
       )[0],
     ).toMatchObject({ state: 'resolved', facts: { correctedByLateData: true } });
   });
-  it('uses the persisted receive-batch ID from a real collector upload and writes complete coverage', async () => {
+  it('processes an older queued payload from a real collector upload and writes complete coverage', async () => {
     const token = 'a'.repeat(43),
       dir = await mkdtemp(join(tmpdir(), 'liekan-coverage-integration-'));
     await q(
@@ -281,7 +281,19 @@ describe.skipIf(!enabled)('collector coverage evidence on isolated PostgreSQL', 
       const ack = await receiveBatch(new Request(String(url), init), source);
       if (!('batchId' in ack)) throw new Error('Persistent batch acknowledgement missing');
       serverId = ack.batchId;
+      await q(
+        `UPDATE liekan_ingest_batch SET payload=(SELECT jsonb_agg(item-'aiEligible'-'recognitionState'-'recognitionCandidates'-'verificationObservedAt'-'verificationReason') FROM jsonb_array_elements(payload) item) WHERE id=$1::uuid`,
+        serverId,
+      );
       await processBatch(serverId);
+      expect(
+        (
+          await q(
+            'SELECT ai_eligible,recognition_state,verification_observed_at FROM liekan_log WHERE import_id=$1::uuid',
+            serverId,
+          )
+        )[0],
+      ).toEqual({ ai_eligible: null, recognition_state: null, verification_observed_at: null });
       return Response.json(ack);
     }) as typeof fetch);
     try {

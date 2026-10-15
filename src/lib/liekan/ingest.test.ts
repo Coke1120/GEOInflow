@@ -45,6 +45,8 @@ describe('Liekan ingestion public boundary', () => {
       ipMasked: '203.0.113.0/24',
       bot: 'GPTBot',
       verification: 'range_mismatch',
+      verificationVersion: expect.stringMatching(/^[a-f0-9]{64}$/),
+      verificationObservedAt: snapshots.GPTBot.retrievedAt,
     });
     expect(JSON.stringify(result.records)).not.toContain('private');
     expect(JSON.stringify(result.records)).not.toContain('203.0.113.29');

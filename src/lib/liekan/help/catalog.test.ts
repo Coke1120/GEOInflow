@@ -94,16 +94,13 @@ describe('help scope and evidence', () => {
       expect(crawlerRobotsDraft(control)).toContain(`User-agent: ${control.name}`);
     }
   });
-  it('reports actual default rules, including family grouping, separately from collected feeds', () => {
+  it('reports exact active rules separately from collected feeds', () => {
     const get = (name: string) => helpCrawlers.find(item => item.name === name)!;
     expect(crawlerCapabilities(get('GPTBot'))).toMatchObject({
       rule: { name: 'GPTBot' },
       ip: true,
     });
-    expect(crawlerCapabilities(get('Googlebot-Image'))).toMatchObject({
-      rule: { name: 'Googlebot' },
-      ip: true,
-    });
+    expect(crawlerCapabilities(get('Googlebot-Image'))).toEqual({ rule: undefined, ip: false });
     expect(crawlerCapabilities(get('ClaudeBot'))).toMatchObject({
       rule: { name: 'ClaudeBot' },
       ip: false,

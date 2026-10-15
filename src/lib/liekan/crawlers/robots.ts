@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import {
-  crawlerBotIds,
   crawlerHasControlCharacters,
   crawlerPathSchema,
+  crawlerRobotsBotIds,
 } from '../contracts/crawlers';
 import { getCrawler } from './directory';
 
@@ -205,7 +205,7 @@ export function checkRobotsAccess(
 
 export const crawlerRobotsPolicySchema = z.strictObject({
   botIds: z
-    .array(z.enum(crawlerBotIds))
+    .array(z.enum(crawlerRobotsBotIds))
     .min(1)
     .max(10)
     .refine(ids => new Set(ids).size === ids.length),

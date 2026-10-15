@@ -57,6 +57,8 @@ describe('automatic log wire protocol', () => {
     expect(a.records[1].id).toBe(b.records[0].id);
     expect(a.records[0].id).not.toBe(a.records[1].id);
     expect(a.records[0].path).toBe('/a');
+    expect(a.records[0].verificationVersion).toMatch(/^[a-f0-9]{64}$/);
+    expect(a.records[0].verificationObservedAt).toEqual(expect.any(String));
     expect(JSON.stringify(a)).not.toContain('192.0.2.20');
     expect(JSON.stringify(a)).not.toContain('secret=test');
   });

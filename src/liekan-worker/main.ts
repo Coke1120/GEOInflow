@@ -31,6 +31,8 @@ import { processCrawlerDeployment } from '../lib/liekan/crawler-control/deployme
 import { pauseRestoredCrawlerControl } from '../lib/liekan/crawler-control/restore';
 
 const workerId = randomUUID();
+// Rollback candidates can keep ingestion running while leaving maintenance jobs queued.
+const crawlerMaintenancePaused = process.argv.includes('--pause-crawler-maintenance');
 const boss = new PgBoss({
   connectionString: process.env.DATABASE_URL,
   schema: QUEUE_SCHEMA,
@@ -63,7 +65,9 @@ async function reconcile() {
         '1.0.0',
       );
       await tx.$executeRawUnsafe('DELETE FROM liekan_log_grant WHERE expires_at<now()');
-      await tx.$executeRawUnsafe("DELETE FROM liekan_geography_ingress WHERE bucket<now()-interval '90 days'");
+      await tx.$executeRawUnsafe(
+        "DELETE FROM liekan_geography_ingress WHERE bucket<now()-interval '90 days'",
+      );
       await tx.$executeRawUnsafe(
         "DELETE FROM liekan_ingest_batch WHERE state!='pending' AND received_at<now()-interval '30 days'",
       );
@@ -172,16 +176,18 @@ async function main() {
       for (const job of jobs) await maintainProvider(job.data.sourceId, job.data.action, workerId);
     },
   );
-  await boss.work(RANGE_QUEUE, { batchSize: 1 }, async () => {
-    await refreshRanges();
-  });
-  await boss.work(
-    CRAWLER_ANALYSIS_QUEUE,
-    { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: 2 },
-    async () => {
-      await processCrawlerAnalysis(workerId);
-    },
-  );
+  if (!crawlerMaintenancePaused)
+    await boss.work(RANGE_QUEUE, { batchSize: 1 }, async () => {
+      await refreshRanges();
+    });
+  if (!crawlerMaintenancePaused)
+    await boss.work(
+      CRAWLER_ANALYSIS_QUEUE,
+      { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: 2 },
+      async () => {
+        await processCrawlerAnalysis(workerId);
+      },
+    );
   await boss.work(
     CRAWLER_CHECK_QUEUE,
     { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: 2 },
@@ -220,7 +226,9 @@ async function main() {
     void wakeBrowserRisk().catch(() => {});
   }, 10000);
   const wakeCrawlers = async () => {
-    for (const queue of [CRAWLER_ANALYSIS_QUEUE, CRAWLER_CHECK_QUEUE, CRAWLER_CONTROL_QUEUE])
+    for (const queue of [CRAWLER_ANALYSIS_QUEUE, CRAWLER_CHECK_QUEUE, CRAWLER_CONTROL_QUEUE].filter(
+      queue => !crawlerMaintenancePaused || queue !== CRAWLER_ANALYSIS_QUEUE,
+    ))
       await boss.send(
         queue,
         {},
@@ -239,7 +247,8 @@ async function main() {
   }, 2000);
   await recordHealth();
   void reconcile().catch(() => console.error('Liekan worker maintenance unavailable'));
-  await boss.send(RANGE_QUEUE, {}, { singletonKey: 'official', singletonSeconds: 3600 });
+  if (!crawlerMaintenancePaused)
+    await boss.send(RANGE_QUEUE, {}, { singletonKey: 'official', singletonSeconds: 3600 });
   let checkingPermissions = false;
   let recovering = false;
   const recovery = async () => {
@@ -291,6 +300,7 @@ async function main() {
     void recordHealth().catch(() => {});
   }, 30000);
   const ranges = setInterval(() => {
+    if (crawlerMaintenancePaused) return;
     void boss
       .send(RANGE_QUEUE, {}, { singletonKey: 'official', singletonSeconds: 3600 })
       .catch(() => {});

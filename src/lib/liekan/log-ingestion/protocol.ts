@@ -31,7 +31,7 @@ export const hostname = (domain: string) =>
   new URL(domain.includes('://') ? domain : `https://${domain}`).hostname.toLowerCase();
 export interface AutomaticRecord extends LogRecord {
   eventDigest: string;
-  verificationVersion: string;
+  verificationVersion?: string | null;
   classificationVersion?: string;
   crawlerId?: string | null;
   crawlerEvidence?: CrawlerLogEvidence | null;
@@ -51,7 +51,7 @@ export function normalizeAutomatic(
   secret: string,
   rules: BotRule[] = BOT_RULES,
   snapshots?: VerificationSnapshots,
-  observe?: (ip:string, record:AutomaticRecord) => void,
+  observe?: (ip: string, record: AutomaticRecord) => void,
 ) {
   if (!events.length || events.length > MAX_RECORDS)
     throw new LiekanError('每批需要 1–1000 条日志');
@@ -116,8 +116,10 @@ export function normalizeAutomatic(
           e.EdgeResponseBodyBytes,
         ];
       }
-      let validatedIp:string;
-      const parsed = parseLogInput(input, domain, secret, rules, snapshots,(ip)=>{validatedIp=ip;});
+      let validatedIp: string;
+      const parsed = parseLogInput(input, domain, secret, rules, snapshots, ip => {
+        validatedIp = ip;
+      });
       if (parsed.records.length !== 1) throw new Error();
       const content = kind === 'server' ? serverEventSchema.parse(raw).line : identity;
       const eventDigest = createHmac('sha256', secret)
@@ -128,13 +130,12 @@ export function normalizeAutomatic(
         ...parsed.records[0],
         id,
         eventDigest,
-        verificationVersion: snapshots?.[parsed.records[0].bot]?.version || 'bundled',
         classificationVersion,
         crawlerId: crawlerIdentityId(parsed.records[0].userAgent, rules),
         crawlerEvidence:
           kind === 'cloudflare' ? cloudflareCrawlerEvidence(raw as Record<string, unknown>) : null,
       });
-      observe?.(validatedIp, records[records.length-1]);
+      observe?.(validatedIp, records[records.length - 1]);
     } catch {
       errors.push({ line: index + 1, reason: '字段、时间、IP、请求来源或域名无效' });
     }

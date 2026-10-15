@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import bundled from '../../../../config/liekan/bot-ranges.json';
 import { query, transaction } from '../upstream/server';
-import type { VerificationSnapshots } from '../rules/verify';
+import { bundledVerificationSnapshots, type VerificationSnapshots } from '../rules/verify';
 
 // Refresh only the official endpoints already reviewed and bundled with this release.
 export async function refreshRanges() {
@@ -48,7 +48,7 @@ export async function refreshRanges() {
   }
 }
 export async function verificationSnapshots(): Promise<VerificationSnapshots> {
-  const snapshots: VerificationSnapshots = { ...bundled };
+  const snapshots: VerificationSnapshots = { ...bundledVerificationSnapshots };
   for (const row of await query(
     'SELECT bot,prefixes,retrieved_at,version FROM liekan_bot_snapshot',
   ))

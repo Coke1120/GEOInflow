@@ -13274,17 +13274,60 @@ export interface operations {
                     | 'gptbot'
                     | 'oai-searchbot'
                     | 'chatgpt-user'
+                    | 'oai-adsbot'
                     | 'claudebot'
                     | 'claude-searchbot'
                     | 'claude-user'
                     | 'perplexitybot'
                     | 'perplexity-user'
-                    | 'bytespider'
+                    | 'amazonbot'
+                    | 'amzn-searchbot'
+                    | 'amzn-user'
+                    | 'mistralai-user'
+                    | 'mistralai-index'
+                    | 'mistralai-training'
                     | 'googlebot'
-                    | 'baiduspider'
-                    | 'bingbot'
-                    | 'applebot'
+                    | 'googlebot-image'
+                    | 'googlebot-video'
+                    | 'googleother'
+                    | 'googleother-image'
+                    | 'googleother-video'
+                    | 'storebot-google'
+                    | 'google-inspectiontool'
+                    | 'google-cloudvertexbot'
                     | 'google-extended'
+                    | 'googlebot-news'
+                    | 'applebot'
+                    | 'applebot-extended'
+                    | 'bingbot'
+                    | 'duckduckbot'
+                    | 'duckassistbot'
+                    | 'ccbot'
+                    | 'ai2bot'
+                    | 'baiduspider'
+                    | 'baiduspider-render'
+                    | 'sogou-web-spider'
+                    | 'sogou-inst-spider'
+                    | '360spider'
+                    | 'yandexbot'
+                    | 'yeti'
+                    | 'ads-naver'
+                    | 'blueno'
+                    | 'seznambot'
+                    | 'freshbot'
+                    | 'qwantbot'
+                    | 'qwantbot-news'
+                    | 'mojeekbot'
+                    | 'meta-externalagent'
+                    | 'meta-externalfetcher'
+                    | 'facebookbot'
+                    | 'bytespider'
+                    | 'ahrefsbot'
+                    | 'ahrefssiteaudit'
+                    | 'semrushbot'
+                    | 'siteauditbot'
+                    | 'mj12bot'
+                    | 'petalbot'
                   )
                 | null;
               bytes: number;
@@ -13309,7 +13352,15 @@ export interface operations {
             }[];
             criticalPaths: string[];
             directory: {
+              aiEligible: boolean;
+              control: {
+                nginx: boolean;
+                remote: boolean;
+              };
               documentationUrl: string;
+              /** @enum {string} */
+              evidence: 'operator' | 'observed' | 'pending';
+              family: string;
               /**
                * @description Unique identifier of the resource.
                * @enum {string}
@@ -13318,17 +13369,60 @@ export interface operations {
                 | 'gptbot'
                 | 'oai-searchbot'
                 | 'chatgpt-user'
+                | 'oai-adsbot'
                 | 'claudebot'
                 | 'claude-searchbot'
                 | 'claude-user'
                 | 'perplexitybot'
                 | 'perplexity-user'
-                | 'bytespider'
+                | 'amazonbot'
+                | 'amzn-searchbot'
+                | 'amzn-user'
+                | 'mistralai-user'
+                | 'mistralai-index'
+                | 'mistralai-training'
                 | 'googlebot'
-                | 'baiduspider'
-                | 'bingbot'
+                | 'googlebot-image'
+                | 'googlebot-video'
+                | 'googleother'
+                | 'googleother-image'
+                | 'googleother-video'
+                | 'storebot-google'
+                | 'google-inspectiontool'
+                | 'google-cloudvertexbot'
+                | 'google-extended'
+                | 'googlebot-news'
                 | 'applebot'
-                | 'google-extended';
+                | 'applebot-extended'
+                | 'bingbot'
+                | 'duckduckbot'
+                | 'duckassistbot'
+                | 'ccbot'
+                | 'ai2bot'
+                | 'baiduspider'
+                | 'baiduspider-render'
+                | 'sogou-web-spider'
+                | 'sogou-inst-spider'
+                | '360spider'
+                | 'yandexbot'
+                | 'yeti'
+                | 'ads-naver'
+                | 'blueno'
+                | 'seznambot'
+                | 'freshbot'
+                | 'qwantbot'
+                | 'qwantbot-news'
+                | 'mojeekbot'
+                | 'meta-externalagent'
+                | 'meta-externalfetcher'
+                | 'facebookbot'
+                | 'bytespider'
+                | 'ahrefsbot'
+                | 'ahrefssiteaudit'
+                | 'semrushbot'
+                | 'siteauditbot'
+                | 'mj12bot'
+                | 'petalbot';
               identityEvidence: string;
               impact: string;
               /** @enum {string} */
@@ -13337,6 +13431,7 @@ export interface operations {
               name: string;
               /** @enum {string} */
               platformId:
+                | '360'
                 | 'openai'
                 | 'anthropic'
                 | 'perplexity'
@@ -13344,12 +13439,36 @@ export interface operations {
                 | 'google'
                 | 'baidu'
                 | 'microsoft'
-                | 'apple';
+                | 'apple'
+                | 'amazon'
+                | 'mistral'
+                | 'duckduckgo'
+                | 'common-crawl'
+                | 'ai2'
+                | 'sogou'
+                | 'yandex'
+                | 'naver'
+                | 'seznam'
+                | 'qwant'
+                | 'mojeek'
+                | 'meta'
+                | 'ahrefs'
+                | 'semrush'
+                | 'majestic'
+                | 'petal';
+              reviewedAt: string;
               /** @enum {string} */
               robotsApplicability: 'applicable' | 'user_triggered_caveat';
-              robotsToken: string;
+              robotsToken: string | null;
+              sources: {
+                label: string;
+                /** @description URL associated with the resource. */
+                url: string;
+              }[];
               /** @enum {string} */
-              type: 'training' | 'search' | 'user' | 'traditional_search';
+              status: 'active' | 'pending';
+              /** @enum {string} */
+              type: 'training' | 'search' | 'user' | 'traditional_search' | 'other';
               uaSelector: string | null;
             }[];
             findings: {
@@ -13358,17 +13477,60 @@ export interface operations {
                 | 'gptbot'
                 | 'oai-searchbot'
                 | 'chatgpt-user'
+                | 'oai-adsbot'
                 | 'claudebot'
                 | 'claude-searchbot'
                 | 'claude-user'
                 | 'perplexitybot'
                 | 'perplexity-user'
-                | 'bytespider'
+                | 'amazonbot'
+                | 'amzn-searchbot'
+                | 'amzn-user'
+                | 'mistralai-user'
+                | 'mistralai-index'
+                | 'mistralai-training'
                 | 'googlebot'
-                | 'baiduspider'
-                | 'bingbot'
+                | 'googlebot-image'
+                | 'googlebot-video'
+                | 'googleother'
+                | 'googleother-image'
+                | 'googleother-video'
+                | 'storebot-google'
+                | 'google-inspectiontool'
+                | 'google-cloudvertexbot'
+                | 'google-extended'
+                | 'googlebot-news'
                 | 'applebot'
-                | 'google-extended';
+                | 'applebot-extended'
+                | 'bingbot'
+                | 'duckduckbot'
+                | 'duckassistbot'
+                | 'ccbot'
+                | 'ai2bot'
+                | 'baiduspider'
+                | 'baiduspider-render'
+                | 'sogou-web-spider'
+                | 'sogou-inst-spider'
+                | '360spider'
+                | 'yandexbot'
+                | 'yeti'
+                | 'ads-naver'
+                | 'blueno'
+                | 'seznambot'
+                | 'freshbot'
+                | 'qwantbot'
+                | 'qwantbot-news'
+                | 'mojeekbot'
+                | 'meta-externalagent'
+                | 'meta-externalfetcher'
+                | 'facebookbot'
+                | 'bytespider'
+                | 'ahrefsbot'
+                | 'ahrefssiteaudit'
+                | 'semrushbot'
+                | 'siteauditbot'
+                | 'mj12bot'
+                | 'petalbot';
               /** @enum {string} */
               confidence: 'confirmed' | 'possible' | 'insufficient';
               facts: {
@@ -13403,17 +13565,60 @@ export interface operations {
                     | 'gptbot'
                     | 'oai-searchbot'
                     | 'chatgpt-user'
+                    | 'oai-adsbot'
                     | 'claudebot'
                     | 'claude-searchbot'
                     | 'claude-user'
                     | 'perplexitybot'
                     | 'perplexity-user'
-                    | 'bytespider'
+                    | 'amazonbot'
+                    | 'amzn-searchbot'
+                    | 'amzn-user'
+                    | 'mistralai-user'
+                    | 'mistralai-index'
+                    | 'mistralai-training'
                     | 'googlebot'
-                    | 'baiduspider'
-                    | 'bingbot'
-                    | 'applebot'
+                    | 'googlebot-image'
+                    | 'googlebot-video'
+                    | 'googleother'
+                    | 'googleother-image'
+                    | 'googleother-video'
+                    | 'storebot-google'
+                    | 'google-inspectiontool'
+                    | 'google-cloudvertexbot'
                     | 'google-extended'
+                    | 'googlebot-news'
+                    | 'applebot'
+                    | 'applebot-extended'
+                    | 'bingbot'
+                    | 'duckduckbot'
+                    | 'duckassistbot'
+                    | 'ccbot'
+                    | 'ai2bot'
+                    | 'baiduspider'
+                    | 'baiduspider-render'
+                    | 'sogou-web-spider'
+                    | 'sogou-inst-spider'
+                    | '360spider'
+                    | 'yandexbot'
+                    | 'yeti'
+                    | 'ads-naver'
+                    | 'blueno'
+                    | 'seznambot'
+                    | 'freshbot'
+                    | 'qwantbot'
+                    | 'qwantbot-news'
+                    | 'mojeekbot'
+                    | 'meta-externalagent'
+                    | 'meta-externalfetcher'
+                    | 'facebookbot'
+                    | 'bytespider'
+                    | 'ahrefsbot'
+                    | 'ahrefssiteaudit'
+                    | 'semrushbot'
+                    | 'siteauditbot'
+                    | 'mj12bot'
+                    | 'petalbot'
                   )
                 | null;
               bytes: number;
@@ -13421,6 +13626,8 @@ export interface operations {
               head: number;
               humanPath: string;
               mergedPaths: string[];
+              /** @description Display name of the resource. */
+              name?: string;
               ownedMatches: number;
               ownedTerminatingBlocks: number;
               path: string;
@@ -13453,6 +13660,7 @@ export interface operations {
               landingPagesTruncated: boolean;
               /** @enum {string} */
               platformId:
+                | '360'
                 | 'openai'
                 | 'anthropic'
                 | 'perplexity'
@@ -13460,9 +13668,25 @@ export interface operations {
                 | 'google'
                 | 'baidu'
                 | 'microsoft'
-                | 'apple';
+                | 'apple'
+                | 'amazon'
+                | 'mistral'
+                | 'duckduckgo'
+                | 'common-crawl'
+                | 'ai2'
+                | 'sogou'
+                | 'yandex'
+                | 'naver'
+                | 'seznam'
+                | 'qwant'
+                | 'mojeek'
+                | 'meta'
+                | 'ahrefs'
+                | 'semrush'
+                | 'majestic'
+                | 'petal';
               /** @enum {string} */
-              state: 'available' | 'missing';
+              state: 'available' | 'missing' | 'unsupported';
               /** @description Visit counts for the selected period. */
               visits: number | null;
             }[];
@@ -13473,22 +13697,67 @@ export interface operations {
                       | 'gptbot'
                       | 'oai-searchbot'
                       | 'chatgpt-user'
+                      | 'oai-adsbot'
                       | 'claudebot'
                       | 'claude-searchbot'
                       | 'claude-user'
                       | 'perplexitybot'
                       | 'perplexity-user'
-                      | 'bytespider'
+                      | 'amazonbot'
+                      | 'amzn-searchbot'
+                      | 'amzn-user'
+                      | 'mistralai-user'
+                      | 'mistralai-index'
+                      | 'mistralai-training'
                       | 'googlebot'
-                      | 'baiduspider'
-                      | 'bingbot'
-                      | 'applebot'
+                      | 'googlebot-image'
+                      | 'googlebot-video'
+                      | 'googleother'
+                      | 'googleother-image'
+                      | 'googleother-video'
+                      | 'storebot-google'
+                      | 'google-inspectiontool'
+                      | 'google-cloudvertexbot'
                       | 'google-extended'
+                      | 'googlebot-news'
+                      | 'applebot'
+                      | 'applebot-extended'
+                      | 'bingbot'
+                      | 'duckduckbot'
+                      | 'duckassistbot'
+                      | 'ccbot'
+                      | 'ai2bot'
+                      | 'baiduspider'
+                      | 'baiduspider-render'
+                      | 'sogou-web-spider'
+                      | 'sogou-inst-spider'
+                      | '360spider'
+                      | 'yandexbot'
+                      | 'yeti'
+                      | 'ads-naver'
+                      | 'blueno'
+                      | 'seznambot'
+                      | 'freshbot'
+                      | 'qwantbot'
+                      | 'qwantbot-news'
+                      | 'mojeekbot'
+                      | 'meta-externalagent'
+                      | 'meta-externalfetcher'
+                      | 'facebookbot'
+                      | 'bytespider'
+                      | 'ahrefsbot'
+                      | 'ahrefssiteaudit'
+                      | 'semrushbot'
+                      | 'siteauditbot'
+                      | 'mj12bot'
+                      | 'petalbot'
                     )
                   | null;
                 bytes: number;
                 denied403429: number;
                 head: number;
+                /** @description Display name of the resource. */
+                name?: string;
                 requests: number;
                 status1xx: number;
                 status2xx: number;
@@ -13511,6 +13780,7 @@ export interface operations {
                 landingPagesTruncated: boolean;
                 /** @enum {string} */
                 platformId:
+                  | '360'
                   | 'openai'
                   | 'anthropic'
                   | 'perplexity'
@@ -13518,9 +13788,25 @@ export interface operations {
                   | 'google'
                   | 'baidu'
                   | 'microsoft'
-                  | 'apple';
+                  | 'apple'
+                  | 'amazon'
+                  | 'mistral'
+                  | 'duckduckgo'
+                  | 'common-crawl'
+                  | 'ai2'
+                  | 'sogou'
+                  | 'yandex'
+                  | 'naver'
+                  | 'seznam'
+                  | 'qwant'
+                  | 'mojeek'
+                  | 'meta'
+                  | 'ahrefs'
+                  | 'semrush'
+                  | 'majestic'
+                  | 'petal';
                 /** @enum {string} */
-                state: 'available' | 'missing';
+                state: 'available' | 'missing' | 'unsupported';
                 /** @description Visit counts for the selected period. */
                 visits: number | null;
               }[];
@@ -14646,12 +14932,14 @@ export interface operations {
                   | 'claude-user'
                   | 'perplexitybot'
                   | 'perplexity-user'
-                  | 'bytespider'
                   | 'googlebot'
-                  | 'baiduspider'
-                  | 'bingbot'
-                  | 'applebot'
                   | 'google-extended'
+                  | 'googlebot-news'
+                  | 'applebot'
+                  | 'applebot-extended'
+                  | 'bingbot'
+                  | 'baiduspider'
+                  | 'bytespider'
                 )[];
                 paths: {
                   /**
@@ -20144,8 +20432,58 @@ export interface operations {
         'application/json': {
           aiCrawlerEnabled?: boolean;
           allowlist?: string[];
+          conversionConfirmed?: boolean;
+          crawlerRules?:
+            | {
+                /** @default [] */
+                customRules?: {
+                  /**
+                   * @default token
+                   * @enum {string}
+                   */
+                  matchMode?: 'token' | 'literal';
+                  /** @description Display name of the resource. */
+                  name: string;
+                  pattern: string;
+                  /** @enum {string} */
+                  type: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
+                  vendor: string;
+                }[];
+                /** @default [] */
+                disabledIds?: string[];
+                /** @constant */
+                mode: 'official';
+                /** @default {} */
+                overrides?: {
+                  [key: string]: {
+                    /** @enum {string} */
+                    type: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
+                  };
+                };
+              }
+            | {
+                /** @constant */
+                mode: 'disabled';
+              }
+            | {
+                /** @constant */
+                mode: 'legacy';
+                rules: {
+                  /** @enum {string} */
+                  matchMode?: 'token' | 'literal';
+                  /** @description Display name of the resource. */
+                  name: string;
+                  pattern: string;
+                  /** @enum {string} */
+                  type: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
+                  vendor: string;
+                }[];
+              };
+          expectedRulesRevision?: number;
           robots?: string;
           rules?: {
+            /** @enum {string} */
+            matchMode?: 'token' | 'literal';
             /** @description Display name of the resource. */
             name: string;
             pattern: string;

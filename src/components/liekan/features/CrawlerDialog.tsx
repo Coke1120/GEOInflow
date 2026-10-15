@@ -18,6 +18,7 @@ const labels = {
   search: 'AI 搜索',
   user: '用户触发',
   traditional_search: '传统搜索',
+  other: '其他已知蜘蛛',
 };
 const riskLabels = {
   access: '访问受阻',
@@ -135,9 +136,12 @@ export function CrawlerDialog({
         setBotId(
           current =>
             current ||
+            (result.bots.some(bot => bot.name === botName && !bot.botId)
+              ? `custom:${botName}`
+              : null) ||
             result.bots.find(bot => bot.name === botName && bot.botId)?.botId ||
             result.directory.find(bot => bot.name === botName)?.id ||
-            result.directory[0].id,
+            (botName ? `custom:${botName}` : result.directory[0]?.id || ''),
         );
       })
       .catch(error => {
@@ -231,9 +235,12 @@ export function CrawlerDialog({
     10000,
   );
 
+  const customName = botId.startsWith('custom:') ? botId.slice(7) : null;
+  const matchesSelection = (row: { botId: string | null; name?: string }) =>
+    customName !== null ? !row.botId && row.name === customName : row.botId === botId;
   const bot = data?.directory.find(bot => bot.id === botId),
-    metrics = data?.bots.filter(row => row.botId === botId) || [],
-    pages = data?.pages.filter(row => row.botId === botId) || [],
+    metrics = data?.bots.filter(matchesSelection) || [],
+    pages = data?.pages.filter(matchesSelection) || [],
     platform = data?.platforms.find(row => row.platformId === bot?.platformId);
   const sum = (field: string) => metrics.reduce((total, row) => total + Number(row[field] || 0), 0);
   const findings = data?.findings.filter(row => !botName || row.botId === botId) || [];
@@ -300,8 +307,23 @@ export function CrawlerDialog({
                 label={i18n.text('蜘蛛')}
                 value={botId}
                 onChange={event => setBotId(event.target.value)}
-                options={data.directory.map(bot => [bot.id, bot.name])}
+                options={[
+                  ...data.directory.map(bot => ({ value: bot.id, label: bot.name })),
+                  ...[
+                    ...new Set([
+                      ...data.bots.filter(row => !row.botId).map(row => row.name),
+                      ...(customName === null ? [] : [customName]),
+                    ]),
+                  ].map(name => ({ value: `custom:${name}`, label: name })),
+                ]}
               />
+              {customName !== null && (
+                <Notice>
+                  {i18n.text(
+                    '自定义或未映射身份，统计按日志名称展示；官方核验与访问控制能力不可用。',
+                  )}
+                </Notice>
+              )}
               {bot && (
                 <Definition
                   items={[
@@ -327,7 +349,7 @@ export function CrawlerDialog({
               {bot?.kind === 'robots_purpose' ? (
                 <Notice>
                   {i18n.text(
-                    'Google-Extended 用于声明内容用途。这里不生成独立抓取量、HTTP 屏蔽条件或搜索排名结论。',
+                    'robots 用途控制项用于声明内容用途，不生成独立抓取量或 HTTP 屏蔽条件。',
                   )}
                 </Notice>
               ) : (
@@ -336,7 +358,7 @@ export function CrawlerDialog({
                     items={[
                       [
                         i18n.text('请求量 / 前期'),
-                        `${num(sum('requests'))} / ${num(data.previous.bots.filter(row => row.botId === botId).reduce((n, row) => n + row.requests, 0))}`,
+                        `${num(sum('requests'))} / ${num(data.previous.bots.filter(matchesSelection).reduce((n, row) => n + row.requests, 0))}`,
                       ],
                       [
                         i18n.text('有效 GET / 目录页面'),
@@ -380,6 +402,10 @@ export function CrawlerDialog({
                 </>
               )}
               <h3>{i18n.text('所属平台关联')}</h3>
+              {(customName !== null || platform?.state === 'unsupported') && (
+                <Notice>{i18n.text('暂不支持来源归因')}</Notice>
+              )}
+              {platform?.state === 'missing' && <Notice>{i18n.text('缺少来源数据')}</Notice>}
               <p className="muted">
                 {i18n.text(
                   '同一平台的引荐与转化只汇总一次，各蜘蛛详情引用同一份平台数据。抓取与引荐并列观察，单次转化的因果归属需要额外证据。',
@@ -867,7 +893,7 @@ export function CrawlerDialog({
                 </label>
                 <div className="form-actions">
                   <Button
-                    disabled={busy || exportAction === 'rate'}
+                    disabled={busy || !bot?.robotsToken || exportAction === 'rate'}
                     onClick={() =>
                       run(async () => {
                         const output = await featureRequest('POST', `${base}/crawler-exports`, {
@@ -890,7 +916,12 @@ export function CrawlerDialog({
                     {i18n.text('生成 robots.txt 草稿')}
                   </Button>
                   <Button
-                    disabled={busy || bot?.kind === 'robots_purpose' || exportAction === 'allow'}
+                    disabled={
+                      busy ||
+                      !bot?.control?.nginx ||
+                      bot?.kind === 'robots_purpose' ||
+                      exportAction === 'allow'
+                    }
                     onClick={() =>
                       run(async () => {
                         const output = await featureRequest('POST', `${base}/crawler-exports`, {

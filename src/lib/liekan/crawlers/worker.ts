@@ -358,25 +358,29 @@ export async function recomputeCrawlerRisks(websiteId: string, now = Date.now())
     const recomputedEnds = windows.map(startAt => new Date(startAt + HOUR));
     await tx.execute(
       `DELETE FROM liekan_crawler_finding_window fw WHERE website_id=$1::uuid AND window_end=ANY($2::timestamptz[])
+      AND EXISTS(SELECT 1 FROM liekan_crawler_finding owned WHERE owned.website_id=fw.website_id AND owned.key=fw.key AND owned.bot_id=ANY($4::text[]))
       AND fw.facts->>'type' IN('access','origin','surge','identity','sensitive_path','observation')
       AND NOT EXISTS(SELECT 1 FROM jsonb_array_elements($3::jsonb) incoming WHERE incoming->>'key'=fw.key AND (incoming->>'window_end')::timestamptz=fw.window_end)`,
       websiteId,
       recomputedEnds,
       JSON.stringify(incoming),
+      [...crawlerHttpBotIds],
     );
     await tx.execute(
       `UPDATE liekan_crawler_finding f SET state=CASE WHEN state='ignored' THEN 'ignored' ELSE 'resolved' END,
       facts=facts||'{"status":"resolved","correctedByLateData":true}'::jsonb,updated_at=now()
-      WHERE website_id=$1::uuid AND type IN('access','origin','surge','identity','sensitive_path','observation')
+      WHERE website_id=$1::uuid AND bot_id=ANY($2::text[]) AND type IN('access','origin','surge','identity','sensitive_path','observation')
       AND NOT EXISTS(SELECT 1 FROM liekan_crawler_finding_window fw WHERE fw.website_id=f.website_id AND fw.key=f.key)`,
       websiteId,
+      [...crawlerHttpBotIds],
     );
     await tx.execute(
       `UPDATE liekan_crawler_finding f SET facts=latest.facts,grade=latest.facts->>'grade',confidence=latest.facts->>'confidence' FROM (
       SELECT DISTINCT ON(key) key,facts FROM liekan_crawler_finding_window WHERE website_id=$1::uuid ORDER BY key,window_end DESC
-      ) latest WHERE f.website_id=$1::uuid AND f.key=latest.key AND f.type IN('access','origin','surge','identity','sensitive_path','observation')
+      ) latest WHERE f.website_id=$1::uuid AND f.bot_id=ANY($2::text[]) AND f.key=latest.key AND f.type IN('access','origin','surge','identity','sensitive_path','observation')
       AND NOT EXISTS(SELECT 1 FROM liekan_crawler_finding_window fw WHERE fw.website_id=f.website_id AND fw.key=f.key AND fw.window_end=(f.facts->>'windowEnd')::bigint*interval '1 millisecond'+timestamptz 'epoch')`,
       websiteId,
+      [...crawlerHttpBotIds],
     );
     const changed = await tx.query(
       `WITH incoming AS(SELECT f FROM jsonb_array_elements($2::jsonb) AS j(f)),
@@ -395,8 +399,9 @@ export async function recomputeCrawlerRisks(websiteId: string, now = Date.now())
     );
     const changedKeys = new Set(changed.map(row => row.key));
     const previous = await tx.query(
-      'SELECT * FROM liekan_crawler_finding WHERE website_id=$1::uuid FOR UPDATE',
+      'SELECT * FROM liekan_crawler_finding WHERE website_id=$1::uuid AND bot_id=ANY($2::text[]) FOR UPDATE',
       websiteId,
+      [...crawlerHttpBotIds],
     );
     for (const old of previous) {
       if (old.type === 'coverage' && !facts.coverageEvaluated) continue;

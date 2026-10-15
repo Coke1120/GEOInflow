@@ -3719,5 +3719,10 @@
   "m_228d2043be46": "Behavioral risk monitoring currently supports PostgreSQL",
   "m_ba1f34a4de75": "Request failed ({v0})",
   "m_92b83e5c05e0": "Network connection lost",
-  "m_4b92872aaa40": "Some data could not be loaded"
+  "m_4b92872aaa40": "Some data could not be loaded",
+  "m_9e1036d56932": "Other known crawlers",
+  "m_7729fdab4ef7": "Custom or unmapped identity. Metrics use the logged name; official verification and access controls are unavailable.",
+  "m_ff577177712d": "Robots purpose directives express content-use preferences and do not create separate HTTP request counts or blocking selectors.",
+  "m_168c679e3b1c": "Referral attribution is not supported yet",
+  "m_ae73c84aa9f9": "Referral input is missing"
 }

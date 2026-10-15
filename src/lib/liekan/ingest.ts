@@ -3,8 +3,13 @@ import { createHash, createHmac } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import Papa from 'papaparse';
 import { BOT_RULES, type BotRule, classifyBot } from './rules/bots';
-import { verifyBotIp, type VerificationSnapshots } from './rules/verify';
+import {
+  bundledVerificationSnapshots,
+  verifyBotIp,
+  type VerificationSnapshots,
+} from './rules/verify';
 import { parseCombinedDate, parseStrictDate } from './strict-date';
+import { crawlerIdForRule } from './crawlers/directory';
 
 export interface LogRecord {
   id: string;
@@ -23,6 +28,12 @@ export interface LogRecord {
   vendor: string;
   type: string;
   verification: string;
+  verificationVersion?: string | null;
+  verificationObservedAt?: string | null;
+  verificationReason?: string | null;
+  aiEligible?: boolean | null;
+  recognitionState?: string | null;
+  recognitionCandidates?: string[] | null;
 }
 export interface CatalogRecord {
   path: string;
@@ -83,8 +94,8 @@ export function parseLogInput(
   domain: string,
   secret: string,
   rules: BotRule[] = BOT_RULES,
-  snapshots?: VerificationSnapshots,
-  observe?: (ip:string, record:LogRecord) => void,
+  snapshots: VerificationSnapshots = bundledVerificationSnapshots,
+  observe?: (ip: string, record: LogRecord) => void,
 ) {
   const serialized = input.content ?? JSON.stringify(input.records ?? []);
   if (Buffer.byteLength(serialized) > MAX_BYTES) throw new Error('文件上限 10 MiB');
@@ -139,6 +150,11 @@ export function parseLogInput(
         throw new Error('Invalid status or bytes');
       const userAgent = safeText(obj.userAgent ?? obj.user_agent, 500);
       const bot = classifyBot(userAgent, rules);
+      const crawlerId = crawlerIdForRule(bot);
+      const snapshot = crawlerId ? snapshots?.[bot.name] : undefined;
+      const verification = crawlerId
+        ? verifyBotIp(ip, bot.name, userAgent, time.toISOString(), snapshots)
+        : 'unverified';
       const ipHash = createHmac('sha256', secret)
         .update(ipaddr.process(ip).toString())
         .digest('hex');
@@ -155,7 +171,19 @@ export function parseLogInput(
         bot: bot.name,
         vendor: bot.vendor,
         type: bot.type,
-        verification: verifyBotIp(ip, bot.name, userAgent, time.toISOString(),snapshots),
+        verification,
+        verificationVersion: snapshot?.version ?? null,
+        verificationObservedAt: snapshot?.retrievedAt ?? null,
+        verificationReason:
+          verification === 'unverified'
+            ? crawlerId
+              ? 'missing_or_stale_snapshot'
+              : 'unmapped_identity'
+            : verification,
+        aiEligible: bot.aiEligible ?? ['训练', '搜索', '用户触发'].includes(bot.type),
+        recognitionState:
+          bot.recognition ?? (crawlerId ? 'recognized' : bot.pattern ? 'custom' : 'unknown'),
+        recognitionCandidates: bot.candidateIds ?? [],
       };
       const fingerprint = createHash('sha256')
         .update(JSON.stringify([normalized.time, path, method, status, bytes, ipHash, userAgent]))
@@ -167,7 +195,7 @@ export function parseLogInput(
         id: createHash('sha256').update(`${fingerprint}:${occurrence}`).digest('hex'),
         ...normalized,
       });
-      observe?.(ip, records[records.length-1]);
+      observe?.(ip, records[records.length - 1]);
     } catch {
       errors.push({ line: index + 1, reason: '格式、时间、IP 或站点 URL 无效' });
     }
@@ -178,7 +206,9 @@ export function parseLogInput(
     validLines,
     rejected: errors.length,
     errors: errors.slice(0, 100),
-    digest: createHash('sha256').update(JSON.stringify(records)).digest('hex'),
+    digest: createHash('sha256')
+      .update(JSON.stringify(records.map(record => record.id)))
+      .digest('hex'),
   };
 }
 export function parseCatalog(

@@ -22,9 +22,8 @@ import { enqueue, LOG_QUEUE, PROVIDER_QUEUE } from './queue';
 import { verificationSnapshots } from './ranges';
 import { newToken, tokenHash } from './secrets';
 import { healthSchema } from '../contracts/log-sources';
-import { BOT_RULES } from '../rules/bots';
 import { recordCrawlerCoverage } from './crawler-quality';
-import { crawlerClassificationVersion } from './crawler-evidence';
+import { crawlerClassificationVersion, archiveCrawlerRules } from './crawler-evidence';
 import { persistCrawlerEvidence } from './crawler-evidence';
 
 export interface LogSource {
@@ -235,6 +234,10 @@ export async function receiveBatch(request: Request, sourceId: string) {
         duplicate: true,
       };
     }
+    const effective = await getSettings(live.source.website_id, tx);
+    if (effective.classificationVersion !== settings.classificationVersion)
+      throw new LiekanError('规则已被更新，请重试当前批次', 409);
+    await archiveCrawlerRules(tx, live.source.website_id, settings.rules);
     const rate = (
       await tx.$queryRawUnsafe(
         "SELECT (SELECT count(*)::int FROM liekan_ingest_batch WHERE website_id=$1::uuid AND state='pending') AS pending,(SELECT count(*)::int FROM liekan_ingest_batch WHERE website_id=$1::uuid AND received_at>now()-interval '1 minute') AS recent",
@@ -321,9 +324,9 @@ export async function processBatch(batchId: string) {
     let inserted = 0;
     if (valid.length)
       inserted = await tx.$executeRawUnsafe(
-        `INSERT INTO liekan_log(id,website_id,import_id,source_id,event_digest,verification_version,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification)
-      SELECT r.id,$1::uuid,$2::uuid,$3::uuid,r."eventDigest",r."verificationVersion",r.time::timestamptz,r.path,r.method,r.status,r.bytes,r."ipMasked",r."ipHash",r."userAgent",r.location,r.bot,r.vendor,r.type,r.verification
-      FROM jsonb_to_recordset($4::jsonb) AS r(id text,"eventDigest" text,"verificationVersion" text,time text,path text,method text,status integer,bytes bigint,"ipMasked" text,"ipHash" text,"userAgent" text,location text,bot text,vendor text,type text,verification text) ON CONFLICT(website_id,id) DO NOTHING`,
+        `INSERT INTO liekan_log(id,website_id,import_id,source_id,event_digest,verification_version,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification,ai_eligible,recognition_state,recognition_candidates,verification_observed_at,verification_reason)
+      SELECT r.id,$1::uuid,$2::uuid,$3::uuid,r."eventDigest",r."verificationVersion",r.time::timestamptz,r.path,r.method,r.status,r.bytes,r."ipMasked",r."ipHash",r."userAgent",r.location,r.bot,r.vendor,r.type,r.verification,r."aiEligible",r."recognitionState",r."recognitionCandidates",r."verificationObservedAt"::timestamptz,r."verificationReason"
+      FROM jsonb_to_recordset($4::jsonb) AS r(id text,"eventDigest" text,"verificationVersion" text,time text,path text,method text,status integer,bytes bigint,"ipMasked" text,"ipHash" text,"userAgent" text,location text,bot text,vendor text,type text,verification text,"aiEligible" boolean,"recognitionState" text,"recognitionCandidates" jsonb,"verificationObservedAt" text,"verificationReason" text) ON CONFLICT(website_id,id) DO NOTHING`,
         first.website_id,
         batchId,
         first.source_id,
@@ -392,16 +395,13 @@ export async function heartbeat(sourceId: string, token: string, input: unknown)
         live.source.state = 'paused';
       }
     }
-    const [setting] = await tx.$queryRawUnsafe(
-      'SELECT rules FROM liekan_setting WHERE website_id=$1::uuid',
-      live.source.website_id,
-    );
+    const setting = await getSettings(live.source.website_id, tx);
     const coverage = await recordCrawlerCoverage(
       tx,
       live.source,
       live.epoch,
       health.data,
-      setting?.rules ?? BOT_RULES,
+      setting.rules,
     );
     return {
       version: 1,
@@ -410,7 +410,7 @@ export async function heartbeat(sourceId: string, token: string, input: unknown)
       coverageBinding:
         String((await ensureState(tx, live.source.website_id)).policy_revision) +
         ':' +
-        crawlerClassificationVersion(setting?.rules ?? BOT_RULES),
+        crawlerClassificationVersion(setting.rules),
       epoch: live.epoch,
       state: live.source.state,
       resetAt: live.resetAt,

@@ -1,11 +1,15 @@
 import { z } from 'zod';
 import { defineOperation } from '@/openapi/operation';
 import { badRequestResponse, notFoundResponse, unauthorizedResponse } from '@/openapi/schemas';
+import { crawlerRulesSchema } from '@/lib/liekan/rules/configuration';
 export const settingsUpdateSchema = z
   .strictObject({
     aiCrawlerEnabled: z.boolean().optional(),
     robots: z.string().max(50000).optional(),
     allowlist: z.array(z.string().max(80)).max(100).optional(),
+    crawlerRules: crawlerRulesSchema.optional(),
+    expectedRulesRevision: z.number().int().nonnegative().optional(),
+    conversionConfirmed: z.boolean().optional(),
     rules: z
       .array(
         z.object({
@@ -13,6 +17,7 @@ export const settingsUpdateSchema = z
           vendor: z.string().min(1).max(80),
           type: z.enum(['训练', '搜索', '用户触发', '传统搜索', '其他']),
           pattern: z.string().min(1).max(80),
+          matchMode: z.enum(['token', 'literal']).optional(),
         }),
       )
       .max(100)
@@ -21,6 +26,11 @@ export const settingsUpdateSchema = z
   .refine(value => Object.values(value).some(field => field !== undefined), {
     message: '至少提供一个设置字段',
   })
+  .refine(value => !(value.rules !== undefined && value.crawlerRules !== undefined), '规则配置冲突')
+  .refine(
+    value => value.crawlerRules === undefined || value.expectedRulesRevision !== undefined,
+    '缺少规则版本',
+  )
   .meta({ minProperties: 1 });
 export const operations = [
   defineOperation({

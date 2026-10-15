@@ -101,7 +101,18 @@ interface PreviewRow {
   fingerprint: string;
   expires_at: Date;
 }
-const directoryHash = () => controlHash(crawlerDirectory);
+const directoryHash = () =>
+  controlHash(
+    crawlerDirectory
+      .filter(entry => entry.control.remote)
+      .map(entry => ({
+        id: entry.id,
+        type: entry.type,
+        kind: entry.kind,
+        uaSelector: entry.uaSelector,
+        control: entry.control,
+      })),
+  );
 const pendingSql =
   "SELECT id FROM liekan_crawler_deployment WHERE policy_id=$1::uuid AND state IN('queued','running','unknown','cleanup') LIMIT 1";
 function conflict(message = '策略、连接或远端规则已变化，请重新预览'): never {

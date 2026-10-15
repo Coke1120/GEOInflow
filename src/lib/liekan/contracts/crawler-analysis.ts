@@ -19,6 +19,7 @@ export interface CrawlerAnalyzedBot extends CrawlerRequestCounts {
 }
 export interface CrawlerAnalyzedPage extends CrawlerRequestCounts {
   botId: CrawlerBotId | null;
+  name?: string;
   path: string;
   humanPath: string;
   mergedPaths: string[];
@@ -28,7 +29,7 @@ export interface CrawlerAnalyzedPage extends CrawlerRequestCounts {
 }
 export interface CrawlerAnalyzedPlatform {
   platformId: CrawlerPlatformId;
-  state: 'available' | 'missing';
+  state: 'available' | 'missing' | 'unsupported';
   visits: number | null;
   conversions: number | null;
   goalEvents: number | null;
@@ -61,7 +62,7 @@ export interface CrawlerAnalysisResponse {
   previous: {
     range: CrawlerAnalysisResponse['range'];
     quality: CrawlerObservationQuality;
-    bots: (CrawlerRequestCounts & { botId: CrawlerBotId | null; bytes: number })[];
+    bots: (CrawlerRequestCounts & { botId: CrawlerBotId | null; name?: string; bytes: number })[];
     platforms: CrawlerAnalyzedPlatform[];
   };
   bots: CrawlerAnalyzedBot[];

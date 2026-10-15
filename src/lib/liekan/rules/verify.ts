@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import snapshots from '../../../../config/liekan/bot-ranges.json';
 import { BOT_RULES } from './bots';
@@ -5,6 +6,17 @@ export type VerificationSnapshots = Record<
   string,
   { prefixes: string[]; retrievedAt: string; version?: string }
 >;
+export const bundledVerificationSnapshots: VerificationSnapshots = Object.fromEntries(
+  Object.entries(snapshots).map(([bot, snapshot]) => [
+    bot,
+    {
+      ...snapshot,
+      version: createHash('sha256')
+        .update(JSON.stringify(['bundled-v1', bot, snapshot.source, [...snapshot.prefixes].sort()]))
+        .digest('hex'),
+    },
+  ]),
+);
 type Prefix = ReturnType<typeof ipaddr.parseCIDR>;
 const compiledRanges = new WeakMap<
   string[],
@@ -27,7 +39,7 @@ export function verifyBotIp(
   bot: string,
   ua: string,
   time: string,
-  evidence: VerificationSnapshots = snapshots,
+  evidence: VerificationSnapshots = bundledVerificationSnapshots,
 ): string {
   const snapshot = evidence[bot];
   const known = BOT_RULES.find(rule => rule.name === bot);
