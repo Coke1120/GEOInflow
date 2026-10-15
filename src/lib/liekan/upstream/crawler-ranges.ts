@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { query } from './server';
 import { aiTransaction, type AiTx } from './ai-db';
 import { rangeSources, type RangeSource } from '../crawlers/range-sources';
 import {
@@ -340,36 +341,31 @@ export async function refreshRangeSources(options: { fetcher?: typeof fetch } = 
 
 export async function readRangeSnapshots(): Promise<VerificationSnapshots> {
   await initialize();
-  return aiTransaction(
-    async tx => {
-      const rows =
-        await tx.query(`SELECT r.*,s.current_observed_at FROM liekan_crawler_range_source s
+  // Use the ingestion read boundary and release its connection before content qualification.
+  const rows = await query(`SELECT r.*,s.current_observed_at FROM liekan_crawler_range_source s
       JOIN liekan_crawler_range_snapshot r ON r.source_id=s.source_id AND r.version=s.current_version`);
-      const snapshots: VerificationSnapshots = {};
-      for (const row of rows) {
-        const source = rangeSources.find(source => source.id === row.source_id);
-        const content = contentFromRow(row);
-        const observedAt = iso(row.current_observed_at);
-        if (
-          !source ||
-          !observedAt ||
-          +new Date(observedAt) > Date.now() ||
-          (content.publishedAt && +new Date(content.publishedAt) > +new Date(observedAt)) ||
-          !isQualifiedRangeContent(source, content)
-        )
-          continue;
-        for (const name of content.names)
-          snapshots[name] = {
-            prefixes: content.prefixes,
-            retrievedAt: observedAt,
-            version: content.version,
-            source: content.sourceUrl,
-          };
-      }
-      return snapshots;
-    },
-    { readOnly: true },
-  );
+  const snapshots: VerificationSnapshots = {};
+  for (const row of rows) {
+    const source = rangeSources.find(source => source.id === row.source_id);
+    const content = contentFromRow(row);
+    const observedAt = iso(row.current_observed_at);
+    if (
+      !source ||
+      !observedAt ||
+      +new Date(observedAt) > Date.now() ||
+      (content.publishedAt && +new Date(content.publishedAt) > +new Date(observedAt)) ||
+      !isQualifiedRangeContent(source, content)
+    )
+      continue;
+    for (const name of content.names)
+      snapshots[name] = {
+        prefixes: content.prefixes,
+        retrievedAt: observedAt,
+        version: content.version,
+        source: content.sourceUrl,
+      };
+  }
+  return snapshots;
 }
 
 /** Internal recovery primitive: only a previously qualified observation can be restored. */
