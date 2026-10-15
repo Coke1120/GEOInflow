@@ -176,3 +176,35 @@ it('displays and downloads the dry-run limiter selected in the export form', asy
   expect(call[2].policy.action).toBe('observe');
   expect(call[2].rateLimit.dryRun).toBe(true);
 });
+it.each(['gptbot', null])(
+  'respects explicit identity %s for same-name official and custom rows',
+  async selectedIdentity => {
+    mocks.request.mockResolvedValue({
+      quality: { state: 'unknown' },
+      directory: crawlerDirectory,
+      bots: [
+        { botId: null, name: 'GPTBot', requests: 7 },
+        { botId: 'gptbot', name: 'GPTBot', requests: 999 },
+      ],
+      pages: [],
+      platforms: [],
+      previous: { bots: [], platforms: [] },
+      findings: [],
+      criticalPaths: [],
+      analysis: null,
+      range: { timezone: 'UTC' },
+      permissions: { canDraft: false, canControl: false },
+    });
+    render(
+      <CrawlerDialog
+        websiteId="12345678-1234-4234-8234-123456789012"
+        botName="GPTBot"
+        selectedIdentity={selectedIdentity}
+        onClose={() => {}}
+        controlPanel={() => null}
+      />,
+    );
+    expect(await screen.findByText(selectedIdentity ? '999 / 0' : '7 / 0')).toBeVisible();
+    expect(screen.getByLabelText('蜘蛛')).toHaveValue(selectedIdentity ?? 'custom:GPTBot');
+  },
+);

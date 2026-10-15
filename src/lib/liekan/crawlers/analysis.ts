@@ -1,3 +1,4 @@
+import { CRAWLER_POPULATION_VERSION, unknownCrawlerSql } from '../rules/population';
 import { z } from 'zod';
 import type { CrawlerAnalyzedBot, CrawlerAnalyzedPage } from '../contracts/crawler-analysis';
 import type { CrawlerObservationQuality } from '../contracts/crawlers';
@@ -166,7 +167,11 @@ export async function crawlerAnalysis(
     };
   });
   const cached = await analyticsCache.read(
-    analyticsCacheKey('crawler-analysis-v3', { websiteId, ...range, ...access.version }),
+    analyticsCacheKey('crawler-analysis-v3-' + CRAWLER_POPULATION_VERSION, {
+      websiteId,
+      ...range,
+      ...access.version,
+    }),
     30000,
     [websiteCacheTag(websiteId)],
     () =>
@@ -181,14 +186,14 @@ export async function crawlerAnalysis(
       count(*) FILTER(WHERE verification='verified_range')::float8 AS "verifiedRange",count(*) FILTER(WHERE verification='range_mismatch')::float8 AS "rangeMismatch",
       count(*) FILTER(WHERE verification NOT IN('verified_range','range_mismatch'))::float8 AS unverified,
       count(distinct path) FILTER(WHERE method='GET' AND status>=200 AND status<300 AND EXISTS(SELECT 1 FROM liekan_catalog c WHERE c.website_id=l.website_id AND c.path=l.path))::int AS "successfulCatalogPages",
-      max(created_at) AS "lastVisit",count(*) FILTER(WHERE e.classification_version IS NULL)::int AS "legacyRecords" ${crawlerBase} GROUP BY 1,2 ORDER BY requests DESC`,
+      max(created_at) AS "lastVisit",count(*) FILTER(WHERE e.classification_version IS NULL)::int AS "legacyRecords" ${crawlerBase} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2 ORDER BY requests DESC`,
             ...args,
           );
           const pages = await tx.query<CrawlerAnalyzedPage>(
             `SELECT e.crawler_id AS "botId",path,l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes,
       count(*) FILTER(WHERE ${crawlerOwnedBlock})::int AS "ownedTerminatingBlocks",
       count(*) FILTER(WHERE ${crawlerOwnedMatch})::int AS "ownedMatches"
-      ${crawlerBase} AND (e.crawler_id IS NOT NULL OR l.bot!='其他') GROUP BY 1,2,3 ORDER BY requests DESC,path LIMIT 1001`,
+      ${crawlerBase} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2,3 ORDER BY requests DESC,path LIMIT 1001`,
             ...args,
           );
           const duration = endAt - startAt;
@@ -198,7 +203,7 @@ export async function crawlerAnalysis(
             timezone,
           };
           const previousBots = await tx.query(
-            `SELECT e.crawler_id AS "botId",l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes ${crawlerBase} GROUP BY 1,2`,
+            `SELECT e.crawler_id AS "botId",l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes ${crawlerBase} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2`,
             websiteId,
             new Date(previousRange.startAt),
             new Date(previousRange.endAt),

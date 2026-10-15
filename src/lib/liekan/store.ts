@@ -14,6 +14,7 @@ import {
 import { BOT_TYPES, type BotRule } from './rules/bots';
 import {
   resolveCrawlerRules,
+  preserveHistoricalRules,
   validateCrawlerConfiguration,
   type CrawlerRuleConfiguration,
 } from './rules/configuration';
@@ -153,7 +154,13 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
       body.conversionConfirmed !== true
     )
       throw new LiekanError('请预览并确认规则转换', 409);
-    const configuration = requestedConfiguration ?? current.crawlerRules;
+    const configuration = requestedConfiguration
+      ? preserveHistoricalRules(
+          requestedConfiguration,
+          body.crawlerRules?.mode === 'legacy' ? body.crawlerRules.rules : body.rules,
+          current.crawlerRules,
+        )
+      : current.crawlerRules;
     const resolved = resolveCrawlerRules({ crawlerRules: configuration });
     const rulesRevision = current.rulesRevision + (requestedConfiguration ? 1 : 0);
     const next = {

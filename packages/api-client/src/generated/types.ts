@@ -9217,9 +9217,10 @@ export interface operations {
                       previousRequests: number | null;
                       requests: number | null;
                       rows: {
+                        botId?: string | null;
                         changePercent: number | null;
                         /** @enum {string} */
-                        class: '训练' | '搜索' | '用户触发';
+                        class: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
                         /** @description Display name of the resource. */
                         name: string;
                         previousRequests: number;
@@ -9228,8 +9229,10 @@ export interface operations {
                         /** @enum {string} */
                         verification: 'verified_range' | 'range_mismatch' | 'unverified';
                       }[];
-                      /** @constant */
-                      scope: 'AI classes: 训练, 搜索, 用户触发; UA classification with verification states';
+                      /** @enum {string} */
+                      scope:
+                        | 'AI classes: 训练, 搜索, 用户触发; UA classification with verification states'
+                        | 'AI-qualified requests at ingestion; legacy recorded-type fallback; declared UA with separate verification';
                       total: number;
                       truncated: boolean;
                     };
@@ -14927,19 +14930,55 @@ export interface operations {
                   | 'gptbot'
                   | 'oai-searchbot'
                   | 'chatgpt-user'
+                  | 'oai-adsbot'
                   | 'claudebot'
                   | 'claude-searchbot'
                   | 'claude-user'
                   | 'perplexitybot'
                   | 'perplexity-user'
+                  | 'amazonbot'
+                  | 'amzn-searchbot'
+                  | 'amzn-user'
+                  | 'mistralai-user'
+                  | 'mistralai-index'
+                  | 'mistralai-training'
                   | 'googlebot'
+                  | 'googlebot-image'
+                  | 'googlebot-video'
+                  | 'googleother'
+                  | 'googleother-image'
+                  | 'googleother-video'
+                  | 'storebot-google'
+                  | 'google-inspectiontool'
+                  | 'google-cloudvertexbot'
                   | 'google-extended'
                   | 'googlebot-news'
                   | 'applebot'
                   | 'applebot-extended'
                   | 'bingbot'
+                  | 'duckduckbot'
+                  | 'duckassistbot'
+                  | 'ccbot'
+                  | 'ai2bot'
                   | 'baiduspider'
-                  | 'bytespider'
+                  | 'baiduspider-render'
+                  | 'sogou-web-spider'
+                  | 'sogou-inst-spider'
+                  | '360spider'
+                  | 'yandexbot'
+                  | 'yeti'
+                  | 'ads-naver'
+                  | 'blueno'
+                  | 'seznambot'
+                  | 'freshbot'
+                  | 'qwantbot'
+                  | 'qwantbot-news'
+                  | 'mojeekbot'
+                  | 'ahrefsbot'
+                  | 'ahrefssiteaudit'
+                  | 'semrushbot'
+                  | 'siteauditbot'
+                  | 'mj12bot'
                 )[];
                 paths: {
                   /**
@@ -19574,6 +19613,13 @@ export interface operations {
             meta: {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
+              crawlerClassification?: {
+                legacyRequests: number;
+                /** @enum {string} */
+                mode: 'current' | 'legacy' | 'mixed';
+                unclassifiedRequests: number;
+                versions: number;
+              };
               demo: boolean;
               /** @description Date and time the credential expires. */
               expiresAt: number;
@@ -20168,6 +20214,13 @@ export interface operations {
             meta: {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
+              crawlerClassification?: {
+                legacyRequests: number;
+                /** @enum {string} */
+                mode: 'current' | 'legacy' | 'mixed';
+                unclassifiedRequests: number;
+                versions: number;
+              };
               demo: boolean;
               geography?: {
                 cards?: {
@@ -20715,6 +20768,13 @@ export interface operations {
             meta: {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
+              crawlerClassification?: {
+                legacyRequests: number;
+                /** @enum {string} */
+                mode: 'current' | 'legacy' | 'mixed';
+                unclassifiedRequests: number;
+                versions: number;
+              };
               demo: boolean;
               geography?: {
                 cards?: {

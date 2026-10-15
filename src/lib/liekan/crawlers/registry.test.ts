@@ -33,6 +33,7 @@ describe('central crawler identity registry', () => {
     expect(new Set(crawlerCatalog.map(entry => entry.id)).size).toBe(57);
     expect(crawlerRegistry.filter(entry => entry.kind === 'http_crawler')).toHaveLength(54);
     expect(ALL_HTTP_CRAWLER_IDS).toHaveLength(53);
+    expect(ACTIVE_CRAWLER_IDS).toEqual(ALL_HTTP_CRAWLER_IDS);
     expect(crawlerRegistry.filter(entry => entry.kind === 'robots_purpose')).toHaveLength(3);
     expect(
       crawlerCatalog.filter(entry => entry.status === 'pending').map(entry => entry.name),
@@ -47,7 +48,7 @@ describe('central crawler identity registry', () => {
     expect(crawlerDirectory.some(entry => entry.name === 'PetalBot')).toBe(false);
   });
 
-  it('reads later recognized identities without widening active matching or controls', () => {
+  it('reads all recognized identities while retaining the control capability boundary', () => {
     expect(getCrawler('googlebot-image').name).toBe('Googlebot-Image');
     expect(
       crawlerDirectoryForObserved(['googlebot-image']).some(
@@ -90,9 +91,9 @@ describe('central crawler identity registry', () => {
     }
   });
 
-  it('keeps documented help drafts independent of runtime export capability', () => {
+  it('uses confirmed documented tokens for robots drafts and runtime exports', () => {
     const mistral = crawlerCatalog.find(entry => entry.id === 'mistralai-index');
-    expect(mistral.robotsToken).toBeNull();
+    expect(mistral.robotsToken).toBe('MistralAI-Index');
     expect(mistral.metadata.robotsToken).toBe('MistralAI-Index');
     expect(crawlerRobotsDraft(mistral.metadata)).toContain('User-agent: MistralAI-Index');
     const petal = crawlerCatalog.find(entry => entry.id === 'petalbot');
@@ -100,11 +101,9 @@ describe('central crawler identity registry', () => {
     expect(crawlerRobotsDraft(petal.metadata)).toBeUndefined();
   });
 
-  it('only exports previously approved robots tokens and the three known purpose controls', () => {
+  it('exports only confirmed operator tokens and keeps observed or pending tokens unavailable', () => {
     for (const entry of crawlerCatalog) {
-      const approved =
-        (INITIAL_CRAWLER_IDS as readonly string[]).includes(entry.id) ||
-        entry.kind === 'robots_purpose';
+      const approved = entry.metadata.evidence === 'operator' && !!entry.metadata.robotsToken;
       expect(
         crawlerRobotsPolicySchema.safeParse({
           botIds: [entry.id],

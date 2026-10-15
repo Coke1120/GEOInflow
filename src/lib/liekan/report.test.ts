@@ -582,13 +582,16 @@ describe('report evidence states', () => {
     delete damaged.charts.h1;
     expect(liekanReportSchema.safeParse(damaged).success).toBe(false);
   });
-  it('keeps historical classifications stable and counts each named bot once', async () => {
+  it('keeps historical classifications stable and distinguishes unmapped vendor identities', async () => {
     const logs = await mocks.logs();
     mocks.logs.mockResolvedValue({
       ...logs,
       latest: '2026-01-01',
       summary: { requests: 5, ai: 5 },
-      daily: [{ day: '1970-01-01', bot: 'GPTBot', count: 5 }],
+      daily: [
+        { day: '1970-01-01', bot: 'GPTBot', vendor: 'OpenAI', count: 3 },
+        { day: '1970-01-01', bot: 'GPTBot', vendor: 'Changed vendor', count: 2 },
+      ],
       bots: [
         {
           name: 'GPTBot',
@@ -613,10 +616,13 @@ describe('report evidence states', () => {
       { day: '1970-01-01', bot: 'GPTBot', type: '搜索', count: 2 },
     ]);
     const report = await buildReport(website, false, params);
-    expect(report.cards.find(c => c.label === '识别 AI 蜘蛛').value).toBe(1);
-    expect(report.charts.a1.series).toEqual([{ name: 'GPTBot', values: [5] }]);
-    expect(report.charts.d2.labels).toEqual(['GPTBot']);
-    expect(report.charts.d2.series[0].values).toEqual([5]);
+    expect(report.cards.find(c => c.label === '识别 AI 蜘蛛').value).toBe(2);
+    expect(report.charts.a1.series).toEqual([
+      { name: 'GPTBot', values: [3] },
+      { name: 'GPTBot', values: [2] },
+    ]);
+    expect(report.charts.d2.labels).toEqual(['GPTBot', 'GPTBot']);
+    expect(report.charts.d2.series[0].values).toEqual([3, 2]);
     expect(report.charts.d1.series[1].values).toEqual([5]);
     expect(report.tables.botBody).toHaveLength(2);
   });

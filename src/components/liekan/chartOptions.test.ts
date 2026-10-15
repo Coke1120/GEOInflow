@@ -178,3 +178,24 @@ it('translates generated overview channels while preserving raw AI referral name
   );
   expect(chart).toEqual(original);
 });
+
+it('distinguishes same-name crawler identities without translating raw names or vendors', () => {
+  const chart = {
+    labels: ['网站管理', '网站管理'],
+    series: [
+      { name: '网站管理', values: [2] },
+      { name: '网站管理', values: [1] },
+    ],
+    rows: [
+      { name: '网站管理', vendor: '页面访问', botId: 'gptbot' },
+      { name: '网站管理', vendor: '页面访问', botId: null },
+    ],
+  };
+  const english = chartOptions('a1', chart, 'en-US');
+  expect(english.series[0].name).toBe('网站管理 (页面访问 · Official identity)');
+  expect(english.series[1].name).toBe('网站管理 (页面访问 · Custom / historical unmapped)');
+  expect(chartOptions('a1', chart).series[1].name).toBe(
+    '网站管理（页面访问 · 自定义／历史未映射）',
+  );
+  expect(english.series.map(row => row.data)).toEqual([[2], [1]]);
+});

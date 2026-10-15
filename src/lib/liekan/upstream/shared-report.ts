@@ -1,3 +1,4 @@
+import { CRAWLER_POPULATION_VERSION } from '../rules/population';
 import { geographyVersion, type GeographyDisplay } from '../contracts/geography';
 import type { LiekanReport } from '../contracts/report';
 import { checkAuth } from '@/lib/auth';
@@ -84,7 +85,7 @@ export async function warmSharedReport(
         )
       )[0] || { data: '0', policy: '0' };
   const cached = await analyticsCache.read(
-    analyticsCacheKey(`shared-report-v4-${geographyVersion}`, [
+    analyticsCacheKey(`shared-report-v4-${geographyVersion}-${CRAWLER_POPULATION_VERSION}`, [
       process.env.DATABASE_URL,
       website.id,
       parametersForReport,

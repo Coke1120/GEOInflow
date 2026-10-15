@@ -918,14 +918,29 @@ function referenceChartOptions(id: string, chart: ChartData, locale: LiekanLocal
 }
 
 export function chartOptions(id: string, chart: ChartData, locale: LiekanLocale = 'zh-CN'): any {
+  const crawlerLabel = (name: string, index: number) => {
+    if (
+      !['d2', 'a1'].includes(id) ||
+      !chart.rows ||
+      chart.rows.filter(row => row.name === name).length < 2
+    )
+      return name;
+    const identity = chart.rows[index];
+    return translateText('{v0}（{v1} · {v2}）', locale, [
+      name,
+      identity.vendor || '—',
+      translateText(identity.botId ? '官方身份' : '自定义／历史未映射', locale),
+    ]);
+  };
   const displayChart = {
     ...chart,
     labels: ['b1', 'h2', 's1', 'd3', 'f2'].includes(id)
       ? chart.labels.map(value => translateSystemText(value, locale))
-      : chart.labels,
-    series: chart.series.map(series => ({
+      : chart.labels.map(crawlerLabel),
+    series: chart.series.map((series, index) => ({
       ...series,
-      name: id === 'a1' ? series.name : translateSystemText(series.name, locale),
+      name:
+        id === 'a1' ? crawlerLabel(series.name, index) : translateSystemText(series.name, locale),
     })),
   };
   const option = referenceChartOptions(id, displayChart, locale);

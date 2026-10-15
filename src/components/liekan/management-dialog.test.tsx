@@ -135,7 +135,11 @@ it('validates CIDR with its line before invoking the write endpoint', async () =
 });
 it('preserves rule extensions while reordering and editing entries', async () => {
   api.get.mockResolvedValue({ ...settings, rules: [rule, { ...rule, name: 'Second' }] });
-  api.put.mockImplementation(async (_, patch) => ({ ...settings, ...patch }));
+  api.put.mockImplementation(async (_, patch) => ({
+    ...settings,
+    ...patch,
+    rules: patch.crawlerRules?.rules ?? settings.rules,
+  }));
   const user = userEvent.setup();
   render(<Mount action="解析规则" />);
   const name = await screen.findByLabelText('第 1 条蜘蛛名称');
@@ -147,10 +151,14 @@ it('preserves rule extensions while reordering and editing entries', async () =>
   expect(api.put.mock.calls[0]).toEqual([
     '/liekan/websites/site-a/settings',
     {
-      rules: [
-        { ...rule, name: 'Second' },
-        { ...rule, name: 'Renamed' },
-      ],
+      crawlerRules: {
+        mode: 'legacy',
+        rules: [
+          { ...rule, name: 'Second' },
+          { ...rule, name: 'Renamed' },
+        ],
+      },
+      expectedRulesRevision: 0,
     },
   ]);
   expect(await screen.findByRole('status')).toHaveTextContent('共 2 条');
@@ -288,7 +296,11 @@ it('keeps website settings readable with no write affordance for a viewer', asyn
 it('keeps saved settings locked until the report refresh completes', async () => {
   let finish!: () => void;
   const onSaved = vi.fn(() => new Promise<void>(resolve => (finish = resolve)));
-  api.put.mockImplementation(async (_, patch) => ({ ...settings, ...patch }));
+  api.put.mockImplementation(async (_, patch) => ({
+    ...settings,
+    ...patch,
+    rules: patch.crawlerRules?.rules ?? settings.rules,
+  }));
   const user = userEvent.setup();
   render(<Mount action="robots.txt 编辑" onSaved={onSaved} />);
   await waitFor(() => expect(screen.getByLabelText('robots.txt 内容')).toBeEnabled());
@@ -303,4 +315,91 @@ it('keeps saved settings locked until the report refresh completes', async () =>
     finish();
   }
   await waitFor(() => expect(screen.getByLabelText('robots.txt 内容')).toBeEnabled());
+});
+it('saves official enable and type overrides with a revision and token-based custom rules', async () => {
+  const crawlerRules = { mode: 'official', disabledIds: [], overrides: {}, customRules: [] };
+  api.get.mockResolvedValue({ ...settings, crawlerRules, rulesRevision: 7 });
+  api.put.mockImplementation(async (_, patch) => ({ ...settings, ...patch }));
+  render(<Mount action="特征库管理" />);
+  fireEvent.click(await screen.findByLabelText('启用 GPTBot'));
+  fireEvent.change(screen.getByLabelText('OAI-SearchBot 类型'), { target: { value: '其他' } });
+  fireEvent.click(screen.getByRole('button', { name: '添加识别规则' }));
+  fireEvent.change(screen.getByLabelText('自定义第 1 条蜘蛛名称'), {
+    target: { value: 'PrivateBot' },
+  });
+  fireEvent.change(screen.getByLabelText('自定义第 1 条厂商'), { target: { value: 'Private' } });
+  fireEvent.change(screen.getByLabelText('自定义第 1 条 UA 匹配词'), {
+    target: { value: 'PrivateBot' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: '保存识别规则' }));
+  await waitFor(() =>
+    expect(api.put).toHaveBeenCalledWith('/liekan/websites/site-a/settings', {
+      expectedRulesRevision: 7,
+      crawlerRules: {
+        mode: 'official',
+        disabledIds: ['gptbot'],
+        overrides: { 'oai-searchbot': { type: '其他' } },
+        customRules: [
+          {
+            name: 'PrivateBot',
+            vendor: 'Private',
+            type: '其他',
+            pattern: 'PrivateBot',
+            matchMode: 'token',
+          },
+        ],
+      },
+    }),
+  );
+});
+it('converts legacy rules only after the displayed preview is acknowledged', async () => {
+  api.get.mockResolvedValue({
+    ...settings,
+    crawlerRules: { mode: 'legacy', rules: [rule] },
+    rulesRevision: 3,
+  });
+  api.put.mockImplementation(async (_, patch) => ({ ...settings, ...patch }));
+  render(<Mount action="特征库管理" />);
+  fireEvent.click(await screen.findByRole('button', { name: '预览转换为官方目录' }));
+  expect(screen.getByRole('button', { name: '确认转换草稿' })).toBeDisabled();
+  expect(screen.getByLabelText('规则转换预览')).toHaveTextContent('ExampleBot');
+  expect(api.put).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByLabelText('已核对转换差异与匹配行为变化'));
+  fireEvent.click(screen.getByRole('button', { name: '确认转换草稿' }));
+  expect(api.put).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: '保存识别规则' }));
+  await waitFor(() => expect(api.put).toHaveBeenCalled());
+  expect(api.put.mock.calls[0][1]).toMatchObject({
+    expectedRulesRevision: 3,
+    conversionConfirmed: true,
+    crawlerRules: {
+      mode: 'official',
+      customRules: [
+        {
+          name: rule.name,
+          vendor: rule.vendor,
+          type: rule.type,
+          pattern: rule.pattern,
+          matchMode: 'literal',
+        },
+      ],
+    },
+  });
+});
+it('keeps rule policy absent from unrelated robots writes', async () => {
+  api.get.mockResolvedValue({
+    ...settings,
+    crawlerRules: { mode: 'official', disabledIds: [], overrides: {}, customRules: [] },
+    rulesRevision: 4,
+  });
+  api.put.mockImplementation(async (_, patch) => ({ ...settings, ...patch }));
+  render(<Mount action="robots.txt 编辑" />);
+  const textarea = await screen.findByLabelText('robots.txt 内容');
+  fireEvent.change(textarea, { target: { value: 'User-agent: *\nDisallow: /private' } });
+  fireEvent.click(screen.getByRole('button', { name: '保存 robots.txt' }));
+  await waitFor(() =>
+    expect(api.put).toHaveBeenCalledWith('/liekan/websites/site-a/settings', {
+      robots: 'User-agent: *\nDisallow: /private',
+    }),
+  );
 });

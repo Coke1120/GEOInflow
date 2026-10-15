@@ -206,14 +206,16 @@ function Capabilities({ crawler }: { crawler: Crawler }) {
       </span>
       <span className={rule ? styles.supported : ''}>
         {rule
-          ? i18n.text('默认分类：{v0}', [rule.name])
+          ? i18n.text('本版本可识别：{v0}', [rule.name])
           : crawler.kind === 'control'
             ? i18n.text('用途控制标记')
-            : i18n.text('默认 UA 分类未支持')}
+            : i18n.text('本版本暂未识别')}
       </span>
       <span className={ip ? styles.supported : ''}>
-        {ip ? i18n.text('默认 IP 核验支持') : i18n.text('默认 IP 核验未支持')}
+        {ip ? i18n.text('可核验范围：已配置') : i18n.text('可核验范围：尚未配置')}
       </span>
+      <span>{i18n.text('当前网站启用：未选择网站')}</span>
+      <span>{i18n.text('当前范围健康：未读取')}</span>
     </div>
   );
 }

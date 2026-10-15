@@ -133,7 +133,7 @@ describe('help center reading and drafts', () => {
     mocks.query = { crawler: 'mistralai-index' };
     mocks.clipboard.mockRejectedValue(new Error('denied'));
     render(<HelpCenter />);
-    expect(screen.getByText('默认 IP 核验未支持')).toBeInTheDocument();
+    expect(screen.getByText('可核验范围：尚未配置')).toBeInTheDocument();
     expect(screen.getByText(/范围数据尚未随本版附带/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: '复制' }));
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('复制未完成'));

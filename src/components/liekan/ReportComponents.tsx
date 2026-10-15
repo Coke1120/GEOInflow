@@ -457,7 +457,7 @@ function Cell({
   row: Row;
   field: string;
   table: string;
-  onCrawler?: (name: string) => void;
+  onCrawler?: (name: string, botId?: string | null) => void;
   domain?: string;
 }) {
   const i18n = useLiekanI18n();
@@ -476,7 +476,7 @@ function Cell({
           aria-label={String(value)}
           className="absolute inset-0 border-0 bg-transparent focus-visible:ring-2"
           style={{ minHeight: 44, minWidth: 44 }}
-          onClick={() => onCrawler(String(value))}
+          onClick={() => onCrawler(String(value), row.botId as string | null | undefined)}
         />
       </span>
     );
@@ -541,7 +541,7 @@ export function ReportRows({
   report?: LiekanReport;
   limit?: number;
   pageSize?: number;
-  onCrawler?: (name: string) => void;
+  onCrawler?: (name: string, botId?: string | null) => void;
 }) {
   const i18n = useLiekanI18n();
   const a = useReportActions();

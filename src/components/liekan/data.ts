@@ -1,3 +1,4 @@
+import { isUnknownCrawler } from '@/lib/liekan/rules/population';
 import type { LiekanLocale } from '@/lib/liekan/i18n/locale';
 import type { DataState, Resource, Row } from './types';
 export const pages: Array<{
@@ -143,7 +144,7 @@ export const columns: Record<string, Array<[string, string, boolean?]>> = {
   botBody: [
     ['name', '蜘蛛 / 厂商'],
     ['type', '类型'],
-    ['requests', '30 天抓取', true],
+    ['requests', '所选期间抓取', true],
     ['dailyAverage', '日均', true],
     ['pages', '覆盖页面', true],
     ['preference', '最爱内容'],
@@ -350,10 +351,17 @@ export function selectRows(
       filter.startsWith('按') ||
       (filter === 'AI 训练' && category === '训练') ||
       (filter === 'AI 搜索' && category === '搜索') ||
+      (filter === '其他已知' && category === '其他') ||
       (filter === '仅 AI 蜘蛛' &&
         table === 'logBody' &&
-        ['训练', '搜索', '用户触发'].includes(String(row.botType ?? ''))) ||
-      (filter === '仅人类' && /human|人类|unknown|other|未知|其他/i.test(category)) ||
+        (typeof row.aiEligible === 'boolean'
+          ? row.aiEligible
+          : ['训练', '搜索', '用户触发'].includes(String(row.botType ?? '')))) ||
+      (filter === '未知／未分类' &&
+        isUnknownCrawler({
+          bot: row.bot as string | undefined,
+          recognitionState: row.recognitionState as string | null | undefined,
+        })) ||
       (filter === '仅异常' &&
         (/risk|异常|风险|unknown/i.test(category) || Number(row.status) >= 400)) ||
       category.replace(/\s/g, '').includes(filter.replace(/\s/g, ''));
@@ -427,6 +435,14 @@ export function tableCsv(
       fields.map(([field]) => formatCellValue(row, field, table, locale, display)),
     ),
   );
+}
+export function reportCsvFilename(
+  resource: Resource,
+  range: { startAt: number; endAt: number; timezone: string },
+) {
+  const stamp = (value: number) => new Date(value).toISOString().replaceAll(':', '-');
+  const zone = range.timezone.replace(/[:/]/g, '-');
+  return `liekan-${resource.replaceAll('/', '-')}-${stamp(range.startAt)}--${stamp(range.endAt)}-${zone}.csv`;
 }
 export function downloadFile(content: string, name: string, type = 'text/csv;charset=utf-8') {
   const url = URL.createObjectURL(new Blob([content], { type }));

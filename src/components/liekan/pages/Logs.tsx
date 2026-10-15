@@ -46,7 +46,7 @@ export function Logs({ report, live }: ReportViewProps) {
           <div className="flex items-center gap-2">
             <FilterChip label="全部" />
             <FilterChip label="仅 AI 蜘蛛" />
-            <FilterChip label="仅人类" />
+            <FilterChip label="未知／未分类" />
             <FilterChip label="仅异常" />
             <LiveStatus report={report} live={live} />
           </div>

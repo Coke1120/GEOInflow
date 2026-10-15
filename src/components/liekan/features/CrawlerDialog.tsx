@@ -69,6 +69,7 @@ export function CrawlerDialog({
   websiteName,
   websiteDomain,
   botName,
+  selectedIdentity,
   onClose,
   range,
   controlPanel,
@@ -77,6 +78,7 @@ export function CrawlerDialog({
   websiteName?: string;
   websiteDomain?: string;
   botName?: string;
+  selectedIdentity?: string | null;
   onClose: () => void;
   range?: { startAt: number; endAt: number; timezone: string };
   controlPanel?: (permissions: CrawlerAnalysisResponse['permissions']) => ReactNode;
@@ -136,6 +138,11 @@ export function CrawlerDialog({
         setBotId(
           current =>
             current ||
+            (selectedIdentity !== undefined
+              ? selectedIdentity === null
+                ? `custom:${botName}`
+                : selectedIdentity
+              : null) ||
             (result.bots.some(bot => bot.name === botName && !bot.botId)
               ? `custom:${botName}`
               : null) ||
@@ -162,7 +169,15 @@ export function CrawlerDialog({
         if (!abort.signal.aborted) setLoading(false);
       });
     return () => abort.abort();
-  }, [websiteId, range?.startAt, range?.endAt, range?.timezone, version]);
+  }, [
+    websiteId,
+    botName,
+    selectedIdentity,
+    range?.startAt,
+    range?.endAt,
+    range?.timezone,
+    version,
+  ]);
   const reload = () => {
     if (criticalDirtyRef.current) {
       setStatus('请先保存关键路径输入，再重新读取。');
@@ -314,7 +329,10 @@ export function CrawlerDialog({
                       ...data.bots.filter(row => !row.botId).map(row => row.name),
                       ...(customName === null ? [] : [customName]),
                     ]),
-                  ].map(name => ({ value: `custom:${name}`, label: name })),
+                  ].map(name => ({
+                    value: `custom:${name}`,
+                    label: i18n.text('{v0}（自定义）', [name]),
+                  })),
                 ]}
               />
               {customName !== null && (

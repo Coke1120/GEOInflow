@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { aiTransaction } from '../upstream/ai-db';
 import { getSettings, importLogs, saveSettings } from '../store';
 import { BOT_RULES, LEGACY_BOT_RULES } from './bots';
+import { crawlerIdForRule } from '../crawlers/directory';
 
 const enabled = process.env.LIEKAN_CRAWLER_TEST === '1';
 describe.skipIf(!enabled)('crawler configuration on isolated PostgreSQL', () => {
@@ -20,6 +21,40 @@ describe.skipIf(!enabled)('crawler configuration on isolated PostgreSQL', () => 
       throw new Error('Only isolated crawler DB15440 is allowed');
   });
   const q = (sql: string, ...args: unknown[]) => aiTransaction(tx => tx.query(sql, ...args));
+  it('keeps genuine stored legacy identity through unchanged saves without granting it to new rules', async () => {
+    const owner = randomUUID(),
+      site = randomUUID();
+    const historical = { mode: 'legacy', rules: [LEGACY_BOT_RULES[0]] };
+    try {
+      await q(
+        "INSERT INTO \"user\"(user_id,username,password,role) VALUES($1::uuid,$2,'test-no-login','user')",
+        owner,
+        'crawler-legacy-' + owner,
+      );
+      await q(
+        "INSERT INTO website(website_id,name,domain,user_id) VALUES($1::uuid,'test-crawler-legacy','example.com',$2::uuid)",
+        site,
+        owner,
+      );
+      await q(
+        'INSERT INTO liekan_setting(website_id,crawler_rules) VALUES($1::uuid,$2::jsonb)',
+        site,
+        JSON.stringify(historical),
+      );
+      await saveSettings(site, { crawlerRules: historical, expectedRulesRevision: 0 });
+      expect(crawlerIdForRule((await getSettings(site)).rules[0])).toBe('gptbot');
+      await saveSettings(site, {
+        rules: [LEGACY_BOT_RULES[0], LEGACY_BOT_RULES[1]],
+        expectedRulesRevision: 1,
+      });
+      expect((await getSettings(site)).rules.map(crawlerIdForRule)).toEqual(['gptbot', null]);
+    } finally {
+      for (const table of ['liekan_crawler_rule_version', 'liekan_setting'])
+        await q(`DELETE FROM ${table} WHERE website_id=$1::uuid`, site);
+      await q('DELETE FROM website WHERE website_id=$1::uuid', site);
+      await q('DELETE FROM "user" WHERE user_id=$1::uuid', owner);
+    }
+  });
   it('migrates every historical mode without changing its saved snapshot and rolls back interrupted work', async () => {
     const rollback = new Error('rollback fixture');
     const schema = 'crawler_fixture_' + randomUUID().replaceAll('-', '');

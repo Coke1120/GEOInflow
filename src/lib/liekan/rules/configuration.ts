@@ -104,3 +104,26 @@ export function validateCrawlerConfiguration(value: unknown): CrawlerRuleConfigu
     };
   return configuration;
 }
+
+/** Existing historical provenance survives unchanged edits; new client input cannot mint it. */
+export function preserveHistoricalRules(
+  next: CrawlerRuleConfiguration,
+  submitted: unknown,
+  current: CrawlerRuleConfiguration,
+): CrawlerRuleConfiguration {
+  if (next.mode !== 'legacy' || current.mode !== 'legacy' || !Array.isArray(submitted)) return next;
+  return {
+    ...next,
+    rules: next.rules.map((rule, index) => {
+      const input = submitted[index];
+      const historical = current.rules.find(
+        previous =>
+          Object.keys(previous).length === 4 &&
+          input &&
+          Object.keys(input).length === 4 &&
+          ['name', 'vendor', 'type', 'pattern'].every(key => input[key] === previous[key]),
+      );
+      return historical ? { ...historical } : rule;
+    }),
+  };
+}

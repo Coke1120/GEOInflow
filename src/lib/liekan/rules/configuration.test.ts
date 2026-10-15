@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { classifyBot, BOT_RULES, LEGACY_BOT_RULES } from './bots';
 import {
   migrateRuleConfiguration,
+  preserveHistoricalRules,
   resolveCrawlerRules,
   validateCrawlerConfiguration,
 } from './configuration';
@@ -36,6 +37,23 @@ describe('crawler configuration migration', () => {
     const { rules } = resolveCrawlerRules({ crawlerRules: configuration });
     expect(rules[0].matchMode).toBe('literal');
     expect(crawlerIdForRule(classifyBot('NotGPTBot/1.0', rules))).toBeNull();
+  });
+  it('preserves already stored historical identities while rejecting newly invented provenance', () => {
+    const submitted = [LEGACY_BOT_RULES[0], { ...LEGACY_BOT_RULES[1], pattern: 'Custom' }];
+    const next = validateCrawlerConfiguration({ mode: 'legacy', rules: submitted });
+    const preserved = preserveHistoricalRules(next, submitted, {
+      mode: 'legacy',
+      rules: [LEGACY_BOT_RULES[0], LEGACY_BOT_RULES[1]],
+    });
+    expect(resolveCrawlerRules({ crawlerRules: preserved }).rules.map(crawlerIdForRule)).toEqual([
+      'gptbot',
+      null,
+    ]);
+    expect(
+      resolveCrawlerRules({
+        crawlerRules: preserveHistoricalRules(next, submitted, { mode: 'legacy', rules: [] }),
+      }).rules.map(crawlerIdForRule),
+    ).toEqual([null, null]);
   });
   it('applies official overrides without granting a custom official identity', () => {
     const configuration = validateCrawlerConfiguration({

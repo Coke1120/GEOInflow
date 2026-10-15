@@ -62,6 +62,12 @@ export interface LiekanReport {
     canManage: boolean;
     latestImportAt: string | null;
     ruleCount: number;
+    crawlerClassification?: {
+      mode: 'current' | 'legacy' | 'mixed';
+      versions: number;
+      legacyRequests: number;
+      unclassifiedRequests: number;
+    };
     aiCrawlerEnabled?: boolean;
     logsConfigured?: boolean;
     totalLogs?: number;
@@ -167,6 +173,14 @@ export const liekanReportSchema = z.object({
     canManage: z.boolean(),
     latestImportAt: z.string().nullable(),
     ruleCount: z.number().int().nonnegative(),
+    crawlerClassification: z
+      .object({
+        mode: z.enum(['current', 'legacy', 'mixed']),
+        versions: z.number().int().nonnegative(),
+        legacyRequests: z.number().int().nonnegative(),
+        unclassifiedRequests: z.number().int().nonnegative(),
+      })
+      .optional(),
     aiCrawlerEnabled: z.boolean().optional(),
     logsConfigured: z.boolean().optional(),
     totalLogs: z.number().int().nonnegative().optional(),

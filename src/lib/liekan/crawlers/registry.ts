@@ -1,3 +1,5 @@
+import { crawlerMetadata } from './catalog-metadata';
+
 /** Canonical crawler identity and recognition policy; safe to import in clients. */
 export type CrawlerType = 'training' | 'search' | 'user' | 'traditional_search' | 'other';
 export const CRAWLER_REGISTRY_VERSION = 'crawler-registry-v1';
@@ -47,6 +49,7 @@ function http<const Id extends string>(
     robotsToken?: string | null;
   } = {},
 ) {
+  const metadata = crawlerMetadata.find(entry => entry.name === name);
   return {
     id,
     name,
@@ -61,9 +64,11 @@ function http<const Id extends string>(
     status: options.status || 'active',
     control: { remote: options.controllable === true, nginx: options.controllable === true },
     robotsToken:
-      options.robotsToken === undefined && options.controllable
-        ? name
-        : (options.robotsToken ?? null),
+      options.robotsToken !== undefined
+        ? options.robotsToken
+        : metadata?.evidence === 'operator'
+          ? (metadata.robotsToken ?? null)
+          : null,
   };
 }
 function purpose<const Id extends string>(
@@ -210,8 +215,8 @@ export const ALL_HTTP_CRAWLER_IDS = crawlerRegistry
   .filter(entry => entry.kind === 'http_crawler' && entry.status === 'active')
   .map(entry => entry.id as CrawlerHttpBotId);
 
-// The next rollout changes this selection after its own verification checkpoint.
-export const ACTIVE_CRAWLER_IDS: readonly CrawlerHttpBotId[] = INITIAL_CRAWLER_IDS;
+// Recognition follows the reviewed HTTP catalog; control targets remain independently scoped.
+export const ACTIVE_CRAWLER_IDS: readonly CrawlerHttpBotId[] = ALL_HTTP_CRAWLER_IDS;
 export const crawlerHttpBotIds = ACTIVE_CRAWLER_IDS;
 export const crawlerBotIds = crawlerRegistry.map(entry => entry.id);
 export const crawlerRobotsBotIds = crawlerRegistry

@@ -72,7 +72,7 @@ describe('report selection and CSV export', () => {
       { name: 'Googlebot', type: '传统搜索', requests: 5 },
     ];
     expect(
-      selectRows(rows, 'AI 训练', { label: '30 天抓取', direction: -1 }, 'botBody').map(
+      selectRows(rows, 'AI 训练', { label: '所选期间抓取', direction: -1 }, 'botBody').map(
         row => row.name,
       ),
     ).toEqual(['ClaudeBot', 'GPTBot']);
@@ -162,4 +162,35 @@ describe('report selection and CSV export', () => {
     expect(csv).toContain('蜘蛛 / 厂商');
     expect(csv).not.toContain('GPTBot');
   });
+});
+it('keeps explicit AI eligibility separate from display type and known-other identity', () => {
+  const rows = [
+    { bot: 'GPTBot', botType: '其他', aiEligible: true, recognitionState: 'recognized' },
+    {
+      bot: 'Google-InspectionTool',
+      botType: '用户触发',
+      aiEligible: false,
+      recognitionState: 'recognized',
+    },
+    { bot: '其他', botType: '其他', aiEligible: false, recognitionState: 'recognized' },
+    { bot: '其他', botType: '其他', aiEligible: false, recognitionState: 'unknown' },
+    { bot: '其他', botType: '其他', aiEligible: false, recognitionState: 'ambiguous' },
+  ];
+  expect(selectRows(rows, '仅 AI 蜘蛛', { label: '', direction: 1 }, 'logBody')).toEqual([rows[0]]);
+  expect(selectRows(rows, '未知／未分类', { label: '', direction: 1 }, 'logBody')).toEqual(
+    rows.slice(3),
+  );
+});
+it('filters other-known and user-triggered rows consistently in CSV with period-specific headings', () => {
+  const rows = [
+    { name: 'CCBot', type: '其他', requests: 8 },
+    { name: 'Claude-User', type: '用户触发', requests: 3 },
+  ];
+  expect(selectRows(rows, '其他已知', { label: '所选期间抓取', direction: -1 }, 'botBody')).toEqual(
+    [rows[0]],
+  );
+  const csv = tableCsv('botBody', rows, '用户触发', { label: '所选期间抓取', direction: -1 });
+  expect(csv).toContain('所选期间抓取');
+  expect(csv).toContain('Claude-User');
+  expect(csv).not.toContain('CCBot');
 });

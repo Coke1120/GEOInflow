@@ -100,13 +100,20 @@ describe('help scope and evidence', () => {
       rule: { name: 'GPTBot' },
       ip: true,
     });
-    expect(crawlerCapabilities(get('Googlebot-Image'))).toEqual({ rule: undefined, ip: false });
+    expect(crawlerCapabilities(get('Googlebot-Image'))).toMatchObject({
+      rule: { name: 'Googlebot-Image' },
+      ip: false,
+    });
     expect(crawlerCapabilities(get('ClaudeBot'))).toMatchObject({
       rule: { name: 'ClaudeBot' },
       ip: false,
     });
     expect(get('ClaudeBot').feeds[0].url).toBe('https://claude.com/crawling/bots.json');
-    expect(crawlerCapabilities(get('OAI-AdsBot'))).toEqual({ rule: undefined, ip: false });
+    expect(crawlerCapabilities(get('OAI-AdsBot'))).toMatchObject({
+      rule: { name: 'OAI-AdsBot' },
+      ip: false,
+    });
+    expect(crawlerRobotsDraft(get('Bytespider'))).toBeUndefined();
     expect(crawlerRobotsDraft(get('PetalBot'))).toBeUndefined();
     expect(get('Bytespider').evidence).toBe('observed');
   });

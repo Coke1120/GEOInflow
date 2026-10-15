@@ -100,7 +100,7 @@ export function searchCrawlers(
   );
 }
 export function crawlerRobotsDraft(crawler: Crawler): string | undefined {
-  if (crawler.evidence === 'pending' || !crawler.robotsToken) return;
+  if (crawler.evidence !== 'operator' || !crawler.robotsToken) return;
   return `# Configuration draft: review purpose and merge existing rules\n# ${crawler.name} | reviewed ${crawler.reviewedAt}\nUser-agent: ${crawler.robotsToken}\nDisallow: /\n`;
 }
 export function helpLocation(query: Record<string, string>) {
