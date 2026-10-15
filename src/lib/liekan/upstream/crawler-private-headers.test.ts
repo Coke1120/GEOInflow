@@ -21,10 +21,13 @@ it.each(['', '/private-api'])(
     const api = prefix || '/api';
     for (const endpoint of [
       '/liekan/crawler-handoffs',
+      '/liekan/admin/crawler-sources',
       '/liekan/crawler-handoffs/reconcile',
       ...[
         'control-connections',
         'crawler-analysis',
+        'crawler-recognition',
+        'crawler-candidates',
         'crawler-checks',
         'crawler-deployments',
         'crawler-domain-verification',

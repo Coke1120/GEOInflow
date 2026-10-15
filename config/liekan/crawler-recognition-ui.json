@@ -1,0 +1,16 @@
+{
+  "baselineVersion": "liekan-crawler-recognition-v1",
+  "approvedOn": "2026-10-15",
+  "pages": {
+    "ai-bots": {
+      "columnRenames": { "30 天抓取": "所选期间抓取" },
+      "originalFilters": ["全部", "AI 训练", "AI 搜索", "传统搜索"],
+      "filters": ["全部", "AI 训练", "AI 搜索", "用户触发", "传统搜索", "其他已知"]
+    },
+    "logs": {
+      "columnRenames": {},
+      "originalFilters": ["全部", "仅 AI 蜘蛛", "仅人类", "仅异常"],
+      "filters": ["全部", "仅 AI 蜘蛛", "未知／未分类", "仅异常"]
+    }
+  }
+}

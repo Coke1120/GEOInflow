@@ -19,7 +19,9 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
             <FilterChip label="全部" />
             <FilterChip label="AI 训练" />
             <FilterChip label="AI 搜索" />
+            <FilterChip label="用户触发" />
             <FilterChip label="传统搜索" />
+            <FilterChip label="其他已知" />
           </div>
         </div>
         <table className="w-full text-[12.5px]">
@@ -27,7 +29,7 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
             <tr className="text-left text-[11.5px] text-faint border-b border-line bg-[#FAFBFD]">
               <SortHeading className="font-medium pl-6 pr-4 py-3" label="蜘蛛 / 厂商" />
               <SortHeading className="font-medium px-4 py-3" label="类型" />
-              <SortHeading className="font-medium px-4 py-3 text-right" label="30 天抓取" />
+              <SortHeading className="font-medium px-4 py-3 text-right" label="所选期间抓取" />
               <SortHeading className="font-medium px-4 py-3 text-right" label="日均" />
               <SortHeading className="font-medium px-4 py-3 text-right" label="覆盖页面" />
               <SortHeading className="font-medium px-4 py-3" label="最爱内容" />
@@ -39,7 +41,9 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
             table="botBody"
             report={report}
             pageSize={20}
-            onCrawler={name => actions.onAction(`蜘蛛详情:${name}`)}
+            onCrawler={(name, botId) =>
+              actions.onAction(`蜘蛛详情:${JSON.stringify({ name, botId })}`)
+            }
           />
         </table>
       </section>
@@ -48,7 +52,7 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
           <div className="px-6 pt-5 pb-2">
             <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('蜘蛛类型构成')}</h2>
             <p className="text-[11.5px] text-faint mt-0.5">
-              {i18n.text('AI 训练 / AI 搜索 / 传统搜索')}
+              {i18n.text('AI 训练 / AI 搜索 / 用户触发 / 传统搜索 / 其他已知')}
             </p>
           </div>
           <ReferenceChart id="b1" height={230} report={report} />
@@ -62,6 +66,15 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
               )}
             </p>
             <p>{i18n.text('管理特征库可以调整本地识别规则。')}</p>
+            <p>
+              <button
+                type="button"
+                className="text-blue hover:underline focus-visible:ring-2"
+                onClick={() => actions.onAction('未知请求日志')}
+              >
+                {i18n.text('查看未知／未分类请求日志')}
+              </button>
+            </p>
             <p>
               <button
                 type="button"

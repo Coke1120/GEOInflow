@@ -239,21 +239,28 @@ describe('real data states and interactions', () => {
   });
   it.each([
     ['蜘蛛白名单', '192.0.2.0/24', { allowlist: ['192.0.2.0/24'] }],
-    ['特征库管理', '[]', { rules: [] }],
-    ['解析规则', '[]', { rules: [] }],
+    ['特征库管理', '[]', { crawlerRules: { mode: 'legacy', rules: [] }, expectedRulesRevision: 7 }],
+    ['解析规则', '[]', { crawlerRules: { mode: 'legacy', rules: [] }, expectedRulesRevision: 7 }],
   ])(
-    'sends only the edited field from %s and displays the authoritative saved response',
+    'sends a scoped versioned update from %s and displays the authoritative saved response',
     async (action, content, patch) => {
       api.get.mockResolvedValue({
         robots: 'User-agent: *',
         allowlist: [],
         rules: [{ name: 'OldBot', vendor: 'Fixture', type: '搜索', pattern: 'OldBot' }],
+        crawlerRules: {
+          mode: 'legacy',
+          rules: [{ name: 'OldBot', vendor: 'Fixture', type: '搜索', pattern: 'OldBot' }],
+        },
+        rulesRevision: 7,
         isDemo: true,
       });
       const returned = {
         robots: 'Changed elsewhere',
         allowlist: ['198.51.100.0/24'],
         rules: [],
+        crawlerRules: { mode: 'legacy', rules: [] },
+        rulesRevision: 8,
         isDemo: true,
       };
       api.put.mockResolvedValue(returned);

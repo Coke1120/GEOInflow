@@ -530,6 +530,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/admin/crawler-sources': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerSources */
+    get: operations['getLiekanCrawlerSources'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/ai/catalog': {
     parameters: {
       query?: never;
@@ -1036,6 +1053,23 @@ export interface paths {
     patch: operations['patchLiekanCrawlerAnalysis'];
     trace?: never;
   };
+  '/api/liekan/websites/{websiteId}/crawler-candidates': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerCandidates */
+    get: operations['getLiekanCrawlerCandidates'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/websites/{websiteId}/crawler-checks': {
     parameters: {
       query?: never;
@@ -1289,6 +1323,23 @@ export interface paths {
     put?: never;
     /** postLiekanCrawlerStop */
     post: operations['postLiekanCrawlerStop'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/crawler-recognition': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerRecognition */
+    get: operations['getLiekanCrawlerRecognition'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -7492,6 +7543,176 @@ export interface operations {
       };
     };
   };
+  getLiekanCrawlerSources: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            catalogVersion: string;
+            /** Format: date-time */
+            checkedAt: string;
+            documents: {
+              baselineHash: string | null;
+              consecutiveFailures: number;
+              currentHash: string | null;
+              errorCode: string | null;
+              /** @description Unique identifier of the resource. */
+              id: string;
+              label: string;
+              lastAttemptAt: string | null;
+              lastSuccessAt: string | null;
+              names: string[];
+              nextCheckAt: string | null;
+              /** Format: date */
+              reviewedAt: string;
+              reviewOverdue: boolean;
+              /** @enum {string} */
+              status: 'missing' | 'review_required' | 'warning' | 'update_failed' | 'healthy';
+              /**
+               * Format: uri
+               * @description URL associated with the resource.
+               */
+              url: string;
+            }[];
+            ipSources: {
+              candidateVersion: string | null;
+              consecutiveFailures: number;
+              crawlerIds: string[];
+              errorCode: string | null;
+              /** @description Unique identifier of the resource. */
+              id: string;
+              lastAttemptAt: string | null;
+              lastSuccessAt: string | null;
+              names: string[];
+              nextCheckAt: string | null;
+              observedAt: string | null;
+              /** Format: date */
+              reviewedAt: string;
+              reviewOverdue: boolean;
+              /** @enum {string} */
+              status:
+                | 'missing'
+                | 'stale'
+                | 'review_required'
+                | 'warning'
+                | 'update_failed'
+                | 'healthy';
+              /**
+               * Format: uri
+               * @description URL associated with the resource.
+               */
+              url: string;
+              version: string | null;
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getLiekanAiCatalog: {
     parameters: {
       query?: {
@@ -9217,9 +9438,10 @@ export interface operations {
                       previousRequests: number | null;
                       requests: number | null;
                       rows: {
+                        botId?: string | null;
                         changePercent: number | null;
                         /** @enum {string} */
-                        class: '训练' | '搜索' | '用户触发';
+                        class: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
                         /** @description Display name of the resource. */
                         name: string;
                         previousRequests: number;
@@ -9228,8 +9450,10 @@ export interface operations {
                         /** @enum {string} */
                         verification: 'verified_range' | 'range_mismatch' | 'unverified';
                       }[];
-                      /** @constant */
-                      scope: 'AI classes: 训练, 搜索, 用户触发; UA classification with verification states';
+                      /** @enum {string} */
+                      scope:
+                        | 'AI classes: 训练, 搜索, 用户触发; UA classification with verification states'
+                        | 'AI-qualified requests at ingestion; legacy recorded-type fallback; declared UA with separate verification';
                       total: number;
                       truncated: boolean;
                     };
@@ -13274,17 +13498,60 @@ export interface operations {
                     | 'gptbot'
                     | 'oai-searchbot'
                     | 'chatgpt-user'
+                    | 'oai-adsbot'
                     | 'claudebot'
                     | 'claude-searchbot'
                     | 'claude-user'
                     | 'perplexitybot'
                     | 'perplexity-user'
-                    | 'bytespider'
+                    | 'amazonbot'
+                    | 'amzn-searchbot'
+                    | 'amzn-user'
+                    | 'mistralai-user'
+                    | 'mistralai-index'
+                    | 'mistralai-training'
                     | 'googlebot'
-                    | 'baiduspider'
-                    | 'bingbot'
-                    | 'applebot'
+                    | 'googlebot-image'
+                    | 'googlebot-video'
+                    | 'googleother'
+                    | 'googleother-image'
+                    | 'googleother-video'
+                    | 'storebot-google'
+                    | 'google-inspectiontool'
+                    | 'google-cloudvertexbot'
                     | 'google-extended'
+                    | 'googlebot-news'
+                    | 'applebot'
+                    | 'applebot-extended'
+                    | 'bingbot'
+                    | 'duckduckbot'
+                    | 'duckassistbot'
+                    | 'ccbot'
+                    | 'ai2bot'
+                    | 'baiduspider'
+                    | 'baiduspider-render'
+                    | 'sogou-web-spider'
+                    | 'sogou-inst-spider'
+                    | '360spider'
+                    | 'yandexbot'
+                    | 'yeti'
+                    | 'ads-naver'
+                    | 'blueno'
+                    | 'seznambot'
+                    | 'freshbot'
+                    | 'qwantbot'
+                    | 'qwantbot-news'
+                    | 'mojeekbot'
+                    | 'meta-externalagent'
+                    | 'meta-externalfetcher'
+                    | 'facebookbot'
+                    | 'bytespider'
+                    | 'ahrefsbot'
+                    | 'ahrefssiteaudit'
+                    | 'semrushbot'
+                    | 'siteauditbot'
+                    | 'mj12bot'
+                    | 'petalbot'
                   )
                 | null;
               bytes: number;
@@ -13309,7 +13576,15 @@ export interface operations {
             }[];
             criticalPaths: string[];
             directory: {
+              aiEligible: boolean;
+              control: {
+                nginx: boolean;
+                remote: boolean;
+              };
               documentationUrl: string;
+              /** @enum {string} */
+              evidence: 'operator' | 'observed' | 'pending';
+              family: string;
               /**
                * @description Unique identifier of the resource.
                * @enum {string}
@@ -13318,17 +13593,60 @@ export interface operations {
                 | 'gptbot'
                 | 'oai-searchbot'
                 | 'chatgpt-user'
+                | 'oai-adsbot'
                 | 'claudebot'
                 | 'claude-searchbot'
                 | 'claude-user'
                 | 'perplexitybot'
                 | 'perplexity-user'
-                | 'bytespider'
+                | 'amazonbot'
+                | 'amzn-searchbot'
+                | 'amzn-user'
+                | 'mistralai-user'
+                | 'mistralai-index'
+                | 'mistralai-training'
                 | 'googlebot'
-                | 'baiduspider'
-                | 'bingbot'
+                | 'googlebot-image'
+                | 'googlebot-video'
+                | 'googleother'
+                | 'googleother-image'
+                | 'googleother-video'
+                | 'storebot-google'
+                | 'google-inspectiontool'
+                | 'google-cloudvertexbot'
+                | 'google-extended'
+                | 'googlebot-news'
                 | 'applebot'
-                | 'google-extended';
+                | 'applebot-extended'
+                | 'bingbot'
+                | 'duckduckbot'
+                | 'duckassistbot'
+                | 'ccbot'
+                | 'ai2bot'
+                | 'baiduspider'
+                | 'baiduspider-render'
+                | 'sogou-web-spider'
+                | 'sogou-inst-spider'
+                | '360spider'
+                | 'yandexbot'
+                | 'yeti'
+                | 'ads-naver'
+                | 'blueno'
+                | 'seznambot'
+                | 'freshbot'
+                | 'qwantbot'
+                | 'qwantbot-news'
+                | 'mojeekbot'
+                | 'meta-externalagent'
+                | 'meta-externalfetcher'
+                | 'facebookbot'
+                | 'bytespider'
+                | 'ahrefsbot'
+                | 'ahrefssiteaudit'
+                | 'semrushbot'
+                | 'siteauditbot'
+                | 'mj12bot'
+                | 'petalbot';
               identityEvidence: string;
               impact: string;
               /** @enum {string} */
@@ -13337,6 +13655,7 @@ export interface operations {
               name: string;
               /** @enum {string} */
               platformId:
+                | '360'
                 | 'openai'
                 | 'anthropic'
                 | 'perplexity'
@@ -13344,12 +13663,36 @@ export interface operations {
                 | 'google'
                 | 'baidu'
                 | 'microsoft'
-                | 'apple';
+                | 'apple'
+                | 'amazon'
+                | 'mistral'
+                | 'duckduckgo'
+                | 'common-crawl'
+                | 'ai2'
+                | 'sogou'
+                | 'yandex'
+                | 'naver'
+                | 'seznam'
+                | 'qwant'
+                | 'mojeek'
+                | 'meta'
+                | 'ahrefs'
+                | 'semrush'
+                | 'majestic'
+                | 'petal';
+              reviewedAt: string;
               /** @enum {string} */
               robotsApplicability: 'applicable' | 'user_triggered_caveat';
-              robotsToken: string;
+              robotsToken: string | null;
+              sources: {
+                label: string;
+                /** @description URL associated with the resource. */
+                url: string;
+              }[];
               /** @enum {string} */
-              type: 'training' | 'search' | 'user' | 'traditional_search';
+              status: 'active' | 'pending';
+              /** @enum {string} */
+              type: 'training' | 'search' | 'user' | 'traditional_search' | 'other';
               uaSelector: string | null;
             }[];
             findings: {
@@ -13358,17 +13701,60 @@ export interface operations {
                 | 'gptbot'
                 | 'oai-searchbot'
                 | 'chatgpt-user'
+                | 'oai-adsbot'
                 | 'claudebot'
                 | 'claude-searchbot'
                 | 'claude-user'
                 | 'perplexitybot'
                 | 'perplexity-user'
-                | 'bytespider'
+                | 'amazonbot'
+                | 'amzn-searchbot'
+                | 'amzn-user'
+                | 'mistralai-user'
+                | 'mistralai-index'
+                | 'mistralai-training'
                 | 'googlebot'
-                | 'baiduspider'
-                | 'bingbot'
+                | 'googlebot-image'
+                | 'googlebot-video'
+                | 'googleother'
+                | 'googleother-image'
+                | 'googleother-video'
+                | 'storebot-google'
+                | 'google-inspectiontool'
+                | 'google-cloudvertexbot'
+                | 'google-extended'
+                | 'googlebot-news'
                 | 'applebot'
-                | 'google-extended';
+                | 'applebot-extended'
+                | 'bingbot'
+                | 'duckduckbot'
+                | 'duckassistbot'
+                | 'ccbot'
+                | 'ai2bot'
+                | 'baiduspider'
+                | 'baiduspider-render'
+                | 'sogou-web-spider'
+                | 'sogou-inst-spider'
+                | '360spider'
+                | 'yandexbot'
+                | 'yeti'
+                | 'ads-naver'
+                | 'blueno'
+                | 'seznambot'
+                | 'freshbot'
+                | 'qwantbot'
+                | 'qwantbot-news'
+                | 'mojeekbot'
+                | 'meta-externalagent'
+                | 'meta-externalfetcher'
+                | 'facebookbot'
+                | 'bytespider'
+                | 'ahrefsbot'
+                | 'ahrefssiteaudit'
+                | 'semrushbot'
+                | 'siteauditbot'
+                | 'mj12bot'
+                | 'petalbot';
               /** @enum {string} */
               confidence: 'confirmed' | 'possible' | 'insufficient';
               facts: {
@@ -13403,17 +13789,60 @@ export interface operations {
                     | 'gptbot'
                     | 'oai-searchbot'
                     | 'chatgpt-user'
+                    | 'oai-adsbot'
                     | 'claudebot'
                     | 'claude-searchbot'
                     | 'claude-user'
                     | 'perplexitybot'
                     | 'perplexity-user'
-                    | 'bytespider'
+                    | 'amazonbot'
+                    | 'amzn-searchbot'
+                    | 'amzn-user'
+                    | 'mistralai-user'
+                    | 'mistralai-index'
+                    | 'mistralai-training'
                     | 'googlebot'
-                    | 'baiduspider'
-                    | 'bingbot'
-                    | 'applebot'
+                    | 'googlebot-image'
+                    | 'googlebot-video'
+                    | 'googleother'
+                    | 'googleother-image'
+                    | 'googleother-video'
+                    | 'storebot-google'
+                    | 'google-inspectiontool'
+                    | 'google-cloudvertexbot'
                     | 'google-extended'
+                    | 'googlebot-news'
+                    | 'applebot'
+                    | 'applebot-extended'
+                    | 'bingbot'
+                    | 'duckduckbot'
+                    | 'duckassistbot'
+                    | 'ccbot'
+                    | 'ai2bot'
+                    | 'baiduspider'
+                    | 'baiduspider-render'
+                    | 'sogou-web-spider'
+                    | 'sogou-inst-spider'
+                    | '360spider'
+                    | 'yandexbot'
+                    | 'yeti'
+                    | 'ads-naver'
+                    | 'blueno'
+                    | 'seznambot'
+                    | 'freshbot'
+                    | 'qwantbot'
+                    | 'qwantbot-news'
+                    | 'mojeekbot'
+                    | 'meta-externalagent'
+                    | 'meta-externalfetcher'
+                    | 'facebookbot'
+                    | 'bytespider'
+                    | 'ahrefsbot'
+                    | 'ahrefssiteaudit'
+                    | 'semrushbot'
+                    | 'siteauditbot'
+                    | 'mj12bot'
+                    | 'petalbot'
                   )
                 | null;
               bytes: number;
@@ -13421,6 +13850,8 @@ export interface operations {
               head: number;
               humanPath: string;
               mergedPaths: string[];
+              /** @description Display name of the resource. */
+              name?: string;
               ownedMatches: number;
               ownedTerminatingBlocks: number;
               path: string;
@@ -13453,6 +13884,7 @@ export interface operations {
               landingPagesTruncated: boolean;
               /** @enum {string} */
               platformId:
+                | '360'
                 | 'openai'
                 | 'anthropic'
                 | 'perplexity'
@@ -13460,9 +13892,25 @@ export interface operations {
                 | 'google'
                 | 'baidu'
                 | 'microsoft'
-                | 'apple';
+                | 'apple'
+                | 'amazon'
+                | 'mistral'
+                | 'duckduckgo'
+                | 'common-crawl'
+                | 'ai2'
+                | 'sogou'
+                | 'yandex'
+                | 'naver'
+                | 'seznam'
+                | 'qwant'
+                | 'mojeek'
+                | 'meta'
+                | 'ahrefs'
+                | 'semrush'
+                | 'majestic'
+                | 'petal';
               /** @enum {string} */
-              state: 'available' | 'missing';
+              state: 'available' | 'missing' | 'unsupported';
               /** @description Visit counts for the selected period. */
               visits: number | null;
             }[];
@@ -13473,22 +13921,67 @@ export interface operations {
                       | 'gptbot'
                       | 'oai-searchbot'
                       | 'chatgpt-user'
+                      | 'oai-adsbot'
                       | 'claudebot'
                       | 'claude-searchbot'
                       | 'claude-user'
                       | 'perplexitybot'
                       | 'perplexity-user'
-                      | 'bytespider'
+                      | 'amazonbot'
+                      | 'amzn-searchbot'
+                      | 'amzn-user'
+                      | 'mistralai-user'
+                      | 'mistralai-index'
+                      | 'mistralai-training'
                       | 'googlebot'
-                      | 'baiduspider'
-                      | 'bingbot'
-                      | 'applebot'
+                      | 'googlebot-image'
+                      | 'googlebot-video'
+                      | 'googleother'
+                      | 'googleother-image'
+                      | 'googleother-video'
+                      | 'storebot-google'
+                      | 'google-inspectiontool'
+                      | 'google-cloudvertexbot'
                       | 'google-extended'
+                      | 'googlebot-news'
+                      | 'applebot'
+                      | 'applebot-extended'
+                      | 'bingbot'
+                      | 'duckduckbot'
+                      | 'duckassistbot'
+                      | 'ccbot'
+                      | 'ai2bot'
+                      | 'baiduspider'
+                      | 'baiduspider-render'
+                      | 'sogou-web-spider'
+                      | 'sogou-inst-spider'
+                      | '360spider'
+                      | 'yandexbot'
+                      | 'yeti'
+                      | 'ads-naver'
+                      | 'blueno'
+                      | 'seznambot'
+                      | 'freshbot'
+                      | 'qwantbot'
+                      | 'qwantbot-news'
+                      | 'mojeekbot'
+                      | 'meta-externalagent'
+                      | 'meta-externalfetcher'
+                      | 'facebookbot'
+                      | 'bytespider'
+                      | 'ahrefsbot'
+                      | 'ahrefssiteaudit'
+                      | 'semrushbot'
+                      | 'siteauditbot'
+                      | 'mj12bot'
+                      | 'petalbot'
                     )
                   | null;
                 bytes: number;
                 denied403429: number;
                 head: number;
+                /** @description Display name of the resource. */
+                name?: string;
                 requests: number;
                 status1xx: number;
                 status2xx: number;
@@ -13511,6 +14004,7 @@ export interface operations {
                 landingPagesTruncated: boolean;
                 /** @enum {string} */
                 platformId:
+                  | '360'
                   | 'openai'
                   | 'anthropic'
                   | 'perplexity'
@@ -13518,9 +14012,25 @@ export interface operations {
                   | 'google'
                   | 'baidu'
                   | 'microsoft'
-                  | 'apple';
+                  | 'apple'
+                  | 'amazon'
+                  | 'mistral'
+                  | 'duckduckgo'
+                  | 'common-crawl'
+                  | 'ai2'
+                  | 'sogou'
+                  | 'yandex'
+                  | 'naver'
+                  | 'seznam'
+                  | 'qwant'
+                  | 'mojeek'
+                  | 'meta'
+                  | 'ahrefs'
+                  | 'semrush'
+                  | 'majestic'
+                  | 'petal';
                 /** @enum {string} */
-                state: 'available' | 'missing';
+                state: 'available' | 'missing' | 'unsupported';
                 /** @description Visit counts for the selected period. */
                 visits: number | null;
               }[];
@@ -13685,6 +14195,144 @@ export interface operations {
         content: {
           'application/json': {
             paths: string[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanCrawlerCandidates: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            items: {
+              /** @description Number of matching records. */
+              count: number;
+              /** Format: date-time */
+              firstSeen: string;
+              /** Format: date-time */
+              lastSeen: string;
+              token: string;
+            }[];
+            partial: boolean;
+            /** @constant */
+            scanLimit: 100000;
+            scannedEnd: string | null;
+            scannedRows: number;
+            scannedStart: string | null;
+            /** @enum {string} */
+            state: 'ready' | 'unavailable';
+            /** Format: date-time */
+            windowEnd: string;
+            /** Format: date-time */
+            windowStart: string;
           };
         };
       };
@@ -14641,17 +15289,55 @@ export interface operations {
                   | 'gptbot'
                   | 'oai-searchbot'
                   | 'chatgpt-user'
+                  | 'oai-adsbot'
                   | 'claudebot'
                   | 'claude-searchbot'
                   | 'claude-user'
                   | 'perplexitybot'
                   | 'perplexity-user'
-                  | 'bytespider'
+                  | 'amazonbot'
+                  | 'amzn-searchbot'
+                  | 'amzn-user'
+                  | 'mistralai-user'
+                  | 'mistralai-index'
+                  | 'mistralai-training'
                   | 'googlebot'
-                  | 'baiduspider'
-                  | 'bingbot'
-                  | 'applebot'
+                  | 'googlebot-image'
+                  | 'googlebot-video'
+                  | 'googleother'
+                  | 'googleother-image'
+                  | 'googleother-video'
+                  | 'storebot-google'
+                  | 'google-inspectiontool'
+                  | 'google-cloudvertexbot'
                   | 'google-extended'
+                  | 'googlebot-news'
+                  | 'applebot'
+                  | 'applebot-extended'
+                  | 'bingbot'
+                  | 'duckduckbot'
+                  | 'duckassistbot'
+                  | 'ccbot'
+                  | 'ai2bot'
+                  | 'baiduspider'
+                  | 'baiduspider-render'
+                  | 'sogou-web-spider'
+                  | 'sogou-inst-spider'
+                  | '360spider'
+                  | 'yandexbot'
+                  | 'yeti'
+                  | 'ads-naver'
+                  | 'blueno'
+                  | 'seznambot'
+                  | 'freshbot'
+                  | 'qwantbot'
+                  | 'qwantbot-news'
+                  | 'mojeekbot'
+                  | 'ahrefsbot'
+                  | 'ahrefssiteaudit'
+                  | 'semrushbot'
+                  | 'siteauditbot'
+                  | 'mj12bot'
                 )[];
                 paths: {
                   /**
@@ -17099,6 +17785,128 @@ export interface operations {
       };
     };
   };
+  getLiekanCrawlerRecognition: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            classificationVersion: string;
+            enabledIds: string[];
+            /** @enum {string} */
+            mode: 'official' | 'disabled' | 'legacy';
+            rulesRevision: number;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   createLiekanExport: {
     parameters: {
       query?: never;
@@ -19286,6 +20094,13 @@ export interface operations {
             meta: {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
+              crawlerClassification?: {
+                legacyRequests: number;
+                /** @enum {string} */
+                mode: 'current' | 'legacy' | 'mixed';
+                unclassifiedRequests: number;
+                versions: number;
+              };
               demo: boolean;
               /** @description Date and time the credential expires. */
               expiresAt: number;
@@ -19880,6 +20695,13 @@ export interface operations {
             meta: {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
+              crawlerClassification?: {
+                legacyRequests: number;
+                /** @enum {string} */
+                mode: 'current' | 'legacy' | 'mixed';
+                unclassifiedRequests: number;
+                versions: number;
+              };
               demo: boolean;
               geography?: {
                 cards?: {
@@ -20144,8 +20966,58 @@ export interface operations {
         'application/json': {
           aiCrawlerEnabled?: boolean;
           allowlist?: string[];
+          conversionConfirmed?: boolean;
+          crawlerRules?:
+            | {
+                /** @default [] */
+                customRules?: {
+                  /**
+                   * @default token
+                   * @enum {string}
+                   */
+                  matchMode?: 'token' | 'literal';
+                  /** @description Display name of the resource. */
+                  name: string;
+                  pattern: string;
+                  /** @enum {string} */
+                  type: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
+                  vendor: string;
+                }[];
+                /** @default [] */
+                disabledIds?: string[];
+                /** @constant */
+                mode: 'official';
+                /** @default {} */
+                overrides?: {
+                  [key: string]: {
+                    /** @enum {string} */
+                    type: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
+                  };
+                };
+              }
+            | {
+                /** @constant */
+                mode: 'disabled';
+              }
+            | {
+                /** @constant */
+                mode: 'legacy';
+                rules: {
+                  /** @enum {string} */
+                  matchMode?: 'token' | 'literal';
+                  /** @description Display name of the resource. */
+                  name: string;
+                  pattern: string;
+                  /** @enum {string} */
+                  type: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
+                  vendor: string;
+                }[];
+              };
+          expectedRulesRevision?: number;
           robots?: string;
           rules?: {
+            /** @enum {string} */
+            matchMode?: 'token' | 'literal';
             /** @description Display name of the resource. */
             name: string;
             pattern: string;
@@ -20377,6 +21249,13 @@ export interface operations {
             meta: {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
+              crawlerClassification?: {
+                legacyRequests: number;
+                /** @enum {string} */
+                mode: 'current' | 'legacy' | 'mixed';
+                unclassifiedRequests: number;
+                versions: number;
+              };
               demo: boolean;
               geography?: {
                 cards?: {

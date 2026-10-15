@@ -34,10 +34,10 @@ export const clearTablePages = (tablePages: Record<string, number>) =>
   Object.fromEntries(Object.keys(tablePages).map(table => [`tp_${table}`, undefined]));
 const filters: Partial<Record<Resource, string[]>> = {
   'human/search-engines': ['全部', '传统搜索', 'AI 搜索引荐'],
-  'ai/bots': ['全部', 'AI 训练', 'AI 搜索', '传统搜索'],
+  'ai/bots': ['全部', 'AI 训练', 'AI 搜索', '用户触发', '传统搜索', '其他已知'],
   'ai/pages': ['按抓取量', '按重复率', '按蜘蛛数'],
   content: ['按 PV', '按入口', '按时长'],
-  logs: ['全部', '仅 AI 蜘蛛', '仅人类', '仅异常'],
+  logs: ['全部', '仅 AI 蜘蛛', '未知／未分类', '仅异常'],
 };
 export function readViewState(params: Record<string, string>, resource: Resource) {
   const table = primaryTables[resource];

@@ -1,4 +1,5 @@
 'use client';
+import { crawlerDetailSelection } from '@/lib/liekan/rules/editor';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
 import { EXPORT_MAX_BYTES, type ExportFrame } from '@/lib/liekan/contracts/exports';
@@ -45,6 +46,7 @@ import {
   formatMetricValue,
   pages,
   primaryTables,
+  reportCsvFilename,
   stateLabels,
   tableCsv,
 } from './data';
@@ -222,7 +224,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               ? 'ai'
               : filter === '仅异常'
                 ? 'abnormal'
-                : filter === '仅人类'
+                : filter === '未知／未分类'
                   ? 'other'
                   : '',
           search: pageSearch(search, website?.domain).slice(0, 200),
@@ -505,8 +507,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       seek: undefined,
     });
     setMessage(
-      label === '仅人类'
-        ? '此筛选显示未识别或其他请求；服务器日志无法确认访问者为人类。'
+      label === '未知／未分类'
+        ? '此筛选显示未识别或存在多候选身份的请求。'
         : label === '按重复率' && !report?.tables.apBody?.some(row => row.repeatRate != null)
           ? '重复抓取率待接入，当前保留已有页面顺序。'
           : '',
@@ -574,6 +576,10 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     }
   };
   const onAction = (label: string) => {
+    if (label === '未知请求日志') {
+      router.push(href('logs', { filter: '未知／未分类' }));
+      return;
+    }
     if (label.startsWith('导出')) {
       if (!report || query.isFetching) {
         setMessage('数据仍在读取，请稍后重试');
@@ -617,10 +623,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                 i18n.system(stateLabels[card.state] || '已接入'),
               ]),
           );
-      downloadFile(
-        content,
-        `liekan-${resource.replaceAll('/', '-')}-${new Date(endAt).toISOString().slice(0, 10)}.csv`,
-      );
+      downloadFile(content, reportCsvFilename(resource, report.range));
       setMessage('已导出当前范围与筛选结果');
       return;
     }
@@ -951,6 +954,15 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             <button onClick={() => setPromptHidden(true)}>{i18n.text('保留展示')}</button>
           </div>
         )}
+      {report &&
+        !crawlerHidden &&
+        ['overview', 'ai/overview', 'ai/bots', 'ai/pages', 'ai/preference', 'content'].includes(resource) &&
+        report.meta.crawlerClassification &&
+        report.meta.crawlerClassification.mode !== 'current' && (
+          <div className={styles.notice} role="status">
+            {i18n.text('所选期间包含旧版或混合分类数据，历史记录保留采集时口径。')}
+          </div>
+        )}
       {report ? (
         <View
           report={report}
@@ -993,7 +1005,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               websiteId={crawlerWebsite.id}
               websiteName={crawlerWebsite.name}
               websiteDomain={crawlerWebsite.domain}
-              botName={action.startsWith('蜘蛛详情:') ? action.slice(5) : undefined}
+              botName={crawlerDetailSelection(action).name}
+              selectedIdentity={crawlerDetailSelection(action).botId}
               range={report?.range}
               onClose={close}
             />

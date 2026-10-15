@@ -3,7 +3,7 @@ import { LiekanMessageContext, useLiekanI18n } from '@/lib/liekan/i18n/client';
 
 import Link from '@/components/liekan/Link';
 import { helpTranslator } from '@/lib/liekan/i18n/help';
-import { useEffect, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
   crawlerCapabilities,
   crawlerRobotsDraft,
@@ -25,10 +25,25 @@ import {
   type HelpSource,
 } from '@/lib/liekan/help/types';
 import styles from '@/styles/liekan/Help.module.css';
-import { useFeature } from './context';
+import { useData, useFeature } from './context';
+import type {
+  CrawlerRecognitionResponse,
+  CrawlerSourcesResponse,
+} from '@/lib/liekan/contracts/crawler-maintenance';
+import { crawlerSourceStatus } from './CrawlerSourcesPanel';
+import { getFeatureSites } from '@/lib/liekan/upstream/features-client';
+import type { FeatureEntity } from '@/lib/liekan/contracts/features';
 import { featureHref } from './routes';
 import { Icon } from './ui';
 
+const CapabilityContext = createContext<{
+  selected: string;
+  recognition?: CrawlerRecognitionResponse;
+  recognitionError?: boolean;
+  isAdmin: boolean;
+  health?: CrawlerSourcesResponse;
+  healthError?: boolean;
+}>({ selected: '', isAdmin: false });
 const href = (params: Record<string, string> = {}) => featureHref('help', params);
 const purposes = [...new Set(helpCrawlers.flatMap(item => item.purposes))];
 const vendors = [...new Set(helpCrawlers.map(item => item.vendor))];
@@ -198,6 +213,12 @@ function ArticleDetail({ article }: { article: HelpArticle }) {
 function Capabilities({ crawler }: { crawler: Crawler }) {
   const i18n = useLiekanI18n();
   const { rule, ip } = crawlerCapabilities(crawler);
+  const context = useContext(CapabilityContext);
+  const health = context.health?.ipSources.find(source => source.crawlerIds.includes(crawler.id));
+  const enabled =
+    context.selected &&
+    !context.recognitionError &&
+    context.recognition?.enabledIds.includes(crawler.id);
   return (
     <div className={styles.capabilities}>
       <span>
@@ -206,13 +227,35 @@ function Capabilities({ crawler }: { crawler: Crawler }) {
       </span>
       <span className={rule ? styles.supported : ''}>
         {rule
-          ? i18n.text('默认分类：{v0}', [rule.name])
+          ? i18n.text('本版本可识别：{v0}', [rule.name])
           : crawler.kind === 'control'
             ? i18n.text('用途控制标记')
-            : i18n.text('默认 UA 分类未支持')}
+            : i18n.text('本版本暂未识别')}
       </span>
       <span className={ip ? styles.supported : ''}>
-        {ip ? i18n.text('默认 IP 核验支持') : i18n.text('默认 IP 核验未支持')}
+        {ip ? i18n.text('可核验范围：已配置') : i18n.text('可核验范围：尚未配置')}
+      </span>
+      <span>
+        {!context.selected
+          ? i18n.text('当前网站启用：未选择网站')
+          : context.recognitionError
+            ? i18n.text('当前网站启用：读取失败')
+            : !context.recognition
+              ? i18n.text('当前网站启用：正在读取')
+              : enabled
+                ? i18n.text('当前网站启用：已启用')
+                : i18n.text('当前网站启用：未启用')}
+      </span>
+      <span>
+        {!ip
+          ? i18n.text('当前范围健康：未配置')
+          : !context.isAdmin
+            ? i18n.text('当前范围健康：仅系统管理员可查看')
+            : context.healthError
+              ? i18n.text('当前范围健康：读取失败')
+              : health
+                ? i18n.text('当前范围健康：{v0}', [i18n.system(crawlerSourceStatus(health.status))])
+                : i18n.text('当前范围健康：未读取')}
       </span>
     </div>
   );
@@ -435,6 +478,17 @@ export function HelpCenter() {
 function HelpBody() {
   const i18n = useLiekanI18n();
   const c = useFeature();
+  const [selected, setSelected] = useState('');
+  const recognition = useData<CrawlerRecognitionResponse>(
+    ['help-crawler-recognition', selected, c.user?.id],
+    signal => c.api.get(`/liekan/websites/${selected}/crawler-recognition`, undefined, signal),
+    !!selected,
+  );
+  const health = useData<CrawlerSourcesResponse>(
+    ['help-crawler-sources', c.user?.id],
+    signal => c.api.get('/liekan/admin/crawler-sources', undefined, signal),
+    !!c.user?.isAdmin,
+  );
   const location = helpLocation(c.query);
   const [search, setSearch] = useState('');
   const [purpose, setPurpose] = useState('');
@@ -442,6 +496,12 @@ function HelpBody() {
   const [kind, setKind] = useState('');
   const [limit, setLimit] = useState(20);
   const searching = search.trim().length > 0;
+  const showWebsiteSelector = !!(location.section === 'crawlers' || location.crawler || searching);
+  const websites = useData<FeatureEntity[]>(
+    ['help-crawler-websites', c.user?.id],
+    signal => getFeatureSites(signal, undefined, 'all'),
+    showWebsiteSelector && !!c.user?.id,
+  );
   const detail = !searching && (location.article || location.crawler);
   const category = searching ? undefined : location.section;
   const articles = searchArticles(
@@ -479,265 +539,313 @@ function HelpBody() {
 
   const heading = searching ? '搜索结果' : helpSections.find(item => item.id === category)?.title;
   return (
-    <div className={styles.help} data-help-center="true" onClickCapture={clearForLink}>
-      <form className={styles.search} role="search" onSubmit={event => event.preventDefault()}>
-        <Icon name="search" />
-        <label className={styles.srOnly} htmlFor="help-search">
-          {i18n.text('搜索帮助文档或蜘蛛')}
-        </label>
-        <input
-          id="help-search"
-          type="search"
-          maxLength={256}
-          value={search}
-          onChange={event => setSearch(event.target.value)}
-          placeholder={i18n.text('搜索指标、配置、蜘蛛名称或 User-Agent…')}
-        />
-        {search && (
-          <button type="button" onClick={() => setSearch('')}>
-            {i18n.text('清空')}
-          </button>
-        )}
-      </form>
-      <nav className={styles.categories} aria-label={i18n.text('帮助分类')}>
-        <Link
-          prefetch={false}
-          href={href()}
-          aria-current={!location.section && !location.invalid ? 'page' : undefined}
-        >
-          {i18n.text('全部资料')}
-        </Link>
-        {helpSections.map(item => (
+    <CapabilityContext.Provider
+      value={{
+        selected,
+        recognition: recognition.error ? undefined : recognition.data,
+        recognitionError: !!recognition.error,
+        isAdmin: !!c.user?.isAdmin,
+        health: health.error ? undefined : health.data,
+        healthError: !!health.error,
+      }}
+    >
+      <div className={styles.help} data-help-center="true" onClickCapture={clearForLink}>
+        <form className={styles.search} role="search" onSubmit={event => event.preventDefault()}>
+          <Icon name="search" />
+          <label className={styles.srOnly} htmlFor="help-search">
+            {i18n.text('搜索帮助文档或蜘蛛')}
+          </label>
+          <input
+            id="help-search"
+            type="search"
+            maxLength={256}
+            value={search}
+            onChange={event => setSearch(event.target.value)}
+            placeholder={i18n.text('搜索指标、配置、蜘蛛名称或 User-Agent…')}
+          />
+          {search && (
+            <button type="button" onClick={() => setSearch('')}>
+              {i18n.text('清空')}
+            </button>
+          )}
+        </form>
+        <nav className={styles.categories} aria-label={i18n.text('帮助分类')}>
           <Link
             prefetch={false}
-            key={item.id}
-            href={href({ section: item.id })}
-            aria-current={location.section === item.id ? 'page' : undefined}
+            href={href()}
+            aria-current={!location.section && !location.invalid ? 'page' : undefined}
           >
-            {i18n.system(item.title)}
+            {i18n.text('全部资料')}
           </Link>
-        ))}
-      </nav>
-      {location.invalid && !searching ? (
-        <section className={styles.empty}>
-          <h2>{i18n.text('未找到这份资料')}</h2>
-          <p>{i18n.text('地址中的文档或分类可能已调整。')}</p>
-          <Link href={href()}>{i18n.text('返回帮助中心')}</Link>
-        </section>
-      ) : detail ? (
-        <>
-          <div className={styles.breadcrumb}>
-            <Link prefetch={false} href={href({ section: location.section })}>
-              {i18n.fragment('‹ 返回', false, true)}
-              {i18n.system(helpSections.find(item => item.id === location.section)?.title)}
+          {helpSections.map(item => (
+            <Link
+              prefetch={false}
+              key={item.id}
+              href={href({ section: item.id })}
+              aria-current={location.section === item.id ? 'page' : undefined}
+            >
+              {i18n.system(item.title)}
             </Link>
+          ))}
+        </nav>
+        {showWebsiteSelector && (
+          <div className={styles.filters}>
+            <label>
+              {i18n.text('查看网站启用状态')}
+              <select
+                aria-label={i18n.text('查看网站启用状态')}
+                value={selected}
+                disabled={websites.isPending || !!websites.error}
+                onChange={event => setSelected(event.target.value)}
+              >
+                <option value="">
+                  {i18n.text(websites.isPending ? '正在读取数据' : '未选择网站')}
+                </option>
+                {(websites.error ? [] : websites.data || []).map(site => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {websites.error && (
+              <div role="alert">
+                <span>{i18n.text('读取数据失败，请重试')}</span>{' '}
+                <button type="button" onClick={() => websites.refetch()}>
+                  {i18n.text('重试')}
+                </button>
+              </div>
+            )}
+            {selected && recognition.data && !recognition.error && (
+              <small style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+                {i18n.text('当前网站规则版本：{v0}', [recognition.data.classificationVersion])}
+              </small>
+            )}
           </div>
-          {location.article ? (
-            <ArticleDetail key={location.article.id} article={location.article} />
-          ) : (
-            <CrawlerDetail key={location.crawler.id} crawler={location.crawler} />
-          )}
-        </>
-      ) : !category && !searching ? (
-        <>
-          <section className={styles.intro}>
-            <h2>{i18n.text('使用指南与参考资料')}</h2>
-            <p>
-              {i18n.text(
-                '查阅产品口径、接入说明和全球蜘蛛资料。每项资料保留来源、复核时间与当前能力。',
-              )}
-            </p>
+        )}
+        {location.invalid && !searching ? (
+          <section className={styles.empty}>
+            <h2>{i18n.text('未找到这份资料')}</h2>
+            <p>{i18n.text('地址中的文档或分类可能已调整。')}</p>
+            <Link href={href()}>{i18n.text('返回帮助中心')}</Link>
           </section>
-          <div className={styles.cards}>
-            {helpSections.map(item => (
-              <Link prefetch={false} key={item.id} href={href({ section: item.id })}>
-                <Icon name={item.icon} />
-                <h3>{i18n.system(item.title)}</h3>
-                <p>{i18n.system(item.summary)}</p>
-                <small>
-                  {item.id === 'crawlers'
-                    ? i18n.text('{v0} 个名称 / 控制标记', [helpCrawlers.length])
-                    : i18n.text('{v0} 篇文档', [
-                        helpArticles.filter(article => article.section === item.id).length,
-                      ])}{' '}
-                  <span aria-hidden="true">›</span>
-                </small>
+        ) : detail ? (
+          <>
+            <div className={styles.breadcrumb}>
+              <Link prefetch={false} href={href({ section: location.section })}>
+                {i18n.fragment('‹ 返回', false, true)}
+                {i18n.system(helpSections.find(item => item.id === location.section)?.title)}
               </Link>
-            ))}
-          </div>
-          <section className={styles.results} aria-label={i18n.text('AI 蜘蛛采集文档')}>
-            <div className={styles.listHeader}>
-              <h2>{i18n.text('AI 蜘蛛采集')}</h2>
-              <Link href={href({ article: 'ai-crawler-start' })}>{i18n.text('查看接入引导')}</Link>
             </div>
-            <ArticleList
-              articles={helpArticles.filter(item =>
-                [
-                  'ai-crawler-start',
-                  'ai-crawler-principles',
-                  'ai-collection-service',
-                  'ai-crawler-display',
-                ].includes(item.id),
-              )}
-            />
-          </section>
-          <section className={styles.results}>
+            {location.article ? (
+              <ArticleDetail key={location.article.id} article={location.article} />
+            ) : (
+              <CrawlerDetail key={location.crawler.id} crawler={location.crawler} />
+            )}
+          </>
+        ) : !category && !searching ? (
+          <>
+            <section className={styles.intro}>
+              <h2>{i18n.text('使用指南与参考资料')}</h2>
+              <p>
+                {i18n.text(
+                  '查阅产品口径、接入说明和全球蜘蛛资料。每项资料保留来源、复核时间与当前能力。',
+                )}
+              </p>
+            </section>
+            <div className={styles.cards}>
+              {helpSections.map(item => (
+                <Link prefetch={false} key={item.id} href={href({ section: item.id })}>
+                  <Icon name={item.icon} />
+                  <h3>{i18n.system(item.title)}</h3>
+                  <p>{i18n.system(item.summary)}</p>
+                  <small>
+                    {item.id === 'crawlers'
+                      ? i18n.text('{v0} 个名称 / 控制标记', [helpCrawlers.length])
+                      : i18n.text('{v0} 篇文档', [
+                          helpArticles.filter(article => article.section === item.id).length,
+                        ])}{' '}
+                    <span aria-hidden="true">›</span>
+                  </small>
+                </Link>
+              ))}
+            </div>
+            <section className={styles.results} aria-label={i18n.text('AI 蜘蛛采集文档')}>
+              <div className={styles.listHeader}>
+                <h2>{i18n.text('AI 蜘蛛采集')}</h2>
+                <Link href={href({ article: 'ai-crawler-start' })}>
+                  {i18n.text('查看接入引导')}
+                </Link>
+              </div>
+              <ArticleList
+                articles={helpArticles.filter(item =>
+                  [
+                    'ai-crawler-start',
+                    'ai-crawler-principles',
+                    'ai-collection-service',
+                    'ai-crawler-display',
+                  ].includes(item.id),
+                )}
+              />
+            </section>
+            <section className={styles.results}>
+              <div className={styles.listHeader}>
+                <h2>{i18n.text('开始使用')}</h2>
+                <span>
+                  {i18n.fragment('资料复核 ', false, true)}
+                  {HELP_REVIEWED_AT}
+                </span>
+              </div>
+              <ArticleList
+                articles={helpArticles.filter(item =>
+                  ['connect-website', 'reading-data', 'identity-check', 'robots-policy'].includes(
+                    item.id,
+                  ),
+                )}
+              />
+            </section>
+            <section className={styles.results}>
+              <div className={styles.listHeader}>
+                <h2>{i18n.text('常见问题')}</h2>
+                <Link href={href({ section: 'faq' })}>{i18n.text('查看全部')}</Link>
+              </div>
+              <ArticleList
+                articles={helpArticles.filter(item => item.section === 'faq').slice(0, 3)}
+              />
+            </section>
+          </>
+        ) : (
+          <>
             <div className={styles.listHeader}>
-              <h2>{i18n.text('开始使用')}</h2>
-              <span>
-                {i18n.fragment('资料复核 ', false, true)}
-                {HELP_REVIEWED_AT}
+              <h2>{i18n.system(heading)}</h2>
+              <span role="status">
+                {(category === 'crawlers' ? 0 : articles.length) +
+                  (!category || category === 'crawlers' ? crawlers.length : 0)}{' '}
+                {i18n.unit(
+                  '条结果',
+                  (category === 'crawlers' ? 0 : articles.length) +
+                    (!category || category === 'crawlers' ? crawlers.length : 0),
+                  true,
+                  false,
+                )}
               </span>
             </div>
-            <ArticleList
-              articles={helpArticles.filter(item =>
-                ['connect-website', 'reading-data', 'identity-check', 'robots-policy'].includes(
-                  item.id,
-                ),
-              )}
-            />
-          </section>
-          <section className={styles.results}>
-            <div className={styles.listHeader}>
-              <h2>{i18n.text('常见问题')}</h2>
-              <Link href={href({ section: 'faq' })}>{i18n.text('查看全部')}</Link>
-            </div>
-            <ArticleList
-              articles={helpArticles.filter(item => item.section === 'faq').slice(0, 3)}
-            />
-          </section>
-        </>
-      ) : (
-        <>
-          <div className={styles.listHeader}>
-            <h2>{i18n.system(heading)}</h2>
-            <span role="status">
-              {(category === 'crawlers' ? 0 : articles.length) +
-                (!category || category === 'crawlers' ? crawlers.length : 0)}{' '}
-              {i18n.unit(
-                '条结果',
-                (category === 'crawlers' ? 0 : articles.length) +
-                  (!category || category === 'crawlers' ? crawlers.length : 0),
-                true,
-                false,
-              )}
-            </span>
-          </div>
-          {category === 'crawlers' && (
-            <>
-              <p className={styles.notice}>
-                {i18n.fragment('持续维护主要搜索、AI 与 SEO 蜘蛛，收录 ', false, true)}
-                {vendors.length}
-                {i18n.fragment(' 个运营方。默认识别为', true, true)} {helpRuleCount}
-                {i18n.fragment(' 个 UA 分类、', true, true)}
-                {helpIdentityCount}
-                {i18n.fragment(' 类 IP 核验；各网站自定义规则以网站设置为准。', true, false)}
-              </p>
-              <div className={styles.filters}>
-                <label>
-                  {i18n.fragment('用途', false, true)}
-                  <select
-                    aria-label={i18n.text('用途')}
-                    value={purpose}
-                    onChange={event => setPurpose(event.target.value)}
-                  >
-                    <option value="">{i18n.text('全部用途')}</option>
-                    {purposes.map(item => (
-                      <option key={item} value={item}>
-                        {i18n.system(item)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  {i18n.fragment('运营方', false, true)}
-                  <select
-                    aria-label={i18n.text('运营方')}
-                    value={vendor}
-                    onChange={event => setVendor(event.target.value)}
-                  >
-                    <option value="">{i18n.text('全部运营方')}</option>
-                    {vendors.map(item => (
-                      <option key={item} value={item}>
-                        {i18n.system(item)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  {i18n.fragment('类型', false, true)}
-                  <select
-                    aria-label={i18n.text('类型')}
-                    value={kind}
-                    onChange={event => setKind(event.target.value)}
-                  >
-                    <option value="">{i18n.text('全部类型')}</option>
-                    <option value="crawler">{i18n.text('HTTP 蜘蛛')}</option>
-                    <option value="control">{i18n.text('用途控制标记')}</option>
-                  </select>
-                </label>
-                {(purpose || vendor || kind) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPurpose('');
-                      setVendor('');
-                      setKind('');
-                    }}
-                  >
-                    {i18n.text('重置筛选')}
-                  </button>
+            {category === 'crawlers' && (
+              <>
+                <p className={styles.notice}>
+                  {i18n.fragment('持续维护主要搜索、AI 与 SEO 蜘蛛，收录 ', false, true)}
+                  {vendors.length}
+                  {i18n.fragment(' 个运营方。默认识别为', true, true)} {helpRuleCount}
+                  {i18n.fragment(' 个 UA 分类、', true, true)}
+                  {helpIdentityCount}
+                  {i18n.fragment(' 类 IP 核验；各网站自定义规则以网站设置为准。', true, false)}
+                </p>
+                <div className={styles.filters}>
+                  <label>
+                    {i18n.fragment('用途', false, true)}
+                    <select
+                      aria-label={i18n.text('用途')}
+                      value={purpose}
+                      onChange={event => setPurpose(event.target.value)}
+                    >
+                      <option value="">{i18n.text('全部用途')}</option>
+                      {purposes.map(item => (
+                        <option key={item} value={item}>
+                          {i18n.system(item)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {i18n.fragment('运营方', false, true)}
+                    <select
+                      aria-label={i18n.text('运营方')}
+                      value={vendor}
+                      onChange={event => setVendor(event.target.value)}
+                    >
+                      <option value="">{i18n.text('全部运营方')}</option>
+                      {vendors.map(item => (
+                        <option key={item} value={item}>
+                          {i18n.system(item)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    {i18n.fragment('类型', false, true)}
+                    <select
+                      aria-label={i18n.text('类型')}
+                      value={kind}
+                      onChange={event => setKind(event.target.value)}
+                    >
+                      <option value="">{i18n.text('全部类型')}</option>
+                      <option value="crawler">{i18n.text('HTTP 蜘蛛')}</option>
+                      <option value="control">{i18n.text('用途控制标记')}</option>
+                    </select>
+                  </label>
+                  {(purpose || vendor || kind) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPurpose('');
+                        setVendor('');
+                        setKind('');
+                      }}
+                    >
+                      {i18n.text('重置筛选')}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+            {articles.length > 0 && category !== 'crawlers' && (
+              <section className={styles.results} aria-label={i18n.text('文档结果')}>
+                <ArticleList articles={articles} />
+              </section>
+            )}
+            {(!category || category === 'crawlers') && crawlers.length > 0 && (
+              <section className={styles.results} aria-label={i18n.text('蜘蛛结果')}>
+                {searching && (
+                  <div className={styles.listHeader}>
+                    <h3>{i18n.text('蜘蛛目录')}</h3>
+                  </div>
                 )}
-              </div>
-            </>
-          )}
-          {articles.length > 0 && category !== 'crawlers' && (
-            <section className={styles.results} aria-label={i18n.text('文档结果')}>
-              <ArticleList articles={articles} />
-            </section>
-          )}
-          {(!category || category === 'crawlers') && crawlers.length > 0 && (
-            <section className={styles.results} aria-label={i18n.text('蜘蛛结果')}>
-              {searching && (
-                <div className={styles.listHeader}>
-                  <h3>{i18n.text('蜘蛛目录')}</h3>
-                </div>
-              )}
-              <CrawlerList crawlers={crawlers.slice(0, limit)} />
-              {crawlers.length > limit && (
-                <div className={styles.more}>
-                  <button type="button" onClick={() => setLimit(value => value + 20)}>
-                    {i18n.fragment('显示更多（已显示 ', false, true)}
-                    {limit} / {crawlers.length}）
-                  </button>
-                </div>
-              )}
-            </section>
-          )}
-          {((category === 'crawlers' && !crawlers.length) ||
-            (category && category !== 'crawlers' && !articles.length) ||
-            (!category && !articles.length && !crawlers.length)) && (
-            <section className={styles.empty}>
-              <h2>{i18n.text('没有匹配的资料')}</h2>
-              <p>{i18n.text('尝试指标简称、厂商名称或 UA 稳定标记，也可调整筛选。')}</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch('');
-                  setPurpose('');
-                  setVendor('');
-                  setKind('');
-                }}
-              >
-                {i18n.text('清空搜索和筛选')}
-              </button>
-            </section>
-          )}
-        </>
-      )}
-      <footer className={styles.footer}>
-        {i18n.text('资料随应用版本提供 · 官方文档优先 · IP 范围与访问策略使用前复核')}
-      </footer>
-    </div>
+                <CrawlerList crawlers={crawlers.slice(0, limit)} />
+                {crawlers.length > limit && (
+                  <div className={styles.more}>
+                    <button type="button" onClick={() => setLimit(value => value + 20)}>
+                      {i18n.fragment('显示更多（已显示 ', false, true)}
+                      {limit} / {crawlers.length}）
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
+            {((category === 'crawlers' && !crawlers.length) ||
+              (category && category !== 'crawlers' && !articles.length) ||
+              (!category && !articles.length && !crawlers.length)) && (
+              <section className={styles.empty}>
+                <h2>{i18n.text('没有匹配的资料')}</h2>
+                <p>{i18n.text('尝试指标简称、厂商名称或 UA 稳定标记，也可调整筛选。')}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch('');
+                    setPurpose('');
+                    setVendor('');
+                    setKind('');
+                  }}
+                >
+                  {i18n.text('清空搜索和筛选')}
+                </button>
+              </section>
+            )}
+          </>
+        )}
+        <footer className={styles.footer}>
+          {i18n.text('资料随应用版本提供 · 官方文档优先 · IP 范围与访问策略使用前复核')}
+        </footer>
+      </div>
+    </CapabilityContext.Provider>
   );
 }

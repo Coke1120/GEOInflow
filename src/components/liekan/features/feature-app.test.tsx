@@ -104,6 +104,39 @@ describe('feature navigation scope', () => {
     expect(screen.queryByRole('button', { name: /所属空间/ })).not.toBeInTheDocument();
   });
 
+  it('loads accessible personal and team sites for a cold crawler help visit', async () => {
+    mocks.navigation.pathname = '/liekan/help';
+    mocks.navigation.query = { crawler: 'gptbot' };
+    mocks.get.mockResolvedValue({ enabledIds: ['gptbot'], classificationVersion: 'fixture' });
+    mount({ page: 'help' });
+    expect(await screen.findByRole('option', { name: personal.name })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: teamSite.name })).toBeInTheDocument();
+    expect(mocks.sites).toHaveBeenCalledWith(expect.any(AbortSignal), undefined, 'all');
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: '查看网站启用状态' }),
+      teamSite.id,
+    );
+    expect(await screen.findByText('当前网站启用：已启用')).toBeVisible();
+    expect(mocks.get).toHaveBeenCalledWith(
+      `/liekan/websites/${teamSite.id}/crawler-recognition`,
+      undefined,
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('retries a failed crawler help website list without blocking the reference text', async () => {
+    mocks.navigation.pathname = '/liekan/help';
+    mocks.navigation.query = { crawler: 'gptbot' };
+    mocks.sites.mockRejectedValueOnce(new Error('fixture unavailable'));
+    mount({ page: 'help' });
+    expect(await screen.findByText('读取数据失败，请重试')).toBeVisible();
+    expect(screen.getByRole('heading', { name: 'GPTBot' })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: '查看网站启用状态' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: '重试' }));
+    expect(await screen.findByRole('option', { name: personal.name })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: '查看网站启用状态' })).toBeEnabled();
+  });
+
   it.each(['links', 'pixels'])(
     'renders %s under tracking management with both resource tabs',
     async page => {

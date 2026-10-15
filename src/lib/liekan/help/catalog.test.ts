@@ -94,22 +94,26 @@ describe('help scope and evidence', () => {
       expect(crawlerRobotsDraft(control)).toContain(`User-agent: ${control.name}`);
     }
   });
-  it('reports actual default rules, including family grouping, separately from collected feeds', () => {
+  it('reports exact active rules separately from collected feeds', () => {
     const get = (name: string) => helpCrawlers.find(item => item.name === name)!;
     expect(crawlerCapabilities(get('GPTBot'))).toMatchObject({
       rule: { name: 'GPTBot' },
       ip: true,
     });
     expect(crawlerCapabilities(get('Googlebot-Image'))).toMatchObject({
-      rule: { name: 'Googlebot' },
+      rule: { name: 'Googlebot-Image' },
       ip: true,
     });
     expect(crawlerCapabilities(get('ClaudeBot'))).toMatchObject({
       rule: { name: 'ClaudeBot' },
-      ip: false,
+      ip: true,
     });
     expect(get('ClaudeBot').feeds[0].url).toBe('https://claude.com/crawling/bots.json');
-    expect(crawlerCapabilities(get('OAI-AdsBot'))).toEqual({ rule: undefined, ip: false });
+    expect(crawlerCapabilities(get('OAI-AdsBot'))).toMatchObject({
+      rule: { name: 'OAI-AdsBot' },
+      ip: true,
+    });
+    expect(crawlerRobotsDraft(get('Bytespider'))).toBeUndefined();
     expect(crawlerRobotsDraft(get('PetalBot'))).toBeUndefined();
     expect(get('Bytespider').evidence).toBe('observed');
   });
@@ -120,6 +124,7 @@ describe('help scope and evidence', () => {
     expect(snapshotState(range, fetched + 7 * 86400000)).toBe('fresh');
     expect(snapshotState(range, fetched + 7 * 86400000 + 1)).toBe('stale');
     expect(snapshotState(range, fetched - 8 * 86400000)).toBe('stale');
+    expect(snapshotState(range, fetched - 1)).toBe('stale');
     expect(snapshotState({ ...range, retrievedAt: 'invalid' })).toBe('stale');
     expect(snapshotState(undefined)).toBe('missing');
   });

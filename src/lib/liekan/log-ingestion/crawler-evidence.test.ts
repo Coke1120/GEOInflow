@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cloudflareCrawlerEvidence, crawlerClassificationVersion } from './crawler-evidence';
 import { normalizeAutomatic } from './protocol';
-import { BOT_RULES } from '../rules/bots';
+import { BOT_RULES, LEGACY_BOT_RULES } from '../rules/bots';
 
 const source = 'efc986b6-4e64-43f8-86c8-6d7cc0bda883';
 const raw = {
@@ -54,14 +54,31 @@ describe('crawler log evidence compatibility', () => {
     ).toBeNull();
     expect(cloudflareCrawlerEvidence({ ...raw, SecurityRuleID: 'untrusted\ninput' })).toBeNull();
   });
+  it('versions historical identity separately from a newly saved literal rule', () => {
+    const old = [LEGACY_BOT_RULES[0]];
+    expect(crawlerClassificationVersion(old)).not.toBe(
+      crawlerClassificationVersion(old.map(rule => ({ ...rule, matchMode: 'literal' }))),
+    );
+  });
   it('versions classification independently of range evidence', () => {
     const version = crawlerClassificationVersion(BOT_RULES);
     expect(version).toMatch(/^[a-f0-9]{64}$/);
     expect(
       crawlerClassificationVersion(
-        BOT_RULES.map(({ pattern, type, name, vendor }) => ({ pattern, type, name, vendor })),
+        BOT_RULES.map(({ pattern, type, name, vendor, ...rest }) => ({
+          ...rest,
+          pattern,
+          type,
+          name,
+          vendor,
+        })),
       ),
     ).toBe(version);
+    expect(
+      crawlerClassificationVersion(
+        BOT_RULES.map(({ pattern, type, name, vendor }) => ({ pattern, type, name, vendor })),
+      ),
+    ).not.toBe(version);
     expect(crawlerClassificationVersion([...BOT_RULES].reverse())).not.toBe(version);
     expect(
       crawlerClassificationVersion(

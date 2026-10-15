@@ -161,7 +161,7 @@
     },
     {
       "path": "next.config.ts",
-      "purpose": "Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy",
+      "purpose": "Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy; preserve private no-store headers for crawler recognition, candidates and administrator source health",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance",
@@ -174,7 +174,7 @@
     },
     {
       "path": "package.json",
-      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection Pin reproducible toolchain, offline prototype charts and license-compatible browser detection; Pin reproducible toolchain, offline prototype charts and license-compatible browser detection；AI 加密配置、实时测试、授权分析与生命周期事务集成",
+      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection Pin reproducible toolchain, offline prototype charts and license-compatible browser detection; Pin reproducible toolchain, offline prototype charts and license-compatible browser detection；AI 加密配置、实时测试、授权分析与生命周期事务集成; add the read-only crawler source inspection command",
       "tests": [
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",

@@ -24,5 +24,8 @@
   "017_traffic_diagnostics.sql": "6aece1e899d8e85a16d8ccf71124aad254192f873631c09addda8710ad7ddc63",
   "018_browser_risk.sql": "56dddf3f22a6f758875ea5963374217b856c3e22d6bc6e9564e1886faf7da7f7",
   "019_geography_evidence.sql": "caac83c2ef7bcdd2cf761c5b3190a98c1bf8981bffffecaf07e68497fe17c45d",
-  "020_geography_collection_presence.sql": "8dee132925be207c04d493bcbe2cc9e58c507cd50641df62be34245c3346f57f"
+  "020_geography_collection_presence.sql": "8dee132925be207c04d493bcbe2cc9e58c507cd50641df62be34245c3346f57f",
+  "021_crawler_recognition.sql": "664f9247f8cfd4a918ca4261de93b02cd4d9ec878989b8bc82f57f3bc162aa3f",
+  "022_crawler_range_history.sql": "5510c59b5159e62088feb946e2bfe6a331ba729888b2f202da78e19707ce9827",
+  "023_crawler_source_maintenance.sql": "6d89dec1d835f5fc834ab2da77e8bbfe7b049b0b95de149bf98224aef899da83"
 }

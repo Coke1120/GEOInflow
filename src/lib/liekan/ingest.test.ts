@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import snapshots from '../../../config/liekan/bot-ranges.json';
+import { legacyBundledVerificationSnapshots as snapshots } from './rules/verify';
+import { BOT_RULES } from './rules/bots';
 import { canonicalPath, parseCatalog, parseLogInput } from './ingest';
 
 describe('Liekan ingestion public boundary', () => {
@@ -38,6 +39,8 @@ describe('Liekan ingestion public boundary', () => {
       },
       'liekan.example',
       'key',
+      BOT_RULES,
+      snapshots,
     );
     expect(result.records[0]).toMatchObject({
       path: '/docs/',
@@ -45,6 +48,8 @@ describe('Liekan ingestion public boundary', () => {
       ipMasked: '203.0.113.0/24',
       bot: 'GPTBot',
       verification: 'range_mismatch',
+      verificationVersion: expect.stringMatching(/^[a-f0-9]{64}$/),
+      verificationObservedAt: new Date(snapshots.GPTBot.retrievedAt).toISOString(),
     });
     expect(JSON.stringify(result.records)).not.toContain('private');
     expect(JSON.stringify(result.records)).not.toContain('203.0.113.29');

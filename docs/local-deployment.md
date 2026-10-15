@@ -18,7 +18,7 @@
 
 Alpine 包下载显式使用构建代理的小写变量，Node.js 构建步骤启用环境代理支持，保留官方 HTTPS 地址及证书校验。城市库下载每个版本最多等待十五分钟，以容纳较慢网络。运行镜像的系统包安装层位于产品版本参数之前，可在不同候选之间复用；代理仅传入下载步骤，不保存为应用环境变量。
 
-Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 Rayon 线程数为 2、Node 堆为 2048 MiB，降低多服务环境中的构建资源峰值；这些 Docker 构建环境变量不传入运行容器。线程设置依据 [Rayon 官方说明](https://docs.rs/rayon/latest/rayon/struct.ThreadPoolBuilder.html)。资源检查需结合 Docker 虚拟机总量，逐个容器的使用率不等于虚拟机整体占用。
+Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 Rayon 线程数为 2、Node 堆为 3072 MiB，为完整类型检查保留空间；构建机器还需为系统、原生编译和其他运行服务预留内存。这些 Docker 构建环境变量不传入运行容器。线程设置依据 [Rayon 官方说明](https://docs.rs/rayon/latest/rayon/struct.ThreadPoolBuilder.html)。资源检查需结合 Docker 虚拟机总量，逐个容器的使用率不等于虚拟机整体占用。
 
 ## 手动开发与本地验收
 

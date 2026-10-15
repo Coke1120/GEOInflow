@@ -221,10 +221,12 @@ export async function processCrawlerCheck(workerId: string) {
       pages.push({
         ...(await publicCrawlerProbe(job.hostname, path, job.id)),
         robots: document
-          ? crawlerDirectory.map(bot => ({
-              botId: bot.id,
-              ...checkRobotsAccess(document, bot.robotsToken, path),
-            }))
+          ? crawlerDirectory
+              .filter(bot => bot.robotsToken !== null)
+              .map(bot => ({
+                botId: bot.id,
+                ...checkRobotsAccess(document, bot.robotsToken, path),
+              }))
           : null,
       });
     }

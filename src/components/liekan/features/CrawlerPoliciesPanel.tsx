@@ -486,7 +486,7 @@ export function CrawlerPoliciesPanel({
             <fieldset>
               <legend>{i18n.text('蜘蛛，最多 10 个')}</legend>
               {crawlerDirectory
-                .filter(bot => bot.kind === 'http_crawler')
+                .filter(bot => bot.control.remote)
                 .map(bot => (
                   <label key={bot.id} className="check">
                     <input

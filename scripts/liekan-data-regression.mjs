@@ -191,7 +191,7 @@ export function syntheticRelations() {
       relation('liekan_catalog', 'website_id uuid,path text,published_at timestamptz', catalog),
       relation(
         'liekan_log',
-        'website_id uuid,created_at timestamptz,path text,bot text,bot_type text',
+        'website_id uuid,created_at timestamptz,path text,bot text,bot_type text,ai_eligible boolean',
         logs,
       ),
       'liekan_effective_log AS (SELECT * FROM liekan_log)',

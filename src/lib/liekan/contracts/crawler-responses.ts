@@ -38,6 +38,7 @@ const bot = counts.extend({
 });
 const page = counts.extend({
   botId,
+  name: z.string().optional(),
   path: z.string(),
   humanPath: z.string(),
   mergedPaths: z.array(z.string()),
@@ -47,7 +48,7 @@ const page = counts.extend({
 });
 const platform = z.object({
   platformId: z.enum(crawlerPlatformIds),
-  state: z.enum(['available', 'missing']),
+  state: z.enum(['available', 'missing', 'unsupported']),
   visits: z.number().nullable(),
   conversions: z.number().nullable(),
   goalEvents: z.number().nullable(),
@@ -142,14 +143,21 @@ export const crawlerAnalysisResponseSchema = z.object({
       id: z.enum(crawlerBotIds),
       name: z.string(),
       platformId: z.enum(crawlerPlatformIds),
-      type: z.enum(['training', 'search', 'user', 'traditional_search']),
+      type: z.enum(['training', 'search', 'user', 'traditional_search', 'other']),
       kind: z.enum(['http_crawler', 'robots_purpose']),
       uaSelector: z.string().nullable(),
-      robotsToken: z.string(),
+      robotsToken: z.string().nullable(),
       robotsApplicability: z.enum(['applicable', 'user_triggered_caveat']),
       documentationUrl: z.string(),
       impact: z.string(),
       identityEvidence: z.string(),
+      family: z.string(),
+      aiEligible: z.boolean(),
+      status: z.enum(['active', 'pending']),
+      evidence: z.enum(['operator', 'observed', 'pending']),
+      reviewedAt: z.string(),
+      sources: z.array(z.object({ label: z.string(), url: z.string() })),
+      control: z.object({ remote: z.boolean(), nginx: z.boolean() }),
     }),
   ),
   bots: z.array(bot),
@@ -159,7 +167,7 @@ export const crawlerAnalysisResponseSchema = z.object({
   previous: z.object({
     range,
     quality,
-    bots: z.array(counts.extend({ botId, bytes: z.number() })),
+    bots: z.array(counts.extend({ botId, name: z.string().optional(), bytes: z.number() })),
     platforms: z.array(platform),
   }),
   findings: z.array(

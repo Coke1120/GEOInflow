@@ -5,6 +5,13 @@ export const LOG_QUEUE = 'liekan-log-ingest';
 export const PROVIDER_QUEUE = 'liekan-provider-maintenance';
 export const BROWSER_RISK_QUEUE = 'liekan-browser-risk';
 export const RANGE_QUEUE = 'liekan-range-refresh';
+export const DOCUMENT_QUEUE = 'liekan-crawler-documents';
+// Six exponential retries span at least 945 seconds with jitter, covering either source lease.
+export const CRAWLER_SOURCE_RETRY = Object.freeze({
+  retryLimit: 6,
+  retryDelay: 30,
+  retryBackoff: true,
+});
 export const CRAWLER_ANALYSIS_QUEUE = 'liekan-crawler-analysis';
 export const CRAWLER_CHECK_QUEUE = 'liekan-crawler-check';
 export const CRAWLER_CONTROL_QUEUE = 'liekan-crawler-control';

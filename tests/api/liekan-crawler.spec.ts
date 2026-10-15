@@ -12,7 +12,7 @@ test('all crawler endpoints require a full session before reading or accepting c
     /\/crawler-|\/control-connections/.test(operation.path),
   );
   const publicShare = await share();
-  expect(endpoints).toHaveLength(27);
+  expect(endpoints).toHaveLength(30);
   for (const endpoint of endpoints) {
     const method = endpoint.method.toUpperCase() as HttpMethod;
     const path = endpoint.path.replace(/\{[^}]+\}/g, '11111111-1111-4111-8111-111111111111');
@@ -36,6 +36,42 @@ test.describe('crawler snapshots and local drafts', () => {
   });
   test.afterAll(async ({ admin }) => {
     if (websiteId) await deleteWebsite(admin, websiteId);
+  });
+
+  test('reads private maintenance capabilities and empty candidate samples without external writes', async ({
+    admin,
+    user,
+  }) => {
+    const sourcesPath = '/api/liekan/admin/crawler-sources';
+    expect((await user.get(sourcesPath)).status).toBe(403);
+    const sources = await admin.get(sourcesPath);
+    expect(sources.status, sources.text).toBe(200);
+    expect(sources.headers['cache-control']).toMatch(/private.*no-store/);
+    expect(sources.body.ipSources).toHaveLength(16);
+    expect(sources.body.documents.length).toBeGreaterThan(0);
+    expect(sources.body.catalogVersion).toBeTruthy();
+
+    for (const endpoint of ['crawler-recognition', 'crawler-candidates']) {
+      expect((await user.get(`${root()}/${endpoint}`)).status).toBe(404);
+      const response = await admin.get(`${root()}/${endpoint}`);
+      expect(response.status, response.text).toBe(200);
+      expect(response.headers['cache-control']).toMatch(/private.*no-store/);
+      if (endpoint === 'crawler-recognition') {
+        expect(response.body.mode).toBe('official');
+        expect(response.body.enabledIds).toHaveLength(53);
+        expect(response.body.classificationVersion).toMatch(/^[a-f0-9]{64}$/);
+      } else {
+        expect(response.body).toMatchObject({
+          state: 'ready',
+          scannedRows: 0,
+          scanLimit: 100000,
+          partial: false,
+          scannedStart: null,
+          scannedEnd: null,
+          items: [],
+        });
+      }
+    }
   });
 
   test('manual analysis refresh preserves authorization and normal reads avoid the force throttle', async ({

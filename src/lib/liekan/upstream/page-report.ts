@@ -1,3 +1,4 @@
+import { CRAWLER_POPULATION_VERSION } from '../rules/population';
 import { geographyVersion } from '../contracts/geography';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { type LiekanPageReport, pageReportParts, pageReportSchema } from '../contracts/page-report';
@@ -85,12 +86,10 @@ export async function readPageReport(
           website.id,
         )
       )[0] || { data: '0', policy: '0' };
-  const key = analyticsCacheKey(`page-report-v6-${geographyVersion}`, [
-    process.env.DATABASE_URL,
-    website.id,
-    p,
-    revision,
-  ]);
+  const key = analyticsCacheKey(
+    `page-report-v7-${geographyVersion}-${CRAWLER_POPULATION_VERSION}`,
+    [process.env.DATABASE_URL, website.id, p, revision],
+  );
   const result = await analyticsCache.read(
     key,
     ttl,

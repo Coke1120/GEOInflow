@@ -35,6 +35,61 @@ import { geographyLabel, regionName } from './contracts/geography';
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
 
+it.each(['gptbot', null])(
+  'keeps the selected %s identity separate in the estimated crawl sequence',
+  async botId => {
+    const logs = await mocks.logs();
+    const selected = {
+      bot: 'GPTBot',
+      botId,
+      path: '/selected',
+      time: '1970-01-01T01:00:00Z',
+      status: 200,
+    };
+    mocks.logs.mockResolvedValue({
+      ...logs,
+      latest: selected.time,
+      recent: [
+        selected,
+        { ...selected, botId: botId === null ? 'gptbot' : null, path: '/other-identity' },
+        { ...selected, path: '/earlier', time: '1970-01-01T00:30:00Z' },
+      ],
+    });
+    const report = await buildReport(website, false, { ...params, resource: 'ai/preference' });
+    expect(report.tables.pathList.map(row => row.path)).toEqual(['/earlier', '/selected']);
+    expect(report.tables.pathList.every(row => row.botId === botId)).toBe(true);
+  },
+);
+
+it.each(['gptbot', null])(
+  'retains the winning %s crawler identity in page summaries',
+  async botId => {
+    const human = await mocks.human(),
+      logs = await mocks.logs();
+    mocks.human.mockResolvedValue({
+      ...human,
+      pages: [{ path: '/a', pv: 4, uv: 4, entries: 4, duration: null, bounces: 0 }],
+    });
+    mocks.logs.mockResolvedValue({
+      ...logs,
+      latest: '1970-01-01T01:00:00Z',
+      pages: [
+        {
+          path: '/a',
+          bot: 'GPTBot',
+          botId: botId === null ? 'gptbot' : null,
+          requests: 1,
+          lastCrawled: '1970-01-01T01:00:00Z',
+        },
+        { path: '/a', bot: 'GPTBot', botId, requests: 9, lastCrawled: '1970-01-01T01:00:00Z' },
+      ],
+    });
+    const report = await buildReport(website, false, params);
+    expect(report.tables.apBody[0]).toMatchObject({ bot: 'GPTBot', botId, bots: 2, requests: 10 });
+    expect(report.tables.topBody[0]).toMatchObject({ bot: 'GPTBot', botId, aiRequests: 10 });
+  },
+);
+
 it('matches generated and supplied direct-source trends by their distinct display identities', async () => {
   const human = await mocks.human();
   mocks.human.mockResolvedValue({
@@ -582,13 +637,16 @@ describe('report evidence states', () => {
     delete damaged.charts.h1;
     expect(liekanReportSchema.safeParse(damaged).success).toBe(false);
   });
-  it('keeps historical classifications stable and counts each named bot once', async () => {
+  it('keeps historical classifications stable and distinguishes unmapped vendor identities', async () => {
     const logs = await mocks.logs();
     mocks.logs.mockResolvedValue({
       ...logs,
       latest: '2026-01-01',
       summary: { requests: 5, ai: 5 },
-      daily: [{ day: '1970-01-01', bot: 'GPTBot', count: 5 }],
+      daily: [
+        { day: '1970-01-01', bot: 'GPTBot', vendor: 'OpenAI', count: 3 },
+        { day: '1970-01-01', bot: 'GPTBot', vendor: 'Changed vendor', count: 2 },
+      ],
       bots: [
         {
           name: 'GPTBot',
@@ -613,10 +671,13 @@ describe('report evidence states', () => {
       { day: '1970-01-01', bot: 'GPTBot', type: '搜索', count: 2 },
     ]);
     const report = await buildReport(website, false, params);
-    expect(report.cards.find(c => c.label === '识别 AI 蜘蛛').value).toBe(1);
-    expect(report.charts.a1.series).toEqual([{ name: 'GPTBot', values: [5] }]);
-    expect(report.charts.d2.labels).toEqual(['GPTBot']);
-    expect(report.charts.d2.series[0].values).toEqual([5]);
+    expect(report.cards.find(c => c.label === '识别 AI 蜘蛛').value).toBe(2);
+    expect(report.charts.a1.series).toEqual([
+      { name: 'GPTBot', values: [3] },
+      { name: 'GPTBot', values: [2] },
+    ]);
+    expect(report.charts.d2.labels).toEqual(['GPTBot', 'GPTBot']);
+    expect(report.charts.d2.series[0].values).toEqual([3, 2]);
     expect(report.charts.d1.series[1].values).toEqual([5]);
     expect(report.tables.botBody).toHaveLength(2);
   });

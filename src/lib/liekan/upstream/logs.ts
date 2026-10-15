@@ -1,3 +1,4 @@
+import { crawlerAiSql, unknownCrawlerSql } from '../rules/population';
 import { logInputConnectedSql } from './log-input';
 import { withLogStatisticsRead } from './ai-log-read-priority';
 import { formatInTimeZone } from 'date-fns-tz';
@@ -29,7 +30,13 @@ async function readLogFacts(
     withLogStatisticsRead(() => query<T>(sql, ...params));
   const base =
     'FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND $4::text IS NOT NULL';
-  const ai = " AND bot_type IN('训练','搜索','用户触发')";
+  const ai = ` AND ${crawlerAiSql()}`;
+  const unknown = unknownCrawlerSql();
+  const known = ` AND NOT ${unknown}`;
+  const identityBase = base.replace(
+    'FROM liekan_effective_log WHERE website_id=',
+    'FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=',
+  );
   const args = [id, start, end, timezone];
   const q = (sql: string) => read(sql, ...args);
   const filterSql =
@@ -38,7 +45,7 @@ async function readLogFacts(
       : filter === 'abnormal'
         ? ' AND status>=400'
         : filter === 'other'
-          ? " AND bot='其他'"
+          ? ` AND ${unknown}`
           : '';
   let boundary: [Date, string];
   if (cursor) {
@@ -58,22 +65,22 @@ async function readLogFacts(
     await Promise.all([
       needs('summary')
         ? q(
-            `SELECT count(*)::int AS requests,count(*) FILTER(WHERE bot_type IN('训练','搜索','用户触发'))::int AS ai,count(distinct path) FILTER(WHERE bot_type IN('训练','搜索','用户触发'))::int AS pages,count(*) FILTER(WHERE status>=400)::int AS abnormal ${base}`,
+            `SELECT count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai,count(distinct path) FILTER(WHERE ${crawlerAiSql()})::int AS pages,count(*) FILTER(WHERE status>=400)::int AS abnormal,count(distinct coalesce(e.classification_version,'legacy'))::int AS "classificationVersions",count(*) FILTER(WHERE ai_eligible IS NULL)::int AS "legacyRequests",count(*) FILTER(WHERE ${unknown})::int AS "unclassifiedRequests" ${identityBase}`,
           )
         : Promise.resolve([{ requests: 0, ai: 0, pages: 0, abnormal: 0 }]),
       needs('daily')
         ? q(
-            `SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,bot,count(*)::int AS count ${base} AND bot!='其他' GROUP BY 1,2 ORDER BY 1`,
+            `SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,bot,vendor,e.crawler_id AS "botId",count(*)::int AS count,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY 1`,
           )
         : Promise.resolve([]),
       needs('bots')
         ? q(
-            `SELECT bot AS name,vendor,bot_type AS type,count(*)::int AS requests,count(distinct path)::int AS pages,max(created_at) AS "lastVisit" ${base} AND bot!='其他' GROUP BY 1,2,3 ORDER BY requests DESC`,
+            `SELECT bot AS name,vendor,bot_type AS type,e.crawler_id AS "botId",count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests",count(distinct path)::int AS pages,max(created_at) AS "lastVisit" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY requests DESC,name,"botId"`,
           )
         : Promise.resolve([]),
       needs('pages')
         ? q(
-            `SELECT path,bot,count(*)::int AS requests,max(created_at) AS "lastCrawled" ${base}${ai} GROUP BY 1,2 ORDER BY requests DESC`,
+            `SELECT path,bot,e.crawler_id AS "botId",count(*)::int AS requests,max(created_at) AS "lastCrawled" ${identityBase}${ai} GROUP BY 1,2,3 ORDER BY requests DESC`,
           )
         : Promise.resolve([]),
       needs('statuses')
@@ -100,7 +107,7 @@ async function readLogFacts(
         : Promise.resolve([]),
       needs('recent')
         ? read(
-            `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,bot_type AS "botType",verification ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT 100${paginationSql}`,
+            `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,e.crawler_id AS "botId",bot_type AS "botType",verification,${crawlerAiSql()} AS "aiEligible",recognition_state AS "recognitionState",verification_version AS "verificationVersion",verification_observed_at AS "verificationObservedAt",verification_reason AS "verificationReason" ${identityBase}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT 100${paginationSql}`,
             ...args,
             search,
             ...(cursor ? boundary : [(page - 1) * 100]),
@@ -130,7 +137,7 @@ async function readLogFacts(
     totalLogs: count[0].count,
     previousBots: needs('previousBots')
       ? await query(
-          'SELECT bot AS name,vendor,bot_type AS type,count(*)::int AS requests FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3 GROUP BY 1,2,3',
+          `SELECT bot AS name,vendor,bot_type AS type,e.crawler_id AS "botId",count(*)::int AS requests FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=$1::uuid AND created_at BETWEEN $2 AND $3 GROUP BY 1,2,3,4`,
           id,
           new Date(Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1))),
           new Date(start.getTime() - 1),
@@ -167,8 +174,8 @@ export async function getContentImpact(id: string, start: Date, end: Date) {
     `WITH targets AS (SELECT * FROM jsonb_to_recordset($2::jsonb) AS c(path text,"humanPath" text,"publishedAt" timestamptz))
     SELECT c.path,
     (SELECT count(*)::int FROM website_event e WHERE e.website_id=$1::uuid AND e.url_path=c."humanPath" AND e.event_type=1 AND e.created_at>=c."publishedAt" AND e.created_at<c."publishedAt"+interval '7 days') AS pv,
-    (SELECT count(*)::int FROM liekan_effective_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c."publishedAt" AND l.created_at<c."publishedAt"+interval '7 days')-
-    (SELECT count(*)::int FROM liekan_effective_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND l.bot_type IN('训练','搜索','用户触发') AND l.created_at>=c."publishedAt"-interval '7 days' AND l.created_at<c."publishedAt") AS increment
+    (SELECT count(*)::int FROM liekan_effective_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND ${crawlerAiSql('l')} AND l.created_at>=c."publishedAt" AND l.created_at<c."publishedAt"+interval '7 days')-
+    (SELECT count(*)::int FROM liekan_effective_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND ${crawlerAiSql('l')} AND l.created_at>=c."publishedAt"-interval '7 days' AND l.created_at<c."publishedAt") AS increment
     FROM targets c ORDER BY c."publishedAt" DESC`,
     id,
     JSON.stringify(
@@ -178,7 +185,7 @@ export async function getContentImpact(id: string, start: Date, end: Date) {
 }
 export async function getMonthlyAiShare(id: string, end: Date, timezone: string) {
   const rows = await query<{ month: string; total: number; ai: number }>(
-    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE bot_type IN('训练','搜索','用户触发'))::int AS ai FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at<=$2 AND created_at>=((date_trunc('month',$2::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
+    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at<=$2 AND created_at>=((date_trunc('month',$2::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
     id,
     end,
     timezone,
@@ -197,7 +204,7 @@ export async function getPlotLogs(
   hour = false,
 ) {
   return query(
-    `SELECT to_char(created_at AT TIME ZONE $4,'${hour ? 'YYYY-MM-DD HH24:00' : 'YYYY-MM-DD'}') AS day,bot,bot_type AS type,count(*)::int AS count FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3 GROUP BY 1,2,3 ORDER BY 1`,
+    `SELECT to_char(created_at AT TIME ZONE $4,'${hour ? 'YYYY-MM-DD HH24:00' : 'YYYY-MM-DD'}') AS day,bot,bot_type AS type,count(*)::int AS count,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests" FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3 GROUP BY 1,2,3 ORDER BY 1`,
     id,
     start,
     end,

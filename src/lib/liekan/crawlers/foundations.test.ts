@@ -37,7 +37,7 @@ const ids = [
 
 describe('crawler directory and contracts', () => {
   it('maps every unchanged existing rule to one historical stable identity', () => {
-    expect(new Set(BOT_RULES.map(crawlerIdForRule)).size).toBe(13);
+    expect(new Set(BOT_RULES.map(crawlerIdForRule)).size).toBe(53);
     for (const rule of BOT_RULES) {
       expect(getCrawler(crawlerIdForRule(rule)).uaSelector).toBe(rule.pattern);
       expect(crawlerIdForName(rule.name)).toBe(crawlerIdForRule(rule));
@@ -67,7 +67,7 @@ describe('crawler directory and contracts', () => {
     ]);
     expect(platforms.filter(value => value.platformId === 'openai')).toHaveLength(1);
     expect(platforms.reduce((total, value) => total + (value.visits || 0), 0)).toBe(12);
-    expect(crawlerDirectory.filter(value => value.platformId === 'openai')).toHaveLength(3);
+    expect(crawlerDirectory.filter(value => value.platformId === 'openai')).toHaveLength(4);
     expect(() =>
       crawlerPlatformReferrals([
         { platformId: 'openai', state: 'available', visits: 12 },

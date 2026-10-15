@@ -1,3 +1,4 @@
+import { crawlerAiRequests, isUnknownCrawler } from './rules/population';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
 import { parseReportQuery, pagableTables, tablePageSize } from './contracts/query';
@@ -40,7 +41,6 @@ import { LiekanError } from './upstream/server';
 
 const pct = (a: number, b: number): number | null => (b ? Math.round((a / b) * 10000) / 100 : null);
 const ratio = (a: number, b: number) => (b ? Math.round((a / b) * 100) / 100 : null);
-const aiType = (type: string) => ['训练', '搜索', '用户触发'].includes(type);
 function channel(row: { source: string; channel?: string }) {
   return row.channel ?? classifyEntrySource({ referrer: row.source }).channel;
 }
@@ -191,6 +191,18 @@ export async function buildReport(
       canManage,
       latestImportAt: l.latest,
       ruleCount: settings.rules.length,
+      crawlerClassification: {
+        mode:
+          (l.summary.classificationVersions ?? 0) > 1 ||
+          ((l.summary.legacyRequests ?? 0) > 0 && l.summary.legacyRequests < l.summary.requests)
+            ? 'mixed'
+            : (l.summary.legacyRequests ?? 0) > 0
+              ? 'legacy'
+              : 'current',
+        versions: l.summary.classificationVersions ?? 0,
+        legacyRequests: l.summary.legacyRequests ?? 0,
+        unclassifiedRequests: l.summary.unclassifiedRequests ?? 0,
+      },
       totalLogs: l.totalLogs,
       page: p.page,
       pageSize: 100,
@@ -216,16 +228,18 @@ export async function buildReport(
   };
   const catalog = new Map<string, any>(l.catalog.map(c => [c.path, c]));
   const catalogLogState: DataState = logState === 'not_connected' ? logState : catalogState;
-  const preference = (bot: string) => {
+  const preference = (bot: string, botId?: string | null) => {
     if (!catalog.size) return null;
     const totals = new Map<string, number>();
-    for (const row of l.pages.filter(page => page.bot === bot)) {
+    for (const row of l.pages.filter(
+      page => page.bot === bot && (botId === undefined || (page.botId ?? null) === botId),
+    )) {
       const type = catalog.get(row.path)?.type;
       if (type) totals.set(type, (totals.get(type) ?? 0) + row.requests);
     }
     const top = [...totals].sort((a, b) => b[1] - a[1])[0];
     const total = l.bots
-      .filter(b => b.name === bot)
+      .filter(b => b.name === bot && (botId === undefined || (b.botId ?? null) === botId))
       .reduce((sum, b) => sum + Number(b.requests), 0);
     return top && total ? `${top[0]}（${pct(top[1], total)}% 抓取集中）` : null;
   };
@@ -236,6 +250,7 @@ export async function buildReport(
       requests: 0,
       bots: 0,
       bot: row.bot,
+      botId: row.botId,
       lastCrawled: row.lastCrawled,
       main: 0,
     };
@@ -243,19 +258,29 @@ export async function buildReport(
     old.bots++;
     if (row.requests > old.main) {
       old.bot = row.bot;
+      old.botId = row.botId;
       old.main = row.requests;
     }
     if (row.lastCrawled > old.lastCrawled) old.lastCrawled = row.lastCrawled;
     paths.set(row.path, old);
   }
   const aiPages = Array.from(paths.values()).sort((a, b) => b.requests - a.requests);
-  const humanAiPages = new Map<string, { requests: number; bot: string; main: number }>();
+  const humanAiPages = new Map<
+    string,
+    { requests: number; bot: string; botId?: string | null; main: number }
+  >();
   for (const page of aiPages) {
     const key = humanPathFromEncoded(page.path);
-    const previous = humanAiPages.get(key) ?? { requests: 0, bot: page.bot, main: 0 };
+    const previous = humanAiPages.get(key) ?? {
+      requests: 0,
+      bot: page.bot,
+      botId: page.botId,
+      main: 0,
+    };
     previous.requests += page.requests;
     if (page.requests > previous.main) {
       previous.bot = page.bot;
+      previous.botId = page.botId;
       previous.main = page.requests;
     }
     humanAiPages.set(key, previous);
@@ -295,12 +320,26 @@ export async function buildReport(
     return Array.from(map, ([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   };
   const ch = aggregate(src, 'channel', 'sessions');
-  const uniqueBots = aggregate(l.bots, 'name', 'requests');
-  const uniqueAiBots = aggregate(
-    l.bots.filter(b => aiType(b.type)),
-    'name',
-    'requests',
-  );
+  const identityKey = (bot: { name: string; vendor?: string; botId?: string | null }) =>
+    bot.botId ? `official:${bot.botId}` : JSON.stringify(['custom', bot.name, bot.vendor ?? '']);
+  const identities = new Map<
+    string,
+    { name: string; vendor: string; botId: string | null; count: number }
+  >();
+  for (const bot of l.bots) {
+    const count = crawlerAiRequests(bot);
+    if (!count) continue;
+    const key = identityKey(bot);
+    const row = identities.get(key) ?? {
+      name: bot.name,
+      vendor: bot.vendor ?? '',
+      botId: bot.botId ?? null,
+      count: 0,
+    };
+    row.count += count;
+    identities.set(key, row);
+  }
+  const uniqueAiBots = [...identities.values()].sort((a, b) => b.count - a.count);
   const aiSources = h.sources.filter(s => channel(s) === 'AI 搜索引荐');
   const aiSessions = aiSources.reduce((sum, s) => sum + s.sessions, 0);
   const humanPages = new Map<string, any>(h.pages.map(page => [page.path, page]));
@@ -310,6 +349,9 @@ export async function buildReport(
     aiRequests: l.latest ? (humanAiPages.get(page.path)?.requests ?? 0) : null,
     ratio: l.latest ? ratio(humanAiPages.get(page.path)?.requests ?? 0, page.pv) : null,
     bot: humanAiPages.get(page.path)?.bot ?? null,
+    ...(humanAiPages.get(page.path)?.botId !== undefined && {
+      botId: humanAiPages.get(page.path).botId,
+    }),
     evaluation: !l.latest
       ? '待接入日志'
       : humanAiPages.has(page.path)
@@ -318,20 +360,30 @@ export async function buildReport(
   }));
   r.tables.botBody = l.bots.map(b => ({
     name: b.name,
+    botId: b.botId ?? null,
+    aiRequests: crawlerAiRequests(b),
     vendor: b.vendor,
     type: b.type,
     requests: b.requests,
     dailyAverage: Math.round((b.requests / days) * 100) / 100,
     pages: b.pages,
-    preference: preference(b.name),
+    preference: preference(b.name, b.botId ?? null),
     lastVisit: b.lastVisit,
     trend: l.previousBots?.find(
-      prev => prev.name === b.name && prev.vendor === b.vendor && prev.type === b.type,
+      prev =>
+        prev.name === b.name &&
+        prev.vendor === b.vendor &&
+        prev.type === b.type &&
+        (prev.botId ?? null) === (b.botId ?? null),
     )?.requests
       ? Math.round(
           (b.requests /
             l.previousBots.find(
-              prev => prev.name === b.name && prev.vendor === b.vendor && prev.type === b.type,
+              prev =>
+                prev.name === b.name &&
+                prev.vendor === b.vendor &&
+                prev.type === b.type &&
+                (prev.botId ?? null) === (b.botId ?? null),
             ).requests -
             1) *
             10000,
@@ -345,6 +397,7 @@ export async function buildReport(
     heat: pct(page.requests, aiPages[0]?.requests ?? 0),
     repeatRate: null,
     bot: page.bot,
+    ...(page.botId !== undefined && { botId: page.botId }),
     lastCrawled: page.lastCrawled,
     freshness: catalog.get(page.path)?.updatedAt
       ? `${Math.max(0, Math.floor((p.endAt - new Date(catalog.get(page.path).updatedAt).getTime()) / 86400000))} 天`
@@ -398,23 +451,29 @@ export async function buildReport(
   r.tables.logBody = l.recent.map(row => ({
     ...row,
     time: row.time,
-    classification:
-      row.bot === '其他'
-        ? '未知/其他'
-        : `${row.bot} · ${row.verification === 'verified_range' ? '官方 IP 范围匹配' : row.verification === 'range_mismatch' ? '官方范围未匹配' : '身份未核验'}`,
+    classification: isUnknownCrawler(row)
+      ? '未知／未分类'
+      : `${row.bot} · ${row.verification === 'verified_range' ? '官方 IP 范围匹配' : row.verification === 'range_mismatch' ? '官方范围未匹配' : '身份未核验'}`,
   }));
   r.tables.blindList = (l.latest ? blind : []).map(page => ({
     path: page.path,
     reason: '已收录目录，所选范围无 AI 抓取',
   }));
   const pathBot =
-    l.recent.find(row => row.bot === 'GPTBot')?.bot ??
-    l.recent.find(row => row.bot !== '其他')?.bot;
+    l.recent.find(row => row.bot === 'GPTBot') ?? l.recent.find(row => row.bot !== '其他');
   r.tables.pathList = l.recent
-    .filter(row => row.bot === pathBot)
+    .filter(row =>
+      pathBot?.botId ? row.botId === pathBot.botId : !row.botId && row.bot === pathBot?.bot,
+    )
     .slice(0, 7)
     .reverse()
-    .map(row => ({ bot: row.bot, time: row.time, path: row.path, status: row.status }));
+    .map(row => ({
+      bot: row.bot,
+      ...(row.botId !== undefined && { botId: row.botId }),
+      time: row.time,
+      path: row.path,
+      status: row.status,
+    }));
   r.tables.robotsList = [...settings.rules, { name: 'Applebot-Extended' }].map(rule => ({
     bot: rule.name,
     policy: settings.robots ? '已保存本地策略' : '未设置',
@@ -422,7 +481,8 @@ export async function buildReport(
   }));
   r.tables.prefList = uniqueAiBots.map(b => ({
     bot: b.name,
-    preference: preference(b.name),
+    preference: preference(b.name, b.botId),
+    botId: b.botId,
   }));
   r.tables.pipeList = [
     {
@@ -430,7 +490,7 @@ export async function buildReport(
       detail: l.latest ? '导入完成，主动刷新读取' : '支持 combined / JSON 单批导入',
       state: l.latest ? '已接入' : '待接入',
     },
-    { name: '身份验证', detail: '6 类官方 IP 范围核验；历史或过期依据保留未核验', state: '已接入' },
+    { name: '身份验证', detail: '官方 IP 范围核验；历史或过期依据保留未核验', state: '已接入' },
     {
       name: '内容目录',
       detail: `${l.catalog.length} 条目录记录`,
@@ -462,9 +522,7 @@ export async function buildReport(
     {
       name: 'AI 蜘蛛请求',
       values: plotLabels.map(day =>
-        plotLogs
-          .filter(d => d.day === day && aiType(d.type))
-          .reduce((sum, d) => sum + Number(d.count), 0),
+        plotLogs.filter(d => d.day === day).reduce((sum, d) => sum + crawlerAiRequests(d), 0),
       ),
     },
   ]);
@@ -550,6 +608,7 @@ export async function buildReport(
       },
     ],
     logState,
+    uniqueAiBots.slice(0, 8),
   );
   chart(
     'a2',
@@ -560,13 +619,16 @@ export async function buildReport(
   chart(
     'a1',
     dateLabels,
-    uniqueBots.slice(0, 5).map(b => ({
+    uniqueAiBots.slice(0, 5).map(b => ({
       name: b.name,
-      values: dateLabels.map(
-        day => l.daily.find(d => d.day === day && d.bot === b.name)?.count ?? 0,
+      values: dateLabels.map(day =>
+        l.daily
+          .filter(d => d.day === day && identityKey({ ...d, name: d.bot }) === identityKey(b))
+          .reduce((sum, row) => sum + Number(row.aiRequests ?? row.count), 0),
       ),
     })),
     logState,
+    uniqueAiBots.slice(0, 5),
   );
   chart(
     'a3',

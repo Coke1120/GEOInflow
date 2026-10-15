@@ -9,6 +9,8 @@ type SettingsRow = {
   rules: unknown[];
   isDemo: boolean;
   aiCrawlerEnabled?: boolean;
+  crawlerRules?: any;
+  rulesRevision?: number;
 };
 const mocks = vi.hoisted(() => ({
   settings: null as SettingsRow | null,
@@ -96,6 +98,8 @@ beforeEach(() => {
         rules: JSON.parse(params[3] as string),
         isDemo: mocks.settings?.isDemo ?? false,
         aiCrawlerEnabled: params[4] as boolean,
+        crawlerRules: JSON.parse(params[5] as string),
+        rulesRevision: params[6] as number,
       };
     } else if (sql.startsWith('INSERT INTO liekan_catalog')) {
       const rows = JSON.parse(params[1] as string);
@@ -193,10 +197,10 @@ describe('settings field updates', () => {
       saveSettings(id, { rules: [customRule] }, identity),
       saveSettings(id, { robots: 'User-agent: *\nDisallow: /private' }, identity),
     ]);
-    expect(await getSettings(id)).toEqual({
+    expect(await getSettings(id)).toMatchObject({
       robots: 'User-agent: *\nDisallow: /private',
       allowlist: [],
-      rules: [customRule],
+      rules: [{ ...customRule, matchMode: 'literal' }],
       isDemo: true,
       aiCrawlerEnabled: true,
       logsConfigured: false,
@@ -209,12 +213,39 @@ describe('settings field updates', () => {
     const partial = await saveSettings(id.toUpperCase(), { robots: 'User-agent: *' }, identity);
     expect(partial).toMatchObject({ robots: 'User-agent: *', allowlist: [], rules: BOT_RULES });
     const complete = { robots: '', allowlist: ['192.0.2.0/24'], rules: [customRule] };
-    expect(await saveSettings(id, complete, identity)).toEqual({
+    expect(await saveSettings(id, complete, identity)).toMatchObject({
       ...complete,
+      rules: [{ ...customRule, matchMode: 'literal' }],
       isDemo: false,
       aiCrawlerEnabled: true,
       logsConfigured: false,
     });
+  });
+
+  it('saves unrelated preferences without freezing the official catalog and rejects stale conversion', async () => {
+    await saveSettings(id, { robots: 'User-agent: *' }, identity);
+    expect(mocks.settings.rules).toBeNull();
+    expect((await getSettings(id)).crawlerRules.mode).toBe('official');
+    expect((await getSettings(id)).rules).toEqual(BOT_RULES);
+    await saveSettings(id, { rules: [customRule] }, identity);
+    expect((await getSettings(id)).rulesRevision).toBe(1);
+    await expect(
+      saveSettings(
+        id,
+        { crawlerRules: { mode: 'official' }, expectedRulesRevision: 0, conversionConfirmed: true },
+        identity,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+    await expect(
+      saveSettings(id, { crawlerRules: { mode: 'official' }, expectedRulesRevision: 1 }, identity),
+    ).rejects.toMatchObject({ status: 409 });
+    await saveSettings(
+      id,
+      { crawlerRules: { mode: 'official' }, expectedRulesRevision: 1, conversionConfirmed: true },
+      identity,
+    );
+    expect((await getSettings(id)).rules).toEqual(BOT_RULES);
+    expect((await getSettings(id)).rulesRevision).toBe(2);
   });
 
   it('requires a known field and rejects unknown, protected or invalid fields before writing', async () => {

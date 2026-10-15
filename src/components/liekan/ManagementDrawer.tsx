@@ -5,12 +5,12 @@ import { fromZonedTime } from 'date-fns-tz';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useApi } from '@/lib/liekan/upstream/client';
 import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
-import {
-  managementLabels,
-  parseEditableAllowlist,
-  parseEditableRules,
-} from '@/lib/liekan/contracts/management';
-import { BotRulesEditor } from './features/BotRulesEditor';
+import { managementLabels, parseEditableAllowlist } from '@/lib/liekan/contracts/management';
+import { CrawlerCandidatesPanel } from './features/CrawlerCandidatesPanel';
+import { CrawlerRulesEditor } from './features/CrawlerRulesEditor';
+import { parseRuleEditorDraft, ruleEditorConfiguration } from '@/lib/liekan/rules/editor';
+import type { CrawlerRuleConfiguration } from '@/lib/liekan/rules/configuration';
+import type { BotRule } from '@/lib/liekan/rules/bots';
 import { Button, DialogActions, LiekanDialog } from './features/ui';
 import { useDialog } from './features/LiekanDialog';
 import styles from '@/styles/liekan/Shell.module.css';
@@ -18,7 +18,14 @@ import { columns, downloadFile, formatMetricValue, formatValue, stateLabels } fr
 import { ReportRows, SortHeading } from './ReportComponents';
 import type { LiekanReport } from './types';
 
-type Settings = { robots: string; allowlist: string[]; rules: unknown[] };
+type Settings = {
+  robots: string;
+  allowlist: string[];
+  rules: BotRule[];
+  crawlerRules?: CrawlerRuleConfiguration;
+  rulesRevision?: number;
+  classificationVersion?: string;
+};
 type ImportError = { line: number; reason: string };
 type LogImportResult = {
   accepted: number;
@@ -87,6 +94,7 @@ export function ManagementDrawer({
   const [format, setFormat] = useState(action === 'sitemap 管理' ? 'sitemap' : 'combined');
   const [settings, setSettings] = useState<Settings>(null);
   const [status, setStatus] = useState('');
+  const [conversionConfirmed, setConversionConfirmed] = useState(false);
   const [failed, setFailed] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [loadVersion, setLoadVersion] = useState(0);
@@ -149,12 +157,13 @@ export function ManagementDrawer({
       .then((data: Settings) => {
         if (!alive) return;
         setSettings(data);
+        setConversionConfirmed(false);
         setContent(
           action === 'robots.txt 编辑'
             ? data.robots
             : action === '蜘蛛白名单'
               ? data.allowlist.join('\n')
-              : JSON.stringify(data.rules, null, 2),
+              : JSON.stringify(ruleEditorConfiguration(data), null, 2),
         );
         setDirty(false);
       })
@@ -207,7 +216,10 @@ export function ManagementDrawer({
     try {
       if (settingsAction) {
         if (!settings) throw new Error('请先读取设置');
-        let patch: Partial<Settings>;
+        let patch: Partial<Settings> & {
+          expectedRulesRevision?: number;
+          conversionConfirmed?: boolean;
+        };
         if (action === 'robots.txt 编辑') {
           if (content.length > 50000)
             throw new Error('robots.txt 最多 50,000 个字符，请缩减内容后保存。');
@@ -217,17 +229,22 @@ export function ManagementDrawer({
             allowlist: parseEditableAllowlist(content),
           };
         else {
-          const rules = parseEditableRules(content);
-          patch = { rules };
+          const crawlerRules = parseRuleEditorDraft(content);
+          patch = {
+            crawlerRules,
+            expectedRulesRevision: settings.rulesRevision ?? 0,
+            ...(conversionConfirmed ? { conversionConfirmed: true } : {}),
+          };
         }
         const saved: Settings = await api.put(`/liekan/websites/${websiteId}/settings`, patch);
         setSettings(saved);
+        setConversionConfirmed(false);
         setContent(
           action === 'robots.txt 编辑'
             ? saved.robots
             : action === '蜘蛛白名单'
               ? saved.allowlist.join('\n')
-              : JSON.stringify(saved.rules, null, 2),
+              : JSON.stringify(ruleEditorConfiguration(saved), null, 2),
         );
         setStatus(
           action === 'robots.txt 编辑'
@@ -473,14 +490,14 @@ export function ManagementDrawer({
                 >
                   <option value="全部">{i18n.text('全部')}</option>
                   <option value="仅 AI 蜘蛛">{i18n.text('仅 AI 蜘蛛')}</option>
-                  <option value="仅人类">{i18n.text('仅人类')}</option>
+                  <option value="未知／未分类">{i18n.text('未知／未分类')}</option>
                   <option value="仅异常">{i18n.text('仅异常')}</option>
                 </select>
               </label>
             </div>
             <p className={styles.help}>
               {i18n.text(
-                '查询当前统计期间的已导入脱敏记录。“仅人类”显示未识别或其他请求，日志无法据此确认人类身份。',
+                '查询当前统计期间的已导入脱敏记录。“未知／未分类”显示未识别或存在多候选身份的请求。',
               )}
             </p>
             {report && (
@@ -564,46 +581,59 @@ export function ManagementDrawer({
                     </label>
                   </div>
                 )}
-                <label>
-                  {i18n.fragment('选择本地文件', false, true)}
-                  <input
-                    type="file"
-                    accept={
-                      isCatalog
-                        ? '.xml,.csv,.json'
-                        : isRules
-                          ? '.json'
-                          : settingsAction
-                            ? '.txt'
-                            : '.txt,.log,.json'
-                    }
-                    disabled={busy || !canManage}
-                    onChange={async e => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      try {
-                        if (!settingsAction && file.size > 10 * 1024 * 1024)
-                          throw new Error('文件超过 10 MiB，请拆分后导入。');
-                        setContent(await file.text());
-                        setDirty(true);
-                      } catch (error) {
-                        setFailed(true);
-                        setStatus(
-                          error instanceof Error ? error.message : '无法读取文件，请重新选择。',
-                        );
+                {(!isRules ||
+                  (!conversionConfirmed &&
+                    settings &&
+                    ruleEditorConfiguration(settings).mode === 'legacy')) && (
+                  <label>
+                    {i18n.fragment('选择本地文件', false, true)}
+                    <input
+                      type="file"
+                      accept={
+                        isCatalog
+                          ? '.xml,.csv,.json'
+                          : isRules
+                            ? '.json'
+                            : settingsAction
+                              ? '.txt'
+                              : '.txt,.log,.json'
                       }
-                    }}
-                  />
-                </label>
+                      disabled={busy || !canManage}
+                      onChange={async e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          if (!settingsAction && file.size > 10 * 1024 * 1024)
+                            throw new Error('文件超过 10 MiB，请拆分后导入。');
+                          const fileContent = await file.text();
+                          setContent(
+                            isRules ? `{"mode":"legacy","rules":${fileContent}}` : fileContent,
+                          );
+                          if (isRules) setConversionConfirmed(false);
+                          setDirty(true);
+                        } catch (error) {
+                          setFailed(true);
+                          setStatus(
+                            error instanceof Error ? error.message : '无法读取文件，请重新选择。',
+                          );
+                        }
+                      }}
+                    />
+                  </label>
+                )}
                 {isRules ? (
-                  <BotRulesEditor
-                    content={content}
-                    disabled={!canManage || busy || !settings}
-                    onChange={value => {
-                      setContent(value);
-                      setDirty(true);
-                    }}
-                  />
+                  <>
+                    <CrawlerRulesEditor
+                      content={content}
+                      onConversionConfirmed={() => setConversionConfirmed(true)}
+                      disabled={!canManage || busy || !settings}
+                      onChange={value => {
+                        setContent(value);
+                        setDirty(true);
+                      }}
+                    />
+                    <CrawlerCandidatesPanel websiteId={websiteId} />
+                  </>
                 ) : (
                   <label>
                     {action === 'robots.txt 编辑'
@@ -648,9 +678,9 @@ export function ManagementDrawer({
                   </>
                 ) : isRules ? (
                   <>
-                    <p>{i18n.text('设置蜘蛛名称、厂商、类型与 User-Agent 匹配词。')}</p>
-                    <p>{i18n.text('按条目顺序进行文本包含匹配，忽略大小写。')}</p>
-                    <p>{i18n.text('规则用于后续日志识别。高级 JSON 编辑保留原有字段。')}</p>
+                    <p>{i18n.text('官方目录随版本维护，规则用于后续日志识别。')}</p>
+                    <p>{i18n.text('旧版规则保留顺序与匹配行为，转换需要预览并确认。')}</p>
+                    <p>{i18n.text('规则版本：{v0}', [settings?.rulesRevision ?? 0])}</p>
                   </>
                 ) : isCatalog ? (
                   <>

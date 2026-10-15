@@ -1,35 +1,21 @@
 import { z } from 'zod';
 
-export const crawlerHttpBotIds = [
-  'gptbot',
-  'oai-searchbot',
-  'chatgpt-user',
-  'claudebot',
-  'claude-searchbot',
-  'claude-user',
-  'perplexitybot',
-  'perplexity-user',
-  'bytespider',
-  'googlebot',
-  'baiduspider',
-  'bingbot',
-  'applebot',
-] as const;
-export const crawlerBotIds = [...crawlerHttpBotIds, 'google-extended'] as const;
-export const crawlerPlatformIds = [
-  'openai',
-  'anthropic',
-  'perplexity',
-  'bytedance',
-  'google',
-  'baidu',
-  'microsoft',
-  'apple',
-] as const;
-export type CrawlerHttpBotId = (typeof crawlerHttpBotIds)[number];
-export type CrawlerBotId = (typeof crawlerBotIds)[number];
-export type CrawlerPlatformId = (typeof crawlerPlatformIds)[number];
-export type CrawlerType = 'training' | 'search' | 'user' | 'traditional_search';
+import { crawlerControllableBotIds } from '../crawlers/registry';
+
+export {
+  type CrawlerBotId,
+  type CrawlerHttpBotId,
+  type CrawlerPlatformId,
+  type CrawlerType,
+  crawlerBotIds,
+  crawlerControllableBotIds,
+  crawlerHttpBotIds,
+  crawlerPlatformIds,
+  crawlerRobotsBotIds,
+} from '../crawlers/registry';
+
+import type { CrawlerBotId, CrawlerPlatformId, CrawlerType } from '../crawlers/registry';
+
 export type CrawlerIdentity = 'declared_ua' | 'verified_range' | 'range_mismatch' | 'unverified';
 export const CRAWLER_MAX_LOCAL_DRAFTS = 20;
 
@@ -65,7 +51,7 @@ const policyFields = {
     .max(80)
     .refine(value => !crawlerHasControlCharacters(value), 'Invalid policy name'),
   botIds: z
-    .array(z.enum(crawlerHttpBotIds))
+    .array(z.enum(crawlerControllableBotIds))
     .min(1)
     .max(10)
     .refine(values => new Set(values).size === values.length, 'Duplicate crawler'),

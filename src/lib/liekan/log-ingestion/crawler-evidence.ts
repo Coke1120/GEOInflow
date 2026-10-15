@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { BotRule } from '../rules/bots';
-import { classifyBot } from '../rules/bots';
+import { classifyBot, MATCHER_VERSION } from '../rules/bots';
 import { crawlerIdForRule } from '../crawlers/directory';
 
 const ruleId = z.string().regex(/^[a-f0-9]{32}$/i);
@@ -22,10 +22,30 @@ const evidenceSchema = z.object({
 });
 export type CrawlerLogEvidence = z.infer<typeof evidenceSchema>;
 export function crawlerClassificationVersion(rules: BotRule[]) {
-  const ordered = rules.map(({ name, vendor, type, pattern }) => ({ name, vendor, type, pattern }));
+  const ordered = rules.map(rule => ({
+    name: rule.name,
+    vendor: rule.vendor,
+    type: rule.type,
+    pattern: rule.pattern,
+    matchMode: rule.matchMode ?? 'literal',
+    crawlerId: crawlerIdForRule(rule),
+    aiEligible: rule.aiEligible ?? ['训练', '搜索', '用户触发'].includes(rule.type),
+  }));
   return createHash('sha256')
-    .update(JSON.stringify({ directory: 1, rules: ordered }))
+    .update(JSON.stringify({ matcher: MATCHER_VERSION, rules: ordered }))
     .digest('hex');
+}
+export async function archiveCrawlerRules(tx: any, websiteId: string, rules: BotRule[]) {
+  const version = crawlerClassificationVersion(rules);
+  await tx.$executeRawUnsafe(
+    `INSERT INTO liekan_crawler_rule_version(website_id,version,matcher_version,rules)
+     VALUES($1::uuid,$2,$3,$4::jsonb) ON CONFLICT(website_id,version) DO NOTHING`,
+    websiteId,
+    version,
+    MATCHER_VERSION,
+    JSON.stringify(rules),
+  );
+  return version;
 }
 export function crawlerIdentityId(userAgent: string, rules: BotRule[]) {
   return crawlerIdForRule(classifyBot(userAgent, rules));
@@ -61,11 +81,13 @@ export async function persistCrawlerEvidence(
     crawlerId: row.crawlerId ?? null,
     ...(row.crawlerEvidence ?? {}),
   }));
+  // Keep the indexed event lookup batch-bounded while enforcing import ownership.
   await tx.$executeRawUnsafe(
     `INSERT INTO liekan_crawler_evidence(website_id,log_id,classification_version,crawler_id,security_action,terminating_rule_id,matched_rule_ids,cache_status,duration_ms)
      SELECT $1::uuid,r.id,r."classificationVersion",r."crawlerId",r."securityAction",r."terminatingRuleId",r."matchedRuleIds",r."cacheStatus",r."durationMs"
      FROM jsonb_to_recordset($3::jsonb) AS r(id text,"classificationVersion" text,"crawlerId" text,"securityAction" text,"terminatingRuleId" text,"matchedRuleIds" jsonb,"cacheStatus" text,"durationMs" double precision)
-     JOIN liekan_log l ON l.website_id=$1::uuid AND l.id=r.id AND l.import_id=$2::uuid
+     JOIN LATERAL (SELECT 1 FROM liekan_log l
+       WHERE l.website_id=$1::uuid AND l.id=r.id AND l.import_id=$2::uuid OFFSET 0) l ON true
      ON CONFLICT(website_id,log_id) DO NOTHING`,
     websiteId,
     importId,

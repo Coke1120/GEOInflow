@@ -1,4 +1,5 @@
-import snapshots from '../../../../config/liekan/bot-ranges.json';
+import baselines from '../../../../config/liekan/crawler-range-baselines.json';
+import { rangeSources } from '../crawlers/range-sources';
 import { projectArticles } from '../contracts/product';
 import { BOT_RULES, classifyBot } from '../rules/bots';
 import { helpGuides } from './articles';
@@ -9,7 +10,7 @@ import { type Crawler, type HelpArticle, helpSections } from './types';
 
 export { helpCrawlers, helpSections };
 export const helpArticles: HelpArticle[] = [...helpGuides, ...helpMetrics, ...projectArticles];
-export const helpIdentityCount = Object.keys(snapshots).length;
+export const helpIdentityCount = new Set(rangeSources.flatMap(source => source.names)).size;
 export const helpRuleCount = BOT_RULES.length;
 export type PublicRangeSnapshot = {
   source: string;
@@ -17,7 +18,22 @@ export type PublicRangeSnapshot = {
   publishedAt?: string;
   prefixes: string[];
 };
-const publicRanges: Record<string, PublicRangeSnapshot> = snapshots;
+const publicRanges: Record<string, PublicRangeSnapshot> = Object.fromEntries(
+  rangeSources.flatMap(source => {
+    const baseline = baselines[source.id];
+    return baseline
+      ? source.names.map(name => [
+          name,
+          {
+            source: source.url,
+            retrievedAt: baseline.observedAt,
+            publishedAt: baseline.publishedAt,
+            prefixes: baseline.prefixes,
+          },
+        ])
+      : [];
+  }),
+);
 
 export function crawlerCapabilities(crawler: Crawler) {
   const classified =
@@ -28,7 +44,9 @@ export function crawlerCapabilities(crawler: Crawler) {
   return { rule, ip: !!(rule && publicRanges[rule.name]) };
 }
 export function crawlerSnapshot(crawler: Crawler): PublicRangeSnapshot | undefined {
-  // A vendor-wide list is not automatically evidence for every crawler at that vendor.
+  if (crawler.kind === 'control') return;
+  if (publicRanges[crawler.name]) return publicRanges[crawler.name];
+  // Reference-only feeds remain separate from active identity verification.
   return crawler.feeds
     .map(feed =>
       [...Object.values(publicRanges), ...helpRanges].find(range => range.source === feed.url),
@@ -38,7 +56,7 @@ export function crawlerSnapshot(crawler: Crawler): PublicRangeSnapshot | undefin
 export function snapshotState(range: PublicRangeSnapshot | undefined, now: number = Date.now()) {
   if (!range) return 'missing';
   const date = Date.parse(range.retrievedAt);
-  return Number.isFinite(date) && Math.abs(now - date) <= 7 * 86400000 ? 'fresh' : 'stale';
+  return Number.isFinite(date) && date <= now && now - date <= 7 * 86400000 ? 'fresh' : 'stale';
 }
 export function searchText(query: string, fields: string[]) {
   const terms = query
@@ -100,7 +118,7 @@ export function searchCrawlers(
   );
 }
 export function crawlerRobotsDraft(crawler: Crawler): string | undefined {
-  if (crawler.evidence === 'pending' || !crawler.robotsToken) return;
+  if (crawler.evidence !== 'operator' || !crawler.robotsToken) return;
   return `# Configuration draft: review purpose and merge existing rules\n# ${crawler.name} | reviewed ${crawler.reviewedAt}\nUser-agent: ${crawler.robotsToken}\nDisallow: /\n`;
 }
 export function helpLocation(query: Record<string, string>) {

@@ -14,6 +14,39 @@ afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
 });
+it.each(['FixtureBot', 'GPTBot'])(
+  'opens unmapped %s with its own metrics and no default official identity',
+  async name => {
+    mocks.request.mockResolvedValue({
+      quality: { state: 'unknown' },
+      directory: crawlerDirectory,
+      bots: [
+        { botId: null, name, requests: 7 },
+        { botId: 'gptbot', name: 'GPTBot', requests: 999 },
+      ],
+      pages: [],
+      platforms: [],
+      previous: { bots: [{ botId: null, name, requests: 3 }], platforms: [] },
+      findings: [],
+      criticalPaths: [],
+      analysis: null,
+      range: { timezone: 'UTC' },
+      permissions: { canDraft: false, canControl: false },
+    });
+    render(
+      <CrawlerDialog
+        websiteId="12345678-1234-4234-8234-123456789012"
+        botName={name}
+        onClose={() => {}}
+        controlPanel={() => null}
+      />,
+    );
+    expect(await screen.findByText('7 / 3')).toBeVisible();
+    expect(screen.getByLabelText('蜘蛛')).toHaveValue(`custom:${name}`);
+    expect(screen.queryByText('999 / 0')).not.toBeInTheDocument();
+    expect(screen.queryByText('查看供应商说明')).not.toBeInTheDocument();
+  },
+);
 it.each([401, 403, 404])(
   'clears analysis and draft controls after reload status %s',
   async status => {
@@ -143,3 +176,35 @@ it('displays and downloads the dry-run limiter selected in the export form', asy
   expect(call[2].policy.action).toBe('observe');
   expect(call[2].rateLimit.dryRun).toBe(true);
 });
+it.each(['gptbot', null])(
+  'respects explicit identity %s for same-name official and custom rows',
+  async selectedIdentity => {
+    mocks.request.mockResolvedValue({
+      quality: { state: 'unknown' },
+      directory: crawlerDirectory,
+      bots: [
+        { botId: null, name: 'GPTBot', requests: 7 },
+        { botId: 'gptbot', name: 'GPTBot', requests: 999 },
+      ],
+      pages: [],
+      platforms: [],
+      previous: { bots: [], platforms: [] },
+      findings: [],
+      criticalPaths: [],
+      analysis: null,
+      range: { timezone: 'UTC' },
+      permissions: { canDraft: false, canControl: false },
+    });
+    render(
+      <CrawlerDialog
+        websiteId="12345678-1234-4234-8234-123456789012"
+        botName="GPTBot"
+        selectedIdentity={selectedIdentity}
+        onClose={() => {}}
+        controlPanel={() => null}
+      />,
+    );
+    expect(await screen.findByText(selectedIdentity ? '999 / 0' : '7 / 0')).toBeVisible();
+    expect(screen.getByLabelText('蜘蛛')).toHaveValue(selectedIdentity ?? 'custom:GPTBot');
+  },
+);

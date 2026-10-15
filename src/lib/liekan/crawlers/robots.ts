@@ -1,18 +1,27 @@
 import { z } from 'zod';
 import {
-  crawlerBotIds,
   crawlerHasControlCharacters,
   crawlerPathSchema,
+  crawlerRobotsBotIds,
 } from '../contracts/crawlers';
 import { getCrawler } from './directory';
 
 export const ROBOTS_MAX_BYTES = 256 * 1024;
 export const ROBOTS_PARSE_MAX_BYTES = 512 * 1024;
+// Some reviewed providers use digits or spaces outside RFC 9309's product-token grammar.
+const reviewedRobotsTokens = new Set(
+  crawlerRobotsBotIds.map(id => getCrawler(id).robotsToken.toLowerCase()),
+);
 const productToken = z
   .string()
   .min(1)
   .max(80)
-  .regex(/^(?:[a-z_-]+|\*)$/i);
+  .refine(
+    value =>
+      !crawlerHasControlCharacters(value) &&
+      (/^(?:[a-z_-]+|\*)$/i.test(value) || reviewedRobotsTokens.has(value.toLowerCase())),
+    'Invalid robots user-agent token',
+  );
 const robotsPath = z
   .string()
   .max(8192)
@@ -205,7 +214,7 @@ export function checkRobotsAccess(
 
 export const crawlerRobotsPolicySchema = z.strictObject({
   botIds: z
-    .array(z.enum(crawlerBotIds))
+    .array(z.enum(crawlerRobotsBotIds))
     .min(1)
     .max(10)
     .refine(ids => new Set(ids).size === ids.length),

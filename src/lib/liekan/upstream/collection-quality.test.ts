@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { VerificationSnapshots } from '../rules/verify';
+import { bundledVerificationSnapshots, type VerificationSnapshots } from '../rules/verify';
 import { getIpAddress } from '@/lib/ip';
 import {
   COLLECTION_RULE_VERSION,
@@ -309,4 +309,32 @@ it('configured ingress supplies independent range evidence when a public overrid
   expect(
     classifyCollection(input({ request: fallback, payload: { ip: '192.0.2.1' } })).rangeStatus,
   ).toBe('untrusted');
+});
+
+it('keeps crawler-only feeds outside the browser trust policy and its health diagnostics', () => {
+  const current = new Date('2026-10-15T02:00:00Z');
+  const original = Object.fromEntries(
+    Object.entries(bundledVerificationSnapshots).filter(([name]) =>
+      [
+        'GPTBot',
+        'OAI-SearchBot',
+        'ChatGPT-User',
+        'PerplexityBot',
+        'Perplexity-User',
+        'Googlebot',
+      ].includes(name),
+    ),
+  );
+  const selected = input({ authenticated: true, ip: '8.8.8.8', now: current, snapshots: original });
+  const result = classifyCollection(selected);
+  expect(result.rangeStatus).toBe('fresh');
+  expect(classifyCollection({ ...selected, snapshots: bundledVerificationSnapshots })).toEqual(
+    result,
+  );
+  expect(
+    classifyCollection({
+      ...selected,
+      snapshots: { ClaudeBot: bundledVerificationSnapshots.ClaudeBot },
+    }),
+  ).toMatchObject({ classification: 'browser', rangeStatus: 'missing' });
 });

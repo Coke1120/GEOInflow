@@ -26,8 +26,9 @@ const base = { label: text, state: dataStateSchema };
 const top = { total: count, omitted: count, truncated: z.boolean() };
 const botRow = z.object({
   name: text,
+  botId: z.string().max(80).nullable().optional(),
   vendor: text,
-  class: z.enum(['训练', '搜索', '用户触发']),
+  class: z.enum(['训练', '搜索', '用户触发', '传统搜索', '其他']),
   verification: z.enum(['verified_range', 'range_mismatch', 'unverified']),
   requests: count,
   previousRequests: count,
@@ -62,9 +63,10 @@ export const aiFactSchema = z.discriminatedUnion('id', [
       previousRequests: count.nullable(),
       changePercent: ratio,
       rows: z.array(botRow).max(20),
-      scope: z.literal(
+      scope: z.enum([
         'AI classes: 训练, 搜索, 用户触发; UA classification with verification states',
-      ),
+        'AI-qualified requests at ingestion; legacy recorded-type fallback; declared UA with separate verification',
+      ]),
     }),
   }),
   z.object({

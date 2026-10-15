@@ -51,6 +51,7 @@ export function BotRulesEditor({
         <label className="field">
           <span>{i18n.text('规则 JSON')}</span>
           <textarea
+            aria-label={i18n.text('规则 JSON')}
             value={content}
             onChange={e => onChange(e.target.value)}
             disabled={disabled}

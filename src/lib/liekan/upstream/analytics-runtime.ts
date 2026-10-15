@@ -192,7 +192,8 @@ export function installAnalyticsRuntime(
         async (transaction: any) => {
           const tx = timedAnalyticsClient(transaction, computeDeadline);
           await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
-          if (JSON.stringify(await readAnalyticsVersions(tx, tags)) !== JSON.stringify(expected))
+          // Ingestion can advance before snapshot acquisition; the result freshness check handles it.
+          if ((await readAnalyticsVersions(tx, tags)).strong !== expected.strong)
             throw new RevisionChanged();
           return withinQuerySnapshot(tx, load);
         },

@@ -47,11 +47,22 @@ try {
       retryLimit: 12,
       retryDelay: 5,
       retryBackoff: true,
-      expireInSeconds: 120,
+      expireInSeconds: name === 'liekan-range-refresh' ? 600 : 120,
       retentionSeconds: 7 * 86400,
       deadLetter: 'liekan-dead-letter',
     });
   }
+  // Match worker send options and update existing queues when upgrading.
+  const sourceRetry = { retryLimit: 6, retryDelay: 30, retryBackoff: true };
+  await boss.updateQueue('liekan-range-refresh', { expireInSeconds: 600, ...sourceRetry });
+  await boss.createQueue('liekan-crawler-documents', {
+    policy: 'short',
+    ...sourceRetry,
+    expireInSeconds: 900,
+    retentionSeconds: 7 * 86400,
+    deadLetter: 'liekan-dead-letter',
+  });
+  await boss.updateQueue('liekan-crawler-documents', { expireInSeconds: 900, ...sourceRetry });
   for (const name of [
     'liekan-browser-risk',
     'liekan-crawler-analysis',
