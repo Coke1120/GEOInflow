@@ -410,3 +410,30 @@ export async function mapFeatureRows<T, R>(
     results.push(...(await Promise.all(items.slice(index, index + 4).map(load))));
   return results;
 }
+
+/** Private evidence exports use the same session token as other feature requests. */
+export async function downloadTrafficEvidence(
+  path: string,
+  body: Record<string, unknown>,
+  signal?: AbortSignal,
+) {
+  const response = await fetch(new URL(getApiUrl(path), window.location.origin), {
+    method: 'POST',
+    cache: 'no-store',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      authorization: `Bearer ${getClientAuthToken() || ''}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new FeatureApiError(data?.error?.message || '导出失败', response.status);
+  }
+  return {
+    csv: await response.text(),
+    readAt: response.headers.get('X-Liekan-Export-Read-At'),
+    changed: response.headers.get('X-Liekan-Export-Changed'),
+  };
+}

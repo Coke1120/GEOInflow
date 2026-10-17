@@ -1,3 +1,5 @@
+import { edgeObservation, type EdgeObservation } from './edge-observation';
+import { logMeasurementSchema, type LogMeasurement } from './measurement';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { BotRule } from '../rules/bots';
@@ -20,7 +22,9 @@ const evidenceSchema = z.object({
     .nullable(),
   durationMs: z.number().min(0).max(600000).nullable(),
 });
-export type CrawlerLogEvidence = z.infer<typeof evidenceSchema>;
+export type CrawlerLogEvidence = z.infer<typeof evidenceSchema> & {
+  edgeObservation?: EdgeObservation;
+};
 export function crawlerClassificationVersion(rules: BotRule[]) {
   const ordered = rules.map(rule => ({
     name: rule.name,
@@ -51,17 +55,21 @@ export function crawlerIdentityId(userAgent: string, rules: BotRule[]) {
   return crawlerIdForRule(classifyBot(userAgent, rules));
 }
 export function cloudflareCrawlerEvidence(raw: Record<string, unknown>): CrawlerLogEvidence | null {
-  const start =
-    typeof raw.EdgeStartTimestamp === 'string' ? Date.parse(raw.EdgeStartTimestamp) : NaN;
-  const end = typeof raw.EdgeEndTimestamp === 'string' ? Date.parse(raw.EdgeEndTimestamp) : NaN;
-  const result = evidenceSchema.safeParse({
+  const optional = edgeObservation(raw);
+  const values = {
     securityAction: raw.SecurityAction ?? null,
     terminatingRuleId: raw.SecurityRuleID || null,
     matchedRuleIds: raw.SecurityRuleIDs ?? null,
     cacheStatus: raw.CacheCacheStatus ?? null,
-    durationMs: Number.isFinite(start) && Number.isFinite(end) ? end - start : null,
-  });
-  return result.success ? result.data : null;
+    durationMs: optional.fields.edgeDurationMs.value,
+  };
+  const parsed = Object.fromEntries(
+    Object.entries(evidenceSchema.shape).map(([key, schema]) => {
+      const result = schema.safeParse(values[key]);
+      return [key, result.success ? result.data : null];
+    }),
+  ) as z.infer<typeof evidenceSchema>;
+  return { ...parsed, edgeObservation: optional };
 }
 export async function persistCrawlerEvidence(
   tx: any,
@@ -69,6 +77,7 @@ export async function persistCrawlerEvidence(
   importId: string,
   records: Array<{
     id: string;
+    measurement?: LogMeasurement;
     classificationVersion?: string;
     crawlerId?: string | null;
     crawlerEvidence?: CrawlerLogEvidence | null;
@@ -79,13 +88,14 @@ export async function persistCrawlerEvidence(
     id: row.id,
     classificationVersion: row.classificationVersion ?? null,
     crawlerId: row.crawlerId ?? null,
+    measurement: row.measurement ? logMeasurementSchema.parse(row.measurement) : null,
     ...(row.crawlerEvidence ?? {}),
   }));
   // Keep the indexed event lookup batch-bounded while enforcing import ownership.
   await tx.$executeRawUnsafe(
-    `INSERT INTO liekan_crawler_evidence(website_id,log_id,classification_version,crawler_id,security_action,terminating_rule_id,matched_rule_ids,cache_status,duration_ms)
-     SELECT $1::uuid,r.id,r."classificationVersion",r."crawlerId",r."securityAction",r."terminatingRuleId",r."matchedRuleIds",r."cacheStatus",r."durationMs"
-     FROM jsonb_to_recordset($3::jsonb) AS r(id text,"classificationVersion" text,"crawlerId" text,"securityAction" text,"terminatingRuleId" text,"matchedRuleIds" jsonb,"cacheStatus" text,"durationMs" double precision)
+    `INSERT INTO liekan_crawler_evidence(website_id,log_id,classification_version,crawler_id,security_action,terminating_rule_id,matched_rule_ids,cache_status,duration_ms,measurement,edge_observation)
+     SELECT $1::uuid,r.id,r."classificationVersion",r."crawlerId",r."securityAction",r."terminatingRuleId",r."matchedRuleIds",r."cacheStatus",r."durationMs",r.measurement,r."edgeObservation"
+     FROM jsonb_to_recordset($3::jsonb) AS r(id text,"classificationVersion" text,"crawlerId" text,"securityAction" text,"terminatingRuleId" text,"matchedRuleIds" jsonb,"cacheStatus" text,"durationMs" double precision,measurement jsonb,"edgeObservation" jsonb)
      JOIN LATERAL (SELECT 1 FROM liekan_log l
        WHERE l.website_id=$1::uuid AND l.id=r.id AND l.import_id=$2::uuid OFFSET 0) l ON true
      ON CONFLICT(website_id,log_id) DO NOTHING`,

@@ -34,7 +34,10 @@ export async function authenticateCrawler(request: Request): Promise<CrawlerActo
       if (origin !== expected) throw new LiekanError('写入请求来源无效', 403);
     }
   }
-  if (request.method === 'GET' && new URL(request.url).pathname.endsWith('/crawler-analysis'))
+  if (
+    request.method === 'GET' &&
+    /\/(crawler-analysis|traffic-quality|crawler-context)(\/|$)/.test(new URL(request.url).pathname)
+  )
     bindCacheRequest(request, auth, undefined, async () => {
       const current = await checkAuth(request);
       return (

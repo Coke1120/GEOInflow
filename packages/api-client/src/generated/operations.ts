@@ -1126,6 +1126,8 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/page-report',
     pathParams: ['websiteId'],
     queryParams: [
+      'crawlerIdentityScope',
+      'crawlerMetricsVersion',
       'refresh',
       'resource',
       'startAt',
@@ -1155,6 +1157,8 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/report',
     pathParams: ['websiteId'],
     queryParams: [
+      'crawlerIdentityScope',
+      'crawlerMetricsVersion',
       'refresh',
       'resource',
       'startAt',

@@ -4,6 +4,7 @@ import { randomInt } from 'node:crypto';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import prisma, { getRawQueryClient, getSchema } from '@/lib/prisma';
 import type { CollectionQuality } from './collection-quality';
+import type { CollectionObservation } from './collection-observation';
 import { processSingleton } from './process-singleton';
 
 export interface CollectionWriteInput {
@@ -12,6 +13,7 @@ export interface CollectionWriteInput {
   fingerprint: string;
   quality?: CollectionQuality;
   geography?: GeographyEvidence;
+  observation?: CollectionObservation;
 }
 export type CollectionWriteResult<T> =
   | { status: 'written'; value: T }
@@ -108,6 +110,30 @@ export async function recordEventQuality(
       quality.hostname,
     );
   }
+  if (context.observation && quality && ['browser', 'legacy_override'].includes(quality.source)) {
+    const observation = context.observation;
+    const inserted = await tx.$executeRawUnsafe(
+      `INSERT INTO liekan_event_observation(event_id,website_id,epoch,version,event_at,received_at,features)
+       SELECT e.event_id,e.website_id,coalesce(s.epoch,1),$3,e.created_at,$4::timestamptz,$5::jsonb
+       FROM website_event e LEFT JOIN liekan_log_state s ON s.website_id=e.website_id
+       WHERE e.event_id=$1::uuid AND e.website_id=$2::uuid AND e.event_type=1`,
+      eventId,
+      websiteId,
+      observation.version,
+      observation.receivedAt,
+      JSON.stringify(observation.features),
+    );
+    if (inserted)
+      await tx.$executeRawUnsafe(
+        `INSERT INTO liekan_observation_state(website_id,epoch,first_received_at,last_received_at,last_version)
+       SELECT website_id,epoch,received_at,received_at,version FROM liekan_event_observation WHERE event_id=$1::uuid
+       ON CONFLICT(website_id) DO UPDATE SET
+       first_received_at=CASE WHEN liekan_observation_state.epoch=EXCLUDED.epoch THEN least(liekan_observation_state.first_received_at,EXCLUDED.first_received_at) ELSE EXCLUDED.first_received_at END,
+       last_received_at=greatest(liekan_observation_state.last_received_at,EXCLUDED.last_received_at),
+       last_version=EXCLUDED.last_version,epoch=EXCLUDED.epoch`,
+        eventId,
+      );
+  }
   if (context.eventId) {
     const updated = await tx.$executeRawUnsafe(
       `UPDATE liekan_collection_receipt SET event_id=$1::uuid
@@ -153,6 +179,11 @@ export async function withCollectionWrite<T>(
   const result = await primary.$transaction<CollectionWriteResult<T>>(
     async tx => {
       await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+      // Shared readers serialize with website reset/deletion while allowing parallel collection.
+      await tx.$queryRawUnsafe(
+        'SELECT website_id FROM website WHERE website_id=$1::uuid FOR SHARE',
+        input.websiteId,
+      );
       if (input.eventId) {
         const inserted = await tx.$queryRawUnsafe<{ client_event_id: string }[]>(
           `INSERT INTO liekan_collection_receipt(website_id,client_event_id,payload_hash)

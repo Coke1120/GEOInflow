@@ -54,6 +54,7 @@ export interface CrawlerStoredFinding {
   lastSeenAt: string;
   windowEnd: string;
   occurrenceWindows: number;
+  workflow?: { state: string; snoozedUntil: string | null };
 }
 export interface CrawlerAnalysisResponse {
   range: { startAt: number; endAt: number; timezone: string };

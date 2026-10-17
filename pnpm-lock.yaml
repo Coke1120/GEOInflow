@@ -147,6 +147,9 @@ importers:
       '@dicebear/core':
         specifier: ^9.4.3
         version: 9.4.3
+      '@noble/hashes':
+        specifier: 2.2.0
+        version: 2.2.0
       '@playwright/test':
         specifier: ^1.63.0
         version: 1.63.0

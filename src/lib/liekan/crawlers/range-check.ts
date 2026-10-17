@@ -320,7 +320,7 @@ function compare(previous: RangeContent, next: RangeContent) {
 function validator(value: string | null | undefined): string | null {
   return typeof value === 'string' && /^[\x20-\x7e]{1,1024}$/.test(value) ? value : null;
 }
-async function readBody(response: Response, signal: AbortSignal): Promise<unknown> {
+async function readBody(response: Response, signal: AbortSignal): Promise<string> {
   if (Number(response.headers.get('content-length')) > MAX_BYTES) return fail('response_too_large');
   if (!response.body) return fail('invalid_json');
   const reader = response.body.getReader();
@@ -340,17 +340,16 @@ async function readBody(response: Response, signal: AbortSignal): Promise<unknow
       if (size > MAX_BYTES) return fail('response_too_large');
       chunks.push(value);
     }
-    try {
-      return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    } catch {
-      return fail('invalid_json');
-    }
+    return Buffer.concat(chunks).toString('utf8');
   } finally {
     signal.removeEventListener('abort', cancel);
     cancel();
   }
 }
-function parseFeed(data: unknown): { prefixes: string[]; publishedAt: string | null } {
+function parseFeed(
+  data: unknown,
+  bareAddresses = false,
+): { prefixes: string[]; publishedAt: string | null } {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return fail('invalid_shape');
   const feed = data as { prefixes?: unknown; creationTime?: unknown };
   if (!Array.isArray(feed.prefixes)) return fail('invalid_shape');
@@ -359,13 +358,69 @@ function parseFeed(data: unknown): { prefixes: string[]; publishedAt: string | n
   const prefixes = feed.prefixes.map(row => {
     if (!row || typeof row !== 'object' || Array.isArray(row)) return fail('invalid_shape');
     const keys = Object.keys(row);
-    if (keys.length !== 1 || !['ipv4Prefix', 'ipv6Prefix'].includes(keys[0]))
+    if (
+      keys.length !== 1 ||
+      !['ipv4Prefix', 'ipv6Prefix', ...(bareAddresses ? ['ip_prefix'] : [])].includes(keys[0])
+    )
       return fail('invalid_shape');
-    const network = publicNetwork(row[keys[0]]);
-    if ((keys[0] === 'ipv4Prefix') !== (network.family === 4)) return fail('invalid_shape');
+    const value = row[keys[0]];
+    const prefix =
+      bareAddresses && typeof value === 'string' && !value.includes('/')
+        ? `${value}/${value.includes(':') ? 128 : 32}`
+        : value;
+    const network = publicNetwork(prefix);
+    if (keys[0] !== 'ip_prefix' && (keys[0] === 'ipv4Prefix') !== (network.family === 4))
+      return fail('invalid_shape');
     return network.prefix;
   });
   return { prefixes, publishedAt: publication(feed.creationTime) };
+}
+
+/** Decode only inert code text. Never evaluate tags, scripts or attributes. */
+export function parseRangeFeed(source: RangeSource, text: string) {
+  if (!sameSource(source)) return fail('invalid_source');
+  if (Buffer.byteLength(text) > MAX_BYTES) return fail('response_too_large');
+  if (source.parserVersion !== 'amazon-code-json-v1') {
+    let data: unknown;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return fail('invalid_json');
+    }
+    return parseFeed(data);
+  }
+  const candidates: unknown[] = [];
+  for (const match of text.matchAll(/<code\b[^>]*>([\s\S]*?)<\/code\s*>/gi)) {
+    const block = match[1].replace(/<\/?span\b[^>]*>/gi, '');
+    if (/<[^>]*>/.test(block)) continue;
+    const decoded = block.replace(
+      /&(#x[0-9a-f]+|#\d+|quot|apos|amp|lt|gt|nbsp);/gi,
+      (entity, name: string) => {
+        if (name.startsWith('#')) {
+          const code =
+            name[1].toLowerCase() === 'x' ? parseInt(name.slice(2), 16) : Number(name.slice(1));
+          return code > 0 && code <= 0x10ffff && !(code >= 0xd800 && code <= 0xdfff)
+            ? String.fromCodePoint(code)
+            : entity;
+        }
+        return (
+          { quot: '"', apos: "'", amp: '&', lt: '<', gt: '>', nbsp: ' ' }[name.toLowerCase()] ??
+          entity
+        );
+      },
+    );
+    try {
+      const value = JSON.parse(decoded);
+      if (value && typeof value === 'object' && 'creationTime' in value && 'prefixes' in value)
+        candidates.push(value);
+    } catch {
+      /* Non-JSON documentation blocks are outside the feed. */
+    }
+  }
+  if (candidates.length !== 1) return fail('invalid_shape');
+  const feed = parseFeed(candidates[0], true);
+  if (!feed.publishedAt) return fail('invalid_timestamp');
+  return feed;
 }
 
 export async function checkRangeSource(
@@ -402,7 +457,10 @@ export async function checkRangeSource(
       controller.abort();
     }, TIMEOUT_MS);
   });
-  const headers: Record<string, string> = { 'User-Agent': USER_AGENT, Accept: 'application/json' };
+  const headers: Record<string, string> = {
+    'User-Agent': USER_AGENT,
+    Accept: source.parserVersion === 'amazon-code-json-v1' ? 'text/html' : 'application/json',
+  };
   const etag = validator(previous?.etag);
   const lastModified = validator(previous?.lastModified);
   if (etag) headers['If-None-Match'] = etag;
@@ -441,7 +499,7 @@ export async function checkRangeSource(
             crawlerIds: [...previous.content.crawlerIds],
           });
         } else {
-          const feed = parseFeed(await readBody(response, controller.signal));
+          const feed = parseRangeFeed(source, await readBody(response, controller.signal));
           content = contentFor(source, feed.prefixes, feed.publishedAt);
         }
         const finished = now().getTime();

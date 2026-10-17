@@ -1,3 +1,5 @@
+import { invalidateCrawlerWorkflowForRollback } from '../lib/liekan/upstream/workflow-retention';
+import { pruneTrafficObservations } from '../lib/liekan/upstream/observation-retention';
 import { maintainGeography } from '../lib/liekan/geography/update';
 import 'dotenv/config';
 import { processBrowserRisk } from '../lib/liekan/upstream/browser-risk';
@@ -99,6 +101,16 @@ async function reconcile() {
   }
 }
 async function main() {
+  if (process.argv.includes('--invalidate-crawler-workflow-once')) {
+    console.log(JSON.stringify(await invalidateCrawlerWorkflowForRollback()));
+    await prisma.client.$disconnect();
+    return;
+  }
+  if (process.argv.includes('--prune-traffic-observations-once')) {
+    console.log(JSON.stringify(await pruneTrafficObservations()));
+    await prisma.client.$disconnect();
+    return;
+  }
   if (process.argv.includes('--observe-browser-risk-once')) {
     await processBrowserRisk();
     await prisma.client.$disconnect();
@@ -320,6 +332,9 @@ async function main() {
     try {
       await cleanupExpiredAuthorizations(workerId);
       await maintainCrawlerRecords();
+      await pruneTrafficObservations().catch(() =>
+        console.error('traffic_observation_retention_failed'),
+      );
       await maintainGeography();
     } finally {
       cleaning = false;

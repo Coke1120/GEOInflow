@@ -82,6 +82,8 @@ export async function buildReport(
   canManage: boolean,
   input: unknown,
   pageOnly: boolean | 'share' = false,
+  fullTableExport = false,
+  comparisonBoundary?: [Date, string],
 ): Promise<LiekanReport> {
   const parsed = parseReportQuery(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
@@ -141,6 +143,9 @@ export async function buildReport(
       p.cursor,
       p.seek,
       parts?.logs,
+      p,
+      fullTableExport,
+      comparisonBoundary,
     ),
     getSettings(website.id),
     needed('overview', 'logs')
@@ -149,13 +154,13 @@ export async function buildReport(
     needed('overview', 'conversions')
       ? getHumanConversions(website.id, todayStart, new Date(), p.timezone)
       : Promise.resolve(0),
-    needed('content') ? getContentImpact(website.id, start, end) : Promise.resolve([]),
-    needed('ai/overview') ? getMonthlyAiShare(website.id, end, p.timezone) : Promise.resolve([]),
+    needed('content') ? getContentImpact(website.id, start, end, p) : Promise.resolve([]),
+    needed('ai/overview') ? getMonthlyAiShare(website.id, end, p.timezone, p) : Promise.resolve([]),
     needed('overview', 'human/overview')
       ? getHumanDays(website.id, plotStart, end, p.timezone, p.chartPeriod === '24h')
       : Promise.resolve([]),
     needed('overview', 'human/overview')
-      ? getPlotLogs(website.id, plotStart, end, p.timezone, p.chartPeriod === '24h')
+      ? getPlotLogs(website.id, plotStart, end, p.timezone, p.chartPeriod === '24h', p)
       : Promise.resolve([]),
   ]);
   const h = stringifySafe(rawHuman),
@@ -185,6 +190,16 @@ export async function buildReport(
       ...(!parts || parts.human?.includes('geo' as never)
         ? { geographyCoverage: geographyCoverage(h.geo, t.visits) }
         : {}),
+      crawlerMetrics: {
+        scope: p.crawlerIdentityScope,
+        version: p.crawlerMetricsVersion ?? null,
+        population: p.resource.startsWith('ai/')
+          ? 'ai_qualified'
+          : p.resource === 'logs'
+            ? 'raw_logs'
+            : 'recognized_crawlers',
+        timeBoundary: p.crawlerMetricsVersion === 1 ? 'half_open' : 'legacy_inclusive',
+      },
       demo: settings.isDemo,
       aiCrawlerEnabled: settings.aiCrawlerEnabled ?? true,
       logsConfigured: settings.logsConfigured ?? (!settings.isDemo && !!l.latest),
@@ -1050,6 +1065,6 @@ export async function buildReport(
   };
   if (Object.values(geography).some(entries => Object.keys(entries).length))
     r.meta.geography = geography;
-  capTablePages(r, p.tablePages, pageOnly === true);
+  if (!fullTableExport) capTablePages(r, p.tablePages, pageOnly === true);
   return r;
 }

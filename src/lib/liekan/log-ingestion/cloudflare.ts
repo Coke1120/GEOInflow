@@ -1,3 +1,4 @@
+import { EDGE_FIELDS } from './edge-observation';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import {
@@ -36,6 +37,7 @@ interface Provider extends Access {
   receiverOrigin?: string;
   receiverOrigins?: string[];
   crawlerFields?: string[];
+  fieldCapabilities?: Record<string, boolean>;
 }
 interface Flow {
   phase: 'pending' | 'exchanging' | 'authorized';
@@ -458,6 +460,31 @@ export function logpushConfiguration(source: LogSource, config: Provider, epoch:
     max_upload_records: 1000,
   };
 }
+export function observedLogpushMeasurement(
+  job: any,
+  definition: ReturnType<typeof logpushConfiguration>,
+) {
+  // A successful read of the complete provider configuration is the only sampling proof.
+  if (
+    !job ||
+    job.dataset !== definition.dataset ||
+    job.filter !== definition.filter ||
+    job.output_options?.sample_rate !== 1 ||
+    job.output_options?.timestamp_format !== 'rfc3339ns' ||
+    !Array.isArray(job.output_options?.field_names) ||
+    !definition.output_options.field_names.every(field =>
+      job.output_options.field_names.includes(field),
+    )
+  )
+    return null;
+  return {
+    version: createHash('sha256')
+      .update(JSON.stringify({ filter: job.filter, output: job.output_options }))
+      .digest('hex'),
+    observedAt: new Date().toISOString(),
+    samplingRate: 1,
+  };
+}
 function ownsDestination(destination: string, source: LogSource, config: Provider) {
   try {
     const url = new URL(destination);
@@ -549,13 +576,17 @@ export async function maintainCloudflare(
     const fields = await cloudflareApi<Record<string, unknown>>(
       config.accessToken,
       `/zones/${config.zoneId}/logpush/datasets/http_requests/fields`,
-    ).catch(() => ({}));
+    ).catch(() => null);
+    config.fieldCapabilities = fields
+      ? Object.fromEntries(EDGE_FIELDS.map(field => [field, Object.hasOwn(fields, field)]))
+      : undefined;
     config.crawlerFields = [
       'SecurityAction',
       'SecurityRuleID',
       'SecurityRuleIDs',
       'CacheCacheStatus',
-    ].filter(field => Object.hasOwn(fields, field));
+      ...EDGE_FIELDS,
+    ].filter(field => fields && Object.hasOwn(fields, field));
     await transaction(tx =>
       tx.$executeRawUnsafe(
         'UPDATE liekan_log_source SET provider_config=$2 WHERE id=$1::uuid',
@@ -642,7 +673,12 @@ export async function maintainCloudflare(
       await tx.$executeRawUnsafe(
         'UPDATE liekan_log_source SET last_heartbeat_at=now(),health=$2::jsonb,error_code=$3 WHERE id=$1::uuid',
         row.id,
-        JSON.stringify({ providerEnabled: !!job.enabled, lastComplete: job.last_complete || null }),
+        JSON.stringify({
+          providerEnabled: !!job.enabled,
+          lastComplete: job.last_complete || null,
+          measurement: observedLogpushMeasurement(job, definition),
+          fieldCapabilities: config.fieldCapabilities,
+        }),
         job.last_error &&
           (!job.last_complete || +new Date(job.last_error) > +new Date(job.last_complete))
           ? 'provider-delivery-error'

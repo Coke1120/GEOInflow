@@ -1,0 +1,17 @@
+SET LOCAL lock_timeout TO '5s';
+DROP TRIGGER liekan_finding_occurrence ON liekan_crawler_finding;
+DROP FUNCTION liekan_finding_occurrence();
+ALTER TABLE liekan_crawler_finding ADD COLUMN recurrence_pending boolean NOT NULL DEFAULT false;
+UPDATE liekan_crawler_finding SET recurrence_pending=true WHERE state='resolved';
+ALTER TABLE liekan_crawler_context ADD COLUMN epoch integer;
+ALTER TABLE liekan_crawler_finding_workflow ADD COLUMN bound_grade text;
+ALTER TABLE liekan_crawler_finding_action ADD CONSTRAINT liekan_action_finding_fk FOREIGN KEY(website_id,finding_key) REFERENCES liekan_crawler_finding(website_id,key) ON DELETE CASCADE;
+ALTER TABLE liekan_crawler_finding_action ALTER COLUMN actor_id DROP NOT NULL;
+ALTER TABLE liekan_crawler_context ALTER COLUMN created_by DROP NOT NULL;
+UPDATE liekan_crawler_finding_action a SET actor_id=NULL WHERE NOT EXISTS(SELECT 1 FROM "user" u WHERE u.user_id=a.actor_id);
+UPDATE liekan_crawler_context c SET created_by=NULL WHERE NOT EXISTS(SELECT 1 FROM "user" u WHERE u.user_id=c.created_by);
+UPDATE liekan_crawler_context c SET voided_by=NULL WHERE voided_by IS NOT NULL AND NOT EXISTS(SELECT 1 FROM "user" u WHERE u.user_id=c.voided_by);
+ALTER TABLE liekan_crawler_finding_action ADD CONSTRAINT liekan_action_actor_fk FOREIGN KEY(actor_id) REFERENCES "user"(user_id) ON DELETE SET NULL;
+ALTER TABLE liekan_crawler_context ADD CONSTRAINT liekan_context_creator_fk FOREIGN KEY(created_by) REFERENCES "user"(user_id) ON DELETE SET NULL;
+ALTER TABLE liekan_crawler_context ADD CONSTRAINT liekan_context_voider_fk FOREIGN KEY(voided_by) REFERENCES "user"(user_id) ON DELETE SET NULL;
+CREATE INDEX liekan_crawler_context_epoch_time ON liekan_crawler_context(website_id,epoch,occurred_at,id);

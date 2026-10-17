@@ -1,3 +1,4 @@
+import { reconcileFindingWorkflow } from './workflow-lifecycle';
 import { randomUUID } from 'node:crypto';
 import type {
   CrawlerHttpBotId,
@@ -335,11 +336,16 @@ export async function recomputeCrawlerRisks(websiteId: string, now = Date.now())
     }
   }
   await crawlerTransaction(async tx => {
+    await tx.query('SELECT website_id FROM website WHERE website_id=$1::uuid FOR SHARE', websiteId);
     const [live] = await tx.query(
       'SELECT epoch FROM liekan_log_state WHERE website_id=$1::uuid FOR SHARE',
       websiteId,
     );
     if ((live?.epoch ?? 1) !== facts.state.epoch) return;
+    const workflowBefore = await tx.query(
+      'SELECT * FROM liekan_crawler_finding WHERE website_id=$1::uuid FOR UPDATE',
+      websiteId,
+    );
     const activeKeys = new Set(
       observations
         .filter(o => o.window.startAt === window.startAt)
@@ -465,6 +471,13 @@ export async function recomputeCrawlerRisks(websiteId: string, now = Date.now())
         JSON.stringify({ status: transition.status, lastQuality: transition.lastQuality }),
       );
     }
+    await reconcileFindingWorkflow(
+      tx,
+      websiteId,
+      workflowBefore,
+      new Set(incoming.map(row => row.key)),
+      facts.state.epoch,
+    );
     await tx.execute(
       `INSERT INTO liekan_crawler_analysis_state(website_id,epoch,data_revision,computed_at,window_end,quality) VALUES($1::uuid,$2,$3,now(),$4,$5::jsonb)
       ON CONFLICT(website_id) DO UPDATE SET epoch=EXCLUDED.epoch,data_revision=EXCLUDED.data_revision,computed_at=now(),window_end=EXCLUDED.window_end,quality=EXCLUDED.quality,error_code=NULL`,

@@ -1,0 +1,62 @@
+import { buildReport } from '../report';
+import { pageUrl } from '../contracts/page-url';
+import { withinQuerySnapshot } from '../upstream/query-snapshot';
+import { tableCsv, selectRows } from '@/components/liekan/data';
+import { metricLabel } from '../i18n/text';
+import { sanitizeExportValue } from '../contracts/exports';
+import type { LiekanLocale } from '../i18n/locale';
+import { evidenceMeta, enforceEvidenceBudget, type EvidenceReader } from './evidence-read';
+
+export const readReportEvidence: EvidenceReader = async (tx, websiteId, p, input) => {
+  const report = await withinQuerySnapshot(
+    {
+      aiPrivate: true,
+      $queryRawUnsafe: (sql, ...args) => tx.queryPrepared(sql, ...args),
+      $executeRawUnsafe: (sql, ...args) => tx.execute(sql, ...args),
+    },
+    () =>
+      buildReport(
+        { id: websiteId, name: input.access.name, domain: input.access.domain },
+        false,
+        {
+          startAt: p.startAt,
+          endAt: p.endAt,
+          timezone: p.timezone,
+          crawlerIdentityScope: p.crawlerIdentityScope,
+          crawlerMetricsVersion: 1,
+          resource: p.reportResource,
+          filter: p.logFilter ?? '',
+          search: p.reportResource === 'logs' ? (p.search ?? '') : '',
+        },
+        true,
+        true,
+      ),
+  );
+  const table = { 'ai/bots': 'botBody', 'ai/pages': 'apBody', logs: 'logBody' }[p.reportResource];
+  const rows = report.tables[table] || [];
+  enforceEvidenceBudget(rows, p.reportResource === 'logs' ? report.meta.totalLogs : rows.length);
+  const display = p.reportDisplay ?? {
+    filter: '全部',
+    sort: { label: '', direction: 1 },
+    search: '',
+  };
+  const path = (value: unknown) => pageUrl(value, input.access.domain);
+  return {
+    meta: evidenceMeta(p, input),
+    rows: selectRows(rows, display.filter, display.sort, table, display.search, path),
+    table,
+  };
+};
+
+export function reportEvidenceCsv(result: any, locale: LiekanLocale) {
+  return tableCsv(
+    result.table,
+    sanitizeExportValue(JSON.parse(JSON.stringify(result.rows))) as any,
+    '全部',
+    { label: '', direction: 1 },
+    '',
+    undefined,
+    locale,
+    source => metricLabel(source, 'pageviews', locale),
+  );
+}

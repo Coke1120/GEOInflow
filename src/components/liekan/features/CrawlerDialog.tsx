@@ -1,4 +1,7 @@
 'use client';
+import { CrawlerWorkflow } from './CrawlerWorkflow';
+import { TrafficEvidencePanel } from './TrafficEvidencePanel';
+import type { CrawlerIdentityScope } from '@/lib/liekan/contracts/crawler-metrics';
 import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
@@ -73,7 +76,9 @@ export function CrawlerDialog({
   onClose,
   range,
   controlPanel,
+  identityScope = 'all',
 }: {
+  identityScope?: CrawlerIdentityScope;
   websiteId: string;
   websiteName?: string;
   websiteDomain?: string;
@@ -104,6 +109,9 @@ export function CrawlerDialog({
     [rate, setRate] = useState('10'),
     [burst, setBurst] = useState('20');
   const criticalDirtyRef = useRef(false);
+  const [workflowKey, setWorkflowKey] = useState<string | null>(null);
+  const [pendingOnly, setPendingOnly] = useState(false);
+  const [scope, setScope] = useState<CrawlerIdentityScope>(identityScope);
   const base = `/liekan/websites/${websiteId}`;
   useEffect(() => {
     const abort = new AbortController();
@@ -119,6 +127,7 @@ export function CrawlerDialog({
       ),
       endAt,
       timezone: range?.timezone || 'Asia/Shanghai',
+      crawlerIdentityScope: scope,
     };
     withClientFreshness(
       abort.signal,
@@ -176,6 +185,7 @@ export function CrawlerDialog({
     range?.startAt,
     range?.endAt,
     range?.timezone,
+    scope,
     version,
   ]);
   const reload = () => {
@@ -279,6 +289,9 @@ export function CrawlerDialog({
         onChange={setTab}
         items={[
           ['detail', i18n.text('蜘蛛详情')],
+          ['evidence', i18n.text('身份与响应')],
+          ['performance', i18n.text('资源与性能')],
+          ['outcomes', i18n.text('业务效果')],
           ['risk', i18n.text('风险证据')],
           ['checks', i18n.text('公开页面检查')],
           ['control', i18n.text('访问策略与导出')],
@@ -315,6 +328,48 @@ export function CrawlerDialog({
                 false,
               )}
             </Notice>
+          )}
+          {tab === 'evidence' && (
+            <>
+              <Select
+                label={i18n.text('蜘蛛身份范围')}
+                value={scope}
+                onChange={event => setScope(event.target.value as CrawlerIdentityScope)}
+                options={[
+                  ['all', i18n.text('全部声明')],
+                  ['verified_range', i18n.text('官方范围匹配')],
+                ]}
+              />
+              <TrafficEvidencePanel
+                key={websiteId}
+                websiteId={websiteId}
+                hostname={websiteDomain}
+                range={data.range}
+                botId={botId}
+                identityScope={scope}
+                onIdentityScope={setScope}
+              />
+            </>
+          )}
+          {tab === 'performance' && (
+            <TrafficEvidencePanel
+              websiteId={websiteId}
+              hostname={websiteDomain}
+              range={data.range}
+              botId={botId}
+              identityScope={scope}
+              mode="performance"
+            />
+          )}
+          {tab === 'outcomes' && (
+            <TrafficEvidencePanel
+              websiteId={websiteId}
+              hostname={websiteDomain}
+              range={data.range}
+              botId={botId}
+              identityScope={scope}
+              mode="outcomes"
+            />
           )}
           {tab === 'detail' && (
             <>
@@ -509,6 +564,26 @@ export function CrawlerDialog({
           )}
           {tab === 'risk' && (
             <>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={pendingOnly}
+                  onChange={event => setPendingOnly(event.target.checked)}
+                />
+                {i18n.text('仅看待处理')}
+              </label>
+              {workflowKey && findings.some(row => row.key === workflowKey) && (
+                <CrawlerWorkflow
+                  key={workflowKey}
+                  websiteId={websiteId}
+                  hostname={websiteDomain}
+                  finding={findings.find(row => row.key === workflowKey)}
+                  timezone={data.range.timezone}
+                  onChanged={reload}
+                  onChecks={() => setTab('checks')}
+                  onControl={() => setTab('control')}
+                />
+              )}
               <p className="muted">
                 {i18n.text(
                   '等级与证据置信度分别展示。搜索可见性与平台处罚需要独立搜索数据；本页依据访问日志定位技术风险。',
@@ -521,134 +596,148 @@ export function CrawlerDialog({
               </p>
               <Table
                 columns={['蜘蛛 / 路径组', '风险', '等级 / 置信度', '证据与窗口', '状态 / 操作']}
-                rows={findings.map(row => [
-                  `${data.directory.find(bot => bot.id === row.botId)?.name || row.botId} · ${row.pathGroup}`,
-                  <TableCell
-                    sortValue={riskLabels[row.type]}
-                    searchValue={i18n.english.system(riskLabels[row.type])}
-                  >
-                    {i18n.system(riskLabels[row.type])}
-                  </TableCell>,
-                  <TableCell
-                    sortValue={[gradeLabels[row.grade], ' ', confidenceLabels[row.confidence]]}
-                    searchValue={[
-                      i18n.english.system(i18n.english.system(gradeLabels[row.grade])),
-                      ' ',
-                      i18n.english.system(confidenceLabels[row.confidence]),
-                    ]}
-                  >
-                    <>
-                      <Badge
-                        tone={
-                          row.grade === 'high' ? 'red' : row.grade === 'medium' ? 'amber' : 'gray'
-                        }
-                      >
-                        {i18n.system(gradeLabels[row.grade])}
-                      </Badge>{' '}
-                      {i18n.system(confidenceLabels[row.confidence])}
-                    </>
-                  </TableCell>,
-                  <TableCell
-                    sortValue={[
-                      Object.entries(row.facts.evidence || {})
-                        .map(
-                          ([key, value]) =>
-                            `${evidenceLabels[key] || key}: ${value ?? i18n.source('未知')}`,
-                        )
-                        .join(' · '),
-                      [
-                        i18n.source('累计 '),
-                        row.occurrenceWindows,
-                        i18n.source(' 个发生窗口 · 截至'),
+                rows={findings
+                  .filter(
+                    row =>
+                      !pendingOnly ||
+                      (row.state === 'active' &&
+                        (!row.workflow || row.workflow.state === 'pending')),
+                  )
+                  .map(row => [
+                    `${data.directory.find(bot => bot.id === row.botId)?.name || row.botId} · ${row.pathGroup}`,
+                    <TableCell
+                      sortValue={riskLabels[row.type]}
+                      searchValue={i18n.english.system(riskLabels[row.type])}
+                    >
+                      {i18n.system(riskLabels[row.type])}
+                    </TableCell>,
+                    <TableCell
+                      sortValue={[gradeLabels[row.grade], ' ', confidenceLabels[row.confidence]]}
+                      searchValue={[
+                        i18n.english.system(i18n.english.system(gradeLabels[row.grade])),
                         ' ',
-                        date(row.facts.windowEnd, data.range.timezone),
-                      ],
-                    ]}
-                    searchValue={[
-                      Object.entries(row.facts.evidence || {})
-                        .map(
-                          ([key, value]) =>
-                            `${i18n.english.system(evidenceLabels[key]) || key}: ${value ?? i18n.english.text('未知')}`,
-                        )
-                        .join(' · '),
-                      [
-                        i18n.english.fragment('累计 ', false, true),
-                        row.occurrenceWindows,
-                        i18n.english.fragment(' 个发生窗口 · 截至', true, true),
-                        ' ',
-                        date(row.facts.windowEnd, data.range.timezone),
-                      ],
-                    ]}
-                  >
-                    <>
-                      <span>
-                        {Object.entries(row.facts.evidence || {})
-                          .map(
-                            ([key, value]) =>
-                              `${i18n.system(evidenceLabels[key]) || key}: ${value ?? i18n.text('未知')}`,
-                          )
-                          .join(' · ')}
-                      </span>
-                      <small className="field-help">
-                        {i18n.fragment('累计 ', false, true)}
-                        {row.occurrenceWindows}
-                        {i18n.fragment(' 个发生窗口 · 截至', true, true)}{' '}
-                        {date(row.facts.windowEnd, data.range.timezone)}
-                      </small>
-                    </>
-                  </TableCell>,
-                  <TableCell
-                    sortValue={[
-                      row.state === 'ignored'
-                        ? i18n.source('已忽略')
-                        : row.state === 'resolved'
-                          ? i18n.source('已解除')
-                          : row.facts.status === 'pending'
-                            ? i18n.source('待观察')
-                            : i18n.source('待处理'),
-                      data.permissions.canDraft &&
-                        (row.state === 'ignored' ? i18n.source('恢复提醒') : i18n.source('忽略')),
-                    ]}
-                    searchValue={[
-                      row.state === 'ignored'
-                        ? i18n.english.text('已忽略')
-                        : row.state === 'resolved'
-                          ? i18n.english.text('已解除')
-                          : row.facts.status === 'pending'
-                            ? i18n.english.text('待观察')
-                            : i18n.english.text('待处理'),
-                      data.permissions.canDraft &&
-                        (row.state === 'ignored'
-                          ? i18n.english.text('恢复提醒')
-                          : i18n.english.text('忽略')),
-                    ]}
-                  >
-                    <>
-                      {row.state === 'ignored'
-                        ? i18n.text('已忽略')
-                        : row.state === 'resolved'
-                          ? i18n.text('已解除')
-                          : row.facts.status === 'pending'
-                            ? i18n.text('待观察')
-                            : i18n.text('待处理')}
-                      {data.permissions.canDraft && (
-                        <Button
-                          disabled={busy}
-                          onClick={() =>
-                            run(async () => {
-                              await featureRequest('PATCH', `${base}/crawler-findings/${row.key}`, {
-                                ignored: row.state !== 'ignored',
-                              });
-                              reload();
-                            })
+                        i18n.english.system(confidenceLabels[row.confidence]),
+                      ]}
+                    >
+                      <>
+                        <Badge
+                          tone={
+                            row.grade === 'high' ? 'red' : row.grade === 'medium' ? 'amber' : 'gray'
                           }
                         >
-                          {row.state === 'ignored' ? i18n.text('恢复提醒') : i18n.text('忽略')}
+                          {i18n.system(gradeLabels[row.grade])}
+                        </Badge>{' '}
+                        {i18n.system(confidenceLabels[row.confidence])}
+                      </>
+                    </TableCell>,
+                    <TableCell
+                      sortValue={[
+                        Object.entries(row.facts.evidence || {})
+                          .map(
+                            ([key, value]) =>
+                              `${evidenceLabels[key] || key}: ${value ?? i18n.source('未知')}`,
+                          )
+                          .join(' · '),
+                        [
+                          i18n.source('累计 '),
+                          row.occurrenceWindows,
+                          i18n.source(' 个发生窗口 · 截至'),
+                          ' ',
+                          date(row.facts.windowEnd, data.range.timezone),
+                        ],
+                      ]}
+                      searchValue={[
+                        Object.entries(row.facts.evidence || {})
+                          .map(
+                            ([key, value]) =>
+                              `${i18n.english.system(evidenceLabels[key]) || key}: ${value ?? i18n.english.text('未知')}`,
+                          )
+                          .join(' · '),
+                        [
+                          i18n.english.fragment('累计 ', false, true),
+                          row.occurrenceWindows,
+                          i18n.english.fragment(' 个发生窗口 · 截至', true, true),
+                          ' ',
+                          date(row.facts.windowEnd, data.range.timezone),
+                        ],
+                      ]}
+                    >
+                      <>
+                        <span>
+                          {Object.entries(row.facts.evidence || {})
+                            .map(
+                              ([key, value]) =>
+                                `${i18n.system(evidenceLabels[key]) || key}: ${value ?? i18n.text('未知')}`,
+                            )
+                            .join(' · ')}
+                        </span>
+                        <small className="field-help">
+                          {i18n.fragment('累计 ', false, true)}
+                          {row.occurrenceWindows}
+                          {i18n.fragment(' 个发生窗口 · 截至', true, true)}{' '}
+                          {date(row.facts.windowEnd, data.range.timezone)}
+                        </small>
+                      </>
+                    </TableCell>,
+                    <TableCell
+                      sortValue={[
+                        row.state === 'ignored'
+                          ? i18n.source('已忽略')
+                          : row.state === 'resolved'
+                            ? i18n.source('已解除')
+                            : row.facts.status === 'pending'
+                              ? i18n.source('待观察')
+                              : i18n.source('待处理'),
+                        data.permissions.canDraft &&
+                          (row.state === 'ignored' ? i18n.source('恢复提醒') : i18n.source('忽略')),
+                      ]}
+                      searchValue={[
+                        row.state === 'ignored'
+                          ? i18n.english.text('已忽略')
+                          : row.state === 'resolved'
+                            ? i18n.english.text('已解除')
+                            : row.facts.status === 'pending'
+                              ? i18n.english.text('待观察')
+                              : i18n.english.text('待处理'),
+                        data.permissions.canDraft &&
+                          (row.state === 'ignored'
+                            ? i18n.english.text('恢复提醒')
+                            : i18n.english.text('忽略')),
+                      ]}
+                    >
+                      <>
+                        {row.state === 'ignored'
+                          ? i18n.text('已忽略')
+                          : row.state === 'resolved'
+                            ? i18n.text('已解除')
+                            : row.facts.status === 'pending'
+                              ? i18n.text('待观察')
+                              : i18n.text('待处理')}
+                        <Button onClick={() => setWorkflowKey(row.key)}>
+                          {i18n.text('上下文与处理')}
                         </Button>
-                      )}
-                    </>
-                  </TableCell>,
-                ])}
+                        {data.permissions.canDraft && (
+                          <Button
+                            disabled={busy}
+                            onClick={() =>
+                              run(async () => {
+                                await featureRequest(
+                                  'PATCH',
+                                  `${base}/crawler-findings/${row.key}`,
+                                  {
+                                    ignored: row.state !== 'ignored',
+                                  },
+                                );
+                                reload();
+                              })
+                            }
+                          >
+                            {row.state === 'ignored' ? i18n.text('恢复提醒') : i18n.text('忽略')}
+                          </Button>
+                        )}
+                      </>
+                    </TableCell>,
+                  ])}
                 empty={i18n.text('尚无风险发现。异步计算完成后会显示证据；缺少数据时保持待观察。')}
               />
               <form data-unsaved={criticalDirty} onSubmit={event => event.preventDefault()}>

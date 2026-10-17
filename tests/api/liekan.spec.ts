@@ -969,3 +969,110 @@ test('keeps empty search redirects in traffic totals and exposes their status in
     await deleteWebsite(admin, website.id);
   }
 });
+
+test('traffic evidence keeps private identities, explicit empty states and validated context inputs', async ({
+  admin,
+  user,
+  api,
+  apiKey,
+  share,
+}) => {
+  const site = await createWebsite(admin, { domain: 'evidence.example' });
+  const base = `/api/liekan/websites/${site.id}`;
+  const range = {
+    startAt: Date.now() - 86400000,
+    endAt: Date.now() - 1000,
+    timezone: 'UTC',
+    crawlerMetricsVersion: 1,
+  };
+  try {
+    const readers = [
+      ['crawler-analysis/evidence', range],
+      ['crawler-analysis/performance', { ...range, sourceId: 'manual' }],
+      ['crawler-analysis/outcomes', { ...range, sourceId: 'manual' }],
+      [
+        'traffic-quality/reconciliation',
+        { ...range, sourceId: 'manual', hostname: 'evidence.example' },
+      ],
+      ['traffic-quality/observations', { timezone: 'UTC' }],
+      ['crawler-context', { startAt: range.startAt, endAt: range.endAt }],
+    ] as const;
+    const denied = await share();
+    for (const [path, params] of readers) {
+      for (const client of [api, apiKey, denied])
+        expect((await client.get(`${base}/${path}`, { params })).status).toBe(401);
+      expect([401, 403]).toContain((await user.get(`${base}/${path}`, { params })).status);
+      const response = await admin.get(`${base}/${path}`, { params });
+      expect(response.status, response.text).toBe(200);
+      expect(response.body.rows).toEqual([]);
+    }
+    expect(
+      (await admin.get(`${base}/crawler-context`, { params: { startAt: 'invalid' } })).status,
+    ).toBe(400);
+    expect(
+      (
+        await admin.post(`${base}/crawler-context/invalid/void`, {
+          requestId: crypto.randomUUID(),
+          reason: 'Correction',
+        })
+      ).status,
+    ).toBe(400);
+    const body = {
+      requestId: crypto.randomUUID(),
+      title: 'Test release',
+      note: 'Manual context',
+      occurredAt: new Date(range.endAt - 1000).toISOString(),
+    };
+    const created = await admin.post(`${base}/crawler-context`, body);
+    expect(created.status, created.text).toBe(200);
+    expect((await admin.post(`${base}/crawler-context`, body)).body).toEqual(created.body);
+    expect((await admin.post(`${base}/crawler-context`, { ...body, note: 'changed' })).status).toBe(
+      409,
+    );
+    expect(
+      (
+        await admin.post(`${base}/crawler-context/${created.body.id}/void`, {
+          requestId: crypto.randomUUID(),
+          reason: 'Test correction',
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await admin.patch(`${base}/crawler-findings/cr_${'a'.repeat(64)}/workflow`, {
+          requestId: crypto.randomUUID(),
+          expectedWorkflowRevision: 0,
+          occurrenceVersion: 1,
+          factVersion: 'a'.repeat(64),
+          action: 'view',
+        })
+      ).status,
+    ).toBe(404);
+    for (const [endpoint, kind, path, query] of [
+      ['crawler-analysis/export', 'evidence', 'crawler-analysis/evidence', range],
+      [
+        'traffic-quality/export-evidence',
+        'observations',
+        'traffic-quality/observations',
+        { timezone: 'UTC' },
+      ],
+    ] as const) {
+      const view = await admin.get(`${base}/${path}`, { params: query });
+      const payload = {
+        kind,
+        query: { ...query, ...view.body.meta.conditions },
+        locale: 'en-US',
+        viewSnapshot: view.body.meta.snapshot,
+        policySnapshot: view.body.meta.policySnapshot,
+      };
+      for (const client of [api, apiKey, denied])
+        expect((await client.post(`${base}/${endpoint}`, payload)).status).toBe(401);
+      const csv = await admin.post(`${base}/${endpoint}`, payload);
+      expect(csv.status, csv.text).toBe(200);
+      expect(csv.text).toContain('exportReadAt');
+      expect(csv.text).toContain('en-US');
+    }
+  } finally {
+    await deleteWebsite(admin, site.id);
+  }
+});

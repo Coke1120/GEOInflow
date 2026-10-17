@@ -18,6 +18,8 @@ export function pageReportQuery(
     startAt: number;
     endAt: number;
     timezone: string;
+    crawlerIdentityScope?: 'all' | 'verified_range';
+    crawlerMetricsVersion?: 1;
     chartPeriod?: string;
     filter?: string;
     search?: string;
@@ -57,6 +59,10 @@ export function pageReportQuery(
     JSON.stringify(tpParams),
     userId,
   ];
+  if (p.crawlerIdentityScope || p.crawlerMetricsVersion)
+    queryKey.push(
+      JSON.stringify([p.crawlerIdentityScope || 'all', p.crawlerMetricsVersion ?? null]),
+    );
   if (p.resource === 'human/geo')
     queryKey.push(JSON.stringify([p.geoSort || 'sessions', p.direction || 'desc']));
   if (p.resource === 'human/keywords')

@@ -1,3 +1,4 @@
+import { sqlStatements } from './liekan-sql-statements.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -10,10 +11,18 @@ execFileSync(process.execPath, ['scripts/liekan-geography-catalog.mjs'], { stdio
 execFileSync(process.execPath, ['scripts/liekan-i18n-check.mjs'], { stdio: 'inherit' });
 assertDialogContract();
 assertManualReadPolicy();
-const geographyUI=JSON.parse(readFileSync('config/liekan/geography-ui.json','utf8'));
-if (geographyUI.cityRule!=='merge-filter-search-sort-page-limit' || geographyUI.denominator!=='all-eligible-visits' || geographyUI.shareLimit!==12 || geographyUI.provinceLimit!==10) throw new Error('Approved geography display rules changed');
-const geographyContract=readFileSync('src/lib/liekan/contracts/geography.ts','utf8');
-for (const key of ['subtitle','empty','unidentified','searchEmpty','legacy']) if (!geographyContract.includes(geographyUI[key])) throw new Error(`Geography copy contract missing: ${key}`);
+const geographyUI = JSON.parse(readFileSync('config/liekan/geography-ui.json', 'utf8'));
+if (
+  geographyUI.cityRule !== 'merge-filter-search-sort-page-limit' ||
+  geographyUI.denominator !== 'all-eligible-visits' ||
+  geographyUI.shareLimit !== 12 ||
+  geographyUI.provinceLimit !== 10
+)
+  throw new Error('Approved geography display rules changed');
+const geographyContract = readFileSync('src/lib/liekan/contracts/geography.ts', 'utf8');
+for (const key of ['subtitle', 'empty', 'unidentified', 'searchEmpty', 'legacy'])
+  if (!geographyContract.includes(geographyUI[key]))
+    throw new Error(`Geography copy contract missing: ${key}`);
 
 const teamUserUI = JSON.parse(readFileSync('config/liekan/team-user-ui.json', 'utf8'));
 if (
@@ -79,6 +88,10 @@ if (hash(JSON.stringify(qualityUI.files)) !== baseline.trafficQualityUiManifestS
 for (const [file, digest] of Object.entries(qualityUI.files))
   if (hash(readFileSync(`${qualityUI.directory}/${file}`)) !== digest)
     throw new Error(`Traffic quality UI reference drift: ${file}`);
+const evidenceUI = JSON.parse(readFileSync('config/liekan/traffic-evidence-ui.json', 'utf8'));
+for (const [file, digest] of Object.entries(evidenceUI.files))
+  if (hash(readFileSync(`${evidenceUI.directory}/${file}`)) !== digest)
+    throw new Error(`Traffic evidence UI reference drift: ${file}`);
 const migrationLock = JSON.parse(readFileSync('config/liekan/migrations.json', 'utf8'));
 if (baseline.liekanMigration !== Object.keys(migrationLock).length)
   throw new Error('Release migration count and immutable register differ');
@@ -93,30 +106,10 @@ if (
 for (const [file, digest] of Object.entries(migrationLock))
   if (hash(readFileSync(`db/liekan/migrations/${file}`)) !== digest)
     throw new Error(`Immutable migration drift: ${file}`);
-// scripts/liekan-migrate.mjs splits raw SQL on ';', so a semicolon inside a comment
-// or a string literal would corrupt the statement list. Statement terminators in code
-// (end of line, mid line, before a trailing comment) are all safe for the splitter.
-const stringSemicolon = code => {
-  let inside = false;
-  for (let i = 0; i < code.length; i += 1) {
-    if (code[i] === "'") {
-      if (inside && code[i + 1] === "'") i += 1;
-      else inside = !inside;
-    } else if (code[i] === ';' && inside) return true;
-  }
-  return false;
-};
+// Parse every registered migration using the same quote-aware splitter as installation.
 for (const file of Object.keys(migrationLock)) {
-  readFileSync(`db/liekan/migrations/${file}`, 'utf8')
-    .split('\n')
-    .forEach((line, index) => {
-      const where = `${file}:${index + 1}`;
-      const commentStart = line.indexOf('--');
-      const code = commentStart >= 0 ? line.slice(0, commentStart) : line;
-      const comment = commentStart >= 0 ? line.slice(commentStart) : '';
-      if (comment.includes(';')) throw new Error(`Semicolon inside a comment in ${where}`);
-      if (stringSemicolon(code)) throw new Error(`Semicolon inside a string literal in ${where}`);
-    });
+  if (!sqlStatements(readFileSync(`db/liekan/migrations/${file}`, 'utf8')).length)
+    throw new Error(`Empty migration: ${file}`);
 }
 const visit = path =>
   readdirSync(path, { withFileTypes: true }).flatMap(file =>

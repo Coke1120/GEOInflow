@@ -4478,10 +4478,11 @@
     },
     {
       "path": "src/app/api/send/route.ts",
-      "purpose": "Preserve cookieless collection, exact event deduplication and uniform quality; retain positive WebDriver and public request UA automation evidence",
+      "purpose": "Preserve cookieless collection, exact event deduplication and uniform quality; retain positive WebDriver and public request UA automation evidence; persist finite request-header observations atomically with existing public PV quality and optional UUID receipts",
       "tests": [
         "pnpm liekan:verify",
-        "Isolated traffic quality database integration"
+        "Isolated traffic quality database integration",
+        "pnpm test:crawler-evidence"
       ],
       "owner": "Liekan collection compatibility",
       "constraint": "Preserve old SDK payloads, response shapes, legitimate refreshes, authorized server transport and original raw analytics; missing automation evidence never proves human identity",

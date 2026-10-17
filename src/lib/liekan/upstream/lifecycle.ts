@@ -13,6 +13,8 @@ export async function resetLiekanStatistics(tx: any, websiteId: string, identity
     'liekan_browser_risk_window',
     'liekan_browser_risk_state',
     'liekan_collection_receipt',
+    'liekan_event_observation',
+    'liekan_observation_state',
     'liekan_event_quality',
     'liekan_collection_hostname',
     'liekan_crawler_finding_window',

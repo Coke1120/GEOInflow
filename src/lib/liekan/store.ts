@@ -284,6 +284,7 @@ export async function importLogs(id: string, domain: string, input: any, identit
         importId,
         parsed.records.slice(offset, offset + 500).map(row => ({
           id: row.id,
+          measurement: row.measurement,
           classificationVersion,
           crawlerId: crawlerIdentityId(row.userAgent, settings.rules),
         })),

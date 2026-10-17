@@ -5,6 +5,7 @@ import { columns, primaryTables } from './data';
 import type { Resource } from './types';
 
 export const viewParamKeys = [
+  'crawlerIdentityScope',
   'filter',
   'search',
   'page',

@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   checkRangeSource,
+  parseRangeFeed,
   isQualifiedRangeContent,
   RangeCheckError,
   type RangeObservation,
@@ -14,21 +15,28 @@ import { crawlerRegistry } from './registry';
 const now = () => new Date('2026-10-15T02:00:00Z');
 
 describe('reviewed official crawler range sources', () => {
-  it('checks all 16 bundled sources through their fixed JSON feed shapes', async () => {
-    expect(rangeSources).toHaveLength(16);
+  it('checks all 19 bundled sources through their fixed feed shapes', async () => {
+    expect(rangeSources).toHaveLength(19);
     for (const source of rangeSources) {
       const baseline = rangeBaselines[source.id];
       expect(baseline.content.prefixes.length).toBeGreaterThan(0);
+      const feed = {
+        creationTime: baseline.content.publishedAt,
+        prefixes: baseline.content.prefixes.map(prefix => ({
+          [prefix.includes(':') ? 'ipv6Prefix' : 'ipv4Prefix']: prefix,
+        })),
+      };
       const fetcher = async () =>
-        Response.json({
-          prefixes: baseline.content.prefixes.map(prefix => ({
-            [prefix.includes(':') ? 'ipv6Prefix' : 'ipv4Prefix']: prefix,
-          })),
-        });
-      const checked = await checkRangeSource(source, undefined, { fetcher, now });
+        source.parserVersion === 'amazon-code-json-v1'
+          ? new Response(`<pre><code>${JSON.stringify(feed)}</code></pre>`)
+          : Response.json(feed);
+      const checked = await checkRangeSource(source, undefined, {
+        fetcher,
+        now: () => new Date('2026-10-18T02:00:00Z'),
+      });
       expect(checked.status).toBe('unchanged');
       expect(checked.content.version).toBe(baseline.content.version);
-      expect(checked.observedAt).toBe('2026-10-15T02:00:00.000Z');
+      expect(checked.observedAt).toBe('2026-10-18T02:00:00.000Z');
       expect(Object.isFrozen(checked.content.prefixes)).toBe(true);
     }
   });
@@ -54,8 +62,8 @@ afterEach(() => vi.useRealTimers());
 
 describe('source and reviewed baseline boundaries', () => {
   it('binds only the explicit HTTP identities and shares the Claude feed once', () => {
-    expect(new Set(rangeSources.map(source => source.id)).size).toBe(16);
-    expect(new Set(rangeSources.map(source => source.url)).size).toBe(16);
+    expect(new Set(rangeSources.map(source => source.id)).size).toBe(19);
+    expect(new Set(rangeSources.map(source => source.url)).size).toBe(19);
     for (const entry of rangeSources) {
       expect(Object.isFrozen(entry)).toBe(true);
       expect(entry.url.startsWith('https://')).toBe(true);
@@ -68,7 +76,7 @@ describe('source and reviewed baseline boundaries', () => {
       );
       expect(isQualifiedRangeContent(entry, rangeBaselines[entry.id].content)).toBe(true);
       expect(Object.isFrozen(rangeBaselines[entry.id].content.prefixes)).toBe(true);
-      expect(rangeBaselines[entry.id].observedAt.startsWith('2026-10-15T01:45:')).toBe(true);
+      expect(Number.isFinite(Date.parse(rangeBaselines[entry.id].observedAt))).toBe(true);
     }
     expect(rangeSources.find(source => source.id === 'anthropic').names).toEqual([
       'ClaudeBot',
@@ -82,9 +90,6 @@ describe('source and reviewed baseline boundaries', () => {
       'googlebot-news',
       'applebot-extended',
       'ahrefssiteaudit',
-      'amazonbot',
-      'amzn-searchbot',
-      'amzn-user',
       'mistralai-training',
     ])
       expect(bound).not.toContain(id);
@@ -515,5 +520,57 @@ describe('immutable checks across asynchronous network boundaries', () => {
         { now, fetcher: async () => new Response(null, { status: 304 }) },
       ),
     ).rejects.toMatchObject({ code: 'invalid_cache' });
+  });
+});
+
+describe('Amazon inert code JSON feeds', () => {
+  const amazon = rangeSources.find(source => source.id === 'amazonbot');
+  const feed = (prefixes: unknown) =>
+    JSON.stringify({ creationTime: '2026-09-08T05:24:10.610952+00:00', prefixes });
+  const block = (value: string) => `<pre><code>${value}</code></pre>`;
+  it('accepts the official SearchBot ip_prefix shape without changing JSON-only sources', () => {
+    const source = rangeSources.find(source => source.id === 'amazon-search');
+    const json = feed([{ ip_prefix: '3.82.67.224/32' }, { ip_prefix: '2606:4700::1/128' }]);
+    expect(parseRangeFeed(source, block(json)).prefixes).toEqual([
+      '3.82.67.224/32',
+      '2606:4700::1/128',
+    ]);
+    expect(() =>
+      parseRangeFeed(
+        rangeSources.find(source => source.id === 'openai-gpt'),
+        json,
+      ),
+    ).toThrow(RangeCheckError);
+  });
+  it('accepts a unique highlighted block and exact address families', () => {
+    const json = feed([
+      { ipv4Prefix: '8.8.8.8' },
+      { ipv6Prefix: '2606:4700::1' },
+      { ipv4Prefix: '1.1.1.0/24' },
+    ]);
+    const result = parseRangeFeed(
+      amazon,
+      `<script>ignored()</script>${block(json.replaceAll('"', '<span class="s">&quot;</span>'))}`,
+    );
+    expect(result.prefixes).toEqual(['8.8.8.8/32', '2606:4700::1/128', '1.1.1.0/24']);
+    expect(result.publishedAt).toBe('2026-09-08T05:24:10.610Z');
+  });
+  it.each([
+    '<script>{"creationTime":"2026-09-08","prefixes":[]}</script>',
+    block(feed([{ ipv4Prefix: '8.8.8.8' }])).repeat(2),
+    block(feed([{ ipv4Prefix: '127.0.0.1' }])),
+    block(feed([{ ipv4Prefix: '2606:4700::1' }])),
+    block(feed([{ ipv4Prefix: '8.8.8.8/033' }])),
+    block(feed([{ ipv4Prefix: '8.8.8.8' }])).replace('8.8.8.8', '<script>8.8.8.8</script>'),
+    block('{"creationTime":null,"prefixes":[{"ipv4Prefix":"8.8.8.8"}]}'),
+  ])('rejects ambiguous, changed or invalid markup %s', html => {
+    expect(() => parseRangeFeed(amazon, html)).toThrow(RangeCheckError);
+  });
+  it('keeps Amazon feeds isolated to their three identities', () => {
+    expect(
+      rangeSources
+        .filter(source => source.parserVersion === 'amazon-code-json-v1')
+        .map(source => source.crawlerIds),
+    ).toEqual([['amazonbot'], ['amzn-searchbot'], ['amzn-user']]);
   });
 });

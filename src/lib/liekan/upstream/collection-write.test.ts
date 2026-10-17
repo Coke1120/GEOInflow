@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   revenue: [] as any[],
   quality: [] as any[],
   geography: [] as any[],
+  observation: [] as any[],
   diagnostics: [] as any[],
   queries: [] as { sql: string; values: unknown[] }[],
   primaryOptions: [] as unknown[],
@@ -54,6 +55,7 @@ vi.mock('@/lib/prisma', () => {
         revenue: [] as any[],
         quality: [] as any[],
         geography: [] as any[],
+        observation: [] as any[],
         diagnostics: [] as any[],
       };
       const receipts = new Map<string, { payload_hash: string; event_id: string | null }>();
@@ -62,6 +64,8 @@ vi.mock('@/lib/prisma', () => {
         ...writers(pending),
         $queryRawUnsafe: async (sql: string, ...values: unknown[]) => {
           state.queries.push({ sql, values });
+          if (/SELECT website_id FROM website .* FOR SHARE/.test(sql))
+            return [{ website_id: values[0] }];
           const key = `${values[0]}:${values[1]}`;
           if (/INSERT INTO liekan_collection_receipt/i.test(sql)) {
             const previous = state.locks.get(key) || Promise.resolve();
@@ -102,6 +106,17 @@ vi.mock('@/lib/prisma', () => {
             pending.geography.push(values);
             return 1;
           }
+          if (/INSERT INTO liekan_event_observation/.test(sql)) {
+            if (state.failAt === 'observation') throw new Error('observation-write-failed');
+            const event = pending.events.find(
+              event =>
+                event.id === values[0] && event.websiteId === values[1] && event.eventType === 1,
+            );
+            if (!event) return 0;
+            pending.observation.push(values);
+            return 1;
+          }
+          if (/INSERT INTO liekan_observation_state/.test(sql)) return 1;
           if (/INSERT INTO liekan_analytics_revision/i.test(sql)) return 1;
           if (/INSERT INTO liekan_event_quality/i.test(sql)) {
             if (state.failAt === 'quality') throw new Error('quality-write-failed');
@@ -131,6 +146,7 @@ vi.mock('@/lib/prisma', () => {
         state.revenue.push(...pending.revenue);
         state.quality.push(...pending.quality);
         state.geography.push(...pending.geography);
+        state.observation.push(...pending.observation);
         state.diagnostics.push(...pending.diagnostics);
         for (const [key, value] of receipts) state.receipts.set(key, value);
         return result;
@@ -201,6 +217,7 @@ beforeEach(() => {
   state.revenue = [];
   state.quality = [];
   state.geography = [];
+  state.observation = [];
   state.diagnostics = [];
   state.queries = [];
   state.primaryOptions = [];
@@ -460,3 +477,40 @@ it('geography failure rolls back event, properties, revenue and UUID receipt tog
   expect(state.events).toHaveLength(1);
   expect(JSON.stringify(state.geography)).not.toContain('userAgent');
 });
+
+it.each(['event', 'data', 'revenue', 'quality', 'observation', 'receipt_link', 'diagnostic'])(
+  'B-02 rolls all artifacts back at %s with observations enabled',
+  async failure => {
+    const observation = {
+      version: 'browser-observation-v1' as const,
+      receivedAt: new Date().toISOString(),
+      features: Object.fromEntries(
+        ['accept', 'language', 'site', 'mode', 'dest'].map(key => [
+          key,
+          { state: 'missing', values: [] },
+        ]),
+      ),
+    } as any;
+    state.failAt = failure;
+    await expect(
+      withCollectionWrite(collection({ observation }), () =>
+        saveEvent({ ...args(), eventType: 1, eventName: undefined }),
+      ),
+    ).rejects.toThrow();
+    for (const entries of [
+      state.events,
+      state.data,
+      state.revenue,
+      state.quality,
+      state.observation,
+    ])
+      expect(entries).toHaveLength(0);
+    expect(state.receipts.size).toBe(0);
+    state.failAt = '';
+    await withCollectionWrite(collection({ observation }), () =>
+      saveEvent({ ...args(), eventType: 1, eventName: undefined }),
+    );
+    expect(state.events).toHaveLength(1);
+    expect(state.observation).toHaveLength(1);
+  },
+);
