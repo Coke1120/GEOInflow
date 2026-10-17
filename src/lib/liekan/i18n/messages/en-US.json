@@ -4005,5 +4005,9 @@
   "m_1bd63deb5d2b": "Refresh the page before exporting",
   "m_7f8f7d8fbb08": "Export read time",
   "m_95423d9572c7": "Generated from data at export time",
-  "m_4eaf3046afdb": "Displayed data is unchanged"
+  "m_4eaf3046afdb": "Displayed data is unchanged",
+  "m_ca68e9e63735": "Provided",
+  "m_a75f064df7a3": "Invalid field",
+  "m_d2ed18069c4a": "Capability unknown",
+  "m_f3c605a467c7": "Server logs"
 }

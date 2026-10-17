@@ -12,7 +12,7 @@ test('all crawler endpoints require a full session before reading or accepting c
     /\/crawler-|\/control-connections/.test(operation.path),
   );
   const publicShare = await share();
-  expect(endpoints).toHaveLength(30);
+  expect(endpoints).toHaveLength(38);
   for (const endpoint of endpoints) {
     const method = endpoint.method.toUpperCase() as HttpMethod;
     const path = endpoint.path.replace(/\{[^}]+\}/g, '11111111-1111-4111-8111-111111111111');
@@ -47,7 +47,10 @@ test.describe('crawler snapshots and local drafts', () => {
     const sources = await admin.get(sourcesPath);
     expect(sources.status, sources.text).toBe(200);
     expect(sources.headers['cache-control']).toMatch(/private.*no-store/);
-    expect(sources.body.ipSources).toHaveLength(16);
+    expect(sources.body.ipSources).toHaveLength(19);
+    expect(sources.body.ipSources.map(source => source.id)).toEqual(
+      expect.arrayContaining(['amazonbot', 'amazon-search', 'amazon-user']),
+    );
     expect(sources.body.documents.length).toBeGreaterThan(0);
     expect(sources.body.catalogVersion).toBeTruthy();
 

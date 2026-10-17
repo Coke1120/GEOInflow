@@ -1001,10 +1001,14 @@ test('traffic evidence keeps private identities, explicit empty states and valid
     for (const [path, params] of readers) {
       for (const client of [api, apiKey, denied])
         expect((await client.get(`${base}/${path}`, { params })).status).toBe(401);
-      expect([401, 403]).toContain((await user.get(`${base}/${path}`, { params })).status);
+      expect((await user.get(`${base}/${path}`, { params })).status).toBe(404);
       const response = await admin.get(`${base}/${path}`, { params });
       expect(response.status, response.text).toBe(200);
-      expect(response.body.rows).toEqual([]);
+      if (path === 'crawler-analysis/evidence') {
+        expect(response.body.totals.requests).toBe(0);
+        expect(response.body.rows).toHaveLength(21);
+        expect(response.body.rows.every(row => row.requests === 0)).toBe(true);
+      } else expect(response.body.rows).toEqual([]);
     }
     expect(
       (await admin.get(`${base}/crawler-context`, { params: { startAt: 'invalid' } })).status,

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { featureRequest, downloadTrafficEvidence } from '@/lib/liekan/upstream/features-client';
 import type { CrawlerIdentityScope } from '@/lib/liekan/contracts/crawler-metrics';
+import { verificationReasonLabel } from '@/lib/liekan/rules/verification-labels';
 import { downloadFile } from '../data';
 import { Button, Notice, Panel, Select, Table } from './ui';
 
@@ -12,6 +13,16 @@ const identityLabels = {
   unverified: '未核验',
 };
 const responses = ['1xx', '2xx', '3xx', '304', 'denied', 'other4xx', '5xx'];
+const fieldStateLabels: Record<string, string> = {
+  present: '已提供',
+  missing: '字段缺失',
+  unsupported: '来源不支持',
+  invalid: '字段无效',
+  unknown: '能力未知',
+  not_collected: '未采集观察行',
+};
+const responseLabel = (value: string) =>
+  ({ denied: '拒绝类', other4xx: '其他 4xx' })[value] || value;
 const reasons: Record<string, string> = {
   ambiguous_path: '路径存在编码歧义',
   browser_missing: '缺少浏览器输入',
@@ -277,7 +288,11 @@ export function TrafficEvidencePanel({
             options={[
               [needsSource ? '' : '', i18n.text(needsSource ? '请选择一个来源' : '全部日志来源')],
               ...sources.map(
-                source => [source.id, `${source.domain} · ${source.kind}`] as [string, string],
+                source =>
+                  [
+                    source.id,
+                    `${source.domain} · ${source.kind === 'server' ? i18n.text('服务器日志') : 'Cloudflare'}`,
+                  ] as [string, string],
               ),
               ['manual', i18n.text('手动导入与历史来源')],
             ]}
@@ -349,7 +364,7 @@ export function TrafficEvidencePanel({
                   <Table
                     columns={[i18n.text('理由'), i18n.text('请求数')]}
                     rows={result.reasons.map(row => [
-                      i18n.system(row.reason),
+                      i18n.system(verificationReasonLabel(row.reason)),
                       number(row.requests),
                     ])}
                   />
@@ -380,7 +395,7 @@ export function TrafficEvidencePanel({
                       columns={[i18n.text('身份'), i18n.text('响应'), i18n.text('请求数')]}
                       rows={result.outsideScope.map(row => [
                         i18n.text(identityLabels[row.identity]),
-                        row.response,
+                        i18n.system(responseLabel(row.response)),
                         <Button
                           onClick={() => {
                             onIdentityScope?.('all');
@@ -525,7 +540,7 @@ export function TrafficEvidencePanel({
                       ? Object.entries(row.features)
                           .map(
                             ([key, value]: [string, any]) =>
-                              `${key}: ${value.state} ${Array.isArray(value.values) ? value.values.join(' / ') : ''}`,
+                              `${key}: ${i18n.system(fieldStateLabels[value.state] || '未知')} ${Array.isArray(value.values) ? value.values.join(' / ') : ''}`,
                           )
                           .join(' · ')
                       : i18n.text('未采集观察行'),
@@ -688,7 +703,7 @@ export function TrafficEvidencePanel({
                     ]}
                     rows={(result.fieldCoverage || []).map(row => [
                       row.field,
-                      row.state,
+                      i18n.system(fieldStateLabels[row.state] || '未知'),
                       number(row.value),
                       number(row.requests),
                     ])}
