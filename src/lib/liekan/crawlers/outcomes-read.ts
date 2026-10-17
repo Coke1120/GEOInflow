@@ -13,6 +13,7 @@ import {
   type EvidenceInputs,
 } from './evidence-read';
 import { normalizeCollectionHostname } from '../upstream/collection-quality';
+import { eventSamplingRateSql } from '../log-ingestion/measurement';
 
 export const OUTCOME_MAPPING_VERSION = 'crawler-outcomes-v1';
 const products = [
@@ -37,7 +38,8 @@ export async function readOutcomes(
   const logs = await tx.query(
     `SELECT e.crawler_id,l.bot,l.path,count(*)::float8 AS requests,
     count(*) FILTER(WHERE method='GET' AND status BETWEEN 200 AND 299)::float8 AS "get2xx",
-    bool_and(coalesce(e.measurement->>'samplingRate'='1' AND e.measurement->>'samplingBasis'='observed_provider_config',false)) AS unsampled,
+    CASE WHEN count(${eventSamplingRateSql})=count(*)
+      THEN bool_and((${eventSamplingRateSql})=1) ELSE NULL END AS unsampled,
     bool_and(coalesce(e.measurement->>'hostBasis'='request_host',false)) AS "hostObserved",
     min(e.measurement->>'host') AS host,count(distinct e.measurement->>'host')::int AS hosts,
     count(distinct e.measurement->>'sourceConfigVersion')::int AS configs
@@ -92,7 +94,7 @@ export async function readOutcomes(
         goalEvents: goals.configured ? 0 : null,
         catalogPaths: new Set<string>(),
         ambiguous: !!mappingByHuman.get(path)?.ambiguous,
-        unsampled: true,
+        unsampled: null,
         hostObserved: true,
         unknownBrowserHost: 0,
         configKnown: true,
@@ -105,9 +107,13 @@ export async function readOutcomes(
     const platform = crawlerPlatforms.get(log.crawler_id) ?? `custom:${log.bot}`;
     const mapping = mappingByEncoded.get(log.path)!;
     const row = get(platform, mapping.humanPath);
+    row.unsampled = !row.requests
+      ? log.unsampled
+      : row.unsampled === null || log.unsampled === null
+        ? null
+        : row.unsampled && log.unsampled;
     row.requests += log.requests;
     row.get2xx += log.get2xx;
-    row.unsampled &&= log.unsampled;
     row.hostObserved &&=
       log.hostObserved && log.hosts === 1 && normalizeCollectionHostname(log.host) === hostname;
     row.configKnown &&= log.configs === 1;

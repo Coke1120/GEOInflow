@@ -112,6 +112,7 @@ export function CrawlerDialog({
   const [workflowKey, setWorkflowKey] = useState<string | null>(null);
   const [pendingOnly, setPendingOnly] = useState(false);
   const [scope, setScope] = useState<CrawlerIdentityScope>(identityScope);
+  const [evidenceBotId, setEvidenceBotId] = useState<string | null>(null);
   const base = `/liekan/websites/${websiteId}`;
   useEffect(() => {
     const abort = new AbortController();
@@ -144,21 +145,20 @@ export function CrawlerDialog({
         if (abort.signal.aborted) return;
         setData(result);
         if (!criticalDirtyRef.current) setCritical(result.criticalPaths.join('\n'));
-        setBotId(
-          current =>
-            current ||
-            (selectedIdentity !== undefined
-              ? selectedIdentity === null
-                ? `custom:${botName}`
-                : selectedIdentity
-              : null) ||
-            (result.bots.some(bot => bot.name === botName && !bot.botId)
+        const entryBotId =
+          (selectedIdentity !== undefined
+            ? selectedIdentity === null
               ? `custom:${botName}`
-              : null) ||
-            result.bots.find(bot => bot.name === botName && bot.botId)?.botId ||
-            result.directory.find(bot => bot.name === botName)?.id ||
-            (botName ? `custom:${botName}` : result.directory[0]?.id || ''),
-        );
+              : selectedIdentity
+            : null) ||
+          (result.bots.some(bot => bot.name === botName && !bot.botId)
+            ? `custom:${botName}`
+            : null) ||
+          result.bots.find(bot => bot.name === botName && bot.botId)?.botId ||
+          result.directory.find(bot => bot.name === botName)?.id ||
+          (botName ? `custom:${botName}` : '');
+        setBotId(current => current || entryBotId || result.directory[0]?.id || '');
+        setEvidenceBotId(current => current ?? entryBotId);
       })
       .catch(error => {
         if (abort.signal.aborted) return;
@@ -268,6 +268,18 @@ export function CrawlerDialog({
     pages = data?.pages.filter(matchesSelection) || [],
     platform = data?.platforms.find(row => row.platformId === bot?.platformId);
   const sum = (field: string) => metrics.reduce((total, row) => total + Number(row[field] || 0), 0);
+  const botOptions = [
+    ...(data?.directory || []).map(bot => ({ value: bot.id, label: bot.name })),
+    ...new Set([
+      ...(data?.bots || []).filter(row => !row.botId).map(row => row.name),
+      ...(customName === null ? [] : [customName]),
+      ...(evidenceBotId?.startsWith('custom:') ? [evidenceBotId.slice(7)] : []),
+    ]),
+  ].map(option =>
+    typeof option === 'string'
+      ? { value: `custom:${option}`, label: i18n.text('{v0}（自定义）', [option]) }
+      : option,
+  );
   const findings = data?.findings.filter(row => !botName || row.botId === botId) || [];
   const selectors = (match: 'exact' | 'prefix' = 'exact') =>
     paths
@@ -329,6 +341,14 @@ export function CrawlerDialog({
               )}
             </Notice>
           )}
+          {['evidence', 'performance', 'outcomes'].includes(tab) && (
+            <Select
+              label={i18n.text('蜘蛛')}
+              value={evidenceBotId ?? ''}
+              onChange={event => setEvidenceBotId(event.target.value)}
+              options={[{ value: '', label: i18n.text('全部') }, ...botOptions]}
+            />
+          )}
           {tab === 'evidence' && (
             <>
               <Select
@@ -345,7 +365,7 @@ export function CrawlerDialog({
                 websiteId={websiteId}
                 hostname={websiteDomain}
                 range={data.range}
-                botId={botId}
+                botId={evidenceBotId || undefined}
                 identityScope={scope}
                 onIdentityScope={setScope}
               />
@@ -356,7 +376,7 @@ export function CrawlerDialog({
               websiteId={websiteId}
               hostname={websiteDomain}
               range={data.range}
-              botId={botId}
+              botId={evidenceBotId || undefined}
               identityScope={scope}
               mode="performance"
             />
@@ -366,7 +386,7 @@ export function CrawlerDialog({
               websiteId={websiteId}
               hostname={websiteDomain}
               range={data.range}
-              botId={botId}
+              botId={evidenceBotId || undefined}
               identityScope={scope}
               mode="outcomes"
             />
@@ -377,18 +397,7 @@ export function CrawlerDialog({
                 label={i18n.text('蜘蛛')}
                 value={botId}
                 onChange={event => setBotId(event.target.value)}
-                options={[
-                  ...data.directory.map(bot => ({ value: bot.id, label: bot.name })),
-                  ...[
-                    ...new Set([
-                      ...data.bots.filter(row => !row.botId).map(row => row.name),
-                      ...(customName === null ? [] : [customName]),
-                    ]),
-                  ].map(name => ({
-                    value: `custom:${name}`,
-                    label: i18n.text('{v0}（自定义）', [name]),
-                  })),
-                ]}
+                options={botOptions}
               />
               {customName !== null && (
                 <Notice>

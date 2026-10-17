@@ -15314,7 +15314,7 @@ export interface operations {
               ratioDenominator: number | null;
               requests: number;
               unknownBrowserHost: number;
-              unsampled: boolean;
+              unsampled: boolean | null;
               /** @description Visit counts for the selected period. */
               visits: number | null;
             }[];

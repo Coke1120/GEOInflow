@@ -26,6 +26,7 @@ import { analyticsGate, AnalyticsUnavailable } from '../upstream/analytics-budge
 import { humanPathFromEncoded } from '../upstream/paths';
 import { normalizeCollectionHostname } from '../upstream/collection-quality';
 import { EXPORT_MAX_BYTES, EXPORT_MAX_ROWS } from '../contracts/exports';
+import { eventSamplingRateSql } from '../log-ingestion/measurement';
 
 export function parseEvidenceQuery(input: unknown, reconciliation = false, now = Date.now()) {
   const parsed = (reconciliation ? reconciliationQuerySchema : evidenceQuerySchema).safeParse(
@@ -359,7 +360,7 @@ export async function readReconciliation(
     count(*) FILTER(WHERE e.measurement->>'hostBasis'='request_host' AND regexp_replace(lower(rtrim(e.measurement->>'host','.')),'^www[.]','')=$${scope.args.length + 1})::float8 AS "hostSamples",
     count(distinct e.measurement->>'sourceConfigVersion')::int AS "configVersions",
     count(*) FILTER(WHERE e.measurement->>'sourceConfigVersion' IS NOT NULL)::float8 AS "configSamples",
-    count(*) FILTER(WHERE e.measurement->>'samplingRate'='1' AND e.measurement->>'samplingBasis'='observed_provider_config')::float8 AS "unsampledRequests"
+    count(*) FILTER(WHERE (${eventSamplingRateSql})=1)::float8 AS "unsampledRequests"
     ${scope.sql} GROUP BY l.path ORDER BY l.path LIMIT 100001`,
     ...scope.args,
     hostname,

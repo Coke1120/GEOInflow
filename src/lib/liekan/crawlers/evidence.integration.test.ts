@@ -720,6 +720,151 @@ describe.skipIf(!enabled)('traffic evidence PostgreSQL contracts', () => {
     );
     expect(uppercase.rows.find(row => row.platformId === 'openai')?.visits).toBe(1);
   });
+  it('keeps receipt-time and legacy sampling unknown in actual outcome reads and CSV', async () => {
+    const saved = await q(
+      'SELECT log_id,measurement FROM liekan_crawler_evidence WHERE website_id=$1::uuid',
+      site,
+    );
+    const { view: _view, ...conditions } = { ...p, sourceId: 'manual' };
+    const cases = [
+      { samplingRate: 1, samplingBasis: 'observed_provider_config', expected: null },
+      {
+        samplingRate: 1,
+        samplingBasis: 'observed_provider_config',
+        samplingTimeBasis: 'received_at',
+        expected: null,
+      },
+      {
+        samplingRate: 1,
+        samplingBasis: 'observed_provider_config',
+        samplingTimeBasis: 'event_time',
+        expected: true,
+      },
+      {
+        samplingRate: 0.1,
+        samplingBasis: 'observed_provider_config',
+        samplingTimeBasis: 'event_time',
+        expected: false,
+      },
+    ];
+    try {
+      for (const { expected, ...sampling } of cases) {
+        await q(
+          'UPDATE liekan_crawler_evidence SET measurement=measurement || $2::jsonb WHERE website_id=$1::uuid',
+          site,
+          JSON.stringify(sampling),
+        );
+        const result = await queryEvidence(actor, site, conditions, 'outcomes', readOutcomes, true);
+        const row = result.rows.find(item => item.platformId === 'openai');
+        expect(row.requests).toBe(13);
+        authentication.value = { authType: 'session', user: { id: owner, role: 'user' } };
+        const csv = await (
+          await exportEvidence(
+            actor,
+            site,
+            {
+              kind: 'outcomes',
+              locale: 'en-US',
+              query: conditions,
+              policySnapshot: result.meta.policySnapshot,
+            },
+            new Request('https://example.com/api/liekan/test', { method: 'POST' }),
+            ['outcomes'],
+          )
+        ).text();
+        const lines = csv.split('\r\n');
+        const fields = (line: string) =>
+          (line.match(/"(?:[^"]|"")*"/g) || []).map(value =>
+            value.slice(1, -1).replaceAll('""', '"'),
+          );
+        const headerAt = lines.findIndex(line => fields(line)[0] === 'rows');
+        const header = fields(lines[headerAt]);
+        const cells = fields(lines[headerAt + 1]);
+        expect(header).toContain('unsampled');
+        expect(row.unsampled).toBe(expected);
+        expect(cells[header.indexOf('unsampled')]).toBe(expected === null ? '' : String(expected));
+      }
+    } finally {
+      await q(
+        `UPDATE liekan_crawler_evidence e SET measurement=s.measurement
+         FROM jsonb_to_recordset($2::jsonb) AS s(log_id text,measurement jsonb)
+         WHERE e.website_id=$1::uuid AND e.log_id=s.log_id`,
+        site,
+        JSON.stringify(saved),
+      );
+    }
+  });
+  it('keeps mixed evidence groups and referral-only rows sampling unknown', async () => {
+    const saved = await q(
+      'SELECT e.log_id,e.measurement,l.bot FROM liekan_crawler_evidence e JOIN liekan_log l ON l.website_id=e.website_id AND l.id=e.log_id WHERE e.website_id=$1::uuid',
+      site,
+    );
+    const events = await q(
+      'SELECT event_id,referrer_domain,utm_source,utm_medium FROM liekan_raw_website_event WHERE website_id=$1::uuid',
+      site,
+    );
+    try {
+      await q(
+        `UPDATE liekan_crawler_evidence SET measurement=measurement ||
+          '{"samplingRate":1,"samplingBasis":"observed_provider_config","samplingTimeBasis":"event_time"}'::jsonb
+          WHERE website_id=$1::uuid`,
+        site,
+      );
+      await q(
+        "UPDATE liekan_crawler_evidence SET measurement=measurement-'samplingTimeBasis' WHERE website_id=$1::uuid AND log_id=$2",
+        site,
+        saved[0].log_id,
+      );
+      // Distinct bot labels make separate SQL groups that merge into the same platform/path.
+      await q(
+        "UPDATE liekan_log SET bot='Mixed-sampling-fixture' WHERE website_id=$1::uuid AND id=$2",
+        site,
+        saved[0].log_id,
+      );
+      await q(
+        "UPDATE liekan_raw_website_event SET referrer_domain='claude.ai',utm_source=NULL,utm_medium=NULL WHERE website_id=$1::uuid",
+        site,
+      );
+      const result = await queryEvidence(
+        actor,
+        site,
+        { ...p, sourceId: 'manual' },
+        'outcomes',
+        readOutcomes,
+        true,
+      );
+      expect(result.rows.find(row => row.platformId === 'openai')).toMatchObject({
+        requests: 13,
+        unsampled: null,
+      });
+      expect(result.rows.find(row => row.platformId === 'anthropic')).toMatchObject({
+        requests: 0,
+        visits: 1,
+        unsampled: null,
+      });
+    } finally {
+      await q(
+        `UPDATE liekan_crawler_evidence e SET measurement=s.measurement
+         FROM jsonb_to_recordset($2::jsonb) AS s(log_id text,measurement jsonb)
+         WHERE e.website_id=$1::uuid AND e.log_id=s.log_id`,
+        site,
+        JSON.stringify(saved),
+      );
+      await q(
+        `UPDATE liekan_log l SET bot=s.bot FROM jsonb_to_recordset($2::jsonb) AS s(log_id text,bot text)
+         WHERE l.website_id=$1::uuid AND l.id=s.log_id`,
+        site,
+        JSON.stringify(saved),
+      );
+      await q(
+        `UPDATE liekan_raw_website_event e SET referrer_domain=s.referrer_domain,utm_source=s.utm_source,utm_medium=s.utm_medium
+         FROM jsonb_to_recordset($2::jsonb) AS s(event_id uuid,referrer_domain text,utm_source text,utm_medium text)
+         WHERE e.website_id=$1::uuid AND e.event_id=s.event_id`,
+        site,
+        JSON.stringify(events),
+      );
+    }
+  });
   it('D-01/D-02/D-03/D-06 makes workflow idempotent, versioned, audited and independent of facts', async () => {
     const key = 'test-evidence-risk';
     await q(

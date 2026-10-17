@@ -116,11 +116,77 @@ try {
         ['资源与性能', 'Resources and performance'],
         ['业务效果', 'Business outcomes'],
       ]) {
+        const endpoint = {
+          身份与响应: 'evidence',
+          资源与性能: 'performance',
+          业务效果: 'outcomes',
+        }[zh];
+        const evidenceResponse = page.waitForResponse(response => {
+          const url = new URL(response.url());
+          return (
+            url.pathname.endsWith(`/crawler-analysis/${endpoint}`) &&
+            url.searchParams.has('crawlerIdentityScope')
+          );
+        });
         await dialog.getByRole('tab', { name: text(zh, locale), exact: true }).click();
+        const response = await evidenceResponse;
+        assert(response.ok());
+        const requested = new URL(response.url());
+        assert.equal(
+          requested.searchParams.get('botId'),
+          null,
+          'General entry includes all crawlers',
+        );
+        assert.equal(requested.searchParams.get('botName'), null);
+        await expect(dialog.getByLabel(text('蜘蛛', locale), { exact: true })).toHaveValue('');
         await expect(
           dialog.getByRole('button', { name: text('重新读取', locale), exact: true }),
         ).toBeEnabled();
         await expect(dialog.getByText(text('日志来源', locale), { exact: true })).toBeVisible();
+        if (endpoint === 'evidence') {
+          const unverified = dialog.getByRole('button', {
+            name: `${text('未核验', locale)} 2xx`,
+            exact: true,
+          });
+          const back = dialog.getByRole('button', {
+            name: text('返回身份矩阵', locale),
+            exact: true,
+          });
+          await unverified.click();
+          await expect(back).toBeVisible();
+          await back.click();
+          await expect(unverified).toBeVisible();
+          await unverified.click();
+          await expect(back).toBeVisible();
+          await dialog
+            .getByLabel(text('蜘蛛身份范围', locale), { exact: true })
+            .selectOption('verified_range');
+          await expect(
+            dialog.getByRole('button', {
+              name: `${text('官方范围匹配', locale)} 2xx`,
+              exact: true,
+            }),
+          ).toBeVisible();
+          await expect(back).toHaveCount(0);
+          await dialog
+            .getByLabel(text('蜘蛛身份范围', locale), { exact: true })
+            .selectOption('all');
+          await expect(unverified).toBeVisible();
+          const selected = page.waitForResponse(response => {
+            const url = new URL(response.url());
+            return (
+              url.pathname.endsWith('/crawler-analysis/evidence') &&
+              url.searchParams.get('botId') === finding.botId
+            );
+          });
+          await dialog
+            .getByLabel(text('蜘蛛', locale), { exact: true })
+            .selectOption(finding.botId);
+          assert((await selected).ok());
+          await expect(unverified).toBeVisible();
+          await dialog.getByLabel(text('蜘蛛', locale), { exact: true }).selectOption('');
+          await expect(unverified).toBeVisible();
+        }
         const widthState = await page.evaluate(() => ({
           scroll: document.documentElement.scrollWidth,
           width: innerWidth,

@@ -260,7 +260,7 @@ export const outcomesResponseSchema = base.extend({
       observedVisits: z.number().nullable(),
       unknownBrowserHost: z.number(),
       ambiguous: z.boolean(),
-      unsampled: z.boolean(),
+      unsampled: z.boolean().nullable(),
       hostObserved: z.boolean(),
       configKnown: z.boolean(),
       ratioDenominator: z.number().nullable(),

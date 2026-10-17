@@ -190,6 +190,6 @@ try {
     { optional: true, cleanup: true },
   );
   if (owned.code === 0 && owned.output.trim() === runId)
-    await run('docker', ['rm', '--force', name], { cleanup: true });
+    await run('docker', ['rm', '--force', '--volumes', name], { cleanup: true });
   else if (created) throw new Error('Isolated container ownership changed; cleanup stopped');
 }

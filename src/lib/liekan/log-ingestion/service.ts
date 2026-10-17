@@ -1,4 +1,5 @@
 import { applyEdgeCapabilities } from './edge-observation';
+import { samplingAtReceipt } from './measurement';
 import { normalizeAutomaticWithGeography, persistLogGeography } from '../upstream/log-geography';
 import { randomUUID, createHmac, createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -207,11 +208,7 @@ export async function receiveBatch(request: Request, sourceId: string) {
       sourceId,
     );
     const observed = live.source.health?.measurement;
-    const sampled =
-      live.source.kind === 'cloudflare' &&
-      observed?.samplingRate === 1 &&
-      Date.now() - Date.parse(observed.observedAt) >= 0 &&
-      Date.now() - Date.parse(observed.observedAt) <= 3600000;
+    const sampling = samplingAtReceipt(live.source.kind, observed);
     const configVersion = createHash('sha256')
       .update(
         JSON.stringify({
@@ -229,8 +226,7 @@ export async function receiveBatch(request: Request, sourceId: string) {
       if (record.measurement) {
         record.measurement.sourceConfigVersion = configVersion;
         record.measurement.sourceIntervalVersion = interval ? `${sourceId}:${interval.id}` : null;
-        record.measurement.samplingRate = sampled ? 1 : null;
-        record.measurement.samplingBasis = sampled ? 'observed_provider_config' : 'unknown';
+        Object.assign(record.measurement, sampling);
       }
 
     for (const record of parsed.records)

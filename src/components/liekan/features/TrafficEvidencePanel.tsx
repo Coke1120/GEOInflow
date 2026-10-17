@@ -58,7 +58,7 @@ export function TrafficEvidencePanel({
   const i18n = useLiekanI18n();
   const [sourceId, setSourceId] = useState(''),
     [sources, setSources] = useState<any[]>([]),
-    [result, setResult] = useState<any>(null);
+    [response, setResponse] = useState<{ key: string; data: any } | null>(null);
   const [page, setPage] = useState(1),
     [revision, setRevision] = useState(0),
     [error, setError] = useState(''),
@@ -71,12 +71,19 @@ export function TrafficEvidencePanel({
     startAt: number;
     endAt: number;
   } | null>(null);
-  const [detail, setDetail] = useState<{
-    responseGroup?: string;
-    verificationGroup?: string;
-    recognitionGroup?: string;
-    population?: string;
+  const [drilldown, setDrilldown] = useState<{
+    scope: CrawlerIdentityScope;
+    filters: {
+      responseGroup?: string;
+      verificationGroup?: string;
+      recognitionGroup?: string;
+      population?: string;
+    };
   } | null>(null);
+  const detail = drilldown?.scope === identityScope ? drilldown.filters : null;
+  useEffect(() => {
+    setDrilldown(current => (current?.scope === identityScope ? current : null));
+  }, [identityScope]);
   const fixed = useMemo(() => {
     const endAt = Math.min(range.endAt, Date.now());
     return {
@@ -113,11 +120,13 @@ export function TrafficEvidencePanel({
           crawlerMetricsVersion: 1,
         };
   const conditions = JSON.stringify(query);
+  const requestKey = JSON.stringify([endpoint, conditions]);
+  const result = response?.key === requestKey ? response.data : null;
   useEffect(() => {
     snapshot.current = undefined;
     setPage(1);
-    setResult(null);
-  }, [conditions]);
+    setResponse(null);
+  }, [requestKey]);
   useEffect(() => {
     if (mode === 'observations') return;
     const abort = new AbortController();
@@ -168,20 +177,20 @@ export function TrafficEvidencePanel({
             endAt: data.meta.conditions.endAt,
           });
         snapshot.current = data.meta.snapshot;
-        setResult(data);
+        setResponse({ key: requestKey, data });
         if (data.meta.reset) setPage(1);
       })
       .catch(e => {
         if (!abort.signal.aborted) {
           setError(e.message);
-          setResult(null);
+          setResponse(null);
         }
       })
       .finally(() => {
         if (!abort.signal.aborted) setLoading(false);
       });
     return () => abort.abort();
-  }, [conditions, endpoint, page, needsSource, sourceId, revision]);
+  }, [conditions, endpoint, requestKey, page, needsSource, sourceId, revision]);
   const number = (value: unknown) =>
     value == null
       ? i18n.text('未提供')
@@ -224,7 +233,10 @@ export function TrafficEvidencePanel({
           onClick={() => {
             snapshot.current = undefined;
             setPage(1);
-            setDetail({ responseGroup: response, verificationGroup: identity });
+            setDrilldown({
+              scope: identityScope,
+              filters: { responseGroup: response, verificationGroup: identity },
+            });
           }}
           aria-label={`${i18n.text(identityLabels[identity])} ${response}`}
         >
@@ -379,7 +391,10 @@ export function TrafficEvidencePanel({
                     {i18n.text('请求声明的名称存在歧义')} · {number(result.ambiguousRequests)} ·{' '}
                     <Button
                       onClick={() => {
-                        setDetail({ recognitionGroup: 'ambiguous', population: 'all_logs' });
+                        setDrilldown({
+                          scope: identityScope,
+                          filters: { recognitionGroup: 'ambiguous', population: 'all_logs' },
+                        });
                         setPage(1);
                         snapshot.current = undefined;
                       }}
@@ -399,9 +414,12 @@ export function TrafficEvidencePanel({
                         <Button
                           onClick={() => {
                             onIdentityScope?.('all');
-                            setDetail({
-                              responseGroup: row.response,
-                              verificationGroup: row.identity,
+                            setDrilldown({
+                              scope: 'all',
+                              filters: {
+                                responseGroup: row.response,
+                                verificationGroup: row.identity,
+                              },
                             });
                             setPage(1);
                             snapshot.current = undefined;
@@ -420,7 +438,7 @@ export function TrafficEvidencePanel({
               <>
                 <Button
                   onClick={() => {
-                    setDetail(null);
+                    setDrilldown(null);
                     setPage(1);
                     snapshot.current = undefined;
                   }}
