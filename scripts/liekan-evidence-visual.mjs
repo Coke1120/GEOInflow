@@ -103,8 +103,9 @@ try {
       });
 
       await page.goto(`${base}/websites/${seed.website.id}/geo/ai/bots?date=7day`);
+      await page.waitForLoadState('networkidle');
       const open = page.getByRole('button', {
-        name: locale === 'zh-CN' ? '蜘蛛归因与控制' : 'Crawler attribution and control',
+        name: text('查看归因、风险与访问策略', locale),
         exact: true,
       });
       await open.click();
@@ -115,9 +116,7 @@ try {
         ['资源与性能', 'Resources and performance'],
         ['业务效果', 'Business outcomes'],
       ]) {
-        await dialog
-          .getByRole('button', { name: locale === 'zh-CN' ? zh : en, exact: true })
-          .click();
+        await dialog.getByRole('tab', { name: text(zh, locale), exact: true }).click();
         await expect(
           dialog.getByRole('button', { name: text('重新读取', locale), exact: true }),
         ).toBeEnabled();
@@ -133,7 +132,7 @@ try {
         });
         result.checks.push({ locale, width, panel: en });
       }
-      await dialog.getByRole('button', { name: text('风险证据', locale), exact: true }).click();
+      await dialog.getByRole('tab', { name: text('风险证据', locale), exact: true }).click();
       await dialog.getByRole('button', { name: text('上下文与处理', locale), exact: true }).click();
       await expect(
         dialog.getByRole('button', { name: text('标记已查看', locale), exact: true }),
@@ -141,12 +140,16 @@ try {
       await dialog.getByLabel(text('处理备注', locale), { exact: true }).fill('test visual note');
       await dialog.getByRole('button', { name: text('标记已查看', locale), exact: true }).click();
       await expect(dialog.getByLabel(text('处理备注', locale), { exact: true })).toHaveValue('');
+      await expect(
+        dialog.getByRole('button', { name: text('重新读取归因与风险', locale), exact: true }),
+      ).toBeEnabled();
       await page.screenshot({ path: `${out}/${suffix}-workflow.png`, fullPage: true });
       result.checks.push({ locale, width, panel: 'workflow', fixture: true });
       await page.keyboard.press('Escape');
       await page.goto(
         `${base}/liekan/website-settings?websiteId=${seed.website.id}&section=collection`,
       );
+      await page.waitForLoadState('networkidle');
       await page.getByRole('button', { name: text('浏览流量质量', locale), exact: true }).click();
       const quality = page.getByRole('dialog');
       for (const label of ['观察证据', '采集对账']) {

@@ -1004,11 +1004,9 @@ test('traffic evidence keeps private identities, explicit empty states and valid
       expect((await user.get(`${base}/${path}`, { params })).status).toBe(404);
       const response = await admin.get(`${base}/${path}`, { params });
       expect(response.status, response.text).toBe(200);
-      if (path === 'crawler-analysis/evidence') {
-        expect(response.body.totals.requests).toBe(0);
-        expect(response.body.rows).toHaveLength(21);
-        expect(response.body.rows.every(row => row.requests === 0)).toBe(true);
-      } else expect(response.body.rows).toEqual([]);
+      expect(response.headers['cache-control'], path).toMatch(/private.*no-store/);
+      if (path === 'crawler-analysis/evidence') expect(response.body.totals.requests).toBe(0);
+      expect(response.body.rows).toEqual([]);
     }
     expect(
       (await admin.get(`${base}/crawler-context`, { params: { startAt: 'invalid' } })).status,
@@ -1043,12 +1041,14 @@ test('traffic evidence keeps private identities, explicit empty states and valid
     ).toBe(200);
     expect(
       (
-        await admin.patch(`${base}/crawler-findings/cr_${'a'.repeat(64)}/workflow`, {
-          requestId: crypto.randomUUID(),
-          expectedWorkflowRevision: 0,
-          occurrenceVersion: 1,
-          factVersion: 'a'.repeat(64),
-          action: 'view',
+        await admin.request('PATCH', `${base}/crawler-findings/cr_${'a'.repeat(64)}/workflow`, {
+          data: {
+            requestId: crypto.randomUUID(),
+            expectedWorkflowRevision: 0,
+            occurrenceVersion: 1,
+            factVersion: 'a'.repeat(64),
+            action: 'view',
+          },
         })
       ).status,
     ).toBe(404);

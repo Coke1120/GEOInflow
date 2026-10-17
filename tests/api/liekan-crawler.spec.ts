@@ -22,7 +22,7 @@ test('all crawler endpoints require a full session before reading or accepting c
       });
       expect(response.status, `${method} ${path}: ${response.text}`).toBe(401);
       expect(response.body.error).toMatchObject({ status: 401, code: 'liekan-error' });
-      expect(response.headers['cache-control']).toMatch(/private.*no-store/);
+      expect(response.headers['cache-control'], `${method} ${path}`).toMatch(/private.*no-store/);
     }
   }
 });
