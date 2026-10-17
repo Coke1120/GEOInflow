@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { freshAggregateFixture } from '@/test/liekan-freshness';
@@ -11,6 +11,8 @@ const state = vi.hoisted(() => ({
   handle: '102',
   get: vi.fn(),
   download: vi.fn(),
+  evidence: vi.fn(),
+  exportEvidence: vi.fn(),
   resource: 'ai/bots',
 }));
 vi.mock('next/link', () => ({
@@ -49,6 +51,8 @@ vi.mock('./features/CrawlerDialog', () => ({
   CrawlerDialog: ({ websiteId }: any) => <div role="dialog">{websiteId}</div>,
 }));
 vi.mock('@/lib/liekan/upstream/features-client', () => ({
+  featureRequest: state.evidence,
+  downloadTrafficEvidence: state.exportEvidence,
   getFeaturePreferences: () => ({ timezone: 'Asia/Shanghai' }),
   featureApi: {
     get: (path: string, ...args: any[]) =>
@@ -79,6 +83,14 @@ let client: QueryClient;
 beforeEach(() => {
   state.resource = 'ai/bots';
   state.download.mockReset();
+  state.evidence.mockReset();
+  state.exportEvidence.mockReset();
+  state.evidence.mockResolvedValue({ meta: { snapshot: 'view', policySnapshot: 'policy' } });
+  state.exportEvidence.mockResolvedValue({
+    csv: '\ufeffExport metadata\r\nfull snapshot',
+    readAt: '2026-10-17T00:00:00.000Z',
+    changed: 'true',
+  });
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   state.get.mockResolvedValue(
     freshAggregateFixture({
@@ -111,7 +123,7 @@ it.each([
 ] as const)(
   'exports the actual report interval and timezone while preserving %s CSV columns',
   async (locale, start) => {
-    const end = '2026-09-29T15:59:59.999Z';
+    const end = '2026-09-29T16:00:00.000Z';
     state.get.mockResolvedValue(
       freshAggregateFixture({
         website: { ...state.website, domain: 'example.test' },
@@ -130,7 +142,20 @@ it.each([
         },
         states: {},
         cards: [],
-        meta: { canManage: true, demo: false },
+        meta: {
+          canManage: true,
+          demo: false,
+          crawlerEvidenceView: {
+            snapshot: 'original',
+            policySnapshot: 'policy',
+            query: {
+              resource: 'ai/bots',
+              startAt: Date.parse(start),
+              endAt: Date.parse(end),
+              timezone: 'Asia/Shanghai',
+            },
+          },
+        },
       }),
     );
     render(
@@ -141,19 +166,31 @@ it.each([
       </LiekanLocaleContext.Provider>,
     );
     fireEvent.click(await screen.findByRole('button', { name: '导出测试范围' }));
-    expect(state.download).toHaveBeenCalledOnce();
+    await waitFor(() => expect(state.download).toHaveBeenCalledOnce());
     const [content, filename] = state.download.mock.calls[0];
     expect(filename).toBe(
-      `liekan-ai-bots-${start.replaceAll(':', '-')}--2026-09-29T15-59-59.999Z-Asia-Shanghai.csv`,
+      `liekan-ai-bots-${start.replaceAll(':', '-')}--2026-09-29T16-00-00.000Z-Asia-Shanghai.csv`,
     );
     expect(filename).not.toContain('2026-09-01');
-    const rows = content.slice(1).split('\r\n');
-    expect(rows[0].split(',')).toHaveLength(8);
-    expect(rows[0]).toContain(locale === 'zh-CN' ? '所选期间抓取' : 'Crawls in selected period');
-    expect(rows[1].split(',')[0]).toBe(
-      locale === 'zh-CN' ? '"GPTBot / OpenAI / 官方身份"' : '"GPTBot / OpenAI / Official identity"',
+    expect(state.exportEvidence).toHaveBeenCalledWith(
+      `/liekan/websites/${state.website.id}/crawler-analysis/export`,
+      expect.objectContaining({
+        locale,
+        kind: 'evidence',
+        viewSnapshot: expect.stringMatching(/^[a-f0-9]{64}$/),
+        policySnapshot: 'policy',
+        query: expect.objectContaining({
+          startAt: Date.parse(start),
+          endAt: Date.parse(end),
+          timezone: 'Asia/Shanghai',
+          crawlerMetricsVersion: 1,
+          population: 'recognized_crawlers',
+        }),
+      }),
     );
-    expect(rows).toHaveLength(2);
+    expect(content).toContain('full snapshot');
+    expect(state.evidence).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent('2026-10-17T00:00:00.000Z');
   },
 );
 it.each([

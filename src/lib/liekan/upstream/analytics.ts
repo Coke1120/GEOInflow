@@ -87,22 +87,25 @@ export async function crawlerReferralRows(
   start: Date,
   end: Date,
   timezone: string,
+  options?: { halfOpen?: boolean; hostEvidence?: boolean },
 ) {
   return tx.query(
     `WITH first_in_window AS MATERIALIZED(
-      SELECT DISTINCT ON(e.visit_id,e.session_id) e.visit_id,e.session_id,e.url_path,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign
+      SELECT DISTINCT ON(e.visit_id,e.session_id) e.visit_id,e.session_id,e.url_path,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign${options?.hostEvidence ? ',q.hostname' : ''}
       FROM website_event e JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
-      WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz AND e.event_type NOT IN(2,5) AND $4::text IS NOT NULL
+      ${options?.hostEvidence ? 'LEFT JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id' : ''}
+      WHERE e.website_id=$1::uuid AND ${options?.halfOpen ? 'e.created_at>=$2::timestamptz AND e.created_at<$3::timestamptz' : 'e.created_at BETWEEN $2::timestamptz AND $3::timestamptz'} AND e.event_type NOT IN(2,5) AND $4::text IS NOT NULL
       ORDER BY e.visit_id,e.session_id,e.created_at,e.event_id
     ),first_before_window AS(
-      SELECT DISTINCT ON(e.visit_id,e.session_id) e.visit_id,e.session_id,e.url_path,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign
+      SELECT DISTINCT ON(e.visit_id,e.session_id) e.visit_id,e.session_id,e.url_path,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign${options?.hostEvidence ? ',q.hostname' : ''}
       FROM website_event e JOIN first_in_window v USING(visit_id,session_id)
+      ${options?.hostEvidence ? 'LEFT JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id' : ''}
       WHERE e.website_id=$1::uuid AND e.created_at<$2::timestamptz AND e.event_type NOT IN(2,5)
       ORDER BY e.visit_id,e.session_id,e.created_at,e.event_id
     ),definitions AS(SELECT parameters FROM report WHERE website_id=$1::uuid AND type='goal'),
     goal_counts AS(
       SELECT e.visit_id,e.session_id,count(distinct e.event_id)::int AS events FROM definitions d
-      JOIN website_event e ON e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz AND
+      JOIN website_event e ON e.website_id=$1::uuid AND ${options?.halfOpen ? 'e.created_at>=$2::timestamptz AND e.created_at<$3::timestamptz' : 'e.created_at BETWEEN $2::timestamptz AND $3::timestamptz'} AND
         ((d.parameters->>'type'='path' AND e.event_type=1 AND CASE WHEN (left(d.parameters->>'value',1)='*' OR right(d.parameters->>'value',1)='*') THEN e.url_path LIKE regexp_replace(regexp_replace(d.parameters->>'value','^[*]','%'),'[*]$','%') ELSE e.url_path=d.parameters->>'value' END) OR
          (d.parameters->>'type'!='path' AND e.event_type=2 AND CASE WHEN (left(d.parameters->>'value',1)='*' OR right(d.parameters->>'value',1)='*') THEN e.event_name LIKE regexp_replace(regexp_replace(d.parameters->>'value','^[*]','%'),'[*]$','%') ELSE e.event_name=d.parameters->>'value' END))
       JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
@@ -113,12 +116,12 @@ export async function crawlerReferralRows(
         CASE WHEN prior.visit_id IS NOT NULL THEN prior.referrer_domain ELSE current.referrer_domain END AS referrer,
         CASE WHEN prior.visit_id IS NOT NULL THEN prior.utm_source ELSE current.utm_source END AS "utmSource",
         CASE WHEN prior.visit_id IS NOT NULL THEN prior.utm_medium ELSE current.utm_medium END AS "utmMedium",
-        CASE WHEN prior.visit_id IS NOT NULL THEN prior.utm_campaign ELSE current.utm_campaign END AS "utmCampaign"
+        CASE WHEN prior.visit_id IS NOT NULL THEN prior.utm_campaign ELSE current.utm_campaign END AS "utmCampaign"${options?.hostEvidence ? ',CASE WHEN prior.visit_id IS NOT NULL THEN prior.hostname ELSE current.hostname END AS hostname' : ''}
       FROM first_in_window current LEFT JOIN first_before_window prior USING(visit_id,session_id)
-    ) SELECT entry.referrer,entry."utmSource",entry."utmMedium",entry."utmCampaign",entry.path,
+    ) SELECT entry.referrer,entry."utmSource",entry."utmMedium",entry."utmCampaign",entry.path${options?.hostEvidence ? ',entry.hostname' : ''},
       count(*)::int AS visits,count(*) FILTER(WHERE goals.events>0)::int AS conversions,coalesce(sum(goals.events),0)::int AS "goalEvents"
       FROM entries entry LEFT JOIN goal_counts goals USING(visit_id,session_id)
-      GROUP BY 1,2,3,4,5 ORDER BY visits DESC`,
+      GROUP BY 1,2,3,4,5${options?.hostEvidence ? ',6' : ''} ORDER BY visits DESC${options ? ' LIMIT 100001' : ''}`,
     id,
     start,
     end,

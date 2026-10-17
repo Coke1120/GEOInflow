@@ -87,7 +87,7 @@ cp.spawnSync=(command,args,options={})=>{
   fs.writeSync(options.stdio[1],JSON.stringify({passed:true,sourceHash:'a'.repeat(64),checks:Array.from({length:8},(_,i)=>'fixture '+i),readOnly:true,fixture:'synthetic-relations'})+'\\n');
  }
  if(args.includes('playwright.api.config.ts')){if(options.env.PLAYWRIGHT_BASE_URL!==baseUrl)throw Error('API origin mismatch');const coverage='tests/api/.runtime/'+new URL(baseUrl).host.replace(/[^a-z0-9.-]+/gi,'-')+'/coverage';fs.mkdirSync(coverage,{recursive:true});fs.writeFileSync(coverage+'/summary.json','{}');}
- if(args.some(arg=>['scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-manual-refresh.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-ai-home-visual.mjs','scripts/liekan-keyword-visual.mjs','scripts/liekan-search-engine-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
+ if(args.some(arg=>['scripts/liekan-evidence-visual.mjs','scripts/liekan-feature-flows.mjs','scripts/liekan-feature-visual.mjs','scripts/liekan-manual-refresh.mjs','scripts/liekan-ai-visual.mjs','scripts/liekan-ai-home-visual.mjs','scripts/liekan-keyword-visual.mjs','scripts/liekan-search-engine-visual.mjs','scripts/liekan-visual.mjs'].includes(arg))&&options.env.LIEKAN_URL!==baseUrl)throw Error('Browser origin mismatch');
  if(args.includes('scripts/liekan-restored-check.mjs'))fs.writeSync(options.stdio[1],JSON.stringify({passed:true,enabledTwoFactorRecords:0,roles:[],teams:[],definitions:[]})+'\\n');
  if(args.includes('scripts/liekan-team-user-acceptance.mjs')){
   if(options.env.LIEKAN_URL!==baseUrl||!/^liekan-verify-[a-f0-9]{12}-[0-9]+-db$/.test(options.env.LIEKAN_TEAM_TEST_DB_CONTAINER))throw Error('Team user isolated origin mismatch');
@@ -95,6 +95,7 @@ cp.spawnSync=(command,args,options={})=>{
   fs.mkdirSync('test-results/liekan-team-users',{recursive:true});
   fs.writeFileSync('test-results/liekan-team-users/report.json',JSON.stringify({passed:fault!=='team-user-passed',head:fault==='team-user-head'?'other':head,checks:Array.from({length:fault==='team-user-count'?0:3},()=>({passed:fault!=='team-user-check'})),responsive:Array.from({length:fault==='team-user-responsive-count'?0:3},()=>({passed:fault!=='team-user-responsive-check'})),cleanup:fault!=='team-user-cleanup',errors:fault==='team-user-errors'?['fixture error']:[]}));
  }
+ if(args.includes('scripts/liekan-evidence-visual.mjs')){if(fault==='evidence-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-evidence',{recursive:true});fs.writeFileSync('test-results/liekan-evidence/result.json',JSON.stringify({passed:fault!=='evidence-visual-passed',head:fault==='evidence-visual-head'?'other':head,checks:Array.from({length:fault==='evidence-visual-count'?0:24},()=>({})),errors:fault==='evidence-visual-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-keyword-visual.mjs')){if(fault==='keyword-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-keywords',{recursive:true});fs.writeFileSync('test-results/liekan-keywords/report.json',JSON.stringify({passed:fault!=='keyword-visual-passed',head:fault==='keyword-visual-head'?'other':head,checks:Array.from({length:fault==='keyword-visual-count'?1:3},()=>({})),cleanup:fault!=='keyword-visual-cleanup'}));}
  if(args.includes('scripts/liekan-search-engine-visual.mjs')){if(fault==='search-engine-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-search-engines',{recursive:true});fs.writeFileSync('test-results/liekan-search-engines/report.json',JSON.stringify({passed:fault!=='search-engine-visual-passed',head:fault==='search-engine-visual-head'?'other':head,checks:Array.from({length:fault==='search-engine-visual-count'?1:3},()=>({})),cleanup:fault!=='search-engine-visual-cleanup'}));}
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:14},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
@@ -263,6 +264,11 @@ describe('isolated acceptance CLI failure paths', () => {
     'ai-home-extra',
     'ai-home-passed',
     'ai-home-errors',
+    'evidence-visual-failed',
+    'evidence-visual-passed',
+    'evidence-visual-head',
+    'evidence-visual-count',
+    'evidence-visual-errors',
     'keyword-visual-failed',
     'keyword-visual-passed',
     'keyword-visual-head',

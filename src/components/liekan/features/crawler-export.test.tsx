@@ -9,11 +9,87 @@ vi.mock('../data', async original => ({
   downloadFile: mocks.download,
 }));
 import { CrawlerDialog } from './CrawlerDialog';
+vi.mock('./TrafficEvidencePanel', () => ({
+  TrafficEvidencePanel: ({ botId, mode = 'evidence' }: any) => (
+    <output data-test="evidence-selection">{JSON.stringify({ botId: botId || null, mode })}</output>
+  ),
+}));
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.clearAllMocks();
 });
+it.each([
+  [undefined, undefined, null],
+  ['GPTBot', 'gptbot', 'gptbot'],
+  ['GPTBot', null, 'custom:GPTBot'],
+] as const)(
+  'keeps evidence selection explicit for entry %s / %s',
+  async (botName, selectedIdentity, expected) => {
+    const data = {
+      quality: { state: 'unknown' },
+      directory: crawlerDirectory,
+      bots: [
+        { botId: null, name: 'GPTBot', requests: 7 },
+        { botId: 'gptbot', name: 'GPTBot', requests: 999 },
+      ],
+      pages: [],
+      platforms: [],
+      previous: { bots: [], platforms: [] },
+      findings: [],
+      criticalPaths: [],
+      analysis: null,
+      range: { startAt: 1792022400000, endAt: 1792108800000, timezone: 'UTC' },
+      permissions: { canDraft: false, canControl: false },
+    };
+    mocks.request.mockResolvedValue(data);
+    render(
+      <CrawlerDialog
+        websiteId="12345678-1234-4234-8234-123456789012"
+        botName={botName}
+        selectedIdentity={selectedIdentity}
+        onClose={() => {}}
+        controlPanel={() => null}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '重新读取归因与风险' })).toBeEnabled(),
+    );
+    for (const [label, mode] of [
+      ['身份与响应', 'evidence'],
+      ['资源与性能', 'performance'],
+      ['业务效果', 'outcomes'],
+    ]) {
+      fireEvent.click(screen.getByRole('tab', { name: label }));
+      expect(JSON.parse(screen.getByTestId('evidence-selection').textContent)).toEqual({
+        botId: expected,
+        mode,
+      });
+      expect(screen.getByLabelText('蜘蛛')).toHaveValue(expected || '');
+    }
+    fireEvent.change(screen.getByLabelText('蜘蛛'), { target: { value: crawlerDirectory[1].id } });
+    fireEvent.click(screen.getByRole('tab', { name: '身份与响应' }));
+    expect(JSON.parse(screen.getByTestId('evidence-selection').textContent).botId).toBe(
+      crawlerDirectory[1].id,
+    );
+    fireEvent.change(screen.getByLabelText('蜘蛛'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('tab', { name: '资源与性能' }));
+    expect(JSON.parse(screen.getByTestId('evidence-selection').textContent).botId).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: '身份与响应' }));
+    fireEvent.change(screen.getByLabelText('蜘蛛'), { target: { value: 'custom:GPTBot' } });
+    mocks.request.mockResolvedValue({ ...data, bots: [] });
+    fireEvent.change(screen.getByLabelText('蜘蛛身份范围'), {
+      target: { value: 'verified_range' },
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '重新读取归因与风险' })).toBeEnabled(),
+    );
+    expect(screen.getByLabelText('蜘蛛')).toHaveValue('custom:GPTBot');
+    expect(JSON.parse(screen.getByTestId('evidence-selection').textContent).botId).toBe(
+      'custom:GPTBot',
+    );
+  },
+);
 it.each(['FixtureBot', 'GPTBot'])(
   'opens unmapped %s with its own metrics and no default official identity',
   async name => {

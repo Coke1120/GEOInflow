@@ -207,7 +207,7 @@ export function featureWebsiteSwitchHref(
 }
 
 const websiteFilter =
-  /^(drill_|(?:path|referrer|channel|title|query|os|tag|hostname|distinctId|language|country|region|city|browser|device|event)\d*$|utm|segment$|cohort$|match$|excludeBounce$|spf\d|epf\d)/;
+  /^(drill_|(?:path|referrer|channel|title|query|os|tag|hostname|distinctId|language|country|region|city|browser|device|event)\d*$|utm|crawlerIdentityScope$|sourceId$|botId$|botName$|snapshot$|cursor$|seek$|segment$|cohort$|match$|excludeBounce$|spf\d|epf\d)/;
 export function featureNavigationHref(
   route: FeatureRoute,
   query: Record<string, string>,

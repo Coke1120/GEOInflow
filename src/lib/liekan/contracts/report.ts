@@ -1,3 +1,4 @@
+import { crawlerIdentityScopeSchema, type CrawlerIdentityScope } from './crawler-metrics';
 import { z } from 'zod';
 import type { GeographyDisplay, GeographyCoverage } from './geography';
 export const geographyCoverageSchema = z.object({
@@ -47,6 +48,17 @@ export interface LiekanReport {
   tables: Record<string, Row[]>;
   insights: string[];
   meta: {
+    crawlerEvidenceView?: {
+      snapshot: string;
+      policySnapshot: string;
+      query: Record<string, unknown>;
+    };
+    crawlerMetrics?: {
+      scope: CrawlerIdentityScope;
+      version: 1 | null;
+      population: string;
+      timeBoundary: 'half_open' | 'legacy_inclusive';
+    };
     geography?: {
       charts?: Record<string, GeographyDisplay[]>;
       tables?: Record<string, GeographyDisplay[]>;
@@ -156,6 +168,21 @@ export const liekanReportSchema = z.object({
   ),
   insights: z.array(z.string()),
   meta: z.object({
+    crawlerEvidenceView: z
+      .object({
+        snapshot: z.string(),
+        policySnapshot: z.string(),
+        query: z.record(z.string(), z.unknown()),
+      })
+      .optional(),
+    crawlerMetrics: z
+      .object({
+        scope: crawlerIdentityScopeSchema,
+        version: z.literal(1).nullable(),
+        population: z.string(),
+        timeBoundary: z.enum(['half_open', 'legacy_inclusive']),
+      })
+      .optional(),
     geography: z
       .object({
         charts: z.record(z.string(), z.array(geographyDisplaySchema)).optional(),

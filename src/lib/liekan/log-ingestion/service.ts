@@ -1,5 +1,7 @@
+import { applyEdgeCapabilities } from './edge-observation';
+import { samplingAtReceipt } from './measurement';
 import { normalizeAutomaticWithGeography, persistLogGeography } from '../upstream/log-geography';
-import { randomUUID, createHmac } from 'node:crypto';
+import { randomUUID, createHmac, createHash } from 'node:crypto';
 import { z } from 'zod';
 import { logPublicOrigin } from '../contracts/installation';
 import { getSettings } from '../store';
@@ -40,6 +42,10 @@ export interface LogSource {
   requested_policy_revision: bigint | number;
   provider_config: string | null;
   provider_job_id: string | null;
+  health?: {
+    fieldCapabilities?: Record<string, boolean>;
+    measurement?: { version: string; observedAt: string; samplingRate: number };
+  };
 }
 export const uuid = (id: string) => {
   if (!z.uuid().safeParse(id).success) throw new LiekanError('接入标识无效');
@@ -197,6 +203,38 @@ export async function receiveBatch(request: Request, sourceId: string) {
   return transaction(async tx => {
     const live = await validateSource(tx, sourceId, token);
     if (upload.epoch !== live.epoch) throw new LiekanError('采集代次已更新，请同步配置', 409);
+    const [interval] = await tx.$queryRawUnsafe(
+      'SELECT id FROM liekan_log_interval WHERE source_id=$1::uuid AND ends_at IS NULL ORDER BY starts_at DESC LIMIT 1',
+      sourceId,
+    );
+    const observed = live.source.health?.measurement;
+    const sampling = samplingAtReceipt(live.source.kind, observed);
+    const configVersion = createHash('sha256')
+      .update(
+        JSON.stringify({
+          sourceId,
+          epoch: live.epoch,
+          kind: live.source.kind,
+          domain: live.source.domain,
+          credentialVersion: live.source.credential_version,
+          providerJobId: live.source.provider_job_id,
+          measurement: observed?.version ?? null,
+        }),
+      )
+      .digest('hex');
+    for (const record of parsed.records)
+      if (record.measurement) {
+        record.measurement.sourceConfigVersion = configVersion;
+        record.measurement.sourceIntervalVersion = interval ? `${sourceId}:${interval.id}` : null;
+        Object.assign(record.measurement, sampling);
+      }
+
+    for (const record of parsed.records)
+      if (record.crawlerEvidence?.edgeObservation)
+        record.crawlerEvidence.edgeObservation = applyEdgeCapabilities(
+          record.crawlerEvidence.edgeObservation,
+          live.source.health?.fieldCapabilities,
+        );
     const old = (
       await tx.$queryRawUnsafe(
         'SELECT id,digest,valid,rejected,state,inserted,duplicates FROM liekan_ingest_batch WHERE id=$1::uuid',

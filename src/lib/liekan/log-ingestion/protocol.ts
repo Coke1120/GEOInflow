@@ -129,6 +129,15 @@ export function normalizeAutomatic(
       records.push({
         ...parsed.records[0],
         id,
+        measurement: {
+          ...parsed.records[0].measurement,
+          host:
+            kind === 'cloudflare'
+              ? hostname(String((raw as Record<string, unknown>).ClientRequestHost))
+              : hostname(domain),
+          hostBasis: kind === 'cloudflare' ? 'request_host' : 'configured_host',
+          bytesUnit: kind === 'cloudflare' ? 'edge_body' : 'combined_response',
+        },
         eventDigest,
         classificationVersion,
         crawlerId: crawlerIdentityId(parsed.records[0].userAgent, rules),

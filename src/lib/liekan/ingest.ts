@@ -1,3 +1,4 @@
+import type { LogMeasurement } from './log-ingestion/measurement';
 import type { GeographyEvidence } from './geography/evidence';
 import { createHash, createHmac } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
@@ -13,6 +14,7 @@ import { crawlerIdForRule } from './crawlers/directory';
 
 export interface LogRecord {
   id: string;
+  measurement?: LogMeasurement;
   time: string;
   path: string;
   method: string;
@@ -113,11 +115,13 @@ export function parseLogInput(
   rows.forEach((raw, index) => {
     try {
       let obj: any = raw;
+      let bytesPresent = false;
       if (input.format === 'combined') {
         const m = String(raw).match(
           /^(\S+) \S+ \S+ \[([^\]]+)\] "([A-Z]+) (.*?) HTTP\/[\d.]+" (\d{3}) (\d+|-) "[^"]*" "([^"]*)"$/,
         );
         if (!m) throw new Error('Invalid combined format');
+        bytesPresent = m[6] !== '-';
         obj = {
           ip: m[1],
           time: parseCombinedDate(m[2]).toISOString(),
@@ -129,6 +133,7 @@ export function parseLogInput(
         };
       }
       if (!obj || typeof obj !== 'object') throw new Error('Invalid row');
+      if (input.format === 'json') bytesPresent = obj.bytes !== undefined && obj.bytes !== null;
       const time = parseStrictDate(obj.time ?? obj.timestamp);
       if (!Number.isFinite(time.getTime()) || time.getTime() > Date.now() + 86400000)
         throw new Error('Invalid timestamp');
@@ -193,6 +198,16 @@ export function parseLogInput(
       records.push({
         id: createHash('sha256').update(`${fingerprint}:${occurrence}`).digest('hex'),
         ...normalized,
+        measurement: {
+          version: 'log-measurement-v1',
+          host: new URL(`https://${domain.replace(/^https?:\/\//, '')}`).hostname.toLowerCase(),
+          hostBasis: 'declared_host',
+          sourceConfigVersion: null,
+          samplingRate: null,
+          samplingBasis: 'unknown',
+          bytesAvailability: bytesPresent ? 'present' : 'missing',
+          bytesUnit: input.format === 'combined' ? 'combined_response' : 'unknown',
+        },
       });
       observe?.(ip, records[records.length - 1]);
     } catch {

@@ -4,9 +4,12 @@ import { withTrafficPolicy } from './traffic-query';
 export interface AiTx {
   query<T = Record<string, any>>(sql: string, ...params: unknown[]): Promise<T[]>;
   execute(sql: string, ...params: unknown[]): Promise<number>;
+  /** Execute trusted SQL whose shared traffic policy has already been applied. */
+  queryPrepared?<T = Record<string, any>>(sql: string, ...params: unknown[]): Promise<T[]>;
 }
 export function aiExecutor(raw: any): AiTx {
   return {
+    queryPrepared: (sql, ...params) => raw.$queryRawUnsafe(sql, ...params),
     query: (sql, ...params) =>
       raw.$queryRawUnsafe('/* liekan_ai */ ' + withTrafficPolicy(sql), ...params),
     execute: (sql, ...params) => raw.$executeRawUnsafe('/* liekan_ai */ ' + sql, ...params),

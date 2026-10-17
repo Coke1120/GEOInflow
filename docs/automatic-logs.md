@@ -92,3 +92,5 @@ Logpush 只接收当前网站域名的 `eyeball` 请求，采样率为 1，包�
 新版采集器通过兼容的 heartbeat 扩展提交已确认游标和批次范围；只有服务端明确协商覆盖能力后才发送声明。服务端检查来源生效区间、处理状态和识别口径，详情见 [AI 蜘蛛归因、风险与访问控制](crawler-control.md)。缺口确认后重新开始覆盖段，已记录缺口保留。
 
 Cloudflare Logpush 在用户明确配置任务时查询数据集可用字段，按可用性追加 `SecurityAction`、`SecurityRuleID`、`SecurityRuleIDs` 和 `CacheCacheStatus`。已有正常任务保持当前字段配置，升级后需要在来源配置流程中重新确认才能启用这些扩展。历史日志不会回填不存在的规则证据。访问控制使用独立 Zone Token，日志授权与规则管理分别维护。
+
+统计证据、采集对账、观察保留期与风险工作流详见 [流量证据与统计口径](traffic-evidence.md)。

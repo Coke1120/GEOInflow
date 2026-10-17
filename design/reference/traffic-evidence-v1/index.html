@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>流量证据 · 补充界面参考</title><link rel="stylesheet" href="../../prototypes/liekan-ui-v1/assets/styles.css"></head>
+<body><main class="main"><section class="panel"><div class="panel-head"><h2>流量证据</h2></div><div class="panel-body">
+<p>沿用现有面板、宽抽屉、按钮、选择框和横向滚动表格。保留原总览、图表形式、表格字段、颜色及间距。</p>
+<p>蜘蛛页与日志页增加身份范围：全部声明、官方范围匹配。蜘蛛详情增加身份与响应、资源与性能、业务效果页签。采集设置增加折叠的采集对账和观察证据。</p>
+<table><thead><tr><th>身份</th><th>1xx</th><th>2xx</th><th>3xx</th><th>304</th><th>拒绝类</th><th>其他 4xx</th><th>5xx</th></tr></thead><tbody><tr><td>官方范围匹配</td><td colspan="7">使用真实输入，空值与零值分别展示。</td></tr><tr><td>官方范围未匹配</td><td colspan="7">选择范围之外的记录折叠展示。</td></tr><tr><td>未核验</td><td colspan="7">点击时明确切换范围再读取。</td></tr></tbody></table>
+<p>对账选择一个来源，保留路径歧义、主机未知、缺输入和不可比较说明。性能分开呈现字节单位、完整分钟峰值、连续分位数、缓存状态及字段覆盖。观察按接收时间，显示 7 个完整自然日、原始/纳入子集与有限特征组合。</p>
+<p>风险详情顺序：事实与处理状态、按风险类型排查、原始证据、已查看/暂缓/恢复/备注、人工上下文、历史动作。人工记录可作废并保留原因；历史代次有独立入口。</p>
+<p>业务效果同时显示平台与落地页。每页 20 行，CSV 包含完整匹配总体和读取快照。中英文保留同一资源 ID；移动端使用现有表格滚动规则。所有示例均需明确标识，禁止生产指标占位值。</p>
+</div></section></main></body></html>

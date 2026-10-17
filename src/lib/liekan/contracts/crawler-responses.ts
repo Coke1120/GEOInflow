@@ -194,6 +194,10 @@ export const crawlerAnalysisResponseSchema = z.object({
       lastSeenAt: date,
       windowEnd: date,
       occurrenceWindows: z.number(),
+      workflow: z
+        .object({ state: z.enum(['pending', 'viewed', 'snoozed']), snoozedUntil: nullableDate })
+        .nullable()
+        .optional(),
     }),
   ),
   criticalPaths: z.array(z.string()),

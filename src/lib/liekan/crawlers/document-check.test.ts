@@ -107,13 +107,23 @@ describe('fixed crawler document checks', () => {
       await new Promise(resolve => setTimeout(resolve, 1));
       active--;
       const range = rangeSources.find(source => source.url === input);
+      const body = range
+        ? JSON.stringify({
+            creationTime: rangeBaselines[range.id].content.publishedAt,
+            prefixes: rangeBaselines[range.id].content.prefixes.map(prefix => ({
+              [prefix.includes(':') ? 'ipv6Prefix' : 'ipv4Prefix']: prefix,
+            })),
+          })
+        : '';
       return new Response(
         range
-          ? JSON.stringify({
-              prefixes: rangeBaselines[range.id].content.prefixes.map(prefix => ({
-                [prefix.includes(':') ? 'ipv6Prefix' : 'ipv4Prefix']: prefix,
-              })),
-            })
+          ? range.parserVersion === 'amazon-code-json-v1'
+            ? `<code>${body}</code>`
+            : JSON.stringify({
+                prefixes: rangeBaselines[range.id].content.prefixes.map(prefix => ({
+                  [prefix.includes(':') ? 'ipv6Prefix' : 'ipv4Prefix']: prefix,
+                })),
+              })
           : '<main>Fixed documentation</main>',
       );
     };

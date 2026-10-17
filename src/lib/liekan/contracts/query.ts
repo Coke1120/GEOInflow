@@ -1,3 +1,4 @@
+import { crawlerMetricOptionsSchema } from './crawler-metrics';
 import { z } from 'zod';
 import { keywordConditionsSchema, keywordStatusVersion } from './keywords';
 import { geographySorts } from './geography';
@@ -18,6 +19,7 @@ const pagableTableSet = new Set<string>(pagableTables);
 export const tablePageSize = 20;
 
 export const reportQuery = z.object({
+  ...crawlerMetricOptionsSchema.shape,
   refresh: z.literal('1').optional(),
   resource: z.enum([
     'overview',

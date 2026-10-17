@@ -1,14 +1,15 @@
-export function encodeCursor(row: { time: string | Date; recordId: string }) {
+export function encodeCursor(row: { time: string | Date; recordId: string }, scope?: string) {
   if (!row?.recordId) return '';
-  return Buffer.from(JSON.stringify([new Date(row.time).toISOString(), row.recordId])).toString(
-    'base64url',
-  );
+  return Buffer.from(
+    JSON.stringify([new Date(row.time).toISOString(), row.recordId, ...(scope ? [scope] : [])]),
+  ).toString('base64url');
 }
-export function decodeCursor(cursor: string): [Date, string] {
+export function decodeCursor(cursor: string, scope?: string): [Date, string] {
   const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
   if (
     !Array.isArray(value) ||
-    value.length !== 2 ||
+    value.length !== (scope ? 3 : 2) ||
+    (scope && value[2] !== scope) ||
     typeof value[0] !== 'string' ||
     !/^[a-f0-9]{64}$/.test(value[1]) ||
     !Number.isFinite(Date.parse(value[0]))

@@ -1,3 +1,4 @@
+import { sqlStatements } from './liekan-sql-statements.mjs';
 import 'dotenv/config';
 import { createHash } from 'node:crypto';
 import { readdir, readFile } from 'node:fs/promises';
@@ -36,11 +37,7 @@ try {
             throw new Error(`Immutable migration checksum changed: ${name}`);
           continue;
         }
-        for (const statement of sql
-          .split(';')
-          .map(value => value.trim())
-          .filter(Boolean))
-          await tx.$executeRawUnsafe(statement);
+        for (const statement of sqlStatements(sql)) await tx.$executeRawUnsafe(statement);
         await tx.$executeRawUnsafe(
           'INSERT INTO liekan_migration (name,checksum) VALUES ($1,$2)',
           name,

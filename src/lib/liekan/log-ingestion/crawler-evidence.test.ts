@@ -51,8 +51,10 @@ describe('crawler log evidence compatibility', () => {
     });
     expect(
       cloudflareCrawlerEvidence({ ...raw, SecurityRuleIDs: Array(101).fill('a'.repeat(32)) }),
-    ).toBeNull();
-    expect(cloudflareCrawlerEvidence({ ...raw, SecurityRuleID: 'untrusted\ninput' })).toBeNull();
+    ).toMatchObject({ durationMs: 100, edgeObservation: { version: 'edge-observation-v1' } });
+    expect(cloudflareCrawlerEvidence({ ...raw, SecurityRuleID: 'untrusted\ninput' })).toMatchObject(
+      { durationMs: 100, edgeObservation: { version: 'edge-observation-v1' } },
+    );
   });
   it('versions historical identity separately from a newly saved literal rule', () => {
     const old = [LEGACY_BOT_RULES[0]];

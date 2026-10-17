@@ -1,3 +1,4 @@
+import { observeCollection } from '@/lib/liekan/upstream/collection-observation';
 import { recordGeographyIngress } from '@/lib/liekan/upstream/geography-ingress';
 import { startOfHour } from 'date-fns';
 import { isbot } from 'isbot';
@@ -90,6 +91,7 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  const receivedAt = new Date();
   try {
     const { body, error } = await parseRequest(request, schema, { skipAuth: true });
 
@@ -425,6 +427,9 @@ export async function POST(request: Request) {
           fingerprint: collectionFingerprint(type, payload),
           quality,
           geography: geographyEvidence,
+          observation: isAuthenticatedCollection(request)
+            ? undefined
+            : observeCollection(request, receivedAt),
         },
         collect,
       );

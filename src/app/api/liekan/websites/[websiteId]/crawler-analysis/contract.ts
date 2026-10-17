@@ -12,6 +12,7 @@ export const operations = [
       startAt: z.coerce.number().int().nonnegative().optional(),
       endAt: z.coerce.number().int().nonnegative().optional(),
       timezone: z.string().optional(),
+      crawlerIdentityScope: z.enum(['all', 'verified_range']).optional(),
     }),
   ),
   crawlerOperation(

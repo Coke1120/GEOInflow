@@ -14,6 +14,7 @@ import {
   websiteCacheTag,
 } from './query-cache';
 import { query, reportSnapshot } from './server';
+import { attachReportEvidenceView } from './report-evidence-view';
 
 export async function readPageReport(
   website: { id: string; name: string; domain: string },
@@ -60,7 +61,9 @@ export async function readPageReport(
   }
   const load = async () => {
     const report = await reportSnapshot(() =>
-      withoutQueryCache(() => buildReport(website, false, p, true)),
+      withoutQueryCache(async () =>
+        attachReportEvidenceView(await buildReport(website, false, p, true), parsed.data),
+      ),
     );
     const generatedAt = Date.now();
     return pageReportSchema.parse({

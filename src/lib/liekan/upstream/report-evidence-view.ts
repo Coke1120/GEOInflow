@@ -1,0 +1,47 @@
+import { createHash } from 'node:crypto';
+import type { LiekanReport } from '../contracts/report';
+import type { ReportQuery } from '../contracts/query';
+import { CRAWLER_METRIC_VERSION } from '../contracts/crawler-metrics';
+import { query } from './server';
+import { reportEvidenceViewPayload } from '../contracts/report-evidence-view';
+
+const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+
+/** Capture the actual page inside its read transaction, including its original cursor. */
+export async function attachReportEvidenceView(report: LiekanReport, p: ReportQuery) {
+  if (p.crawlerMetricsVersion !== 1 || !['ai/bots', 'ai/pages', 'logs'].includes(p.resource))
+    return report;
+  const [catalog, policies, states] = await Promise.all([
+    query(
+      'SELECT path,updated_at AS "updatedAt" FROM liekan_catalog WHERE website_id=$1::uuid ORDER BY path',
+      report.website.id,
+    ),
+    query(
+      'SELECT mode,revision::text,allowed_hostnames FROM liekan_collection_policy WHERE website_id=$1::uuid',
+      report.website.id,
+    ),
+    query('SELECT epoch FROM liekan_log_state WHERE website_id=$1::uuid', report.website.id),
+  ]);
+  const policySnapshot = hash({
+    catalog: hash(catalog),
+    policy: policies[0] || { mode: 'standard', revision: '0' },
+    epoch: states[0]?.epoch ?? 1,
+    metricVersion: CRAWLER_METRIC_VERSION,
+  });
+  const { refresh: _refresh, ...conditions } = p;
+  report.meta.crawlerEvidenceView = {
+    query: conditions,
+    policySnapshot,
+    snapshot: '',
+  };
+  report.meta.crawlerEvidenceView.snapshot = createHash('sha256')
+    .update(
+      reportEvidenceViewPayload(report, {
+        filter: '全部',
+        sort: { label: '', direction: 1 },
+        search: '',
+      }),
+    )
+    .digest('hex');
+  return report;
+}

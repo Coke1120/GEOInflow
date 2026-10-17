@@ -425,6 +425,19 @@ try {
     report.teamUsers.errors.length
   )
     throw new Error('Team user creation, rollback and responsive acceptance incomplete');
+  await run(process.execPath, ['scripts/liekan-evidence-visual.mjs'], 'traffic-evidence-visual', {
+    env: { ...process.env, LIEKAN_URL: baseUrl },
+  });
+  report.trafficEvidenceVisual = JSON.parse(
+    fs.readFileSync('test-results/liekan-evidence/result.json', 'utf8'),
+  );
+  if (
+    !report.trafficEvidenceVisual.passed ||
+    report.trafficEvidenceVisual.head !== head ||
+    report.trafficEvidenceVisual.checks.length !== 24 ||
+    report.trafficEvidenceVisual.errors.length
+  )
+    throw new Error('Traffic evidence visual acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-keyword-visual.mjs'], 'keyword-visual', {
     env: { ...process.env, LIEKAN_URL: baseUrl },
   });

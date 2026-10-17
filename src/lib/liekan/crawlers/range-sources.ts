@@ -157,4 +157,28 @@ export const rangeSources: readonly RangeSource[] = Object.freeze([
     parserVersion: 'prefixes-v1',
     reviewedAt: '2026-10-15',
   }),
+  Object.freeze({
+    id: 'amazonbot',
+    url: 'https://developer.amazon.com/amazonbot/ip-addresses/',
+    names: Object.freeze(['Amazonbot']),
+    crawlerIds: Object.freeze(['amazonbot']),
+    parserVersion: 'amazon-code-json-v1',
+    reviewedAt: '2026-10-17',
+  }),
+  Object.freeze({
+    id: 'amazon-search',
+    url: 'https://developer.amazon.com/amazonbot/searchbot-ip-addresses/',
+    names: Object.freeze(['Amzn-SearchBot']),
+    crawlerIds: Object.freeze(['amzn-searchbot']),
+    parserVersion: 'amazon-code-json-v1',
+    reviewedAt: '2026-10-17',
+  }),
+  Object.freeze({
+    id: 'amazon-user',
+    url: 'https://developer.amazon.com/amazonbot/live-ip-addresses/',
+    names: Object.freeze(['Amzn-User']),
+    crawlerIds: Object.freeze(['amzn-user']),
+    parserVersion: 'amazon-code-json-v1',
+    reviewedAt: '2026-10-17',
+  }),
 ]);

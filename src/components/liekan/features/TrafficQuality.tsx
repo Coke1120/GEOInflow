@@ -1,4 +1,5 @@
 'use client';
+import { TrafficEvidencePanel } from './TrafficEvidencePanel';
 import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
@@ -60,6 +61,8 @@ export function TrafficQuality({
   onClose: () => void;
 }) {
   const i18n = useLiekanI18n();
+  const [showObservations, setShowObservations] = useState(false);
+  const [showReconciliation, setShowReconciliation] = useState(false);
   const c = useFeature();
   const [classification, setClassification] = useState(''),
     [source, setSource] = useState(''),
@@ -139,6 +142,30 @@ export function TrafficQuality({
         {date(range.endAt)} · {range.timezone}
         {i18n.fragment('。本页读取随手动刷新更新。', true, false)}
       </p>
+      <details onToggle={event => setShowObservations(event.currentTarget.open)}>
+        <summary>{i18n.text('观察证据')}</summary>
+        {showObservations && (
+          <TrafficEvidencePanel
+            key={c.siteId}
+            websiteId={c.siteId}
+            hostname={String(c.site?.domain || '')}
+            range={range}
+            mode="observations"
+          />
+        )}
+      </details>
+      <details onToggle={event => setShowReconciliation(event.currentTarget.open)}>
+        <summary>{i18n.text('采集对账')}</summary>
+        {showReconciliation && (
+          <TrafficEvidencePanel
+            key={c.siteId}
+            websiteId={c.siteId}
+            hostname={String(c.site?.domain || '')}
+            range={range}
+            mode="reconciliation"
+          />
+        )}
+      </details>
       <QueryState query={audit}>
         {data?.available === false ? (
           <Notice>{i18n.system(data.reason)}</Notice>
