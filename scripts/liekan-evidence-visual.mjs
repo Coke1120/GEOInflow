@@ -138,7 +138,9 @@ try {
           'General entry includes all crawlers',
         );
         assert.equal(requested.searchParams.get('botName'), null);
-        await expect(dialog.getByLabel(text('蜘蛛', locale), { exact: true })).toHaveValue('');
+        await expect(
+          dialog.getByRole('combobox', { name: text('蜘蛛', locale), exact: true }),
+        ).toHaveValue('');
         await expect(
           dialog.getByRole('button', { name: text('重新读取', locale), exact: true }),
         ).toBeEnabled();
@@ -159,7 +161,7 @@ try {
           await unverified.click();
           await expect(back).toBeVisible();
           await dialog
-            .getByLabel(text('蜘蛛身份范围', locale), { exact: true })
+            .getByRole('combobox', { name: text('蜘蛛身份范围', locale), exact: true })
             .selectOption('verified_range');
           await expect(
             dialog.getByRole('button', {
@@ -169,7 +171,7 @@ try {
           ).toBeVisible();
           await expect(back).toHaveCount(0);
           await dialog
-            .getByLabel(text('蜘蛛身份范围', locale), { exact: true })
+            .getByRole('combobox', { name: text('蜘蛛身份范围', locale), exact: true })
             .selectOption('all');
           await expect(unverified).toBeVisible();
           const selected = page.waitForResponse(response => {
@@ -180,11 +182,13 @@ try {
             );
           });
           await dialog
-            .getByLabel(text('蜘蛛', locale), { exact: true })
+            .getByRole('combobox', { name: text('蜘蛛', locale), exact: true })
             .selectOption(finding.botId);
           assert((await selected).ok());
           await expect(unverified).toBeVisible();
-          await dialog.getByLabel(text('蜘蛛', locale), { exact: true }).selectOption('');
+          await dialog
+            .getByRole('combobox', { name: text('蜘蛛', locale), exact: true })
+            .selectOption('');
           await expect(unverified).toBeVisible();
         }
         const widthState = await page.evaluate(() => ({
