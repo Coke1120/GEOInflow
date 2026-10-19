@@ -1128,6 +1128,9 @@ export const operations = {
     queryParams: [
       'crawlerIdentityScope',
       'crawlerMetricsVersion',
+      'botType',
+      'botId',
+      'botName',
       'refresh',
       'resource',
       'startAt',
@@ -1159,6 +1162,9 @@ export const operations = {
     queryParams: [
       'crawlerIdentityScope',
       'crawlerMetricsVersion',
+      'botType',
+      'botId',
+      'botName',
       'refresh',
       'resource',
       'startAt',

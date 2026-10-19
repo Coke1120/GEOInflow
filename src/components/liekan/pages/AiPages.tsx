@@ -1,4 +1,8 @@
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import { crawlerPageTypes } from '@/lib/liekan/contracts/query';
+import { useReportActions } from '../ReportContext';
+import { useDataLoading } from '../DataLoading';
+import { crawlerIdentityLabel } from '../data';
 import {
   FilterChip,
   MetricCard,
@@ -11,6 +15,25 @@ import type { ReportViewProps } from '../types';
 
 export function AiPages({ report, rangeLabel }: ReportViewProps) {
   const i18n = useLiekanI18n();
+  const { crawlers } = useReportActions();
+  const loading = useDataLoading();
+  const conditions = crawlers?.conditions ?? {};
+  const options = [
+    ...new Map(
+      (report?.meta.crawlerPageBots ?? [])
+        .filter(bot => !conditions.botType || bot.type === conditions.botType)
+        .map(bot => [JSON.stringify([bot.botId, bot.name]), bot]),
+    ).entries(),
+  ];
+  const selected =
+    conditions.botId || conditions.botName
+      ? (options.find(([, bot]) =>
+          conditions.botId
+            ? bot.botId === conditions.botId
+            : !bot.botId && bot.name === conditions.botName,
+        )?.[0] ??
+        JSON.stringify([conditions.botId ?? null, conditions.botName ?? conditions.botId]))
+      : '';
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -40,24 +63,67 @@ export function AiPages({ report, rangeLabel }: ReportViewProps) {
         />
       </section>
       <section className="card fade-in d2 overflow-hidden">
-        <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
+        <div className="px-6 py-4 border-b border-line flex crawler-page-controls items-center justify-between gap-3">
           <h2 className="text-[14px] font-bold tracking-tight">
             {i18n.fragment('AI 抓取页面排行（', false, true)}
             {i18n.system(rangeLabel)}）
           </h2>
-          <div className="flex items-center gap-2">
+          <div className="flex crawler-page-controls items-center gap-2">
+            <select
+              aria-label={i18n.text('具体爬虫')}
+              className={`chip${selected ? ' on' : ''}`}
+              value={selected}
+              disabled={loading}
+              onChange={event => {
+                const bot = options.find(([key]) => key === event.target.value)?.[1];
+                crawlers?.onChange({
+                  botType: conditions.botType,
+                  botId: (bot?.botId as typeof conditions.botId) ?? undefined,
+                  botName: bot && !bot.botId ? bot.name : undefined,
+                });
+              }}
+            >
+              <option value="">{i18n.text('全部爬虫')}</option>
+              {selected && !options.some(([key]) => key === selected) && (
+                <option value={selected}>{conditions.botName ?? conditions.botId}</option>
+              )}
+              {options.map(([key, bot]) => (
+                <option key={key} value={key}>
+                  {bot.name} / {crawlerIdentityLabel(bot, i18n.text)}
+                </option>
+              ))}
+            </select>
             <FilterChip label="按抓取量" />
             <FilterChip label="按重复率" />
             <FilterChip label="按蜘蛛数" />
           </div>
         </div>
-        <table className="w-full text-[12.5px]">
-          <thead>
+        <div
+          className="px-6 py-4 border-b border-line flex crawler-page-controls items-center gap-2"
+          role="group"
+          aria-label={i18n.text('爬虫类型')}
+        >
+          {crawlerPageTypes.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`chip${(conditions.botType ?? '') === value ? ' on' : ''}`}
+              aria-pressed={(conditions.botType ?? '') === value}
+              disabled={loading}
+              onClick={() => crawlers?.onChange({ botType: value || undefined })}
+            >
+              {i18n.text(label)}
+            </button>
+          ))}
+        </div>
+        <table className="crawler-pages-table w-full text-[12.5px]">
+          <thead className="whitespace-nowrap">
             <tr className="text-left text-[11.5px] text-faint border-b border-line bg-[#FAFBFD]">
               <SortHeading className="font-medium pl-6 pr-4 py-3" label="页面" />
+              <SortHeading className="font-medium px-4 py-3" label="标题" />
               <SortHeading className="font-medium px-4 py-3 text-right" label="抓取次数" />
               <SortHeading className="font-medium px-4 py-3 text-right" label="蜘蛛种类" />
-              <SortHeading className="font-medium px-4 py-3 w-[18%]" label="抓取热度" />
+              <SortHeading className="font-medium px-4 py-3 text-right" label="抓取热度" />
               <SortHeading className="font-medium px-4 py-3" label="主力蜘蛛" />
               <SortHeading className="font-medium px-4 py-3" label="最近抓取" />
               <SortHeading className="font-medium px-4 py-3 text-right pr-6" label="内容新鲜度" />

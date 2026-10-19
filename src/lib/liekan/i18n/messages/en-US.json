@@ -4009,5 +4009,9 @@
   "m_ca68e9e63735": "Provided",
   "m_a75f064df7a3": "Invalid field",
   "m_d2ed18069c4a": "Capability unknown",
-  "m_f3c605a467c7": "Server logs"
+  "m_f3c605a467c7": "Server logs",
+  "m_0893db97c9e9": "Specific crawler",
+  "m_0af593e318d5": "All crawlers",
+  "m_33b32cd34d19": "Crawler type",
+  "m_c3405f8c7d9d": "Title"
 }

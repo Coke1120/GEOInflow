@@ -1,7 +1,12 @@
 'use client';
 import type { KeywordConditions } from '@/lib/liekan/contracts/keywords';
+import type { CrawlerPageFilters } from '@/lib/liekan/contracts/query';
 import { createContext, useContext } from 'react';
 export type ReportActions = {
+  crawlers?: {
+    conditions: CrawlerPageFilters;
+    onChange: (next: CrawlerPageFilters) => void;
+  };
   keywords?: {
     conditions: KeywordConditions;
     busy: boolean;

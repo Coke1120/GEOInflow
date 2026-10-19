@@ -22102,6 +22102,66 @@ export interface operations {
   getLiekanPageReport: {
     parameters: {
       query: {
+        botId?:
+          | 'gptbot'
+          | 'oai-searchbot'
+          | 'chatgpt-user'
+          | 'oai-adsbot'
+          | 'claudebot'
+          | 'claude-searchbot'
+          | 'claude-user'
+          | 'perplexitybot'
+          | 'perplexity-user'
+          | 'amazonbot'
+          | 'amzn-searchbot'
+          | 'amzn-user'
+          | 'mistralai-user'
+          | 'mistralai-index'
+          | 'mistralai-training'
+          | 'googlebot'
+          | 'googlebot-image'
+          | 'googlebot-video'
+          | 'googleother'
+          | 'googleother-image'
+          | 'googleother-video'
+          | 'storebot-google'
+          | 'google-inspectiontool'
+          | 'google-cloudvertexbot'
+          | 'google-extended'
+          | 'googlebot-news'
+          | 'applebot'
+          | 'applebot-extended'
+          | 'bingbot'
+          | 'duckduckbot'
+          | 'duckassistbot'
+          | 'ccbot'
+          | 'ai2bot'
+          | 'baiduspider'
+          | 'baiduspider-render'
+          | 'sogou-web-spider'
+          | 'sogou-inst-spider'
+          | '360spider'
+          | 'yandexbot'
+          | 'yeti'
+          | 'ads-naver'
+          | 'blueno'
+          | 'seznambot'
+          | 'freshbot'
+          | 'qwantbot'
+          | 'qwantbot-news'
+          | 'mojeekbot'
+          | 'meta-externalagent'
+          | 'meta-externalfetcher'
+          | 'facebookbot'
+          | 'bytespider'
+          | 'ahrefsbot'
+          | 'ahrefssiteaudit'
+          | 'semrushbot'
+          | 'siteauditbot'
+          | 'mj12bot'
+          | 'petalbot';
+        botName?: string;
+        botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
         chartPeriod?: '30d' | '7d' | '24h';
         crawlerIdentityScope?: 'all' | 'verified_range';
         crawlerMetricsVersion?: number;
@@ -22231,6 +22291,12 @@ export interface operations {
                 timeBoundary: 'half_open' | 'legacy_inclusive';
                 version: 1 | null;
               };
+              crawlerPageBots?: {
+                botId: string | null;
+                /** @description Display name of the resource. */
+                name: string;
+                type: string;
+              }[];
               demo: boolean;
               /** @description Date and time the credential expires. */
               expiresAt: number;
@@ -22422,6 +22488,66 @@ export interface operations {
   getLiekanReport: {
     parameters: {
       query: {
+        botId?:
+          | 'gptbot'
+          | 'oai-searchbot'
+          | 'chatgpt-user'
+          | 'oai-adsbot'
+          | 'claudebot'
+          | 'claude-searchbot'
+          | 'claude-user'
+          | 'perplexitybot'
+          | 'perplexity-user'
+          | 'amazonbot'
+          | 'amzn-searchbot'
+          | 'amzn-user'
+          | 'mistralai-user'
+          | 'mistralai-index'
+          | 'mistralai-training'
+          | 'googlebot'
+          | 'googlebot-image'
+          | 'googlebot-video'
+          | 'googleother'
+          | 'googleother-image'
+          | 'googleother-video'
+          | 'storebot-google'
+          | 'google-inspectiontool'
+          | 'google-cloudvertexbot'
+          | 'google-extended'
+          | 'googlebot-news'
+          | 'applebot'
+          | 'applebot-extended'
+          | 'bingbot'
+          | 'duckduckbot'
+          | 'duckassistbot'
+          | 'ccbot'
+          | 'ai2bot'
+          | 'baiduspider'
+          | 'baiduspider-render'
+          | 'sogou-web-spider'
+          | 'sogou-inst-spider'
+          | '360spider'
+          | 'yandexbot'
+          | 'yeti'
+          | 'ads-naver'
+          | 'blueno'
+          | 'seznambot'
+          | 'freshbot'
+          | 'qwantbot'
+          | 'qwantbot-news'
+          | 'mojeekbot'
+          | 'meta-externalagent'
+          | 'meta-externalfetcher'
+          | 'facebookbot'
+          | 'bytespider'
+          | 'ahrefsbot'
+          | 'ahrefssiteaudit'
+          | 'semrushbot'
+          | 'siteauditbot'
+          | 'mj12bot'
+          | 'petalbot';
+        botName?: string;
+        botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
         chartPeriod?: '30d' | '7d' | '24h';
         crawlerIdentityScope?: 'all' | 'verified_range';
         crawlerMetricsVersion?: number;
@@ -22849,6 +22975,12 @@ export interface operations {
                 timeBoundary: 'half_open' | 'legacy_inclusive';
                 version: 1 | null;
               };
+              crawlerPageBots?: {
+                botId: string | null;
+                /** @description Display name of the resource. */
+                name: string;
+                type: string;
+              }[];
               demo: boolean;
               geography?: {
                 cards?: {
@@ -23418,6 +23550,12 @@ export interface operations {
                 timeBoundary: 'half_open' | 'legacy_inclusive';
                 version: 1 | null;
               };
+              crawlerPageBots?: {
+                botId: string | null;
+                /** @description Display name of the resource. */
+                name: string;
+                type: string;
+              }[];
               demo: boolean;
               geography?: {
                 cards?: {

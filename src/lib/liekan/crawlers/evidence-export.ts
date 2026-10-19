@@ -69,6 +69,8 @@ export async function exportEvidence(
     (!viewQuery.success ||
       !reportResource ||
       viewQuery.data.resource !== reportResource ||
+      (reportResource === 'ai/pages' &&
+        ['botType', 'botId', 'botName'].some(key => viewQuery.data[key] !== query[key])) ||
       viewQuery.data.startAt !== query.startAt ||
       viewQuery.data.endAt !== query.endAt ||
       viewQuery.data.timezone !== query.timezone ||
