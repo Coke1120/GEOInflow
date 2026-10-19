@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { CRAWLER_POPULATION_VERSION } from '../rules/population';
 import type { CrawlerMetricOptions } from '../contracts/crawler-metrics';
+import type { CrawlerPageFilters } from '../contracts/query';
 import { crawlerIdentitySql } from '../crawlers/metric-scope';
 import { crawlerAiSql, unknownCrawlerSql } from '../rules/population';
 import { logInputConnectedSql } from './log-input';
@@ -29,7 +30,9 @@ async function readLogFacts(
   cursor = '',
   seek: 'after' | 'before' = 'after',
   fields?: readonly string[],
-  metrics: CrawlerMetricOptions = { crawlerIdentityScope: 'all' },
+  metrics: CrawlerMetricOptions & CrawlerPageFilters & { resource?: string } = {
+    crawlerIdentityScope: 'all',
+  },
   fullExport = false,
   comparisonBoundary?: [Date, string],
 ) {
@@ -128,8 +131,20 @@ async function readLogFacts(
           )
         : Promise.resolve([]),
       needs('pages')
-        ? q(
-            `SELECT path,bot,e.crawler_id AS "botId",count(*)::int AS requests,max(created_at) AS "lastCrawled" ${identityBase}${ai} GROUP BY 1,2,3 ORDER BY requests DESC`,
+        ? read(
+            `SELECT path,bot,e.crawler_id AS "botId",count(*)::int AS requests,max(created_at) AS "lastCrawled" ${identityBase}${ai}${
+              metrics.resource === 'ai/pages'
+                ? ' AND ($5::text IS NULL OR bot_type=$5) AND ($6::text IS NULL OR e.crawler_id=$6) AND ($7::text IS NULL OR (e.crawler_id IS NULL AND bot=$7))'
+                : ''
+            } GROUP BY 1,2,3 ORDER BY requests DESC`,
+            ...args,
+            ...(metrics.resource === 'ai/pages'
+              ? [
+                  metrics.botType ?? null,
+                  metrics.botId ?? null,
+                  metrics.botId ? null : (metrics.botName ?? null),
+                ]
+              : []),
           )
         : Promise.resolve([]),
       needs('statuses')

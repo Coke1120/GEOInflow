@@ -2,6 +2,22 @@ import { crawlerMetricOptionsSchema } from './crawler-metrics';
 import { z } from 'zod';
 import { keywordConditionsSchema, keywordStatusVersion } from './keywords';
 import { geographySorts } from './geography';
+import { evidenceQuerySchema } from './traffic-evidence';
+
+export const crawlerPageFiltersSchema = evidenceQuerySchema.pick({
+  botType: true,
+  botId: true,
+  botName: true,
+});
+export type CrawlerPageFilters = z.infer<typeof crawlerPageFiltersSchema>;
+export const crawlerPageTypes = [
+  ['', '全部'],
+  ['训练', 'AI 训练'],
+  ['搜索', 'AI 搜索'],
+  ['用户触发', '用户触发'],
+  ['传统搜索', '传统搜索'],
+  ['其他', '其他已知'],
+] as const;
 // 可分页明细表白名单：请求以扁平参数 tp_<table>=<page> 携带页码。
 // 其余明细表行数有界或已由独立协议（logBody keyset）分页，不在白名单内。
 // reportQuery 保持纯对象 schema（下游有 pick/extend/shape 派生），白名单校验收口在 parseReportQuery。
@@ -20,6 +36,7 @@ export const tablePageSize = 20;
 
 export const reportQuery = z.object({
   ...crawlerMetricOptionsSchema.shape,
+  ...crawlerPageFiltersSchema.shape,
   refresh: z.literal('1').optional(),
   resource: z.enum([
     'overview',

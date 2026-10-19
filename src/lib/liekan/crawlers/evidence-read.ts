@@ -38,9 +38,7 @@ export function parseEvidenceQuery(input: unknown, reconciliation = false, now =
     'reportResource' in p &&
     p.reportResource &&
     (p.sourceId ||
-      p.botId ||
-      p.botName ||
-      p.botType ||
+      (p.reportResource !== 'ai/pages' && (p.botId || p.botName || p.botType)) ||
       p.path ||
       p.recognitionGroup ||
       p.responseGroup ||

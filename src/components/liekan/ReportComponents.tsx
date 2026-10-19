@@ -344,9 +344,10 @@ const cellClasses: Record<string, string[]> = {
   ],
   apBody: [
     'pl-6 pr-4 py-3 num text-[12px] font-medium text-ink',
+    'px-4 py-3 text-[12px] text-ink',
     'px-4 py-3 num text-right font-semibold',
     'px-4 py-3 num text-right text-sub',
-    'px-4 py-3',
+    'px-4 py-3 num text-right text-sub',
     'px-4 py-3 text-sub text-[11.5px]',
     'px-4 py-3 text-faint text-[11.5px]',
     'px-4 py-3 text-right pr-6',
@@ -464,6 +465,29 @@ function Cell({
 }) {
   const i18n = useLiekanI18n();
   const value = row[field];
+  if (table === 'apBody' && field === 'title')
+    return <>{formatCellValue(row, field, table, i18n.locale, i18n.text)}</>;
+  if (table === 'apBody' && field === 'heat') return <>{formatValue(value, i18n.locale)}</>;
+  if (table === 'apBody' && field === 'bot') {
+    const bots = [
+      { bot: row.bot, botId: row.botId },
+      { bot: row.bot2, botId: row.bot2Id },
+    ].filter(bot => bot.bot);
+    return bots.length ? (
+      <span className="crawler-page-leaders">
+        {bots.map((bot, index) => {
+          const identity = crawlerIdentityLabel(bot, i18n.text);
+          return (
+            <span key={index} title={`${bot.bot}${identity ? ` / ${identity}` : ''}`}>
+              {bot.bot}
+            </span>
+          );
+        })}
+      </span>
+    ) : (
+      <>–</>
+    );
+  }
   if (table === 'cityBody' && field === 'city' && place)
     return <>{geographyLabel(place, i18n.locale)}</>;
   if (table === 'botBody' && field === 'name' && onCrawler) {

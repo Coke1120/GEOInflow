@@ -123,6 +123,7 @@ it.each([
 ] as const)(
   'exports the actual report interval and timezone while preserving %s CSV columns',
   async (locale, start) => {
+    state.handle = '102';
     const end = '2026-09-29T16:00:00.000Z';
     state.get.mockResolvedValue(
       freshAggregateFixture({

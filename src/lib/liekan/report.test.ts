@@ -90,6 +90,61 @@ it.each(['gptbot', null])(
   },
 );
 
+it('uses catalog titles and ranks two crawler identities per page without changing totals', async () => {
+  const logs = await mocks.logs();
+  const page = { path: '/article', lastCrawled: '1970-01-01T01:00:00Z' };
+  mocks.logs.mockResolvedValue({
+    ...logs,
+    latest: page.lastCrawled,
+    pages: [
+      { ...page, bot: 'ThirdBot', botId: null, requests: 1 },
+      { ...page, bot: 'GPTBot', botId: null, requests: 8 },
+      { ...page, bot: 'GPTBot', botId: 'gptbot', requests: 12 },
+      { ...page, path: '/missing', bot: 'OnlyBot', botId: null, requests: 2 },
+      { ...page, path: '/blank', bot: 'OnlyBot', botId: null, requests: 1 },
+    ],
+    catalog: [
+      { path: '/article', title: '文章标题 <test>' },
+      { path: '/blank', title: '  ' },
+    ],
+  });
+  const report = await buildReport(website, false, { ...params, resource: 'ai/pages' }, true);
+  expect(report.tables.apBody[0]).toMatchObject({
+    title: '文章标题 <test>',
+    requests: 21,
+    bots: 3,
+    heat: 100,
+    bot: 'GPTBot',
+    botId: 'gptbot',
+    bot2: 'GPTBot',
+    bot2Id: null,
+  });
+  expect(report.tables.apBody.slice(1).every(row => row.title === null && row.bot2 === null)).toBe(
+    true,
+  );
+  expect(liekanReportSchema.shape.tables.safeParse(report.tables).success).toBe(true);
+});
+
+it('keeps equal-count crawler ranks deterministic across input order', async () => {
+  const logs = await mocks.logs();
+  const rows = ['ZuluBot', 'AlphaBot', 'BetaBot'].map(bot => ({
+    path: '/a',
+    bot,
+    botId: null,
+    requests: 5,
+    lastCrawled: '1970-01-01T01:00:00Z',
+  }));
+  for (const pages of [rows, [...rows].reverse()]) {
+    mocks.logs.mockResolvedValue({ ...logs, pages });
+    const report = await buildReport(website, false, { ...params, resource: 'ai/pages' });
+    expect(report.tables.apBody[0]).toMatchObject({
+      bot: 'AlphaBot',
+      bot2: 'BetaBot',
+      requests: 15,
+    });
+  }
+});
+
 it('matches generated and supplied direct-source trends by their distinct display identities', async () => {
   const human = await mocks.human();
   mocks.human.mockResolvedValue({

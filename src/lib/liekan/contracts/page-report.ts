@@ -37,7 +37,7 @@ export const pageReportParts = {
     charts: ['ap1'],
     tables: ['apBody', 'blindList'],
     human: [],
-    logs: ['summary', 'catalog', 'latest', 'pages'],
+    logs: ['summary', 'catalog', 'latest', 'pages', 'bots'],
     today: false,
     insights: false,
   },
