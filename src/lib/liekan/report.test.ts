@@ -35,6 +35,34 @@ import { geographyLabel, regionName } from './contracts/geography';
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
 
+it('shows automation evidence for an unregistered spider without granting an official identity', async () => {
+  const logs = await mocks.logs();
+  const unknown = {
+    bot: '其他',
+    recognitionState: 'unknown',
+    aiEligible: false,
+    path: '/cases/',
+    time: '1970-01-01T01:00:00Z',
+  };
+  mocks.logs.mockResolvedValue({
+    ...logs,
+    recent: [
+      { ...unknown, userAgent: 'YisouSpider' },
+      { ...unknown, userAgent: 'Mozilla/5.0 Chrome/151.0.0.0 Safari/537.36' },
+      { ...unknown, userAgent: '' },
+    ],
+  });
+  const report = await buildReport(website, false, { ...params, resource: 'logs' });
+  expect(report.tables.logBody.map(row => row.classification)).toEqual([
+    '自动化特征 · 身份未核验',
+    '未知／未分类',
+    '未知／未分类',
+  ]);
+  expect(
+    report.tables.logBody.every(row => row.recognitionState === 'unknown' && !row.aiEligible),
+  ).toBe(true);
+});
+
 it.each(['gptbot', null])(
   'keeps the selected %s identity separate in the estimated crawl sequence',
   async botId => {
@@ -247,6 +275,16 @@ beforeEach(() => {
   mocks.months.mockResolvedValue([]);
 });
 describe('report evidence states', () => {
+  it('keeps published metric keys while clarifying visitor display labels', async () => {
+    const report = await buildReport(website, false, params);
+    expect(report.cards.find(card => card.key === '人类访客（UV）')).toMatchObject({
+      label: '访客（UV）',
+      detail: '按当前流量策略去重，可能含未识别自动化',
+    });
+    expect(report.cards.find(card => card.key === '案例页 AI/人 比值')).toMatchObject({
+      label: '案例页 AI/浏览 比值',
+    });
+  });
   it('accepts existing report contracts without geography display metadata and validates stable city IDs when provided', async () => {
     const report = await buildReport(website, false, params);
     expect(liekanReportSchema.safeParse(report).success).toBe(true);
@@ -447,7 +485,7 @@ describe('report evidence states', () => {
       humanPaths.map((path, i) => [path, i + 1, '已被抓取']),
     );
     expect(report.tables.pgBody.map(row => row.aiRequests)).toEqual([1, 2, 3]);
-    expect(report.charts.pf1.series.find(series => series.name === '人类 PV').values).toEqual([
+    expect(report.charts.pf1.series.find(series => series.name === '浏览 PV').values).toEqual([
       33.33, 33.33, 33.33,
     ]);
   });

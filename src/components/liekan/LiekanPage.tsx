@@ -918,6 +918,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         ) : (
           <>
             <Link href={href('filters')}>{i18n.text('高级筛选')}</Link>
+            <Link
+              href={href('website-settings', { section: 'collection', panel: 'traffic-quality' })}
+            >
+              {i18n.text('流量质量')}
+            </Link>
             <Link href={href('annotations')}>{i18n.text('图表注释')}</Link>
             <Link href={href('exports')}>{i18n.text('导出数据')}</Link>
             <Link href={href('sharing', { context: 'website' })}>{i18n.text('分享当前网站')}</Link>

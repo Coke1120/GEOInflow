@@ -104,9 +104,43 @@ function unknown(candidateIds: CrawlerHttpBotId[] = []): BotClassification {
   };
 }
 
+function withoutDocumentationUrls(ua: string) {
+  const runs = /[a-z0-9+.-]+/gi;
+  const isUrlCharacter = (index: number) => index < ua.length && /[^\s<>"]/.test(ua[index]);
+  const parts: string[] = [];
+  let copiedThrough = 0;
+  // Visit each possible scheme run once. Retrying a greedy scheme at every word
+  // boundary makes long strings such as "a-a-a-..." take quadratic time.
+  for (let run = runs.exec(ua); run; run = runs.exec(ua)) {
+    const end = runs.lastIndex;
+    let schemeStart = -1;
+    let wwwStart = -1;
+    for (let index = run.index; index < end; index++) {
+      if (!/[a-z]/i.test(ua[index]) || (index > 0 && /\w/.test(ua[index - 1]))) continue;
+      if (schemeStart < 0) schemeStart = index;
+      if (
+        wwwStart < 0 &&
+        ua.slice(index, index + 4).toLowerCase() === 'www.' &&
+        isUrlCharacter(index + 4)
+      )
+        wwwStart = index;
+    }
+    const hasScheme =
+      schemeStart >= 0 && ua.slice(end, end + 3) === '://' && isUrlCharacter(end + 3);
+    const start = hasScheme ? schemeStart : wwwStart;
+    if (start < 0) continue;
+    let urlEnd = hasScheme ? end + 3 : wwwStart + 4;
+    while (isUrlCharacter(urlEnd)) urlEnd++;
+    parts.push(ua.slice(copiedThrough, start), ' ');
+    copiedThrough = urlEnd;
+    runs.lastIndex = urlEnd;
+  }
+  return copiedThrough ? parts.join('') + ua.slice(copiedThrough) : ua;
+}
+
 export function classifyBot(ua: string, rules: readonly BotRule[] = BOT_RULES): BotClassification {
   // URLs are documentation references, separate from HTTP product tokens.
-  const tokens = ua.replace(/\b(?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s<>"]+/gi, ' ');
+  const tokens = withoutDocumentationUrls(ua);
   const matches = rules.filter(rule =>
     rule.matchMode === 'token'
       ? tokenMatches(tokens, rule.pattern)

@@ -6,8 +6,9 @@ import { isbot } from 'isbot';
 import { rangeSources } from '../crawlers/range-sources';
 import officialSnapshots from '../../../../config/liekan/bot-ranges.json';
 import { rangeContainsAddress, type VerificationSnapshots } from '../rules/verify';
+import { ALL_BOT_RULES, classifyBot } from '../rules/bots';
 
-export const COLLECTION_RULE_VERSION = 'traffic-quality-v2';
+export const COLLECTION_RULE_VERSION = 'traffic-quality-v3';
 export type CollectionClassification = 'browser' | 'automated' | 'suspected' | 'unknown';
 export type CollectionSource = 'browser' | 'authenticated_server' | 'legacy_override';
 export type CollectionRangeStatus = 'fresh' | 'stale' | 'missing' | 'untrusted' | 'invalid';
@@ -32,6 +33,12 @@ export interface CollectionInput {
 
 const RANGE_MAX_AGE = 7 * 86400000;
 const OVERRIDE_FIELDS = ['ip', 'userAgent', 'browser', 'os', 'device'] as const;
+
+function registeredCrawler(ua: string) {
+  const match = classifyBot(ua, ALL_BOT_RULES);
+  // Conflicting registered identities still establish automation, without attributing a vendor.
+  return !!match.crawlerId || !!match.candidateIds?.length;
+}
 
 function hasUrlAuthority(value: unknown): value is string {
   return typeof value === 'string' && /^(?:[a-z][a-z0-9+.-]*:)?\/\/[^/\\]/i.test(value.trim());
@@ -197,12 +204,16 @@ export function classifyCollection(input: CollectionInput): CollectionQuality {
   const ranges = rangeEvidence(input);
   const ua = typeof input.userAgent === 'string' ? input.userAgent : '';
   const uaBot = isbot(ua);
+  const crawlerUa = registeredCrawler(ua);
   // An authorized server reports the visitor UA separately from its HTTP client.
   // Public payload overrides cannot erase automation evidence in the request UA.
   const requestUaBot = !input.authenticated && isbot(input.request.headers.get('user-agent') || '');
+  const requestCrawlerUa =
+    !input.authenticated && registeredCrawler(input.request.headers.get('user-agent') || '');
   // A positive client declaration can exclude automation. Absence/false proves no human identity.
   const webdriver = input.payload?.webdriver === true;
-  const automated = ranges.freshMatches > 0 || uaBot || requestUaBot || webdriver;
+  const automated =
+    ranges.freshMatches > 0 || uaBot || requestUaBot || crawlerUa || requestCrawlerUa || webdriver;
   let classification: CollectionClassification;
   let reasons: string[];
   if (automated && process.env.DISABLE_BOT_CHECK) {
@@ -217,6 +228,9 @@ export function classifyCollection(input: CollectionInput): CollectionQuality {
   } else if (requestUaBot) {
     classification = 'automated';
     reasons = ['request_ua_bot'];
+  } else if (crawlerUa || requestCrawlerUa) {
+    classification = 'automated';
+    reasons = [crawlerUa ? 'crawler_ua_token' : 'request_crawler_ua_token'];
   } else if (webdriver) {
     classification = 'automated';
     reasons = ['browser_webdriver'];

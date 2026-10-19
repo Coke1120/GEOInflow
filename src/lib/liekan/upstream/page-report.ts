@@ -90,7 +90,7 @@ export async function readPageReport(
         )
       )[0] || { data: '0', policy: '0' };
   const key = analyticsCacheKey(
-    `page-report-v7-${geographyVersion}-${CRAWLER_POPULATION_VERSION}`,
+    `page-report-v8-${geographyVersion}-${CRAWLER_POPULATION_VERSION}`,
     [process.env.DATABASE_URL, website.id, p, revision],
   );
   const result = await analyticsCache.read(

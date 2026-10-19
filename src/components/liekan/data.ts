@@ -135,9 +135,9 @@ export const columns: Record<string, Array<[string, string, boolean?]>> = {
   ],
   topBody: [
     ['path', '页面'],
-    ['humanPv', '人类 PV', true],
+    ['humanPv', '浏览 PV', true],
     ['aiRequests', 'AI 抓取', true],
-    ['ratio', 'AI/人 比值', true],
+    ['ratio', 'AI/浏览 比值', true],
     ['bot', '最活跃蜘蛛'],
     ['evaluation', 'GEO 评价'],
   ],

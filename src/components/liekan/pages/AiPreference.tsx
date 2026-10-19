@@ -19,7 +19,7 @@ export function AiPreference({ report, rangeLabel }: ReportViewProps) {
           report={report}
         />
         <MetricCard
-          label="案例页 AI/人 比值"
+          label="案例页 AI/浏览 比值"
           className="card p-4 fade-in d1"
           valueClass="num text-[24px] font-bold text-brand mt-1.5"
           report={report}
@@ -41,7 +41,7 @@ export function AiPreference({ report, rangeLabel }: ReportViewProps) {
         <div className="card col-span-2 fade-in d2">
           <div className="px-6 pt-5 pb-2">
             <h2 className="text-[14px] font-bold tracking-tight">
-              {i18n.text('内容类型偏好：AI vs 人类')}
+              {i18n.text('内容类型偏好：AI 与浏览访问')}
             </h2>
             <p className="text-[11.5px] text-faint mt-0.5">
               {i18n.system(rangeLabel)}

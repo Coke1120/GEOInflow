@@ -6,7 +6,7 @@ export type ReportResource = z.infer<typeof reportQuery>['resource'];
 export const visitorOverviewCards = ['访客数 UV', '浏览量 PV', '跳出率', '平均访问时长'] as const;
 export const pageReportParts = {
   overview: {
-    cards: ['今日总请求', '人类访客（UV）', 'AI 蜘蛛请求', '今日转化'],
+    cards: ['今日总请求', '访客（UV）', 'AI 蜘蛛请求', '今日转化'],
     charts: ['d1', 'd2', 'd3'],
     tables: ['topBody'],
     human: ['sources', 'pages'],
@@ -42,7 +42,7 @@ export const pageReportParts = {
     insights: false,
   },
   'ai/preference': {
-    cards: ['AI 最爱内容类型', '案例页 AI/人 比值', '图文页 vs 交互页', '长文平均抓取完成率'],
+    cards: ['AI 最爱内容类型', '案例页 AI/浏览 比值', '图文页 vs 交互页', '长文平均抓取完成率'],
     charts: ['pf1', 'pf2'],
     tables: ['prefList', 'pathList'],
     human: ['pages'],

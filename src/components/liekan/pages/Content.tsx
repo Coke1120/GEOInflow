@@ -47,7 +47,7 @@ export function Content({ report, aiCrawlerEnabled }: ReportViewProps) {
       <section className="card fade-in d2 overflow-hidden">
         <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
           <h2 className="text-[14px] font-bold tracking-tight">
-            {i18n.text('页面排行（人类访问）')}
+            {i18n.text('页面排行（浏览访问）')}
           </h2>
           <div className="flex items-center gap-2">
             <FilterChip label="按 PV" />

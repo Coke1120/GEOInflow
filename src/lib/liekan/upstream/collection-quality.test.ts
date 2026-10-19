@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { bundledVerificationSnapshots, type VerificationSnapshots } from '../rules/verify';
 import { getIpAddress } from '@/lib/ip';
+import { ALL_BOT_RULES } from '../rules/bots';
 import {
   COLLECTION_RULE_VERSION,
   classifyCollection,
@@ -61,6 +62,62 @@ beforeEach(() => {
 });
 
 describe('collection quality evidence', () => {
+  it('excludes the observed unregistered YisouSpider without needing an official crawler identity', () => {
+    expect(classifyCollection(input({ userAgent: 'YisouSpider' }))).toMatchObject({
+      classification: 'automated',
+      reasons: ['ua_bot'],
+    });
+    const request = new Request('https://collector.test/api/send', {
+      headers: { 'user-agent': 'YisouSpider' },
+    });
+    expect(classifyCollection(input({ request, payload: { userAgent: browser } }))).toMatchObject({
+      classification: 'automated',
+      reasons: ['request_ua_bot'],
+    });
+  });
+
+  it.each(ALL_BOT_RULES.map(rule => [rule.name, rule.pattern]))(
+    'excludes the registered %s crawler when it also advertises Chrome',
+    (_name, token) => {
+      const ua = `${browser} ${token}/1.0`;
+      expect(classifyCollection(input({ userAgent: ua })).classification).toBe('automated');
+      const request = new Request('https://collector.test/api/send', {
+        headers: { 'user-agent': ua },
+      });
+      expect(
+        classifyCollection(input({ request, payload: { userAgent: browser } })).classification,
+      ).toBe('automated');
+    },
+  );
+
+  it.each([browser, `${browser} NotClaude-User/1.0`, `${browser} Claude-User-Unofficial/1.0`])(
+    'retains ordinary browsers and non-token crawler mentions: %s',
+    ua => {
+      expect(classifyCollection(input({ userAgent: ua })).classification).toBe('browser');
+    },
+  );
+
+  it('keeps named-crawler transport separate for authorized server collection', () => {
+    const request = new Request('https://collector.test/api/liekan/collect', {
+      headers: { 'user-agent': `${browser} Claude-User/1.0` },
+    });
+    expect(
+      classifyCollection(input({ request, authenticated: true, snapshots: {} })).classification,
+    ).toBe('browser');
+  });
+
+  it('preserves opt-out and ambiguous identity semantics for registered tokens', () => {
+    const userAgent = `${browser} Claude-User/1.0 ChatGPT-User/1.0`;
+    expect(classifyCollection(input({ userAgent }))).toMatchObject({
+      classification: 'automated',
+      reasons: ['crawler_ua_token'],
+    });
+    vi.stubEnv('DISABLE_BOT_CHECK', '1');
+    expect(classifyCollection(input({ userAgent }))).toMatchObject({
+      classification: 'unknown',
+      reasons: ['bot_check_disabled'],
+    });
+  });
   it('excludes an automation-controlled browser even when its UA is ordinary Chrome', () => {
     expect(classifyCollection(input({ payload: { webdriver: true } }))).toMatchObject({
       classification: 'automated',
