@@ -521,7 +521,7 @@ export async function buildAiFactsContext(input: {
             metrics: [
               ...(['pageviews', 'visitors', 'visits'] as const).map(key => ({
                 key,
-                label: { pageviews: '人类浏览量', visitors: '人类访客', visits: '人类访问' }[key],
+                label: { pageviews: '浏览量', visitors: '访客', visits: '访问次数' }[key],
                 value: sources.browser ? current[key] : null,
                 state: humanState,
                 changePercent: aiChangePercent(current[key], previous[key]),
@@ -597,9 +597,9 @@ export function unsupportedAiFactsContext(
     metrics: keys.map(key => ({
       key,
       label: {
-        pageviews: '人类浏览量',
-        visitors: '人类访客',
-        visits: '人类访问',
+        pageviews: '浏览量',
+        visitors: '访客',
+        visits: '访问次数',
         aiRequests: 'AI 爬虫请求',
         aiReferrals: 'AI 引荐访问',
       }[key],

@@ -63,3 +63,11 @@ it('reports unsupported ClickHouse capabilities without querying PostgreSQL anal
     status: 501,
   });
 });
+it('preserves exact paths for case-page audits and rejects invalid input', () => {
+  for (const path of ['/cases', '/cases/', "/cases/it's", '/']) {
+    expect(parseQualityRange(new URLSearchParams({ path })).path).toBe(path);
+  }
+  for (const path of ['cases', 'https://example.test/cases', '/cases\n', '/' + 'x'.repeat(2000)]) {
+    expect(() => parseQualityRange(new URLSearchParams({ path }))).toThrow();
+  }
+});

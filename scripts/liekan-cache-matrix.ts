@@ -852,7 +852,7 @@ const rows = (b: any, id: string, check: (r: any) => boolean) =>
 
 const validators: Record<string, (b: any) => boolean> = {
   overview: b =>
-    positiveCard(b, '人类访客（UV）') &&
+    positiveCard(b, '访客（UV）') &&
     positiveCard(b, 'AI 蜘蛛请求') &&
     todayCard(b, '今日总请求') &&
     todayCard(b, '今日转化') &&
@@ -887,7 +887,7 @@ const validators: Record<string, (b: any) => boolean> = {
   'ai/preference': b =>
     b.states.catalog === 'available' &&
     positiveSeries(b, 'pf1', 'AI 蜘蛛') &&
-    positiveSeries(b, 'pf1', '人类 PV') &&
+    positiveSeries(b, 'pf1', '浏览 PV') &&
     b.charts.pf2?.state === 'available' &&
     b.charts.pf2.rows?.some(
       (r: any) => Number(r.words) > 0 && Number(r.structureScore) > 0 && Number(r.requests) > 0,
@@ -898,7 +898,7 @@ const validators: Record<string, (b: any) => boolean> = {
       'pathList',
       r => !!r.bot && !!r.path && !!r.time && Number.isFinite(Number(r.status)),
     ) &&
-    ['案例页 AI/人 比值', '图文页 vs 交互页'].every(label => positiveCard(b, label)) &&
+    ['案例页 AI/浏览 比值', '图文页 vs 交互页'].every(label => positiveCard(b, label)) &&
     card(b, '长文平均抓取完成率')?.state === 'unsupported' &&
     card(b, '长文平均抓取完成率')?.value === null,
   'human/geo': b =>

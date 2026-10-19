@@ -130,7 +130,7 @@ describe('analysis loading states', () => {
     expect(screen.getByRole('heading', { name: '页面事件' })).toBeInTheDocument();
     expect(screen.getAllByRole('tab')).toHaveLength(4);
     expect(screen.getByText('有流量页面')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: '页面排行（人类访问）' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '页面排行（浏览访问）' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'PV' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '导出页面表' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('正在读取统计数据');
@@ -297,7 +297,7 @@ it('withholds the previous crawler projection when display is off and report ref
   data.charts.d1 = {
     labels: ['2026-10-01'],
     series: [
-      { name: '人类 PV', values: [1] },
+      { name: '浏览 PV', values: [1] },
       { name: 'AI 蜘蛛请求', values: [8] },
     ],
   };

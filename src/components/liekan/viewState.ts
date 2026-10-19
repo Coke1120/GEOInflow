@@ -45,6 +45,13 @@ const filters: Partial<Record<Resource, string[]>> = {
 };
 export function readViewState(params: Record<string, string>, resource: Resource) {
   const table = primaryTables[resource];
+  // Keep existing overview bookmarks valid after the display terminology changed.
+  const sortLabel =
+    resource === 'overview' && params.sort === '人类 PV'
+      ? '浏览 PV'
+      : resource === 'overview' && params.sort === 'AI/人 比值'
+        ? 'AI/浏览 比值'
+        : params.sort;
   const page = Number(params.page);
   const cursor =
     resource === 'logs' && params.cursor?.length <= 512 && ['after', 'before'].includes(params.seek)
@@ -65,8 +72,8 @@ export function readViewState(params: Record<string, string>, resource: Resource
       label: [
         ...(columns[table] || []),
         ...(resource === 'overview' ? columns.visitorTopBody : []),
-      ].some(([, label]) => label === params.sort)
-        ? params.sort
+      ].some(([, label]) => label === sortLabel)
+        ? sortLabel
         : '',
       direction: params.direction === 'asc' ? 1 : -1,
     },

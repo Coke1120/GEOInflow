@@ -60,7 +60,7 @@ it('retains a GEO chart legend choice while displaying the same snapshot in Engl
       d1: {
         labels: ['2026-10-01'],
         series: [
-          { name: '人类 PV', values: [3] },
+          { name: '浏览 PV', values: [3] },
           { name: 'AI 蜘蛛请求', values: [2] },
         ],
       },
@@ -207,7 +207,7 @@ it.each(['feature', 'reference'])(
         d1: {
           labels: ['2026-10-01'],
           series: [
-            { name: '人类 PV', values: [3] },
+            { name: '浏览 PV', values: [3] },
             { name: 'AI 蜘蛛请求', values: [2] },
           ],
         },

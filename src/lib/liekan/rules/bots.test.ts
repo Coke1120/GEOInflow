@@ -70,6 +70,23 @@ const expectedTypes = {
 };
 
 describe('official crawler token recognition', () => {
+  it('recognizes a trailing crawler promptly after a long ambiguous scheme prefix', () => {
+    const ua = `Mozilla/5.0 ${'a-'.repeat(40000)} Claude-User/1.0`;
+    const started = performance.now();
+    const result = classifyBot(ua, ALL_BOT_RULES);
+    const elapsed = performance.now() - started;
+    expect(result.name).toBe('Claude-User');
+    // An 80 KB public payload must not monopolize the collector's event loop.
+    expect(elapsed).toBeLessThan(500);
+  });
+
+  it('keeps crawler tokens inside a long URL out of official matches', () => {
+    const ua = `Mozilla/5.0 ${'a-'.repeat(40000)}://example.test/(Claude-User/1.0)`;
+    expect(classifyBot(ua, ALL_BOT_RULES).name).toBe('其他');
+    expect(classifyBot(`${ua} Claude-User/1.0`, ALL_BOT_RULES).name).toBe('Claude-User');
+    expect(classifyBot(ua, LEGACY_BOT_RULES).name).toBe('Claude-User');
+  });
+
   it.each([
     'NotGPTBot/1.0',
     'GPTBot-Unaffiliated/1.0',
@@ -80,6 +97,10 @@ describe('official crawler token recognition', () => {
     'GPTBot.com',
     'Googlebot-Unknown/1.0',
     'Baiduspider-notreal',
+    'Mozilla/5.0 WWW.example.test/(Claude-User/1.0)',
+    'Mozilla/5.0 Custom+Scheme.2://example.test/(Claude-User/1.0)',
+    'Mozilla/5.0 1a-https://example.test/(Claude-User/1.0)',
+    'Mozilla/5.0 a-www.example.test/(Claude-User/1.0)',
   ])('does not grant official identity to %s', ua => {
     expect(classifyBot(ua, ALL_BOT_RULES)).toMatchObject({ name: '其他', aiEligible: false });
     expect(crawlerIdForRule(classifyBot(ua, ALL_BOT_RULES))).toBeNull();
@@ -111,6 +132,9 @@ describe('official crawler token recognition', () => {
     '(gptbot)',
     'Mozilla/5.0 GPTBot/1.4',
     'GPTBot/1.0(+https://example.com/GPTBot)',
+    'Mozilla/5.0 _https://example.test/(GPTBot/1.0)',
+    'Mozilla/5.0 1https://example.test/(GPTBot/1.0)',
+    'Mozilla/5.0 https://example.test/" GPTBot/1.0',
   ])('accepts the documented product boundary in %s', ua => {
     expect(classifyBot(ua).name).toBe('GPTBot');
   });

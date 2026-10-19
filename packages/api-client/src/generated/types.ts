@@ -23757,6 +23757,8 @@ export interface operations {
         hostname?: string;
         /** @description Page number, starting at 1. */
         page?: number;
+        /** @description Filter by page URL path. */
+        path?: string;
         source?: 'browser' | 'authenticated_server' | 'legacy_override';
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt?: number;
@@ -23869,6 +23871,7 @@ export interface operations {
               classification: string;
               events: number;
               included: number;
+              included_pageviews: number;
               missing_verdict: number;
               /** @description Pageview counts for the selected period. */
               pageviews: number;
@@ -24448,6 +24451,7 @@ export interface operations {
             endAt?: number;
             /** @description Hostname on which the activity occurred. */
             hostname?: string;
+            path?: string;
             /** @enum {string} */
             source?: 'browser' | 'authenticated_server' | 'legacy_override';
             /** @description Start of the date range as a Unix timestamp in milliseconds. */
