@@ -25,6 +25,9 @@ export const readReportEvidence: EvidenceReader = async (tx, websiteId, p, input
           crawlerIdentityScope: p.crawlerIdentityScope,
           crawlerMetricsVersion: 1,
           resource: p.reportResource,
+          ...(p.reportResource === 'ai/pages'
+            ? { botType: p.botType, botId: p.botId, botName: p.botName }
+            : {}),
           filter: p.logFilter ?? '',
           search: p.reportResource === 'logs' ? (p.search ?? '') : '',
         },

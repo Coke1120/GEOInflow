@@ -809,5 +809,11 @@
   "m_698fc94e360d": "The default official catalog contains 53 HTTP rules. Disabled entries are excluded, and custom rules are counted separately.",
   "m_466d58fc7b01": "Server log records eligible for AI request metrics under the rules at ingestion time. Official identity eligibility is independent of display type; custom eligibility follows the configured type.",
   "m_67c82ba1a822": "Count ingested requests with true AI eligibility in the selected period; historical missing values use legacy classification compatibility",
-  "m_8f0894730a3d": "Failed status codes and request methods are retained. Google-InspectionTool user-triggered requests, CCBot, and OAI-AdsBot are excluded from AI request metrics. Historical missing eligibility follows legacy classifications; mixed periods show a definition notice. Rule changes apply to subsequent ingestion."
+  "m_8f0894730a3d": "Failed status codes and request methods are retained. Google-InspectionTool user-triggered requests, CCBot, and OAI-AdsBot are excluded from AI request metrics. Historical missing eligibility follows legacy classifications; mixed periods show a definition notice. Rule changes apply to subsequent ingestion.",
+  "m_dc2a77a06bfd": "Browser PV · Pageviews",
+  "m_cb9390dde348": "AI requests ÷ Browser PV",
+  "m_62de4ca58977": "AI request is 200, browser PV is 100, ratio is 2.",
+  "m_e29ef3470fc1": "Undefined when browser PV is zero. The two sources have different coverage, and this value is not representative of the real human to bot population ratio.",
+  "m_dc1d99ea0534": "Uses the imported release time as a baseline and observes the subsequent full 7 days of browser PV.",
+  "m_1fec9636a92b": "Sum of browser PV within 7 days after release time"
 }

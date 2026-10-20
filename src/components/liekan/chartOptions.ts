@@ -122,7 +122,7 @@ function referenceChartOptions(id: string, chart: ChartData, locale: LiekanLocal
             data: chart.series[0]?.values || [],
           },
           {
-            name: chart.series[1]?.name || translateText('人类访客', locale),
+            name: chart.series[1]?.name || translateText('访客', locale),
             type: 'bar',
             barWidth: 14,
             itemStyle: { color: '#C7DBFF', borderRadius: [4, 4, 0, 0] },
@@ -822,7 +822,7 @@ function referenceChartOptions(id: string, chart: ChartData, locale: LiekanLocal
         },
         series: [
           {
-            name: chart.series[0]?.name || translateText('人类请求', locale),
+            name: chart.series[0]?.name || translateText('浏览 PV', locale),
             type: 'bar',
             stack: 'a',
             barWidth: 8,

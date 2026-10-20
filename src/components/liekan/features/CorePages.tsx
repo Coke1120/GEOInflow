@@ -938,7 +938,11 @@ function WebsiteSettings() {
     !!c.siteId && ['install', 'collection'].includes(section),
   );
   const [drawer, setDrawer] = useState('');
-  useEffect(() => setDrawer(''), [c.siteId, section]);
+  useEffect(() => {
+    setDrawer(
+      section === 'collection' && c.query.panel === 'traffic-quality' ? 'traffic-quality' : '',
+    );
+  }, [c.siteId, section, c.query.panel]);
   const site = query.data,
     manage = canManageSite(c, site),
     teams = teamCandidates(c, 'transfer'),

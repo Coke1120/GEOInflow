@@ -22,6 +22,11 @@ export const qualityRangeSchema = z.object({
   classification: z.enum(['browser', 'automated', 'suspected', 'unknown']).optional(),
   source: z.enum(['browser', 'authenticated_server', 'legacy_override']).optional(),
   hostname: z.string().max(253).optional(),
+  path: z
+    .string()
+    .max(2000)
+    .regex(/^\/[^\u0000-\u001f\u007f]*$/)
+    .optional(),
   page: z.coerce.number().int().min(1).max(10000).optional(),
   cursor: z.string().max(2048).optional(),
 });
@@ -68,6 +73,7 @@ export const trafficAuditSchema = z.object({
         pageviews: z.number(),
         missing_verdict: z.number(),
         included: z.number(),
+        included_pageviews: z.number(),
       }),
     )
     .optional(),

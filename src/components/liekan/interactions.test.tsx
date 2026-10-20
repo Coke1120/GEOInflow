@@ -79,7 +79,7 @@ describe('real data states and interactions', () => {
         <table>
           <thead>
             <tr>
-              <SortHeading label="人类 PV" className="" />
+              <SortHeading label="浏览 PV" className="" />
             </tr>
           </thead>
         </table>
@@ -87,8 +87,8 @@ describe('real data states and interactions', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: '7 天' }));
     expect(handlers.onFilter).toHaveBeenCalledWith('7 天');
-    fireEvent.click(screen.getByRole('button', { name: '人类 PV' }));
-    expect(handlers.onSort).toHaveBeenCalledWith('人类 PV');
+    fireEvent.click(screen.getByRole('button', { name: '浏览 PV' }));
+    expect(handlers.onSort).toHaveBeenCalledWith('浏览 PV');
   });
   it('provides the complete User-Agent on truncated log cells', () => {
     const data = report();

@@ -9,6 +9,8 @@ import { getLogFacts, getPlotLogs, getMonthlyAiShare, getContentImpact } from '.
 import { getInstallation } from '../installation';
 import { buildReport } from '../report';
 import { getSettings, importLogs, saveSettings } from '../store';
+import { queryEvidence, parseEvidenceQuery } from '../crawlers/evidence-read';
+import { readReportEvidence } from '../crawlers/report-evidence';
 
 const enabled = process.env.LIEKAN_CRAWLER_TEST === '1';
 describe.skipIf(!enabled)('crawler qualification across real statistics queries', () => {
@@ -231,6 +233,79 @@ describe.skipIf(!enabled)('crawler qualification across real statistics queries'
           .map(row => row.botId)
           .sort(),
       ).toEqual(['gptbot', null].sort());
+      const pageQuery = {
+        resource: 'ai/pages',
+        startAt: +start,
+        endAt: +end,
+        timezone: 'UTC',
+        crawlerMetricsVersion: 1,
+        crawlerIdentityScope: 'all',
+      };
+      const info = { id: site, name: 'Fixture', domain: 'example.com' };
+      const official = await buildReport(info, false, { ...pageQuery, botId: 'gptbot' }, true);
+      expect(official.tables.apBody).toEqual([
+        expect.objectContaining({ path: '/article', requests: 2, bots: 1, botId: 'gptbot' }),
+      ]);
+      expect(official.meta.crawlerPageBots).toContainEqual({
+        botId: null,
+        name: 'GPTBot',
+        type: '训练',
+      });
+      const custom = await buildReport(info, false, { ...pageQuery, botName: 'GPTBot' }, true);
+      expect(custom.tables.apBody).toEqual([
+        expect.objectContaining({ path: '/article', requests: 1, bots: 1, botId: null }),
+      ]);
+      const training = await buildReport(
+        info,
+        false,
+        { ...pageQuery, botId: 'gptbot', botType: '训练' },
+        true,
+      );
+      expect(training.tables.apBody[0].requests).toBe(1);
+      const empty = await buildReport(
+        info,
+        false,
+        { ...pageQuery, botId: 'gptbot', botType: '搜索' },
+        true,
+      );
+      expect(empty.tables.apBody).toEqual([]);
+      expect(empty.cards.find(card => card.label === '被 AI 抓取页面')?.value).toBe(0);
+      expect(empty.tables.blindList).toHaveLength(1);
+      await importLogs(site, 'example.com', {
+        format: 'json',
+        records: Array.from({ length: 25 }, (_, i) =>
+          record('MyAiBot/1.0', 30 + i, `/filtered-${i}`),
+        ),
+      });
+      const second = await buildReport(
+        info,
+        false,
+        { ...pageQuery, botName: 'GPTBot', tp_apBody: 2 },
+        true,
+      );
+      expect(second.tables.apBody).toHaveLength(6);
+      expect(second.meta.tablePages.apBody.total).toBe(26);
+      expect(second.cards.find(card => card.label === '被 AI 抓取页面')?.value).toBe(26);
+      const exportQuery = parseEvidenceQuery({
+        startAt: +start,
+        endAt: +end,
+        timezone: 'UTC',
+        reportResource: 'ai/pages',
+        botName: 'GPTBot',
+        population: 'ai_crawlers',
+        dimension: 'path',
+        view: 'summary',
+      });
+      const exported = await queryEvidence(
+        { id: owner, role: 'user' },
+        site,
+        exportQuery,
+        'report-evidence',
+        readReportEvidence,
+        true,
+      );
+      expect(exported.rows).toHaveLength(26);
+      expect(exported.rows.every(row => row.botId === null && row.requests === 1)).toBe(true);
     } finally {
       for (const table of [
         'liekan_ai_conversation',

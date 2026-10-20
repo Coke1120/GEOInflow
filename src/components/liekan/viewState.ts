@@ -5,6 +5,9 @@ import { columns, primaryTables } from './data';
 import type { Resource } from './types';
 
 export const viewParamKeys = [
+  'botType',
+  'botId',
+  'botName',
   'crawlerIdentityScope',
   'filter',
   'search',
