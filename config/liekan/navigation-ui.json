@@ -1641,6 +1641,59 @@
       "猎看科技",
       "北京日报社智源GEO"
     ],
-    "preserveOriginalReference": true
+    "preserveOriginalReference": true,
+    "maxDesktopFooterHeight": 120
+  },
+  "geoColumnCopyApproval": {
+    "index": {
+      "人类 PV": "浏览 PV",
+      "AI/人 比值": "AI/浏览 比值"
+    }
+  },
+  "geoAnalysisTools": [
+    "高级筛选",
+    "流量质量",
+    "图表注释",
+    "导出数据",
+    "分享当前网站"
+  ],
+  "crawlerPagesApproval": {
+    "sourceCommit": "947897979",
+    "table": "apBody",
+    "addedColumn": {
+      "field": "title",
+      "label": "标题",
+      "after": "path"
+    },
+    "typeFilters": [
+      "全部",
+      "AI 训练",
+      "AI 搜索",
+      "用户触发",
+      "传统搜索",
+      "其他已知"
+    ],
+    "crawlerSelector": "具体爬虫",
+    "defaultCrawler": "全部爬虫",
+    "maxTableHeightIncrease": 160,
+    "policy": "Retain original HTML hashes, original comparisons and chart pixels. Apply the merged crawler page controls, title column and numeric heat presentation only to a separate reference rendering."
+  },
+  "geoCopyApproval": {
+    "index": {
+      "人类访客（UV）": "访客（UV）",
+      "AI 蜘蛛 vs 人类访问趋势": "AI 蜘蛛与浏览访问趋势",
+      "人类来源渠道": "访客来源渠道",
+      "页面双视角 TOP（AI 抓取 × 人类访问）": "页面双视角 TOP（AI 抓取 × 浏览访问）"
+    },
+    "ai": {
+      "AI vs 人类占比演化": "AI 与浏览访问占比趋势"
+    },
+    "ai-preference": {
+      "案例页 AI/人 比值": "案例页 AI/浏览 比值",
+      "内容类型偏好：AI vs 人类": "内容类型偏好：AI 与浏览访问"
+    },
+    "content": {
+      "页面排行（人类访问）": "页面排行（浏览访问）"
+    }
   }
 }

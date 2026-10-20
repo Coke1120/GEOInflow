@@ -4641,7 +4641,7 @@
       "purpose": "GEOInflow default share branding with preserved user white-label settings",
       "tests": [
         "pnpm liekan:verify",
-        "GEOInflow share branding visual acceptance"
+        "pnpm exec vitest run src/components/liekan/product-branding.test.tsx"
       ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve custom share names, logos, domains and access controls; built-in branding has no unconfigured external destination",
