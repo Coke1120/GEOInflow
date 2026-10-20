@@ -1,3 +1,4 @@
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { getPostgresCountrySQL } from '@/lib/country';
 import { createHash, randomBytes } from 'node:crypto';
 import JSZip from 'jszip';
@@ -338,7 +339,7 @@ async function prepareSnapshot(
   }
   aborted();
   const manifest = {
-    product: p.locale === 'en-US' && p.format !== 'json' ? 'Liekan Analytics' : 'Liekan 猎看统计',
+    product: p.format === 'json' ? 'Liekan 猎看统计' : liekanProduct.name,
     createdAt: new Date().toISOString(),
     website: { name: website.name, domain: website.domain },
     range: { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },

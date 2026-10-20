@@ -1,12 +1,16 @@
-# Liekan · 猎看统计
+# GEOInflow
 
-面向 GEO 增长的 AI 与搜索流量分析系统。Liekan 基于 Umami v3.4.0，保留浏览器采集、账号权限、网站与团队、目标和漏斗，通过独立日志接入分析 AI 抓取行为与搜索引荐。
+联合发布：猎看科技　北京日报社智源GEO。
+
+沿用 Liekan 的兼容接口和部署标识，基于 Umami 开发并保留 MIT 版权与许可。
+
+面向 GEO 增长的 AI 与搜索流量分析系统。GEOInflow 基于 Umami v3.4.0，保留浏览器采集、账号权限、网站与团队、目标和漏斗，通过独立日志接入分析 AI 抓取行为与搜索引荐。
 
 主项目采用 MIT 许可，完整版权与许可声明见 [LICENSE](LICENSE)。第三方组件和地理数据许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 企业私有仓库：[liekan/liekan-statistics](https://gitee.com/liekan/liekan-statistics)。访问需要对应企业仓库权限。
 
-当前版本为 0.2.4，本地体验默认地址为 **http://localhost:3002**。新增数据库和容器与原 Umami 独立。
+当前版本为 v1.2（工程版本 1.2.0），本地体验默认地址为 **http://localhost:3002**。新增数据库和容器与原 Umami 独立。
 
 - 保留 11 个 GEO 统计页面与 22 个图表，接入已确认的 68 个补充 UI 场景。
 - 人类 PV/UV、来源、地域、内容、目标与漏斗复用 Umami 数据。

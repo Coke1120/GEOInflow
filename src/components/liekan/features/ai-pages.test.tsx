@@ -2281,7 +2281,7 @@ it('ignores a late rejected failure lookup after starting a new conversation', a
   await user.click(screen.getByRole('button', { name: '发起分析' }));
   await waitFor(() => expect(mocks.run).toHaveBeenCalled());
   await user.click(screen.getByRole('button', { name: '新建对话' }));
-  expect(await screen.findByText('今天想问什么，猎看团队？')).toBeInTheDocument();
+  expect(await screen.findByText('今天想问什么，GEOInflow 团队？')).toBeInTheDocument();
   await act(async () => rejectLookup({ name: 'AbortError' }));
   expect(screen.queryByRole('button', { name: '回查原任务' })).not.toBeInTheDocument();
   expect(screen.getByLabelText('分析问题')).toBeEnabled();

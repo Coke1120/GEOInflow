@@ -63,7 +63,7 @@ it('locks AI locale in an optional request and preserves old request hashes', ()
   expect(hashAiRequest({ ...old, locale: undefined })).toBe(hashAiRequest(old));
   expect(hashAiRequest({ ...old, locale: 'en-US' })).not.toBe(hashAiRequest(old));
   expect(aiConversationPostSchema.safeParse({ ...request, locale: 'fr-FR' }).success).toBe(false);
-  expect(localAiGreeting('hello', 'en-US')?.summary).toMatch(/Liekan/);
+  expect(localAiGreeting('hello', 'en-US')?.summary).toMatch(/GEOInflow/);
   expect(localAiGreeting('hello', 'en-US')?.summary).not.toMatch(/[\u3400-\u9fff]/);
   expect(localAiGreeting('hello, analyze my traffic', 'en-US')).toBeNull();
 });

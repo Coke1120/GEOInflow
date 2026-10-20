@@ -14,7 +14,7 @@ export function ChatAssistantHeading({ state }: { state?: string }) {
       <span className={home.assistantMark}>
         <Sparkles size={16} aria-hidden="true" />
       </span>
-      <span>{i18n.text('猎看分析')}</span>
+      <span>{i18n.text('GEOInflow 分析')}</span>
       {state && <RunStatus state={state} />}
     </div>
   );

@@ -1,4 +1,5 @@
 'use client';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { useLiekanPageTitle } from '@/lib/liekan/i18n/client';
 import { LanguageSelector } from '../LanguageSelector';
@@ -376,7 +377,7 @@ export function FeatureApp({
       ? family.label
       : current.id && /-editor$/.test(current.page)
         ? (page?.title || '').replace(/^创建/, '编辑')
-        : page?.title || '猎看统计';
+        : page?.title || liekanProduct.name;
   const pageKey = `${siteId || current.teamId || user.id}:${current.page}:${current.id || ''}`;
   const invalidRange = datePage && range.endAt - range.startAt > 1096 * 86400000;
   const readOnlyGlobalPage = !setup && ['websites'].includes(current.page);

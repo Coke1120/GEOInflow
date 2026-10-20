@@ -1,4 +1,5 @@
 'use client';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { CrawlerSourcesPanel } from './CrawlerSourcesPanel';
 import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
@@ -3899,7 +3900,7 @@ export function ShareFeatureView({
         <div className="public-brand">
           <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
           <div>
-            <strong>{i18n.text('猎看统计')}</strong>
+            <strong>{liekanProduct.name}</strong>
             <small style={{ display: 'block' }}>
               {authorizedShare?.name || i18n.text('公开分享')}
               {i18n.fragment(' · 只读分享', true, false)}

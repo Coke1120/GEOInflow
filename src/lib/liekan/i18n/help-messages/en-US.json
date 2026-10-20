@@ -816,5 +816,19 @@
   "m_e29ef3470fc1": "Undefined when browser PV is zero. The two sources have different coverage, and this value is not representative of the real human to bot population ratio.",
   "m_dc1d99ea0534": "Uses the imported release time as a baseline and observes the subsequent full 7 days of browser PV.",
   "m_1fec9636a92b": "Sum of browser PV within 7 days after release time",
-  "m_e0a7ab54b1d1": "AI / browser ratio"
+  "m_e0a7ab54b1d1": "AI / browser ratio",
+  "m_7120fc57e15a": "This help dictionary ships with each GEOInflow version. It follows the product's data definitions, setup instructions, and actual calculation rules. The metric dictionary documents each metric's calculation, data source, analytics window, and boundaries.",
+  "m_58b26b53a702": "GEOInflow current capabilities",
+  "m_87ce85d56ae3": "The following draft rejects crawling by GPTBot and ClaudeBot. Other crawlers continue to be subject to the existing rules of the origin site. Merge existing robots files, check the required usage, and then publish to the site root path. What GEOInflow saves and downloads is a draft policy, and whether it takes effect needs to be verified at the origin site.",
+  "m_7a9f3f512042": "GEOInflow generates, saves, and downloads configuration drafts. Deploy reviewed rules to the origin root or WAF, then check public robots.txt, caching, and origin rule matches. Vendors refresh robots at different intervals. Some user-triggered requests may ignore the file.",
+  "m_b5302d7bc676": "GEOInflow does not score pages automatically at this stage. Missing scores show Not connected. The importer provides the scoring method and confidence.",
+  "m_ff7f01b5f27e": "GEOInflow metric definitions and states for this version",
+  "m_645d5db2c014": "About GEOInflow",
+  "m_c052c90a6ffa": "GEOInflow is licensed under the MIT license. Third-party graphics, fonts, components and geographic data are subject to their respective licenses.",
+  "m_6f91390b05ab": "GEOInflow changelog",
+  "m_e9e2ae16b75a": "The product is now named GEOInflow, with joint publisher credits in the footer. Sign-in, sharing, help, and both interface languages use the updated branding.",
+  "m_9f214a2cc121": "The build version is 1.2.0, with matching application and container versions. Existing accounts, analytics, collection APIs and deployment settings remain compatible.",
+  "m_c4efd75d67ec": "{v0} version v{v1} provides browser tracking, accounts and permissions, websites and teams, goals and funnels. AI crawls are analyzed through separately ingested server logs, and search referrals through browser referrer data.",
+  "m_6d2bba653a58": "About GEOInflow",
+  "m_7c933c94dd6a": "GEOInflow changelog"
 }

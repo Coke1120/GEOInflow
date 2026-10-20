@@ -28,7 +28,7 @@ export default async function ({
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Liekan',
+    template: '%s | GEOInflow',
     default: 'Websites',
   },
 };

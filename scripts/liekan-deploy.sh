@@ -2,7 +2,7 @@
 set -eu
 
 if [ "${1:-}" = '--help' ]; then
-  printf '%s\n' '用法：sh scripts/liekan-deploy.sh' '需要 Docker 和 Docker Compose。首次生成私有配置，构建并启动猎看统计；再次运行保留配置与数据。'
+  printf '%s\n' '用法：sh scripts/liekan-deploy.sh' '需要 Docker 和 Docker Compose。首次生成私有配置，构建并启动GEOInflow；再次运行保留配置与数据。'
   exit 0
 fi
 if [ "$#" -ne 0 ]; then
@@ -58,7 +58,7 @@ if [ ! -e .env ] && [ ! -L .env ]; then
     existing_database=1
   fi
   if [ -n "$existing_database" ]; then
-    printf '%s\n' '发现已有猎看数据库，请恢复原 .env 后再部署，以保留数据库密码、应用密钥和双重验证密钥。' >&2
+    printf '%s\n' '发现已有 GEOInflow 数据库，请恢复原 .env 后再部署，以保留数据库密码、应用密钥和双重验证密钥。' >&2
     exit 1
   fi
   random_secret() { od -An -N32 -tx1 /dev/urandom | tr -d ' \n'; }
@@ -89,4 +89,4 @@ fi
 docker compose -f docker-compose.liekan.yml config --quiet
 docker compose -f docker-compose.liekan.yml build app
 docker compose -f docker-compose.liekan.yml up -d --no-build --wait --wait-timeout 300
-printf '%s\n' '猎看统计部署完成：http://127.0.0.1:3002' '首次安装登录：admin / liekan。已有账号使用原密码。' '公网访问通过反向代理配置域名与 HTTPS。'
+printf '%s\n' 'GEOInflow部署完成：http://127.0.0.1:3002' '首次安装登录：admin / liekan。已有账号使用原密码。' '公网访问通过反向代理配置域名与 HTTPS。'

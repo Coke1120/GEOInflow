@@ -2,9 +2,12 @@ import { author, license, version } from '../../../../package.json';
 import { HELP_REVIEWED_AT, type HelpArticle } from '../help/types';
 
 export const liekanProduct = {
-  name: 'Liekan',
-  displayName: '猎看统计',
+  name: 'GEOInflow',
+  displayName: 'GEOInflow',
   version,
+  displayVersion: version.replace(/\.0$/, ''),
+  caption: 'GEO STATS',
+  publishers: ['猎看科技', '北京日报社智源GEO'],
   copyright: `© 2026 ${author}`,
   license,
   links: {
@@ -33,14 +36,14 @@ export const projectArticles: HelpArticle[] = [
   {
     id: 'project-about',
     section: 'start',
-    title: '关于猎看统计',
+    title: '关于 GEOInflow',
     summary: '面向 GEO 增长的 AI 与搜索流量分析系统。',
-    keywords: ['Liekan', '项目说明', '开源'],
+    keywords: ['GEOInflow', '项目说明', '开源'],
     blocks: [
       {
         title: '项目与版本',
         paragraphs: [
-          `${liekanProduct.displayName}（${liekanProduct.name}）当前版本为 ${liekanProduct.version}。系统提供浏览器采集、账号权限、网站与团队、目标和漏斗，AI 抓取行为通过独立日志接入分析，搜索引荐通过浏览器来源数据分析。`,
+          `${liekanProduct.name} 当前版本为 v${liekanProduct.displayVersion}。系统提供浏览器采集、账号权限、网站与团队、目标和漏斗，AI 抓取行为通过独立日志接入分析，搜索引荐通过浏览器来源数据分析。`,
         ],
       },
       {
@@ -52,7 +55,8 @@ export const projectArticles: HelpArticle[] = [
       {
         title: '开源许可',
         paragraphs: [
-          'Liekan 使用 MIT 许可。第三方图表、字体、组件与地理数据适用各自的许可。',
+          'GEOInflow 使用 MIT 许可。第三方图表、字体、组件与地理数据适用各自的许可。',
+          liekanProduct.copyright,
           '本版提供站内帮助和更新日志；项目公开仓库链接将在发布后补充。',
         ],
       },
@@ -64,10 +68,17 @@ export const projectArticles: HelpArticle[] = [
   {
     id: 'project-changelog',
     section: 'start',
-    title: '猎看统计更新日志',
+    title: 'GEOInflow 更新日志',
     summary: '查阅已发布版本的主要变化。',
     keywords: ['更新', '版本', 'changelog', 'release'],
     blocks: [
+      {
+        title: 'v1.2',
+        paragraphs: [
+          '系统名称统一为 GEOInflow，页脚增加联合发布署名。登录、分享、帮助及中英文界面同步更新品牌展示。',
+          '工程版本为 1.2.0，构建与镜像版本同步更新。已有账号、统计数据、采集接口和部署配置继续兼容。',
+        ],
+      },
       {
         title: '0.2.4',
         paragraphs: [

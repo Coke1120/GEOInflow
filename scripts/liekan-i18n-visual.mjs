@@ -84,7 +84,7 @@ export function assertEnglishRouteIdentity(route, url, title) {
   );
   assert.equal(
     title,
-    label(route.documentTitle) + ' | Liekan',
+    label(route.documentTitle) + ' | GEOInflow',
     `${route.id}: correct English document title`,
   );
 }

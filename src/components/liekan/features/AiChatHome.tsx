@@ -24,7 +24,7 @@ export function ChatWelcome() {
   const i18n = useLiekanI18n();
   return (
     <div className={home.welcome} data-ai-welcome>
-      <h2>{i18n.text('今天想问什么，猎看团队？')}</h2>
+      <h2>{i18n.text('今天想问什么，GEOInflow 团队？')}</h2>
       <p>{i18n.text('问指标、查趋势、排查网站表现，回答后可直达相关页面')}</p>
     </div>
   );

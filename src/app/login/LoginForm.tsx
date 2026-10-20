@@ -1,3 +1,4 @@
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import {
   Column,
   Form,
@@ -51,7 +52,7 @@ export function LoginForm() {
           }}
         />
       </Icon>
-      <Heading>猎看统计</Heading>
+      <Heading>{liekanProduct.name}</Heading>
       <Form
         onSubmit={handleSubmit}
         error={getErrorMessage(error)}
