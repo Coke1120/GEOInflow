@@ -1,4 +1,5 @@
 'use client';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
@@ -1154,7 +1155,7 @@ function WebsiteSettings() {
                 <Body>
                   <p className="muted">
                     {i18n.text(
-                      '清空浏览访问、事件、会话、回放、热力图、收入记录，以及 Liekan 日志与导入记录。',
+                      '清空浏览访问、事件、会话、回放、热力图、收入记录，以及 GEOInflow 日志与导入记录。',
                     )}
                   </p>
                   <div className="form-actions">
@@ -1315,7 +1316,7 @@ function WebsiteSettings() {
                       <Notice tone="red">
                         {drawer === 'reset'
                           ? i18n.text(
-                              '将清空「{v0}」的浏览访问、事件、会话、回放、热力图、收入记录，以及 Liekan 日志与导入记录。内容目录、策略、网站设置和安装标识继续保留。此操作无法恢复。',
+                              '将清空「{v0}」的浏览访问、事件、会话、回放、热力图、收入记录，以及 GEOInflow 日志与导入记录。内容目录、策略、网站设置和安装标识继续保留。此操作无法恢复。',
                               [site.name],
                             )
                           : i18n.text('将删除「{v0}」及其关联数据和设置。此操作无法恢复。', [
@@ -1558,7 +1559,7 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
   const title = page === 'login' ? '欢迎回来' : page === 'login-2fa' ? '验证登录' : '单点登录';
   const description =
     page === 'login'
-      ? '登录猎看统计，查看 AI 与搜索流量。'
+      ? '登录GEOInflow，查看 AI 与搜索流量。'
       : page === 'login-2fa'
         ? '完成验证后进入工作台。'
         : '正在等待身份提供方回调。';
@@ -1569,8 +1570,8 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
           <Link prefetch={false} className="auth-brand" href="/">
             <img src={`${basePath}/liekan/features/logo.svg`} alt="" />
             <span className="brand-name" style={{ color: 'var(--ink)' }}>
-              {i18n.fragment('猎看统计', false, true)}
-              <span className="brand-caption">LIEKAN GEO STATS</span>
+              {liekanProduct.name}
+              <span className="brand-caption">{liekanProduct.caption}</span>
             </span>
           </Link>
           <div className="auth-intro">
@@ -1583,15 +1584,15 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
             <div className="auth-feature">
               {i18n.fragment('AI 引荐 · 传统搜索 · 内容转化', false, true)}
               <br />
-              {i18n.fragment('猎看统计', true, false)}
+              {liekanProduct.name}
             </div>
           </div>
-          <small>{i18n.text('Liekan · MIT 开源')}</small>
+          <small>{i18n.text('GEOInflow · MIT 开源')}</small>
         </aside>
         <main className="auth-main" id="main-content">
           <div className="auth-form">
             <Badge key="badge" tone="blue">
-              {i18n.text('猎看统计')}
+              {liekanProduct.name}
             </Badge>
             <h1>{i18n.system(title)}</h1>
             <p className="sub">{i18n.system(description)}</p>
@@ -1679,7 +1680,7 @@ export function FeatureAuthPage({ page }: { page: 'login' | 'login-2fa' | 'sso' 
               </>
             )}
             <div className="auth-bottom">
-              <span>{i18n.text('猎看统计')}</span>
+              <span>{liekanProduct.name}</span>
               <span>{i18n.text('使用当前实例账户')}</span>
             </div>
           </div>
@@ -2411,13 +2412,18 @@ function Preferences() {
               </label>
             </div>
             <Notice>
-              {i18n.text('当前猎看界面使用已确认的浅色规范。分析时区和默认日期范围沿用账户偏好。')}
+              {i18n.text(
+                '当前 GEOInflow 界面使用已确认的浅色规范。分析时区和默认日期范围沿用账户偏好。',
+              )}
             </Notice>
             <hr className="divider" />
             <Definition
               items={[
-                [i18n.text('当前运行系统'), `Liekan ${process.env.currentVersion || '0.1.2'}`],
-                [i18n.text('界面版本'), i18n.text('猎看统计 UI v1')],
+                [
+                  i18n.text('当前运行系统'),
+                  `${liekanProduct.name} v${liekanProduct.displayVersion}`,
+                ],
+                [i18n.text('界面版本'), `${liekanProduct.name} UI v${liekanProduct.displayVersion}`],
                 [i18n.text('许可'), 'MIT'],
               ]}
             />

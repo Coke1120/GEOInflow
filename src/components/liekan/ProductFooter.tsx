@@ -10,14 +10,19 @@ export function ProductFooter() {
     <footer
       className={styles.footer}
       data-liekan-product-footer
-      aria-label={i18n.text('猎看统计项目信息')}
+      aria-label={i18n.text('GEOInflow项目信息')}
     >
       <div className={styles.inner}>
         <div className={styles.identity}>
           <Link className={styles.version} prefetch={false} href={liekanProduct.links.changelog}>
-            {liekanProduct.name} v{liekanProduct.version}
+            {liekanProduct.name} v{liekanProduct.displayVersion}
           </Link>
-          <span>{liekanProduct.copyright}</span>
+          <span className={styles.publishers} data-product-publishers>
+            <span>{i18n.text('联合发布：')}</span>
+            {liekanProduct.publishers.map(name => (
+              <span key={name}>{name}</span>
+            ))}
+          </span>
           <a href={liekanProduct.links.license} target="_blank" rel="noopener noreferrer">
             {liekanProduct.license}
           </a>

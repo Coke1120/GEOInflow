@@ -4635,6 +4635,17 @@
       ],
       "constraint": "Keep upstream protocol names and existing dictionaries compatible; isolate server locale by request and preserve selection after logout",
       "removalCondition": "Remove when upstream provides browser-persistent, per-request locale support with the same regression coverage"
+    },
+    {
+      "path": "src/app/share/[slug]/[[...path]]/ShareBranding.tsx",
+      "purpose": "GEOInflow default share branding with preserved user white-label settings",
+      "tests": [
+        "pnpm liekan:verify",
+        "GEOInflow share branding visual acceptance"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Preserve custom share names, logos, domains and access controls; built-in branding has no unconfigured external destination",
+      "removalCondition": "Remove when upstream offers compatible default-brand configuration"
     }
   ]
 }

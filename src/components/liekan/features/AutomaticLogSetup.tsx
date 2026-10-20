@@ -100,7 +100,7 @@ function ReceiverSetupGuide({
             setChecked(false);
           }}
           help={i18n.text(
-            '填写猎看统计的访问域名。域名需指向统计服务，配置有效的 HTTPS 证书，并允许外部访问日志接收接口。',
+            '填写GEOInflow的访问域名。域名需指向统计服务，配置有效的 HTTPS 证书，并允许外部访问日志接收接口。',
           )}
           error={
             value && !origin
@@ -116,7 +116,7 @@ function ReceiverSetupGuide({
         </div>
         <p className="field-help">
           {i18n.text(
-            'Docker 部署：更新猎看部署目录的 .env 中对应项。其他部署：在托管平台的环境变量中更新。页面填写用于生成配置说明。',
+            'Docker 部署：更新GEOInflow 部署目录的 .env 中对应项。其他部署：在托管平台的环境变量中更新。页面填写用于生成配置说明。',
           )}
         </p>
         {capability?.publicUrl && (
@@ -187,11 +187,11 @@ function ReceiverSetupGuide({
         </strong>
         <p>
           {i18n.text(
-            '应用与日志处理服务需使用同一份配置。Docker 部署在猎看部署目录执行下方命令；其他部署请更新并重启这两个进程。',
+            '应用与日志处理服务需使用同一份配置。Docker 部署在GEOInflow 部署目录执行下方命令；其他部署请更新并重启这两个进程。',
           )}
         </p>
         <p className="field-help">
-          {i18n.text('配置完成后，通过该公网域名打开猎看，再继续授权或安装。')}
+          {i18n.text('配置完成后，通过该公网域名打开 GEOInflow，再继续授权或安装。')}
         </p>
         <Code>docker compose -f docker-compose.liekan.yml up -d --no-deps app log-worker</Code>
         {missing('queue') && (

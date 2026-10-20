@@ -1,3 +1,4 @@
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import {
   Button,
   type ButtonProps,
@@ -16,13 +17,7 @@ import Link from '@/components/common/Link';
 import { OverlayScrollArea } from '@/components/common/OverlayScrollArea';
 import styles from '@/components/common/OverlayScrollArea.module.css';
 import { useGlobalState, useMessages, useNavigation } from '@/components/hooks';
-import {
-  Globe,
-  Grid2x2,
-  LayoutDashboard,
-  LinkIcon,
-  PanelLeft,
-} from '@/components/icons';
+import { Globe, Grid2x2, LayoutDashboard, LinkIcon, PanelLeft } from '@/components/icons';
 import { UserButton } from '@/components/input/UserButton';
 import { BrandIcon } from '@/components/liekan/Icons';
 
@@ -102,7 +97,7 @@ export function SideNav(props: any) {
                 />
               }
             >
-              <Text weight="bold">猎看统计</Text>
+              <Text weight="bold">{liekanProduct.name}</Text>
             </IconLabel>
           )}
           <PanelButton />

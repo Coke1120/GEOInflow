@@ -28,7 +28,7 @@ export async function dockerDeployment(websiteId: string) {
   zip.file(
     'README.txt',
     [
-      '猎看 Docker 日志采集器',
+      'GEOInflow Docker 日志采集器',
       `网站标识：${websiteId}`,
       `统计服务：${url}`,
       '',
