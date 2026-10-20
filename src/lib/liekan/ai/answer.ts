@@ -162,7 +162,7 @@ export function localAiGreeting(question: string, locale: LiekanLocale = 'zh-CN'
     return null;
   return localizeGuidance(
     {
-      summary: '你好，我是猎看分析助手。你可以直接提问，我会结合所选网站的数据帮你分析。',
+      summary: '你好，我是GEOInflow 分析助手。你可以直接提问，我会结合所选网站的数据帮你分析。',
       observations: [],
       possibleCauses: [],
       suggestions: [

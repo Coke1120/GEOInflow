@@ -11,7 +11,7 @@ export default function ({ children }) {
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Admin | Liekan',
-    default: 'Admin | Liekan',
+    template: '%s | Admin | GEOInflow',
+    default: 'Admin | GEOInflow',
   },
 };

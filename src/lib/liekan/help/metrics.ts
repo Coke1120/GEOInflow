@@ -414,7 +414,7 @@ const metrics: Metric[] = [
     '分',
     '上传的目录元数据',
     '目录提供 80 分证据时显示 80 分。',
-    'Liekan 当前阶段不自动评分。未提供时显示待接入，评分方法与可信度由导入者说明。',
+    'GEOInflow 当前阶段不自动评分。未提供时显示待接入，评分方法与可信度由导入者说明。',
     'content-catalog',
     ['score', '结构化'],
   ],
@@ -677,7 +677,7 @@ export const helpMetrics: HelpArticle[] = metrics.map(
       },
     ],
     sources: [
-      { label: '本版 Liekan 统计口径与状态说明', url: '/liekan/help?article=reading-data' },
+      { label: '本版 GEOInflow 统计口径与状态说明', url: '/liekan/help?article=reading-data' },
     ],
     related: [related],
     reviewedAt: HELP_REVIEWED_AT,

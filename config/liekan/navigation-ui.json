@@ -1,6 +1,6 @@
 {
   "baselineVersion": "liekan-navigation-v0.2.3",
-  "approval": "2026-10-04 用户确认紧凑站点选择、14 个常展开菜单、五组分析 Tab 与单行账户栏；全局保留数据总览，以数据管理和协作管理两个静态分类组织其余五个入口，链接与图片追踪合并到追踪管理；2026-10-06 用户确认帮助中心入口仅保留在全局管理侧栏；2026-10-06 用户确认页面事件与日志监测菜单名称；2026-10-07 用户确认网站项目页头增加 24h/7 天/30 天快捷时间按钮（自定义范围左侧）；2026-10-08 用户确认下线数据总览（工作台）页与导航入口，默认落地与历史 /dashboard 地址统一指向网站管理，网站管理列表新增今日/昨日/预计今日的访问次数、访客数、跳出率、AI访问次数并移除最近接收列，整行可点击进入网站统计；2026-10-08 用户确认网站管理页头指标卡沿用数据总览模式：全部网站访客、页面访问、AI 引荐访客、管理空间四卡，含前期与变化对比，按当前所属空间所选网站汇总；2026-10-09 用户确认后台统一手动读取，现有页头增加刷新与本次读取时间，实时和日志取消轮询，今日卡片注明读取日期；2026-10-10 用户确认新增来源关键词标签页及搜索引擎、识别依据、质量状态统计，沿用现有来源分析样式；2026-10-11 用户要求在来源关键词前新增搜索引擎，分别统计传统搜索与 AI 搜索引荐，包含占比饼图与明细；2026-10-14 用户确认审阅后的完整英文界面方案并要求实施，保留中文默认和现有布局，提供语言切换与浏览器偏好记忆；2026-10-18 用户要求明确访客与浏览器特征的区别，优化蜘蛛识别并显露流量质量入口；总览及相关图表使用访客 UV、浏览 PV，质量页增加分类汇总与精确路径筛选，保留原始图表、字段结构与样式。",
+  "approval": "2026-10-04 用户确认紧凑站点选择、14 个常展开菜单、五组分析 Tab 与单行账户栏；全局保留数据总览，以数据管理和协作管理两个静态分类组织其余五个入口，链接与图片追踪合并到追踪管理；2026-10-06 用户确认帮助中心入口仅保留在全局管理侧栏；2026-10-06 用户确认页面事件与日志监测菜单名称；2026-10-07 用户确认网站项目页头增加 24h/7 天/30 天快捷时间按钮（自定义范围左侧）；2026-10-08 用户确认下线数据总览（工作台）页与导航入口，默认落地与历史 /dashboard 地址统一指向网站管理，网站管理列表新增今日/昨日/预计今日的访问次数、访客数、跳出率、AI访问次数并移除最近接收列，整行可点击进入网站统计；2026-10-08 用户确认网站管理页头指标卡沿用数据总览模式：全部网站访客、页面访问、AI 引荐访客、管理空间四卡，含前期与变化对比，按当前所属空间所选网站汇总；2026-10-09 用户确认后台统一手动读取，现有页头增加刷新与本次读取时间，实时和日志取消轮询，今日卡片注明读取日期；2026-10-10 用户确认新增来源关键词标签页及搜索引擎、识别依据、质量状态统计，沿用现有来源分析样式；2026-10-11 用户要求在来源关键词前新增搜索引擎，分别统计传统搜索与 AI 搜索引荐，包含占比饼图与明细；2026-10-14 用户确认审阅后的完整英文界面方案并要求实施，保留中文默认和现有布局，提供语言切换与浏览器偏好记忆；2026-10-18 用户要求明确访客与浏览器特征的区别，优化蜘蛛识别并显露流量质量入口；总览及相关图表使用访客 UV、浏览 PV，质量页增加分类汇总与精确路径筛选，保留原始图表、字段结构与样式。；2026-10-20 用户确认 GEOInflow 品牌、v1.2 展示版本、GEO STATS 副标题，以及猎看科技和北京日报社智源GEO联合发布署名，保留原图标、主体布局与兼容标识。",
   "originalReferencePolicy": "Original HTML, SHA-256 fingerprints, chart pixels, table columns and body VI remain authoritative. Approved navigation/header/toolbars have bounded independent checks.",
   "groups": {
     "global": [
@@ -1631,5 +1631,69 @@
     "accountFooter": "single-row",
     "persistence": "browser preference with same-origin locale cookie and legacy storage migration",
     "layout": "Preserve original reference geometry and chart forms; allow text wrapping and the approved language controls."
+  },
+  "productBranding": {
+    "name": "GEOInflow",
+    "version": "v1.2",
+    "buildVersion": "1.2.0",
+    "caption": "GEO STATS",
+    "publishers": [
+      "猎看科技",
+      "北京日报社智源GEO"
+    ],
+    "preserveOriginalReference": true,
+    "maxDesktopFooterHeight": 120
+  },
+  "geoColumnCopyApproval": {
+    "index": {
+      "人类 PV": "浏览 PV",
+      "AI/人 比值": "AI/浏览 比值"
+    }
+  },
+  "geoAnalysisTools": [
+    "高级筛选",
+    "流量质量",
+    "图表注释",
+    "导出数据",
+    "分享当前网站"
+  ],
+  "crawlerPagesApproval": {
+    "sourceCommit": "947897979",
+    "table": "apBody",
+    "addedColumn": {
+      "field": "title",
+      "label": "标题",
+      "after": "path"
+    },
+    "typeFilters": [
+      "全部",
+      "AI 训练",
+      "AI 搜索",
+      "用户触发",
+      "传统搜索",
+      "其他已知"
+    ],
+    "crawlerSelector": "具体爬虫",
+    "defaultCrawler": "全部爬虫",
+    "maxTableHeightIncrease": 160,
+    "policy": "Retain original HTML hashes, original comparisons and chart pixels. Apply the merged crawler page controls, title column and numeric heat presentation only to a separate reference rendering."
+  },
+  "geoCopyApproval": {
+    "index": {
+      "人类访客（UV）": "访客（UV）",
+      "AI 蜘蛛 vs 人类访问趋势": "AI 蜘蛛与浏览访问趋势",
+      "人类来源渠道": "访客来源渠道",
+      "页面双视角 TOP（AI 抓取 × 人类访问）": "页面双视角 TOP（AI 抓取 × 浏览访问）"
+    },
+    "ai": {
+      "AI vs 人类占比演化": "AI 与浏览访问占比趋势"
+    },
+    "ai-preference": {
+      "案例页 AI/人 比值": "案例页 AI/浏览 比值",
+      "内容类型偏好：AI vs 人类": "内容类型偏好：AI 与浏览访问"
+    },
+    "content": {
+      "页面排行（人类访问）": "页面排行（浏览访问）"
+    }
   }
 }

@@ -206,7 +206,9 @@ try {
     assert.equal(await footer.count(), 1);
     const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
     assert.equal(
-      await footer.getByRole('link', { name: 'Liekan v' + version }).getAttribute('href'),
+      await footer
+        .getByRole('link', { name: 'GEOInflow v' + version.replace(/\.0$/, '') })
+        .getAttribute('href'),
       '/liekan/help?article=project-changelog',
     );
     assert.equal(
@@ -229,9 +231,9 @@ try {
     await page.goto(base + '/liekan/help?article=project-license');
     await page.getByRole('heading', { name: '未找到这份资料' }).waitFor();
     await footer.getByRole('link', { name: '项目说明' }).click();
-    await page.getByRole('heading', { name: '关于猎看统计', exact: true }).waitFor();
+    await page.getByRole('heading', { name: '关于 GEOInflow', exact: true }).waitFor();
     await footer.getByRole('link', { name: '更新日志', exact: true }).click();
-    await page.getByRole('heading', { name: '猎看统计更新日志', exact: true }).waitFor();
+    await page.getByRole('heading', { name: 'GEOInflow 更新日志', exact: true }).waitFor();
   });
   await run('footer-across-authenticated-scopes', async () => {
     const attributionResponse = await fetch(base + '/api/liekan/geography/attribution');

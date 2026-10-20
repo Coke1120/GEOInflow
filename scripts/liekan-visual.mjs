@@ -1,3 +1,4 @@
+import { referenceColumns, approveCrawlerPagesReference } from './liekan-visual-baseline.mjs';
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -295,7 +296,7 @@ try {
     });
     await reference.waitForTimeout(800);
     const payload = await reference.evaluate(
-      ({ columns, websiteId }) => {
+      ({ columns, websiteId, copyApproval }) => {
         const charts = {};
         document.querySelectorAll('main [id]').forEach(el => {
           const instance = window.echarts?.getInstanceByDom(el);
@@ -327,7 +328,7 @@ try {
           const p = el.querySelectorAll('p');
           return {
             key: p[0].textContent,
-            label: p[0].textContent,
+            label: copyApproval[p[0].textContent] || p[0].textContent,
             value: p[1].textContent,
             detail: p[2]?.textContent || '',
             state: 'available',
@@ -396,7 +397,10 @@ try {
         tables.robotsList = list('robotsList', ['bot', 'policy']);
         tables.pipeList = list('pipeList', ['name', 'detail']);
         tables.prefList = list('prefList', ['bot', 'preference']);
-        tables.blindList = list('blindList', ['path', 'reason', 'suggestion']);
+        tables.blindList = list('blindList', ['path', 'reason', 'suggestion']).map(row => ({
+          ...row,
+          path: row.path.replace(/\s*（[^）]+）$/, ''),
+        }));
         tables.recoList = [];
         tables.journeyList = [...document.querySelectorAll('#journeyList>div')].map(el => {
           const detail = el.querySelector('p')?.textContent || '';
@@ -451,7 +455,11 @@ try {
           },
         };
       },
-      { columns, websiteId: visualWebsiteId },
+      {
+        columns: referenceColumns(columns),
+        websiteId: visualWebsiteId,
+        copyApproval: navigationBaseline.geoCopyApproval?.[name] || {},
+      },
     );
     let fixtureRequests = 0;
     await actual.route('**/api/liekan/**/page-report?*', route => {
@@ -541,7 +549,11 @@ try {
       `${name} original panel count changed`,
     );
     const crawlerUiApproval = crawlerRecognitionBaseline.pages[name];
-    for (const oldLabel of Object.keys(crawlerUiApproval?.columnRenames || {}))
+    const columnRenames = {
+      ...crawlerUiApproval?.columnRenames,
+      ...navigationBaseline.geoColumnCopyApproval?.[name],
+    };
+    for (const oldLabel of Object.keys(columnRenames))
       assert.equal(
         refGeometry.columns.flat().filter(label => label === oldLabel).length,
         1,
@@ -550,9 +562,13 @@ try {
     assert.deepEqual(
       geometry.columns,
       refGeometry.columns.map(row =>
-        row.map(label => crawlerUiApproval?.columnRenames[label] || label),
+        row.flatMap(label =>
+          name === 'ai-pages' && label === '页面'
+            ? [label, navigationBaseline.crawlerPagesApproval.addedColumn.label]
+            : [columnRenames[label] || label],
+        ),
       ),
-      `${name} original columns with approved crawler copy`,
+      `${name} original columns with bounded approved updates`,
     );
     if (crawlerUiApproval) {
       assert.deepEqual(
@@ -613,7 +629,7 @@ try {
     );
     assert.deepEqual(
       await actual.locator('[class*="analysisTools"] a').allTextContents(),
-      ['高级筛选', '图表注释', '导出数据', '分享当前网站'],
+      navigationBaseline.geoAnalysisTools,
       `${name} analysis tools`,
     );
     const metrics = payload.cards.length;
@@ -634,8 +650,8 @@ try {
       return {
         id: r.id,
         max: Math.max(
-          ...['x', 'y', 'width', 'height'].map(key =>
-            Math.abs(r[key] - (key === 'y' ? verticalOffset : 0) - ref[key]),
+          ...(name === 'ai-pages' ? ['x', 'width', 'height'] : ['x', 'y', 'width', 'height']).map(
+            key => Math.abs(r[key] - (key === 'y' ? verticalOffset : 0) - ref[key]),
           ),
         ),
       };
@@ -667,11 +683,28 @@ try {
         live = actual.locator('#' + chart.id);
       const refPath = `${out}/${name}-${chart.id}-reference.png`,
         livePath = `${out}/${name}-${chart.id}-actual.png`;
-      await ref.screenshot({ path: refPath, style: screenshotStyle });
-      await live.screenshot({ path: livePath, style: screenshotStyle });
+      // Read the renderer pixels directly: fractional page positions can shift a
+      // locator screenshot by one pixel after adding the approved filter row.
+      for (const [locator, destination] of [
+        [ref, refPath],
+        [live, livePath],
+      ]) {
+        const png = await locator.evaluate(el => {
+          const canvases = el.querySelectorAll('canvas');
+          if (canvases.length !== 1) throw new Error('Expected one chart canvas');
+          return canvases[0].toDataURL('image/png').split(',')[1];
+        });
+        fs.writeFileSync(destination, Buffer.from(png, 'base64'));
+      }
       const { diff, ...comparison } = await pixelDiff(refPath, livePath);
       fs.writeFileSync(`${out}/${name}-${chart.id}-diff.png`, Buffer.from(diff, 'base64'));
-      chartPixels.push({ id: chart.id, reference: refPath, actual: livePath, ...comparison });
+      chartPixels.push({
+        id: chart.id,
+        capture: 'canvas-renderer-pixels',
+        reference: refPath,
+        actual: livePath,
+        ...comparison,
+      });
     }
     for (const page of [reference, actual]) {
       // 图表元素截图会滚动页面；粘性页头/侧栏会随残留滚动位置印进整页截图。
@@ -728,7 +761,7 @@ try {
     // User-approved URL completion (2026-10-11): account for longer table values.
     // Original hashes, geometry, charts and the original pixel comparison stay above.
     const pageUrlChecks = [];
-    for (const [table, fields] of Object.entries(columns)) {
+    for (const [table, fields] of Object.entries(referenceColumns(columns))) {
       const pathIndex = fields.findIndex(([field]) => field === 'path');
       if (pathIndex < 0) continue;
       for (const [rowIndex, row] of (payload.tables[table] || []).entries()) {
@@ -760,22 +793,141 @@ try {
         pageUrlChecks.push({ table, rowIndex, href });
       }
     }
-    // Preserve the original comparison above, then apply only approved crawler copy and chips.
-    if (crawlerUiApproval)
-      await reference.evaluate(approval => {
-        for (const header of document.querySelectorAll('main table th')) {
-          const replacement = approval.columnRenames[header.textContent.trim()];
-          if (replacement) header.textContent = replacement;
-        }
-        const original = [...document.querySelectorAll('main .chip')];
-        for (const [index, label] of approval.filters.entries()) {
-          const chip = original[0].cloneNode(true);
-          chip.textContent = label;
-          chip.classList.toggle('on', index === 0);
-          original[0].before(chip);
-        }
-        for (const chip of original) chip.remove();
-      }, crawlerUiApproval);
+    // Preserve original evidence, then apply the enumerated, previously approved copy.
+    const copySelector = 'main h2, main>section:first-child .card>p:first-child';
+    for (const [original, approved] of Object.entries(
+      navigationBaseline.geoCopyApproval?.[name] || {},
+    )) {
+      const referenceCopy = reference.locator(copySelector).filter({
+        hasText: new RegExp('^' + original.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$'),
+      });
+      assert.equal(
+        await referenceCopy.count(),
+        1,
+        `${name} original copy must occur once: ${original}`,
+      );
+      assert(
+        (await actual.locator(copySelector).allTextContents()).includes(approved),
+        `${name} approved copy missing: ${approved}`,
+      );
+      await referenceCopy.evaluate((el, value) => {
+        el.textContent = value;
+      }, approved);
+    }
+    // Apply the enumerated crawler columns and chips to the separate reference.
+    if (Object.keys(columnRenames).length || crawlerUiApproval)
+      await reference.evaluate(
+        approval => {
+          for (const header of document.querySelectorAll('main table th')) {
+            const replacement = approval.columnRenames[header.textContent.trim()];
+            if (replacement) header.textContent = replacement;
+          }
+          if (!approval.filters) return;
+          const original = [...document.querySelectorAll('main .chip')];
+          for (const [index, label] of approval.filters.entries()) {
+            const chip = original[0].cloneNode(true);
+            chip.textContent = label;
+            chip.classList.toggle('on', index === 0);
+            original[0].before(chip);
+          }
+          for (const chip of original) chip.remove();
+        },
+        { ...crawlerUiApproval, columnRenames },
+      );
+    let crawlerPagesChecks = null;
+    if (name === 'ai-pages') {
+      const approved = navigationBaseline.crawlerPagesApproval;
+      assert.deepEqual(
+        await actual.getByRole('group', { name: '爬虫类型' }).getByRole('button').allTextContents(),
+        approved.typeFilters,
+      );
+      assert.deepEqual(
+        await actual
+          .getByRole('group', { name: '爬虫类型' })
+          .locator('[aria-pressed="true"]')
+          .allTextContents(),
+        [approved.typeFilters[0]],
+      );
+      assert.equal(
+        await actual.getByRole('combobox', { name: approved.crawlerSelector }).inputValue(),
+        '',
+      );
+      assert.equal(
+        await actual
+          .getByRole('combobox', { name: approved.crawlerSelector })
+          .locator('option:checked')
+          .textContent(),
+        approved.defaultCrawler,
+      );
+      for (const [index, row] of payload.tables.blindList.entries()) {
+        const href = new URL(row.path, `https://${payload.website.domain}`).href;
+        const link = actual.locator('#blindList > div').nth(index).locator('p:first-child a');
+        assert.equal(await link.textContent(), href, 'Blind-page full URL text');
+        assert.equal(await link.getAttribute('href'), href, 'Blind-page URL destination');
+        await reference
+          .locator('#blindList > div')
+          .nth(index)
+          .locator('p:first-child')
+          .evaluate((el, href) => {
+            el.textContent = href;
+            el.classList.remove('truncate');
+            el.style.overflowWrap = 'anywhere';
+          }, href);
+      }
+      await reference.evaluate(approveCrawlerPagesReference, approved);
+      const approvedGeometry = await measure(reference, 'approved-reference');
+      crawlerPagesChecks = approvedGeometry.cards.slice(0, metrics + 1).map((panel, index) => ({
+        index,
+        max: Math.max(
+          ...['x', 'y', 'width', 'height'].map(key =>
+            Math.abs(geometry.cards[index][key] - (key === 'y' ? verticalOffset : 0) - panel[key]),
+          ),
+        ),
+      }));
+      const tableGrowth =
+        approvedGeometry.cards[metrics].height - refGeometry.cards[metrics].height;
+      assert(
+        tableGrowth >= 0 && tableGrowth <= approved.maxTableHeightIncrease,
+        'AI page table exceeds bounded approved growth',
+      );
+      assert(
+        crawlerPagesChecks.every(check => check.max <= 2),
+        'AI page approved panel geometry changed',
+      );
+      for (const expected of approvedGeometry.charts) {
+        const chart = geometry.charts.find(chart => chart.id === expected.id);
+        assert(
+          ['x', 'y', 'width', 'height'].every(
+            key => Math.abs(chart[key] - (key === 'y' ? verticalOffset : 0) - expected[key]) <= 2,
+          ),
+          'AI page chart geometry after approved table changes',
+        );
+      }
+    }
+    // The approved product footer has its own content and bounds checks.
+    const footer = actual.locator('[data-liekan-product-footer]');
+    const branding = navigationBaseline.productBranding;
+    assert.equal(await footer.count(), 1, `${name} product footer count`);
+    assert.equal(
+      await footer
+        .getByRole('link', { name: `${branding.name} ${branding.version}`, exact: true })
+        .count(),
+      1,
+    );
+    assert.deepEqual(await footer.locator('[data-product-publishers] > span').allTextContents(), [
+      '联合发布：',
+      ...branding.publishers,
+    ]);
+    assert.equal(await footer.getByRole('link', { name: 'MIT', exact: true }).count(), 1);
+    const footerBounds = await footer.evaluate(el => {
+      const box = el.getBoundingClientRect();
+      return { x: box.x, y: box.y + scrollY, width: box.width, height: box.height };
+    });
+    assert(footerBounds.height > 0 && footerBounds.height <= branding.maxDesktopFooterHeight);
+    assert(footerBounds.x >= approval.sidebarWidth && footerBounds.x + footerBounds.width <= 1440);
+    const approvedBrandingRegions = [
+      { ...footerBounds, y: footerBounds.y - verticalOffset, reason: 'approved-product-footer' },
+    ];
     const expectedReference = `${out}/${name}-approved-reference.png`;
     await reference.screenshot({ path: expectedReference, fullPage: true, style: screenshotStyle });
     const textExemptions = [
@@ -785,7 +937,7 @@ try {
     const { diff, ...fullPagePixels } = await pixelDiff(
       expectedReference,
       `${out}/${name}-actual.png`,
-      [...textExemptions, ...approvedNavigationRegions],
+      [...textExemptions, ...approvedNavigationRegions, ...approvedBrandingRegions],
       verticalOffset,
     );
     fs.writeFileSync(`${out}/${name}-diff.png`, Buffer.from(diff, 'base64'));
@@ -828,7 +980,10 @@ try {
       fullPagePixels,
       textExemptions,
       approvedNavigationRegions,
+      approvedBrandingRegions,
       crawlerUiApproval: crawlerUiApproval || null,
+      columnRenames,
+      crawlerPagesChecks,
       navigation,
       verticalOffset,
       refGeometry,

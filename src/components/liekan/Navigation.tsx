@@ -1,4 +1,5 @@
 'use client';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
 import { useManualQuery as useQuery } from '@/lib/liekan/contracts/manual-refresh';
@@ -424,8 +425,8 @@ export function Navigation({
         >
           <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
           <span>
-            {i18n.fragment('猎看统计', false, true)}
-            <small>LIEKAN GEO STATS</small>
+            {liekanProduct.name}
+            <small>{liekanProduct.caption}</small>
           </span>
         </Link>
         <nav className={styles.nav} aria-label={i18n.text('业务导航')} data-navigation-primary>

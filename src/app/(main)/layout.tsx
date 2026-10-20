@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { App } from './App';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 
 export default function ({ children }) {
   return (
@@ -12,7 +13,7 @@ export default function ({ children }) {
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | Liekan',
-    default: '猎看统计',
+    template: `%s | ${liekanProduct.name}`,
+    default: liekanProduct.name,
   },
 };

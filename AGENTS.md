@@ -1,6 +1,6 @@
 # Liekan engineering rules
 
-Liekan / 猎看统计 is an MIT derivative of Umami, with a separate GEO statistics UI.
+GEOInflow is the product display name of the Liekan MIT derivative of Umami, with a separate GEO statistics UI. Display version v1.2 maps to build version 1.2.0. Joint publishers are 猎看科技 and 北京日报社智源GEO; preserve these names in both locales and retain existing Liekan technical identifiers, data, copyright and deployment resources.
 
 - UI authority: design/reference/geo-stats-v3 and supplemental feature-ui SHA-256 manifests. Preserve original HTML, chart form, table fields, spacing and colors. Approved 0.2.2 navigation/header/copy changes use config/liekan/navigation-ui.json; keep original body/chart checks alongside the incremental navigation gate. No autonomous redesign.
 - User approved phase-one implementation, local branches/commits, isolated database and Docker on 127.0.0.1:3002. Do not modify the original Umami checkout or its data volume. Remote publication requires explicit user authorization for the destination and visibility.

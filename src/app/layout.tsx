@@ -4,6 +4,7 @@ import { cookies, headers } from 'next/headers';
 import { defaultLiekanLocale, isLiekanLocale, localeCookie } from '@/lib/liekan/i18n/locale';
 import { Suspense } from 'react';
 import { getBaseUrl } from '@/lib/get-base-url';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { Providers } from './Providers';
 import '@umami/react-zen/styles.full.css';
 import './global.css';
@@ -51,9 +52,7 @@ export default async function ({ children }) {
 
 export async function generateMetadata(): Promise<Metadata> {
   const headerStore = await headers();
-  const stored = (await cookies()).get(localeCookie)?.value;
-  const locale = isLiekanLocale(stored) ? stored : defaultLiekanLocale(process.env.DEFAULT_LOCALE);
-  const name = locale === 'en-US' ? 'Liekan' : 'Liekan 猎看统计';
+  const name = liekanProduct.name;
 
   return {
     metadataBase: getBaseUrl(headerStore),
