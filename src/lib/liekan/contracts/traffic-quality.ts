@@ -54,6 +54,8 @@ export const trafficPreviewResultSchema = z.object({
 });
 export const trafficAuditSchema = z.object({
   available: z.boolean(),
+  classificationBasis: z.literal('collection-original').optional(),
+  reportingBasis: z.literal('current-policy-and-active-history-repair').optional(),
   reason: z.string().optional(),
   policy: savedTrafficPolicySchema.optional(),
   range: z.object({ startAt: z.number(), endAt: z.number(), timezone: z.string() }).optional(),
@@ -88,6 +90,7 @@ export const trafficAuditSchema = z.object({
         hostname: z.string().nullable(),
         normalizedHostname: z.string().nullable(),
         classification: z.string(),
+        currentClassification: z.string().nullable().optional(),
         source: z.string().nullable(),
         reasons: z.array(z.string()),
         ruleVersion: z.string().nullable(),

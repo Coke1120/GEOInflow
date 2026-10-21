@@ -33,9 +33,9 @@ export async function getInstallation(id: string, canManage: boolean): Promise<I
     query<InstallationProgress>(progressQuery, id),
     query<InstallationStatus['logs']>(
       `SELECT
-      (SELECT count(*)::int FROM liekan_effective_log WHERE website_id=$1::uuid) AS total,
-      (SELECT count(*)::int FROM liekan_effective_log WHERE website_id=$1::uuid AND ${crawlerAiSql()}) AS ai,
-      (SELECT max(created_at) FROM liekan_effective_log WHERE website_id=$1::uuid) AS "latestAt",
+      (SELECT count(*)::int FROM liekan_reporting_log WHERE website_id=$1::uuid) AS total,
+      (SELECT count(*)::int FROM liekan_reporting_log WHERE website_id=$1::uuid AND ${crawlerAiSql()}) AS ai,
+      (SELECT max(created_at) FROM liekan_reporting_log WHERE website_id=$1::uuid) AS "latestAt",
       (SELECT max(imported_at) FROM liekan_import WHERE website_id=$1::uuid) AS "latestImportAt",
       COALESCE((SELECT is_demo FROM liekan_setting WHERE website_id=$1::uuid),false) AS demo`,
       id,

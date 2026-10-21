@@ -174,7 +174,7 @@
     },
     {
       "path": "package.json",
-      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection Pin reproducible toolchain, offline prototype charts and license-compatible browser detection; Pin reproducible toolchain, offline prototype charts and license-compatible browser detection\uff1bAI \u52a0\u5bc6\u914d\u7f6e\u3001\u5b9e\u65f6\u6d4b\u8bd5\u3001\u6388\u6743\u5206\u6790\u4e0e\u751f\u547d\u5468\u671f\u4e8b\u52a1\u96c6\u6210; add the read-only crawler source inspection command",
+      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection Pin reproducible toolchain, offline prototype charts and license-compatible browser detection; Pin reproducible toolchain, offline prototype charts and license-compatible browser detection；AI 加密配置、实时测试、授权分析与生命周期事务集成; add the read-only crawler source inspection command",
       "tests": [
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
@@ -243,7 +243,7 @@
     },
     {
       "path": "pnpm-lock.yaml",
-      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection Pin reproducible toolchain, offline prototype charts and license-compatible browser detection; Pin reproducible toolchain, offline prototype charts and license-compatible browser detection\uff1bAI \u52a0\u5bc6\u914d\u7f6e\u3001\u5b9e\u65f6\u6d4b\u8bd5\u3001\u6388\u6743\u5206\u6790\u4e0e\u751f\u547d\u5468\u671f\u4e8b\u52a1\u96c6\u6210",
+      "purpose": "Pin reproducible toolchain, offline prototype charts and license-compatible browser detection Pin reproducible toolchain, offline prototype charts and license-compatible browser detection; Pin reproducible toolchain, offline prototype charts and license-compatible browser detection；AI 加密配置、实时测试、授权分析与生命周期事务集成",
       "tests": [
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
@@ -3268,7 +3268,7 @@
     },
     {
       "path": "src/queries/prisma/team.ts",
-      "purpose": "Bounded analytics Redis caching, current primary authorization, transactional revision invalidation and response freshness propagation AI \u52a0\u5bc6\u914d\u7f6e\u3001\u5b9e\u65f6\u6d4b\u8bd5\u3001\u6388\u6743\u5206\u6790\u4e0e\u751f\u547d\u5468\u671f\u4e8b\u52a1\u96c6\u6210; serialize team membership writes and cleanup and enforce live role assignment boundaries",
+      "purpose": "Bounded analytics Redis caching, current primary authorization, transactional revision invalidation and response freshness propagation AI 加密配置、实时测试、授权分析与生命周期事务集成; serialize team membership writes and cleanup and enforce live role assignment boundaries",
       "tests": [
         "pnpm liekan:verify --working-tree",
         "src/lib/liekan/upstream/analytics-runtime.test.ts",
@@ -3277,8 +3277,8 @@
         "pnpm liekan:verify"
       ],
       "owner": "Liekan statistics maintenance",
-      "constraint": "Preserve existing SQL semantics, live resource permissions, tracker protocols and original visual references \u4fdd\u7559\u539f\u7edf\u8ba1\u3001\u9274\u6743\u53ca\u8fd4\u56de\u5951\u7ea6\uff1bAI \u6570\u636e\u4f7f\u7528\u81ea\u6709\u6269\u5c55\u8868",
-      "removalCondition": "Remove when upstream provides equivalent bounded caching, invalidation and freshness extension points \u4e0a\u6e38\u63d0\u4f9b\u53ef\u9a8c\u8bc1\u7684\u6269\u5c55\u70b9\u540e\u79fb\u9664"
+      "constraint": "Preserve existing SQL semantics, live resource permissions, tracker protocols and original visual references 保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "Remove when upstream provides equivalent bounded caching, invalidation and freshness extension points 上游提供可验证的扩展点后移除"
     },
     {
       "path": "src/queries/prisma/user.test.ts",
@@ -3294,7 +3294,7 @@
     },
     {
       "path": "src/queries/prisma/user.ts",
-      "purpose": "Bounded analytics Redis caching, current primary authorization, transactional revision invalidation and response freshness propagation AI \u52a0\u5bc6\u914d\u7f6e\u3001\u5b9e\u65f6\u6d4b\u8bd5\u3001\u6388\u6743\u5206\u6790\u4e0e\u751f\u547d\u5468\u671f\u4e8b\u52a1\u96c6\u6210; serialize team membership writes and cleanup and enforce live role assignment boundaries",
+      "purpose": "Bounded analytics Redis caching, current primary authorization, transactional revision invalidation and response freshness propagation AI 加密配置、实时测试、授权分析与生命周期事务集成; serialize team membership writes and cleanup and enforce live role assignment boundaries",
       "tests": [
         "pnpm liekan:verify --working-tree",
         "src/lib/liekan/upstream/analytics-runtime.test.ts",
@@ -3303,12 +3303,12 @@
         "pnpm liekan:verify"
       ],
       "owner": "Liekan statistics maintenance",
-      "constraint": "Preserve existing SQL semantics, live resource permissions, tracker protocols and original visual references \u4fdd\u7559\u539f\u7edf\u8ba1\u3001\u9274\u6743\u53ca\u8fd4\u56de\u5951\u7ea6\uff1bAI \u6570\u636e\u4f7f\u7528\u81ea\u6709\u6269\u5c55\u8868",
-      "removalCondition": "Remove when upstream provides equivalent bounded caching, invalidation and freshness extension points \u4e0a\u6e38\u63d0\u4f9b\u53ef\u9a8c\u8bc1\u7684\u6269\u5c55\u70b9\u540e\u79fb\u9664"
+      "constraint": "Preserve existing SQL semantics, live resource permissions, tracker protocols and original visual references 保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "Remove when upstream provides equivalent bounded caching, invalidation and freshness extension points 上游提供可验证的扩展点后移除"
     },
     {
       "path": "src/queries/prisma/website.test.ts",
-      "purpose": "Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup; Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup\uff1bAI \u52a0\u5bc6\u914d\u7f6e\u3001\u5b9e\u65f6\u6d4b\u8bd5\u3001\u6388\u6743\u5206\u6790\u4e0e\u751f\u547d\u5468\u671f\u4e8b\u52a1\u96c6\u6210",
+      "purpose": "Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup; Verify reset passes authenticated identity to Liekan lifecycle and refuses revoked access before upstream cleanup；AI 加密配置、实时测试、授权分析与生命周期事务集成",
       "tests": [
         "src/queries/prisma/website.test.ts",
         "tests/api/liekan.spec.ts",
@@ -3361,10 +3361,11 @@
     },
     {
       "path": "src/queries/sql/events/getWebsiteEvents.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; keep historical repair count and rows within one primary analytics snapshot",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "pnpm test:history-repair"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3663,11 +3664,12 @@
     },
     {
       "path": "src/queries/sql/sessions/getWebsiteSessions.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; keep historical repair count and rows within one primary analytics snapshot",
       "tests": [
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "pnpm test:history-repair"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3885,25 +3887,25 @@
     },
     {
       "path": "src/app/api/websites/[websiteId]/transfer/route.ts",
-      "purpose": "AI \u52a0\u5bc6\u914d\u7f6e\u3001\u5b9e\u65f6\u6d4b\u8bd5\u3001\u6388\u6743\u5206\u6790\u4e0e\u751f\u547d\u5468\u671f\u4e8b\u52a1\u96c6\u6210",
+      "purpose": "AI 加密配置、实时测试、授权分析与生命周期事务集成",
       "tests": [
         "AI backend integration and lifecycle tests",
         "pnpm liekan:verify"
       ],
       "owner": "Liekan AI integration",
-      "constraint": "\u4fdd\u7559\u539f\u7edf\u8ba1\u3001\u9274\u6743\u53ca\u8fd4\u56de\u5951\u7ea6\uff1bAI \u6570\u636e\u4f7f\u7528\u81ea\u6709\u6269\u5c55\u8868",
-      "removalCondition": "\u4e0a\u6e38\u63d0\u4f9b\u53ef\u9a8c\u8bc1\u7684\u6269\u5c55\u70b9\u540e\u79fb\u9664"
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
     },
     {
       "path": "src/test/setup.ts",
-      "purpose": "AI \u52a0\u5bc6\u914d\u7f6e\u3001\u5b9e\u65f6\u6d4b\u8bd5\u3001\u6388\u6743\u5206\u6790\u4e0e\u751f\u547d\u5468\u671f\u4e8b\u52a1\u96c6\u6210",
+      "purpose": "AI 加密配置、实时测试、授权分析与生命周期事务集成",
       "tests": [
         "AI backend integration and lifecycle tests",
         "pnpm liekan:verify"
       ],
       "owner": "Liekan AI integration",
-      "constraint": "\u4fdd\u7559\u539f\u7edf\u8ba1\u3001\u9274\u6743\u53ca\u8fd4\u56de\u5951\u7ea6\uff1bAI \u6570\u636e\u4f7f\u7528\u81ea\u6709\u6269\u5c55\u8868",
-      "removalCondition": "\u4e0a\u6e38\u63d0\u4f9b\u53ef\u9a8c\u8bc1\u7684\u6269\u5c55\u70b9\u540e\u79fb\u9664"
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
     },
     {
       "path": "src/queries/prisma/teamUser.ts",
@@ -3914,8 +3916,8 @@
         "pnpm liekan:verify"
       ],
       "owner": "Liekan AI integration",
-      "constraint": "\u4fdd\u7559\u539f\u7edf\u8ba1\u3001\u9274\u6743\u53ca\u8fd4\u56de\u5951\u7ea6\uff1bAI \u6570\u636e\u4f7f\u7528\u81ea\u6709\u6269\u5c55\u8868",
-      "removalCondition": "\u4e0a\u6e38\u63d0\u4f9b\u53ef\u9a8c\u8bc1\u7684\u6269\u5c55\u70b9\u540e\u79fb\u9664"
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
     },
     {
       "path": "src/queries/prisma/ai-revocation.test.ts",
@@ -3926,8 +3928,8 @@
         "pnpm liekan:verify"
       ],
       "owner": "Liekan AI integration",
-      "constraint": "\u4fdd\u7559\u539f\u7edf\u8ba1\u3001\u9274\u6743\u53ca\u8fd4\u56de\u5951\u7ea6\uff1bAI \u6570\u636e\u4f7f\u7528\u81ea\u6709\u6269\u5c55\u8868",
-      "removalCondition": "\u4e0a\u6e38\u63d0\u4f9b\u53ef\u9a8c\u8bc1\u7684\u6269\u5c55\u70b9\u540e\u79fb\u9664"
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
     },
     {
       "path": "scripts/liekan-static-check.mjs",
@@ -3936,8 +3938,8 @@
         "pnpm liekan:verify"
       ],
       "owner": "Liekan AI integration",
-      "constraint": "\u4fdd\u7559\u539f\u7edf\u8ba1\u3001\u9274\u6743\u53ca\u8fd4\u56de\u5951\u7ea6\uff1bAI \u6570\u636e\u4f7f\u7528\u81ea\u6709\u6269\u5c55\u8868",
-      "removalCondition": "\u4e0a\u6e38\u63d0\u4f9b\u53ef\u9a8c\u8bc1\u7684\u6269\u5c55\u70b9\u540e\u79fb\u9664"
+      "constraint": "保留原统计、鉴权及返回契约；AI 数据使用自有扩展表",
+      "removalCondition": "上游提供可验证的扩展点后移除"
     },
     {
       "path": "tests/api/two-factor.spec.ts",
@@ -4657,6 +4659,29 @@
       "owner": "Liekan statistics maintenance",
       "constraint": "Preserve upstream permissions, ClickHouse, link and pixel behavior",
       "removalCondition": "Remove when equivalent upstream extension hooks cover the same behavior"
+    },
+    {
+      "path": "src/app/(main)/settings/data-repair/page.tsx",
+      "purpose": "Expose the approved one-time historical repair management page",
+      "owner": "Liekan maintenance",
+      "constraint": "Preserve full-session authorization and explicit per-site preview confirmation; reuse the existing feature shell",
+      "removalCondition": "Remove when an upstream management extension supports this route",
+      "tests": [
+        "pnpm test",
+        "pnpm test:history-repair",
+        "pnpm liekan:verify"
+      ]
+    },
+    {
+      "path": "src/queries/sql/events/getEventData.ts",
+      "purpose": "Read historical repair count and rows within one primary analytics snapshot",
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve native response, authorization, ClickHouse and filter contracts",
+      "removalCondition": "Remove when upstream exposes a shared primary analytics snapshot",
+      "tests": [
+        "pnpm test",
+        "pnpm test:history-repair"
+      ]
     }
   ]
 }

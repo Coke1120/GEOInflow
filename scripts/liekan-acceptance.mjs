@@ -22,6 +22,9 @@ if (!source.passed || !source.finalized || source.mode !== 'release' || source.h
 if (execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim())
   throw new Error('Acceptance requires the verified clean candidate');
 const upstream = JSON.parse(fs.readFileSync('config/liekan/upstream.json', 'utf8'));
+const incrementalVisualPages = JSON.parse(
+  fs.readFileSync('config/liekan/navigation-ui.json', 'utf8'),
+).incrementalVisualPages;
 const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
 const stamp = `${head.slice(0, 12)}-${Date.now()}`;
 const image = `liekan:candidate-${head.slice(0, 12)}`;
@@ -507,9 +510,16 @@ try {
     !report.featureVisual.passed ||
     report.featureVisual.head !== head ||
     report.featureVisual.checks.length !== 66 * 4 ||
+    JSON.stringify(report.featureVisual.incrementalChecks?.map(({ id, width }) => [id, width])) !==
+      JSON.stringify(
+        [1440, 1280, 375, 320].flatMap(width => incrementalVisualPages.map(id => [id, width])),
+      ) ||
+    report.featureVisual.incrementalChecks.some(check => !check.passed) ||
     !report.featureVisual.mobile?.passed ||
     report.featureVisual.mobile.head !== head ||
-    report.featureVisual.mobile.checks !== 77 * 4 * 2
+    report.featureVisual.mobile.checks !== (77 + incrementalVisualPages.length) * 4 * 2 ||
+    JSON.stringify(report.featureVisual.mobile.incrementalPageIds) !==
+      JSON.stringify(incrementalVisualPages)
   )
     throw new Error('Supplemental visual acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-manual-refresh.mjs'], 'manual-refresh', {
@@ -522,7 +532,12 @@ try {
     !report.manualRefresh.passed ||
     !report.manualRefresh.finalized ||
     report.manualRefresh.head !== head ||
-    report.manualRefresh.featureIds.length !== 68 ||
+    JSON.stringify(report.manualRefresh.featureIds) !==
+      JSON.stringify(
+        JSON.parse(
+          fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'),
+        ).pages.map(page => page.id),
+      ) ||
     report.manualRefresh.realIdle.length !== 4 ||
     !report.manualRefresh.cachedHistory?.passed
   )

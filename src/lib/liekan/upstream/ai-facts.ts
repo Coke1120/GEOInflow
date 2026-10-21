@@ -26,7 +26,7 @@ const ai = crawlerAiSql();
 const error = '(status IN (403,404) OR status BETWEEN 500 AND 599)';
 const period = 'CASE WHEN created_at >= $2::timestamptz THEN 0 ELSE 1 END';
 const logRange =
-  'FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=$1::uuid AND created_at BETWEEN $4::timestamptz AND $3::timestamptz';
+  'FROM liekan_reporting_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=$1::uuid AND created_at BETWEEN $4::timestamptz AND $3::timestamptz';
 const browserCte = `WITH events AS (
  SELECT e.*, CASE WHEN e.created_at >= $2::timestamptz THEN 0 ELSE 1 END AS period
  FROM website_event e JOIN session s ON s.website_id=e.website_id AND s.session_id=e.session_id
@@ -159,6 +159,7 @@ export async function buildAiFactsContext(input: {
             live.team !== authorized.site.teamId
           )
             throw new AiError('resource_unavailable', '网站归属或数据已更新，请新建对话', 404);
+          const [repair]=await query<Row>('SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',live.id);
           const generatedAt = new Date();
           const range = normalizeAiRange(parsed.data, generatedAt);
           const start = new Date(range.currentRange.startAt),
@@ -209,7 +210,7 @@ export async function buildAiFactsContext(input: {
           // Aggregate eligible logs once in the snapshot, then derive bounded fact lists.
           const classifiedLogs = await q(`WITH input AS (
   SELECT ${period} AS period,
-    bot AS name,vendor,e.crawler_id AS bot_id,bot_type,${ai} AS ai_eligible,
+    bot AS name,vendor,l.reporting_crawler_id AS bot_id,bot_type,${ai} AS ai_eligible,
     CASE WHEN verification IN ('verified_range','verified_dns','verified_edge','range_mismatch') THEN verification ELSE 'unverified' END AS verification,
     status,CASE WHEN ${ai} OR status IN (403,404) OR status BETWEEN 500 AND 599 THEN split_part(split_part(path,'?',1),'#',1) END AS path
   ${logRange}
@@ -267,7 +268,7 @@ export async function buildAiFactsContext(input: {
           const errorPaths = classifiedLogs.filter(row => row.kind === 'error');
           const pages = classifiedLogs.filter(row => row.kind === 'page');
           const samples = await q(
-            `SELECT created_at AS time,path,status,bot FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND ${error} ORDER BY created_at DESC,id DESC LIMIT 20`,
+            `SELECT created_at AS time,path,status,bot FROM liekan_reporting_log WHERE website_id=$1::uuid AND created_at BETWEEN $2::timestamptz AND $3::timestamptz AND ${error} ORDER BY created_at DESC,id DESC LIMIT 20`,
           );
           const referrals = await q(
             browserCte +
@@ -522,6 +523,7 @@ export async function buildAiFactsContext(input: {
             metricVersion: 'liekan-ai-facts-v1',
             catalogVersion,
             trafficPolicyVersion: TRAFFIC_POLICY_VERSION,
+            historyRepair:repair||{generation:null,revision:'0'},
             promptVersion: 'liekan-ai-prompt-v1',
             coverage: 'unverified',
             sourceStates,

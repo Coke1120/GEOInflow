@@ -66,6 +66,7 @@ vi.mock('@/lib/prisma', () => {
           state.queries.push({ sql, values });
           if (/SELECT website_id FROM website .* FOR SHARE/.test(sql))
             return [{ website_id: values[0] }];
+          if (/SELECT repair_scope_id FROM liekan_history_repair_run/.test(sql)) return [];
           const key = `${values[0]}:${values[1]}`;
           if (/INSERT INTO liekan_collection_receipt/i.test(sql)) {
             const previous = state.locks.get(key) || Promise.resolve();
@@ -274,6 +275,7 @@ describe('atomic collection writes', () => {
       quality.rangeStatus,
       quality.hostname,
       quality.catalogVersion ?? null,
+      null,
     ]);
     expect(collectionWriteClient()).toBe(prisma.client);
   });

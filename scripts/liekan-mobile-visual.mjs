@@ -27,20 +27,27 @@ export async function checkMobileExperience({ base, seed, board, share, partial,
   };
   const aiScope = JSON.parse(fs.readFileSync('config/liekan/ai-ui.json')).scope;
   const pages = [
-    ...manifest.pages.filter(p => !aiScope.includes(p.id)).map(p => ({ id: p.id, expected: navigation.pages[p.id] })),
+    ...manifest.pages
+      .filter(p => !aiScope.includes(p.id))
+      .map(p => ({ id: p.id, expected: navigation.pages[p.id] })),
     ...Object.entries(geo).map(([id, suffix]) => ({
       id: `geo-${id}`,
       suffix,
       expected: navigation.geo[id],
     })),
   ];
-  assert.equal(pages.length, baseline.pageCount);
+  assert.equal(
+    pages.filter(page => !navigation.incrementalVisualPages.includes(page.id)).length,
+    baseline.pageCount,
+    'Preserve the original mobile page coverage',
+  );
   const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
   const report = {
     head,
     baseline: baseline.baselineVersion,
     passed: false,
     pages: pages.length,
+    incrementalPageIds: navigation.incrementalVisualPages,
     browsers: ['chromium', 'webkit'],
     widths: baseline.widths,
     checks: [],
@@ -343,6 +350,7 @@ export async function checkMobileExperience({ base, seed, board, share, partial,
     head,
     passed: report.passed,
     pages: pages.length,
+    incrementalPageIds: navigation.incrementalVisualPages,
     checks: report.checks.length,
     variants: report.variants.length,
     report: `${out}/report.json`,

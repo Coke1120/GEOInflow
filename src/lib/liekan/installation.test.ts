@@ -32,7 +32,7 @@ beforeEach(() => {
   );
   mocks.query.mockImplementation(sql =>
     Promise.resolve(
-      sql.includes('liekan_effective_log')
+      sql.includes('liekan_reporting_log')
         ? [{ total: 0, ai: 0, demo: false, latestAt: null, latestImportAt: null }]
         : [],
     ),
@@ -171,7 +171,7 @@ describe('website installation progress', () => {
       );
       mocks.query.mockImplementation(sql =>
         Promise.resolve(
-          sql.includes('liekan_effective_log')
+          sql.includes('liekan_reporting_log')
             ? [{ total: 0, ai: 0, demo: false, latestAt: null, latestImportAt: null }]
             : [result.progress],
         ),

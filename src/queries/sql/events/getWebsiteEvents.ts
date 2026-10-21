@@ -1,3 +1,4 @@
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
 import { DEFAULT_PAGE_SIZE, EVENT_TYPE } from '@/lib/constants';
 import { getClickHouseCountrySQL, getPostgresCountrySQL } from '@/lib/country';
@@ -11,7 +12,8 @@ export function getWebsiteEvents(
   ...args: [websiteId: string, filters: QueryFilters]
 ): Promise<PageResult<WebsiteEvent[]>> {
   return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
+    [PRISMA]: () =>
+      nativeAggregate(FUNCTION_NAME, args[0], args[1], args[1], () => relationalQuery(...args)),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
 }

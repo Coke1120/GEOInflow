@@ -8,6 +8,10 @@ const root = process.cwd();
 const head = '54ba7e1955b7ee7bbba2ce410e1b173805024dd0';
 const upstream = JSON.parse(fs.readFileSync('config/liekan/upstream.json', 'utf8'));
 const lock = JSON.parse(fs.readFileSync('config/liekan/migrations.json', 'utf8'));
+const featureContract = JSON.parse(
+  fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'),
+);
+const navigationContract = JSON.parse(fs.readFileSync('config/liekan/navigation-ui.json', 'utf8'));
 const version = JSON.parse(fs.readFileSync('package.json', 'utf8')).version;
 
 // Exercise the real CLI in a disposable cwd. Built-in child-process mocks keep every
@@ -17,11 +21,20 @@ function fixture(fault: string) {
   const cwd = fs.mkdtempSync(path.join(root, 'tmp/liekan-acceptance-test-'));
   fs.mkdirSync(path.join(cwd, 'outputs'), { recursive: true });
   fs.mkdirSync(path.join(cwd, 'config/liekan'), { recursive: true });
+  fs.mkdirSync(path.join(cwd, 'src/lib/liekan/contracts'), { recursive: true });
+  fs.writeFileSync(
+    path.join(cwd, 'src/lib/liekan/contracts/feature-pages.json'),
+    JSON.stringify(featureContract),
+  );
   fs.mkdirSync(path.join(cwd, 'prisma/migrations/26_add_api_key'), { recursive: true });
   fs.writeFileSync(path.join(cwd, 'prisma/migrations/26_add_api_key/migration.sql'), 'SELECT 1;\n');
   fs.writeFileSync(
     path.join(cwd, 'outputs/verification.json'),
     JSON.stringify({ head, passed: true, finalized: true, mode: 'release' }),
+  );
+  fs.writeFileSync(
+    path.join(cwd, 'config/liekan/navigation-ui.json'),
+    JSON.stringify(navigationContract),
   );
   fs.writeFileSync(path.join(cwd, 'config/liekan/upstream.json'), JSON.stringify(upstream));
   fs.writeFileSync(path.join(cwd, 'config/liekan/migrations.json'), JSON.stringify(lock));
@@ -36,7 +49,7 @@ import net from 'node:net';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { syncBuiltinESMExports } from 'node:module';
-const head=${JSON.stringify(head)}, upstream=${JSON.stringify(upstream)}, lock=${JSON.stringify(lock)}, version=${JSON.stringify(version)}, fault=${JSON.stringify(fault)};
+const head=${JSON.stringify(head)}, upstream=${JSON.stringify(upstream)}, lock=${JSON.stringify(lock)}, version=${JSON.stringify(version)}, fault=${JSON.stringify(fault)}, featureIds=${JSON.stringify(featureContract.pages.map((page: { id: string }) => page.id))}, incrementalVisualPages=${JSON.stringify(navigationContract.incrementalVisualPages)};
 const port=fault==='default-http-port'?80:fault==='custom-port'?3346:3302, baseUrl='http://127.0.0.1:'+port;
 let keepAlive, restoreStarted=false;
 const ledger=Object.entries(lock).map(([name,checksum])=>({name,checksum,appliedAt:'fixture'}));
@@ -99,8 +112,8 @@ cp.spawnSync=(command,args,options={})=>{
  if(args.includes('scripts/liekan-keyword-visual.mjs')){if(fault==='keyword-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-keywords',{recursive:true});fs.writeFileSync('test-results/liekan-keywords/report.json',JSON.stringify({passed:fault!=='keyword-visual-passed',head:fault==='keyword-visual-head'?'other':head,checks:Array.from({length:fault==='keyword-visual-count'?1:3},()=>({})),cleanup:fault!=='keyword-visual-cleanup'}));}
  if(args.includes('scripts/liekan-search-engine-visual.mjs')){if(fault==='search-engine-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-search-engines',{recursive:true});fs.writeFileSync('test-results/liekan-search-engines/report.json',JSON.stringify({passed:fault!=='search-engine-visual-passed',head:fault==='search-engine-visual-head'?'other':head,checks:Array.from({length:fault==='search-engine-visual-count'?1:3},()=>({})),cleanup:fault!=='search-engine-visual-cleanup'}));}
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:14},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
- if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:66*4},()=>({passed:true})),mobile:{head:fault==='mobile-visual-head'?'other':head,passed:fault!=='mobile-visual-failed',checks:fault==='mobile-visual-count'?1:77*4*2}}));}
- if(args.includes('scripts/liekan-manual-refresh.mjs')){if(fault==='manual-refresh-failed')return {status:1};fs.mkdirSync('test-results/liekan-manual-refresh',{recursive:true});fs.writeFileSync('test-results/liekan-manual-refresh/report.json',JSON.stringify({passed:fault!=='manual-refresh-passed',finalized:fault!=='manual-refresh-finalized',head:fault==='manual-refresh-head'?'other':head,featureIds:Array.from({length:fault==='manual-refresh-count'?1:68},(_,i)=>'feature-'+i),realIdle:Array.from({length:fault==='manual-refresh-idle'?1:4},()=>({idleDelta:0})),cachedHistory:{passed:fault!=='manual-refresh-cached-history'},errors:[]}));}
+ if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:66*4},()=>({passed:true})),incrementalChecks:fault==='incremental-visual-missing'?undefined:[1440,1280,375,320].flatMap(width=>incrementalVisualPages.map(id=>({id:fault==='incremental-visual-ids'?'unknown-feature':id,width,passed:fault!=='incremental-visual-failed'}))),mobile:{head:fault==='mobile-visual-head'?'other':head,passed:fault!=='mobile-visual-failed',checks:fault==='mobile-visual-count'?1:(77+incrementalVisualPages.length)*4*2,incrementalPageIds:fault==='mobile-visual-incremental-ids'?[]:incrementalVisualPages}}));}
+ if(args.includes('scripts/liekan-manual-refresh.mjs')){if(fault==='manual-refresh-failed')return {status:1};fs.mkdirSync('test-results/liekan-manual-refresh',{recursive:true});fs.writeFileSync('test-results/liekan-manual-refresh/report.json',JSON.stringify({passed:fault!=='manual-refresh-passed',finalized:fault!=='manual-refresh-finalized',head:fault==='manual-refresh-head'?'other':head,featureIds:fault==='manual-refresh-count'?featureIds.slice(0,1):fault==='manual-refresh-ids'?featureIds.map((id,index)=>index===0?'unknown-feature':id):featureIds,realIdle:Array.from({length:fault==='manual-refresh-idle'?1:4},()=>({idleDelta:0})),cachedHistory:{passed:fault!=='manual-refresh-cached-history'},errors:[]}));}
  if(args.includes('scripts/liekan-ai-visual.mjs')){if(fault==='ai-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai',{recursive:true});fs.writeFileSync('test-results/liekan-ai/report.json',JSON.stringify({passed:true,head:fault==='ai-visual-head'?'other':head,checks:Array.from({length:fault==='ai-visual-count'?1:8},()=>({passed:fault!=='ai-visual-check'})),errors:fault==='ai-visual-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-ai-home-visual.mjs')){if(fault==='ai-home-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai-home-v3',{recursive:true});const widths=fault==='ai-home-empty'?[]:fault==='ai-home-count'?[1440]:fault==='ai-home-extra'?[1440,1280,375,320,500]:[1440,1280,375,320];fs.writeFileSync('test-results/liekan-ai-home-v3/report.json',JSON.stringify({passed:fault!=='ai-home-passed',head:fault==='ai-home-head'?'other':head,checks:widths.map(width=>({width,focus:true,reference:true,keyboard:true,overflow:0})),errors:fault==='ai-home-errors'?['fixture error']:[]}));}
 
@@ -315,6 +328,11 @@ describe('isolated acceptance CLI failure paths', () => {
     'manual-refresh-finalized',
     'manual-refresh-head',
     'manual-refresh-count',
+    'manual-refresh-ids',
+    'incremental-visual-missing',
+    'incremental-visual-ids',
+    'incremental-visual-failed',
+    'mobile-visual-incremental-ids',
     'manual-refresh-idle',
     'manual-refresh-cached-history',
     'mobile-visual-head',

@@ -1,15 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { needsWebsite } from '@/lib/liekan/contracts/navigation';
-import { featureHref, featurePages, featureWebsiteSwitchHref, matchFeatureRoute } from './routes';
+import {
+  featureHref,
+  featurePages,
+  featureWebsiteSwitchHref,
+  featureNavigationHref,
+  matchFeatureRoute,
+} from './routes';
 
 const uuid = '11111111-1111-4111-8111-111111111111';
 describe('approved scene routing', () => {
   it('registers every approved supplemental scene without duplicate IDs', () => {
-    expect(featurePages).toHaveLength(70);
-    expect(new Set(featurePages.map(p => p.id)).size).toBe(70);
+    expect(featurePages).toHaveLength(71);
+    expect(new Set(featurePages.map(p => p.id)).size).toBe(71);
     for (const p of featurePages)
       expect(matchFeatureRoute(`/liekan/${p.id}`, { websiteId: uuid, id: uuid })).toMatchObject(
-        ['help', 'crawlers-manage'].includes(p.id)
+        ['help', 'crawlers-manage', 'history-repair'].includes(p.id)
           ? { page: p.id }
           : {
               page: p.id,
@@ -144,5 +150,25 @@ describe('approved scene routing', () => {
       });
       expect(url.searchParams.has('event')).toBe(false);
     }
+  });
+});
+
+describe('upgrade history repair navigation', () => {
+  it('keeps the global repair route independent of the current analytics scope', () => {
+    const websiteId = 'eacafcba-1d41-4e5c-9ea5-054f07ac6ded';
+    expect(matchFeatureRoute('/settings/data-repair', { websiteId })).toEqual({
+      page: 'history-repair',
+    });
+    expect(
+      featureNavigationHref(
+        { page: 'spiders', websiteId },
+        { event: 'eq.old', date: '30day', teamId: websiteId },
+        'history-repair',
+        { websiteId, tab: 'history' },
+      ),
+    ).toBe(`/settings/data-repair?websiteId=${websiteId}&tab=history`);
+    expect(featureHref('history-repair', { websiteId: 'invalid', event: 'eq.old' })).toBe(
+      '/settings/data-repair',
+    );
   });
 });

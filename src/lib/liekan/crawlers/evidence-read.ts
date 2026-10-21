@@ -170,6 +170,7 @@ export async function evidenceInputs(
     count(*) FILTER(WHERE e.measurement->>'sourceIntervalVersion' IS NOT NULL)::float8 AS "intervalSamples" ${crawlerBase}${sourceCondition}`,
         ...sourceArgs,
       );
+  const [repair]='reportResource' in p&&p.reportResource?await tx.query('SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',websiteId):[];
   const baseline = {
     catalog: contentHash(catalog),
     registryVersion: getPublishedCatalog()?.version ?? null,
@@ -177,6 +178,7 @@ export async function evidenceInputs(
     policy: policy || { mode: 'standard', revision: '0' },
     epoch: state?.epoch ?? 1,
     metricVersion: CRAWLER_METRIC_VERSION,
+    ...('reportResource' in p&&p.reportResource?{historyRepair:repair||{generation:null,revision:'0'}}:{}),
   };
   return {
     access,
@@ -670,6 +672,7 @@ async function queryEvidenceSnapshot<
               'SELECT path,updated_at AS "updatedAt" FROM liekan_catalog WHERE website_id=$1::uuid ORDER BY path',
               websiteId,
             );
+      const [repair]='reportResource' in conditions&&conditions.reportResource?await tx.query('SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',websiteId):[];
       const baseline = {
         catalog: contentHash(catalog),
         registryVersion: getPublishedCatalog()?.version ?? null,
@@ -677,6 +680,7 @@ async function queryEvidenceSnapshot<
         policy: policy || { mode: 'standard', revision: '0' },
         epoch: state?.epoch ?? 1,
         metricVersion: CRAWLER_METRIC_VERSION,
+        ...('reportResource' in conditions&&conditions.reportResource?{historyRepair:repair||{generation:null,revision:'0'}}:{}),
       };
       if (contentHash(baseline) !== result.meta.policySnapshot)
         throw new LiekanError('统计基准已变化，请重新读取', 409);

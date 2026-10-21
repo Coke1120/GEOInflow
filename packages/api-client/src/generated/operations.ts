@@ -18,6 +18,14 @@ export interface OperationDefinition {
 }
 
 export const operations = {
+  acknowledgeLiekanHistoryRepairNotice: {
+    operationId: 'acknowledgeLiekanHistoryRepairNotice',
+    method: 'put',
+    path: '/api/liekan/history-repair',
+    pathParams: [],
+    queryParams: [],
+    hasBody: true,
+  },
   batch: {
     operationId: 'batch',
     method: 'post',
@@ -369,6 +377,14 @@ export const operations = {
     pathParams: [],
     queryParams: [],
     hasBody: true,
+  },
+  exportLiekanHistoryRepair: {
+    operationId: 'exportLiekanHistoryRepair',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/history-repair/export',
+    pathParams: ['websiteId'],
+    queryParams: ['generation', 'locale'],
+    hasBody: false,
   },
   exportWebsite: {
     operationId: 'exportWebsite',
@@ -1072,6 +1088,14 @@ export const operations = {
       'sessionId',
       'page',
     ],
+    hasBody: false,
+  },
+  getLiekanHistoryRepair: {
+    operationId: 'getLiekanHistoryRepair',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/history-repair',
+    pathParams: ['websiteId'],
+    queryParams: ['view', 'generation', 'page', 'pageSize', 'cursor'],
     hasBody: false,
   },
   getLiekanJourneyDetails: {
@@ -3310,6 +3334,14 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  listLiekanHistoryRepair: {
+    operationId: 'listLiekanHistoryRepair',
+    method: 'get',
+    path: '/api/liekan/history-repair',
+    pathParams: [],
+    queryParams: ['cursor'],
+    hasBody: false,
+  },
   listWebsites: {
     operationId: 'listWebsites',
     method: 'get',
@@ -3347,6 +3379,46 @@ export const operations = {
     method: 'post',
     path: '/api/liekan/ai/conversations/{id}/messages',
     pathParams: ['id'],
+    queryParams: [],
+    hasBody: true,
+  },
+  postLiekanHistoryRepairAction: {
+    operationId: 'postLiekanHistoryRepairAction',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/history-repair/action',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
+  postLiekanHistoryRepairConfirm: {
+    operationId: 'postLiekanHistoryRepairConfirm',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/history-repair/confirm',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
+  postLiekanHistoryRepairEvidence: {
+    operationId: 'postLiekanHistoryRepairEvidence',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/history-repair/evidence',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
+  postLiekanHistoryRepairPreview: {
+    operationId: 'postLiekanHistoryRepairPreview',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/history-repair/preview',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
+  postLiekanHistoryRepairScan: {
+    operationId: 'postLiekanHistoryRepairScan',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/history-repair/scan',
+    pathParams: ['websiteId'],
     queryParams: [],
     hasBody: true,
   },
@@ -3631,6 +3703,17 @@ export abstract class GeneratedUmamiClient {
     input: Record<string, unknown> | undefined,
     options?: RequestOptions,
   ): Promise<OperationOutput<K>>;
+
+  /**
+   * Dismiss an upgrade notice or mark results read
+   * `PUT /api/liekan/history-repair`
+   */
+  acknowledgeLiekanHistoryRepairNotice(
+    input: OperationInput<'acknowledgeLiekanHistoryRepairNotice'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'acknowledgeLiekanHistoryRepairNotice'>> {
+    return this.execute('acknowledgeLiekanHistoryRepairNotice', input, options);
+  }
 
   /**
    * Send a batch of tracking requests
@@ -4156,6 +4239,17 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * Export bounded repair records in the requested locale (full session required)
+   * `GET /api/liekan/websites/{websiteId}/history-repair/export`
+   */
+  exportLiekanHistoryRepair(
+    input: OperationInput<'exportLiekanHistoryRepair'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'exportLiekanHistoryRepair'>> {
+    return this.execute('exportLiekanHistoryRepair', input, options);
+  }
+
+  /**
    * Export website analytics
    * Returns a base64-encoded ZIP archive containing CSV exports of events, pages, referrers, browsers, operating systems, devices, and countries.
    * `GET /api/websites/{websiteId}/export`
@@ -4508,6 +4602,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getLiekanGoalAnalytics'>> {
     return this.execute('getLiekanGoalAnalytics', input, options);
+  }
+
+  /**
+   * Read historical repair state and bounded records (full session required)
+   * `GET /api/liekan/websites/{websiteId}/history-repair`
+   */
+  getLiekanHistoryRepair(
+    input: OperationInput<'getLiekanHistoryRepair'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanHistoryRepair'>> {
+    return this.execute('getLiekanHistoryRepair', input, options);
   }
 
   /**
@@ -5661,6 +5766,17 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * List manageable sites for this upgrade campaign (full session required)
+   * `GET /api/liekan/history-repair`
+   */
+  listLiekanHistoryRepair(
+    input?: OperationInput<'listLiekanHistoryRepair'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'listLiekanHistoryRepair'>> {
+    return this.execute('listLiekanHistoryRepair', input, options);
+  }
+
+  /**
    * List websites
    * Returns a paginated list of the current user's websites, optionally including websites accessible through team membership.
    * `GET /api/websites`
@@ -5706,6 +5822,61 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'postLiekanAiAnalysis'>> {
     return this.execute('postLiekanAiAnalysis', input, options);
+  }
+
+  /**
+   * Historical repair: action (full session and site management required)
+   * `POST /api/liekan/websites/{websiteId}/history-repair/action`
+   */
+  postLiekanHistoryRepairAction(
+    input: OperationInput<'postLiekanHistoryRepairAction'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'postLiekanHistoryRepairAction'>> {
+    return this.execute('postLiekanHistoryRepairAction', input, options);
+  }
+
+  /**
+   * Historical repair: confirm (full session and site management required)
+   * `POST /api/liekan/websites/{websiteId}/history-repair/confirm`
+   */
+  postLiekanHistoryRepairConfirm(
+    input: OperationInput<'postLiekanHistoryRepairConfirm'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'postLiekanHistoryRepairConfirm'>> {
+    return this.execute('postLiekanHistoryRepairConfirm', input, options);
+  }
+
+  /**
+   * Historical repair: evidence (full session and site management required)
+   * `POST /api/liekan/websites/{websiteId}/history-repair/evidence`
+   */
+  postLiekanHistoryRepairEvidence(
+    input: OperationInput<'postLiekanHistoryRepairEvidence'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'postLiekanHistoryRepairEvidence'>> {
+    return this.execute('postLiekanHistoryRepairEvidence', input, options);
+  }
+
+  /**
+   * Historical repair: preview (full session and site management required)
+   * `POST /api/liekan/websites/{websiteId}/history-repair/preview`
+   */
+  postLiekanHistoryRepairPreview(
+    input: OperationInput<'postLiekanHistoryRepairPreview'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'postLiekanHistoryRepairPreview'>> {
+    return this.execute('postLiekanHistoryRepairPreview', input, options);
+  }
+
+  /**
+   * Historical repair: scan (full session and site management required)
+   * `POST /api/liekan/websites/{websiteId}/history-repair/scan`
+   */
+  postLiekanHistoryRepairScan(
+    input: OperationInput<'postLiekanHistoryRepairScan'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'postLiekanHistoryRepairScan'>> {
+    return this.execute('postLiekanHistoryRepairScan', input, options);
   }
 
   /**

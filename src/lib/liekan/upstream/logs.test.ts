@@ -118,6 +118,7 @@ describe('foreground log read priority', () => {
     const error = new Error('test query failure');
     vi.mocked(query)
       .mockResolvedValue([])
+      .mockResolvedValueOnce([])
       .mockRejectedValueOnce(error)
       .mockReturnValueOnce(pending);
     const report = getLogFacts('site', new Date('2026-10-01'), new Date('2026-10-03'), 'UTC');
@@ -146,13 +147,14 @@ describe('foreground log read priority', () => {
     });
     vi.mocked(query)
       .mockResolvedValue([])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ requests: 0, ai: 0, pages: 0, abnormal: 0 }]);
     for (let i = 0; i < 8; i++) vi.mocked(query).mockResolvedValueOnce([]);
     vi.mocked(query)
       .mockResolvedValueOnce([{ count: 0 }])
       .mockReturnValueOnce(pending);
     const report = getLogFacts('site', new Date('2026-10-01'), new Date('2026-10-03'), 'UTC');
-    await vi.waitFor(() => expect(vi.mocked(query)).toHaveBeenCalledTimes(11));
+    await vi.waitFor(() => expect(vi.mocked(query)).toHaveBeenCalledTimes(12));
     let released = false;
     const waiting = waitForLogStatisticsReads(new AbortController().signal, Date.now() + 1000).then(
       () => {

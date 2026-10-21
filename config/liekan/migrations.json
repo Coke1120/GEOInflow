@@ -37,5 +37,6 @@
   "030_crawler_catalog_evidence.sql": "146a4e122750ff5f03009f8dea0cd7f9c429f99a8230efd5d45c6fb589b5f5e1",
   "031_registry_seed_review.sql": "900f95c8249b4e399a386dca42f5db213081d29bc1d441e6563536ce486249c2",
   "032_crawler_identity_evidence.sql": "aa0c434bfee1754996534a0c5678a4b2e2c6e188d347adc0a0bb0fb13abfa72a",
-  "033_crawler_rule_configuration.sql": "22a86f14fafbf7a4618cb7f60e39c0afb0a0e85301597d29cfa8fdae7c5409e6"
+  "033_crawler_rule_configuration.sql": "22a86f14fafbf7a4618cb7f60e39c0afb0a0e85301597d29cfa8fdae7c5409e6",
+  "034_history_repair.sql": "439c4d59ed4df16d4b2c1ddd50c14545591566823c5000ca79fb6eb04718c8b3"
 }

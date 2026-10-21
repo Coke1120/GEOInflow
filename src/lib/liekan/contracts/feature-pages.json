@@ -551,6 +551,14 @@
       "summary": "统一维护爬虫身份、平台、引荐域名与核验来源。",
       "route": "/crawlers/manage",
       "kind": "增补管理页"
+    },
+    {
+      "id": "history-repair",
+      "title": "历史数据修复",
+      "group": "websites",
+      "summary": "预览并确认本次升级的历史流量重新识别，查看后台进度与修复记录。",
+      "route": "/settings/data-repair",
+      "kind": "增补管理页"
     }
   ],
   "routes": [
@@ -906,6 +914,12 @@
       "source": "src/app/(main)/crawlers/manage/page.tsx",
       "route": "/crawlers/manage",
       "target": "crawler-registry.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/data-repair/page.tsx",
+      "route": "/settings/data-repair",
+      "target": "history-repair.html",
       "entry": "页面"
     }
   ]

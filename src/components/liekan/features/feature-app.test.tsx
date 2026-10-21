@@ -41,6 +41,7 @@ vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
   clearFeatureLogin: vi.fn(),
   featureRequest: vi.fn(),
 }));
+vi.mock('./HistoryRepairNotice',()=>({HistoryRepairNotice:()=>null}));
 vi.mock('./Chart', () => ({ Chart: () => <div>统计图表</div> }));
 vi.mock('./CorePages', () => ({ CorePages: () => null }));
 vi.mock('./AnalyticsPages', () => ({

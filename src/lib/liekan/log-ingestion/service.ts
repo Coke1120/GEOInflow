@@ -1,3 +1,4 @@
+import { collectionRepairScope } from '../upstream/history-repair-boundary';
 import { applyTrustedEdgeIdentity } from '../crawlers/request-verification';
 import { withPublishedRegistry } from '../upstream/crawler-registry-context';
 import { getPublishedCatalog } from '../crawlers/published';
@@ -298,7 +299,7 @@ async function receivePinnedBatch(request: Request, sourceId: string) {
     const valid = parsed.records.filter(row => +new Date(row.time) >= resetAt);
     const rejected = parsed.rejected + parsed.records.length - valid.length;
     await tx.$executeRawUnsafe(
-      'INSERT INTO liekan_ingest_batch(id,website_id,source_id,epoch,digest,payload,received,valid,rejected,errors,catalog_version) VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::jsonb,$7,$8,$9,$10::jsonb,$11::uuid)',
+      'INSERT INTO liekan_ingest_batch(id,website_id,source_id,epoch,digest,payload,received,valid,rejected,errors,catalog_version,repair_scope_id) VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::jsonb,$7,$8,$9,$10::jsonb,$11::uuid,$12::uuid)',
       batchId,
       live.source.website_id,
       sourceId,
@@ -310,6 +311,7 @@ async function receivePinnedBatch(request: Request, sourceId: string) {
       rejected,
       JSON.stringify(parsed.errors),
       getPublishedCatalog()?.version ?? null,
+      await collectionRepairScope(tx,live.source.website_id),
     );
     await enqueue(tx, LOG_QUEUE, { batchId }, batchId);
     if (valid.length)
@@ -382,12 +384,13 @@ export async function processBatch(batchId: string) {
       );
       if (conflicting.length) throw new LiekanError('事件标识对应内容发生冲突', 409);
       await tx.$executeRawUnsafe(
-        "INSERT INTO liekan_import(id,website_id,digest,accepted,rejected,kind,source_id,inserted) VALUES($1::uuid,$2::uuid,$3,0,$4,'automatic',$5::uuid,0)",
+        "INSERT INTO liekan_import(id,website_id,digest,accepted,rejected,kind,source_id,inserted,repair_scope_id) VALUES($1::uuid,$2::uuid,$3,0,$4,'automatic',$5::uuid,0,$6::uuid)",
         batchId,
         first.website_id,
         batch.digest,
         batch.rejected,
         first.source_id,
+        batch.repair_scope_id ?? null,
       );
       let inserted = 0;
       if (valid.length)

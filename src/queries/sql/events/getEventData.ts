@@ -1,3 +1,4 @@
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -8,7 +9,8 @@ const FUNCTION_NAME = 'getEventData';
 
 export async function getEventData(...args: [websiteId: string, filters: QueryFilters]) {
   return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
+    [PRISMA]: () =>
+      nativeAggregate(FUNCTION_NAME, args[0], args[1], args[1], () => relationalQuery(...args)),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
 }

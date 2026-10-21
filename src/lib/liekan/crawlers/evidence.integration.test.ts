@@ -517,7 +517,7 @@ describe.skipIf(!enabled)('traffic evidence PostgreSQL contracts', () => {
         ['recent'],
         { ...nextParams, crawlerIdentityScope: 'verified_range' },
       ),
-    ).rejects.toThrow('日志游标无效');
+    ).rejects.toMatchObject({ status: 409, code: 'history-repair-cursor-conflict' });
   });
   it('D-02/D-06 aligns info workflow in list/detail and clears it through legacy ignore/resume', async () => {
     const key = 'cr_' + 'a'.repeat(64);

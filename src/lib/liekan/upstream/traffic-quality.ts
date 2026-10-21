@@ -177,7 +177,7 @@ export async function qualityTotals(
     `SELECT COUNT(*)::float8 AS "rawPV",COUNT(*) FILTER(WHERE ${included})::float8 AS "includedPV",
       COUNT(DISTINCT e.session_id)::float8 AS "rawUV",COUNT(DISTINCT e.session_id) FILTER(WHERE ${included})::float8 AS "includedUV",
       COUNT(*) FILTER(WHERE q.event_id IS NULL)::float8 AS "missingVerdictPV"
-      ${proposed ? evidenceJoins : joins} ${extra} WHERE ${scope} AND e.event_type NOT IN (2,5)`,
+      ${proposed ? evidenceJoins.replace('liekan_event_quality','liekan_reporting_event_quality') : joins} ${extra} WHERE ${scope} AND e.event_type NOT IN (2,5)`,
     ...params,
   );
   return {
@@ -220,8 +220,9 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
   return qualityReadTransaction(async tx => {
     const policy = await getTrafficPolicy(websiteId, tx);
     const values = bindings(websiteId, range);
+    const [repair]=await tx.$queryRawUnsafe('SELECT active_generation::text,active_revision::text FROM liekan_history_repair_run WHERE website_id=$1::uuid',websiteId);
     const signature = createHash('sha256')
-      .update(JSON.stringify([values, policy.revision, TRAFFIC_POLICY_VERSION, getPublishedCatalog()?.version]))
+      .update(JSON.stringify([values, repair?.active_generation||null,repair?.active_revision||'0',policy.revision, TRAFFIC_POLICY_VERSION, getPublishedCatalog()?.version]))
       .digest('hex');
     let cursor: { time: string; id: string; signature: string } | undefined;
     if (range.cursor) {
@@ -259,7 +260,8 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
     const rows = await tx.$queryRawUnsafe(
       `SELECT e.event_id::text AS "eventId",e.created_at AS "createdAt",to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorTime",
        e.url_path AS path,e.hostname,q.hostname AS "normalizedHostname",COALESCE(q.classification,'unknown') AS classification,q.source,COALESCE(q.reasons,'{}') AS reasons,
-       q.rule_version AS "ruleVersion",q.range_status AS "rangeStatus",q.range_version AS "rangeVersion",(effective.event_id IS NOT NULL) AS included
+       q.rule_version AS "ruleVersion",q.range_status AS "rangeStatus",q.range_version AS "rangeVersion",(effective.event_id IS NOT NULL) AS included,
+       (SELECT current.classification FROM liekan_reporting_event_quality current WHERE current.event_id=e.event_id AND current.website_id=e.website_id) AS "currentClassification"
        ${joins} WHERE ${scope} AND ($8::timestamptz IS NULL OR (e.created_at,e.event_id)<($8::timestamptz,$9::uuid))
        ORDER BY e.created_at DESC,e.event_id DESC LIMIT 101 OFFSET $10`,
       ...values,
@@ -299,6 +301,8 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
     );
     return {
       available: true,
+      classificationBasis: 'collection-original',
+      reportingBasis: 'current-policy-and-active-history-repair',
       policy,
       range: { startAt: range.startAt, endAt: range.endAt, timezone: range.timezone },
       totals: await qualityTotals(tx, websiteId, range),

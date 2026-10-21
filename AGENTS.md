@@ -23,3 +23,5 @@ GEOInflow is the product display name of the Liekan MIT derivative of Umami, wit
 - Crawler risk quality must distinguish missing input, unknown continuity, partial gaps and proved observed-file coverage. Preserve classification versions, epoch fencing, late-data correction and self-check exclusion.
 
 - UI language is zh-CN or en-US. Browser preference and the same-origin locale cookie persist after logout. Translate display text while preserving resource IDs, raw visitor/user content, snapshot identity and Monday-to-Sunday natural weeks. New AI runs and human-readable exports capture locale at submission. See docs/i18n.md.
+
+- Historical upgrade repair preserves raw collection verdicts and GEO proof, publishes only explicitly confirmed generations, and rechecks website authority at each batch. Keep repair metadata, source boundaries, analytics revisions and rollback generations consistent; see docs/history-repair.md.

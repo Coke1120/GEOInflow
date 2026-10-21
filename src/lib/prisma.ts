@@ -865,8 +865,9 @@ async function executeRawQuery(
   const queryClient =
     (!write && getQuerySnapshot()) ||
     getRawQueryClient(client, {
-      useReplica: !!process.env.DATABASE_REPLICA_URL,
-      write,
+      // Website analytics read repair pointers and facts from the same primary database.
+      useReplica: !!process.env.DATABASE_REPLICA_URL && !data.websiteId && !data.websiteIds,
+      write: write || !!data.websiteId || !!data.websiteIds,
     });
 
   if (schema) {

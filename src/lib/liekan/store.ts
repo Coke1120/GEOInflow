@@ -1,3 +1,4 @@
+import { collectionRepairScope } from './upstream/history-repair-boundary';
 import { getPublishedCatalog } from './crawlers/published';
 import { withPublishedRegistry } from './upstream/crawler-registry-context';
 import { parseLogInputWithGeography, persistLogGeography } from './upstream/log-geography';
@@ -264,12 +265,13 @@ async function importPinnedLogs(id: string, domain: string, input: any, identity
     if (!allowed.length) throw new LiekanError('日志时间范围与自动来源重叠，请导入其他时间段', 409);
     const importId = randomUUID();
     await tx.$executeRawUnsafe(
-      'INSERT INTO liekan_import (id,website_id,digest,accepted,rejected) VALUES ($1::uuid,$2::uuid,$3,$4,$5)',
+      'INSERT INTO liekan_import (id,website_id,digest,accepted,rejected,repair_scope_id) VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6::uuid)',
       importId,
       id,
       parsed.digest,
       parsed.accepted,
       parsed.rejected,
+      await collectionRepairScope(tx,id),
     );
     let inserted = 0;
     for (let offset = 0; offset < parsed.records.length; offset += 500) {
