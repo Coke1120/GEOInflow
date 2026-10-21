@@ -68,7 +68,7 @@ test('authenticates server intake, deduplicates events and audits normalized pol
         row =>
           row.source === 'authenticated_server' &&
           row.normalizedHostname === 'traffic-quality.test' &&
-          row.included,
+          row.included === false,
       ),
     ).toBe(true);
     expect(audit.body.rows.map(row => row.path).sort()).toEqual(['/api-key', '/quality-api']);

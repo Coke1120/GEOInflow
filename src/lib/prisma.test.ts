@@ -306,3 +306,50 @@ describe('Liekan breakdown drill filters', () => {
     expect(parsed.filterQuery).toContain("then 'CN-71'");
   });
 });
+
+describe('repair-aware primary analytics reads', () => {
+  test('keeps non-cacheable website details off a lagging replica', async () => {
+    const primary = createClient(),
+      replica = createClient();
+    const client = prisma.client as any;
+    const oldPrimary = client.$primary,
+      oldReplica = client.$replica,
+      oldUrl = process.env.DATABASE_REPLICA_URL;
+    client.$primary = vi.fn(() => primary);
+    client.$replica = vi.fn(() => replica);
+    process.env.DATABASE_REPLICA_URL = 'postgresql://replica.invalid/test';
+    try {
+      await prisma.rawQuery(
+        'select 1 as value',
+        { websiteId: '11111111-1111-4111-8111-111111111111' },
+        'getWebsiteEvents',
+      );
+      expect(primary.$queryRawUnsafe).toHaveBeenCalled();
+      expect(replica.$queryRawUnsafe).not.toHaveBeenCalled();
+    } finally {
+      client.$primary = oldPrimary;
+      client.$replica = oldReplica;
+      if (oldUrl === undefined) delete process.env.DATABASE_REPLICA_URL;
+      else process.env.DATABASE_REPLICA_URL = oldUrl;
+    }
+  });
+});
+
+test('scopes named property sources using their actual binding positions', async () => {
+  const sql =
+    'SELECT {{unrelated}} FROM event_data d JOIN website_event e ON e.event_id=d.website_event_id WHERE d.website_id={{websiteId::uuid}} AND d.created_at BETWEEN {{startDate}} AND {{endDate}}';
+  const parameters = {
+    unrelated: 'fixture',
+    websiteId: '11111111-1111-4111-8111-111111111111',
+    startDate: new Date(0),
+    endDate: new Date(1000),
+  };
+  const queried = vi.mocked(prisma.client.$queryRawUnsafe);
+  await prisma.rawQuery(sql, parameters, 'getEventDataStats');
+  expect(queried.mock.lastCall?.[0]).toContain(
+    'event_data AS MATERIALIZED (SELECT * FROM liekan_effective_event_data WHERE website_id=$2::uuid AND created_at BETWEEN $3 AND $4)',
+  );
+  expect(queried.mock.lastCall?.slice(1)).toEqual(Object.values(parameters));
+  await prisma.rawQuery(sql, parameters, 'unrelatedReport');
+  expect(queried.mock.lastCall?.[0]).toContain('event_data AS NOT MATERIALIZED');
+});

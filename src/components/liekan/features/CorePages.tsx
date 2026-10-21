@@ -413,10 +413,13 @@ function Websites() {
         subtitle={i18n.text('管理{v0}中有权访问的网站。', [scope])}
         actions={
           c.user.role !== 'view-only' && (
-            <LinkButton page="onboarding" primary>
-              <Icon name="plus" />
-              {i18n.fragment('添加网站', true, false)}
-            </LinkButton>
+            <>
+              <LinkButton page="history-repair">{i18n.text('历史数据修复')}</LinkButton>
+              <LinkButton page="onboarding" primary>
+                <Icon name="plus" />
+                {i18n.fragment('添加网站', true, false)}
+              </LinkButton>
+            </>
           )
         }
       >
@@ -965,6 +968,18 @@ function WebsiteSettings() {
             active={section}
             onChange={next => c.navigate('website-settings', { websiteId: site.id, section: next })}
           />
+          {manage && (
+            <Panel
+              title={i18n.text('历史数据修复')}
+              subtitle={i18n.text('本次升级专项：扫描、预览并确认旧数据的爬虫识别修正。')}
+            >
+              <Body>
+                <LinkButton page="history-repair" params={{ websiteId: site.id }}>
+                  {i18n.text('查看历史数据修复')}
+                </LinkButton>
+              </Body>
+            </Panel>
+          )}
           {section === 'basic' ? (
             <>
               <div className="two">

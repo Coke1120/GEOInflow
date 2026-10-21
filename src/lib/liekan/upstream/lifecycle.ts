@@ -1,3 +1,4 @@
+import { clearHistoryRepair, invalidateHistoryRepair } from './history-repair-lifecycle';
 import { clearAiWebsiteInTransaction } from './ai-lifecycle';
 import { lockWritableWebsite, type WriteIdentity } from './server';
 export async function resetLiekanStatistics(tx: any, websiteId: string, identity?: WriteIdentity) {
@@ -6,6 +7,7 @@ export async function resetLiekanStatistics(tx: any, websiteId: string, identity
   await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
   await lockWritableWebsite(tx, websiteId, identity);
   await clearAiWebsiteInTransaction(tx, websiteId);
+  await clearHistoryRepair(tx,websiteId);
   for (const table of [
     'liekan_geography_ingress',
     'liekan_collection_diagnostic',
@@ -65,6 +67,8 @@ export async function stopWebsiteSources(tx: any, websiteId: string, deleted = f
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new Error('Invalid database schema');
   await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
   await lockWritableWebsite(tx, websiteId);
+  if (deleted) await clearHistoryRepair(tx,websiteId,true);
+  else await invalidateHistoryRepair(tx,websiteId);
   await tx.$executeRawUnsafe(
     'UPDATE liekan_crawler_state SET generation=generation+1,deleted_at=CASE WHEN $2 THEN now() ELSE deleted_at END,updated_at=now() WHERE website_id=$1::uuid',
     websiteId,

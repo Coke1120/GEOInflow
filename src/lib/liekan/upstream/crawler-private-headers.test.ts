@@ -21,6 +21,7 @@ it.each(['', '/private-api'])(
     const api = prefix || '/api';
     for (const endpoint of [
       '/liekan/crawler-handoffs',
+      '/liekan/history-repair',
       '/liekan/admin/crawler-sources',
       '/liekan/crawler-handoffs/reconcile',
       ...[
@@ -38,6 +39,8 @@ it.each(['', '/private-api'])(
         'crawler-exports',
         'crawler-findings',
         'crawler-policies',
+        'history-repair',
+        'geo-weight',
       ].flatMap(resource => [
         `/liekan/websites/site/${resource}`,
         `/liekan/websites/site/${resource}/id/reconcile`,

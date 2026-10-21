@@ -62,3 +62,26 @@ it('geography and filters use the same complete visit tuple through scoped alias
   );
   expect(nested).toContain('WHERE s.city=$1');
 });
+
+it('materializes one complete property window while retaining parent and sibling-key predicates', () => {
+  const sql =
+    'SELECT d.data_key FROM event_data d JOIN website_event e ON e.event_id=d.website_event_id WHERE EXISTS(SELECT 1 FROM event_data sibling WHERE sibling.website_event_id=e.event_id AND sibling.data_key=$8)';
+  const query = withTrafficPolicy(sql, { websiteId: '$4::uuid', startDate: '$1', endDate: '$7' });
+  expect(query).toContain(
+    'event_data AS MATERIALIZED (SELECT * FROM liekan_effective_event_data WHERE website_id=$4::uuid AND created_at BETWEEN $1 AND $7)',
+  );
+  expect(query).toContain(
+    'website_event AS NOT MATERIALIZED (SELECT * FROM liekan_geographic_website_event)',
+  );
+  expect(query).toContain(sql);
+});
+
+it('rejects raw SQL in property window binding references', () => {
+  expect(() =>
+    withTrafficPolicy('SELECT * FROM event_data', {
+      websiteId: '$1::uuid; SELECT 1',
+      startDate: '$2',
+      endDate: '$3',
+    }),
+  ).toThrow('binding');
+});

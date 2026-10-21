@@ -4,14 +4,15 @@ import { expect, it } from 'vitest';
 import {
   assertManualReadPolicy,
   manualPageReads,
+  manualRouteFeature,
   assertManualPageReads,
 } from '../../../../scripts/liekan-manual-read-contract.mjs';
 
 it('accepts the complete classified page inventory and closed ordinary read policy', () => {
   const inventory = assertManualReadPolicy();
-  expect(inventory.features).toHaveLength(69);
-  expect(inventory.routes).toHaveLength(59);
-  expect(inventory.files).toHaveLength(75);
+  expect(inventory.features).toHaveLength(70);
+  expect(inventory.routes).toHaveLength(60);
+  expect(inventory.files).toHaveLength(76);
 });
 
 it.each(['refetchOnWindowFocus', 'refetchOnReconnect', 'refetchInterval', 'retry'])(
@@ -77,3 +78,37 @@ it.each(['tracking', 'install-check', 'website-settings'])(
     expect(() => assertManualPageReads(policy, [presence], page)).toThrow('/api/websites/site');
   },
 );
+
+it('requires the actual catalog and source reads for administrator crawler management', () => {
+  const admin = manualPageReads('crawlers-manage', { websiteId: 'site', admin: true });
+  expect(admin.endpoints).toEqual([
+    { path: '/api/liekan/admin/crawler-registry' },
+    { path: '/api/liekan/admin/crawler-sources' },
+  ]);
+  expect(() =>
+    assertManualPageReads(admin, [{ path: '/api/liekan/crawler-registry' }], 'admin catalog'),
+  ).toThrow();
+  const ordinary = manualPageReads('crawlers-manage', { websiteId: 'site' });
+  expect(ordinary.endpoints).toEqual([{ path: '/api/liekan/crawler-registry' }]);
+});
+
+it('classifies actual route aliases through the canonical feature inventory', () => {
+  const inventory = assertManualReadPolicy();
+  for (const route of [...inventory.routes, ...inventory.geo]) {
+    if (route.route.includes('[[...path]]') || route.entry === '弹层拦截') continue;
+    const id = manualRouteFeature(route, inventory.features);
+    expect(
+      () => manualPageReads(id, { websiteId: 'site', id: 'record', admin: true }),
+      route.source,
+    ).not.toThrow();
+  }
+  const catalog = inventory.routes.find(route => route.route === '/crawlers/manage');
+  expect(manualRouteFeature(catalog, inventory.features)).toBe('crawlers-manage');
+});
+
+it('keeps positive reference reads for help while honoring its existing entry-only controls', () => {
+  const policy = manualPageReads('help', { websiteId: 'site' });
+  expect(policy.entryOnly).toBe(true);
+  expect(policy.endpoints).toEqual([{ path: '/api/liekan/crawler-registry' }]);
+  expect(() => assertManualPageReads(policy, [], 'help')).toThrow('missing successful page read');
+});

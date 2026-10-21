@@ -217,6 +217,7 @@ headers.push({
 });
 const crawlerPrivatePaths = [
   '/liekan/crawler-handoffs/:path*',
+  '/liekan/history-repair/:path*',
   '/liekan/admin/crawler-sources/:path*',
   '/liekan/admin/crawler-registry/:path*',
   '/liekan/crawler-registry/:path*',
@@ -236,6 +237,8 @@ const crawlerPrivatePaths = [
     'crawler-exports',
     'crawler-findings',
     'crawler-policies',
+    'history-repair',
+    'geo-weight',
   ].map(resource => `/liekan/websites/:websiteId/${resource}/:path*`),
 ];
 // Next keeps preconfigured response headers, so private crawler reads need explicit rules.

@@ -924,6 +924,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/history-repair': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List manageable sites for this upgrade campaign (full session required) */
+    get: operations['listLiekanHistoryRepair'];
+    /** Dismiss an upgrade notice or mark results read */
+    put: operations['acknowledgeLiekanHistoryRepairNotice'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/links/{linkId}/sources': {
     parameters: {
       query?: never;
@@ -1600,6 +1618,125 @@ export interface paths {
     get: operations['getLiekanGoalAnalytics'];
     put?: never;
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/history-repair': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read historical repair state and bounded records (full session required) */
+    get: operations['getLiekanHistoryRepair'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/history-repair/action': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Historical repair: action (full session and site management required) */
+    post: operations['postLiekanHistoryRepairAction'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/history-repair/confirm': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Historical repair: confirm (full session and site management required) */
+    post: operations['postLiekanHistoryRepairConfirm'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/history-repair/evidence': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Historical repair: evidence (full session and site management required) */
+    post: operations['postLiekanHistoryRepairEvidence'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/history-repair/export': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Export bounded repair records in the requested locale (full session required) */
+    get: operations['exportLiekanHistoryRepair'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/history-repair/preview': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Historical repair: preview (full session and site management required) */
+    post: operations['postLiekanHistoryRepairPreview'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/history-repair/scan': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Historical repair: scan (full session and site management required) */
+    post: operations['postLiekanHistoryRepairScan'];
     delete?: never;
     options?: never;
     head?: never;
@@ -11105,6 +11242,10 @@ export interface operations {
               )[];
               /** Format: date-time */
               generatedAt: string;
+              historyRepair?: {
+                generation: string | null;
+                revision: string;
+              };
               /**
                * Format: uuid
                * @description Unique identifier of the resource.
@@ -13270,6 +13411,422 @@ export interface operations {
             }[];
           };
         };
+      };
+    };
+  };
+  listLiekanHistoryRepair: {
+    parameters: {
+      query?: {
+        cursor?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bounded site list and private notice state */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            campaignId: string;
+            dismissed: boolean;
+            engineVersion: string;
+            hasEligibleData?: boolean;
+            nextCursor?: string | null;
+            supported: boolean;
+            unreadCompletion: boolean;
+            websites: {
+              /** @description Domain name associated with the resource. */
+              domain: string;
+              eligible: boolean;
+              hasData: boolean;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @description Display name of the resource. */
+              name: string;
+              run: {
+                activeGeneration: string | null;
+                campaignId: string;
+                completedAt: string | null;
+                counts: {
+                  afterPV: string;
+                  afterUV: string;
+                  beforePV: string;
+                  beforeUV: string;
+                  browserEvidence: string;
+                  changedEvents: string;
+                  changedLogs: string;
+                  conflicts: string;
+                  events: string;
+                  logEvidence: string;
+                  logs: string;
+                  missingQuality: string;
+                  processed: string;
+                  undatedEvents: string;
+                };
+                errorCode: string | null;
+                frozenAt: string | null;
+                /** Format: uuid */
+                generation: string;
+                /**
+                 * Format: uuid
+                 * @description Unique identifier of the resource.
+                 */
+                id: string;
+                inputRevision: number;
+                phase: string;
+                preview: {
+                  browserCoverage: number | null;
+                  complete: boolean;
+                  counts: {
+                    afterPV: string;
+                    afterUV: string;
+                    beforePV: string;
+                    beforeUV: string;
+                    browserEvidence: string;
+                    changedEvents: string;
+                    changedLogs: string;
+                    conflicts: string;
+                    events: string;
+                    logEvidence: string;
+                    logs: string;
+                    missingQuality: string;
+                    processed: string;
+                    undatedEvents: string;
+                  };
+                  digest: string;
+                  excludedBatches: string[];
+                  /** Format: uuid */
+                  generation: string;
+                  limitations: string[];
+                  logCoverage: number | null;
+                  logImpact: {
+                    afterAiPages: string;
+                    afterIdentities: string;
+                    beforeAiPages: string;
+                    beforeIdentities: string;
+                    categories: {
+                      afterRequests: string;
+                      beforeRequests: string;
+                      /** @enum {string} */
+                      category:
+                        | 'all'
+                        | 'training'
+                        | 'search'
+                        | 'user'
+                        | 'traditional_search'
+                        | 'workbench'
+                        | 'personal_agent'
+                        | 'other'
+                        | 'unknown';
+                    }[];
+                  };
+                  partial: boolean;
+                  policy: {
+                    allowedHostnames: string[];
+                    /** @enum {string} */
+                    mode: 'standard' | 'strict' | 'raw';
+                    revision: string;
+                  };
+                  revision: number;
+                  rulepack: {
+                    botCheckDisabled: boolean;
+                    catalogVersion: string;
+                    detector: string;
+                    engine: string;
+                    hash: string;
+                    matcher: string;
+                    rulesRevision: number;
+                  };
+                  sourceUploads?: string[];
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                } | null;
+                previousGeneration: string | null;
+                progress: number;
+                revision: number;
+                scopeChanged: boolean;
+                scopeId: string | null;
+                /** @enum {string} */
+                status:
+                  | 'unscanned'
+                  | 'scanning'
+                  | 'preparing'
+                  | 'ready'
+                  | 'queued'
+                  | 'running'
+                  | 'validating'
+                  | 'completed'
+                  | 'completed_limited'
+                  | 'unchanged'
+                  | 'unidentifiable'
+                  | 'empty'
+                  | 'paused'
+                  | 'failed'
+                  | 'cancelled'
+                  | 'rolled_back'
+                  | 'expired'
+                  | 'invalidated';
+                /** @description Date and time the record was last updated. */
+                updatedAt: string;
+                /**
+                 * Format: uuid
+                 * @description ID of the website.
+                 */
+                websiteId: string;
+              } | null;
+              /** @enum {string} */
+              status:
+                | 'unscanned'
+                | 'scanning'
+                | 'preparing'
+                | 'ready'
+                | 'queued'
+                | 'running'
+                | 'validating'
+                | 'completed'
+                | 'completed_limited'
+                | 'unchanged'
+                | 'unidentifiable'
+                | 'empty'
+                | 'paused'
+                | 'failed'
+                | 'cancelled'
+                | 'rolled_back'
+                | 'expired'
+                | 'invalidated';
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The approved scope, revision or generation changed; refresh the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Historical repair requires PostgreSQL */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compatible repair worker or installation is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  acknowledgeLiekanHistoryRepairNotice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          action: 'dismiss' | 'read';
+          /**
+           * @default traffic-quality-repair-20261022-v1
+           * @constant
+           */
+          campaignId?: 'traffic-quality-repair-20261022-v1';
+        };
+      };
+    };
+    responses: {
+      /** @description Private notice state */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            campaignId: string;
+            dismissed: boolean;
+            read: boolean;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The approved scope, revision or generation changed; refresh the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Historical repair requires PostgreSQL */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compatible repair worker or installation is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };
@@ -22623,6 +23180,1752 @@ export interface operations {
       };
     };
   };
+  getLiekanHistoryRepair: {
+    parameters: {
+      query?: {
+        cursor?: string;
+        generation?: string;
+        /** @description Page number, starting at 1. */
+        page?: number;
+        /** @description Number of results per page. */
+        pageSize?: number;
+        view?: 'status' | 'preview' | 'days' | 'actions';
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized website repair state */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            actions?: {
+              items: {
+                action: string;
+                actorId: string | null;
+                /** @description Date and time the record was created. */
+                createdAt: string;
+                details: {
+                  [key: string]: string | number | boolean | null | string[];
+                };
+                generation: string | null;
+                /**
+                 * Format: uuid
+                 * @description Unique identifier of the resource.
+                 */
+                id: string;
+              }[];
+              nextCursor: string | null;
+              /** @description Page number, starting at 1. */
+              page: number;
+              /** @description Number of results per page. */
+              pageSize: number;
+              total: string;
+            };
+            campaignId: string;
+            days?: {
+              items: {
+                afterPV: string;
+                afterUV: string;
+                beforePV: string;
+                beforeUV: string;
+                changedEvents: string;
+                changedLogs: string;
+                /** @enum {string} */
+                coverage: 'complete' | 'partial' | 'missing';
+                date: string;
+                eventRows: string;
+                logRows: string;
+              }[];
+              nextCursor: string | null;
+              /** @description Page number, starting at 1. */
+              page: number;
+              /** @description Number of results per page. */
+              pageSize: number;
+              total: string;
+            };
+            eligible: boolean;
+            hasData: boolean;
+            run: {
+              activeGeneration: string | null;
+              campaignId: string;
+              completedAt: string | null;
+              counts: {
+                afterPV: string;
+                afterUV: string;
+                beforePV: string;
+                beforeUV: string;
+                browserEvidence: string;
+                changedEvents: string;
+                changedLogs: string;
+                conflicts: string;
+                events: string;
+                logEvidence: string;
+                logs: string;
+                missingQuality: string;
+                processed: string;
+                undatedEvents: string;
+              };
+              errorCode: string | null;
+              frozenAt: string | null;
+              /** Format: uuid */
+              generation: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              inputRevision: number;
+              phase: string;
+              preview: {
+                browserCoverage: number | null;
+                complete: boolean;
+                counts: {
+                  afterPV: string;
+                  afterUV: string;
+                  beforePV: string;
+                  beforeUV: string;
+                  browserEvidence: string;
+                  changedEvents: string;
+                  changedLogs: string;
+                  conflicts: string;
+                  events: string;
+                  logEvidence: string;
+                  logs: string;
+                  missingQuality: string;
+                  processed: string;
+                  undatedEvents: string;
+                };
+                digest: string;
+                excludedBatches: string[];
+                /** Format: uuid */
+                generation: string;
+                limitations: string[];
+                logCoverage: number | null;
+                logImpact: {
+                  afterAiPages: string;
+                  afterIdentities: string;
+                  beforeAiPages: string;
+                  beforeIdentities: string;
+                  categories: {
+                    afterRequests: string;
+                    beforeRequests: string;
+                    /** @enum {string} */
+                    category:
+                      | 'all'
+                      | 'training'
+                      | 'search'
+                      | 'user'
+                      | 'traditional_search'
+                      | 'workbench'
+                      | 'personal_agent'
+                      | 'other'
+                      | 'unknown';
+                  }[];
+                };
+                partial: boolean;
+                policy: {
+                  allowedHostnames: string[];
+                  /** @enum {string} */
+                  mode: 'standard' | 'strict' | 'raw';
+                  revision: string;
+                };
+                revision: number;
+                rulepack: {
+                  botCheckDisabled: boolean;
+                  catalogVersion: string;
+                  detector: string;
+                  engine: string;
+                  hash: string;
+                  matcher: string;
+                  rulesRevision: number;
+                };
+                sourceUploads?: string[];
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              } | null;
+              previousGeneration: string | null;
+              progress: number;
+              revision: number;
+              scopeChanged: boolean;
+              scopeId: string | null;
+              /** @enum {string} */
+              status:
+                | 'unscanned'
+                | 'scanning'
+                | 'preparing'
+                | 'ready'
+                | 'queued'
+                | 'running'
+                | 'validating'
+                | 'completed'
+                | 'completed_limited'
+                | 'unchanged'
+                | 'unidentifiable'
+                | 'empty'
+                | 'paused'
+                | 'failed'
+                | 'cancelled'
+                | 'rolled_back'
+                | 'expired'
+                | 'invalidated';
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            } | null;
+            selectedGeneration?: {
+              catalogVersion: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              preview: {
+                browserCoverage: number | null;
+                complete: boolean;
+                counts: {
+                  afterPV: string;
+                  afterUV: string;
+                  beforePV: string;
+                  beforeUV: string;
+                  browserEvidence: string;
+                  changedEvents: string;
+                  changedLogs: string;
+                  conflicts: string;
+                  events: string;
+                  logEvidence: string;
+                  logs: string;
+                  missingQuality: string;
+                  processed: string;
+                  undatedEvents: string;
+                };
+                digest: string;
+                excludedBatches: string[];
+                /** Format: uuid */
+                generation: string;
+                limitations: string[];
+                logCoverage: number | null;
+                logImpact: {
+                  afterAiPages: string;
+                  afterIdentities: string;
+                  beforeAiPages: string;
+                  beforeIdentities: string;
+                  categories: {
+                    afterRequests: string;
+                    beforeRequests: string;
+                    /** @enum {string} */
+                    category:
+                      | 'all'
+                      | 'training'
+                      | 'search'
+                      | 'user'
+                      | 'traditional_search'
+                      | 'workbench'
+                      | 'personal_agent'
+                      | 'other'
+                      | 'unknown';
+                  }[];
+                };
+                partial: boolean;
+                policy: {
+                  allowedHostnames: string[];
+                  /** @enum {string} */
+                  mode: 'standard' | 'strict' | 'raw';
+                  revision: string;
+                };
+                revision: number;
+                rulepack: {
+                  botCheckDisabled: boolean;
+                  catalogVersion: string;
+                  detector: string;
+                  engine: string;
+                  hash: string;
+                  matcher: string;
+                  rulesRevision: number;
+                };
+                sourceUploads?: string[];
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              } | null;
+              rulepackHash: string;
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            };
+            uploads?: {
+              accepted: string;
+              chunks: number;
+              discarded: boolean;
+              errors: {
+                code: string;
+                row: number;
+                sequence: number;
+              }[];
+              finalized: boolean;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              moreErrors: boolean;
+              rejected: string;
+              rows: string;
+              source: string;
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The approved scope, revision or generation changed; refresh the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Historical repair requires PostgreSQL */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compatible repair worker or installation is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanHistoryRepairAction: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          action: 'pause' | 'resume' | 'cancel' | 'retry' | 'rollback' | 'reactivate';
+          /** Format: uuid */
+          actionId: string;
+          expectedRevision: number;
+          /** Format: uuid */
+          runId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Repair state after the idempotent action */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            activeGeneration: string | null;
+            campaignId: string;
+            completedAt: string | null;
+            counts: {
+              afterPV: string;
+              afterUV: string;
+              beforePV: string;
+              beforeUV: string;
+              browserEvidence: string;
+              changedEvents: string;
+              changedLogs: string;
+              conflicts: string;
+              events: string;
+              logEvidence: string;
+              logs: string;
+              missingQuality: string;
+              processed: string;
+              undatedEvents: string;
+            };
+            errorCode: string | null;
+            frozenAt: string | null;
+            /** Format: uuid */
+            generation: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            inputRevision: number;
+            phase: string;
+            preview: {
+              browserCoverage: number | null;
+              complete: boolean;
+              counts: {
+                afterPV: string;
+                afterUV: string;
+                beforePV: string;
+                beforeUV: string;
+                browserEvidence: string;
+                changedEvents: string;
+                changedLogs: string;
+                conflicts: string;
+                events: string;
+                logEvidence: string;
+                logs: string;
+                missingQuality: string;
+                processed: string;
+                undatedEvents: string;
+              };
+              digest: string;
+              excludedBatches: string[];
+              /** Format: uuid */
+              generation: string;
+              limitations: string[];
+              logCoverage: number | null;
+              logImpact: {
+                afterAiPages: string;
+                afterIdentities: string;
+                beforeAiPages: string;
+                beforeIdentities: string;
+                categories: {
+                  afterRequests: string;
+                  beforeRequests: string;
+                  /** @enum {string} */
+                  category:
+                    | 'all'
+                    | 'training'
+                    | 'search'
+                    | 'user'
+                    | 'traditional_search'
+                    | 'workbench'
+                    | 'personal_agent'
+                    | 'other'
+                    | 'unknown';
+                }[];
+              };
+              partial: boolean;
+              policy: {
+                allowedHostnames: string[];
+                /** @enum {string} */
+                mode: 'standard' | 'strict' | 'raw';
+                revision: string;
+              };
+              revision: number;
+              rulepack: {
+                botCheckDisabled: boolean;
+                catalogVersion: string;
+                detector: string;
+                engine: string;
+                hash: string;
+                matcher: string;
+                rulesRevision: number;
+              };
+              sourceUploads?: string[];
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            } | null;
+            previousGeneration: string | null;
+            progress: number;
+            revision: number;
+            scopeChanged: boolean;
+            scopeId: string | null;
+            /** @enum {string} */
+            status:
+              | 'unscanned'
+              | 'scanning'
+              | 'preparing'
+              | 'ready'
+              | 'queued'
+              | 'running'
+              | 'validating'
+              | 'completed'
+              | 'completed_limited'
+              | 'unchanged'
+              | 'unidentifiable'
+              | 'empty'
+              | 'paused'
+              | 'failed'
+              | 'cancelled'
+              | 'rolled_back'
+              | 'expired'
+              | 'invalidated';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The approved scope, revision or generation changed; refresh the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Historical repair requires PostgreSQL */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compatible repair worker or installation is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanHistoryRepairConfirm: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          actionId: string;
+          expectedRevision: number;
+          /** Format: uuid */
+          generation: string;
+          /** @default false */
+          partialConfirmed?: boolean;
+          previewDigest: string;
+          /** Format: uuid */
+          runId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Repair state after the idempotent action */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            activeGeneration: string | null;
+            campaignId: string;
+            completedAt: string | null;
+            counts: {
+              afterPV: string;
+              afterUV: string;
+              beforePV: string;
+              beforeUV: string;
+              browserEvidence: string;
+              changedEvents: string;
+              changedLogs: string;
+              conflicts: string;
+              events: string;
+              logEvidence: string;
+              logs: string;
+              missingQuality: string;
+              processed: string;
+              undatedEvents: string;
+            };
+            errorCode: string | null;
+            frozenAt: string | null;
+            /** Format: uuid */
+            generation: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            inputRevision: number;
+            phase: string;
+            preview: {
+              browserCoverage: number | null;
+              complete: boolean;
+              counts: {
+                afterPV: string;
+                afterUV: string;
+                beforePV: string;
+                beforeUV: string;
+                browserEvidence: string;
+                changedEvents: string;
+                changedLogs: string;
+                conflicts: string;
+                events: string;
+                logEvidence: string;
+                logs: string;
+                missingQuality: string;
+                processed: string;
+                undatedEvents: string;
+              };
+              digest: string;
+              excludedBatches: string[];
+              /** Format: uuid */
+              generation: string;
+              limitations: string[];
+              logCoverage: number | null;
+              logImpact: {
+                afterAiPages: string;
+                afterIdentities: string;
+                beforeAiPages: string;
+                beforeIdentities: string;
+                categories: {
+                  afterRequests: string;
+                  beforeRequests: string;
+                  /** @enum {string} */
+                  category:
+                    | 'all'
+                    | 'training'
+                    | 'search'
+                    | 'user'
+                    | 'traditional_search'
+                    | 'workbench'
+                    | 'personal_agent'
+                    | 'other'
+                    | 'unknown';
+                }[];
+              };
+              partial: boolean;
+              policy: {
+                allowedHostnames: string[];
+                /** @enum {string} */
+                mode: 'standard' | 'strict' | 'raw';
+                revision: string;
+              };
+              revision: number;
+              rulepack: {
+                botCheckDisabled: boolean;
+                catalogVersion: string;
+                detector: string;
+                engine: string;
+                hash: string;
+                matcher: string;
+                rulesRevision: number;
+              };
+              sourceUploads?: string[];
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            } | null;
+            previousGeneration: string | null;
+            progress: number;
+            revision: number;
+            scopeChanged: boolean;
+            scopeId: string | null;
+            /** @enum {string} */
+            status:
+              | 'unscanned'
+              | 'scanning'
+              | 'preparing'
+              | 'ready'
+              | 'queued'
+              | 'running'
+              | 'validating'
+              | 'completed'
+              | 'completed_limited'
+              | 'unchanged'
+              | 'unidentifiable'
+              | 'empty'
+              | 'paused'
+              | 'failed'
+              | 'cancelled'
+              | 'rolled_back'
+              | 'expired'
+              | 'invalidated';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The approved scope, revision or generation changed; refresh the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Historical repair requires PostgreSQL */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compatible repair worker or installation is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanHistoryRepairEvidence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json':
+          | {
+              /** @constant */
+              action: 'append';
+              /** Format: uuid */
+              actionId: string;
+              expectedRevision: number;
+              records: (
+                | {
+                    /**
+                     * Format: uuid
+                     * @description ID of the event.
+                     */
+                    eventId: string;
+                    requestUserAgent: string;
+                  }
+                | {
+                    /** Format: uuid */
+                    clientEventId: string;
+                    requestUserAgent: string;
+                  }
+              )[];
+              /** Format: uuid */
+              runId: string;
+              sequence: number;
+              source: string;
+              /** Format: uuid */
+              uploadId: string;
+            }
+          | {
+              /** @constant */
+              action: 'finalize';
+              /** Format: uuid */
+              actionId: string;
+              chunks: number;
+              expectedRevision: number;
+              manifest?: string[];
+              manifestDigest?: string;
+              rows: number;
+              /** Format: uuid */
+              runId: string;
+              /** Format: uuid */
+              uploadId: string;
+            }
+          | {
+              /** @constant */
+              action: 'discard';
+              /** Format: uuid */
+              actionId: string;
+              expectedRevision: number;
+              /** Format: uuid */
+              runId: string;
+              /** Format: uuid */
+              uploadId: string;
+            };
+      };
+    };
+    responses: {
+      /** @description Repair state after the idempotent action */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            accepted: number;
+            discarded: boolean;
+            errors: {
+              code: string;
+              row: number;
+            }[];
+            finalized: boolean;
+            hash?: string;
+            rejected: number;
+            revision: number;
+            sequence?: number;
+            /** Format: uuid */
+            uploadId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The approved scope, revision or generation changed; refresh the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Historical repair requires PostgreSQL */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compatible repair worker or installation is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  exportLiekanHistoryRepair: {
+    parameters: {
+      query: {
+        generation: string;
+        locale?: 'zh-CN' | 'en-US';
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Repair CSV with no request agents or raw addresses */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/csv': string;
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The approved scope, revision or generation changed; refresh the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Historical repair requires PostgreSQL */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compatible repair worker or installation is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanHistoryRepairPreview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          actionId: string;
+          expectedRevision: number;
+          /** Format: uuid */
+          runId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Repair state after the idempotent action */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            activeGeneration: string | null;
+            campaignId: string;
+            completedAt: string | null;
+            counts: {
+              afterPV: string;
+              afterUV: string;
+              beforePV: string;
+              beforeUV: string;
+              browserEvidence: string;
+              changedEvents: string;
+              changedLogs: string;
+              conflicts: string;
+              events: string;
+              logEvidence: string;
+              logs: string;
+              missingQuality: string;
+              processed: string;
+              undatedEvents: string;
+            };
+            errorCode: string | null;
+            frozenAt: string | null;
+            /** Format: uuid */
+            generation: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            inputRevision: number;
+            phase: string;
+            preview: {
+              browserCoverage: number | null;
+              complete: boolean;
+              counts: {
+                afterPV: string;
+                afterUV: string;
+                beforePV: string;
+                beforeUV: string;
+                browserEvidence: string;
+                changedEvents: string;
+                changedLogs: string;
+                conflicts: string;
+                events: string;
+                logEvidence: string;
+                logs: string;
+                missingQuality: string;
+                processed: string;
+                undatedEvents: string;
+              };
+              digest: string;
+              excludedBatches: string[];
+              /** Format: uuid */
+              generation: string;
+              limitations: string[];
+              logCoverage: number | null;
+              logImpact: {
+                afterAiPages: string;
+                afterIdentities: string;
+                beforeAiPages: string;
+                beforeIdentities: string;
+                categories: {
+                  afterRequests: string;
+                  beforeRequests: string;
+                  /** @enum {string} */
+                  category:
+                    | 'all'
+                    | 'training'
+                    | 'search'
+                    | 'user'
+                    | 'traditional_search'
+                    | 'workbench'
+                    | 'personal_agent'
+                    | 'other'
+                    | 'unknown';
+                }[];
+              };
+              partial: boolean;
+              policy: {
+                allowedHostnames: string[];
+                /** @enum {string} */
+                mode: 'standard' | 'strict' | 'raw';
+                revision: string;
+              };
+              revision: number;
+              rulepack: {
+                botCheckDisabled: boolean;
+                catalogVersion: string;
+                detector: string;
+                engine: string;
+                hash: string;
+                matcher: string;
+                rulesRevision: number;
+              };
+              sourceUploads?: string[];
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            } | null;
+            previousGeneration: string | null;
+            progress: number;
+            revision: number;
+            scopeChanged: boolean;
+            scopeId: string | null;
+            /** @enum {string} */
+            status:
+              | 'unscanned'
+              | 'scanning'
+              | 'preparing'
+              | 'ready'
+              | 'queued'
+              | 'running'
+              | 'validating'
+              | 'completed'
+              | 'completed_limited'
+              | 'unchanged'
+              | 'unidentifiable'
+              | 'empty'
+              | 'paused'
+              | 'failed'
+              | 'cancelled'
+              | 'rolled_back'
+              | 'expired'
+              | 'invalidated';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The approved scope, revision or generation changed; refresh the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Historical repair requires PostgreSQL */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compatible repair worker or installation is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanHistoryRepairScan: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          actionId: string;
+          /**
+           * @default zh-CN
+           * @enum {string}
+           */
+          locale?: 'zh-CN' | 'en-US';
+          /**
+           * @description IANA time zone used to interpret dates and group results, for example America/New_York.
+           * @default UTC
+           */
+          timezone?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Repair state after the idempotent action */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            activeGeneration: string | null;
+            campaignId: string;
+            completedAt: string | null;
+            counts: {
+              afterPV: string;
+              afterUV: string;
+              beforePV: string;
+              beforeUV: string;
+              browserEvidence: string;
+              changedEvents: string;
+              changedLogs: string;
+              conflicts: string;
+              events: string;
+              logEvidence: string;
+              logs: string;
+              missingQuality: string;
+              processed: string;
+              undatedEvents: string;
+            };
+            errorCode: string | null;
+            frozenAt: string | null;
+            /** Format: uuid */
+            generation: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            inputRevision: number;
+            phase: string;
+            preview: {
+              browserCoverage: number | null;
+              complete: boolean;
+              counts: {
+                afterPV: string;
+                afterUV: string;
+                beforePV: string;
+                beforeUV: string;
+                browserEvidence: string;
+                changedEvents: string;
+                changedLogs: string;
+                conflicts: string;
+                events: string;
+                logEvidence: string;
+                logs: string;
+                missingQuality: string;
+                processed: string;
+                undatedEvents: string;
+              };
+              digest: string;
+              excludedBatches: string[];
+              /** Format: uuid */
+              generation: string;
+              limitations: string[];
+              logCoverage: number | null;
+              logImpact: {
+                afterAiPages: string;
+                afterIdentities: string;
+                beforeAiPages: string;
+                beforeIdentities: string;
+                categories: {
+                  afterRequests: string;
+                  beforeRequests: string;
+                  /** @enum {string} */
+                  category:
+                    | 'all'
+                    | 'training'
+                    | 'search'
+                    | 'user'
+                    | 'traditional_search'
+                    | 'workbench'
+                    | 'personal_agent'
+                    | 'other'
+                    | 'unknown';
+                }[];
+              };
+              partial: boolean;
+              policy: {
+                allowedHostnames: string[];
+                /** @enum {string} */
+                mode: 'standard' | 'strict' | 'raw';
+                revision: string;
+              };
+              revision: number;
+              rulepack: {
+                botCheckDisabled: boolean;
+                catalogVersion: string;
+                detector: string;
+                engine: string;
+                hash: string;
+                matcher: string;
+                rulesRevision: number;
+              };
+              sourceUploads?: string[];
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+            } | null;
+            previousGeneration: string | null;
+            progress: number;
+            revision: number;
+            scopeChanged: boolean;
+            scopeId: string | null;
+            /** @enum {string} */
+            status:
+              | 'unscanned'
+              | 'scanning'
+              | 'preparing'
+              | 'ready'
+              | 'queued'
+              | 'running'
+              | 'validating'
+              | 'completed'
+              | 'completed_limited'
+              | 'unchanged'
+              | 'unidentifiable'
+              | 'empty'
+              | 'paused'
+              | 'failed'
+              | 'cancelled'
+              | 'rolled_back'
+              | 'expired'
+              | 'invalidated';
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The approved scope, revision or generation changed; refresh the preview */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Historical repair requires PostgreSQL */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description A compatible repair worker or installation is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getLiekanInstallation: {
     parameters: {
       query?: never;
@@ -24450,6 +26753,15 @@ export interface operations {
           'application/json': components['schemas']['ApiError'];
         };
       };
+      /** @description The reporting revision or cursor scope changed; reload the report */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
     };
   };
   getLiekanReport: {
@@ -25061,6 +27373,15 @@ export interface operations {
            *       }
            *     }
            */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The reporting revision or cursor scope changed; reload the report */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
           'application/json': components['schemas']['ApiError'];
         };
       };
@@ -25700,6 +28021,8 @@ export interface operations {
         content: {
           'application/json': {
             available: boolean;
+            /** @constant */
+            classificationBasis?: 'collection-original';
             diagnostics?: {
               bucketEndAt: number;
               bucketStartAt: number;
@@ -25771,10 +28094,13 @@ export interface operations {
               timezone: string;
             };
             reason?: string;
+            /** @constant */
+            reportingBasis?: 'current-policy-and-active-history-repair';
             rows?: {
               classification: string;
               /** @description Date and time the record was created. */
               createdAt: string;
+              currentClassification?: string | null;
               /** @description ID of the event. */
               eventId: string;
               /** @description Hostname on which the activity occurred. */

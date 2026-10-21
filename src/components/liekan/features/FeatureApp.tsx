@@ -55,6 +55,10 @@ const CrawlerRegistryPage = dynamic(() =>
   import('./CrawlerRegistryPage').then(module => module.CrawlerRegistryPage),
 );
 const HelpCenter = dynamic(() => import('./HelpCenter').then(module => module.HelpCenter));
+const HistoryRepairPage = dynamic(() =>
+  import('./HistoryRepairPage').then(module => module.HistoryRepairPage),
+);
+import { HistoryRepairNotice } from './HistoryRepairNotice';
 import { FeatureProvider, type WebsiteDeletedNotice } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
 import { LinksPixelsPages, linksPixelsPages } from './LinksPixelsPages';
@@ -64,6 +68,7 @@ import { Button, DialogActions, LiekanDialog, Field, Form, Icon, Notice, QuerySt
 import { WorkspacePages, workspacePages } from './WorkspacePages';
 
 export const coreFeaturePages = new Set([
+  'history-repair',
   'crawlers-manage',
   'help',
   'websites',
@@ -652,6 +657,7 @@ export function FeatureApp({
           </main>
           <ProductFooter />
         </div>
+        {current.page !== 'history-repair' && <HistoryRepairNotice userId={user.id} />}
         {toast && (
           <div className="toast" role="status">
             {i18n.system(toast)}
@@ -762,6 +768,7 @@ function FeaturePage({ page }: { page: string }) {
   if (aiPages.has(page)) return <AiPages page={page} />;
   if (page === 'help') return <HelpCenter />;
   if (page === 'crawlers-manage') return <CrawlerRegistryPage />;
+  if (page === 'history-repair') return <HistoryRepairPage />;
   if (coreFeaturePages.has(page)) return <CorePages page={page} />;
   if (analysisPages.has(page)) return <AnalyticsPages page={page} />;
   if (extendedPages.has(page)) return <ExtendedPages page={page} />;

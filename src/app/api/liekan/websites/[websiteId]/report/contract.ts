@@ -2,7 +2,12 @@ import { z } from 'zod';
 import { reportQuery } from '@/lib/liekan/contracts/query';
 import { liekanReportSchema } from '@/lib/liekan/contracts/report';
 import { defineOperation } from '@/openapi/operation';
-import { badRequestResponse, notFoundResponse, unauthorizedResponse } from '@/openapi/schemas';
+import {
+  apiErrorSchema,
+  badRequestResponse,
+  notFoundResponse,
+  unauthorizedResponse,
+} from '@/openapi/schemas';
 export const operations = [
   defineOperation({
     method: 'get',
@@ -27,6 +32,10 @@ export const operations = [
         '400': badRequestResponse,
         '401': unauthorizedResponse,
         '404': notFoundResponse,
+        '409': {
+          description: 'The reporting revision or cursor scope changed; reload the report',
+          content: { 'application/json': { schema: apiErrorSchema } },
+        },
       },
     },
   }),

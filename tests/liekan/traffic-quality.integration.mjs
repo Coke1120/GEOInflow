@@ -329,9 +329,9 @@ function included(mode, hosts = []) {
     f =>
       f.source === 'browser' &&
       (mode === 'raw' ||
-      (f.classification !== 'automated' &&
-        (mode !== 'strict' || f.classification !== 'suspected') &&
-        (!hosts.length || hosts.includes(f.host)))),
+        (f.classification !== 'automated' &&
+          (mode !== 'strict' || f.classification !== 'suspected') &&
+          (!hosts.length || hosts.includes(f.host)))),
   );
 }
 function unique(rows, field = 'sessionId') {
@@ -1238,12 +1238,20 @@ try {
           'range_status',
           'range_version',
           'reasons',
+          'repair_scope_id',
           'rule_version',
           'source',
           'website_id',
         ],
       },
       'Quality evidence and receipts must have no raw IP, UA or private payload columns',
+    );
+    same(
+      await sqlJson(
+        "SELECT json_build_object('type',data_type,'nullable',is_nullable,'default',column_default) FROM information_schema.columns WHERE table_schema='public' AND table_name='liekan_event_quality' AND column_name='repair_scope_id';",
+      ),
+      { type: 'uuid', nullable: 'YES', default: null },
+      'Repair scope metadata must remain a nullable UUID without a collection default',
     );
     ensure(
       (await sql(
@@ -1577,10 +1585,64 @@ try {
         { auth: true },
       )
     ).body;
-    const supported = ["360", "alibaba", "anthropic", "baidu", "bytedance", "deepseek", "duckduckgo", "google", "iflytek", "kimi", "manus", "metaso", "microsoft", "minimax", "openai", "perplexity", "sensetime", "skywork", "sogou", "stepfun", "tencent", "zhipu"];
+    const supported = [
+      '360',
+      'alibaba',
+      'anthropic',
+      'baidu',
+      'bytedance',
+      'deepseek',
+      'duckduckgo',
+      'google',
+      'iflytek',
+      'kimi',
+      'manus',
+      'metaso',
+      'microsoft',
+      'minimax',
+      'openai',
+      'perplexity',
+      'sensetime',
+      'skywork',
+      'sogou',
+      'stepfun',
+      'tencent',
+      'zhipu',
+    ];
     const published = (await json('/api/liekan/crawler-registry', { auth: true })).body;
-    ensure(published.payload.platforms.length === 54, 'The current catalog must retain all reviewed platforms');
-    const unsupported = published.payload.platforms.map(row => row.id).filter(id => !supported.includes(id));
+    const registry = { exports: {} };
+    const bundled = buildSync({
+      stdin: {
+        contents: "export { crawlerPlatformIds } from './src/lib/liekan/crawlers/registry';",
+        resolveDir: root,
+      },
+      bundle: true,
+      platform: 'node',
+      format: 'cjs',
+      packages: 'external',
+      write: false,
+    });
+    runInNewContext(bundled.outputFiles[0].text, {
+      module: registry,
+      exports: registry.exports,
+      require: createRequire(import.meta.url),
+    });
+    const reviewedCoverage = JSON.parse(
+      await readFile(new URL('../../config/liekan/ai-platform-coverage.json', import.meta.url)),
+    );
+    same(
+      published.payload.platforms.map(platform => platform.id).sort(),
+      [
+        ...new Set([
+          ...registry.exports.crawlerPlatformIds,
+          ...reviewedCoverage.platforms.map(platform => platform.id),
+        ]),
+      ].sort(),
+      'The current catalog must retain all reviewed platforms',
+    );
+    const unsupported = published.payload.platforms
+      .map(row => row.id)
+      .filter(id => !supported.includes(id));
     same(
       analysis.platforms.map(row => row.platformId).sort(),
       [...supported, ...unsupported].sort(),

@@ -1,4 +1,15 @@
-import { initializeCrawlerRegistry, withPublishedRegistry } from '../lib/liekan/upstream/crawler-registry-context';
+import {
+  HISTORY_REPAIR_ENGINE,
+  HISTORY_REPAIR_QUEUE,
+} from '../lib/liekan/contracts/history-repair';
+import {
+  processHistoryRepairJob,
+  reconcileHistoryRepairs,
+} from '../lib/liekan/upstream/history-repair';
+import {
+  initializeCrawlerRegistry,
+  withPublishedRegistry,
+} from '../lib/liekan/upstream/crawler-registry-context';
 import { invalidateCrawlerWorkflowForRollback } from '../lib/liekan/upstream/workflow-retention';
 import { pruneTrafficObservations } from '../lib/liekan/upstream/observation-retention';
 import { maintainGeography } from '../lib/liekan/geography/update';
@@ -54,9 +65,9 @@ let stopped = false,
 async function recordHealth() {
   await transaction(tx =>
     tx.$executeRawUnsafe(
-      'INSERT INTO liekan_worker_state(id,heartbeat_at,version) VALUES($1,now(),$2) ON CONFLICT(id) DO UPDATE SET heartbeat_at=now()',
+      'INSERT INTO liekan_worker_state(id,heartbeat_at,version) VALUES($1,now(),$2) ON CONFLICT(id) DO UPDATE SET heartbeat_at=now(),version=EXCLUDED.version',
       workerId,
-      '1.0.0',
+      HISTORY_REPAIR_ENGINE,
     ),
   );
   await writeFile('/tmp/liekan-worker-heartbeat', String(Date.now()), { mode: 0o600 });
@@ -69,7 +80,7 @@ async function reconcile() {
       await tx.$executeRawUnsafe(
         'INSERT INTO liekan_worker_state(id,heartbeat_at,version) VALUES($1,now(),$2) ON CONFLICT(id) DO UPDATE SET heartbeat_at=now(),version=EXCLUDED.version',
         workerId,
-        '1.0.0',
+        HISTORY_REPAIR_ENGINE,
       );
       await tx.$executeRawUnsafe('DELETE FROM liekan_log_grant WHERE expires_at<now()');
       await tx.$executeRawUnsafe(
@@ -167,6 +178,27 @@ async function main() {
   }
   await initializeCrawlerRegistry();
   await boss.start();
+  await boss.work<{ runId: string }>(
+    HISTORY_REPAIR_QUEUE,
+    { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 2 },
+    async jobs => {
+      for (const job of jobs) await processHistoryRepairJob(job.data);
+    },
+  );
+  let repairing = false;
+  const repairMaintenance = async () => {
+    if (repairing || stopped) return;
+    repairing = true;
+    try {
+      await reconcileHistoryRepairs();
+    } finally {
+      repairing = false;
+    }
+  };
+  void repairMaintenance().catch(() => console.error('History repair maintenance unavailable'));
+  const repairTimer = setInterval(() => {
+    void repairMaintenance().catch(() => console.error('History repair maintenance unavailable'));
+  }, 60000);
   await boss.work<{ batchId: string }>(
     LOG_QUEUE,
     { localConcurrency: 4, batchSize: 1, pollingIntervalSeconds: 1 },
@@ -370,6 +402,7 @@ async function main() {
   const shutdown = async () => {
     if (stopped) return;
     stopped = true;
+    clearInterval(repairTimer);
     clearInterval(permissionTimer);
     clearInterval(recoveryTimer);
     clearInterval(cleanupTimer);

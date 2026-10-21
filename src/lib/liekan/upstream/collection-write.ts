@@ -1,3 +1,4 @@
+import { collectionRepairScope } from './history-repair-boundary';
 import { analyticsCache, websiteCacheTag } from './query-cache';
 import type { GeographyEvidence } from '../geography/evidence';
 import { randomInt } from 'node:crypto';
@@ -27,6 +28,7 @@ export class CollectionConflictError extends Error {
 interface CollectionWriteContext extends CollectionWriteInput {
   client: typeof prisma.client;
   invalidateGeography?: boolean;
+  repairScopeId?: string | null;
 }
 interface CollectionPrimary {
   $transaction<T>(
@@ -97,8 +99,8 @@ export async function recordEventQuality(
   if (quality) {
     await tx.$executeRawUnsafe(
       `INSERT INTO liekan_event_quality
-        (event_id,website_id,classification,source,reasons,rule_version,range_version,range_status,hostname,catalog_version)
-       VALUES($1::uuid,$2::uuid,$3,$4,$5::text[],$6,$7,$8,$9,$10::uuid)`,
+        (event_id,website_id,classification,source,reasons,rule_version,range_version,range_status,hostname,catalog_version,repair_scope_id)
+       VALUES($1::uuid,$2::uuid,$3,$4,$5::text[],$6,$7,$8,$9,$10::uuid,$11::uuid)`,
       eventId,
       websiteId,
       quality.classification,
@@ -109,6 +111,7 @@ export async function recordEventQuality(
       quality.rangeStatus,
       quality.hostname,
       quality.catalogVersion ?? null,
+      context.repairScopeId ?? null,
     );
   }
   if (context.observation && quality && ['browser', 'legacy_override'].includes(quality.source)) {
@@ -228,6 +231,7 @@ export async function withCollectionWrite<T>(
         ...input,
         quality,
         client: tx as typeof prisma.client,
+        repairScopeId: await collectionRepairScope(tx,input.websiteId),
       };
       const value = await writes.run(context, work);
       invalidateGeography = !!context.invalidateGeography;

@@ -84,7 +84,8 @@
     "liekan:analytics-worker": "node dist/liekan-analytics-worker.mjs",
     "liekan:cache-benchmark": "tsx scripts/liekan-cache-benchmark.ts",
     "liekan:ai:maintenance": "node generated/ai-maintenance.mjs",
-    "test:crawler-evidence": "node tests/liekan/crawler-evidence.integration.mjs"
+    "test:crawler-evidence": "node tests/liekan/crawler-evidence.integration.mjs",
+    "test:history-repair": "node tests/liekan/history-repair.integration.mjs"
   },
   "cacheDirectories": [
     ".next/cache"

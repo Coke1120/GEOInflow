@@ -197,6 +197,7 @@ export const geoPaths: Record<string, string> = {
 };
 
 const pageDefinitions: Array<[PageScope, string, string | undefined, string[]]> = [
+  ['global', 'websites', 'websites', ['history-repair']],
   ['global', 'crawlers-manage', undefined, ['crawlers-manage']],
   ['global', 'ai-chat', undefined, ['ai-chat']],
   ['global', 'ai-config', undefined, ['ai-config']],
@@ -261,6 +262,7 @@ for (const group of websiteNavigation) {
   }
 }
 const titles: Record<string, string> = {
+  'history-repair': '历史数据修复',
   'crawlers-manage': '爬虫管理',
   'ai-chat': '快速发起',
   'ai-config': 'AI配置器',

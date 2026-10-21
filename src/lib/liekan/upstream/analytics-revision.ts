@@ -37,8 +37,13 @@ export async function readAnalyticsVersions(tx: any, tags: string[]): Promise<An
      FROM liekan_log_state WHERE website_id=ANY($1::uuid[]) ORDER BY website_id`,
     ids,
   );
+  const repairs = await tx.$queryRawUnsafe(
+    `SELECT website_id::text AS id,active_generation::text AS generation,active_revision::text AS revision
+     FROM liekan_history_repair_run WHERE website_id=ANY($1::uuid[]) ORDER BY website_id`,
+    ids,
+  );
   return {
-    strong: JSON.stringify([TRAFFIC_POLICY_VERSION,getPublishedCatalog()?.version || 'bundled',ids, revisions, logs.map(({ id, policy }: any) => ({ id, policy }))]),
+    strong: JSON.stringify([TRAFFIC_POLICY_VERSION,'history-repair-v1.1',repairs,getPublishedCatalog()?.version || 'bundled',ids, revisions, logs.map(({ id, policy }: any) => ({ id, policy }))]),
     data: JSON.stringify(logs.map(({ id, data }: any) => ({ id, data }))),
   };
 }

@@ -13,7 +13,7 @@ const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(valu
 export async function attachReportEvidenceView(report: LiekanReport, p: ReportQuery) {
   if (p.crawlerMetricsVersion !== 1 || !['ai/bots', 'ai/pages', 'logs'].includes(p.resource))
     return report;
-  const [catalog, policies, states] = await Promise.all([
+  const [catalog, policies, states, repairs] = await Promise.all([
     query(
       'SELECT path,updated_at AS "updatedAt" FROM liekan_catalog WHERE website_id=$1::uuid ORDER BY path',
       report.website.id,
@@ -23,6 +23,7 @@ export async function attachReportEvidenceView(report: LiekanReport, p: ReportQu
       report.website.id,
     ),
     query('SELECT epoch FROM liekan_log_state WHERE website_id=$1::uuid', report.website.id),
+    query('SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',report.website.id),
   ]);
   const policySnapshot = hash({
     catalog: hash(catalog),
@@ -31,6 +32,7 @@ export async function attachReportEvidenceView(report: LiekanReport, p: ReportQu
     policy: policies[0] || { mode: 'standard', revision: '0' },
     epoch: states[0]?.epoch ?? 1,
     metricVersion: CRAWLER_METRIC_VERSION,
+    historyRepair: repairs[0] || {generation:null,revision:'0'},
   });
   const { refresh: _refresh, ...conditions } = p;
   report.meta.crawlerEvidenceView = {

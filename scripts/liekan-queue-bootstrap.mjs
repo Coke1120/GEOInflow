@@ -52,6 +52,16 @@ try {
       deadLetter: 'liekan-dead-letter',
     });
   }
+  const historyRepairOptions = {
+    retryLimit: 3,
+    retryDelay: 5,
+    retryBackoff: true,
+    expireInSeconds: 120,
+    retentionSeconds: 7 * 86400,
+    deadLetter: 'liekan-dead-letter',
+  };
+  await boss.createQueue('liekan-history-repair', historyRepairOptions);
+  await boss.updateQueue('liekan-history-repair', historyRepairOptions);
   // Match worker send options and update existing queues when upgrading.
   const sourceRetry = { retryLimit: 6, retryDelay: 30, retryBackoff: true };
   await boss.updateQueue('liekan-range-refresh', { expireInSeconds: 600, ...sourceRetry });

@@ -98,6 +98,15 @@ export function assertNumericSnapshot(values) {
 /** Uses new Playwright contexts; it never resizes a user's browser window. */
 export async function checkEnglishExperience({ browser, base, seed, token, partial, routes }) {
   isolatedAcceptanceTarget(base);
+  const featureIds = JSON.parse(
+    fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'),
+  ).pages.map(page => page.id);
+  assert.deepEqual(
+    routes.map(route => route.id),
+    [...featureIds, ...Array.from({ length: 13 }, (_, index) => `geo-${index}`), 'help'],
+    'Every approved feature, GEO and help view must run',
+  );
+  const widths = [1440, 390];
   const out = 'test-results/liekan-i18n';
   fs.mkdirSync(out, { recursive: true });
   const report = {
@@ -203,7 +212,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       );
     }
     report.checks.push({ name: 'server-cookie-request-isolation', passed: true });
-    for (const width of [1440, 390]) {
+    for (const width of widths) {
       const authenticated = await context(width, token),
         auth = await context(width),
         publicContext = await context(width);
@@ -339,8 +348,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       await authenticated.close();
       await auth.close();
     }
-    assert.equal(routes.length, 82, 'Every approved feature, GEO and help view must run');
-    assert.equal(report.pages.length, 164);
+    assert.equal(report.pages.length, routes.length * widths.length);
     assert(
       report.pages.every(page => page.passed),
       report.pages

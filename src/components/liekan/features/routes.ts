@@ -24,6 +24,7 @@ export const featurePages = [
   },
 ];
 const unscopedPages = new Set([
+  'history-repair',
   'crawlers-manage',
   'ai-chat',
   'ai-config',
@@ -47,7 +48,8 @@ const unscopedPages = new Set([
   'share-preview',
 ]);
 export function normalizeFeatureScope(route: FeatureRoute): FeatureRoute {
-  if (['help', 'crawlers-manage'].includes(route.page)) return { page: route.page };
+  if (['help', 'crawlers-manage', 'history-repair'].includes(route.page))
+    return { page: route.page };
   return {
     ...route,
     ...(['ai-chat', 'ai-config'].includes(route.page)
@@ -69,6 +71,7 @@ export function matchFeatureRoute(
   pathname: string,
   query: Record<string, string> = {},
 ): FeatureRoute | null {
+  if (/^\/settings\/data-repair\/?$/.test(pathname)) return { page: 'history-repair' };
   if (/^\/crawlers\/manage\/?$/.test(pathname)) return { page: 'crawlers-manage' };
   if (query.legacy === '1') return null;
   if (/^\/liekan\/?$/.test(pathname)) return { page: 'websites' };
@@ -118,6 +121,13 @@ export function matchFeatureRoute(
   return null;
 }
 export function featureHref(page: string, params: Record<string, any> = {}): string {
+  if (page === 'history-repair') {
+    const search = new URLSearchParams();
+    if (typeof params.websiteId === 'string' && /^[a-f0-9-]{36}$/i.test(params.websiteId))
+      search.set('websiteId', params.websiteId);
+    if (params.tab === 'history') search.set('tab', 'history');
+    return `/settings/data-repair${search.size ? '?' + search.toString() : ''}`;
+  }
   if (page === 'crawlers-manage') {
     const search = new URLSearchParams();
     if (typeof params.site === 'string' && /^[a-f0-9-]{36}$/i.test(params.site))
@@ -224,7 +234,8 @@ export function featureNavigationHref(
   page: string,
   params: Record<string, any> = {},
 ) {
-  if (['help', 'crawlers-manage'].includes(page)) return featureHref(page, params);
+  if (['help', 'crawlers-manage', 'history-repair'].includes(page))
+    return featureHref(page, params);
   if (route.context === 'admin' && page === 'teams') page = 'admin-teams';
   if (route.context === 'admin' && page === 'websites') page = 'admin-websites';
   const target = {

@@ -60,6 +60,7 @@ export function crawlerRange(search: URLSearchParams, now = Date.now()) {
 
 export const crawlerBase = `FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id
   WHERE l.website_id=$1::uuid AND l.created_at>=$2::timestamptz AND l.created_at<$3::timestamptz AND l.user_agent NOT LIKE 'Liekan-Crawler-Check/%'`;
+const reportingCrawlerBase = crawlerBase.replace('liekan_effective_log','liekan_reporting_log');
 export const crawlerCountColumns = `count(*)::float8 AS requests,
   count(*) FILTER(WHERE status>=100 AND status<200)::float8 AS "status1xx",
   count(*) FILTER(WHERE status>=200 AND status<300)::float8 AS "status2xx",
@@ -176,18 +177,18 @@ async function crawlerAnalysisSnapshot(
           const args = [websiteId, new Date(startAt), new Date(endAt)];
           const quality = await crawlerWindowQuality(tx, websiteId, startAt, endAt, timezone);
           const bots = await tx.query<CrawlerAnalyzedBot>(
-            `SELECT e.crawler_id AS "botId",l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes,
+            `SELECT l.reporting_crawler_id AS "botId",l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes,
       count(*) FILTER(WHERE verification='verified_range')::float8 AS "verifiedRange",count(*) FILTER(WHERE verification='verified_dns')::float8 AS "verifiedDns",count(*) FILTER(WHERE verification='verified_edge')::float8 AS "verifiedEdge",count(*) FILTER(WHERE verification='range_mismatch')::float8 AS "rangeMismatch",
       count(*) FILTER(WHERE verification NOT IN('verified_range','verified_dns','verified_edge','range_mismatch'))::float8 AS unverified,
       count(distinct path) FILTER(WHERE method='GET' AND status>=200 AND status<300 AND EXISTS(SELECT 1 FROM liekan_catalog c WHERE c.website_id=l.website_id AND c.path=l.path))::int AS "successfulCatalogPages",
-      max(created_at) AS "lastVisit",count(*) FILTER(WHERE e.classification_version IS NULL)::int AS "legacyRecords" ${crawlerBase}${crawlerIdentitySql(identityScope, 'l')} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2 ORDER BY requests DESC`,
+      max(created_at) AS "lastVisit",count(*) FILTER(WHERE l.reporting_classification_version IS NULL)::int AS "legacyRecords" ${reportingCrawlerBase}${crawlerIdentitySql(identityScope, 'l')} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2 ORDER BY requests DESC`,
             ...args,
           );
           const pages = await tx.query<CrawlerAnalyzedPage>(
-            `SELECT e.crawler_id AS "botId",path,l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes,
+            `SELECT l.reporting_crawler_id AS "botId",path,l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes,
       count(*) FILTER(WHERE ${crawlerOwnedBlock})::int AS "ownedTerminatingBlocks",
       count(*) FILTER(WHERE ${crawlerOwnedMatch})::int AS "ownedMatches"
-      ${crawlerBase}${crawlerIdentitySql(identityScope, 'l')} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2,3 ORDER BY requests DESC,path LIMIT 1001`,
+      ${reportingCrawlerBase}${crawlerIdentitySql(identityScope, 'l')} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2,3 ORDER BY requests DESC,path LIMIT 1001`,
             ...args,
           );
           const duration = endAt - startAt;
@@ -197,7 +198,7 @@ async function crawlerAnalysisSnapshot(
             timezone,
           };
           const previousBots = await tx.query(
-            `SELECT e.crawler_id AS "botId",l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes ${crawlerBase}${crawlerIdentitySql(identityScope, 'l')} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2`,
+            `SELECT l.reporting_crawler_id AS "botId",l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes ${reportingCrawlerBase}${crawlerIdentitySql(identityScope, 'l')} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2`,
             websiteId,
             new Date(previousRange.startAt),
             new Date(previousRange.endAt),

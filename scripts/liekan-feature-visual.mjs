@@ -37,11 +37,25 @@ assert.deepEqual(
     .filter(id => id !== 'help')
     .sort(),
   manifest.pages.map(p => p.id).sort(),
-  'All 66 feature scenarios require independent navigation expectations',
+  'Every feature scenario requires independent navigation expectations',
 );
 const aiReference = JSON.parse(fs.readFileSync('config/liekan/ai-ui.json', 'utf8'));
-const originalPages = manifest.pages.filter(page => !aiReference.scope.includes(page.id));
+const incrementalPages = manifest.pages.filter(page =>
+  navigationBaseline.incrementalVisualPages.includes(page.id),
+);
+assert.deepEqual(
+  incrementalPages.map(page => page.id),
+  navigationBaseline.incrementalVisualPages,
+  'Every approved incremental page must run',
+);
+const originalPages = manifest.pages.filter(
+  page =>
+    !aiReference.scope.includes(page.id) &&
+    !navigationBaseline.incrementalVisualPages.includes(page.id),
+);
 assert.equal(originalPages.length, 66, 'Preserve all original supplemental page checks');
+for (const page of originalPages)
+  assert(featureReference.files[page.id + '.html'], `Missing original reference: ${page.id}`);
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const out = 'test-results/liekan-features';
 fs.mkdirSync(out, { recursive: true });
@@ -208,6 +222,7 @@ for (const page of [actual, auth])
   });
 await auth.addInitScript(token => sessionStorage.setItem('umami.partial-token', token), partial);
 const results = [];
+const incrementalResults = [];
 const contextResults = [];
 const report = {
   head,
@@ -217,6 +232,7 @@ const report = {
   pages: originalPages.length,
   widths: [1440, 1280, 375, 320],
   checks: results,
+  incrementalChecks: incrementalResults,
   contextChecks: contextResults,
   errors,
 };
@@ -338,6 +354,22 @@ try {
     await actual.setViewportSize({ width, height: 1000 });
     await reference.setViewportSize({ width, height: 1000 });
     await auth.setViewportSize({ width, height: 1000 });
+    for (const p of incrementalPages) {
+      await actual.goto(base + `/liekan/${p.id}?${params(p.id)}`);
+      await ready(actual);
+      const current = await geometry(actual);
+      assert(current.contentCount > 0, `${p.id} has no rendered content`);
+      assert.equal(current.overflow, 0, `${p.id} viewport overflow`);
+      assert.equal(current.title, navigationBaseline.pages[p.id].title, `${p.id} visible title`);
+      assert(!current.bodyText.includes('读取失败'), `${p.id} failed to read actual data`);
+      const navigation = await navigationAcceptance(actual, navigationBaseline.pages[p.id], width);
+      await actual.screenshot({
+        path: `${out}/${p.id}-${width}-actual.png`,
+        fullPage: true,
+        animations: 'disabled',
+      });
+      incrementalResults.push({ id: p.id, width, passed: true, navigation });
+    }
     for (const p of originalPages) {
       const authPage = ['login', 'login-2fa', 'sso'].includes(p.id),
         page = authPage ? auth : actual;
@@ -510,6 +542,7 @@ try {
       .join('\n'),
   );
   assert.equal(errors.length, 0, errors.join('\n'));
+  assert.equal(incrementalResults.length, incrementalPages.length * report.widths.length);
   assert(
     results.length === originalPages.length * report.widths.length && results.every(r => r.passed),
     results

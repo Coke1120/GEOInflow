@@ -12,7 +12,7 @@ test('all crawler endpoints require a full session before reading or accepting c
     /\/crawler-|\/control-connections/.test(operation.path),
   );
   const publicShare = await share();
-  expect(endpoints).toHaveLength(38);
+  expect(endpoints).toHaveLength(41);
   for (const endpoint of endpoints) {
     const method = endpoint.method.toUpperCase() as HttpMethod;
     const path = endpoint.path.replace(/\{[^}]+\}/g, '11111111-1111-4111-8111-111111111111');
@@ -47,7 +47,15 @@ test.describe('crawler snapshots and local drafts', () => {
     const sources = await admin.get(sourcesPath);
     expect(sources.status, sources.text).toBe(200);
     expect(sources.headers['cache-control']).toMatch(/private.*no-store/);
-    expect(sources.body.ipSources).toHaveLength(23);
+    const registry = await admin.get('/api/liekan/crawler-registry');
+    expect(registry.status, registry.text).toBe(200);
+    expect(sources.body.catalogVersion).toBe(registry.body.version);
+    expect(sources.body.ipSources.map(source => source.id).sort()).toEqual(
+      registry.body.payload.rangeSources
+        .filter(source => source.enabled !== false)
+        .map(source => source.id)
+        .sort(),
+    );
     expect(sources.body.ipSources.map(source => source.id)).toEqual(
       expect.arrayContaining(['amazonbot', 'amazon-search', 'amazon-user']),
     );
@@ -61,7 +69,17 @@ test.describe('crawler snapshots and local drafts', () => {
       expect(response.headers['cache-control']).toMatch(/private.*no-store/);
       if (endpoint === 'crawler-recognition') {
         expect(response.body.mode).toBe('official');
-        expect(response.body.enabledIds).toHaveLength(57);
+        expect(response.body.enabledIds.sort()).toEqual(
+          registry.body.payload.identities
+            .filter(
+              identity =>
+                identity.status === 'active' &&
+                (identity.kind === 'signed_agent' ||
+                  (identity.kind === 'http_crawler' && identity.uaSelector)),
+            )
+            .map(identity => identity.id)
+            .sort(),
+        );
         expect(response.body.classificationVersion).toMatch(/^[a-f0-9]{64}$/);
       } else {
         expect(response.body).toMatchObject({

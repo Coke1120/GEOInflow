@@ -1,3 +1,4 @@
+import { sendBrowserFixture } from './seed/ingest';
 import { expect, test } from './fixtures';
 import { EVENT_TYPE, UNKNOWN_UUID } from './helpers/constants';
 import { dateRange, TIMEZONE } from './helpers/dates';
@@ -270,7 +271,7 @@ test.describe('Sessions', () => {
 
       websiteId = (await createWebsite(admin)).id;
 
-      const sent = await api.post('/api/send', {
+      const sent = await sendBrowserFixture(api, {
         type: 'event',
         payload: {
           website: websiteId,

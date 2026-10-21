@@ -92,6 +92,7 @@ export const pageCacheModules: Record<string, Record<string, PageCacheMode>> = {
 // AI reads retain their authenticated no-store API and conversation snapshot boundaries.
 pageCacheModules['ai-chat'] = { catalog: 'direct', conversations: 'direct', answers: 'direct' };
 pageCacheModules['crawlers-manage'] = { catalog: 'direct', drafts: 'direct' };
+pageCacheModules['history-repair'] = { tasks: 'direct', previews: 'direct', records: 'direct' };
 pageCacheModules['ai-config'] = { connections: 'direct', connectionTests: 'direct' };
 for (const page of [
   'overview',

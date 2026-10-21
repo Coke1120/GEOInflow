@@ -850,6 +850,7 @@ async function executeRawQuery(
     log('NAME:\n', name);
   }
   const params = [];
+  const bindings = new Map<string, string>();
   const schema = getSchema();
 
   const query = sql?.replaceAll(/\{\{\s*(\w+)(::\w+)?\s*}}/g, (...args) => {
@@ -859,21 +860,27 @@ async function executeRawQuery(
 
     params.push(value);
 
-    return `$${params.length}${type ?? ''}`;
+    const reference = `$${params.length}${type ?? ''}`;
+    if (!bindings.has(name)) bindings.set(name, reference);
+    return reference;
   });
 
   const queryClient =
     (!write && getQuerySnapshot()) ||
     getRawQueryClient(client, {
-      useReplica: !!process.env.DATABASE_REPLICA_URL,
-      write,
+      // Website analytics read repair pointers and facts from the same primary database.
+      useReplica: !!process.env.DATABASE_REPLICA_URL && !data.websiteId && !data.websiteIds,
+      write: write || !!data.websiteId || !!data.websiteIds,
     });
 
   if (schema) {
     await queryClient.$executeRawUnsafe(`SET search_path TO "${schema}";`);
   }
 
-  return queryClient.$queryRawUnsafe(write ? query : withTrafficPolicy(query), ...params);
+  return queryClient.$queryRawUnsafe(
+    write ? query : withTrafficPolicy(query, propertyWindowForQuery(name, bindings)),
+    ...params,
+  );
 }
 
 async function rawQuery(sql: string, data: Record<string, any>, name?: string): Promise<any> {
@@ -986,17 +993,23 @@ async function pagedRawQuery(
     ? `select count(*) as num from (select 1 from (${query}) t limit ${+maxResults}) t2`
     : `select count(*) as num from (${query}) t`;
 
-  const count = await rawQuery(countQuery, queryParams).then(res => Number(res[0].num));
-  const data = await rawQuery(`${query}${statements}`, queryParams, name);
-
-  return {
-    data,
-    count,
-    page: +page,
-    pageSize: size,
-    orderBy,
-    isCapped: !!maxResults && +count >= +maxResults,
+  const load = async () => {
+    const count = await rawQuery(
+      countQuery,
+      queryParams,
+      name === 'getEventDataPivot' ? name : undefined,
+    ).then(res => Number(res[0].num));
+    const data = await rawQuery(`${query}${statements}`, queryParams, name);
+    return {
+      data,
+      count,
+      page: +page,
+      pageSize: size,
+      orderBy,
+      isCapped: !!maxResults && +count >= +maxResults,
+    };
   };
+  return queryParams.websiteId ? nativeSnapshot(load) : load();
 }
 
 function getSearchParameters(query: string, filters: Record<string, any>[]) {
@@ -1122,4 +1135,9 @@ export default {
   rawQuery,
   writeRawQuery,
 };
-import { TRAFFIC_POLICY_VERSION, withTrafficPolicy } from './liekan/upstream/traffic-query';
+import {
+  TRAFFIC_POLICY_VERSION,
+  withTrafficPolicy,
+  propertyWindowForQuery,
+} from './liekan/upstream/traffic-query';
+import { nativeSnapshot } from './liekan/upstream/native-snapshot';

@@ -177,6 +177,7 @@ export const aiFactsContextSchema = z.object({
   metricVersion: z.literal('liekan-ai-facts-v1'),
   catalogVersion: aiUuidSchema.optional(),
   trafficPolicyVersion: z.string().min(1).max(128).optional(),
+  historyRepair: z.object({generation:aiUuidSchema.nullable(),revision:z.string().regex(/^\d+$/)}).optional(),
   promptVersion: z.literal('liekan-ai-prompt-v1'),
   coverage: z.literal('unverified'),
   rangeNotes: z.object({

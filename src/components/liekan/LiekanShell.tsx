@@ -19,6 +19,7 @@ import { AnalysisTabs } from './AnalysisTabs';
 import { DataLoading } from './DataLoading';
 import { featureNavigationHref, matchFeatureRoute } from './features/routes';
 import { Navigation, useSidebarWidth } from './Navigation';
+import { HistoryRepairNotice } from './features/HistoryRepairNotice';
 import { ProductFooter } from './ProductFooter';
 import { WebsiteToolbar } from './WebsiteToolbar';
 import type { LiekanReport } from './types';
@@ -109,6 +110,7 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
             )}
           </div>
           <ProductFooter />
+          <HistoryRepairNotice userId={user.id} />
         </div>
       </div>
     </ShellContext.Provider>

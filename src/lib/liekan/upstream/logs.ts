@@ -44,13 +44,13 @@ async function readLogFacts(
       ? "created_at >= $2::timestamptz AND created_at < $3::timestamptz AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'"
       : 'created_at BETWEEN $2::timestamptz AND $3::timestamptz';
   const identityScope = crawlerIdentitySql(metrics.crawlerIdentityScope);
-  const base = `FROM liekan_effective_log WHERE website_id=$1::uuid AND ${timeCondition} AND $4::text IS NOT NULL${identityScope}`;
+  const base = `FROM liekan_reporting_log WHERE website_id=$1::uuid AND ${timeCondition} AND $4::text IS NOT NULL${identityScope}`;
   const ai = ` AND ${crawlerAiSql()}`;
   const unknown = unknownCrawlerSql();
   const known = ` AND NOT ${unknown}`;
   const identityBase = base.replace(
-    'FROM liekan_effective_log WHERE website_id=',
-    'FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=',
+    'FROM liekan_reporting_log WHERE website_id=',
+    'FROM liekan_reporting_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=',
   );
   const args = [id, start, end, timezone];
   const q = (sql: string) => read(sql, ...args);
@@ -59,7 +59,7 @@ async function readLogFacts(
   // Missing historical bindings remain unknown; current catalog edits cannot reclassify them.
   const formScope = `WITH scoped_crawlers AS MATERIALIZED (
     SELECT bot,vendor,bot_type,path,created_at,ai_eligible,recognition_state,
-      e.crawler_id AS "botId",e.catalog_version
+      l.reporting_crawler_id AS "botId",l.reporting_catalog_version AS catalog_version
     ${identityBase}${known}
   ), catalog_forms AS MATERIALIZED (
     SELECT v.version,i.identity->>'id' AS "botId",i.identity->>'productForm' AS form
@@ -98,12 +98,12 @@ async function readLogFacts(
   const [cursorClassification] =
     metrics.crawlerMetricsVersion === 1
       ? await q(
-          `SELECT coalesce(string_agg(DISTINCT e.classification_version,','),'legacy') AS versions ${identityBase}${filterSql}`,
+          `SELECT coalesce(string_agg(DISTINCT l.reporting_classification_version,','),'legacy') AS versions ${identityBase}${filterSql}`,
         )
       : [];
+  const [repair]=await read('SELECT active_generation::text,active_revision::text FROM liekan_history_repair_run WHERE website_id=$1::uuid',id);
   const cursorScope =
-    metrics.crawlerMetricsVersion === 1
-      ? createHash('sha256')
+    createHash('sha256')
           .update(
             JSON.stringify({
               id,
@@ -118,13 +118,13 @@ async function readLogFacts(
               },
               classification: CRAWLER_POPULATION_VERSION,
               catalogVersion: getPublishedCatalog()?.version ?? null,
+              historyRepair: {generation:repair?.active_generation||null,revision:repair?.active_revision||'0'},
               classificationVersions: cursorClassification?.versions ?? null,
               epoch: cursorState?.epoch ?? 1,
               policyRevision: cursorState?.policy_revision ?? '0',
             }),
           )
-          .digest('hex')
-      : undefined;
+          .digest('hex');
   let boundary: [Date, string];
   if (cursor) {
     try {
@@ -132,7 +132,7 @@ async function readLogFacts(
       // Its original keyset boundary survives a late record introducing a classification version.
       boundary = comparisonBoundary ?? decodeCursor(cursor, cursorScope);
     } catch {
-      throw new LiekanError('日志游标无效');
+      throw new LiekanError('日志游标已失效，请重新读取',409,'history-repair-cursor-conflict');
     }
   }
   const seekSql = cursor
@@ -145,19 +145,19 @@ async function readLogFacts(
     await Promise.all([
       needs('summary')
         ? q(
-            `SELECT count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai,count(distinct path) FILTER(WHERE ${crawlerAiSql()})::int AS pages,count(*) FILTER(WHERE status>=400)::int AS abnormal,count(distinct coalesce(e.classification_version,'legacy'))::int AS "classificationVersions",count(*) FILTER(WHERE ai_eligible IS NULL)::int AS "legacyRequests",count(*) FILTER(WHERE ${unknown})::int AS "unclassifiedRequests" ${identityBase}`,
+            `SELECT count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai,count(distinct path) FILTER(WHERE ${crawlerAiSql()})::int AS pages,count(*) FILTER(WHERE status>=400)::int AS abnormal,count(distinct coalesce(l.reporting_classification_version,'legacy'))::int AS "classificationVersions",count(*) FILTER(WHERE ai_eligible IS NULL)::int AS "legacyRequests",count(*) FILTER(WHERE ${unknown})::int AS "unclassifiedRequests" ${identityBase}`,
           )
         : Promise.resolve([{ requests: 0, ai: 0, pages: 0, abnormal: 0 }]),
       needs('daily')
         ? q(
-            `SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,bot,vendor,e.crawler_id AS "botId",count(*)::int AS count,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY 1`,
+            `SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,bot,vendor,l.reporting_crawler_id AS "botId",count(*)::int AS count,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY 1`,
           )
         : Promise.resolve([]),
       needs('bots')
         ? withForms
           ? read(formBots, ...args, metrics.botProductForm ?? null, metrics.botCategory ?? null)
           : q(
-              `SELECT bot AS name,vendor,bot_type AS type,e.crawler_id AS "botId",count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests",count(distinct path)::int AS pages,max(created_at) AS "lastVisit" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY requests DESC,name,"botId"`,
+              `SELECT bot AS name,vendor,bot_type AS type,l.reporting_crawler_id AS "botId",count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests",count(distinct path)::int AS pages,max(created_at) AS "lastVisit" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY requests DESC,name,"botId"`,
             )
         : Promise.resolve([]),
       needs('pages')
@@ -176,7 +176,7 @@ async function readLogFacts(
               metrics.resource === 'ai/pages' && !metrics.botId ? (metrics.botName ?? null) : null,
             )
           : read(
-              `SELECT path,bot,e.crawler_id AS "botId",count(*)::int AS requests,max(created_at) AS "lastCrawled" ${identityBase}${ai} GROUP BY 1,2,3 ORDER BY requests DESC`,
+              `SELECT path,bot,l.reporting_crawler_id AS "botId",count(*)::int AS requests,max(created_at) AS "lastCrawled" ${identityBase}${ai} GROUP BY 1,2,3 ORDER BY requests DESC`,
               ...args,
             )
         : Promise.resolve([]),
@@ -204,7 +204,7 @@ async function readLogFacts(
         : Promise.resolve([]),
       needs('recent')
         ? read(
-            `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,e.crawler_id AS "botId",e.catalog_version AS "catalogVersion",e.identity_evidence AS "identityEvidence",bot_type AS "botType",verification,${crawlerAiSql()} AS "aiEligible",recognition_state AS "recognitionState",verification_version AS "verificationVersion",verification_observed_at AS "verificationObservedAt",verification_reason AS "verificationReason" ${identityBase}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'verified_dns' THEN '官方 DNS 双向核验' WHEN 'verified_edge' THEN '可信边缘身份核验' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT ${fullExport ? 100001 : 100}${paginationSql}`,
+            `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,l.reporting_crawler_id AS "botId",l.reporting_catalog_version AS "catalogVersion",e.identity_evidence AS "identityEvidence",bot_type AS "botType",verification,${crawlerAiSql()} AS "aiEligible",recognition_state AS "recognitionState",verification_version AS "verificationVersion",verification_observed_at AS "verificationObservedAt",verification_reason AS "verificationReason" ${identityBase}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'verified_dns' THEN '官方 DNS 双向核验' WHEN 'verified_edge' THEN '可信边缘身份核验' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT ${fullExport ? 100001 : 100}${paginationSql}`,
             ...args,
             search,
             ...(cursor ? boundary : [(page - 1) * 100]),
@@ -236,7 +236,7 @@ async function readLogFacts(
       ? await read(
           withForms
             ? formBots
-            : `SELECT bot AS name,vendor,bot_type AS type,e.crawler_id AS "botId",count(*)::int AS requests FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=$1::uuid AND ${timeCondition}${identityScope} GROUP BY 1,2,3,4`,
+            : `SELECT bot AS name,vendor,bot_type AS type,l.reporting_crawler_id AS "botId",count(*)::int AS requests FROM liekan_reporting_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=$1::uuid AND ${timeCondition}${identityScope} GROUP BY 1,2,3,4`,
           id,
           new Date(
             Math.max(
@@ -256,7 +256,7 @@ async function readLogFacts(
 export async function getLogToday(id: string, start: Date, end: Date) {
   const [rows, imports] = await Promise.all([
     query(
-      `SELECT count(*) FILTER(WHERE path !~* '${staticRequestExtensionPattern}')::int AS requests,count(*) FILTER(WHERE status>=400)::int AS abnormal FROM liekan_effective_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3`,
+      `SELECT count(*) FILTER(WHERE path !~* '${staticRequestExtensionPattern}')::int AS requests,count(*) FILTER(WHERE status>=400)::int AS abnormal FROM liekan_reporting_log WHERE website_id=$1::uuid AND created_at BETWEEN $2 AND $3`,
       id,
       start,
       end,
@@ -287,8 +287,8 @@ export async function getContentImpact(
     `WITH targets AS (SELECT * FROM jsonb_to_recordset($2::jsonb) AS c(path text,"humanPath" text,"publishedAt" timestamptz))
     SELECT c.path,
     (SELECT count(*)::int FROM website_event e WHERE e.website_id=$1::uuid AND e.url_path=c."humanPath" AND e.event_type=1 AND e.created_at>=c."publishedAt" AND e.created_at<c."publishedAt"+interval '7 days') AS pv,
-    (SELECT count(*)::int FROM liekan_effective_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND ${crawlerAiSql('l')}${crawlerIdentitySql(metrics.crawlerIdentityScope, 'l')}${metrics.crawlerMetricsVersion === 1 ? " AND l.user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : ''} AND l.created_at>=c."publishedAt" AND l.created_at<c."publishedAt"+interval '7 days')-
-    (SELECT count(*)::int FROM liekan_effective_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND ${crawlerAiSql('l')}${crawlerIdentitySql(metrics.crawlerIdentityScope, 'l')}${metrics.crawlerMetricsVersion === 1 ? " AND l.user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : ''} AND l.created_at>=c."publishedAt"-interval '7 days' AND l.created_at<c."publishedAt") AS increment
+    (SELECT count(*)::int FROM liekan_reporting_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND ${crawlerAiSql('l')}${crawlerIdentitySql(metrics.crawlerIdentityScope, 'l')}${metrics.crawlerMetricsVersion === 1 ? " AND l.user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : ''} AND l.created_at>=c."publishedAt" AND l.created_at<c."publishedAt"+interval '7 days')-
+    (SELECT count(*)::int FROM liekan_reporting_log l WHERE l.website_id=$1::uuid AND l.path=c.path AND ${crawlerAiSql('l')}${crawlerIdentitySql(metrics.crawlerIdentityScope, 'l')}${metrics.crawlerMetricsVersion === 1 ? " AND l.user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : ''} AND l.created_at>=c."publishedAt"-interval '7 days' AND l.created_at<c."publishedAt") AS increment
     FROM targets c ORDER BY c."publishedAt" DESC`,
     id,
     JSON.stringify(
@@ -303,7 +303,7 @@ export async function getMonthlyAiShare(
   metrics: CrawlerMetricOptions = { crawlerIdentityScope: 'all' },
 ) {
   const rows = await query<{ month: string; total: number; ai: number }>(
-    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai FROM liekan_effective_log WHERE website_id=$1::uuid ${crawlerIdentitySql(metrics.crawlerIdentityScope)}${metrics.crawlerMetricsVersion === 1 ? " AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : ''} AND created_at${metrics.crawlerMetricsVersion === 1 ? '<' : '<='}$2 AND created_at>=((date_trunc('month',$2::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
+    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai FROM liekan_reporting_log WHERE website_id=$1::uuid ${crawlerIdentitySql(metrics.crawlerIdentityScope)}${metrics.crawlerMetricsVersion === 1 ? " AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : ''} AND created_at${metrics.crawlerMetricsVersion === 1 ? '<' : '<='}$2 AND created_at>=((date_trunc('month',$2::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
     id,
     end,
     timezone,
@@ -323,7 +323,7 @@ export async function getPlotLogs(
   metrics: CrawlerMetricOptions = { crawlerIdentityScope: 'all' },
 ) {
   return query(
-    `SELECT to_char(created_at AT TIME ZONE $4,'${hour ? 'YYYY-MM-DD HH24:00' : 'YYYY-MM-DD'}') AS day,bot,bot_type AS type,count(*)::int AS count,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests" FROM liekan_effective_log WHERE website_id=$1::uuid AND ${metrics.crawlerMetricsVersion === 1 ? "created_at>=$2 AND created_at<$3 AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : 'created_at BETWEEN $2 AND $3'}${crawlerIdentitySql(metrics.crawlerIdentityScope)} GROUP BY 1,2,3 ORDER BY 1`,
+    `SELECT to_char(created_at AT TIME ZONE $4,'${hour ? 'YYYY-MM-DD HH24:00' : 'YYYY-MM-DD'}') AS day,bot,bot_type AS type,count(*)::int AS count,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests" FROM liekan_reporting_log WHERE website_id=$1::uuid AND ${metrics.crawlerMetricsVersion === 1 ? "created_at>=$2 AND created_at<$3 AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : 'created_at BETWEEN $2 AND $3'}${crawlerIdentitySql(metrics.crawlerIdentityScope)} GROUP BY 1,2,3 ORDER BY 1`,
     id,
     start,
     end,
