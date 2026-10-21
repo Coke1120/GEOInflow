@@ -195,6 +195,7 @@ export function syntheticRelations() {
         logs,
       ),
       'liekan_effective_log AS (SELECT * FROM liekan_log)',
+      'liekan_reporting_log AS (SELECT * FROM liekan_effective_log)',
     ].join(',')
   );
 }
