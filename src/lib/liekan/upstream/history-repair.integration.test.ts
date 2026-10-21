@@ -207,6 +207,173 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
     );
     first = await event('2020-01-01T00:00:00.000001Z');
   });
+  it('aggregates fresh property statistics within the native statement budget', async () => {
+    const { getEventDataStats } = await import('@/queries/sql/events/getEventDataStats');
+    const { reportSnapshot } = await import('./server');
+    await execute(
+      `INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name)
+       SELECT gen_random_uuid(),$1::uuid,$2::uuid,$2::uuid,'2020-01-02'::timestamptz+n*interval '1 second','/properties',2,'property-budget'
+       FROM generate_series(1,153) n`,
+      site,
+      session,
+    );
+    await execute(
+      `INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status)
+       SELECT event_id,website_id,'browser','browser','{}','traffic-quality-v3','missing'
+       FROM website_event WHERE website_id=$1::uuid AND event_type=2`,
+      site,
+    );
+    await execute(
+      `INSERT INTO event_data(event_data_id,website_id,website_event_id,data_key,string_value,data_type,created_at)
+       SELECT gen_random_uuid(),e.website_id,e.event_id,'key-'||n,'value',1,e.created_at
+       FROM website_event e CROSS JOIN generate_series(1,10) n
+       WHERE e.website_id=$1::uuid AND e.event_type=2`,
+      site,
+    );
+    const result = await reportSnapshot(
+      () =>
+        getEventDataStats(site, {
+          startDate: new Date('2020-01-02'),
+          endDate: new Date('2020-01-03'),
+        }),
+      Date.now() + 2000,
+    );
+    expect({
+      events: Number(result.events),
+      properties: Number(result.properties),
+      records: Number(result.records),
+    }).toEqual({ events: 153, properties: 10, records: 1530 });
+  });
+  it('preserves late properties, sibling filters and per-site property windows', async () => {
+    const { getEventDataStats } = await import('@/queries/sql/events/getEventDataStats');
+    const { getEventDataEvents } = await import('@/queries/sql/events/getEventDataEvents');
+    const { getEventDataFields } = await import('@/queries/sql/events/getEventDataFields');
+    const { getEventDataById } = await import('@/queries/sql/events/getEventDataById');
+    const { getEventDataNumericSeries } = await import(
+      '@/queries/sql/events/getEventDataNumericSeries'
+    );
+    const { getEventDataNumericStats } = await import(
+      '@/queries/sql/events/getEventDataNumericStats'
+    );
+    const { getEventDataPivot } = await import('@/queries/sql/events/getEventDataPivot');
+    const { getWebsiteEvents } = await import('@/queries/sql/events/getWebsiteEvents');
+    const filters = {
+      startDate: new Date('2020-01-02'),
+      endDate: new Date('2020-01-03'),
+      timezone: 'UTC',
+      unit: 'day',
+    };
+    await execute(
+      "UPDATE website_event SET event_type=2,event_name='late-property' WHERE event_id=$1::uuid",
+      first,
+    );
+    const current = await event('2020-01-02T01:00:00Z', { type: 2 });
+    const withoutProperties = await event('2020-01-02T02:00:00Z', { type: 2 });
+    await execute(
+      "UPDATE website_event SET event_name='purchase' WHERE event_id=$1::uuid",
+      current,
+    );
+    const property = (
+      eventId: string,
+      key: string,
+      value: string,
+      at: string,
+      type = 1,
+      amount: number | null = null,
+      websiteId = site,
+    ) =>
+      execute(
+        `INSERT INTO event_data(event_data_id,website_id,website_event_id,data_key,string_value,number_value,data_type,created_at)
+         VALUES(gen_random_uuid(),$1::uuid,$2::uuid,$3,$4,$5,$6,$7::timestamptz)`,
+        websiteId,
+        eventId,
+        key,
+        value,
+        amount,
+        type,
+        at,
+      );
+    await property(first, 'late', 'old-parent', '2020-01-02');
+    await property(current, 'revenue', '10.0000', '2020-01-02T01:00:00Z', 2, 10);
+    await property(current, 'currency', 'USD', '2020-01-03');
+    await property(current, 'outside', 'future', '2020-01-04');
+    for (const options of [
+      { classification: 'automated' },
+      { source: 'legacy_override' },
+      { source: 'authenticated_server' },
+    ]) {
+      const excluded = await event('2020-01-02T03:00:00Z', { ...options, type: 2 });
+      await property(excluded, 'excluded', 'not-browser-population', '2020-01-02');
+    }
+    const otherSite = randomUUID(),
+      otherSession = randomUUID(),
+      otherEvent = randomUUID();
+    await execute(
+      "INSERT INTO website(website_id,name,user_id) VALUES($1::uuid,'Other property site',$2::uuid)",
+      otherSite,
+      actor.userId,
+    );
+    await execute(
+      'INSERT INTO session(session_id,website_id) VALUES($1::uuid,$2::uuid)',
+      otherSession,
+      otherSite,
+    );
+    await execute(
+      `INSERT INTO website_event(event_id,website_id,session_id,visit_id,event_type,created_at,event_name,url_path)
+       VALUES($1::uuid,$2::uuid,$3::uuid,$3::uuid,2,'2020-01-02','other-site','/properties')`,
+      otherEvent,
+      otherSite,
+      otherSession,
+    );
+    await execute(
+      `INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status)
+       VALUES($1::uuid,$2::uuid,'browser','browser','{}','traffic-quality-v3','missing')`,
+      otherEvent,
+      otherSite,
+    );
+    await property(otherEvent, 'other-site', 'outside-site', '2020-01-02', 1, null, otherSite);
+    const stats = await getEventDataStats(site, filters);
+    expect([Number(stats.events), Number(stats.properties), Number(stats.records)]).toEqual([
+      1, 2, 2,
+    ]);
+    const events = await getEventDataEvents(site, filters);
+    expect(
+      events.map(row => `${row.eventName}:${row.propertyName}:${Number(row.total)}`).sort(),
+    ).toEqual(['late-property:late:1', 'purchase:currency:1', 'purchase:revenue:1']);
+    expect(
+      (await getEventDataFields(site, undefined, filters)).map(row => row.propertyName).sort(),
+    ).toEqual(['currency', 'revenue']);
+    const currency = {
+      propertyName: 'currency',
+      dataType: 1,
+      operator: 'eq',
+      value: 'USD',
+    } as const;
+    const series = await getEventDataNumericSeries(site, 'purchase', 'revenue', 'sum', filters, [
+      currency,
+    ]);
+    expect(series.map(row => Number(row.y))).toEqual([10]);
+    const filteredStats = await getEventDataNumericStats(site, 'purchase', 'revenue', {
+      ...filters,
+      eventPropertyFilters: [currency],
+    });
+    expect(Number(filteredStats.total)).toBe(10);
+    const pivot = await getEventDataPivot(site, 'purchase', filters, [currency]);
+    expect(Number(pivot.count)).toBe(1);
+    expect(pivot.data.map(row => row.propertyKeys)).toEqual([['currency', 'revenue']]);
+    const websiteEvents = await getWebsiteEvents(site, filters);
+    expect(websiteEvents.data.map(row => [row.id, row.hasData]).sort()).toEqual(
+      [
+        [current, true],
+        [withoutProperties, false],
+      ].sort(),
+    );
+    expect((await getEventDataById(site, current)).map(row => row.dataKey).sort()).toEqual([
+      'currency',
+      'outside',
+      'revenue',
+    ]);
+  });
   it.each(['event properties', 'sessions'] as const)(
     'keeps uncached native %s count and rows in one repair generation',
     async kind => {

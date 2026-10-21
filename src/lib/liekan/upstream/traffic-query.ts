@@ -98,8 +98,37 @@ function withVisitGeography(sql: string) {
   return sql;
 }
 
+/** Bound placeholders for the complete property window in supported native reads. */
+export type EventDataWindow = { websiteId: string; startDate: string; endDate: string };
+const propertyWindowQueries = new Set([
+  'getEventDataArraySeries',
+  'getEventDataDateSeries',
+  'getEventDataEvents',
+  'getEventDataFields',
+  'getEventDataNumericSeries',
+  'getEventDataNumericStats',
+  'getEventDataPivot',
+  'getEventDataProperties',
+  'getEventDataPropertySeries',
+  'getEventDataStats',
+  'getEventDataValues',
+  'getWebsiteEvents',
+]);
+
+/** Bind only the property window; parent/cohort dates and sibling keys retain their own scope. */
+export function propertyWindowForQuery(
+  name: string | undefined,
+  bindings: ReadonlyMap<string, string>,
+): EventDataWindow | undefined {
+  if (!propertyWindowQueries.has(name)) return;
+  const websiteId = bindings.get('websiteId');
+  const startDate = bindings.get('startDate');
+  const endDate = bindings.get('endDate');
+  if (websiteId && startDate && endDate) return { websiteId, startDate, endDate };
+}
+
 /** Apply one site policy to all relational analytics, including nested denominators. */
-export function withTrafficPolicy(sql: string): string {
+export function withTrafficPolicy(sql: string, propertyWindow?: EventDataWindow): string {
   const parts = tokens(sql);
   if (!['select', 'with'].includes(parts[0]?.value)) return sql;
   // This helper belongs only to read paths. Data-modifying CTEs retain their write semantics.
@@ -124,11 +153,23 @@ export function withTrafficPolicy(sql: string): string {
     )
   )
     throw new Error('Analytics CTE conflicts with the traffic policy source');
+  if (
+    propertyWindow &&
+    used.includes('event_data') &&
+    Object.values(propertyWindow).some(
+      reference => !/^\$[1-9]\d*(?:::[a-zA-Z_][a-zA-Z0-9_]*)?$/.test(reference),
+    )
+  )
+    throw new Error('Invalid property window binding');
   sql = withVisitGeography(sql);
   const adjustedParts = tokens(sql);
   const definitions = used
     // Repeated reads must keep the caller's website/date predicates on the base scans.
-    .map(table => `${table} AS NOT MATERIALIZED (SELECT * FROM ${effectiveTables[table]})`)
+    .map(table =>
+      table === 'event_data' && propertyWindow
+        ? `${table} AS MATERIALIZED (SELECT * FROM ${effectiveTables[table]} WHERE website_id=${propertyWindow.websiteId} AND created_at BETWEEN ${propertyWindow.startDate} AND ${propertyWindow.endDate})`
+        : `${table} AS NOT MATERIALIZED (SELECT * FROM ${effectiveTables[table]})`,
+    )
     .join(', ');
   if (parts[0].value === 'with') {
     const boundary = adjustedParts[adjustedParts[1]?.value === 'recursive' ? 1 : 0].end;

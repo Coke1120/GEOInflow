@@ -64,8 +64,8 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
     ? `select count(*) as num from (select 1 from (${eventQuery}) t limit ${+maxResults}) t2`
     : `select count(*) as num ${countFromQuery}`;
 
-  const count = await rawQuery(countQuery, { ...queryParams, ...searchParams }).then(res =>
-    Number(res[0].num),
+  const count = await rawQuery(countQuery, { ...queryParams, ...searchParams }, FUNCTION_NAME).then(
+    res => Number(res[0].num),
   );
 
   const data = await rawQuery(

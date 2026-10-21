@@ -334,3 +334,22 @@ describe('repair-aware primary analytics reads', () => {
     }
   });
 });
+
+test('scopes named property sources using their actual binding positions', async () => {
+  const sql =
+    'SELECT {{unrelated}} FROM event_data d JOIN website_event e ON e.event_id=d.website_event_id WHERE d.website_id={{websiteId::uuid}} AND d.created_at BETWEEN {{startDate}} AND {{endDate}}';
+  const parameters = {
+    unrelated: 'fixture',
+    websiteId: '11111111-1111-4111-8111-111111111111',
+    startDate: new Date(0),
+    endDate: new Date(1000),
+  };
+  const queried = vi.mocked(prisma.client.$queryRawUnsafe);
+  await prisma.rawQuery(sql, parameters, 'getEventDataStats');
+  expect(queried.mock.lastCall?.[0]).toContain(
+    'event_data AS MATERIALIZED (SELECT * FROM liekan_effective_event_data WHERE website_id=$2::uuid AND created_at BETWEEN $3 AND $4)',
+  );
+  expect(queried.mock.lastCall?.slice(1)).toEqual(Object.values(parameters));
+  await prisma.rawQuery(sql, parameters, 'unrelatedReport');
+  expect(queried.mock.lastCall?.[0]).toContain('event_data AS NOT MATERIALIZED');
+});

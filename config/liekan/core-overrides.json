@@ -3084,7 +3084,7 @@
     },
     {
       "path": "src/lib/prisma.ts",
-      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; preserve cookieless tracking while applying versioned traffic quality and exact event receipt deduplication",
+      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; preserve cookieless tracking while applying versioned traffic quality and exact event receipt deduplication; reuse the complete bounded property window for repair-aware native property reads",
       "tests": [
         "pnpm test:log-ingestion",
         "node scripts/liekan-log-integration.mjs",
@@ -3099,7 +3099,8 @@
         "scripts/liekan-data-regression.mjs",
         "src/lib/liekan/contracts/geography.test.ts",
         "Browser collection quality regressions",
-        "Isolated traffic quality database integration"
+        "Isolated traffic quality database integration",
+        "pnpm test:history-repair"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation; Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation",
@@ -3361,7 +3362,7 @@
     },
     {
       "path": "src/queries/sql/events/getWebsiteEvents.ts",
-      "purpose": "Inherited device/geography compatibility; keep historical repair count and rows within one primary analytics snapshot",
+      "purpose": "Inherited device/geography compatibility; keep historical repair count and rows within one primary analytics snapshot; reuse the complete bounded property window for repair-aware native property reads",
       "tests": [
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
