@@ -1,11 +1,13 @@
 import { endOfDay, startOfDay, subDays } from 'date-fns';
 import { fromZonedTime, toZonedTime } from 'date-fns-tz';
-import { pagableTables } from '@/lib/liekan/contracts/query';
+import { crawlerFilterLabels, pagableTables } from '@/lib/liekan/contracts/query';
 import { columns, primaryTables } from './data';
 import type { Resource } from './types';
 
 export const viewParamKeys = [
   'botType',
+  'botProductForm',
+  'botCategory',
   'botId',
   'botName',
   'crawlerIdentityScope',
@@ -38,13 +40,15 @@ export const clearTablePages = (tablePages: Record<string, number>) =>
   Object.fromEntries(Object.keys(tablePages).map(table => [`tp_${table}`, undefined]));
 const filters: Partial<Record<Resource, string[]>> = {
   'human/search-engines': ['全部', '传统搜索', 'AI 搜索引荐'],
-  'ai/bots': ['全部', 'AI 训练', 'AI 搜索', '用户触发', '传统搜索', '其他已知'],
+  'ai/bots': crawlerFilterLabels,
   'ai/pages': ['按抓取量', '按重复率', '按蜘蛛数'],
   content: ['按 PV', '按入口', '按时长'],
   logs: ['全部', '仅 AI 蜘蛛', '未知／未分类', '仅异常'],
 };
 export function readViewState(params: Record<string, string>, resource: Resource) {
   const table = primaryTables[resource];
+  const filter =
+    resource === 'ai/bots' && params.filter === '其他已知' ? '其他爬虫' : params.filter;
   // Keep existing overview bookmarks valid after the display terminology changed.
   const sortLabel =
     resource === 'overview' && params.sort === '人类 PV'
@@ -58,7 +62,7 @@ export function readViewState(params: Record<string, string>, resource: Resource
       ? params.cursor
       : '';
   return {
-    filter: filters[resource]?.includes(params.filter) ? params.filter : '',
+    filter: filters[resource]?.includes(filter) ? filter : '',
     search: ['logs', 'human/geo'].includes(resource) ? (params.search || '').slice(0, 200) : '',
     logPage:
       resource === 'logs' && Number.isSafeInteger(page) && page > 0 && page <= 100000 ? page : 1,

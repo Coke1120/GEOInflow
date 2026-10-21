@@ -1,22 +1,14 @@
 import type { GeoPurpose } from '../contracts/geo-weight';
 
-export const GEO_ALGORITHM = 'geo-weight-v1.2-beta';
-export const GEO_WEIGHTS = { search: 0.5, user: 0.35, training: 0.15 } as const;
-export const GEO_ANCHORS = { search: 5, user: 5, training: 3 } as const;
+export const GEO_ALGORITHM = 'geo-weight-v2-bands-beta';
+export const GEO_COEFFICIENTS = Object.freeze({ search: 10, user: 7, training: 3 });
 export const GEO_PURPOSES = ['search', 'user', 'training'] as const;
-export const GEO_FORMULA = Object.freeze({
-  days: 30,
-  paths: 1000,
-  units: 10000,
-  pathWeight: 0.5,
-  unitWeight: 0.4,
-  operatorWeight: 0.1,
-  continuityBase: 0.5,
-  operatorMinUnits: 10,
-  operatorMinDays: 3,
-  stableDecimals: 8,
-  displayDecimals: 1,
-});
+// Inclusive lower bounds for levels 1–10; zero is reserved for observed zero activity.
+export const GEO_LEVEL_MINIMUMS = Object.freeze([
+  1, 100, 500, 2000, 10000, 50000, 200000, 1000000, 5000000, 20000000,
+]);
+export const GEO_ACTIVITY_FORMULA = 'W = 10 × E_search + 7 × E_user + 3 × E_training';
+export const GEO_FORMULA = Object.freeze({ days: 30, operatorMinUnits: 10, operatorMinDays: 3 });
 // This is the scoring policy. Identity descriptions and verification sources live in the catalog.
 export const GEO_SCOPE: ReadonlyArray<{ id: string; purpose: GeoPurpose; platformId: string }> = [
   { id: 'oai-searchbot', purpose: 'search', platformId: 'openai' },

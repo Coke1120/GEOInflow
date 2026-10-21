@@ -1,4 +1,5 @@
 import { isUnknownCrawler } from '@/lib/liekan/rules/population';
+import { isOtherCrawler } from '@/lib/liekan/contracts/query';
 import type { LiekanLocale } from '@/lib/liekan/i18n/locale';
 import type { DataState, Resource, Row } from './types';
 export const pages: Array<{
@@ -340,10 +341,19 @@ export function formatCellValue(
     return `${row.method || '–'} ${formatValue(value, locale)}`;
   if (['channel', 'evaluation', 'classification', 'freshness'].includes(field))
     return display(String(value));
-  if (field === 'type')
-    return display(
+  if (field === 'type') {
+    const type = display(
       value === '训练' ? 'AI 训练' : value === '搜索' ? 'AI 搜索' : formatValue(value, locale),
     );
+    const forms =
+      table === 'botBody'
+        ? String(row.productForm ?? '')
+            .split(',')
+            .filter(form => ['workbench', 'personal_agent'].includes(form))
+            .map(form => display(form === 'workbench' ? 'AI 工作台' : '个人 Agent'))
+        : [];
+    return [type, ...forms].join(' · ');
+  }
   if (['share', 'categoryShare', 'bounceRate', 'conversionRate', 'rate'].includes(field))
     return formatPercentage(value, locale);
   if (field === 'trend' && typeof value === 'number')
@@ -380,7 +390,15 @@ export function selectRows(
       filter.startsWith('按') ||
       (filter === 'AI 训练' && category === '训练') ||
       (filter === 'AI 搜索' && category === '搜索') ||
-      (filter === '其他已知' && category === '其他') ||
+      (['其他爬虫', '其他已知'].includes(filter) && isOtherCrawler(row)) ||
+      (filter === 'AI 工作台' &&
+        String(row.productForm ?? '')
+          .split(',')
+          .includes('workbench')) ||
+      (filter === '个人 Agent' &&
+        String(row.productForm ?? '')
+          .split(',')
+          .includes('personal_agent')) ||
       (filter === '仅 AI 蜘蛛' &&
         table === 'logBody' &&
         (typeof row.aiEligible === 'boolean'

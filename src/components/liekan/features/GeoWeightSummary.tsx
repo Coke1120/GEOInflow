@@ -64,13 +64,21 @@ function GeoWeightRead({
     [401, 403, 404].includes(error?.status) ||
     [401, 403, 404].includes(detailError?.status) ||
     [401, 403, 404].includes(blocked?.status);
-  const invalidated = error?.status === 409 || detailError?.status === 409 || !!blocked;
   const sameScope = (value: typeof detail.data) =>
     value?.websiteId === websiteId && value.current.asOf === asOf && value.timezone === timezone;
+  const newerReset =
+    !detail.isError &&
+    !detail.isPlaceholderData &&
+    sameScope(detail.data) &&
+    sameScope(summary.data) &&
+    detail.data.epoch > summary.data.epoch;
+  const invalidated =
+    error?.status === 409 || detailError?.status === 409 || newerReset || !!blocked;
   const useDetail =
     !invalidated &&
     !detail.isError &&
     !detail.isPlaceholderData &&
+    detail.data?.view === 'detail' &&
     sameScope(detail.data) &&
     (!summary.data ||
       (detail.data.epoch === summary.data.epoch &&
@@ -83,8 +91,8 @@ function GeoWeightRead({
         : sameScope(summary.data)
           ? summary.data
           : undefined;
-  const boundaryStatus = [error?.status, detailError?.status].find(status =>
-    [401, 403, 404, 409].includes(status),
+  const boundaryStatus = [error?.status, detailError?.status, newerReset ? 409 : undefined].find(
+    status => [401, 403, 404, 409].includes(status),
   );
   useEffect(() => {
     if (boundaryStatus)
@@ -123,7 +131,7 @@ function GeoWeightRead({
   ]);
   const current = data?.current;
   const stale = summary.isError || summary.isPlaceholderData;
-  const num = (value: number, digits = 1) =>
+  const num = (value: number, digits = 0) =>
     value.toLocaleString(i18n.locale, {
       minimumFractionDigits: digits,
       maximumFractionDigits: digits,
@@ -154,11 +162,11 @@ function GeoWeightRead({
         ) : current ? (
           <>
             <strong className={styles.score}>
-              {current.score === null ? i18n.text('暂无评分') : `${num(current.score)} / 100`}
+              {current.level === null ? i18n.text('暂无权重') : num(current.level)}
             </strong>
             <span>
               {i18n.text(geoPointStateLabel(current))}
-              {current.level !== null && ` · ${i18n.text('{v0} / 10 级', [current.level])}`}
+              {current.level !== null && ` · ${i18n.text('最高 10')}`}
             </span>
             {current.state === 'warming_up' && (
               <span>{i18n.text('观察跨度 {v0} / 30 日', [current.observedDays])}</span>
@@ -192,7 +200,8 @@ function GeoWeightRead({
           <div className={styles.types}>
             {current.categories.map(c => (
               <span key={c.purpose}>
-                {i18n.text(geoPurposeLabels[c.purpose])} {num(c.score, 2)}
+                {i18n.text(geoPurposeLabels[c.purpose])} ·{' '}
+                {i18n.text('{v0} 个有效单元', [num(c.units)])}
               </span>
             ))}
           </div>
@@ -217,7 +226,7 @@ function GeoWeightRead({
       </div>
       {open && !restricted && (
         <GeoWeightDetails
-          data={useDetail ? detail.data : undefined}
+          data={data}
           error={
             invalidated || (!!detail.data && !useDetail && !detail.isFetching)
               ? detail.error ||
@@ -226,7 +235,9 @@ function GeoWeightRead({
               : detail.error
           }
           loading={detail.isFetching}
-          stale={detail.isPlaceholderData || !!blocked}
+          stale={
+            detail.isPlaceholderData || summary.isPlaceholderData || summary.isError || !!blocked
+          }
           onClose={() => setOpen(false)}
           onReload={reload}
           onExportConflict={status =>

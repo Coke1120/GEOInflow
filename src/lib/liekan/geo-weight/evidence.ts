@@ -87,8 +87,7 @@ export function geoPoint(
   return {
     ...window,
     state,
-    score: numeric ? computed.score : null,
-    rawScore: numeric ? computed.rawScore : null,
+    weightedUnits: numeric ? computed.weightedUnits : null,
     level: numeric && state !== 'warming_up' ? computed.level : null,
     observedDays,
     reasons,
@@ -111,6 +110,6 @@ export function geoPoint(
 }
 export function geoComparable(a: GeoWeightPoint, b: GeoWeightPoint) {
   return (
-    !!a.comparableKey && a.comparableKey === b.comparableKey && a.score !== null && b.score !== null
+    !!a.comparableKey && a.comparableKey === b.comparableKey && a.level !== null && b.level !== null
   );
 }

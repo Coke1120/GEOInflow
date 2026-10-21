@@ -31,7 +31,7 @@ export const globalNavigation: NavigationGroup[] = [
       { page: 'websites', label: '网站管理', icon: 'globe' },
       { page: 'boards', label: '数据看板', icon: 'bars' },
       { page: 'links', label: '追踪管理', icon: 'target' },
-      { page: 'crawlers-manage', label: '爬虫与 AI 平台', icon: 'bot' },
+      { page: 'crawlers-manage', label: '爬虫管理', icon: 'bot' },
     ],
   },
   {
@@ -261,7 +261,7 @@ for (const group of websiteNavigation) {
   }
 }
 const titles: Record<string, string> = {
-  'crawlers-manage': '爬虫与 AI 平台',
+  'crawlers-manage': '爬虫管理',
   'ai-chat': '快速发起',
   'ai-config': 'AI配置器',
   'geo-content': '页面与内容',

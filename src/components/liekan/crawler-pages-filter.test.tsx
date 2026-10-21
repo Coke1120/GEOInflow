@@ -40,6 +40,116 @@ const actions = {
 };
 
 describe('crawler page filters', () => {
+  it('places the residual category last and clears purpose, form and identity together', () => {
+    const onChange = vi.fn();
+    render(
+      <ReportContext.Provider
+        value={{
+          ...actions,
+          crawlers: {
+            conditions: { botProductForm: 'personal_agent', botId: 'chatgpt-agent' },
+            onChange,
+          },
+        }}
+      >
+        <AiPages report={report} rangeLabel="7 天" />
+      </ReportContext.Provider>,
+    );
+    const group = screen.getByRole('group', { name: '爬虫类型' });
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map(button => button.textContent),
+    ).toEqual([
+      '全部',
+      'AI 训练',
+      'AI 搜索',
+      '用户触发',
+      '传统搜索',
+      'AI 工作台',
+      '个人 Agent',
+      '其他爬虫',
+    ]);
+    fireEvent.click(within(group).getByRole('button', { name: '其他爬虫' }));
+    expect(onChange).toHaveBeenLastCalledWith({ botCategory: 'other' });
+  });
+
+  it('isolates residual filters and excludes all six named categories from displayed exports', () => {
+    for (const resource of ['ai/bots', 'ai/pages'] as const) {
+      const input = { resource, startAt: 0, endAt: 1, timezone: 'UTC', botCategory: 'other' };
+      expect(parseReportQuery(input)).toMatchObject({
+        success: true,
+        data: { botCategory: 'other' },
+      });
+      expect(parseReportQuery({ ...input, botProductForm: 'personal_agent' }).success).toBe(false);
+      expect(parseReportQuery({ ...input, botCategory: 'invented' }).success).toBe(false);
+      expect(pageReportQuery('u', 's', input as any).queryKey).not.toEqual(
+        pageReportQuery('u', 's', { ...input, botCategory: undefined } as any).queryKey,
+      );
+    }
+    const rows = [
+      ...['训练', '搜索', '用户触发', '传统搜索'].map(type => ({
+        name: type,
+        type,
+        productForm: 'unknown',
+      })),
+      { name: 'Agent', type: '其他', productForm: 'personal_agent' },
+      { name: 'Workbench', type: '其他', productForm: 'workbench' },
+      { name: 'Other', type: '其他', productForm: 'unknown' },
+    ];
+    expect(selectRows(rows, '其他爬虫', { label: '', direction: 1 }, 'botBody')).toEqual([
+      rows.at(-1),
+    ]);
+  });
+
+  it('filters product forms independently and clears the previous type and identity', () => {
+    const onChange = vi.fn();
+    render(
+      <ReportContext.Provider
+        value={{
+          ...actions,
+          crawlers: {
+            conditions: { botType: '训练', botId: 'gptbot' },
+            onChange,
+          },
+        }}
+      >
+        <AiPages report={report} rangeLabel="7 天" />
+      </ReportContext.Provider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'AI 工作台' }));
+    expect(onChange).toHaveBeenLastCalledWith({ botProductForm: 'workbench' });
+    fireEvent.click(screen.getByRole('button', { name: '个人 Agent' }));
+    expect(onChange).toHaveBeenLastCalledWith({ botProductForm: 'personal_agent' });
+  });
+
+  it('validates product forms and gives each form its own cache entry on both pages', () => {
+    for (const resource of ['ai/bots', 'ai/pages'] as const) {
+      const input = { resource, startAt: 0, endAt: 1, timezone: 'UTC' };
+      expect(parseReportQuery({ ...input, botProductForm: 'invented' }).success).toBe(false);
+      const keys = [undefined, 'workbench', 'personal_agent'].map(botProductForm =>
+        JSON.stringify(
+          pageReportQuery('user', 'site', { ...input, botProductForm } as any).queryKey,
+        ),
+      );
+      expect(new Set(keys).size).toBe(3);
+    }
+  });
+
+  it('keeps purpose and product-form labels together in filtered CSV exports', () => {
+    const rows = [
+      { name: 'Agent', type: '用户触发', productForm: 'personal_agent', requests: 4 },
+      { name: 'Workbench', type: '搜索', productForm: 'workbench', requests: 6 },
+      { name: 'Unknown', type: '其他', productForm: 'unknown', requests: 2 },
+    ];
+    expect(selectRows(rows, '个人 Agent', { label: '', direction: 1 }, 'botBody')).toEqual([
+      rows[0],
+    ]);
+    const csv = tableCsv('botBody', rows, 'AI 工作台', { label: '', direction: 1 });
+    expect(csv).toContain('AI 搜索 · AI 工作台');
+    expect(csv).not.toContain('Agent');
+    expect(selectRows(rows, '全部', { label: '', direction: 1 }, 'botBody')).toHaveLength(3);
+  });
   it('shows catalog titles, numeric heat, two separate crawler names and a new-tab page link', () => {
     const row = {
       path: '/article',

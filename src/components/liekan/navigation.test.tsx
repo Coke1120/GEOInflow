@@ -444,7 +444,7 @@ describe('website navigation transitions', () => {
       '网站管理',
       '数据看板',
       '追踪管理',
-      '爬虫与 AI 平台',
+      '爬虫管理',
       '分享管理',
       '团队管理',
       '帮助中心',

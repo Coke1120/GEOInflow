@@ -68,6 +68,9 @@ export function CrawlerRegistryPage() {
   const [error, setError] = useState('');
   const [stale, setStale] = useState(false);
   const [retry, setRetry] = useState<CrawlerRegistryCommand>();
+  const pendingAdd = useRef<{ operationId: string; section: CatalogSection } | undefined>(
+    undefined,
+  );
   const [positive, setPositive] = useState('');
   const [negative, setNegative] = useState('');
   const [sampleDirty, setSampleDirty] = useState(false);
@@ -93,6 +96,7 @@ export function CrawlerRegistryPage() {
     setEditor(undefined);
     setSiteOpen(false);
     setRetry(undefined);
+    pendingAdd.current = undefined;
     setStale(false);
     setError('');
   }, [c.user.id, admin]);
@@ -101,8 +105,9 @@ export function CrawlerRegistryPage() {
       setData(undefined);
       setDraftId('');
       setEditor(undefined);
-    } else if (query.data) setData(query.data);
-  }, [query.data, query.error, admin, c.user.id]);
+    } else if (!query.error && !query.isPlaceholderData && !query.isFetching && query.data)
+      setData(query.data);
+  }, [query.data, query.error, query.isPlaceholderData, query.isFetching, admin, c.user.id]);
   useEffect(() => {
     setSiteOpen(false);
   }, [siteId]);
@@ -152,10 +157,21 @@ export function CrawlerRegistryPage() {
         current: result.current || old!.current,
         drafts: result.draft
           ? [result.draft, ...old!.drafts.filter(item => item.id !== result.draft!.id)]
-          : old!.drafts,
+          : command.action === 'publish'
+            ? old!.drafts.filter(item => item.id !== command.draftId)
+            : old!.drafts,
       }));
       if (result.draft) setDraftId(result.draft.status === 'draft' ? result.draft.id : '');
+      if (
+        pendingAdd.current?.operationId === command.operationId &&
+        result.draft?.status === 'draft'
+      ) {
+        setEditor({ section: pendingAdd.current.section, draftRevision: result.draft.revision });
+        pendingAdd.current = undefined;
+      }
       if (result.current) {
+        setDraftId('');
+        setEditor(undefined);
         setPublishOpen(false);
         setAcknowledged(false);
         c.notify(i18n.text('爬虫目录已发布'));
@@ -166,6 +182,7 @@ export function CrawlerRegistryPage() {
     } catch (failure: any) {
       if (!mounted.current || currentRef.current.user !== actor || !currentRef.current.admin)
         return false;
+      if (failure.status >= 400 && failure.status < 500) pendingAdd.current = undefined;
       if (failure.status === 409) {
         setStale(true);
         setRetry(undefined);
@@ -207,6 +224,7 @@ export function CrawlerRegistryPage() {
       setData(result.data);
       setStale(false);
       setRetry(undefined);
+      pendingAdd.current = undefined;
       setError('');
       setPublishOpen(false);
       setAcknowledged(false);
@@ -217,13 +235,18 @@ export function CrawlerRegistryPage() {
     }
   };
 
-  const create = (sourceVersion?: string) =>
-    run({
+  const create = (sourceVersion?: string, section?: CatalogSection) => {
+    if (lock.current || !admin || blocked) return;
+    const command = {
       action: sourceVersion ? 'rollbackDraft' : 'createDraft',
       operationId: crypto.randomUUID(),
       ...(sourceVersion ? { sourceVersion } : {}),
       title: i18n.text(sourceVersion ? '历史版本回滚草稿' : '爬虫目录维护草稿'),
-    } as CrawlerRegistryCommand);
+    } as CrawlerRegistryCommand;
+    // Keep the requested editor paired with an uncertain operation across retries.
+    pendingAdd.current = section ? { operationId: command.operationId, section } : undefined;
+    return run(command);
+  };
   const save = async (next: CatalogPayload, expectedRevision = draft?.revision) => {
     if (!draft || !editable) return false;
     if (expectedRevision !== draft.revision) {
@@ -327,8 +350,12 @@ export function CrawlerRegistryPage() {
       actions={
         admin && (
           <Button
-            disabled={!editable}
-            onClick={() => setEditor({ section, draftRevision: draft?.revision })}
+            disabled={blocked}
+            onClick={() =>
+              draft
+                ? setEditor({ section, draftRevision: draft.revision })
+                : create(undefined, section)
+            }
           >
             {i18n.text('新增{v0}', [i18n.system(sectionLabels[section])])}
           </Button>
@@ -355,7 +382,7 @@ export function CrawlerRegistryPage() {
     draft.preview.samples.every(sample => sample.passed);
   if (!data)
     return (
-      <Panel title={i18n.text('爬虫与 AI 平台')}>
+      <Panel title={i18n.text('爬虫管理')}>
         <Body>
           <Notice tone={query.error ? 'red' : ''}>
             {i18n.text(query.error ? '目录读取失败，请重试。' : '正在读取爬虫目录。')}
@@ -369,7 +396,7 @@ export function CrawlerRegistryPage() {
   return (
     <div className="registry-page">
       <Panel
-        title={i18n.text('爬虫与 AI 平台')}
+        title={i18n.text('爬虫管理')}
         subtitle={i18n.text('统一维护身份、产品与引荐；网站识别规则按网站权限管理。')}
         actions={
           <Button disabled={busy || query.isFetching} onClick={refresh}>

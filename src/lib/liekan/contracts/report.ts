@@ -49,7 +49,12 @@ export interface LiekanReport {
   insights: string[];
   meta: {
     catalogVersion?: string;
-    crawlerPageBots?: Array<{ botId: string | null; name: string; type: string }>;
+    crawlerPageBots?: Array<{
+      botId: string | null;
+      name: string;
+      type: string;
+      productForm?: string;
+    }>;
     crawlerEvidenceView?: {
       snapshot: string;
       policySnapshot: string;
@@ -172,7 +177,14 @@ export const liekanReportSchema = z.object({
   meta: z.object({
     catalogVersion: z.uuid().optional(),
     crawlerPageBots: z
-      .array(z.object({ botId: z.string().nullable(), name: z.string(), type: z.string() }))
+      .array(
+        z.object({
+          botId: z.string().nullable(),
+          name: z.string(),
+          type: z.string(),
+          productForm: z.string().optional(),
+        }),
+      )
       .optional(),
     crawlerEvidenceView: z
       .object({

@@ -6,6 +6,8 @@ import { evidenceQuerySchema } from './traffic-evidence';
 
 export const crawlerPageFiltersSchema = evidenceQuerySchema.pick({
   botType: true,
+  botProductForm: true,
+  botCategory: true,
   botId: true,
   botName: true,
 });
@@ -16,8 +18,27 @@ export const crawlerPageTypes = [
   ['搜索', 'AI 搜索'],
   ['用户触发', '用户触发'],
   ['传统搜索', '传统搜索'],
-  ['其他', '其他已知'],
 ] as const;
+export const crawlerProductFormFilters = [
+  ['workbench', 'AI 工作台'],
+  ['personal_agent', '个人 Agent'],
+] as const;
+export function crawlerProductFormForLabel(label: string) {
+  return crawlerProductFormFilters.find(([, text]) => text === label)?.[0];
+}
+export const crawlerFilterLabels = [
+  ...crawlerPageTypes.map(([, label]) => label),
+  ...crawlerProductFormFilters.map(([, label]) => label),
+  '其他爬虫',
+];
+export function isOtherCrawler(row: { type?: unknown; productForm?: unknown }) {
+  return (
+    !['训练', '搜索', '用户触发', '传统搜索'].includes(String(row.type ?? '')) &&
+    !String(row.productForm ?? '')
+      .split(',')
+      .some(form => ['workbench', 'personal_agent'].includes(form))
+  );
+}
 // 可分页明细表白名单：请求以扁平参数 tp_<table>=<page> 携带页码。
 // 其余明细表行数有界或已由独立协议（logBody keyset）分页，不在白名单内。
 // reportQuery 保持纯对象 schema（下游有 pick/extend/shape 派生），白名单校验收口在 parseReportQuery。
@@ -102,6 +123,13 @@ export function parseReportQuery(input: unknown): z.ZodSafeParseResult<ReportQue
   }
   const parsed = reportQuery.safeParse(flat);
   if (!parsed.success) return parsed;
+  if (
+    (parsed.data.botProductForm || parsed.data.botCategory) &&
+    !['ai/bots', 'ai/pages'].includes(parsed.data.resource)
+  )
+    return z.never().safeParse(flat) as z.ZodSafeParseResult<ReportQuery>;
+  if (parsed.data.botCategory && (parsed.data.botType || parsed.data.botProductForm))
+    return z.never().safeParse(flat) as z.ZodSafeParseResult<ReportQuery>;
   const foreign = Object.keys(parsed.data.tablePages).find(table => !pagableTableSet.has(table));
   return foreign ? (z.never().safeParse(foreign) as z.ZodSafeParseResult<ReportQuery>) : parsed;
 }

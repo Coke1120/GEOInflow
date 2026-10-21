@@ -657,7 +657,12 @@ function referenceChartOptions(id: string, chart: ChartData, locale: LiekanLocal
           formatter: translateText('{b}<br>{c} 会话（{d}%）', locale),
         }),
         legend: {
+          type: 'scroll',
+          orient: 'horizontal',
+          left: 16,
+          right: 16,
           bottom: 4,
+          pageIconSize: 10,
           itemWidth: 10,
           itemHeight: 10,
           textStyle: { fontSize: 10.5, color: SUB },

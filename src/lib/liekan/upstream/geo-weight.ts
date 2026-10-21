@@ -4,14 +4,14 @@ import type { GeoWeightResponse } from '../contracts/geo-weight';
 import { geoWeightQuerySchema } from '../contracts/geo-weight';
 import {
   GEO_ALGORITHM,
-  GEO_ANCHORS,
+  GEO_LEVEL_MINIMUMS,
   GEO_CONTENT_TYPES,
   GEO_FORMULA,
   GEO_METADATA_PATH,
   GEO_NON_CONTENT_EXTENSION,
   GEO_SCOPE,
   GEO_VERIFICATION,
-  GEO_WEIGHTS,
+  GEO_COEFFICIENTS,
 } from '../geo-weight/policy';
 import { geoDateOffset, geoWindow } from '../geo-weight/window';
 import { geoComparable, geoPoint } from '../geo-weight/evidence';
@@ -32,8 +32,8 @@ export const GEO_SCOPE_HASH = hash({
   algorithm: GEO_ALGORITHM,
   scope: GEO_SCOPE,
   verification: GEO_VERIFICATION,
-  weights: GEO_WEIGHTS,
-  anchors: GEO_ANCHORS,
+  coefficients: GEO_COEFFICIENTS,
+  levelMinimums: GEO_LEVEL_MINIMUMS,
   formula: GEO_FORMULA,
   contentTypes: GEO_CONTENT_TYPES,
   metadata: GEO_METADATA_PATH,
@@ -271,7 +271,7 @@ export async function readGeoWeight(
                       comparison: {
                         comparable: geoComparable(current, previous),
                         delta: geoComparable(current, previous)
-                          ? Math.round((current.score - previous.score) * 10) / 10
+                          ? current.level - previous.level
                           : null,
                         reasons: [
                           ...new Set([

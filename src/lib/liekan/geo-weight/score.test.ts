@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyGeoFactors, geoScore } from './score';
+import { emptyGeoFactors, geoLevel, geoScore } from './score';
 import { GEO_SCOPE } from './policy';
 import { geoAsOf, geoWindow } from './window';
 import { geoComparable, geoPoint } from './evidence';
@@ -34,28 +34,43 @@ const row = () => ({
   factors: [{ purpose: 'search', paths: 10, units: 100, days: 10, operators: 1 }],
 });
 describe('frozen GEO weight calculation', () => {
-  it('reproduces the approved worked example without rounding category contributions first', () => {
-    const actual = geoScore({
-      search: { paths: 300, units: 3000, days: 24, operators: 3 },
-      user: { paths: 80, units: 400, days: 16, operators: 2 },
-      training: { paths: 800, units: 8000, days: 12, operators: 3 },
-    });
-    expect(actual).toMatchObject({ rawScore: 63.75526112, score: 63.8, level: 7 });
-  });
-  it('keeps absent purpose weights and caps all factors', () => {
-    expect(geoScore(zero())).toMatchObject({ score: 0, level: 0 });
-    expect(geoScore({ ...zero(), training: full(3) })).toMatchObject({ score: 15, level: 2 });
-    expect(geoScore({ ...zero(), search: full(5), user: full(5) })).toMatchObject({
-      score: 85,
-      level: 9,
-    });
-    expect(geoScore({ search: full(5), user: full(5), training: full(3) })).toMatchObject({
-      score: 100,
-      level: 10,
-    });
+  it('uses fixed integer bands and retains an exact integer activity total', () => {
     expect(
-      geoScore({ ...zero(), search: { ...full(0), days: 1 } }).categories[0].score,
-    ).toBeCloseTo(46.5);
+      geoScore({
+        search: { paths: 300, units: 3000, days: 24, operators: 3 },
+        user: { paths: 80, units: 400, days: 16, operators: 2 },
+        training: { paths: 800, units: 8000, days: 12, operators: 3 },
+      }),
+    ).toMatchObject({ weightedUnits: 56800, level: 6 });
+  });
+  it('uses inclusive ranges with increasingly demanding high levels', () => {
+    const boundaries = [1, 100, 500, 2000, 10000, 50000, 200000, 1000000, 5000000, 20000000];
+    expect(geoLevel(0)).toBe(0);
+    boundaries.forEach((minimum, index) => {
+      expect(geoLevel(minimum - 1)).toBe(index);
+      expect(geoLevel(minimum)).toBe(index + 1);
+    });
+    expect(geoLevel(50000000)).toBe(10);
+    expect(() => geoLevel(1.5)).toThrow();
+    expect(() => geoLevel(-1)).toThrow();
+    expect(() => geoLevel(Infinity)).toThrow();
+  });
+  it('keeps absent purposes at zero and preserves the 10:7:3 ratio without normalization', () => {
+    expect(geoScore(zero())).toMatchObject({ weightedUnits: 0, level: 0 });
+    for (const [purpose, weightedUnits, level] of [
+      ['search', 100000, 6],
+      ['user', 70000, 6],
+      ['training', 30000, 5],
+    ] as const) {
+      expect(geoScore({ ...zero(), [purpose]: full(3) })).toMatchObject({ weightedUnits, level });
+    }
+    expect(geoScore({ search: full(5), user: full(5), training: full(3) })).toMatchObject({
+      weightedUnits: 200000,
+      level: 7,
+    });
+    expect(() =>
+      geoScore({ ...zero(), search: { ...full(5), units: Number.MAX_SAFE_INTEGER } }),
+    ).toThrow();
   });
   it('is monotonic across page and daily-unit increases and rejects invalid factors', () => {
     let previous = 0;
@@ -63,7 +78,7 @@ describe('frozen GEO weight calculation', () => {
       const next = geoScore({
         ...zero(),
         search: { paths: n, units: n, days: 30, operators: 1 },
-      }).score;
+      }).level;
       expect(next).toBeGreaterThanOrEqual(previous);
       previous = next;
     }
@@ -95,19 +110,20 @@ describe('GEO evidence states and comparisons', () => {
   it('distinguishes no input, unverified input and proved observed zero', () => {
     expect(geoPoint(window, {}, quality('missing'), false, false)).toMatchObject({
       state: 'missing',
-      score: null,
+      weightedUnits: null,
       level: null,
     });
     expect(
       geoPoint(window, { stats: { requests: 1, identityMissing: 1 } }, quality(), false, true),
-    ).toMatchObject({ state: 'unavailable', score: null });
+    ).toMatchObject({ state: 'unavailable', weightedUnits: null });
     expect(geoPoint(window, {}, quality(), false, true)).toMatchObject({
       state: 'observed_zero',
-      score: 0,
+      weightedUnits: 0,
       level: 0,
     });
     expect(
-      geoPoint(window, { stats: { requests: 1, historyMissing: 1 } }, quality(), false, true).score,
+      geoPoint(window, { stats: { requests: 1, historyMissing: 1 } }, quality(), false, true)
+        .weightedUnits,
     ).toBeNull();
   });
   it('does not extrapolate short spans or claim full coverage from distant endpoints', () => {

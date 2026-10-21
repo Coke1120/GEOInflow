@@ -4382,5 +4382,22 @@
   "m_1624cdeb4872": "Operator eligibility and exclusions",
   "m_a0b895b5c963": "These Beta thresholds have not been calibrated by industry. Website content size affects the score.",
   "m_15a99fd44f97": "Some content inferred from paths",
-  "m_8d40f11abc7e": "Some identity evidence is incomplete"
+  "m_8d40f11abc7e": "Some identity evidence is incomplete",
+  "m_07d824225eb7": "Previous weight",
+  "m_30b7cedcec91": "No weight yet",
+  "m_347f38b4f6a5": "{v0} effective units",
+  "m_467902665272": "The ranges provide an approximate assessment, with higher thresholds at higher levels. Beta thresholds have not been calibrated across industries.",
+  "m_4a475223cdbc": "Coefficient",
+  "m_4ade3d203694": "Weighted activity range",
+  "m_5638b7e5fb43": "Weight {v0} requires {v1} more weighted units",
+  "m_782e51d9aa7c": "Maximum 10",
+  "m_798a98e361d8": "Weighted units",
+  "m_7e3a69156078": "Weighted activity is the integer sum of effective units multiplied by each coefficient. Paths, active days and operator counts describe the underlying data.",
+  "m_819068094b36": "Current weighted activity: {v0}",
+  "m_9bb747873418": "Complete observation with zero effective activity shows 0. Missing evidence or an insufficient observation span leaves the weight unrated.",
+  "m_f2ff6c462dad": "Loading history and detailed evidence; the current weight is shown",
+  "m_fadc5a19a889": "Change from previous period: {v0} levels",
+  "m_feaf70b17a54": "Multiply effective search, user-triggered and training units by 10, 7 and 3 respectively, then use the table to assign an integer weight.",
+  "m_90e35fb0990e": "Other crawlers",
+  "m_db9502cb5eaa": "AI training / AI search / User-triggered / Traditional search / Other purposes"
 }

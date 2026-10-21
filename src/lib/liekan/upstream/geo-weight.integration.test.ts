@@ -139,7 +139,8 @@ describe.skipIf(!enabled)('GEO full-population PostgreSQL aggregate', () => {
     });
     expect(geoPoint(window, result, quality, false, true)).toMatchObject({
       state: 'observed_zero',
-      score: 0,
+      weightedUnits: 0,
+      level: 0,
       reasons: [],
     });
     await log();
@@ -268,6 +269,23 @@ describe.skipIf(!enabled)('GEO full-population PostgreSQL aggregate', () => {
       mimeConfirmed: 1,
       pathInferred: 1,
     });
+  });
+  it('deduplicates range bindings and excludes disabled or mismatched identity sources', async () => {
+    await log();
+    const changed = structuredClone(catalog.payload);
+    const range = changed.rangeSources.find(r => r.crawlerIds.includes('oai-searchbot'));
+    changed.rangeSources.push(structuredClone(range));
+    await q('UPDATE liekan_crawler_registry_version SET payload=$1', JSON.stringify(changed));
+    expect((await aggregate()).stats.accepted).toBe(1);
+    for (const source of changed.rangeSources) source.enabled = false;
+    await q('UPDATE liekan_crawler_registry_version SET payload=$1', JSON.stringify(changed));
+    expect((await aggregate()).exclusions.verification).toBe(1);
+    for (const source of changed.rangeSources) {
+      source.enabled = true;
+      source.crawlerIds = ['gptbot'];
+    }
+    await q('UPDATE liekan_crawler_registry_version SET payload=$1', JSON.stringify(changed));
+    expect((await aggregate()).exclusions.verification).toBe(1);
   });
   it('uses archived catalog semantics and binding, and never upgrades unknown history', async () => {
     await log();

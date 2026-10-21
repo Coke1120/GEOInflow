@@ -15829,8 +15829,10 @@ export interface operations {
   getLiekanCrawlerEvidence: {
     parameters: {
       query: {
+        botCategory?: 'other';
         botId?: string;
         botName?: string;
+        botProductForm?: 'workbench' | 'personal_agent';
         botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
         crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
         crawlerMetricsVersion?: number;
@@ -21530,16 +21532,14 @@ export interface operations {
               asOf: string;
               catalogVersions: string[];
               categories: {
-                contribution: number;
+                coefficient: number;
                 days: number;
-                operatorAnchor: number;
                 operators: number;
                 paths: number;
                 /** @enum {string} */
                 purpose: 'search' | 'user' | 'training';
-                score: number;
                 units: number;
-                weight: number;
+                weightedUnits: number;
               }[];
               classificationVersions: string[];
               comparableKey: string | null;
@@ -21573,7 +21573,6 @@ export interface operations {
                 units: number;
               }[];
               pathInferred: number;
-              rawScore: number | null;
               reasons: (
                 | 'coverage_missing'
                 | 'coverage_partial'
@@ -21589,7 +21588,6 @@ export interface operations {
                 | 'history_incomplete'
               )[];
               requests: number;
-              score: number | null;
               sources: string[];
               /** @description Start of the date range as a Unix timestamp in milliseconds. */
               startAt: number;
@@ -21603,6 +21601,7 @@ export interface operations {
                 | 'observed_zero';
               status200: number;
               status304: number;
+              weightedUnits: number | null;
             };
             dataRevision: string;
             directoryCounts: {
@@ -21618,16 +21617,14 @@ export interface operations {
               asOf: string;
               catalogVersions: string[];
               categories: {
-                contribution: number;
+                coefficient: number;
                 days: number;
-                operatorAnchor: number;
                 operators: number;
                 paths: number;
                 /** @enum {string} */
                 purpose: 'search' | 'user' | 'training';
-                score: number;
                 units: number;
-                weight: number;
+                weightedUnits: number;
               }[];
               classificationVersions: string[];
               comparableKey: string | null;
@@ -21662,7 +21659,6 @@ export interface operations {
                 units: number;
               }[];
               pathInferred: number;
-              rawScore: number | null;
               reasons: (
                 | 'coverage_missing'
                 | 'coverage_partial'
@@ -21678,7 +21674,6 @@ export interface operations {
                 | 'history_incomplete'
               )[];
               requests: number;
-              score: number | null;
               sources: string[];
               /** @description Start of the date range as a Unix timestamp in milliseconds. */
               startAt: number;
@@ -21692,22 +21687,21 @@ export interface operations {
                 | 'observed_zero';
               status200: number;
               status304: number;
+              weightedUnits: number | null;
             }[];
             previous?: {
               accepted: number;
               asOf: string;
               catalogVersions: string[];
               categories: {
-                contribution: number;
+                coefficient: number;
                 days: number;
-                operatorAnchor: number;
                 operators: number;
                 paths: number;
                 /** @enum {string} */
                 purpose: 'search' | 'user' | 'training';
-                score: number;
                 units: number;
-                weight: number;
+                weightedUnits: number;
               }[];
               classificationVersions: string[];
               comparableKey: string | null;
@@ -21741,7 +21735,6 @@ export interface operations {
                 units: number;
               }[];
               pathInferred: number;
-              rawScore: number | null;
               reasons: (
                 | 'coverage_missing'
                 | 'coverage_partial'
@@ -21757,7 +21750,6 @@ export interface operations {
                 | 'history_incomplete'
               )[];
               requests: number;
-              score: number | null;
               sources: string[];
               /** @description Start of the date range as a Unix timestamp in milliseconds. */
               startAt: number;
@@ -21771,6 +21763,7 @@ export interface operations {
                 | 'observed_zero';
               status200: number;
               status304: number;
+              weightedUnits: number | null;
             };
             readCatalogHash: string;
             /** Format: uuid */
@@ -22002,16 +21995,14 @@ export interface operations {
                 asOf: string;
                 catalogVersions: string[];
                 categories: {
-                  contribution: number;
+                  coefficient: number;
                   days: number;
-                  operatorAnchor: number;
                   operators: number;
                   paths: number;
                   /** @enum {string} */
                   purpose: 'search' | 'user' | 'training';
-                  score: number;
                   units: number;
-                  weight: number;
+                  weightedUnits: number;
                 }[];
                 classificationVersions: string[];
                 comparableKey: string | null;
@@ -22045,7 +22036,6 @@ export interface operations {
                   units: number;
                 }[];
                 pathInferred: number;
-                rawScore: number | null;
                 reasons: (
                   | 'coverage_missing'
                   | 'coverage_partial'
@@ -22061,7 +22051,6 @@ export interface operations {
                   | 'history_incomplete'
                 )[];
                 requests: number;
-                score: number | null;
                 sources: string[];
                 /** @description Start of the date range as a Unix timestamp in milliseconds. */
                 startAt: number;
@@ -22075,6 +22064,7 @@ export interface operations {
                   | 'observed_zero';
                 status200: number;
                 status304: number;
+                weightedUnits: number | null;
               };
               dataRevision: string;
               directoryCounts: {
@@ -22090,16 +22080,14 @@ export interface operations {
                 asOf: string;
                 catalogVersions: string[];
                 categories: {
-                  contribution: number;
+                  coefficient: number;
                   days: number;
-                  operatorAnchor: number;
                   operators: number;
                   paths: number;
                   /** @enum {string} */
                   purpose: 'search' | 'user' | 'training';
-                  score: number;
                   units: number;
-                  weight: number;
+                  weightedUnits: number;
                 }[];
                 classificationVersions: string[];
                 comparableKey: string | null;
@@ -22134,7 +22122,6 @@ export interface operations {
                   units: number;
                 }[];
                 pathInferred: number;
-                rawScore: number | null;
                 reasons: (
                   | 'coverage_missing'
                   | 'coverage_partial'
@@ -22150,7 +22137,6 @@ export interface operations {
                   | 'history_incomplete'
                 )[];
                 requests: number;
-                score: number | null;
                 sources: string[];
                 /** @description Start of the date range as a Unix timestamp in milliseconds. */
                 startAt: number;
@@ -22164,22 +22150,21 @@ export interface operations {
                   | 'observed_zero';
                 status200: number;
                 status304: number;
+                weightedUnits: number | null;
               }[];
               previous?: {
                 accepted: number;
                 asOf: string;
                 catalogVersions: string[];
                 categories: {
-                  contribution: number;
+                  coefficient: number;
                   days: number;
-                  operatorAnchor: number;
                   operators: number;
                   paths: number;
                   /** @enum {string} */
                   purpose: 'search' | 'user' | 'training';
-                  score: number;
                   units: number;
-                  weight: number;
+                  weightedUnits: number;
                 }[];
                 classificationVersions: string[];
                 comparableKey: string | null;
@@ -22213,7 +22198,6 @@ export interface operations {
                   units: number;
                 }[];
                 pathInferred: number;
-                rawScore: number | null;
                 reasons: (
                   | 'coverage_missing'
                   | 'coverage_partial'
@@ -22229,7 +22213,6 @@ export interface operations {
                   | 'history_incomplete'
                 )[];
                 requests: number;
-                score: number | null;
                 sources: string[];
                 /** @description Start of the date range as a Unix timestamp in milliseconds. */
                 startAt: number;
@@ -22243,6 +22226,7 @@ export interface operations {
                   | 'observed_zero';
                 status200: number;
                 status304: number;
+                weightedUnits: number | null;
               };
               readCatalogHash: string;
               /** Format: uuid */
@@ -24137,8 +24121,10 @@ export interface operations {
   getLiekanPageReport: {
     parameters: {
       query: {
+        botCategory?: 'other';
         botId?: string;
         botName?: string;
+        botProductForm?: 'workbench' | 'personal_agent';
         botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
         chartPeriod?: '30d' | '7d' | '24h';
         crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
@@ -24275,6 +24261,7 @@ export interface operations {
                 botId: string | null;
                 /** @description Display name of the resource. */
                 name: string;
+                productForm?: string;
                 type: string;
               }[];
               demo: boolean;
@@ -24468,8 +24455,10 @@ export interface operations {
   getLiekanReport: {
     parameters: {
       query: {
+        botCategory?: 'other';
         botId?: string;
         botName?: string;
+        botProductForm?: 'workbench' | 'personal_agent';
         botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
         chartPeriod?: '30d' | '7d' | '24h';
         crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
@@ -24904,6 +24893,7 @@ export interface operations {
                 botId: string | null;
                 /** @description Display name of the resource. */
                 name: string;
+                productForm?: string;
                 type: string;
               }[];
               demo: boolean;
@@ -25481,6 +25471,7 @@ export interface operations {
                 botId: string | null;
                 /** @description Display name of the resource. */
                 name: string;
+                productForm?: string;
                 type: string;
               }[];
               demo: boolean;
