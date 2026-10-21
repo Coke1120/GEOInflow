@@ -74,7 +74,7 @@ beforeEach(() => {
 });
 it('shows browser-like and automated traffic separately and applies exact paths on submit', async () => {
   render(<TrafficQuality canManage={false} onClose={mocks.close} />);
-  expect(screen.getByText(/浏览器特征表示请求与普通浏览器相符/)).toBeVisible();
+  expect(screen.getByText(/浏览指标仅纳入来源明确的浏览器事件/)).toBeVisible();
   const input = screen.getByLabelText(/^页面路径（精确匹配）/);
   fireEvent.change(input, { target: { value: '/cases/' } });
   expect(

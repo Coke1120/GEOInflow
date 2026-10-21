@@ -1,4 +1,5 @@
 'use client';
+import type { CatalogPayload, PublishedCatalog } from '@/lib/liekan/contracts/crawler-registry';
 import { LiekanMessageContext, useLiekanI18n } from '@/lib/liekan/i18n/client';
 
 import Link from '@/components/liekan/Link';
@@ -37,6 +38,7 @@ import { featureHref } from './routes';
 import { Icon } from './ui';
 
 const CapabilityContext = createContext<{
+  catalog?: CatalogPayload;
   selected: string;
   recognition?: CrawlerRecognitionResponse;
   recognitionError?: boolean;
@@ -212,8 +214,8 @@ function ArticleDetail({ article }: { article: HelpArticle }) {
 }
 function Capabilities({ crawler }: { crawler: Crawler }) {
   const i18n = useLiekanI18n();
-  const { rule, ip } = crawlerCapabilities(crawler);
   const context = useContext(CapabilityContext);
+  const { rule, ip } = crawlerCapabilities(crawler, context.catalog);
   const health = context.health?.ipSources.find(source => source.crawlerIds.includes(crawler.id));
   const enabled =
     context.selected &&
@@ -262,7 +264,7 @@ function Capabilities({ crawler }: { crawler: Crawler }) {
 }
 function CrawlerDetail({ crawler }: { crawler: Crawler }) {
   const i18n = useLiekanI18n();
-  const range = crawlerSnapshot(crawler);
+  const range = crawlerSnapshot(crawler, useContext(CapabilityContext).catalog);
   const status = snapshotState(range);
   const draft = crawlerRobotsDraft(crawler);
   return (
@@ -489,7 +491,14 @@ function HelpBody() {
     signal => c.api.get('/liekan/admin/crawler-sources', undefined, signal),
     !!c.user?.isAdmin,
   );
-  const location = helpLocation(c.query);
+  const registry = useData<PublishedCatalog>(['help-published-catalog', c.user?.id], signal => c.api.get('/liekan/crawler-registry', undefined, signal), !!c.user?.id);
+  const catalog = registry.data?.payload;
+  const directory: Crawler[] = catalog?.identities.map(item => item.metadata) || helpCrawlers;
+  const purposes = [...new Set(directory.flatMap(item => item.purposes))];
+  const vendors = [...new Set(directory.map(item => item.vendor))];
+  const helpRuleCount = catalog ? catalog.identities.filter(item => item.status === 'active' && item.kind === 'http_crawler').length : '—';
+  const helpIdentityCount = catalog ? new Set(catalog.rangeSources.filter(source => source.enabled !== false).flatMap(source => source.crawlerIds)).size : '—';
+  const location = helpLocation(c.query, directory);
   const [search, setSearch] = useState('');
   const [purpose, setPurpose] = useState('');
   const [vendor, setVendor] = useState('');
@@ -515,6 +524,7 @@ function HelpBody() {
     category === 'crawlers' ? vendor : '',
     category === 'crawlers' ? kind : '',
     searchTranslation,
+    directory,
   );
   useEffect(() => {
     setLimit(20);
@@ -541,6 +551,7 @@ function HelpBody() {
   return (
     <CapabilityContext.Provider
       value={{
+        catalog,
         selected,
         recognition: recognition.error ? undefined : recognition.data,
         recognitionError: !!recognition.error,
@@ -569,6 +580,7 @@ function HelpBody() {
             </button>
           )}
         </form>
+        {!catalog && <p role={registry.error ? 'alert' : undefined}>{i18n.text(registry.error ? '发布目录暂不可用，当前仅展示内置参考资料。' : '正在读取发布目录')}</p>}
         <nav className={styles.categories} aria-label={i18n.text('帮助分类')}>
           <Link
             prefetch={false}
@@ -661,7 +673,7 @@ function HelpBody() {
                   <p>{i18n.system(item.summary)}</p>
                   <small>
                     {item.id === 'crawlers'
-                      ? i18n.text('{v0} 个名称 / 控制标记', [helpCrawlers.length])
+                      ? i18n.text('{v0} 个名称 / 控制标记', [directory.length])
                       : i18n.text('{v0} 篇文档', [
                           helpArticles.filter(article => article.section === item.id).length,
                         ])}{' '}
@@ -843,7 +855,7 @@ function HelpBody() {
           </>
         )}
         <footer className={styles.footer}>
-          {i18n.text('资料随应用版本提供 · 官方文档优先 · IP 范围与访问策略使用前复核')}
+          {i18n.text('目录随发布版本更新 · 官方文档优先 · IP 范围与访问策略使用前复核')}
         </footer>
       </div>
     </CapabilityContext.Provider>

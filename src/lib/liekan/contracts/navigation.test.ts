@@ -249,7 +249,7 @@ describe('navigation task boundaries', () => {
     }
   });
   it('assigns every supplemental and GEO page to a scope and an accessible parent', () => {
-    expect(featurePages).toHaveLength(69);
+    expect(featurePages).toHaveLength(70);
     expect(Object.keys(geoPaths)).toHaveLength(13);
     for (const page of [...featurePages.map(page => page.id), ...Object.keys(geoPaths)]) {
       expect(pageNavigation[page], page).toBeDefined();
@@ -270,6 +270,7 @@ describe('navigation task boundaries', () => {
       '网站管理',
       '数据看板',
       '追踪管理',
+      '爬虫与 AI 平台',
       '分享管理',
       '团队管理',
       '帮助中心',
@@ -280,6 +281,7 @@ describe('navigation task boundaries', () => {
       'globe',
       'bars',
       'target',
+      'bot',
       'copy',
       'users',
       'book',

@@ -36,7 +36,7 @@ export async function authenticateCrawler(request: Request): Promise<CrawlerActo
   }
   if (
     request.method === 'GET' &&
-    /\/(crawler-analysis|traffic-quality|crawler-context)(\/|$)/.test(new URL(request.url).pathname)
+    /\/(crawler-analysis|traffic-quality|crawler-context|geo-weight)(\/|$)/.test(new URL(request.url).pathname)
   )
     bindCacheRequest(request, auth, undefined, async () => {
       const current = await checkAuth(request);

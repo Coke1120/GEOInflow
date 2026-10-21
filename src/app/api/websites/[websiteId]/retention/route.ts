@@ -19,5 +19,5 @@ async function getResponse(
 }
 
 export async function GET(...args: Parameters<typeof getResponse>) {
-  return withQueryCacheHeaders(() => getResponse(...args));
+  return withQueryCacheHeaders(() => getResponse(...args), args[0]);
 }

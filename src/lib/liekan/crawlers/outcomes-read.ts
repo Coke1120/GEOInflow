@@ -1,10 +1,10 @@
 import { humanPathFromEncoded } from '../upstream/paths';
 import type { AiTx } from '../upstream/ai-db';
 import { crawlerReferralRows } from '../upstream/analytics';
-import { classifyEntrySource } from '../contracts/sources';
+import { classifyEntrySource, platformForReferral, platformSupportsReferralRatio } from '../contracts/sources';
 import type { EvidenceQuery } from '../contracts/traffic-evidence';
 import { evidenceValue } from '../contracts/crawler-metrics';
-import { knownCrawlerDirectory } from './directory';
+import { getKnownCrawlerDirectory } from './directory';
 import {
   evidenceScope,
   evidenceMeta,
@@ -16,18 +16,6 @@ import { normalizeCollectionHostname } from '../upstream/collection-quality';
 import { eventSamplingRateSql } from '../log-ingestion/measurement';
 
 export const OUTCOME_MAPPING_VERSION = 'crawler-outcomes-v1';
-const products = [
-  { id: 'openai', hosts: ['chatgpt.com', 'chat.openai.com'], ratio: true },
-  { id: 'anthropic', hosts: ['claude.ai'], ratio: true },
-  { id: 'perplexity', hosts: ['perplexity.ai'], ratio: true },
-  { id: 'bytedance', hosts: ['doubao.com'], ratio: true },
-  { id: 'google', hosts: ['google.com', 'google.com.hk', 'google.cn'], ratio: false },
-  { id: 'gemini', hosts: ['gemini.google.com'], ratio: false },
-  { id: 'microsoft', hosts: ['bing.com'], ratio: false },
-  { id: 'copilot', hosts: ['copilot.microsoft.com'], ratio: false },
-  { id: 'baidu', hosts: ['baidu.com'], ratio: false },
-  { id: 'wenxin', hosts: ['yiyan.baidu.com'], ratio: false },
-] as const;
 export async function readOutcomes(
   tx: AiTx,
   websiteId: string,
@@ -62,7 +50,7 @@ export async function readOutcomes(
       : (input.sources.find(row => row.id === p.sourceId)?.domain ?? input.access.domain),
   );
   const selectedPlatform = p.botId
-    ? knownCrawlerDirectory.find(row => row.id === p.botId)?.platformId
+    ? getKnownCrawlerDirectory().find(row => row.id === p.botId)?.platformId
     : undefined;
   const mappings = pathMappings([
     ...new Set([...input.catalog.map(row => row.path), ...logs.map(row => row.path)]),
@@ -102,7 +90,7 @@ export async function readOutcomes(
     return grouped.get(key);
   };
   const catalogPaths = new Set(input.catalog.map(row => row.path));
-  const crawlerPlatforms = new Map(knownCrawlerDirectory.map(row => [row.id, row.platformId]));
+  const crawlerPlatforms = new Map(getKnownCrawlerDirectory().map(row => [row.id, row.platformId]));
   for (const log of logs) {
     const platform = crawlerPlatforms.get(log.crawler_id) ?? `custom:${log.bot}`;
     const mapping = mappingByEncoded.get(log.path)!;
@@ -123,14 +111,7 @@ export async function readOutcomes(
     const source = classifyEntrySource(referral);
     if (!['AI 搜索引荐', '传统搜索'].includes(source.channel)) continue;
     const sourceHost = source.source.toLowerCase();
-    // Check specific AI hosts before parent search domains.
-    const product = [...products]
-      .sort(
-        (a, b) => Math.max(...b.hosts.map(h => h.length)) - Math.max(...a.hosts.map(h => h.length)),
-      )
-      .find(product =>
-        product.hosts.some(host => sourceHost === host || sourceHost.endsWith(`.${host}`)),
-      );
+    const product = platformForReferral(sourceHost);
     if (
       !product ||
       (selectedPlatform && product.id !== selectedPlatform) ||
@@ -151,7 +132,7 @@ export async function readOutcomes(
     }
   }
   const rows = [...grouped.values()].map(row => {
-    const supported = products.find(product => product.id === row.platformId)?.ratio ?? false;
+    const supported = platformSupportsReferralRatio(row.platformId);
     const reason = !supported
       ? 'mapping_unsupported'
       : row.ambiguous

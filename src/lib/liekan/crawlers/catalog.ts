@@ -1,3 +1,4 @@
+import { getPublishedCatalog } from './published';
 import { crawlerMetadata } from './catalog-metadata';
 import { crawlerRegistry } from './registry';
 
@@ -16,3 +17,5 @@ export const crawlerCatalog = crawlerRegistry.map(identity => {
     },
   };
 });
+
+export const getCrawlerCatalog = () => getPublishedCatalog()?.payload.identities ?? crawlerCatalog;

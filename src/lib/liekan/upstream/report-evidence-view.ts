@@ -1,3 +1,5 @@
+import { getPublishedCatalog } from '../crawlers/published';
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { createHash } from 'node:crypto';
 import type { LiekanReport } from '../contracts/report';
 import type { ReportQuery } from '../contracts/query';
@@ -24,6 +26,8 @@ export async function attachReportEvidenceView(report: LiekanReport, p: ReportQu
   ]);
   const policySnapshot = hash({
     catalog: hash(catalog),
+    registryVersion: getPublishedCatalog()?.version ?? null,
+    populationVersion: TRAFFIC_POLICY_VERSION,
     policy: policies[0] || { mode: 'standard', revision: '0' },
     epoch: states[0]?.epoch ?? 1,
     metricVersion: CRAWLER_METRIC_VERSION,

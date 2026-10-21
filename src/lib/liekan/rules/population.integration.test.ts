@@ -49,7 +49,7 @@ describe.skipIf(!enabled)('crawler qualification across real statistics queries'
         site,
         owner,
       );
-      expect((await getSettings(site)).rules).toHaveLength(53);
+      expect((await getSettings(site)).rules).toHaveLength(57);
       await importLogs(site, 'example.com', {
         format: 'json',
         records: [

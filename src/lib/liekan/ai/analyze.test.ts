@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   emit: vi.fn(),
   load: vi.fn(),
   query: vi.fn(),
+  pointer: vi.fn(),
+  catalog: vi.fn(),
+  response: vi.fn(),
 }));
 vi.mock('./runs', () => ({
   acceptAiRun: mocks.accept,
@@ -21,10 +24,12 @@ vi.mock('./runs', () => ({
   setAiRunStage: mocks.stage,
 }));
 vi.mock('./http', () => ({
-  aiRunResponse: async (_request: unknown, _actor: unknown, _handle: unknown, execute: any) => {
-    await execute({ emit: mocks.emit, signal: new AbortController().signal });
-    return new Response();
-  },
+  aiRunResponse: mocks.response,
+}));
+vi.mock('../upstream/crawler-registry', () => ({
+  readCrawlerRegistryPointer: mocks.pointer,
+  readPublishedRegistry: mocks.catalog,
+  initializeCrawlerRegistry: vi.fn(),
 }));
 vi.mock('../upstream/ai-facts', () => ({ buildAiFactsContext: mocks.facts }));
 vi.mock('../upstream/ai-db', () => ({ aiTransaction: (fn: any) => fn({ query: mocks.query }) }));
@@ -37,6 +42,9 @@ vi.mock('./model', () => ({ callAiModel: mocks.model }));
 vi.mock('./prompt', () => ({ prepareAiPrompt: mocks.prepare }));
 import { analyzeAiConversation } from './analyze';
 import { AiError } from './error';
+import { randomUUID } from 'node:crypto';
+import { getBundledPublishedCatalog } from '../crawlers/catalog-seed';
+import { getPublishedCatalog } from '../crawlers/published';
 
 const id = '00000000-0000-4000-8000-000000000001';
 const actor = { id, role: 'user' };
@@ -64,11 +72,44 @@ const connection = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  const catalog = { ...getBundledPublishedCatalog(), version: randomUUID() };
+  mocks.pointer.mockReset().mockResolvedValue(catalog);
+  mocks.catalog.mockReset().mockResolvedValue(catalog);
+  mocks.response.mockReset().mockImplementation(async (_request, _actor, _handle, execute) => {
+    await execute({ emit: mocks.emit, signal: new AbortController().signal });
+    return new Response();
+  });
   mocks.accept.mockReset().mockResolvedValue({ connection });
   mocks.facts
     .mockReset()
     .mockRejectedValue(new Error('Statistics must be bypassed for a pure greeting'));
   mocks.complete.mockResolvedValue({ state: 'completed', result: { summary: 'saved' } });
+});
+
+it('pins acceptance and detached stream execution to one immutable catalog across publication', async () => {
+  let execute!: (execution: any) => Promise<void>;
+  let acceptedVersion: string;
+  mocks.accept.mockImplementation(async () => {
+    acceptedVersion = getPublishedCatalog()?.version;
+    return { connection };
+  });
+  mocks.response.mockImplementation(async (_request, _actor, _handle, work) => {
+    execute = work;
+    return new Response();
+  });
+  await analyzeAiConversation(new Request('https://example.com'), actor, id, input('分析网站访问'));
+  expect(acceptedVersion).toMatch(/^[0-9a-f-]{36}$/);
+  expect(getPublishedCatalog()).toBeUndefined();
+  mocks.pointer.mockResolvedValue({ ...getBundledPublishedCatalog(), version: randomUUID() });
+  mocks.facts.mockImplementation(async () => {
+    expect(getPublishedCatalog()?.version).toBe(acceptedVersion);
+    throw new Error('facts snapshot observed');
+  });
+  await expect(execute({ emit: mocks.emit, signal: new AbortController().signal })).rejects.toThrow(
+    'facts snapshot observed',
+  );
+  expect(mocks.pointer).toHaveBeenCalledTimes(1);
+  expect(getPublishedCatalog()).toBeUndefined();
 });
 
 it.each(['你好', '  您好！ ', 'hello!', 'Hi', '早上好。'])(

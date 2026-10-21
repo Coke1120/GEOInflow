@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createClient } from 'redis';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from 'vitest';
 import {
@@ -15,6 +16,9 @@ import {
   reserveWorkerComputation,
   scheduleNextAnalyticsHot,
 } from './analytics-hot';
+import { installPublishedCatalogResolver } from '../crawlers/published';
+import { getBundledPublishedCatalog } from '../crawlers/catalog-seed';
+import type { PublishedCatalog } from '../contracts/crawler-registry';
 
 const mocks = vi.hoisted(() => ({ context: undefined as any, command: vi.fn() }));
 const serverMocks = vi.hoisted(() => ({ findFirst: vi.fn() }));
@@ -133,6 +137,40 @@ describe.skipIf(!redisAvailable)('hot scheduler with isolated Redis', () => {
       expect(await client.keys('*:due')).toHaveLength(0);
     },
   );
+
+  test('discovers foreground catalog registrations from a worker outside the request context', async () => {
+    const contexts = new AsyncLocalStorage<PublishedCatalog>();
+    installPublishedCatalogResolver(() => contexts.getStore());
+    try {
+      const catalog = getBundledPublishedCatalog();
+      const job = await contexts.run(catalog, () => task());
+      now = job.scheduledAt;
+      const queue = { send: vi.fn(async (..._args: unknown[]) => 'job-id') };
+      const readStrong = vi.fn(async () => job.expectedStrongVersion);
+      expect(await readAnalyticsHot(job)).not.toBeNull();
+      await pumpAnalyticsHot(queue as any, readStrong);
+      expect(readStrong).toHaveBeenCalledWith(site, job.expectedStrongVersion);
+      expect(queue.send).toHaveBeenCalledTimes(1);
+      expect(queue.send.mock.calls[0][1]).toMatchObject({ fingerprint: job.fingerprint });
+    } finally {
+      installPublishedCatalogResolver(() => undefined);
+    }
+  });
+
+  test('keeps the worker computation budget shared across catalog snapshots', async () => {
+    const contexts = new AsyncLocalStorage<PublishedCatalog>();
+    installPublishedCatalogResolver(() => contexts.getStore());
+    try {
+      const catalog = getBundledPublishedCatalog();
+      for (let index = 0; index < 20; index++)
+        expect(await contexts.run(catalog, () => reserveWorkerComputation(now))).toBe(true);
+      expect(await reserveWorkerComputation(now)).toBe(false);
+      expect(await contexts.run({ ...catalog, version: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' },
+        () => reserveWorkerComputation(now))).toBe(false);
+    } finally {
+      installPublishedCatalogResolver(() => undefined);
+    }
+  });
 
   test('requires three foreground rounds, caps a website at four and removes expired counts', async () => {
     await observe(base);

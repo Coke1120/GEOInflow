@@ -1,11 +1,11 @@
-import { api, readBody } from '@/lib/liekan/http';
+import { requestApi, api, readBody } from '@/lib/liekan/http';
 import { authorize } from '@/lib/liekan/upstream/server';
 import { finalizeCloudflare } from '@/lib/liekan/log-ingestion/cloudflare';
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
-  return api(async () => {
+  return requestApi(request, async () => {
     const { websiteId } = await params,
       access = await authorize(request, websiteId, true);
     return finalizeCloudflare(

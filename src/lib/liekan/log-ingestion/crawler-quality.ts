@@ -1,6 +1,7 @@
 import type { CrawlerCoverage } from '../contracts/crawler-quality';
 import { crawlerClassificationVersion } from './crawler-evidence';
 import type { BotRule } from '../rules/bots';
+import type { CrawlerRuleConfiguration } from '../rules/configuration';
 
 // This attests to the collector's observed file range and processed batches.
 // It cannot establish that the upstream web server logged every request.
@@ -11,6 +12,7 @@ export async function recordCrawlerCoverage(
   health: { pending: number; gap: boolean; errorCode: string; coverage?: CrawlerCoverage },
   rules: BotRule[],
   now = Date.now(),
+  configuration?: CrawlerRuleConfiguration,
 ) {
   const proof = health.coverage;
   if (source.kind !== 'server' || source.state !== 'active') return;
@@ -81,7 +83,7 @@ export async function recordCrawlerCoverage(
     new Date(proof.endsAt),
   );
   if (pending.count || !interval?.id) return;
-  const classificationVersion = crawlerClassificationVersion(rules);
+  const classificationVersion = crawlerClassificationVersion(rules, configuration);
   const [previous] = await tx.$queryRawUnsafe(
     "SELECT ends_at,recorded_at FROM liekan_crawler_quality WHERE website_id=$1::uuid AND source_id=$2::uuid AND starts_at=$3 AND state='complete' AND evidence->>'classificationVersion'=$4 AND evidence->>'epoch'=$5",
     source.website_id,

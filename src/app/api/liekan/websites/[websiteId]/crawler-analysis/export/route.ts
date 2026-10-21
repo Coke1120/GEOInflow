@@ -1,4 +1,4 @@
-import { api, readBody } from '@/lib/liekan/http';
+import { requestApi, api, readBody } from '@/lib/liekan/http';
 import { authenticateCrawler } from '@/lib/liekan/upstream/crawler-access';
 import { exportEvidence } from '@/lib/liekan/crawlers/evidence-export';
 export async function POST(
@@ -14,7 +14,7 @@ export async function POST(
       'outcomes',
     ]);
   } catch (error) {
-    return api(async () => {
+    return requestApi(request, async () => {
       throw error;
     });
   }

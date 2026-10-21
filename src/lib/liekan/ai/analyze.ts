@@ -2,7 +2,7 @@ import { resolveAiTemplateConfig } from './templates';
 import { aiConversationPostSchema } from './contracts';
 import { AiError } from './error';
 import { acceptAiRun, completeAiRun, saveAiContext, setAiRunStage } from './runs';
-import { aiRunResponse } from './http';
+import { aiRunResponse, type AiExecution } from './http';
 import { decryptAiKey } from './crypto';
 import { callAiModel } from './model';
 import { localAiGreeting, localAiGuidance, resolveAiActions, validateAiAnswer } from './answer';
@@ -13,6 +13,7 @@ import { buildAiFactsContext } from '../upstream/ai-facts';
 import { aiTransaction } from '../upstream/ai-db';
 import { aiSpaceFromRow, type AiActor } from '../upstream/ai-access';
 import { loadAiConversation } from './conversations';
+import { withPublishedRegistry } from '../upstream/crawler-registry-context';
 
 async function completedHistory(actor: AiActor, id: string): Promise<AiHistoryTurn[]> {
   return aiTransaction(async tx => {
@@ -36,8 +37,11 @@ export async function analyzeAiConversation(
   const p = parsed.data;
   const locale = p.locale || 'zh-CN';
   normalizeAiRange(p, new Date());
-  const handle = await acceptAiRun(actor, { operation: 'analysis', targetId: id, ...p });
-  return aiRunResponse(request, actor, handle, async ({ emit, signal }) => {
+  const { handle, catalogVersion } = await withPublishedRegistry(async catalog => ({
+    handle: await acceptAiRun(actor, { operation: 'analysis', targetId: id, ...p }),
+    catalogVersion: catalog.version,
+  }));
+  const execute = async ({ emit, signal }: AiExecution) => {
     const greeting = localAiGreeting(p.question, locale);
     if (greeting) {
       const saved = await completeAiRun(
@@ -165,5 +169,8 @@ export async function analyzeAiConversation(
     });
     emit('answer', saved.result);
     emit('done', saved);
-  });
+  };
+  return aiRunResponse(request, actor, handle, execution =>
+    withPublishedRegistry(() => execute(execution), catalogVersion),
+  );
 }

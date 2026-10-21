@@ -1,3 +1,5 @@
+import { registryVersionIsCurrent } from './crawler-registry';
+import { getPublishedCatalog } from '../crawlers/published';
 import { randomUUID } from 'node:crypto';
 import { ROLES, SHARE_CONTEXT_HEADER, SHARE_TOKEN_HEADER } from '@/lib/constants';
 import { aiTransaction, type AiTx } from './ai-db';
@@ -17,8 +19,8 @@ import {
   type CrawlerSourceLease,
 } from './crawler-ranges';
 import {
-  documentSources,
-  DOCUMENT_JOB_SECONDS,
+  getDocumentSources,
+  getDocumentJobSeconds,
   type DocumentSource,
 } from '../crawlers/document-sources';
 import {
@@ -35,7 +37,7 @@ import {
   type CrawlerRecognitionResponse,
   type CrawlerCandidatesResponse,
 } from '../contracts/crawler-maintenance';
-import { CRAWLER_REGISTRY_VERSION } from '../crawlers/registry';
+import { CRAWLER_REGISTRY_VERSION, getCrawlerRegistry } from '../crawlers/registry';
 import { resolveCrawlerRules } from '../rules/configuration';
 import { crawlerIdForRule } from '../crawlers/directory';
 import { crawlerClassificationVersion } from '../log-ingestion/crawler-evidence';
@@ -74,7 +76,9 @@ async function authorizeAdmin(tx: AiTx, actor: CrawlerActor) {
 export async function initializeDocumentSources() {
   await aiTransaction(
     async tx => {
-      for (const source of documentSources) {
+      const version = getPublishedCatalog()?.version;
+      if (version && !(await registryVersionIsCurrent(tx, version))) return;
+      for (const source of getDocumentSources()) {
         await tx.execute(
           `INSERT INTO liekan_crawler_document_source(source_id,source_url,reviewed_at)
         VALUES($1,$2,$3::date) ON CONFLICT DO NOTHING`,
@@ -105,6 +109,8 @@ async function claimDocument(
   sharedLease: CrawlerSourceLease,
 ): Promise<DocumentLease | null> {
   return aiTransaction(async tx => {
+    const version = getPublishedCatalog()?.version;
+    if (version && !(await registryVersionIsCurrent(tx, version))) return null;
     if (!(await crawlerSourceLeaseOwned(tx, sharedLease, 30, true))) return null;
     const token = randomUUID();
     const [state] = await tx.query(
@@ -153,6 +159,8 @@ async function refreshDocument(
     errorCode = documentCheckErrorCode(error);
   }
   return aiTransaction(async tx => {
+    const version = getPublishedCatalog()?.version;
+    if (version && !(await registryVersionIsCurrent(tx, version))) return 'superseded' as const;
     if (!(await crawlerSourceLeaseOwned(tx, sharedLease, 0, true))) return 'superseded' as const;
     const [global] = await tx.query(
       "SELECT id FROM liekan_crawler_document_lease WHERE id='documents' AND token=$1::uuid AND epoch=$2::bigint AND lease_until>clock_timestamp() FOR SHARE",
@@ -201,7 +209,9 @@ export async function refreshDocumentSources(
   options: { force?: boolean; fetcher?: typeof fetch } = {},
 ) {
   await initializeDocumentSources();
-  const sharedLease = await acquireCrawlerSourceLease(DOCUMENT_JOB_SECONDS);
+  const sources = getDocumentSources();
+  const jobSeconds = getDocumentJobSeconds();
+  const sharedLease = await acquireCrawlerSourceLease(jobSeconds);
   if (!sharedLease) throw new CrawlerSourceBusyError();
   const token = randomUUID();
   let epoch: string | null = null;
@@ -215,7 +225,7 @@ export async function refreshDocumentSources(
         lease_until=clock_timestamp()+$2*interval '1 second' WHERE id='documents'
         AND (lease_until IS NULL OR lease_until<=clock_timestamp()) RETURNING epoch`,
         token,
-        DOCUMENT_JOB_SECONDS,
+        jobSeconds,
       );
     });
     if (!acquired) throw new CrawlerSourceBusyError();
@@ -224,8 +234,8 @@ export async function refreshDocumentSources(
     let cursor = 0;
     const outcomes = await Promise.allSettled(
       Array.from({ length: 2 }, async () => {
-        while (cursor < documentSources.length) {
-          const source = documentSources[cursor++];
+        while (cursor < sources.length) {
+          const source = sources[cursor++];
           const lease = await claimDocument(
             source,
             token,
@@ -306,10 +316,10 @@ export async function crawlerSources(actor: CrawlerActor): Promise<CrawlerSource
     const now = Date.now();
     const ipSources = await rangeSourceHealth(now, { initialize: false });
     return {
-      catalogVersion: CRAWLER_REGISTRY_VERSION,
+      catalogVersion: getPublishedCatalog()?.version || CRAWLER_REGISTRY_VERSION,
       checkedAt: new Date(now).toISOString(),
       ipSources: ipSources.map(source => rangeSourceHealthSchema.parse(source)),
-      documents: documentSources.map(source =>
+      documents: getDocumentSources().map(source =>
         documentSourceHealth(
           source,
           rows.find(row => row.source_id === source.id && row.source_url === source.url),
@@ -332,15 +342,25 @@ export async function crawlerRecognition(
     const { configuration, rules } = resolveCrawlerRules(row);
     return {
       mode: configuration.mode,
-      classificationVersion: crawlerClassificationVersion(rules),
+      classificationVersion: crawlerClassificationVersion(rules, configuration),
       rulesRevision: row?.rulesRevision ?? 0,
       enabledIds: [
-        ...new Set(
-          rules.flatMap(rule => {
+        ...new Set([
+          ...rules.flatMap(rule => {
             const id = crawlerIdForRule(rule);
             return id ? [id] : [];
           }),
-        ),
+          ...(configuration.mode === 'official'
+            ? getCrawlerRegistry()
+                .filter(
+                  identity =>
+                    identity.kind === 'signed_agent' &&
+                    identity.status === 'active' &&
+                    !configuration.disabledIds.includes(identity.id),
+                )
+                .map(identity => identity.id)
+            : []),
+        ]),
       ],
     };
   });

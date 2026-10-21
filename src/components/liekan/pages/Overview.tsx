@@ -9,7 +9,13 @@ import {
 } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
-export function Overview({ report, rangeLabel, trendLabel, aiCrawlerEnabled }: ReportViewProps) {
+export function Overview({
+  report,
+  rangeLabel,
+  trendLabel,
+  aiCrawlerEnabled,
+  geoWeight,
+}: ReportViewProps) {
   const i18n = useLiekanI18n();
   if (aiCrawlerEnabled === false || report?.meta.aiCrawlerEnabled === false)
     return (
@@ -21,6 +27,7 @@ export function Overview({ report, rangeLabel, trendLabel, aiCrawlerEnabled }: R
     );
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
+      {geoWeight}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label="今日总请求"

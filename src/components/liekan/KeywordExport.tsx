@@ -70,6 +70,7 @@ export function KeywordExport({
             chunks.push(part);
           }
         },
+        report.meta?.catalogVersion,
       );
       if (!ownsRun() || run.signal.aborted) return;
       if (!file || file.size !== bytes) throw new Error('文件传输未完成，请重新生成');

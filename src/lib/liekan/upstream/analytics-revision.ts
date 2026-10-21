@@ -1,3 +1,4 @@
+import { getPublishedCatalog } from '../crawlers/published';
 export type AnalyticsResource = 'website' | 'link' | 'pixel';
 export const resourceCacheTag = (type: AnalyticsResource, id: string) =>
   `${type}:${id.toLowerCase()}`;
@@ -37,7 +38,7 @@ export async function readAnalyticsVersions(tx: any, tags: string[]): Promise<An
     ids,
   );
   return {
-    strong: JSON.stringify([TRAFFIC_POLICY_VERSION,ids, revisions, logs.map(({ id, policy }: any) => ({ id, policy }))]),
+    strong: JSON.stringify([TRAFFIC_POLICY_VERSION,getPublishedCatalog()?.version || 'bundled',ids, revisions, logs.map(({ id, policy }: any) => ({ id, policy }))]),
     data: JSON.stringify(logs.map(({ id, data }: any) => ({ id, data }))),
   };
 }

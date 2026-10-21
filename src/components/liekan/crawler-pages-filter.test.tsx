@@ -170,7 +170,7 @@ describe('crawler page filters', () => {
   it('validates filters and isolates cached pages by both type and crawler identity', () => {
     const input = { resource: 'ai/pages' as const, startAt: 0, endAt: 1, timezone: 'UTC' };
     expect(parseReportQuery({ ...input, botType: 'invalid' }).success).toBe(false);
-    expect(parseReportQuery({ ...input, botId: 'invalid' }).success).toBe(false);
+    expect(parseReportQuery({ ...input, botId: 'invalid /id' }).success).toBe(false);
     const key = (filter: Record<string, any>) =>
       pageReportQuery('user', 'site', { ...input, ...filter }).queryKey;
     expect(

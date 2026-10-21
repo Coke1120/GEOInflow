@@ -1,7 +1,9 @@
+import { getPublishedCatalog } from './published';
+import { safeSourceFetch } from './source-fetch';
 import { createHash } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import bundled from '../../../../config/liekan/crawler-range-baselines.json';
-import { type RangeSource, rangeSources } from './range-sources';
+import { type RangeSource, rangeSources, getRangeSources } from './range-sources';
 
 export type RangeContent = {
   version: string;
@@ -30,6 +32,7 @@ export type RangeCheckResult = {
   change: { added: number; removed: number; oldCount: number };
 };
 export type RangeCheckErrorCode =
+  | 'manual_review_required'
   | 'missing_baseline'
   | 'invalid_source'
   | 'invalid_cache'
@@ -148,7 +151,7 @@ function publicNetwork(value: unknown): Network {
     return fail('non_public_cidr');
   return network;
 }
-function normalizePrefixes(values: unknown): string[] {
+export function normalizePrefixes(values: unknown): string[] {
   if (!Array.isArray(values)) return fail('invalid_shape');
   if (!values.length) return fail('empty_prefixes');
   if (values.length > MAX_PREFIXES) return fail('too_many_prefixes');
@@ -167,7 +170,7 @@ function equalStrings(left: unknown, right: readonly string[]): boolean {
   );
 }
 function sameSource(source: RangeSource): boolean {
-  const fixed = rangeSources.find(entry => entry.id === source?.id);
+  const fixed = getRangeSources().find(entry => entry.id === source?.id);
   return (
     !!fixed &&
     source.url === fixed.url &&
@@ -276,6 +279,25 @@ export const rangeBaselines: Record<string, { content: RangeContent; observedAt:
       }),
     ),
   );
+const publishedBaselines = new WeakMap<object, typeof rangeBaselines>();
+export function getRangeBaselines(): typeof rangeBaselines {
+  const catalog = getPublishedCatalog();
+  if (!catalog) return rangeBaselines;
+  const payload = catalog.payload;
+  let values = publishedBaselines.get(payload);
+  if (!values) {
+    values = Object.freeze(Object.fromEntries(getRangeSources().flatMap(source => {
+      const baseline = payload.rangeBaselines[source.id];
+      if (!baseline || baseline.source !== source.url) return [];
+      return [[source.id, Object.freeze({
+        content: contentFor(source, baseline.prefixes, publication(baseline.publishedAt)),
+        observedAt: baseline.observedAt,
+      })]];
+    })));
+    publishedBaselines.set(payload, values);
+  }
+  return values;
+}
 function qualifiedObservation(source: RangeSource, value: RangeObservation, now: number): boolean {
   const observed = timestamp(value?.observedAt);
   return (
@@ -428,10 +450,11 @@ export async function checkRangeSource(
   previous?: RangeObservation,
   options: { fetcher?: typeof fetch; now?: () => Date } = {},
 ): Promise<RangeCheckResult> {
-  const baseline = rangeBaselines[source?.id];
+  const baseline = getRangeBaselines()[source?.id];
   if (!baseline) return fail('missing_baseline');
   if (!sameSource(source)) return fail('invalid_source');
-  source = rangeSources.find(entry => entry.id === source.id);
+  source = getRangeSources().find(entry => entry.id === source.id);
+  if (source.parserVersion === 'manual-reviewed-v1') return fail('manual_review_required');
   const now = options.now || (() => new Date());
   const initialTime = now().getTime();
   if (!Number.isFinite(initialTime)) return fail('invalid_timestamp');
@@ -470,7 +493,7 @@ export async function checkRangeSource(
     return await Promise.race([
       deadline,
       (async (): Promise<RangeCheckResult> => {
-        response = await (options.fetcher || fetch)(source.url, {
+        response = await (options.fetcher || safeSourceFetch)(source.url, {
           headers,
           redirect: 'error',
           signal: controller.signal,

@@ -1,3 +1,4 @@
+import type { CatalogPayload } from '../contracts/crawler-registry';
 import baselines from '../../../../config/liekan/crawler-range-baselines.json';
 import { rangeSources } from '../crawlers/range-sources';
 import { projectArticles } from '../contracts/product';
@@ -35,7 +36,18 @@ const publicRanges: Record<string, PublicRangeSnapshot> = Object.fromEntries(
   }),
 );
 
-export function crawlerCapabilities(crawler: Crawler) {
+function catalogRanges(catalog?: CatalogPayload): Record<string, PublicRangeSnapshot> {
+  if (!catalog) return publicRanges;
+  return Object.fromEntries(catalog.rangeSources.filter(source => source.enabled !== false).flatMap(source => {
+    const baseline = catalog.rangeBaselines[source.id];
+    return baseline ? source.names.map(name => [name, { source: source.url, retrievedAt: baseline.observedAt, publishedAt: baseline.publishedAt, prefixes: baseline.prefixes }]) : [];
+  }));
+}
+export function crawlerCapabilities(crawler: Crawler, catalog?: CatalogPayload) {
+  if (catalog) {
+    const identity = catalog.identities.find(item => item.id === crawler.id && item.status === 'active' && item.kind !== 'robots_purpose');
+    return { rule: identity, ip: !!(identity && catalogRanges(catalog)[identity.name]) };
+  }
   const classified =
     crawler.kind === 'crawler' && crawler.evidence !== 'pending'
       ? classifyBot(crawler.token)
@@ -43,7 +55,8 @@ export function crawlerCapabilities(crawler: Crawler) {
   const rule = classified?.name !== '其他' ? classified : undefined;
   return { rule, ip: !!(rule && publicRanges[rule.name]) };
 }
-export function crawlerSnapshot(crawler: Crawler): PublicRangeSnapshot | undefined {
+export function crawlerSnapshot(crawler: Crawler, catalog?: CatalogPayload): PublicRangeSnapshot | undefined {
+  const publicRanges = catalogRanges(catalog);
   if (crawler.kind === 'control') return;
   if (publicRanges[crawler.name]) return publicRanges[crawler.name];
   // Reference-only feeds remain separate from active identity verification.
@@ -94,8 +107,9 @@ export function searchCrawlers(
   vendor = '',
   kind = '',
   display = (text: string) => text,
+  directory: Crawler[] = helpCrawlers,
 ) {
-  return helpCrawlers.filter(
+  return directory.filter(
     crawler =>
       (!purpose || crawler.purposes.includes(purpose as any)) &&
       (!vendor || crawler.vendor === vendor) &&
@@ -121,9 +135,9 @@ export function crawlerRobotsDraft(crawler: Crawler): string | undefined {
   if (crawler.evidence !== 'operator' || !crawler.robotsToken) return;
   return `# Configuration draft: review purpose and merge existing rules\n# ${crawler.name} | reviewed ${crawler.reviewedAt}\nUser-agent: ${crawler.robotsToken}\nDisallow: /\n`;
 }
-export function helpLocation(query: Record<string, string>) {
+export function helpLocation(query: Record<string, string>, directory: Crawler[] = helpCrawlers) {
   const article = helpArticles.find(item => item.id === query.article);
-  const crawler = helpCrawlers.find(item => item.id === query.crawler);
+  const crawler = directory.find(item => item.id === query.crawler);
   const section = helpSections.find(item => item.id === query.section)?.id;
   const invalid =
     (!!query.article && !article) ||

@@ -1,3 +1,4 @@
+import { getPublishedCatalog } from '../crawlers/published';
 import { createHash } from 'node:crypto';
 import { CRAWLER_POPULATION_VERSION } from '../rules/population';
 import type { CrawlerMetricOptions } from '../contracts/crawler-metrics';
@@ -90,6 +91,7 @@ async function readLogFacts(
                 crawlerMetricsVersion: metrics.crawlerMetricsVersion,
               },
               classification: CRAWLER_POPULATION_VERSION,
+              catalogVersion: getPublishedCatalog()?.version ?? null,
               classificationVersions: cursorClassification?.versions ?? null,
               epoch: cursorState?.epoch ?? 1,
               policyRevision: cursorState?.policy_revision ?? '0',
@@ -171,7 +173,7 @@ async function readLogFacts(
         : Promise.resolve([]),
       needs('recent')
         ? read(
-            `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,e.crawler_id AS "botId",bot_type AS "botType",verification,${crawlerAiSql()} AS "aiEligible",recognition_state AS "recognitionState",verification_version AS "verificationVersion",verification_observed_at AS "verificationObservedAt",verification_reason AS "verificationReason" ${identityBase}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT ${fullExport ? 100001 : 100}${paginationSql}`,
+            `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,e.crawler_id AS "botId",e.catalog_version AS "catalogVersion",e.identity_evidence AS "identityEvidence",bot_type AS "botType",verification,${crawlerAiSql()} AS "aiEligible",recognition_state AS "recognitionState",verification_version AS "verificationVersion",verification_observed_at AS "verificationObservedAt",verification_reason AS "verificationReason" ${identityBase}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'verified_dns' THEN '官方 DNS 双向核验' WHEN 'verified_edge' THEN '可信边缘身份核验' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT ${fullExport ? 100001 : 100}${paginationSql}`,
             ...args,
             search,
             ...(cursor ? boundary : [(page - 1) * 100]),
@@ -179,7 +181,7 @@ async function readLogFacts(
         : Promise.resolve([]),
       needs('count')
         ? read(
-            `SELECT count(*)::int AS count ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0`,
+            `SELECT count(*)::int AS count ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'verified_dns' THEN '官方 DNS 双向核验' WHEN 'verified_edge' THEN '可信边缘身份核验' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0`,
             ...args,
             search,
           )

@@ -1,3 +1,4 @@
+import { withPublishedRegistry } from '@/lib/liekan/upstream/crawler-registry-context';
 import { observeCollection } from '@/lib/liekan/upstream/collection-observation';
 import { recordGeographyIngress } from '@/lib/liekan/upstream/geography-ingress';
 import { startOfHour } from 'date-fns';
@@ -91,6 +92,9 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
+  return process.env.CLICKHOUSE_URL ? collect(request) : withPublishedRegistry(() => collect(request));
+}
+async function collect(request: Request) {
   const receivedAt = new Date();
   try {
     const { body, error } = await parseRequest(request, schema, { skipAuth: true });

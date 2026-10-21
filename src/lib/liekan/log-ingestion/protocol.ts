@@ -1,10 +1,13 @@
+import type { RequestIdentityEvidence } from '../crawlers/request-verification';
+import { getPublishedCatalog } from '../crawlers/published';
 import { createHash, createHmac } from 'node:crypto';
 import { Readable } from 'node:stream';
 import { createGunzip } from 'node:zlib';
 import { z } from 'zod';
 import { type LogRecord, parseLogInput } from '../ingest';
 import type { VerificationSnapshots } from '../rules/verify';
-import { type BotRule, BOT_RULES } from '../rules/bots';
+import { type BotRule, getBotRules } from '../rules/bots';
+import type { CrawlerRuleConfiguration } from '../rules/configuration';
 import { LiekanError } from '../upstream/errors';
 import {
   cloudflareCrawlerEvidence,
@@ -30,9 +33,11 @@ export const uploadSchema = z.strictObject({
 export const hostname = (domain: string) =>
   new URL(domain.includes('://') ? domain : `https://${domain}`).hostname.toLowerCase();
 export interface AutomaticRecord extends LogRecord {
+  identityEvidence?: RequestIdentityEvidence;
   eventDigest: string;
   verificationVersion?: string | null;
   classificationVersion?: string;
+  catalogVersion?: string | null;
   crawlerId?: string | null;
   crawlerEvidence?: CrawlerLogEvidence | null;
 }
@@ -49,14 +54,15 @@ export function normalizeAutomatic(
   events: unknown[],
   domain: string,
   secret: string,
-  rules: BotRule[] = BOT_RULES,
+  rules: BotRule[] = getBotRules(),
   snapshots?: VerificationSnapshots,
   observe?: (ip: string, record: AutomaticRecord) => void,
+  configuration?: CrawlerRuleConfiguration,
 ) {
   if (!events.length || events.length > MAX_RECORDS)
     throw new LiekanError('每批需要 1–1000 条日志');
   const records: AutomaticRecord[] = [];
-  const classificationVersion = crawlerClassificationVersion(rules);
+  const classificationVersion = crawlerClassificationVersion(rules, configuration);
   const errors: { line: number; reason: string }[] = [];
   for (let index = 0; index < events.length; index++) {
     try {
@@ -140,6 +146,7 @@ export function normalizeAutomatic(
         },
         eventDigest,
         classificationVersion,
+        catalogVersion: getPublishedCatalog()?.version ?? null,
         crawlerId: crawlerIdentityId(parsed.records[0].userAgent, rules),
         crawlerEvidence:
           kind === 'cloudflare' ? cloudflareCrawlerEvidence(raw as Record<string, unknown>) : null,

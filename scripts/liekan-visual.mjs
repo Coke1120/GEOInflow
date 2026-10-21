@@ -490,6 +490,17 @@ try {
     });
     await actual.waitForTimeout(800);
     assert(fixtureRequests > 0, `${name} current page report fixture was never requested`);
+    // Validate the approved addition separately, then retain the original body/pixel oracle.
+    // Full score states, the shared detail and both locales are checked by geo-weight-ui.mjs.
+    const geoSummary = actual.locator('[data-geo-weight]');
+    assert.equal(await geoSummary.count(), ['index', 'ai'].includes(name) ? 1 : 0);
+    if (await geoSummary.count()) {
+      const box = await geoSummary.boundingBox();
+      assert(box.height >= 80 && box.height <= 220, `${name} GEO summary must remain compact`);
+      assert(box.x >= 220 && box.x + box.width <= 1440, `${name} GEO summary must stay within the content`);
+      await geoSummary.screenshot({ path: `${out}/${name}-geo-weight-summary.png` });
+      await geoSummary.evaluate(element => element.remove());
+    }
     const measure = (page, surface) =>
       page.evaluate(
         ({ name, surface }) => {

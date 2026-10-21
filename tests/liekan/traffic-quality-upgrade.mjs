@@ -34,8 +34,9 @@ export async function runTrafficQualityUpgradeChecks({
         },
       })
     ).body;
-    assert.equal(preview.preview.includedPV, audit.totals.rawPV);
-    assert.equal(preview.preview.includedUV, audit.totals.rawUV);
+    const browserRaw = (await json(`${qualityPath}?${window}&source=browser`, { auth: true })).body;
+    assert.equal(preview.preview.includedPV, browserRaw.totals.rawPV);
+    assert.equal(preview.preview.includedUV, browserRaw.totals.rawUV);
     const after = (await json(`${qualityPath}?${window}`, { auth: true })).body;
     assert.deepEqual(after.policy, audit.policy);
     assert.deepEqual(after.history, audit.history);

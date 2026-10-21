@@ -327,10 +327,11 @@ function expectedCounts() {
 function included(mode, hosts = []) {
   return fixtures.filter(
     f =>
-      mode === 'raw' ||
+      f.source === 'browser' &&
+      (mode === 'raw' ||
       (f.classification !== 'automated' &&
         (mode !== 'strict' || f.classification !== 'suspected') &&
-        (!hosts.length || hosts.includes(f.host))),
+        (!hosts.length || hosts.includes(f.host)))),
   );
 }
 function unique(rows, field = 'sessionId') {
@@ -1036,7 +1037,7 @@ try {
       { userAgent: botUa },
     );
   });
-  await test('historical unclassified event remains unknown and eligible', async () => {
+  await test('historical unclassified event stays raw and outside browser population', async () => {
     const sessionId = randomUUID(),
       eventId = randomUUID(),
       visitId = randomUUID();
@@ -1150,7 +1151,7 @@ try {
       same(row.pageviews, pages.length, 'Class PV excludes custom events');
       same(
         row.included_pageviews,
-        row.classification === 'automated' ? 0 : pages.length,
+        pages.filter(f => f.source === 'browser' && f.classification !== 'automated').length,
         'Class included PV shares the saved policy',
       );
     }
@@ -1211,7 +1212,7 @@ try {
           );
       }
       ensure(
-        row.included === (match.classification !== 'automated'),
+        row.included === (match.source === 'browser' && match.classification !== 'automated'),
         'Default standard audit inclusion must match policy',
       );
     }
@@ -1229,6 +1230,7 @@ try {
           'website_id',
         ],
         liekan_event_quality: [
+          'catalog_version',
           'classification',
           'created_at',
           'event_id',
@@ -1575,35 +1577,10 @@ try {
         { auth: true },
       )
     ).body;
-    const supported = [
-      'openai',
-      'anthropic',
-      'perplexity',
-      'bytedance',
-      'google',
-      'baidu',
-      'microsoft',
-    ];
-    const unsupported = [
-      'apple',
-      'amazon',
-      'mistral',
-      'duckduckgo',
-      'common-crawl',
-      'ai2',
-      'sogou',
-      '360',
-      'yandex',
-      'naver',
-      'seznam',
-      'qwant',
-      'mojeek',
-      'meta',
-      'ahrefs',
-      'semrush',
-      'majestic',
-      'petal',
-    ];
+    const supported = ["360", "alibaba", "anthropic", "baidu", "bytedance", "deepseek", "duckduckgo", "google", "iflytek", "kimi", "manus", "metaso", "microsoft", "minimax", "openai", "perplexity", "sensetime", "skywork", "sogou", "stepfun", "tencent", "zhipu"];
+    const published = (await json('/api/liekan/crawler-registry', { auth: true })).body;
+    ensure(published.payload.platforms.length === 54, 'The current catalog must retain all reviewed platforms');
+    const unsupported = published.payload.platforms.map(row => row.id).filter(id => !supported.includes(id));
     same(
       analysis.platforms.map(row => row.platformId).sort(),
       [...supported, ...unsupported].sort(),

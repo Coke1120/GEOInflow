@@ -45,7 +45,7 @@ const report: LiekanReport = {
     demo: false,
     canManage: true,
     latestImportAt: null,
-    ruleCount: 53,
+    ruleCount: 57,
     crawlerClassification: {
       mode: 'mixed',
       versions: 2,

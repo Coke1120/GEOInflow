@@ -1,11 +1,13 @@
+import { registryVersionIsCurrent } from './crawler-registry';
+import { getPublishedCatalog } from '../crawlers/published';
 import { randomUUID } from 'node:crypto';
 import { query } from './server';
 import { aiTransaction, type AiTx } from './ai-db';
-import { rangeSources, type RangeSource } from '../crawlers/range-sources';
+import { getRangeSources, type RangeSource } from '../crawlers/range-sources';
 import {
   checkRangeSource,
   isQualifiedRangeContent,
-  rangeBaselines,
+  getRangeBaselines,
   rangeCheckErrorCode,
   type RangeContent,
 } from '../crawlers/range-check';
@@ -90,6 +92,8 @@ async function mirror(tx: AiTx, content: RangeContent, observedAt: string) {
 export async function initializeRangeSources() {
   await aiTransaction(
     async tx => {
+      const version = getPublishedCatalog()?.version;
+      if (version && !(await registryVersionIsCurrent(tx, version))) return;
       for (const [name, snapshot] of Object.entries(legacyBundledVerificationSnapshots)) {
         await archive(
           tx,
@@ -106,12 +110,12 @@ export async function initializeRangeSources() {
           snapshot.retrievedAt,
         );
       }
-      for (const source of rangeSources) {
+      for (const source of getRangeSources()) {
         await tx.execute(
           'INSERT INTO liekan_crawler_range_source(source_id) VALUES($1) ON CONFLICT DO NOTHING',
           source.id,
         );
-        const baseline = rangeBaselines[source.id];
+        const baseline = getRangeBaselines()[source.id];
         if (
           !baseline ||
           !isQualifiedRangeContent(source, baseline.content) ||
@@ -130,14 +134,24 @@ export async function initializeRangeSources() {
           source.id,
         );
         if (
+          state.baseline_version === baseline.content.version &&
           state.baseline_observed_at &&
           +state.baseline_observed_at >= +new Date(baseline.observedAt)
         )
           continue;
+        const [current] = state.current_version
+          ? await tx.query(
+              'SELECT * FROM liekan_crawler_range_snapshot WHERE source_id=$1 AND version=$2',
+              source.id,
+              state.current_version,
+            )
+          : [];
         const activate =
           !state.current_version ||
           !state.last_success_at ||
-          +state.last_success_at <= +new Date(baseline.observedAt);
+          +state.last_success_at <= +new Date(baseline.observedAt) ||
+          !current ||
+          !isQualifiedRangeContent(source, contentFromRow(current));
         await tx.execute(
           `UPDATE liekan_crawler_range_source SET baseline_version=$2,baseline_observed_at=$3::timestamptz,
         current_version=CASE WHEN $4 THEN $2 ELSE current_version END,current_observed_at=CASE WHEN $4 THEN $3::timestamptz ELSE current_observed_at END,
@@ -156,12 +170,18 @@ export async function initializeRangeSources() {
     { timeout: 15000 },
   );
 }
-let initialized: Promise<void> | undefined;
+const initializations = new Map<string, Promise<void>>();
 function initialize() {
-  initialized ||= initializeRangeSources().catch(error => {
-    initialized = undefined;
-    throw error;
-  });
+  const version = getPublishedCatalog()?.version || 'bundled';
+  let initialized = initializations.get(version);
+  if (!initialized) {
+    initialized = initializeRangeSources().catch(error => {
+      initializations.delete(version);
+      throw error;
+    });
+    initializations.set(version, initialized);
+    while (initializations.size > 8) initializations.delete(initializations.keys().next().value!);
+  }
   return initialized;
 }
 
@@ -224,6 +244,8 @@ async function claim(
   sharedLease?: CrawlerSourceLease,
 ): Promise<Lease | null> {
   return aiTransaction(async tx => {
+    const version = getPublishedCatalog()?.version;
+    if (version && !(await registryVersionIsCurrent(tx, version))) return null;
     if (sharedLease && !(await crawlerSourceLeaseOwned(tx, sharedLease, 30, true))) return null;
     const token = randomUUID();
     const [state] = await tx.query(
@@ -259,7 +281,7 @@ export async function refreshRangeSource(
   sourceId: string,
   options: { force?: boolean; fetcher?: typeof fetch; sharedLease?: CrawlerSourceLease } = {},
 ) {
-  const source = rangeSources.find(source => source.id === sourceId);
+  const source = getRangeSources().find(source => source.id === sourceId);
   if (!source) throw new Error('Unknown range source');
   await initialize();
   const lease = await claim(source, options.force === true, options.sharedLease);
@@ -272,6 +294,8 @@ export async function refreshRangeSource(
     errorCode = rangeCheckErrorCode(error);
   }
   return aiTransaction(async tx => {
+    const version = getPublishedCatalog()?.version;
+    if (version && !(await registryVersionIsCurrent(tx, version))) return 'superseded' as const;
     if (options.sharedLease && !(await crawlerSourceLeaseOwned(tx, options.sharedLease, 0, true)))
       return 'superseded' as const;
     const [state] = await tx.query(
@@ -316,14 +340,15 @@ export async function refreshRangeSource(
 
 export async function refreshRangeSources(options: { fetcher?: typeof fetch } = {}) {
   await initialize();
-  const sharedLease = await acquireCrawlerSourceLease();
+  const sources = getRangeSources();
+  const sharedLease = await acquireCrawlerSourceLease(Math.ceil(sources.length / 2) * 15 + 180);
   if (!sharedLease) throw new CrawlerSourceBusyError();
   try {
     let cursor = 0;
     const outcomes = await Promise.allSettled(
       Array.from({ length: 2 }, async () => {
-        while (cursor < rangeSources.length) {
-          const source = rangeSources[cursor++];
+        while (cursor < sources.length) {
+          const source = sources[cursor++];
           const owned = await aiTransaction(tx => crawlerSourceLeaseOwned(tx, sharedLease, 30), {
             readOnly: true,
           });
@@ -346,7 +371,7 @@ export async function readRangeSnapshots(): Promise<VerificationSnapshots> {
       JOIN liekan_crawler_range_snapshot r ON r.source_id=s.source_id AND r.version=s.current_version`);
   const snapshots: VerificationSnapshots = {};
   for (const row of rows) {
-    const source = rangeSources.find(source => source.id === row.source_id);
+    const source = getRangeSources().find(source => source.id === row.source_id);
     const content = contentFromRow(row);
     const observedAt = iso(row.current_observed_at);
     if (
@@ -370,10 +395,13 @@ export async function readRangeSnapshots(): Promise<VerificationSnapshots> {
 
 /** Internal recovery primitive: only a previously qualified observation can be restored. */
 export async function restoreRangeSnapshot(sourceId: string, version: string) {
-  const source = rangeSources.find(source => source.id === sourceId);
+  const source = getRangeSources().find(source => source.id === sourceId);
   if (!source) throw new Error('Unknown range source');
   await initialize();
   return aiTransaction(async tx => {
+    const catalogVersion = getPublishedCatalog()?.version;
+    if (catalogVersion && !(await registryVersionIsCurrent(tx, catalogVersion)))
+      throw new Error('Crawler catalog changed before range recovery');
     await tx.query(
       'SELECT source_id FROM liekan_crawler_range_source WHERE source_id=$1 FOR UPDATE',
       sourceId,
@@ -417,7 +445,7 @@ export async function rangeSourceHealth(now = Date.now(), options: { initialize?
       ),
     { readOnly: true },
   );
-  return rangeSources.map(source => {
+  return getRangeSources().map(source => {
     const state = rows.find(row => row.source_id === source.id);
     const observedAt = iso(state?.current_observed_at),
       lastSuccessAt = iso(state?.last_success_at);

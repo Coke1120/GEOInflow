@@ -1,4 +1,4 @@
-import { api } from '@/lib/liekan/http';
+import { requestApi, api } from '@/lib/liekan/http';
 import { readPageReport } from '@/lib/liekan/upstream/page-report';
 import { authorize } from '@/lib/liekan/upstream/server';
 import { noteCacheResult } from '@/lib/liekan/upstream/cache-context';
@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const start = performance.now();
   let headers: Record<string, string> = {};
-  return api(
+  return requestApi(request,
     async () => {
       const { websiteId } = await params;
       const access = await authorize(request, websiteId);

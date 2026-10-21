@@ -3,6 +3,7 @@ import type { DataState, LiekanReport, Row } from '@/lib/liekan/contracts/report
 export type { DataState, LiekanReport, Row };
 export type ChartData = LiekanReport['charts'][string];
 export type ReportViewProps = {
+  geoWeight?: import('react').ReactNode;
   report?: LiekanReport;
   rangeLabel: string;
   trendLabel?: string;

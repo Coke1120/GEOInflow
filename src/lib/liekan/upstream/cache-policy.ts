@@ -24,7 +24,7 @@ export function isAggregateRequest(path: string, params?: Record<string, any>) {
   )
     return false;
   return (
-    /^\/liekan\/websites\/(?:summary$|[^/]+\/(?:page-report|shared-report|crawler-analysis|analytics|goals\/[^/]+\/analytics)$)/.test(
+    /^\/liekan\/websites\/(?:summary$|[^/]+\/(?:page-report|shared-report|crawler-analysis|geo-weight|analytics|goals\/[^/]+\/analytics)$)/.test(
       path,
     ) ||
     /^\/(?:liekan\/)?websites\/[^/]+\/(?:stats|pageviews|metrics(?:\/expanded)?|events\/(?:series|stats)|utm\/metrics|goals\/(?:stats|[^/]+\/(?:stats|savedstats))|funnels\/(?:stats|[^/]+\/(?:stats|savedstats))|retention|journeys|attribution|breakdown|heatmaps(?:\/[^/]+)?|(?:performance|revenue)\/(?:stats|chart|metrics))$/.test(
@@ -91,6 +91,7 @@ export type PageCacheMode = 'aggregate' | 'configuration' | 'direct';
 export const pageCacheModules: Record<string, Record<string, PageCacheMode>> = {};
 // AI reads retain their authenticated no-store API and conversation snapshot boundaries.
 pageCacheModules['ai-chat'] = { catalog: 'direct', conversations: 'direct', answers: 'direct' };
+pageCacheModules['crawlers-manage'] = { catalog: 'direct', drafts: 'direct' };
 pageCacheModules['ai-config'] = { connections: 'direct', connectionTests: 'direct' };
 for (const page of [
   'overview',

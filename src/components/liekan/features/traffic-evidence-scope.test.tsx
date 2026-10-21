@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { useState } from 'react';
 import type { CrawlerIdentityScope } from '@/lib/liekan/contracts/crawler-metrics';
 import { TrafficEvidencePanel } from './TrafficEvidencePanel';
+import { clientRequestOptions } from '@/lib/liekan/upstream/client-freshness';
 
 const mocks = vi.hoisted(() => ({ request: vi.fn(), download: vi.fn() }));
 vi.mock('@/lib/liekan/upstream/features-client', () => ({
@@ -108,4 +109,26 @@ it('preserves the explicit outside-scope shortcut while widening to all identiti
     }),
   );
   expect(screen.getByLabelText('test scope')).toHaveValue('all');
+});
+it('pins source discovery and pagination to one catalog read round until explicit reload', async () => {
+  const scopes: string[] = [];
+  const original = mocks.request.getMockImplementation();
+  mocks.request.mockImplementation(async (method, path, query, signal) => {
+    scopes.push(clientRequestOptions(signal)?.catalogScope);
+    const data = await original(method, path, query, signal);
+    data.meta.page = query.page || 1;
+    data.meta.total = 41;
+    return data;
+  });
+  render(<Harness />);
+  fireEvent.click(await screen.findByRole('button', { name: '未核验 2xx' }));
+  fireEvent.click(await screen.findByRole('button', { name: '下一页' }));
+  await waitFor(() => expect(mocks.request.mock.calls.at(-1)[2].page).toBe(2));
+  expect(scopes.length).toBeGreaterThanOrEqual(4);
+  expect(scopes.every(scope => typeof scope === 'string' && scope.length > 0)).toBe(true);
+  expect(new Set(scopes).size).toBe(1);
+  const firstScope = scopes[0];
+  fireEvent.click(screen.getByRole('button', { name: '重新读取' }));
+  await waitFor(() => expect(scopes.at(-1)).not.toBe(firstScope));
+  expect(mocks.request.mock.calls.at(-1)[2].page).toBe(1);
 });

@@ -1,4 +1,7 @@
 export const EDGE_FIELDS = [
+  'BotDetectionIDs',
+  'BotTags',
+  'BotDetectionTags',
   'BotScore',
   'BotScoreSrc',
   'VerifiedBotCategory',
@@ -8,7 +11,7 @@ export const EDGE_FIELDS = [
   'EdgeEndTimestamp',
 ] as const;
 export type EdgeFieldState = 'present' | 'missing' | 'unsupported' | 'invalid' | 'unknown';
-export type EdgeField = { value: string | number | null; state: EdgeFieldState; reason?: string };
+export type EdgeField = { value: string | number | string[] | number[] | null; state: EdgeFieldState; reason?: string };
 export type EdgeObservation = { version: 'edge-observation-v1'; fields: Record<string, EdgeField> };
 
 /** Parse RFC3339 fractions as integers before differencing; never parse integer timestamps. */
@@ -27,6 +30,13 @@ export function timestampNanos(value: unknown): bigint | null {
 }
 export function edgeObservation(raw: Record<string, unknown>): EdgeObservation {
   const fields: Record<string, EdgeField> = {};
+  for (const name of ['BotDetectionIDs', 'BotTags', 'BotDetectionTags']) {
+    const value = raw[name];
+    const valid = Array.isArray(value) && value.length <= 100 && value.every(item => name === 'BotDetectionIDs'
+      ? Number.isSafeInteger(item) && item >= 0
+      : typeof item === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(item));
+    fields[name] = value == null ? { value: null, state: 'missing' } : valid ? { value: [...new Set(value)] as string[] | number[], state: 'present' } : { value: null, state: 'invalid' };
+  }
   function read(
     name: string,
     valid: (value: unknown) => boolean,

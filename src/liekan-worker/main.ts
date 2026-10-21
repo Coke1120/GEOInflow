@@ -1,3 +1,4 @@
+import { initializeCrawlerRegistry, withPublishedRegistry } from '../lib/liekan/upstream/crawler-registry-context';
 import { invalidateCrawlerWorkflowForRollback } from '../lib/liekan/upstream/workflow-retention';
 import { pruneTrafficObservations } from '../lib/liekan/upstream/observation-retention';
 import { maintainGeography } from '../lib/liekan/geography/update';
@@ -164,6 +165,7 @@ async function main() {
     console.log('Stored log credentials re-encrypted.');
     return;
   }
+  await initializeCrawlerRegistry();
   await boss.start();
   await boss.work<{ batchId: string }>(
     LOG_QUEUE,
@@ -194,18 +196,18 @@ async function main() {
   );
   if (!crawlerMaintenancePaused)
     await boss.work(RANGE_QUEUE, { batchSize: 1 }, async () => {
-      await refreshRanges();
+      await withPublishedRegistry(() => refreshRanges());
     });
   if (!crawlerMaintenancePaused)
     await boss.work(DOCUMENT_QUEUE, { batchSize: 1, localConcurrency: 1 }, async () => {
-      await refreshDocumentSources();
+      await withPublishedRegistry(() => refreshDocumentSources());
     });
   if (!crawlerMaintenancePaused)
     await boss.work(
       CRAWLER_ANALYSIS_QUEUE,
       { batchSize: 1, localConcurrency: 1, pollingIntervalSeconds: 2 },
       async () => {
-        await processCrawlerAnalysis(workerId);
+        await withPublishedRegistry(() => processCrawlerAnalysis(workerId));
       },
     );
   await boss.work(

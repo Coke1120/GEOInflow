@@ -1,6 +1,5 @@
 'use client';
 import { liekanProduct } from '@/lib/liekan/contracts/product';
-import { CrawlerSourcesPanel } from './CrawlerSourcesPanel';
 import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
@@ -1647,7 +1646,16 @@ function AdminSecurity() {
           </Panel>
         </div>
       </QueryState>
-      <CrawlerSourcesPanel />
+      <Panel
+        title={i18n.text('爬虫来源与核验')}
+        subtitle={i18n.text('来源状态、官方资料和目录变更集中在爬虫管理页。')}
+      >
+        <Body>
+          <LinkButton page="crawlers-manage" params={{ tab: 'sources' }}>
+            {i18n.text('打开爬虫管理')}
+          </LinkButton>
+        </Body>
+      </Panel>
     </>
   );
 }

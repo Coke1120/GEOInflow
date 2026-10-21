@@ -1,3 +1,5 @@
+import { withPublishedRegistry } from '../upstream/crawler-registry-context';
+import { getPublishedCatalog } from './published';
 import { readReportEvidence, reportEvidenceCsv } from './report-evidence';
 import { readOutcomes } from './outcomes-read';
 import { parseObservationQuery, readObservations } from './observation-read';
@@ -30,7 +32,7 @@ import { decodeCursor } from '../cursor';
 import { createHash } from 'node:crypto';
 import { reportEvidenceViewPayload } from '../contracts/report-evidence-view';
 
-export async function exportEvidence(
+async function exportEvidenceSnapshot(
   actor: CrawlerActor,
   websiteId: string,
   body: unknown,
@@ -212,4 +214,13 @@ export async function exportEvidence(
       'X-Liekan-Export-Changed': metadata.changed === null ? 'unknown' : String(metadata.changed),
     },
   });
+}
+
+export async function exportEvidence(...args: Parameters<typeof exportEvidenceSnapshot>) {
+  const requested = args[3].headers.get('X-Liekan-Catalog-Version') || undefined;
+  return withPublishedRegistry(async () => {
+    const response = await exportEvidenceSnapshot(...args);
+    response.headers.set('X-Liekan-Catalog-Version', getPublishedCatalog().version);
+    return response;
+  }, requested);
 }

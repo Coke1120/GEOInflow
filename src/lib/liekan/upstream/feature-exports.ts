@@ -1,3 +1,5 @@
+import { getPublishedCatalog } from '../crawlers/published';
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { getPostgresCountrySQL } from '@/lib/country';
 import { createHash, randomBytes } from 'node:crypto';
@@ -339,6 +341,8 @@ async function prepareSnapshot(
   }
   aborted();
   const manifest = {
+    catalogVersion: getPublishedCatalog()?.version ?? null,
+    populationVersion: TRAFFIC_POLICY_VERSION,
     product: p.format === 'json' ? 'Liekan 猎看统计' : liekanProduct.name,
     createdAt: new Date().toISOString(),
     website: { name: website.name, domain: website.domain },
@@ -523,6 +527,8 @@ async function prepareKeywordSnapshot(
   if (Buffer.byteLength(content) > EXPORT_MAX_BYTES)
     throw new LiekanError('关键词导出超过 50 MiB，请缩小范围', 413);
   const manifest = {
+    catalogVersion: getPublishedCatalog()?.version ?? null,
+    populationVersion: TRAFFIC_POLICY_VERSION,
     kind: p.kind,
     createdAt,
     website: { name: website.name, domain: website.domain },
@@ -595,6 +601,8 @@ async function prepareGeographySnapshot(
   aborted();
   const createdAt = new Date().toISOString();
   const manifest = {
+    catalogVersion: getPublishedCatalog()?.version ?? null,
+    populationVersion: TRAFFIC_POLICY_VERSION,
     kind: p.kind,
     createdAt,
     geographyVersion,

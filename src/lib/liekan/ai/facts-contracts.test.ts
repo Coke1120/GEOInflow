@@ -44,6 +44,8 @@ it('projects nested outbound objects and sanitizes untrusted labels as well as p
     timeZone: 'UTC',
     generatedAt: '2026-10-04T00:00:00.000Z',
     metricVersion: 'liekan-ai-facts-v1',
+    catalogVersion: id,
+    trafficPolicyVersion: 'traffic-quality-browser-source-v2',
     promptVersion: 'liekan-ai-prompt-v1',
     coverage: 'unverified',
     rangeNotes: { originalEndAt: range.endAt, endClamped: true, currentDayIncomplete: true },
@@ -142,6 +144,12 @@ it('projects nested outbound objects and sanitizes untrusted labels as well as p
   const safe = sanitizeAiFactsContext(input),
     serialized = JSON.stringify(safe);
   expect(safe.website.domain).toBeNull();
+  expect(safe.catalogVersion).toBe(id);
+  expect(safe.trafficPolicyVersion).toBe(input.trafficPolicyVersion);
+  const { catalogVersion, trafficPolicyVersion, ...historical } = input;
+  const legacy = sanitizeAiFactsContext(historical);
+  expect(legacy).not.toHaveProperty('catalogVersion');
+  expect(legacy).not.toHaveProperty('trafficPolicyVersion');
   for (const secret of [
     'canaryKey',
     'alice',

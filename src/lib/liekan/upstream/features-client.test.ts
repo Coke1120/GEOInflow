@@ -7,6 +7,7 @@ import {
   acceptFeatureLogin,
   clearFeatureLogin,
   featureApi,
+  featureRequest,
   FeatureApiError,
   getFeatureWebsiteSummary,
   getFeatureSites,
@@ -15,6 +16,39 @@ import {
   resumeFeatureLogin,
   refreshFeatureIdentity,
 } from './features-client';
+import { withClientFreshness } from './client-freshness';
+
+it('pins help catalog, source health and website status to one read round while management reads stay current', async () => {
+  const version = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const fetcher = vi.fn(async (url: URL) =>
+    Response.json(url.pathname.endsWith('/catalog-version') ? { version } : { fixture: true }),
+  );
+  vi.stubGlobal('fetch', fetcher);
+  try {
+    const catalogScope = crypto.randomUUID();
+    for (const path of [
+      '/liekan/crawler-registry',
+      '/liekan/admin/crawler-sources',
+      '/liekan/websites/fixture/crawler-recognition',
+      '/liekan/admin/crawler-registry',
+    ]) {
+      const signal = new AbortController().signal;
+      await withClientFreshness(signal, () => featureRequest('GET', path, {}, signal), {
+        catalogScope,
+      });
+    }
+    const calls = fetcher.mock.calls as unknown as [URL, RequestInit][];
+    expect(calls.filter(([url]) => url.pathname.endsWith('/catalog-version'))).toHaveLength(1);
+    for (const [url, options] of calls.filter(
+      ([url]) => !url.pathname.endsWith('/catalog-version'),
+    )) {
+      const header = new Headers(options.headers).get('X-Liekan-Catalog-Version');
+      expect(header).toBe(url.pathname.endsWith('/admin/crawler-registry') ? null : version);
+    }
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
 
 it('isolates a revoked website within a summary batch while retaining accessible statistics', async () => {
   const get = vi.fn(async (_path: string, params: any) => {

@@ -12,7 +12,7 @@ vi.mock('@/lib/liekan/upstream/server', () => ({
     }
   },
 }));
-vi.mock('@/lib/liekan/http', () => ({ api: async (work: () => Promise<unknown>) => work() }));
+vi.mock('@/lib/liekan/http', () => ({ api: async (work: () => Promise<unknown>) => work(), requestApi: async (_request: Request, work: () => Promise<unknown>) => work() }));
 vi.mock('@/lib/liekan/upstream/cache-context', () => ({
   withoutQueryCache: (work: () => unknown) => work(),
 }));

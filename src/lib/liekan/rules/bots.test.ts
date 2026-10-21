@@ -7,6 +7,8 @@ const expectedTypes = {
   训练: [
     'GPTBot',
     'ClaudeBot',
+    'KimiBot',
+    'HySpider',
     'Amazonbot',
     'MistralAI-Training',
     'AI2Bot',
@@ -18,6 +20,7 @@ const expectedTypes = {
     'OAI-SearchBot',
     'Claude-SearchBot',
     'PerplexityBot',
+    'Kimi-SearchBot',
     'Amzn-SearchBot',
     'MistralAI-Index',
     'DuckAssistBot',
@@ -26,6 +29,7 @@ const expectedTypes = {
     'ChatGPT-User',
     'Claude-User',
     'Perplexity-User',
+    'Kimi-User',
     'Amzn-User',
     'MistralAI-User',
     'Meta-ExternalFetcher',
@@ -107,8 +111,8 @@ describe('official crawler token recognition', () => {
   });
 
   it('prepares every approved HTTP name with its independently specified primary type', () => {
-    expect(ALL_BOT_RULES).toHaveLength(53);
-    expect(new Set(ALL_BOT_RULES.map(rule => rule.crawlerId)).size).toBe(53);
+    expect(ALL_BOT_RULES).toHaveLength(57);
+    expect(new Set(ALL_BOT_RULES.map(rule => rule.crawlerId)).size).toBe(57);
     for (const [type, names] of Object.entries(expectedTypes)) {
       expect(
         ALL_BOT_RULES.filter(rule => rule.type === type)
@@ -184,7 +188,7 @@ describe('official crawler token recognition', () => {
   });
 
   it('keeps AI eligibility separate from user-triggered and display classifications', () => {
-    expect(ALL_BOT_RULES.filter(rule => rule.aiEligible)).toHaveLength(20);
+    expect(ALL_BOT_RULES.filter(rule => rule.aiEligible)).toHaveLength(24);
     expect(classifyBot('Google-InspectionTool/1.0', ALL_BOT_RULES)).toMatchObject({
       type: '用户触发',
       aiEligible: false,

@@ -3,7 +3,7 @@ import type { PgBoss } from 'pg-boss';
 import { analyticsRedis } from './analytics-redis';
 import type { AnalyticsVersions } from './analytics-revision';
 import { currentCacheContext } from './cache-context';
-import { analyticsCacheKey, type CachedResult } from './query-cache';
+import { analyticsCacheKey, analyticsInfrastructureKey, type CachedResult } from './query-cache';
 
 export const ANALYTICS_QUEUE = 'liekan-analytics-refresh';
 export const ANALYTICS_QUEUE_OPTIONS = {
@@ -63,7 +63,7 @@ const FEATURE = analyticsPreheatTargets.feature;
 const HOT_WINDOW = 900000;
 function namespace() {
   const url = new URL(process.env.DATABASE_URL);
-  return `liekan:analytics:hot:${analyticsCacheKey('database-v1', [url.protocol, url.host, url.pathname, url.searchParams.get('schema') || 'public'])}`;
+  return `liekan:analytics:hot:${analyticsInfrastructureKey('database-v1', [url.protocol, url.host, url.pathname, url.searchParams.get('schema') || 'public'])}`;
 }
 function keys(websiteId: string) {
   const root = namespace(),
@@ -171,7 +171,7 @@ export async function rememberAnalyticsHot(
       : await resolveWebsiteUuid(rawId);
     if (!websiteId) return;
     const target = `${match[1] ? 'feature' : 'native'}:${match[3]}`;
-    const scopeHash = analyticsCacheKey('scope-v1', context.scope);
+    const scopeHash = analyticsInfrastructureKey('scope-v1', context.scope);
     const fingerprint = analyticsCacheKey('hot-query-v1', [
       target,
       websiteId,
@@ -364,7 +364,7 @@ export async function hotJobEligible(job: AnalyticsRefreshJob, now = Date.now())
 /** Scan due hot registrations only; bounded work survives queue outages and process restarts. */
 export async function pumpAnalyticsHot(
   queue: Pick<PgBoss, 'send'>,
-  readStrongVersion: (websiteId: string) => Promise<string>,
+  readStrongVersion: (websiteId: string, expectedStrongVersion?: string) => Promise<string>,
   now = Date.now(),
 ) {
   if (!analyticsRedis.enabled) return;
@@ -393,7 +393,7 @@ export async function pumpAnalyticsHot(
   for (const hot of jobs.slice(0, 20)) {
     try {
       let job = hot.job;
-      const version = await readStrongVersion(job.websiteId);
+      const version = await readStrongVersion(job.websiteId, job.expectedStrongVersion);
       if (version !== job.expectedStrongVersion || now > job.scheduledAt + 30000) {
         await renewAnalyticsHotVersion(job, version, now);
         const updated = await readAnalyticsHot(job, now);

@@ -92,6 +92,10 @@ const evidenceUI = JSON.parse(readFileSync('config/liekan/traffic-evidence-ui.js
 for (const [file, digest] of Object.entries(evidenceUI.files))
   if (hash(readFileSync(`${evidenceUI.directory}/${file}`)) !== digest)
     throw new Error(`Traffic evidence UI reference drift: ${file}`);
+const geoWeightUI = JSON.parse(readFileSync('config/liekan/geo-weight-ui.json', 'utf8'));
+for (const [file, digest] of Object.entries(geoWeightUI.files))
+  if (hash(readFileSync(`${geoWeightUI.directory}/${file}`)) !== digest)
+    throw new Error(`GEO weight UI reference drift: ${file}`);
 const migrationLock = JSON.parse(readFileSync('config/liekan/migrations.json', 'utf8'));
 if (baseline.liekanMigration !== Object.keys(migrationLock).length)
   throw new Error('Release migration count and immutable register differ');

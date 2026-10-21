@@ -14,6 +14,7 @@ export const savedTrafficPolicySchema = trafficPolicySchema
   .extend({
     revision: z.string(),
     ruleVersion: z.string(),
+    populationVersion: z.string().optional(),
   });
 export const qualityRangeSchema = z.object({
   startAt: z.coerce.number().int().nonnegative().optional(),

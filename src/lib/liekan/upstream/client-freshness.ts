@@ -22,7 +22,7 @@ const freshness = new WeakMap<object, Freshness>();
 const requests = new WeakMap<AbortSignal, Freshness>();
 const requestOptions = new WeakMap<
   AbortSignal,
-  { refresh?: boolean; priority?: 'foreground' | 'prefetch' }
+  { refresh?: boolean; priority?: 'foreground' | 'prefetch'; catalogScope?: string }
 >();
 const pendingQueries = new Map<string, Set<AbortSignal>>();
 export function promoteQueryRequest(queryKey: readonly unknown[]) {
@@ -131,6 +131,7 @@ export async function withClientFreshness<T>(
     refresh?: boolean;
     priority?: 'foreground' | 'prefetch';
     queryKey?: readonly unknown[];
+    catalogScope?: string;
   },
 ) {
   const parent = requestOptions.get(signal);

@@ -3,7 +3,7 @@ import type { GeographyEvidence } from './geography/evidence';
 import { createHash, createHmac } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import Papa from 'papaparse';
-import { BOT_RULES, type BotRule, classifyBot } from './rules/bots';
+import { getBotRules, type BotRule, classifyBot } from './rules/bots';
 import {
   bundledVerificationSnapshots,
   verifyBotIpEvidence,
@@ -95,7 +95,7 @@ export function parseLogInput(
   input: { format: string; content?: string; records?: unknown[] },
   domain: string,
   secret: string,
-  rules: BotRule[] = BOT_RULES,
+  rules: BotRule[] = getBotRules(),
   snapshots: VerificationSnapshots = bundledVerificationSnapshots,
   observe?: (ip: string, record: LogRecord) => void,
 ) {
@@ -157,7 +157,7 @@ export function parseLogInput(
       const bot = classifyBot(userAgent, rules);
       const crawlerId = crawlerIdForRule(bot);
       const verification = crawlerId
-        ? verifyBotIpEvidence(ip, bot.name, userAgent, time.toISOString(), snapshots)
+        ? verifyBotIpEvidence(ip, bot.name, userAgent, time.toISOString(), snapshots, { identity: bot })
         : {
             status: 'unverified',
             version: null,

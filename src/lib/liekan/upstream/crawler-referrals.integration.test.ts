@@ -123,6 +123,10 @@ describe.skipIf(!enabled)('crawler first-entry attribution on isolated PostgreSQ
     );
     await event(sessions[0], randomUUID(), start, '/custom-only', null, null, 'signup');
     await event(sessions[3], randomUUID(), start, '/wrong-site-session', 'chatgpt', null);
+    await q(
+      "INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status) SELECT event_id,website_id,'browser','browser','{}','fixture-browser','missing' FROM website_event WHERE website_id=$1::uuid ON CONFLICT DO NOTHING",
+      site,
+    );
   });
   afterAll(async () => {
     if (!enabled) return;

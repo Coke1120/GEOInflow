@@ -5022,5 +5022,29 @@
       "98.87.95.193/32",
       "98.87.95.44/32"
     ]
+  },
+  "kimi-bot": {
+    "source": "https://www.kimi.ai/policies/kimibot.json",
+    "observedAt": "2026-10-21T01:15:16.081Z",
+    "publishedAt": "2026-05-18T10:04:07Z",
+    "prefixes": ["47.79.225.241/32", "47.79.230.254/32", "47.79.253.42/32", "47.79.253.91/32"]
+  },
+  "kimi-search": {
+    "source": "https://www.kimi.ai/policies/kimi-searchbot.json",
+    "observedAt": "2026-10-21T01:15:16.733Z",
+    "publishedAt": "2026-05-18T10:04:07Z",
+    "prefixes": ["47.79.225.241/32", "47.79.230.254/32", "47.79.253.42/32", "47.79.253.91/32"]
+  },
+  "kimi-user": {
+    "source": "https://www.kimi.ai/policies/kimi-user.json",
+    "observedAt": "2026-10-21T01:15:17.422Z",
+    "publishedAt": "2026-05-18T10:04:07Z",
+    "prefixes": ["47.79.225.241/32", "47.79.230.254/32", "47.79.253.42/32", "47.79.253.91/32"]
+  },
+  "tencent-hyspider": {
+    "source": "https://hy.tencent.com/policy/hyspider.json",
+    "observedAt": "2026-10-21T01:15:17.500Z",
+    "publishedAt": "2026-10-14T15:30:00+08:00",
+    "prefixes": ["43.144.87.0/24", "43.144.88.0/24"]
   }
 }

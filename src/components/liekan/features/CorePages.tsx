@@ -1114,7 +1114,15 @@ function WebsiteSettings() {
                     </p>
                     <div className="form-actions">
                       {collectionActions.slice(2).map(item => (
-                        <Button key={item} disabled={!manage} onClick={() => setDrawer(item)}>
+                        <Button
+                          key={item}
+                          disabled={!manage}
+                          onClick={() =>
+                            item === '特征库管理'
+                              ? c.navigate('crawlers-manage', { site: site.id })
+                              : setDrawer(item)
+                          }
+                        >
                           {i18n.system(managementLabels[item])}
                         </Button>
                       ))}
@@ -2423,7 +2431,10 @@ function Preferences() {
                   i18n.text('当前运行系统'),
                   `${liekanProduct.name} v${liekanProduct.displayVersion}`,
                 ],
-                [i18n.text('界面版本'), `${liekanProduct.name} UI v${liekanProduct.displayVersion}`],
+                [
+                  i18n.text('界面版本'),
+                  `${liekanProduct.name} UI v${liekanProduct.displayVersion}`,
+                ],
                 [i18n.text('许可'), 'MIT'],
               ]}
             />

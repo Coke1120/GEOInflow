@@ -1,5 +1,6 @@
+import { getCrawlerRegistry } from '../crawlers/registry';
 import { z } from 'zod';
-import { BOT_RULES, BOT_TYPES, LEGACY_BOT_RULES, type BotRule } from './bots';
+import { getBotRules, BOT_TYPES, LEGACY_BOT_RULES, type BotRule } from './bots';
 
 const customRuleSchema = z.strictObject({
   name: z.string().trim().min(1).max(80),
@@ -11,7 +12,7 @@ const customRuleSchema = z.strictObject({
 export const crawlerRulesSchema = z.discriminatedUnion('mode', [
   z.strictObject({
     mode: z.literal('official'),
-    disabledIds: z.array(z.string().max(80)).max(100).default([]),
+    disabledIds: z.array(z.string().max(80)).max(500).default([]),
     overrides: z
       .record(z.string().max(80), z.strictObject({ type: z.enum(BOT_TYPES) }))
       .default({}),
@@ -66,7 +67,7 @@ export function resolveCrawlerRules(row?: {
   const configuration = row?.crawlerRules ?? migrateRuleConfiguration(row?.rules);
   if (configuration.mode === 'disabled') return { configuration, rules: [] };
   if (configuration.mode === 'legacy') return { configuration, rules: configuration.rules };
-  const rules = BOT_RULES.filter(rule => !configuration.disabledIds.includes(rule.crawlerId)).map(
+  const rules = getBotRules().filter(rule => !configuration.disabledIds.includes(rule.crawlerId)).map(
     rule => ({
       ...rule,
       ...configuration.overrides[rule.crawlerId],
@@ -84,10 +85,10 @@ export function resolveCrawlerRules(row?: {
   return { configuration, rules };
 }
 
-export function validateCrawlerConfiguration(value: unknown): CrawlerRuleConfiguration {
+export function validateCrawlerConfiguration(value: unknown, knownIds: readonly string[] = getCrawlerRegistry().filter(identity => identity.kind !== 'robots_purpose').map(identity => identity.id)): CrawlerRuleConfiguration {
   const configuration = crawlerRulesSchema.parse(value);
   if (configuration.mode === 'official') {
-    const ids = new Set(BOT_RULES.map(rule => rule.crawlerId));
+    const ids = new Set(knownIds);
     if (
       [...configuration.disabledIds, ...Object.keys(configuration.overrides)].some(
         id => !ids.has(id),

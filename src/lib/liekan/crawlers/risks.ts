@@ -6,7 +6,6 @@ import {
   type CrawlerRiskFinding,
   type CrawlerRiskType,
   crawlerHasControlCharacters,
-  crawlerHttpBotIds,
   crawlerPathSchema,
 } from '../contracts/crawlers';
 import { getCrawler } from './directory';
@@ -114,7 +113,7 @@ const expectedPath = z
   })
   .refine(value => value.endAt - value.startAt === DAY, 'Expected a 24 hour window');
 export const crawlerRiskFactsSchema = z.strictObject({
-  botId: z.enum(crawlerHttpBotIds),
+  botId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
   pathGroup: pathGroup.default('all'),
   now: timestamp,
   hour: hourlyWindow.nullable(),
@@ -195,7 +194,7 @@ export function comparableCrawlerQuality(
 
 export function crawlerFindingKey(botId: string, type: CrawlerRiskType, group = 'all') {
   const identity = JSON.stringify([
-    z.enum(crawlerHttpBotIds).parse(botId),
+    z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/).parse(botId),
     type,
     pathGroup.parse(group),
   ]);

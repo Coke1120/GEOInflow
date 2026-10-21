@@ -2,10 +2,11 @@ import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { MetricCard, ReferenceChart, ReportList } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
-export function AiOverview({ report, rangeLabel }: ReportViewProps) {
+export function AiOverview({ report, rangeLabel, geoWeight }: ReportViewProps) {
   const i18n = useLiekanI18n();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
+      {geoWeight}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label="AI 蜘蛛请求（30天）"

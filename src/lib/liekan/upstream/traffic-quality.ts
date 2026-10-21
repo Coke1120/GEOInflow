@@ -1,3 +1,4 @@
+import { getPublishedCatalog } from '../crawlers/published';
 import { createHash } from 'node:crypto';
 import { diagnosticCoverage } from '../traffic-quality/diagnostics';
 import {
@@ -9,6 +10,7 @@ import {
 import { normalizeCollectionHostname, COLLECTION_RULE_VERSION } from './collection-quality';
 import { bumpAnalyticsRevision } from './analytics-revision';
 import { invalidateWebsiteAnalytics } from './query-cache';
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { LiekanError, lockWritableWebsite, transaction, type WriteIdentity } from './server';
 
 export function requireQualitySupport() {
@@ -25,6 +27,7 @@ export async function getTrafficPolicy(websiteId: string, tx?: any) {
       allowedHostnames: row?.allowed_hostnames || [],
       revision: row?.revision || '0',
       ruleVersion: COLLECTION_RULE_VERSION,
+      populationVersion: TRAFFIC_POLICY_VERSION,
     };
   };
   return tx ? load(tx) : transaction(load);
@@ -166,9 +169,9 @@ export async function qualityTotals(
     const hosts = proposed.allowedHostnames.length ? await hostRepresentations(tx, websiteId) : [];
     params.push(proposed.mode, proposed.allowedHostnames as any, JSON.stringify(hosts));
     extra = `LEFT JOIN jsonb_to_recordset($10::jsonb) AS h(reported text,hostname text) ON h.reported=e.hostname`;
-    included = `($8='raw' OR (COALESCE(q.classification,'unknown')<>'automated'
+    included = `((q.source='browser' OR e.event_type IN (3,4)) AND ($8='raw' OR (COALESCE(q.classification,'unknown')<>'automated'
       AND ($8<>'strict' OR COALESCE(q.classification,'unknown')<>'suspected')
-      AND (cardinality($9::text[])=0 OR COALESCE(q.hostname,h.hostname)=ANY($9::text[]))))`;
+      AND (cardinality($9::text[])=0 OR COALESCE(q.hostname,h.hostname)=ANY($9::text[])))))`;
   }
   const [result] = await tx.$queryRawUnsafe(
     `SELECT COUNT(*)::float8 AS "rawPV",COUNT(*) FILTER(WHERE ${included})::float8 AS "includedPV",
@@ -218,7 +221,7 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
     const policy = await getTrafficPolicy(websiteId, tx);
     const values = bindings(websiteId, range);
     const signature = createHash('sha256')
-      .update(JSON.stringify([values, policy.revision]))
+      .update(JSON.stringify([values, policy.revision, TRAFFIC_POLICY_VERSION, getPublishedCatalog()?.version]))
       .digest('hex');
     let cursor: { time: string; id: string; signature: string } | undefined;
     if (range.cursor) {

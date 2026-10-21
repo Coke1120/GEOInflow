@@ -4,6 +4,7 @@ import {
   type CrawlerRegistryEntry,
   type CrawlerType,
   crawlerRegistry,
+  getCrawlerRegistry,
 } from '../crawlers/registry';
 
 export const BOT_TYPES = ['训练', '搜索', '用户触发', '传统搜索', '其他'] as const;
@@ -64,11 +65,22 @@ export const BOT_RULES: BotRule[] = ACTIVE_CRAWLER_IDS.map(id => {
   return { ...rule };
 });
 
-type HttpCrawler = Extract<CrawlerRegistryEntry, { kind: 'http_crawler' }>;
+type HttpCrawler = CrawlerRegistryEntry & { kind: 'http_crawler'; uaSelector: string };
+const ruleCache = new WeakMap<object, BotRule[]>();
+export function getBotRules(entries: readonly CrawlerRegistryEntry[] = getCrawlerRegistry()): BotRule[] {
+  let rules = ruleCache.get(entries);
+  if (!rules) {
+    rules = entries.filter(entry => entry.kind === 'http_crawler' && entry.status === 'active')
+      .map(entry => ({ name: entry.name, vendor: entry.vendor, type: typeLabels[entry.type],
+        pattern: entry.uaSelector!, matchMode: 'token', crawlerId: entry.id, aiEligible: entry.aiEligible }));
+    ruleCache.set(entries, rules);
+  }
+  return rules;
+}
 /** Only internally issued IDs and canonical tokens establish a current official identity. */
-export function officialCrawlerForRule(rule: Partial<BotRule>): HttpCrawler | undefined {
+export function officialCrawlerForRule(rule: Partial<BotRule>, entries: readonly CrawlerRegistryEntry[] = getCrawlerRegistry()): HttpCrawler | undefined {
   if (!rule.crawlerId || rule.matchMode !== 'token') return undefined;
-  return crawlerRegistry.find(
+  return entries.find(
     (entry): entry is HttpCrawler =>
       entry.kind === 'http_crawler' &&
       entry.status === 'active' &&
@@ -138,7 +150,7 @@ function withoutDocumentationUrls(ua: string) {
   return copiedThrough ? parts.join('') + ua.slice(copiedThrough) : ua;
 }
 
-export function classifyBot(ua: string, rules: readonly BotRule[] = BOT_RULES): BotClassification {
+export function classifyBot(ua: string, rules: readonly BotRule[] = getBotRules(), entries: readonly CrawlerRegistryEntry[] = getCrawlerRegistry()): BotClassification {
   // URLs are documentation references, separate from HTTP product tokens.
   const tokens = withoutDocumentationUrls(ua);
   const matches = rules.filter(rule =>
@@ -150,7 +162,7 @@ export function classifyBot(ua: string, rules: readonly BotRule[] = BOT_RULES): 
   // Historical and explicit literal rules preserve the configured first-match ordering.
   if (matches[0].matchMode !== 'token') return matches[0];
   const candidates = matches.filter(rule => rule.matchMode === 'token');
-  const identities = new Map(candidates.map(rule => [rule, officialCrawlerForRule(rule)]));
+  const identities = new Map(candidates.map(rule => [rule, officialCrawlerForRule(rule, entries)]));
   const specific = candidates.filter(rule => {
     const identity = identities.get(rule);
     return !identity || !candidates.some(other => identities.get(other)?.parentId === identity.id);

@@ -46,6 +46,18 @@ export const analyticsRefreshJobSchema = z
   .strict()
   .refine(job => Boolean(job.actorId) !== Boolean(job.shareId));
 
+/** The accepted catalog is already persisted in the strong version; legacy jobs have none. */
+export function analyticsHotCatalogVersion(strongVersion: string): string | undefined {
+  try {
+    const version = JSON.parse(strongVersion);
+    if (Array.isArray(version) && version.length === 5 && z.uuid().safeParse(version[1]).success)
+      return version[1];
+  } catch {
+    // Older hot registrations are renewed against the current catalog.
+  }
+  return undefined;
+}
+
 const nativeSchemas: Record<string, z.ZodType> = {
   'goals/stats': schemas.goalQuerySchema,
   'funnels/stats': schemas.funnelQuerySchema,

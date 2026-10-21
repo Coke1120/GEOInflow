@@ -857,7 +857,8 @@
   .root main > :global(.grid-cols-5) {
     grid-template-columns: minmax(0, 1fr);
   }
-  .root main > :global(.grid:first-child):has(> :global(.card) > p) {
+  .root main > :global(.grid:first-child):has(> :global(.card) > p),
+  .root main > :global([data-geo-weight]) + :global(.grid):has(> :global(.card) > p) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .root main :global(.col-span-2),

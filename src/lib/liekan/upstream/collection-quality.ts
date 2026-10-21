@@ -1,12 +1,13 @@
+import { getPublishedCatalog } from '../crawlers/published';
 import { normalizeIp, configuredIp } from '@/lib/ip';
 import { createHash } from 'node:crypto';
 import { browserName } from 'detect-browser';
 import ipaddr from 'ipaddr.js';
 import { isbot } from 'isbot';
-import { rangeSources } from '../crawlers/range-sources';
+import { getRangeSources } from '../crawlers/range-sources';
 import officialSnapshots from '../../../../config/liekan/bot-ranges.json';
 import { rangeContainsAddress, type VerificationSnapshots } from '../rules/verify';
-import { ALL_BOT_RULES, classifyBot } from '../rules/bots';
+import { getBotRules, classifyBot } from '../rules/bots';
 
 export const COLLECTION_RULE_VERSION = 'traffic-quality-v3';
 export type CollectionClassification = 'browser' | 'automated' | 'suspected' | 'unknown';
@@ -17,6 +18,7 @@ export interface CollectionQuality {
   source: CollectionSource;
   reasons: string[];
   ruleVersion: string;
+  catalogVersion?: string;
   rangeVersion: string | null;
   rangeStatus: CollectionRangeStatus;
   hostname: string | null;
@@ -35,7 +37,7 @@ const RANGE_MAX_AGE = 7 * 86400000;
 const OVERRIDE_FIELDS = ['ip', 'userAgent', 'browser', 'os', 'device'] as const;
 
 function registeredCrawler(ua: string) {
-  const match = classifyBot(ua, ALL_BOT_RULES);
+  const match = classifyBot(ua, getBotRules());
   // Conflicting registered identities still establish automation, without attributing a vendor.
   return !!match.crawlerId || !!match.candidateIds?.length;
 }
@@ -121,7 +123,7 @@ function rangeEvidence(input: CollectionInput): RangeEvidence {
       ? officialSnapshots[bot as keyof typeof officialSnapshots]
       : null;
     if (!official) {
-      if (rangeSources.some(source => source.names.includes(bot))) continue;
+      if (getRangeSources().some(source => source.names.includes(bot))) continue;
       available.push('untrusted');
       continue;
     }
@@ -249,6 +251,7 @@ export function classifyCollection(input: CollectionInput): CollectionQuality {
     source,
     reasons,
     ruleVersion: COLLECTION_RULE_VERSION,
+    catalogVersion: getPublishedCatalog()?.version,
     rangeVersion: ranges.version,
     rangeStatus: ranges.status,
     hostname:

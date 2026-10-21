@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const CRAWLER_METRIC_VERSION = 'crawler-metrics-v1';
-export const crawlerIdentityScopeSchema = z.enum(['all', 'verified_range']);
+export const crawlerIdentityScopeSchema = z.enum(['all', 'verified_range', 'verified_identity']);
 export type CrawlerIdentityScope = z.infer<typeof crawlerIdentityScopeSchema>;
 export const crawlerMetricOptionsSchema = z.object({
   crawlerIdentityScope: crawlerIdentityScopeSchema.default('all'),

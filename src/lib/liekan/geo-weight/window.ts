@@ -1,0 +1,19 @@
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+
+export function geoDateOffset(date: string, days: number) {
+  const value = new Date(date + 'T00:00:00Z');
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+export function geoAsOf(endAt: number, timezone: string, now = Date.now()) {
+  const selected = formatInTimeZone(endAt - 1, timezone, 'yyyy-MM-dd');
+  const yesterday = geoDateOffset(formatInTimeZone(now, timezone, 'yyyy-MM-dd'), -1);
+  return selected < yesterday ? selected : yesterday;
+}
+export function geoWindow(asOf: string, timezone: string) {
+  return {
+    asOf,
+    startAt: +fromZonedTime(geoDateOffset(asOf, -29) + 'T00:00:00', timezone),
+    endAt: +fromZonedTime(geoDateOffset(asOf, 1) + 'T00:00:00', timezone),
+  };
+}

@@ -146,6 +146,7 @@ it.each([
         meta: {
           canManage: true,
           demo: false,
+          catalogVersion: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
           crawlerEvidenceView: {
             snapshot: 'original',
             policySnapshot: 'policy',
@@ -188,6 +189,8 @@ it.each([
           population: 'recognized_crawlers',
         }),
       }),
+      undefined,
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     );
     expect(content).toContain('full snapshot');
     expect(state.evidence).not.toHaveBeenCalled();

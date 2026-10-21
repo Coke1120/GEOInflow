@@ -19,7 +19,7 @@ export function pageReportQuery(
     startAt: number;
     endAt: number;
     timezone: string;
-    crawlerIdentityScope?: 'all' | 'verified_range';
+    crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
     crawlerMetricsVersion?: 1;
     chartPeriod?: string;
     filter?: string;

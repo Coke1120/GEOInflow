@@ -11,6 +11,8 @@ export interface CrawlerAnalyzedBot extends CrawlerRequestCounts {
   name: string;
   bytes: number;
   verifiedRange: number;
+  verifiedDns?: number;
+  verifiedEdge?: number;
   rangeMismatch: number;
   unverified: number;
   successfulCatalogPages: number;

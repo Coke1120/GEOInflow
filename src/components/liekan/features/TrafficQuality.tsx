@@ -41,7 +41,7 @@ const labels: Record<string, string> = {
 const modes: [string, string][] = [
   ['standard', '标准：排除已知自动化'],
   ['strict', '严格：额外排除来源可疑'],
-  ['raw', '原始：查看全部事件'],
+  ['raw', '原始：查看全部浏览器事件'],
 ];
 function QualityClose({ disabled }: { disabled: boolean }) {
   const i18n = useLiekanI18n();
@@ -211,7 +211,7 @@ export function TrafficQuality({
                 <Body>
                   <p className="muted">
                     {i18n.text(
-                      '浏览器特征表示请求与普通浏览器相符，仍可能含伪装自动化。已知自动化默认排除；待核查与证据未知默认保留。各类 UV 可能重叠，请勿相加。',
+                      '浏览指标仅纳入来源明确的浏览器事件。授权服务端、兼容覆盖来源及来源缺失历史分别审计。已知自动化默认排除；浏览器特征仍可能含伪装自动化。各类 UV 请勿相加。',
                     )}
                   </p>
                   <p className="muted">
@@ -333,7 +333,7 @@ export function TrafficQuality({
                         disabled={!canManage || busy}
                         onChange={e => setHosts(e.target.value)}
                         help={i18n.text(
-                          '每行一个精确主机名；留空仅审计。主机声明用于统计管理，原始模式保留完整回看。',
+                          '每行一个精确主机名；留空仅审计。原始模式查看浏览器来源，全部来源保留在原始审计。',
                         )}
                       />
                       <div className="form-actions">

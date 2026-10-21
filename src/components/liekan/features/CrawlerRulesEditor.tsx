@@ -1,19 +1,28 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
-import { BOT_RULES, BOT_TYPES } from '@/lib/liekan/rules/bots';
+import { BOT_TYPES } from '@/lib/liekan/rules/bots';
 import type { CrawlerRuleConfiguration } from '@/lib/liekan/rules/configuration';
-import { parseRuleEditorDraft, previewOfficialConversion } from '@/lib/liekan/rules/editor';
+import {
+  getOfficialRuleOptions,
+  parseRuleEditorDraft,
+  previewOfficialConversion,
+  type OfficialRuleOption,
+} from '@/lib/liekan/rules/editor';
 import { BotRulesEditor } from './BotRulesEditor';
 import { Button, Notice } from './ui';
 
 export function CrawlerRulesEditor({
   content,
+  officialRules = getOfficialRuleOptions(),
+  knownIds,
   disabled,
   onChange,
   onConversionConfirmed,
 }: {
   content: string;
+  officialRules?: OfficialRuleOption[];
+  knownIds?: readonly string[];
   disabled: boolean;
   onChange: (value: string) => void;
   onConversionConfirmed: () => void;
@@ -66,7 +75,13 @@ export function CrawlerRulesEditor({
           disabled={disabled || legacyContent !== undefined}
           onClick={() => {
             try {
-              setPreview(previewOfficialConversion(parseRuleEditorDraft(content)));
+              setPreview(
+                previewOfficialConversion(
+                  parseRuleEditorDraft(content, knownIds),
+                  officialRules,
+                  knownIds,
+                ),
+              );
               setAcknowledged(false);
               setPreviewError('');
             } catch (error) {
@@ -157,7 +172,7 @@ export function CrawlerRulesEditor({
             </tr>
           </thead>
           <tbody>
-            {BOT_RULES.map(rule => (
+            {officialRules.map(rule => (
               <tr key={rule.crawlerId}>
                 <td>
                   <input
@@ -200,7 +215,7 @@ export function CrawlerRulesEditor({
                   </select>
                 </td>
                 <td>
-                  <code>{rule.pattern}</code>
+                  <code>{rule.pattern || i18n.text('签名身份')}</code>
                 </td>
               </tr>
             ))}

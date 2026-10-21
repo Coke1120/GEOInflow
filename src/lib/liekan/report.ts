@@ -1,3 +1,4 @@
+import { getPublishedCatalog } from './crawlers/published';
 import { crawlerAiRequests, isUnknownCrawler } from './rules/population';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { isbot } from 'isbot';
@@ -188,6 +189,7 @@ export async function buildReport(
     tables: {},
     insights: [],
     meta: {
+      catalogVersion: getPublishedCatalog()?.version,
       ...(p.resource === 'ai/pages'
         ? {
             crawlerPageBots: l.bots
@@ -503,7 +505,7 @@ export async function buildReport(
       ? isbot(row.userAgent || '')
         ? '自动化特征 · 身份未核验'
         : '未知／未分类'
-      : `${row.bot} · ${row.verification === 'verified_range' ? '官方 IP 范围匹配' : row.verification === 'range_mismatch' ? '官方范围未匹配' : '身份未核验'}`,
+      : `${row.bot} · ${row.verification === 'verified_range' ? '官方 IP 范围匹配' : row.verification === 'verified_dns' ? '官方 DNS 双向核验' : row.verification === 'verified_edge' ? '可信边缘身份核验' : row.verification === 'range_mismatch' ? '官方范围未匹配' : '身份未核验'}`,
   }));
   r.tables.blindList = (l.latest ? blind : []).map(page => ({
     path: page.path,

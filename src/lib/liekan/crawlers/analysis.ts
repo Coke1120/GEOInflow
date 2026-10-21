@@ -1,10 +1,13 @@
+import { withPublishedRegistry } from '../upstream/crawler-registry-context';
+import { platformForReferral, platformHasReferrals } from '../contracts/sources';
+import { getCrawlerPlatformIds } from './registry';
 import { crawlerIdentitySql } from './metric-scope';
 import type { CrawlerIdentityScope } from '../contracts/crawler-metrics';
 import { CRAWLER_POPULATION_VERSION, unknownCrawlerSql } from '../rules/population';
 import { z } from 'zod';
 import type { CrawlerAnalyzedBot, CrawlerAnalyzedPage } from '../contracts/crawler-analysis';
 import type { CrawlerObservationQuality } from '../contracts/crawlers';
-import { crawlerPathSchema, crawlerPlatformIds } from '../contracts/crawlers';
+import { crawlerPathSchema } from '../contracts/crawlers';
 import { classifyEntrySource } from '../contracts/sources';
 import type { AiTx } from '../upstream/ai-db';
 import { crawlerReferralRows } from '../upstream/analytics';
@@ -138,24 +141,8 @@ export async function crawlerWindowQuality(
     timezone,
   };
 }
-const platformHosts = {
-  openai: ['chatgpt.com', 'chat.openai.com'],
-  anthropic: ['claude.ai'],
-  perplexity: ['perplexity.ai'],
-  bytedance: ['doubao.com'],
-  google: ['google.com', 'google.com.hk', 'google.cn', 'gemini.google.com'],
-  baidu: ['baidu.com', 'yiyan.baidu.com'],
-  microsoft: ['bing.com', 'copilot.microsoft.com'],
-  apple: [],
-};
-function platformForSource(source: string) {
-  return (
-    crawlerPlatformIds.find(id =>
-      (platformHosts[id] || []).some(host => source === host || source.endsWith(`.${host}`)),
-    ) || null
-  );
-}
-export async function crawlerAnalysis(
+const platformForSource = (source: string) => platformForReferral(source)?.id ?? null;
+async function crawlerAnalysisSnapshot(
   actor: CrawlerActor,
   websiteId: string,
   range: ReturnType<typeof crawlerRange>,
@@ -190,8 +177,8 @@ export async function crawlerAnalysis(
           const quality = await crawlerWindowQuality(tx, websiteId, startAt, endAt, timezone);
           const bots = await tx.query<CrawlerAnalyzedBot>(
             `SELECT e.crawler_id AS "botId",l.bot AS name,${crawlerCountColumns},sum(bytes)::float8 AS bytes,
-      count(*) FILTER(WHERE verification='verified_range')::float8 AS "verifiedRange",count(*) FILTER(WHERE verification='range_mismatch')::float8 AS "rangeMismatch",
-      count(*) FILTER(WHERE verification NOT IN('verified_range','range_mismatch'))::float8 AS unverified,
+      count(*) FILTER(WHERE verification='verified_range')::float8 AS "verifiedRange",count(*) FILTER(WHERE verification='verified_dns')::float8 AS "verifiedDns",count(*) FILTER(WHERE verification='verified_edge')::float8 AS "verifiedEdge",count(*) FILTER(WHERE verification='range_mismatch')::float8 AS "rangeMismatch",
+      count(*) FILTER(WHERE verification NOT IN('verified_range','verified_dns','verified_edge','range_mismatch'))::float8 AS unverified,
       count(distinct path) FILTER(WHERE method='GET' AND status>=200 AND status<300 AND EXISTS(SELECT 1 FROM liekan_catalog c WHERE c.website_id=l.website_id AND c.path=l.path))::int AS "successfulCatalogPages",
       max(created_at) AS "lastVisit",count(*) FILTER(WHERE e.classification_version IS NULL)::int AS "legacyRecords" ${crawlerBase}${crawlerIdentitySql(identityScope, 'l')} AND NOT ${unknownCrawlerSql('l')} GROUP BY 1,2 ORDER BY requests DESC`,
             ...args,
@@ -245,8 +232,8 @@ export async function crawlerAnalysis(
             websiteId,
           );
           const summarizePlatforms = (rows: Awaited<ReturnType<typeof crawlerReferralRows>>) =>
-            crawlerPlatformIds.map(platformId => {
-              const supported = Boolean(platformHosts[platformId]?.length);
+            getCrawlerPlatformIds().map(platformId => {
+              const supported = platformHasReferrals(platformId);
               const matching = rows.filter(row => {
                 const source = classifyEntrySource(row);
                 return (
@@ -408,3 +395,7 @@ export async function changeCrawlerFinding(
   analyticsCache.invalidate(websiteCacheTag(websiteId));
   return result;
 }
+
+export const crawlerAnalysis: typeof crawlerAnalysisSnapshot = (...args) => {
+  return withPublishedRegistry(() => crawlerAnalysisSnapshot(...args));
+};

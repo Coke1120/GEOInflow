@@ -6,6 +6,10 @@ import { LiekanShell } from './LiekanShell';
 import type { LiekanReport } from './types';
 import { WebsiteLayout } from '@/app/(main)/websites/[websiteId]/WebsiteLayout';
 import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
+// This suite supplies report hooks without a QueryClient; GEO query behavior has its own suite.
+vi.mock('./features/GeoWeightSummary', () => ({
+  GeoWeightSummary: () => <div data-test="geo-weight-summary" />,
+}));
 
 const mocks = vi.hoisted(() => ({
   display: {} as { aiCrawlerEnabled?: boolean },
@@ -283,10 +287,12 @@ it('shows a reversible closed state when a hidden crawler report is opened direc
   const view = render(<LiekanPage resource="ai/overview" />);
   expect(screen.getByText('AI 蜘蛛数据展示已关闭')).toBeInTheDocument();
   expect(screen.queryByText('识别 AI 蜘蛛')).not.toBeInTheDocument();
+  expect(screen.queryByTestId('geo-weight-summary')).not.toBeInTheDocument();
   expect(screen.getByRole('link', { name: '网站设置' })).toBeInTheDocument();
   data.meta.aiCrawlerEnabled = true;
   view.rerender(<LiekanPage resource="ai/overview" />);
   expect(screen.queryByText('AI 蜘蛛数据展示已关闭')).not.toBeInTheDocument();
+  expect(screen.getByTestId('geo-weight-summary')).toBeInTheDocument();
 });
 
 it('withholds the previous crawler projection when display is off and report refresh fails', () => {

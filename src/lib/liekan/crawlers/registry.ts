@@ -1,14 +1,17 @@
+import { getPublishedCatalog } from './published';
 import { crawlerMetadata } from './catalog-metadata';
 
 /** Canonical crawler identity and recognition policy; safe to import in clients. */
 export type CrawlerType = 'training' | 'search' | 'user' | 'traditional_search' | 'other';
-export const CRAWLER_REGISTRY_VERSION = 'crawler-registry-v1';
-export type CrawlerRegistryStatus = 'active' | 'pending';
+export const CRAWLER_REGISTRY_VERSION = 'crawler-registry-v2';
+export type CrawlerRegistryStatus = 'active' | 'pending' | 'inactive';
 
 export const crawlerPlatformIds = [
   'openai',
   'anthropic',
   'perplexity',
+  'kimi',
+  'tencent',
   'bytedance',
   'google',
   'baidu',
@@ -32,7 +35,7 @@ export const crawlerPlatformIds = [
   'majestic',
   'petal',
 ] as const;
-export type CrawlerPlatformId = (typeof crawlerPlatformIds)[number];
+export type CrawlerPlatformId = string;
 
 function http<const Id extends string>(
   id: Id,
@@ -111,6 +114,10 @@ export const crawlerRegistry = [
   http('perplexity-user', 'Perplexity-User', 'perplexity', 'Perplexity', 'user', {
     controllable: true,
   }),
+  http('kimibot', 'KimiBot', 'kimi', 'Kimi', 'training'),
+  http('kimi-searchbot', 'Kimi-SearchBot', 'kimi', 'Kimi', 'search'),
+  http('kimi-user', 'Kimi-User', 'kimi', 'Kimi', 'user'),
+  http('hyspider', 'HySpider', 'tencent', 'Tencent', 'training'),
   http('amazonbot', 'Amazonbot', 'amazon', 'Amazon', 'training'),
   http('amzn-searchbot', 'Amzn-SearchBot', 'amazon', 'Amazon', 'search'),
   http('amzn-user', 'Amzn-User', 'amazon', 'Amazon', 'user'),
@@ -190,9 +197,36 @@ export const crawlerRegistry = [
   }),
 ] as const;
 
-export type CrawlerRegistryEntry = (typeof crawlerRegistry)[number];
-export type CrawlerBotId = CrawlerRegistryEntry['id'];
-export type CrawlerHttpBotId = Extract<CrawlerRegistryEntry, { kind: 'http_crawler' }>['id'];
+export interface CrawlerRegistryEntry {
+  id: string;
+  name: string;
+  platformId: string;
+  vendor: string;
+  type: CrawlerType;
+  kind: 'http_crawler' | 'robots_purpose' | 'signed_agent';
+  uaSelector?: string | null;
+  family: string;
+  parentId?: string | null;
+  aiEligible: boolean;
+  status: CrawlerRegistryStatus;
+  control: { remote: boolean; nginx: boolean };
+  robotsToken?: string | null;
+}
+export type CrawlerBotId = string;
+export type CrawlerHttpBotId = string;
+
+/** Every operation reads the complete version bound at its entry point. */
+export function getCrawlerRegistry(): readonly CrawlerRegistryEntry[] {
+  return getPublishedCatalog()?.payload.identities ?? crawlerRegistry;
+}
+export const getCrawlerPlatformIds = (): string[] =>
+  getPublishedCatalog()?.payload.platforms.map(platform => platform.id) ?? [...crawlerPlatformIds];
+export const getActiveCrawlerIds = (): string[] => getCrawlerRegistry()
+  .filter(entry => entry.kind !== 'robots_purpose' && entry.status === 'active')
+  .map(entry => entry.id);
+export const getCrawlerRobotsIds = (): string[] => getCrawlerRegistry()
+  .filter(entry => entry.status === 'active' && entry.robotsToken !== null)
+  .map(entry => entry.id);
 
 // Existing policy targets stay fixed while recognition expands independently.
 export const crawlerControllableBotIds = [
@@ -219,6 +253,6 @@ export const ALL_HTTP_CRAWLER_IDS = crawlerRegistry
 export const ACTIVE_CRAWLER_IDS: readonly CrawlerHttpBotId[] = ALL_HTTP_CRAWLER_IDS;
 export const crawlerHttpBotIds = ACTIVE_CRAWLER_IDS;
 export const crawlerBotIds = crawlerRegistry.map(entry => entry.id);
-export const crawlerRobotsBotIds = crawlerRegistry
+export const crawlerRobotsBotIds: readonly string[] = crawlerRegistry
   .filter(entry => entry.status === 'active' && entry.robotsToken !== null)
   .map(entry => entry.id);

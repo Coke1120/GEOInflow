@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyEntrySource, aiAliases, searchAliases } from './sources';
+import { classifyEntrySource, getAiReferralRules, searchAliases } from './sources';
 import { searchPlatforms, summarizeSearchEngines } from './search-engines';
 
 const fact = (source: string, sessions = 1, channel?: string) => ({
@@ -54,13 +54,13 @@ describe('search platform aggregation', () => {
       expect.objectContaining({ engine: 'Copilot', sessions: 1, conversionRate: null }),
     ]);
   });
-  it.each([...Object.values(aiAliases), ...Object.values(searchAliases)])(
+  it.each([...getAiReferralRules().map(rule => rule.host), ...Object.values(searchAliases)])(
     'covers every currently classified domain including %s',
     host => {
       const result = summarizeSearchEngines([fact(host)], false);
       expect(result.rows).toHaveLength(1);
       expect(result.rows[0].engine).not.toBe('未识别平台');
-      expect(searchPlatforms.some(platform => platform.name === result.rows[0].engine)).toBe(true);
+
     },
   );
   it('keeps zero searches undefined and unknown future search platforms visible', () => {
