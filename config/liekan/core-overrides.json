@@ -4682,6 +4682,17 @@
         "pnpm test",
         "pnpm test:history-repair"
       ]
+    },
+    {
+      "path": "tests/api/liekan-history-repair.spec.ts",
+      "purpose": "Verify one-time historical repair eligibility, session authorization and unsupported backend responses in the complete API gate",
+      "owner": "Liekan API compatibility",
+      "constraint": "Keep shared seed identities unchanged and delete per-test websites and notice users",
+      "removalCondition": "Remove when upstream provides equivalent historical repair contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ]
     }
   ]
 }
