@@ -105,3 +105,10 @@ it('classifies actual route aliases through the canonical feature inventory', ()
   const catalog = inventory.routes.find(route => route.route === '/crawlers/manage');
   expect(manualRouteFeature(catalog, inventory.features)).toBe('crawlers-manage');
 });
+
+it('keeps positive reference reads for help while honoring its existing entry-only controls', () => {
+  const policy = manualPageReads('help', { websiteId: 'site' });
+  expect(policy.entryOnly).toBe(true);
+  expect(policy.endpoints).toEqual([{ path: '/api/liekan/crawler-registry' }]);
+  expect(() => assertManualPageReads(policy, [], 'help')).toThrow('missing successful page read');
+});

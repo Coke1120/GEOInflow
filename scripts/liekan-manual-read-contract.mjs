@@ -105,8 +105,13 @@ export function manualPageReads(id, values) {
     return { endpoints: [native(`${resource}/${values.id}`)], exception: null };
   }
   if (excluded[id]) return { endpoints: [], exception: excluded[id] };
+  if (id === 'help')
+    return {
+      endpoints: [endpoint('/api/liekan/crawler-registry')],
+      exception: '帮助文档和参考目录在进入时读取，界面没有统计刷新按钮',
+      entryOnly: true,
+    };
   const map = {
-    help: [endpoint('/api/liekan/crawler-registry')],
     'crawlers-manage': values.admin
       ? [
           endpoint('/api/liekan/admin/crawler-registry'),

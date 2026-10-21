@@ -520,7 +520,7 @@ try {
       assert.equal(reads.length, initial, `${item.id}: ordinary idle/focus/reconnect read`);
       const control = page.locator('[data-manual-refresh]').first();
       let refreshed = null;
-      if (policy.endpoints.length) {
+      if (policy.endpoints.length && !policy.entryOnly) {
         assert(await control.isVisible(), `${item.id}: missing refresh control`);
         // Sequential page checks share one actor and respect the existing forced-read limit.
         await waitForForcedReadCooldown();
@@ -541,7 +541,10 @@ try {
         await native.send('Page.enable');
         const entries = await native.send('Page.getNavigationHistory');
         const entryId = entries.entries[entries.currentIndex].id;
-        let away = page.locator('a[href^="/liekan/help"]').first();
+        let away =
+          item.featureId === 'help'
+            ? page.locator('a[href="/websites"]').first()
+            : page.locator('a[href^="/liekan/help"]').first();
         if (!(await away.count())) away = page.locator('a[href*="/events"]').first();
         const publicLayout = ['public-share', 'legacy-public-share', 'share-preview'].includes(
           item.featureId,
