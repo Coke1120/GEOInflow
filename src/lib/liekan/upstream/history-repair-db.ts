@@ -30,6 +30,9 @@ export const unreferencedRepairInputSql = `NOT EXISTS(SELECT 1 FROM liekan_histo
   AND NOT coalesce((coalesce(r.generation_archive->r.active_generation::text->'preview',CASE WHEN r.active_generation=r.generation THEN r.preview END)->'sourceUploads' ? i.upload_id::text),false)
   AND NOT coalesce((coalesce(r.generation_archive->r.previous_generation::text->'preview',CASE WHEN r.previous_generation=r.generation THEN r.preview END)->'sourceUploads' ? i.upload_id::text),false)`;
 
+/** Scoped readers bind the run UUID at $1; resolve the input boundary once per query. */
+export const currentRepairInputSql = `i.created_at>coalesce((SELECT (boundary.snapshot->>'inputNotBefore')::timestamptz FROM liekan_history_repair_run boundary WHERE boundary.id=$1::uuid),'-infinity'::timestamptz)`;
+
 export interface RepairTx {
   $executeRawUnsafe(sql: string, ...params: unknown[]): Promise<number>;
   $queryRawUnsafe<T = Record<string, unknown>[]>(sql: string, ...params: unknown[]): Promise<T>;
@@ -45,6 +48,7 @@ export interface RepairSnapshot {
   logPolicy: string;
   timezone: string;
   authorityHash: string;
+  inputNotBefore?: string;
 }
 export interface RepairCursor {
   time?: string;
@@ -107,6 +111,12 @@ export interface RunRow {
 }
 export const iso = (value: Date | string | null) =>
   value == null ? null : new Date(value).toISOString();
+export function repairGeneration(row: RunRow, generation: string, explicit: boolean) {
+  const archived = row.generation_archive[generation];
+  if (generation === row.generation && !(explicit && archived?.confirmedAt))
+    return { snapshot: row.snapshot, preview: row.preview };
+  return archived;
+}
 export function dto(row: RunRow): HistoryRepairRun {
   const counts = { ...emptyCounts(), ...row.counts };
   return {

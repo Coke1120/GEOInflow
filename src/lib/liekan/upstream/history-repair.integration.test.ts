@@ -29,6 +29,8 @@ let prisma: typeof import('@/lib/prisma').default;
 const enabled = process.env.LIEKAN_HISTORY_REPAIR_TEST === '1';
 const actor = { userId: randomUUID() };
 const other = { userId: randomUUID() };
+const browserFixtureUa =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
 const q = <T = Record<string, unknown>[]>(sql: string, ...values: unknown[]) =>
   repairTransaction(tx => tx.$queryRawUnsafe<T>(sql, ...values));
 const execute = (sql: string, ...values: unknown[]) =>
@@ -37,9 +39,9 @@ let site: string, session: string, first: string;
 const scan = () =>
   scanHistoryRepair(site, { actionId: randomUUID(), timezone: 'America/New_York' }, actor);
 const status = async () => (await getHistoryRepair(site, new URLSearchParams(), actor)).run;
-async function finish(run: HistoryRepairRun) {
+async function finish(run: HistoryRepairRun, identity = actor) {
   for (let attempt = 0; attempt < 100; attempt++) {
-    const current = await status();
+    const current = (await getHistoryRepair(site, new URLSearchParams(), identity)).run;
     if (!['scanning', 'preparing', 'queued', 'running', 'validating'].includes(current.status))
       return current;
     await processHistoryRepairJob({ runId: run.id });
@@ -97,6 +99,38 @@ async function log(ua = 'GPTBot/1.0') {
     ua,
   );
   return id;
+}
+async function evidenceFile(run: HistoryRepairRun, ua: string, identity = actor) {
+  const uploadId = randomUUID();
+  const append = await ingestHistoryRepairEvidence(
+    site,
+    {
+      runId: run.id,
+      action: 'append',
+      actionId: randomUUID(),
+      uploadId,
+      expectedRevision: run.revision,
+      sequence: 0,
+      source: 'retention fixture',
+      records: [{ eventId: first, requestUserAgent: ua }],
+    },
+    identity,
+  );
+  const finalized = await ingestHistoryRepairEvidence(
+    site,
+    {
+      runId: run.id,
+      action: 'finalize',
+      actionId: randomUUID(),
+      uploadId,
+      expectedRevision: append.revision,
+      chunks: 1,
+      rows: 1,
+      manifest: [append.hash],
+    },
+    identity,
+  );
+  return { uploadId, revision: finalized.revision };
 }
 async function publishCatalogFixture(payload: CatalogPayload) {
   return repairTransaction(async tx => {
@@ -374,11 +408,12 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
       'revenue',
     ]);
   });
-  it.each(['event properties', 'sessions'] as const)(
+  it.each(['event properties', 'sessions', 'event pivot'] as const)(
     'keeps uncached native %s count and rows in one repair generation',
     async kind => {
       const { getEventData } = await import('@/queries/sql/events/getEventData');
       const { getWebsiteSessions } = await import('@/queries/sql/sessions/getWebsiteSessions');
+      const { getEventDataPivot } = await import('@/queries/sql/events/getEventDataPivot');
       const { cacheHeadersEnabled } = await import('./cache-context');
       const secondSession = randomUUID();
       await execute(
@@ -448,21 +483,123 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
       const read = () =>
         kind === 'event properties'
           ? getEventData(site, filters)
-          : getWebsiteSessions(site, filters);
+          : kind === 'event pivot'
+            ? getEventDataPivot(site, 'snapshot-fixture', filters)
+            : getWebsiteSessions(site, filters);
       const ids = (result: any) =>
-        result.data.map((row: any) => (kind === 'event properties' ? row.eventId : row.id)).sort();
+        result.data.map((row: any) => (kind !== 'sessions' ? row.eventId : row.id)).sort();
       expect(cacheHeadersEnabled()).toBe(false);
       const before = await read();
       expect(published).toBe(true);
       expect(Number(before.count)).toBe(2);
       expect(ids(before)).toEqual(
-        (kind === 'event properties' ? [first, second] : [session, secondSession]).sort(),
+        (kind !== 'sessions' ? [first, second] : [session, secondSession]).sort(),
       );
       const after = await read();
       expect(Number(after.count)).toBe(1);
-      expect(ids(after)).toEqual([kind === 'event properties' ? first : session]);
+      expect(ids(after)).toEqual([kind !== 'sessions' ? first : session]);
     },
   );
+  it('keeps policy preview on the collection-original classification population after repair', async () => {
+    const { previewTrafficPolicy, saveTrafficPolicy } = await import('./traffic-quality');
+    await execute(
+      "UPDATE liekan_event_quality SET classification='browser',reasons=ARRAY['ua_bot'] WHERE event_id=$1::uuid",
+      first,
+    );
+    const prepared = await finish(await scan());
+    await finish(
+      await confirmHistoryRepair(
+        site,
+        {
+          runId: prepared.id,
+          actionId: randomUUID(),
+          expectedRevision: prepared.revision,
+          generation: prepared.generation,
+          previewDigest: prepared.preview.digest,
+          partialConfirmed: true,
+        },
+        actor,
+      ),
+    );
+    await saveTrafficPolicy(site, { mode: 'raw', allowedHostnames: [] }, actor);
+    const range = {
+      startAt: +new Date('2020-01-01'),
+      endAt: +new Date('2020-01-02'),
+      timezone: 'UTC',
+    };
+    for (const classification of ['browser', 'automated'] as const) {
+      const result = await previewTrafficPolicy(
+        site,
+        {
+          policy: { mode: 'raw', allowedHostnames: [] },
+          range: { ...range, classification },
+        },
+        actor,
+      );
+      const expected = classification === 'browser' ? 1 : 0;
+      expect(result.current.rawPV).toBe(expected);
+      expect(result.preview).toEqual(result.current);
+      const standard = await previewTrafficPolicy(
+        site,
+        {
+          policy: { mode: 'standard', allowedHostnames: [] },
+          range: { ...range, classification },
+        },
+        actor,
+      );
+      expect(standard.preview.rawPV).toBe(expected);
+      expect(standard.preview.rawUV).toBe(expected);
+      expect(standard.preview.includedPV).toBe(0);
+    }
+  });
+  it('lets the current manager regenerate a preview after the original actor leaves the team', async () => {
+    const { mutateTeamMember } = await import('./team-member-access');
+    const teamId = randomUUID();
+    await execute("INSERT INTO team(team_id,name) VALUES($1::uuid,'Repair team')", teamId);
+    for (const [member, role] of [
+      [actor, 'team-member'],
+      [other, 'team-owner'],
+    ] as const)
+      await execute(
+        'INSERT INTO team_user(team_user_id,team_id,user_id,role) VALUES($1::uuid,$2::uuid,$3::uuid,$4)',
+        randomUUID(),
+        teamId,
+        member.userId,
+        role,
+      );
+    await execute(
+      'UPDATE website SET user_id=NULL,team_id=$2::uuid WHERE website_id=$1::uuid',
+      site,
+      teamId,
+    );
+    await log();
+    const prepared = await finish(await scan());
+    expect(prepared.status).toBe('ready');
+    await mutateTeamMember(other.userId, teamId, actor.userId, 'remove');
+    const file = await evidenceFile(prepared, 'GPTBot/1.0', other);
+    const regenerated = await previewHistoryRepair(
+      site,
+      {
+        runId: prepared.id,
+        actionId: randomUUID(),
+        expectedRevision: file.revision,
+      },
+      other,
+    );
+    const done = await finish(regenerated, other);
+    expect(done.status).toBe('ready');
+    expect(
+      (
+        await q<{ actor_id: string }[]>(
+          'SELECT actor_id::text FROM liekan_history_repair_run WHERE id=$1::uuid',
+          prepared.id,
+        )
+      )[0].actor_id,
+    ).toBe(other.userId);
+    await expect(getHistoryRepair(site, new URLSearchParams(), actor)).rejects.toMatchObject({
+      status: 403,
+    });
+  });
   it('returns stable schemas and omits new websites from campaign eligibility', async () => {
     const list = await listHistoryRepair(actor);
     expect(historyRepairListSchema.safeParse(list).success).toBe(true);
@@ -1092,6 +1229,16 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
       actor,
     );
     expect(withdrawn.discarded).toBe(true);
+    const retained = await getHistoryRepair(
+      site,
+      new URLSearchParams({ view: 'preview', generation: active.generation }),
+      actor,
+    );
+    expect(retained.run.preview).toBeNull();
+    expect(retained.selectedGeneration.preview.counts.afterPV).toBe('0');
+    expect(
+      (await exportHistoryRepair(site, { generation: active.generation }, actor)).csv,
+    ).toContain(active.generation);
     await expect(
       actHistoryRepair(
         site,
@@ -1215,6 +1362,299 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
     const rescanned = await finish(await scan());
     expect(rescanned.counts.changedEvents).toBe('0');
   });
+  it.each(['unchanged', 'cancelled', 'confirmed cancellation'] as const)(
+    'cleans idle %s working evidence while keeping daily summaries and audit',
+    async outcome => {
+      const prepared = await finish(await scan());
+      const file = await evidenceFile(
+        prepared,
+        outcome === 'unchanged' ? browserFixtureUa : 'GPTBot/1.0',
+      );
+      let terminal = await finish(
+        await previewHistoryRepair(
+          site,
+          {
+            runId: prepared.id,
+            actionId: randomUUID(),
+            expectedRevision: file.revision,
+          },
+          actor,
+        ),
+      );
+      if (outcome === 'confirmed cancellation')
+        terminal = await confirmHistoryRepair(
+          site,
+          {
+            runId: terminal.id,
+            actionId: randomUUID(),
+            expectedRevision: terminal.revision,
+            generation: terminal.generation,
+            previewDigest: terminal.preview.digest,
+            partialConfirmed: true,
+          },
+          actor,
+        );
+      if (outcome !== 'unchanged')
+        terminal = await actHistoryRepair(
+          site,
+          {
+            runId: terminal.id,
+            action: 'cancel',
+            actionId: randomUUID(),
+            expectedRevision: terminal.revision,
+          },
+          actor,
+        );
+      expect(terminal.status).toBe(outcome === 'unchanged' ? 'unchanged' : 'cancelled');
+      await execute(
+        "UPDATE liekan_history_repair_run SET updated_at=clock_timestamp()-interval '8 days',completed_at=clock_timestamp()-interval '8 days' WHERE id=$1::uuid",
+        terminal.id,
+      );
+      await reconcileHistoryRepairs();
+      const [retained] = await q<
+        { inputs: number; results: number; days: number; actions: number }[]
+      >(
+        `SELECT (SELECT count(*)::int FROM liekan_history_repair_input WHERE run_id=$1::uuid) AS inputs,
+        (SELECT count(*)::int FROM liekan_history_repair_result WHERE run_id=$1::uuid) AS results,
+        (SELECT count(*)::int FROM liekan_history_repair_day WHERE run_id=$1::uuid) AS days,
+        (SELECT count(*)::int FROM liekan_history_repair_action WHERE run_id=$1::uuid) AS actions`,
+        terminal.id,
+      );
+      expect(retained.inputs).toBe(0);
+      expect(retained.results).toBe(0);
+      expect(retained.days).toBeGreaterThan(0);
+      expect(retained.actions).toBeGreaterThan(0);
+      const after = await status();
+      expect(after.status).toBe(terminal.status);
+      expect(after.counts).toEqual(terminal.counts);
+      expect(
+        (await exportHistoryRepair(site, { generation: terminal.generation }, actor)).csv,
+      ).toContain(terminal.generation);
+    },
+  );
+  it('keeps a new upload usable when its transaction starts before terminal evidence expiry', async () => {
+    const prepared = await finish(await scan());
+    const oldFile = await evidenceFile(prepared, browserFixtureUa);
+    const unchanged = await finish(
+      await previewHistoryRepair(
+        site,
+        {
+          runId: prepared.id,
+          actionId: randomUUID(),
+          expectedRevision: oldFile.revision,
+        },
+        actor,
+      ),
+    );
+    expect(unchanged.status).toBe('unchanged');
+    await execute(
+      "UPDATE liekan_history_repair_run SET updated_at=clock_timestamp()-interval '8 days',completed_at=clock_timestamp()-interval '8 days' WHERE id=$1::uuid",
+      unchanged.id,
+    );
+    const transaction: any = prisma.client.$transaction.bind(prisma.client);
+    let expired = false;
+    const spy = vi.spyOn(prisma.client, '$transaction').mockImplementation(((
+      work: any,
+      options: any,
+    ) =>
+      transaction(
+        (tx: any) =>
+          work(
+            new Proxy(tx, {
+              get(target, property) {
+                const value = Reflect.get(target, property);
+                if (property === '$queryRawUnsafe')
+                  return async (sql: string, ...values: unknown[]) => {
+                    if (!expired && sql.includes('FOR NO KEY UPDATE OF r')) {
+                      expired = true;
+                      await reconcileHistoryRepairs();
+                    }
+                    return value.call(target, sql, ...values);
+                  };
+                return typeof value === 'function' ? value.bind(target) : value;
+              },
+            }),
+          ),
+        options,
+      )) as any);
+    const uploadId = randomUUID();
+    let appended: Awaited<ReturnType<typeof ingestHistoryRepairEvidence>>;
+    try {
+      appended = await ingestHistoryRepairEvidence(
+        site,
+        {
+          runId: unchanged.id,
+          action: 'append',
+          actionId: randomUUID(),
+          uploadId,
+          expectedRevision: unchanged.revision,
+          sequence: 0,
+          source: 'arrived during cleanup',
+          records: [{ eventId: first, requestUserAgent: 'GPTBot/1.0' }],
+        },
+        actor,
+      );
+    } finally {
+      spy.mockRestore();
+    }
+    expect(expired).toBe(true);
+    expect(appended.accepted).toBe(1);
+    expect(
+      (await getHistoryRepair(site, new URLSearchParams(), actor)).uploads.map(upload => upload.id),
+    ).toContain(uploadId);
+    const finalized = await ingestHistoryRepairEvidence(
+      site,
+      {
+        runId: unchanged.id,
+        action: 'finalize',
+        actionId: randomUUID(),
+        uploadId,
+        expectedRevision: appended.revision,
+        chunks: 1,
+        rows: 1,
+        manifest: [appended.hash],
+      },
+      actor,
+    );
+    const current = await finish(
+      await previewHistoryRepair(
+        site,
+        {
+          runId: unchanged.id,
+          actionId: randomUUID(),
+          expectedRevision: finalized.revision,
+        },
+        actor,
+      ),
+    );
+    expect(current.counts.changedEvents).toBe('1');
+  });
+  it.each(['expiry', 'detection changes', 'old unconfirmed archive'] as const)(
+    'does not reuse a partially collected file after %s',
+    async cause => {
+      const prepared = await finish(await scan()),
+        uploadId = randomUUID();
+      const hashes = Array.from({ length: 350 }, (_, index) =>
+        index.toString(16).padStart(64, '0'),
+      );
+      const record = {
+        eventId: first,
+        automated: true,
+        reasons: ['ua_bot'],
+        hash: 'a'.repeat(64),
+        uploadId,
+      };
+      await execute(
+        `INSERT INTO liekan_history_repair_input(run_id,website_id,upload_id,sequence,chunk_hash,rulepack_hash,source,actor_id,rows,accepted,records,generation)
+      SELECT r.id,r.website_id,$2::uuid,n-1,hashes[n],r.snapshot->'rulepack'->>'hash','large retained source',$3::uuid,1,1,$4::jsonb,r.generation
+      FROM liekan_history_repair_run r CROSS JOIN generate_series(1,350) n CROSS JOIN (SELECT $5::text[] AS hashes) h WHERE r.id=$1::uuid`,
+        prepared.id,
+        uploadId,
+        actor.userId,
+        JSON.stringify([record]),
+        hashes,
+      );
+      const finalized = await ingestHistoryRepairEvidence(
+        site,
+        {
+          runId: prepared.id,
+          action: 'finalize',
+          actionId: randomUUID(),
+          uploadId,
+          expectedRevision: prepared.revision,
+          chunks: 350,
+          rows: 350,
+          manifestDigest: evidenceManifestDigest(hashes),
+        },
+        actor,
+      );
+      const ready = await finish(
+        await previewHistoryRepair(
+          site,
+          { runId: prepared.id, actionId: randomUUID(), expectedRevision: finalized.revision },
+          actor,
+        ),
+      );
+      expect(ready.counts.changedEvents).toBe('1');
+      if (cause === 'old unconfirmed archive') {
+        await actHistoryRepair(
+          site,
+          {
+            runId: ready.id,
+            action: 'cancel',
+            actionId: randomUUID(),
+            expectedRevision: ready.revision,
+          },
+          actor,
+        );
+        await execute(
+          "UPDATE liekan_history_repair_run SET generation_archive=jsonb_set(generation_archive,ARRAY[$2::text,'archivedAt'],to_jsonb((clock_timestamp()-interval '8 days')::text)) WHERE id=$1::uuid",
+          ready.id,
+          prepared.generation,
+        );
+        await reconcileHistoryRepairs();
+        const [intact] = await q<{ chunks: number; complete: number }[]>(
+          "SELECT count(*)::int AS chunks,count(*) FILTER(WHERE state='finalized')::int AS complete FROM liekan_history_repair_input WHERE run_id=$1::uuid AND upload_id=$2::uuid",
+          ready.id,
+          uploadId,
+        );
+        expect(intact).toEqual({ chunks: 350, complete: 350 });
+        const next = await finish(await scan());
+        expect(next.counts.changedEvents).toBe('1');
+        await ingestHistoryRepairEvidence(
+          site,
+          {
+            runId: next.id,
+            action: 'discard',
+            actionId: randomUUID(),
+            uploadId,
+            expectedRevision: next.revision,
+          },
+          actor,
+        );
+        for (let round = 0; round < 4; round++) await reconcileHistoryRepairs();
+        return;
+      }
+      if (cause === 'expiry') {
+        await execute(
+          "UPDATE liekan_history_repair_run SET updated_at=clock_timestamp()-interval '8 days' WHERE id=$1::uuid",
+          ready.id,
+        );
+        await reconcileHistoryRepairs();
+        expect((await status()).status).toBe('expired');
+      } else {
+        const previous = process.env.DISABLE_BOT_CHECK;
+        try {
+          process.env.DISABLE_BOT_CHECK = '1';
+          expect((await finish(await scan())).counts.changedEvents).toBe('0');
+        } finally {
+          if (previous === undefined) delete process.env.DISABLE_BOT_CHECK;
+          else process.env.DISABLE_BOT_CHECK = previous;
+        }
+      }
+      const rescanned = await finish(await scan());
+      expect(rescanned.counts.changedEvents).toBe('0');
+      expect(rescanned.preview.sourceUploads).toEqual([]);
+      const renewed = await evidenceFile(rescanned, browserFixtureUa);
+      const renewedPreview = await finish(
+        await previewHistoryRepair(
+          site,
+          { runId: rescanned.id, actionId: randomUUID(), expectedRevision: renewed.revision },
+          actor,
+        ),
+      );
+      expect(renewedPreview.counts.changedEvents).toBe('0');
+      expect(renewedPreview.counts.browserEvidence).toBe('1');
+      for (let round = 0; round < 4; round++) await reconcileHistoryRepairs();
+      const [cleaned] = await q<{ old: number; fresh: number }[]>(
+        'SELECT count(*) FILTER(WHERE upload_id=$2::uuid)::int AS old,count(*) FILTER(WHERE upload_id=$3::uuid)::int AS fresh FROM liekan_history_repair_input WHERE run_id=$1::uuid',
+        ready.id,
+        uploadId,
+        renewed.uploadId,
+      );
+      expect(cleaned).toEqual({ old: 0, fresh: 1 });
+    },
+  );
   it.each(['active', 'previous'] as const)(
     'preserves complete archived %s sources during bounded expiry cleanup',
     async pointer => {

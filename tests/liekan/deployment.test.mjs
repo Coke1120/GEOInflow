@@ -6,6 +6,26 @@ import os from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 
+test('default Docker metadata covers the immutable release register and UI baseline', async () => {
+  const dockerfile = await readFile('Dockerfile.liekan', 'utf8');
+  const register = JSON.parse(await readFile('config/liekan/migrations.json', 'utf8'));
+  const release = JSON.parse(await readFile('config/liekan/upstream.json', 'utf8'));
+  const revision = Number(dockerfile.match(/^ARG LIEKAN_MIGRATION=(\d+)$/m)?.[1]);
+  assert.equal(revision, Object.keys(register).length);
+  assert.equal(revision, release.liekanMigration);
+  assert.match(dockerfile, /io\.liekan\.migration=\$LIEKAN_MIGRATION/);
+  const defaults = Object.fromEntries(
+    [...dockerfile.matchAll(/^ARG (LIEKAN_\w+)=(\S+)$/gm)].map(match => [match[1], match[2]]),
+  );
+  for (const [arg, key] of [
+    ['LIEKAN_UPSTREAM', 'commit'],
+    ['LIEKAN_UI', 'uiManifestSha256'],
+    ['LIEKAN_FEATURE_UI', 'featureUiManifestSha256'],
+    ['LIEKAN_AI_UI', 'aiUiManifestSha256'],
+  ])
+    assert.equal(defaults[arg], release[key], arg);
+});
+
 async function installation(t, options = {}) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'liekan-install-test-'));
   t.after(() => rm(root, { recursive: true, force: true }));

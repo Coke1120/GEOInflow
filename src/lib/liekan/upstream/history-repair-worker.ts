@@ -37,6 +37,7 @@ import {
   saveRun,
   requireCompatibleRepairWorker,
   unreferencedRepairInputSql,
+  currentRepairInputSql,
   type RepairTx,
   type RunRow,
 } from './history-repair-db';
@@ -204,7 +205,7 @@ async function eventBatch(tx: RepairTx, row: RunRow) {
   const ids = rows.map(value => value.id);
   const evidence = await tx.$queryRawUnsafe<{ record: SavedEvidence }[]>(
     `SELECT DISTINCT ON(wanted.id) r.record FROM unnest($2::text[]) wanted(id)
-     JOIN liekan_history_repair_input i ON i.run_id=$1::uuid AND i.state='finalized' AND i.rulepack_hash=$3 AND i.records @> jsonb_build_array(jsonb_build_object('eventId',wanted.id))
+     JOIN liekan_history_repair_input i ON i.run_id=$1::uuid AND i.state='finalized' AND i.rulepack_hash=$3 AND ${currentRepairInputSql} AND i.records @> jsonb_build_array(jsonb_build_object('eventId',wanted.id))
      CROSS JOIN LATERAL jsonb_array_elements(i.records) r(record) WHERE r.record->>'eventId'=wanted.id ORDER BY wanted.id,i.upload_id,i.sequence`,
     row.id,
     ids,
@@ -551,7 +552,7 @@ async function finishPreview(tx: RepairTx, row: RunRow) {
   if (row.excluded_batches.length) limitations.push('excluded-old-batches');
   if (row.snapshot.rulepack.botCheckDisabled) limitations.push('bot-check-disabled');
   const sourceUploads = await tx.$queryRawUnsafe<{ id: string }[]>(
-    `SELECT DISTINCT upload_id::text AS id FROM liekan_history_repair_input WHERE run_id=$1::uuid AND state='finalized' AND rulepack_hash=$2 ORDER BY id LIMIT 100`,
+    `SELECT DISTINCT upload_id::text AS id FROM liekan_history_repair_input i WHERE run_id=$1::uuid AND state='finalized' AND rulepack_hash=$2 AND ${currentRepairInputSql} ORDER BY id LIMIT 100`,
     row.id,
     row.snapshot.rulepack.hash,
   );
@@ -865,7 +866,10 @@ export async function reconcileHistoryRepairs() {
       `UPDATE liekan_history_repair_run r SET scope_changed=true,scope_revision=scope_revision+1,error_code=CASE WHEN active_generation IS NOT NULL THEN 'active-scope-gap' ELSE 'scope-changed' END WHERE NOT scope_changed AND EXISTS(SELECT 1 FROM liekan_history_repair_action a WHERE a.run_id=r.id AND a.generation=r.generation AND a.action='scope-gap')`,
     );
     await tx.$executeRawUnsafe(
-      `UPDATE liekan_history_repair_run SET status='expired',error_code='history-repair-idle-expired',preview=NULL,completed_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id IN(SELECT id FROM liekan_history_repair_run WHERE status IN('ready','failed','paused') AND confirmed_at IS NULL AND updated_at<clock_timestamp()-interval '7 days' ORDER BY updated_at,id LIMIT 20 FOR NO KEY UPDATE SKIP LOCKED)`,
+      `UPDATE liekan_history_repair_run SET status='expired',error_code='history-repair-idle-expired',preview=NULL,snapshot=jsonb_set(snapshot,'{inputNotBefore}',to_jsonb(clock_timestamp())),completed_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id IN(SELECT id FROM liekan_history_repair_run WHERE status IN('ready','failed','paused') AND confirmed_at IS NULL AND updated_at<clock_timestamp()-interval '7 days' ORDER BY updated_at,id LIMIT 20 FOR NO KEY UPDATE SKIP LOCKED)`,
+    );
+    await tx.$executeRawUnsafe(
+      `UPDATE liekan_history_repair_run SET snapshot=jsonb_set(snapshot,'{inputNotBefore}',to_jsonb(clock_timestamp())) WHERE id IN(SELECT id FROM liekan_history_repair_run WHERE status IN('unchanged','unidentifiable','empty','cancelled','invalidated') AND updated_at<clock_timestamp()-interval '7 days' AND (snapshot->>'inputNotBefore' IS NULL OR (snapshot->>'inputNotBefore')::timestamptz<updated_at) ORDER BY updated_at,id LIMIT 20 FOR NO KEY UPDATE SKIP LOCKED)`,
     );
     await tx.$executeRawUnsafe(
       `DELETE FROM liekan_history_repair_visitor v WHERE v.ctid IN(SELECT v.ctid FROM liekan_history_repair_visitor v JOIN liekan_history_repair_run r ON r.id=v.run_id WHERE (r.completed_at<clock_timestamp()-interval '7 days' AND r.status IN('completed','completed_limited','unchanged','unidentifiable','empty','cancelled','rolled_back','expired','invalidated')) OR (v.generation<>r.generation AND v.created_at<clock_timestamp()-interval '7 days') LIMIT 2000)`,
@@ -878,20 +882,20 @@ export async function reconcileHistoryRepairs() {
       `WITH obsolete AS (${obsolete}) DELETE FROM liekan_history_repair_visitor p WHERE p.ctid IN(SELECT p.ctid FROM liekan_history_repair_visitor p JOIN obsolete o ON o.run_id=p.run_id AND o.generation=p.generation LIMIT 2000)`,
     );
     await tx.$executeRawUnsafe(
-      `WITH obsolete AS (${obsolete}) DELETE FROM liekan_history_repair_input i WHERE i.ctid IN(SELECT i.ctid FROM liekan_history_repair_input i JOIN obsolete o ON o.run_id=i.run_id AND o.generation=i.generation JOIN liekan_history_repair_run r ON r.id=i.run_id WHERE (i.state='discarded' OR r.status IN('completed','completed_limited','unchanged','unidentifiable','empty','cancelled','rolled_back','expired','invalidated')) AND ${unreferencedInput} LIMIT 100)`,
+      `WITH obsolete AS (${obsolete}) DELETE FROM liekan_history_repair_input i WHERE i.ctid IN(SELECT i.ctid FROM liekan_history_repair_input i JOIN obsolete o ON o.run_id=i.run_id AND o.generation=i.generation JOIN liekan_history_repair_run r ON r.id=i.run_id WHERE (i.state='discarded' OR i.created_at<=(r.snapshot->>'inputNotBefore')::timestamptz) AND ${unreferencedInput} LIMIT 100)`,
     );
     // Expiry drops unsubmitted material. Active and previous result/proof generations stay readable.
     await tx.$executeRawUnsafe(
-      `DELETE FROM liekan_history_repair_result v WHERE v.ctid IN(SELECT v.ctid FROM liekan_history_repair_result v JOIN liekan_history_repair_run r ON r.id=v.run_id WHERE r.status='expired' AND v.generation IS DISTINCT FROM r.active_generation AND v.generation IS DISTINCT FROM r.previous_generation LIMIT 2000)`,
+      `DELETE FROM liekan_history_repair_result v WHERE v.ctid IN(SELECT v.ctid FROM liekan_history_repair_result v JOIN liekan_history_repair_run r ON r.id=v.run_id WHERE (r.status='expired' OR v.created_at<=(r.snapshot->>'inputNotBefore')::timestamptz) AND v.generation IS DISTINCT FROM r.active_generation AND v.generation IS DISTINCT FROM r.previous_generation LIMIT 2000)`,
     );
     await tx.$executeRawUnsafe(
       `DELETE FROM liekan_history_repair_day v WHERE v.ctid IN(SELECT v.ctid FROM liekan_history_repair_day v JOIN liekan_history_repair_run r ON r.id=v.run_id WHERE r.status='expired' AND v.generation IS DISTINCT FROM r.active_generation AND v.generation IS DISTINCT FROM r.previous_generation LIMIT 2000)`,
     );
     await tx.$executeRawUnsafe(
-      `DELETE FROM liekan_history_repair_input i WHERE i.ctid IN(SELECT i.ctid FROM liekan_history_repair_input i JOIN liekan_history_repair_run r ON r.id=i.run_id WHERE r.status='expired' AND ${unreferencedInput} LIMIT 100)`,
+      `DELETE FROM liekan_history_repair_input i WHERE i.ctid IN(SELECT i.ctid FROM liekan_history_repair_input i JOIN liekan_history_repair_run r ON r.id=i.run_id WHERE (r.status='expired' OR i.created_at<=(r.snapshot->>'inputNotBefore')::timestamptz) AND ${unreferencedInput} LIMIT 100)`,
     );
     await tx.$executeRawUnsafe(
-      `UPDATE liekan_history_repair_input i SET state='discarded',records='[]' WHERE i.ctid IN(SELECT i.ctid FROM liekan_history_repair_input i JOIN liekan_history_repair_run r ON r.id=i.run_id WHERE r.status='expired' AND i.state<>'discarded' AND ${unreferencedInput} LIMIT 100)`,
+      `UPDATE liekan_history_repair_input i SET state='discarded',records='[]' WHERE i.ctid IN(SELECT i.ctid FROM liekan_history_repair_input i JOIN liekan_history_repair_run r ON r.id=i.run_id WHERE (r.status='expired' OR i.created_at<=(r.snapshot->>'inputNotBefore')::timestamptz) AND i.state<>'discarded' AND ${unreferencedInput} LIMIT 100)`,
     );
     await tx.$executeRawUnsafe(
       `UPDATE liekan_history_repair_run r SET counts=$1::jsonb,cursor='{}',generation_archive=coalesce((SELECT jsonb_object_agg(a.key,a.value) FROM jsonb_each(r.generation_archive) a WHERE a.key IN(r.active_generation::text,r.previous_generation::text)),'{}'::jsonb) WHERE status='expired'`,

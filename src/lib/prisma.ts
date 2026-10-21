@@ -993,21 +993,23 @@ async function pagedRawQuery(
     ? `select count(*) as num from (select 1 from (${query}) t limit ${+maxResults}) t2`
     : `select count(*) as num from (${query}) t`;
 
-  const count = await rawQuery(
-    countQuery,
-    queryParams,
-    name === 'getEventDataPivot' ? name : undefined,
-  ).then(res => Number(res[0].num));
-  const data = await rawQuery(`${query}${statements}`, queryParams, name);
-
-  return {
-    data,
-    count,
-    page: +page,
-    pageSize: size,
-    orderBy,
-    isCapped: !!maxResults && +count >= +maxResults,
+  const load = async () => {
+    const count = await rawQuery(
+      countQuery,
+      queryParams,
+      name === 'getEventDataPivot' ? name : undefined,
+    ).then(res => Number(res[0].num));
+    const data = await rawQuery(`${query}${statements}`, queryParams, name);
+    return {
+      data,
+      count,
+      page: +page,
+      pageSize: size,
+      orderBy,
+      isCapped: !!maxResults && +count >= +maxResults,
+    };
   };
+  return queryParams.websiteId ? nativeSnapshot(load) : load();
 }
 
 function getSearchParameters(query: string, filters: Record<string, any>[]) {
@@ -1138,3 +1140,4 @@ import {
   withTrafficPolicy,
   propertyWindowForQuery,
 } from './liekan/upstream/traffic-query';
+import { nativeSnapshot } from './liekan/upstream/native-snapshot';

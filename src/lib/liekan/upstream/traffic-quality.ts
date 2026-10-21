@@ -168,16 +168,17 @@ export async function qualityTotals(
     // The preview reads normalized historical hosts without changing saved policy or evidence.
     const hosts = proposed.allowedHostnames.length ? await hostRepresentations(tx, websiteId) : [];
     params.push(proposed.mode, proposed.allowedHostnames as any, JSON.stringify(hosts));
-    extra = `LEFT JOIN jsonb_to_recordset($10::jsonb) AS h(reported text,hostname text) ON h.reported=e.hostname`;
-    included = `((q.source='browser' OR e.event_type IN (3,4)) AND ($8='raw' OR (COALESCE(q.classification,'unknown')<>'automated'
-      AND ($8<>'strict' OR COALESCE(q.classification,'unknown')<>'suspected')
-      AND (cardinality($9::text[])=0 OR COALESCE(q.hostname,h.hostname)=ANY($9::text[])))))`;
+    extra = `LEFT JOIN liekan_reporting_event_quality candidate ON candidate.event_id=e.event_id AND candidate.website_id=e.website_id
+      LEFT JOIN jsonb_to_recordset($10::jsonb) AS h(reported text,hostname text) ON h.reported=e.hostname`;
+    included = `((candidate.source='browser' OR e.event_type IN (3,4)) AND ($8='raw' OR (COALESCE(candidate.classification,'unknown')<>'automated'
+      AND ($8<>'strict' OR COALESCE(candidate.classification,'unknown')<>'suspected')
+      AND (cardinality($9::text[])=0 OR COALESCE(candidate.hostname,h.hostname)=ANY($9::text[])))))`;
   }
   const [result] = await tx.$queryRawUnsafe(
     `SELECT COUNT(*)::float8 AS "rawPV",COUNT(*) FILTER(WHERE ${included})::float8 AS "includedPV",
       COUNT(DISTINCT e.session_id)::float8 AS "rawUV",COUNT(DISTINCT e.session_id) FILTER(WHERE ${included})::float8 AS "includedUV",
       COUNT(*) FILTER(WHERE q.event_id IS NULL)::float8 AS "missingVerdictPV"
-      ${proposed ? evidenceJoins.replace('liekan_event_quality','liekan_reporting_event_quality') : joins} ${extra} WHERE ${scope} AND e.event_type NOT IN (2,5)`,
+      ${proposed ? evidenceJoins : joins} ${extra} WHERE ${scope} AND e.event_type NOT IN (2,5)`,
     ...params,
   );
   return {
@@ -220,9 +221,21 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
   return qualityReadTransaction(async tx => {
     const policy = await getTrafficPolicy(websiteId, tx);
     const values = bindings(websiteId, range);
-    const [repair]=await tx.$queryRawUnsafe('SELECT active_generation::text,active_revision::text FROM liekan_history_repair_run WHERE website_id=$1::uuid',websiteId);
+    const [repair] = await tx.$queryRawUnsafe(
+      'SELECT active_generation::text,active_revision::text FROM liekan_history_repair_run WHERE website_id=$1::uuid',
+      websiteId,
+    );
     const signature = createHash('sha256')
-      .update(JSON.stringify([values, repair?.active_generation||null,repair?.active_revision||'0',policy.revision, TRAFFIC_POLICY_VERSION, getPublishedCatalog()?.version]))
+      .update(
+        JSON.stringify([
+          values,
+          repair?.active_generation || null,
+          repair?.active_revision || '0',
+          policy.revision,
+          TRAFFIC_POLICY_VERSION,
+          getPublishedCatalog()?.version,
+        ]),
+      )
       .digest('hex');
     let cursor: { time: string; id: string; signature: string } | undefined;
     if (range.cursor) {

@@ -43,6 +43,8 @@ import {
   audit,
   enqueueRepair,
   unreferencedRepairInputSql,
+  currentRepairInputSql,
+  repairGeneration,
   type RepairTx,
   type RunRow,
 } from './history-repair-db';
@@ -200,7 +202,7 @@ export async function getHistoryRepair(
     response.uploads = await tx.$queryRawUnsafe(
       `WITH uploads AS (
       SELECT upload_id,min(source) AS source,bool_and(state='finalized') AS finalized,bool_and(state='discarded') AS discarded,sum(rows)::text AS rows,sum(accepted)::text AS accepted,sum(rows-accepted)::text AS rejected,count(*)::int AS chunks,sum(jsonb_array_length(errors))>100 AS "moreErrors",min(created_at) AS created
-      FROM liekan_history_repair_input WHERE run_id=$1::uuid AND rulepack_hash=$2 GROUP BY upload_id
+      FROM liekan_history_repair_input i WHERE run_id=$1::uuid AND rulepack_hash=$2 AND ${currentRepairInputSql} GROUP BY upload_id
       ORDER BY bool_and(state='discarded'),min(created_at) DESC,upload_id LIMIT 100)
       SELECT u.upload_id::text AS id,u.source,u.finalized,u.discarded,u.rows,u.accepted,u.rejected,u.chunks,u."moreErrors",
       coalesce((SELECT jsonb_agg(jsonb_build_object('sequence',err.sequence,'row',err.row,'code',err.code)) FROM (
@@ -218,10 +220,7 @@ export async function getHistoryRepair(
       !row.generation_archive[generation]
     )
       throw new LiekanError('候选代次不存在', 404, 'history-repair-generation-not-found');
-    const selected =
-      generation === row.generation
-        ? { snapshot: row.snapshot, preview: row.preview }
-        : row.generation_archive[generation];
+    const selected = repairGeneration(row, generation, !!query.generation);
     if (selected)
       response.selectedGeneration = {
         id: generation,
@@ -309,22 +308,29 @@ export async function getHistoryRepair(
     return response;
   });
 }
-async function freshCandidate(tx: RepairTx, row: RunRow, refresh: boolean) {
+async function freshCandidate(tx: RepairTx, row: RunRow, refresh: boolean, actorId: string) {
   await archiveGeneration(tx, row);
   const fixed = refresh ? await snapshot(tx, row.website_id, row.snapshot.timezone) : row.snapshot;
+  if (row.snapshot.inputNotBefore) fixed.inputNotBefore = row.snapshot.inputNotBefore;
   // Any retained UA summaries from a different rulepack require source-file re-upload.
-  if (fixed.rulepack.hash !== row.snapshot.rulepack.hash)
+  if (fixed.rulepack.hash !== row.snapshot.rulepack.hash) {
+    const [boundary] = await tx.$queryRawUnsafe<{ time: string }[]>(
+      'SELECT clock_timestamp()::text AS time',
+    );
+    fixed.inputNotBefore = boundary.time;
     await tx.$executeRawUnsafe(
       `UPDATE liekan_history_repair_input i SET state='discarded',records='[]' WHERE i.ctid IN(SELECT i.ctid FROM liekan_history_repair_input i JOIN liekan_history_repair_run r ON r.id=i.run_id WHERE r.id=$1::uuid AND i.state<>'discarded' AND i.rulepack_hash<>$2 AND ${unreferencedRepairInputSql} LIMIT 100)`,
       row.id,
       fixed.rulepack.hash,
     );
+  }
   await tx.$executeRawUnsafe(
-    `UPDATE liekan_history_repair_run SET generation=$2::uuid,revision=revision+1,status='scanning',phase='boundary',scope_finalized=false,scope_changed=false,cursor='{}',counts=$3::jsonb,log_impact='{}',preview=NULL,approved_digest=NULL,confirmed_at=NULL,partial_confirmed=false,snapshot=$4::jsonb,lease_token=NULL,lease_until=NULL,attempts=0,error_code=NULL,completed_at=NULL,updated_at=clock_timestamp() WHERE id=$1::uuid`,
+    `UPDATE liekan_history_repair_run SET generation=$2::uuid,revision=revision+1,status='scanning',phase='boundary',scope_finalized=false,scope_changed=false,cursor='{}',counts=$3::jsonb,log_impact='{}',preview=NULL,approved_digest=NULL,confirmed_at=NULL,partial_confirmed=false,snapshot=$4::jsonb,actor_id=$5::uuid,lease_token=NULL,lease_until=NULL,attempts=0,error_code=NULL,completed_at=NULL,updated_at=clock_timestamp() WHERE id=$1::uuid`,
     row.id,
     randomUUID(),
     JSON.stringify(emptyCounts()),
     JSON.stringify(fixed),
+    actorId,
   );
   return runForSite(tx, row.website_id);
 }
@@ -362,7 +368,7 @@ export async function scanHistoryRepair(
         return audit(tx, row, identity, 'scan', body, dto(row), body.actionId);
       if (row) {
         row.snapshot.timezone = body.timezone;
-        row = await freshCandidate(tx, row, true);
+        row = await freshCandidate(tx, row, true, identity.userId);
       } else {
         const id = randomUUID(),
           generation = randomUUID(),
@@ -428,7 +434,7 @@ export async function previewHistoryRepair(
           ? row.snapshot.rulepack.hash
           : (await snapshot(tx, row.website_id, row.snapshot.timezone)).rulepack.hash;
       const incomplete = await tx.$queryRawUnsafe(
-        `SELECT 1 FROM liekan_history_repair_input WHERE run_id=$1::uuid AND state='open' AND rulepack_hash=$2 LIMIT 1`,
+        `SELECT 1 FROM liekan_history_repair_input i WHERE run_id=$1::uuid AND state='open' AND rulepack_hash=$2 AND ${currentRepairInputSql} LIMIT 1`,
         row.id,
         nextRulepackHash,
       );
@@ -442,7 +448,7 @@ export async function previewHistoryRepair(
         await assertSnapshot(tx, row, true);
         return audit(tx, row, identity, 'preview', body, dto(row), body.actionId);
       }
-      row = await freshCandidate(tx, row, true);
+      row = await freshCandidate(tx, row, true, identity.userId);
       await enqueueRepair(tx, row);
       return audit(tx, row, identity, 'preview', body, dto(row), body.actionId);
     }),
@@ -483,7 +489,7 @@ export async function confirmHistoryRepair(
           'history-repair-partial-confirmation-required',
         );
       const inputs = await tx.$queryRawUnsafe(
-        `SELECT 1 FROM liekan_history_repair_input WHERE run_id=$1::uuid AND rulepack_hash=$2 AND (state='open' OR (state='finalized' AND jsonb_array_length(errors)>0)) LIMIT 1`,
+        `SELECT 1 FROM liekan_history_repair_input i WHERE run_id=$1::uuid AND rulepack_hash=$2 AND ${currentRepairInputSql} AND (state='open' OR (state='finalized' AND jsonb_array_length(errors)>0)) LIMIT 1`,
         row.id,
         row.snapshot.rulepack.hash,
       );
@@ -669,10 +675,7 @@ export async function exportHistoryRepair(
   return repairTransaction(async tx => {
     const row = await requireRun(tx, websiteId, identity);
     const generation = query.generation || row.generation;
-    const saved =
-      generation === row.generation
-        ? { preview: row.preview, snapshot: row.snapshot }
-        : row.generation_archive[generation];
+    const saved = repairGeneration(row, generation, !!query.generation);
     if (!saved?.preview?.complete || saved.preview.generation !== generation)
       throw new LiekanError('只可导出完整的固定预览', 409, 'history-repair-preview-required');
     const data = await tx.$queryRawUnsafe<Record<string, unknown>[]>(

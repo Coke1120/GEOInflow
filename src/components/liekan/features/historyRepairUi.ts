@@ -113,6 +113,7 @@ export const repairLimitationLabels: Record<string, string> = {
   'bot-check-disabled': '当前环境关闭了浏览爬虫检测，浏览证据的识别能力受限。',
 };
 export const repairErrorLabels: Record<string, string> = {
+  'history-repair-evidence-expired': '证据文件已过期，请重新上传原文件',
   'history-repair-revision-conflict': '候选结果已更新，请重新读取并核对预览。',
   'history-repair-scope-changed': '历史输入发生变化，请重新生成预览。',
   'history-repair-snapshot-changed': '网站权限或统计规则发生变化，请重新扫描并预览。',

@@ -124,7 +124,7 @@
     },
     {
       "path": "Dockerfile.liekan",
-      "purpose": "Isolate local Liekan runtime, database and immutable image revision; carry the website site number migration revision; carry crawler analysis/control migration revision",
+      "purpose": "Isolate local Liekan runtime, database and immutable image revision; carry the website site number migration revision; carry crawler analysis/control migration revision; advertise the complete immutable migration register in default builds",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance",
@@ -3084,7 +3084,7 @@
     },
     {
       "path": "src/lib/prisma.ts",
-      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; preserve cookieless tracking while applying versioned traffic quality and exact event receipt deduplication; reuse the complete bounded property window for repair-aware native property reads",
+      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; preserve cookieless tracking while applying versioned traffic quality and exact event receipt deduplication; reuse the complete bounded property window for repair-aware native property reads; keep website pagination counts and rows on one primary reporting generation",
       "tests": [
         "pnpm test:log-ingestion",
         "node scripts/liekan-log-integration.mjs",

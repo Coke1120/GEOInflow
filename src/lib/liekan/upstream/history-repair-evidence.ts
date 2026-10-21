@@ -20,6 +20,7 @@ import {
   replayAction,
   audit,
   archiveGeneration,
+  currentRepairInputSql,
   type RepairTx,
   type RunRow,
 } from './history-repair-db';
@@ -40,6 +41,7 @@ interface InputRow {
   invalid: number;
   state: string;
   source: string;
+  usable: boolean;
 }
 async function mutable(row: RunRow) {
   if ((row.confirmed_at && row.status !== 'rolled_back') || workingStatuses.includes(row.status))
@@ -76,16 +78,22 @@ export async function ingestHistoryRepairEvidence(
       await mutable(row);
       await assertSnapshot(tx, row, true);
       const chunks = await tx.$queryRawUnsafe<InputRow[]>(
-        `SELECT sequence,chunk_hash,rulepack_hash,rows,accepted,CASE WHEN sequence=$3::integer THEN errors ELSE '[]'::jsonb END AS errors,jsonb_array_length(errors) AS invalid,state,source FROM liekan_history_repair_input WHERE run_id=$1::uuid AND upload_id=$2::uuid ORDER BY sequence FOR NO KEY UPDATE`,
+        `SELECT sequence,chunk_hash,rulepack_hash,rows,accepted,CASE WHEN sequence=$3::integer THEN errors ELSE '[]'::jsonb END AS errors,jsonb_array_length(errors) AS invalid,state,source,(${currentRepairInputSql}) AS usable FROM liekan_history_repair_input i WHERE run_id=$1::uuid AND upload_id=$2::uuid ORDER BY sequence FOR NO KEY UPDATE`,
         row.id,
         body.uploadId,
         body.action === 'append' ? body.sequence : null,
       );
+      if (chunks.some(chunk => !chunk.usable))
+        throw new LiekanError(
+          '证据文件已过期，请重新上传原文件',
+          409,
+          'history-repair-evidence-expired',
+        );
       if (row.status === 'rolled_back') await archiveGeneration(tx, row);
       let result: HistoryRepairEvidenceResult;
       if (body.action === 'append') {
         const [uploads] = await tx.$queryRawUnsafe<{ count: number }[]>(
-          `SELECT count(distinct upload_id)::int AS count FROM liekan_history_repair_input WHERE run_id=$1::uuid AND state<>'discarded' AND upload_id<>$2::uuid AND rulepack_hash=$3`,
+          `SELECT count(distinct upload_id)::int AS count FROM liekan_history_repair_input i WHERE run_id=$1::uuid AND state<>'discarded' AND upload_id<>$2::uuid AND rulepack_hash=$3 AND ${currentRepairInputSql}`,
           row.id,
           body.uploadId,
           row.snapshot.rulepack.hash,
@@ -189,7 +197,7 @@ export async function ingestHistoryRepairEvidence(
         });
         const conflicts = await tx.$queryRawUnsafe<{ event_id: string }[]>(
           `SELECT DISTINCT w.event_id FROM jsonb_to_recordset($2::jsonb) w(event_id text,hash text)
-          WHERE EXISTS(SELECT 1 FROM liekan_history_repair_input i WHERE i.run_id=$1::uuid AND i.state<>'discarded' AND i.rulepack_hash=$3
+          WHERE EXISTS(SELECT 1 FROM liekan_history_repair_input i WHERE i.run_id=$1::uuid AND i.state<>'discarded' AND i.rulepack_hash=$3 AND ${currentRepairInputSql}
           AND i.records @> jsonb_build_array(jsonb_build_object('eventId',w.event_id))
           AND EXISTS(SELECT 1 FROM jsonb_array_elements(i.records) r WHERE r->>'eventId'=w.event_id AND r->>'hash'<>w.hash)) LIMIT 1000`,
           row.id,
@@ -234,7 +242,7 @@ export async function ingestHistoryRepairEvidence(
           previous.set(found.event_id, classified.hash);
         }
         await tx.$executeRawUnsafe(
-          `INSERT INTO liekan_history_repair_input(run_id,website_id,upload_id,sequence,chunk_hash,rulepack_hash,source,actor_id,rows,accepted,errors,records,generation) VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8::uuid,$9,$10,$11::jsonb,$12::jsonb,$13::uuid)`,
+          `INSERT INTO liekan_history_repair_input(run_id,website_id,upload_id,sequence,chunk_hash,rulepack_hash,source,actor_id,rows,accepted,errors,records,generation,created_at) VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8::uuid,$9,$10,$11::jsonb,$12::jsonb,$13::uuid,clock_timestamp())`,
           row.id,
           websiteId,
           body.uploadId,
