@@ -113,7 +113,7 @@ cp.spawnSync=(command,args,options={})=>{
  if(args.includes('scripts/liekan-search-engine-visual.mjs')){if(fault==='search-engine-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-search-engines',{recursive:true});fs.writeFileSync('test-results/liekan-search-engines/report.json',JSON.stringify({passed:fault!=='search-engine-visual-passed',head:fault==='search-engine-visual-head'?'other':head,checks:Array.from({length:fault==='search-engine-visual-count'?1:3},()=>({})),cleanup:fault!=='search-engine-visual-cleanup'}));}
  if(args.includes('scripts/liekan-feature-flows.mjs')){if(fault==='feature-flows-failed')return {status:1};fs.mkdirSync('test-results/liekan-feature-flows',{recursive:true});fs.writeFileSync('test-results/liekan-feature-flows/report.json',JSON.stringify({passed:true,head:fault==='feature-flows-head'?'other':head,checks:Array.from({length:fault==='feature-flows-count'?1:14},()=>({passed:fault!=='feature-flows-check'})),errors:fault==='feature-flows-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-feature-visual.mjs')){if(fault==='feature-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-features',{recursive:true});fs.writeFileSync('test-results/liekan-features/report.json',JSON.stringify({passed:true,head:fault==='feature-visual-head'?'other':head,checks:Array.from({length:fault==='feature-visual-count'?1:66*4},()=>({passed:true})),incrementalChecks:fault==='incremental-visual-missing'?undefined:[1440,1280,375,320].flatMap(width=>incrementalVisualPages.map(id=>({id:fault==='incremental-visual-ids'?'unknown-feature':id,width,passed:fault!=='incremental-visual-failed'}))),mobile:{head:fault==='mobile-visual-head'?'other':head,passed:fault!=='mobile-visual-failed',checks:fault==='mobile-visual-count'?1:(77+incrementalVisualPages.length)*4*2,incrementalPageIds:fault==='mobile-visual-incremental-ids'?[]:incrementalVisualPages}}));}
- if(args.includes('scripts/liekan-manual-refresh.mjs')){if(fault==='manual-refresh-failed')return {status:1};fs.mkdirSync('test-results/liekan-manual-refresh',{recursive:true});fs.writeFileSync('test-results/liekan-manual-refresh/report.json',JSON.stringify({passed:fault!=='manual-refresh-passed',finalized:fault!=='manual-refresh-finalized',head:fault==='manual-refresh-head'?'other':head,featureIds:fault==='manual-refresh-count'?featureIds.slice(0,1):fault==='manual-refresh-ids'?featureIds.map((id,index)=>index===0?'unknown-feature':id):featureIds,realIdle:Array.from({length:fault==='manual-refresh-idle'?1:4},()=>({idleDelta:0})),cachedHistory:{passed:fault!=='manual-refresh-cached-history'},errors:[]}));}
+ if(args.includes('scripts/liekan-manual-refresh.mjs')){if(fault==='manual-refresh-failed')return {status:1};fs.mkdirSync('test-results/liekan-manual-refresh',{recursive:true});fs.writeFileSync('test-results/liekan-manual-refresh/report.json',JSON.stringify({passed:fault!=='manual-refresh-passed',finalized:fault!=='manual-refresh-finalized',head:fault==='manual-refresh-head'?'other':head,featureIds:fault==='manual-refresh-count'?featureIds.slice(0,1):fault==='manual-refresh-ids'?featureIds.map((id,index)=>index===0?'unknown-feature':id):featureIds,realIdle:Array.from({length:fault==='manual-refresh-idle'?1:4},()=>({idleDelta:0})),cachedHistory:{passed:fault!=='manual-refresh-cached-history'},noStoreHistory:fault==='manual-refresh-no-store-missing'?undefined:{passed:fault!=='manual-refresh-no-store-history'},errors:[]}));}
  if(args.includes('scripts/liekan-ai-visual.mjs')){if(fault==='ai-visual-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai',{recursive:true});fs.writeFileSync('test-results/liekan-ai/report.json',JSON.stringify({passed:true,head:fault==='ai-visual-head'?'other':head,checks:Array.from({length:fault==='ai-visual-count'?1:8},()=>({passed:fault!=='ai-visual-check'})),errors:fault==='ai-visual-errors'?['fixture error']:[]}));}
  if(args.includes('scripts/liekan-ai-home-visual.mjs')){if(fault==='ai-home-failed')return {status:1};fs.mkdirSync('test-results/liekan-ai-home-v3',{recursive:true});const widths=fault==='ai-home-empty'?[]:fault==='ai-home-count'?[1440]:fault==='ai-home-extra'?[1440,1280,375,320,500]:[1440,1280,375,320];fs.writeFileSync('test-results/liekan-ai-home-v3/report.json',JSON.stringify({passed:fault!=='ai-home-passed',head:fault==='ai-home-head'?'other':head,checks:widths.map(width=>({width,focus:true,reference:true,keyboard:true,overflow:0})),errors:fault==='ai-home-errors'?['fixture error']:[]}));}
 
@@ -191,6 +191,8 @@ describe('isolated acceptance CLI failure paths', () => {
           1440, 1280, 375, 320,
         ]);
         expect(report.dialogVisual.websiteDeletionSuccess).toHaveLength(6);
+        expect(report.manualRefresh.cachedHistory.passed).toBe(true);
+        expect(report.manualRefresh.noStoreHistory.passed).toBe(true);
       } finally {
         fs.rmSync(setup.cwd, { recursive: true, force: true });
       }
@@ -335,6 +337,8 @@ describe('isolated acceptance CLI failure paths', () => {
     'mobile-visual-incremental-ids',
     'manual-refresh-idle',
     'manual-refresh-cached-history',
+    'manual-refresh-no-store-history',
+    'manual-refresh-no-store-missing',
     'mobile-visual-head',
     'mobile-visual-count',
     'mobile-visual-failed',
