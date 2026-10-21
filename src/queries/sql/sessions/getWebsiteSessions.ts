@@ -1,4 +1,5 @@
 import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, EVENT_TYPE, FILTER_COLUMNS } from '@/lib/constants';
 import {
@@ -21,7 +22,9 @@ export async function getWebsiteSessions(
 ): Promise<PageResult<WebsiteSession[]>> {
   return runQuery({
     [PRISMA]: () =>
-      nativeAggregate(FUNCTION_NAME, args[0], args[1], args[1], () => relationalQuery(...args)),
+      nativeAggregate(FUNCTION_NAME, args[0], args[1], args[1], () =>
+        nativeSnapshot(() => relationalQuery(...args)),
+      ),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
 }

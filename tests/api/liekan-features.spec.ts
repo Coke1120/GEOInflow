@@ -1,3 +1,4 @@
+import { sendBrowserFixture } from './seed/ingest';
 import JSZip from 'jszip';
 import {
   featureAnalyticsResponse,
@@ -121,8 +122,8 @@ test.describe('Liekan integrated feature contracts', () => {
         const distinctId = `journey-${index}-${websiteId}`;
         expect(distinctId.length).toBeLessThanOrEqual(50);
         for (const [step, url] of urls.entries()) {
-          const response = await api.post(
-            '/api/send',
+          const response = await sendBrowserFixture(
+            api,
             {
               type: 'event',
               payload: {
@@ -237,8 +238,8 @@ test.describe('Liekan integrated feature contracts', () => {
         const distinctId = `perf-${index}-${websiteId}`;
         expect(distinctId.length).toBeLessThanOrEqual(50);
         for (let step = 0; step <= pageviews; step++) {
-          const response = await api.post(
-            '/api/send',
+          const response = await sendBrowserFixture(
+            api,
             {
               type: step === pageviews ? 'performance' : 'event',
               payload: {
@@ -326,8 +327,8 @@ test.describe('Liekan integrated feature contracts', () => {
         expect(distinctId.length).toBeLessThanOrEqual(50);
         for (let step = 0; step <= pageviews; step++) {
           const purchase = step === pageviews;
-          const response = await api.post(
-            '/api/send',
+          const response = await sendBrowserFixture(
+            api,
             {
               type: 'event',
               payload: {
@@ -431,8 +432,8 @@ test.describe('Liekan integrated feature contracts', () => {
           timestamp: timestamp + 1,
         },
       ].entries()) {
-        const response = await api.post(
-          '/api/send',
+        const response = await sendBrowserFixture(
+          api,
           {
             type: 'event',
             payload: {

@@ -4693,6 +4693,47 @@
         "pnpm liekan:verify",
         "pnpm test:history-repair"
       ]
+    },
+    {
+      "path": "tests/api/seed/ingest.ts",
+      "purpose": "Seed browser analytics through actual request headers so public override fixtures remain separately classified",
+      "owner": "Liekan API compatibility",
+      "constraint": "Keep deliberate override/provenance tests and production collection policy unchanged; preserve per-agent batch grouping and recorder identity",
+      "removalCondition": "Remove when upstream browser fixtures use browser request metadata",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:traffic-quality"
+      ]
+    },
+    {
+      "path": "tests/api/sessions.spec.ts",
+      "purpose": "Keep browser analytics fixtures aligned with the request-header provenance policy",
+      "tests": [
+        "pnpm test:api"
+      ],
+      "owner": "Liekan API compatibility",
+      "constraint": "Preserve intentional public override and server log tests and production collection policy",
+      "removalCondition": "Remove when upstream fixtures use actual browser request metadata"
+    },
+    {
+      "path": "tests/api/liekan.spec.ts",
+      "purpose": "Keep browser analytics fixtures aligned with the request-header provenance policy",
+      "tests": [
+        "pnpm test:api"
+      ],
+      "owner": "Liekan API compatibility",
+      "constraint": "Preserve intentional public override and server log tests and production collection policy",
+      "removalCondition": "Remove when upstream fixtures use actual browser request metadata"
+    },
+    {
+      "path": "tests/api/liekan-geo-weight.spec.ts",
+      "purpose": "Verify missing GEO evidence, pinned private exports and non-PostgreSQL support boundaries",
+      "tests": [
+        "pnpm test:api"
+      ],
+      "owner": "Liekan API compatibility",
+      "constraint": "Preserve private full-session access and original archived GEO evidence",
+      "removalCondition": "Remove when equivalent upstream operation coverage is provided"
     }
   ]
 }

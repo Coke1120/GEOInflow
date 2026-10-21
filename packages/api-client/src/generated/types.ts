@@ -26753,6 +26753,15 @@ export interface operations {
           'application/json': components['schemas']['ApiError'];
         };
       };
+      /** @description The reporting revision or cursor scope changed; reload the report */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
     };
   };
   getLiekanReport: {
@@ -27364,6 +27373,15 @@ export interface operations {
            *       }
            *     }
            */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description The reporting revision or cursor scope changed; reload the report */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
           'application/json': components['schemas']['ApiError'];
         };
       };

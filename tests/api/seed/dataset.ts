@@ -5,8 +5,8 @@ import { SEED_IDS } from './ids';
  * endpoints (/api/send, /api/batch, /api/record). Works for both Postgres and
  * ClickHouse. Backdated events use `timestamp` (seconds).
  *
- * IPs are private on purpose: the test image has no GeoLite database and
- * src/lib/detect.ts throws on a non-local IP lookup.
+ * Persona metadata stays deterministic. The browser ingest adapter sends UA
+ * through request headers and omits public payload identity overrides.
  */
 
 export interface SendPayload {

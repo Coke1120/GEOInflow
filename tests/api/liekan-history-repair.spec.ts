@@ -51,9 +51,11 @@ test('keeps fresh websites outside the one-time campaign and requires an explici
     }
     const listing = await admin.get('/api/liekan/history-repair');
     expect(listing.status).toBe(200);
+    expect(listing.headers['cache-control']).toMatch(/private.*no-store/);
     expect(listing.body).toMatchObject({ campaignId, supported: true });
     const status = await admin.get(root);
     expect(status.status).toBe(200);
+    expect(status.headers['cache-control']).toMatch(/private.*no-store/);
     expect(status.body).toMatchObject({ campaignId, eligible: false, hasData: false, run: null });
     for (const [suffix, body] of Object.entries(mutationBodies())) {
       const result = await admin.post(`${root}/${suffix}`, body);
@@ -64,6 +66,7 @@ test('keeps fresh websites outside the one-time campaign and requires an explici
     }
     const exported = await admin.get(`${root}/export`, { params: { generation: randomUUID() } });
     expect(exported.status).toBe(409);
+    expect(exported.headers['cache-control']).toMatch(/private.*no-store/);
     expect(exported.body.error.code).toBe('history-repair-scan-required');
     const temporaryUser = await createUser(admin);
     noticeUser = temporaryUser;

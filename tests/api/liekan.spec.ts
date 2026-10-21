@@ -1,3 +1,4 @@
+import { sendBrowserFixture } from './seed/ingest';
 import { expect, test } from './fixtures';
 import { createWebsite, deleteWebsite } from './helpers/entities';
 import { pageReportParts } from '../../src/lib/liekan/contracts/page-report';
@@ -144,8 +145,8 @@ test('identifies source keywords through real collection, scopes access, pages a
     cache?: string,
     name?: string,
   ) => {
-    const response = await api.post(
-      '/api/send',
+    const response = await sendBrowserFixture(
+      api,
       {
         type: 'event',
         payload: {
@@ -531,6 +532,7 @@ test.describe('Liekan evidence and website boundary', () => {
   }) => {
     const path = `/api/liekan/websites/${id}`;
     const now = Date.now() - 20000;
+    const range = report();
     const records = Array.from({ length: 150 }, (_, index) => ({
       time: new Date(now + index).toISOString(),
       ip: '203.0.113.9',
@@ -548,11 +550,16 @@ test.describe('Liekan evidence and website boundary', () => {
       duplicate: true,
       inserted: 0,
     });
-    const first = await admin.get(`${path}/report`, { params: report() });
+    const first = await admin.get(`${path}/report`, { params: range });
     expect(first.status).toBe(200);
     expect(first.body.tables.logBody).toHaveLength(100);
+    const changedRange = await admin.get(`${path}/report`, {
+      params: { ...range, endAt: Number(range.endAt) + 1, cursor: first.body.meta.nextCursor },
+    });
+    expect(changedRange.status).toBe(409);
+    expect(changedRange.body.error.code).toBe('history-repair-cursor-conflict');
     const second = await admin.get(`${path}/report`, {
-      params: report({ page: 2, cursor: first.body.meta.nextCursor }),
+      params: { ...range, page: 2, cursor: first.body.meta.nextCursor },
     });
     expect(second.status).toBe(200);
     expect(second.body.tables.logBody).toHaveLength(50);
@@ -561,21 +568,21 @@ test.describe('Liekan evidence and website boundary', () => {
         .size,
     ).toBe(150);
     const back = await admin.get(`${path}/report`, {
-      params: report({ page: 1, cursor: second.body.meta.previousCursor, seek: 'before' }),
+      params: { ...range, page: 1, cursor: second.body.meta.previousCursor, seek: 'before' },
     });
     expect(back.body.tables.logBody.map(r => r.recordId)).toEqual(
       first.body.tables.logBody.map(r => r.recordId),
     );
     for (const search of ['_', '%']) {
-      const matching = await admin.get(`${path}/report`, { params: report({ search }) });
+      const matching = await admin.get(`${path}/report`, { params: { ...range, search } });
       expect(matching.body.meta.totalLogs).toBe(1);
       expect(matching.body.tables.logBody[0].path).toBe('/literal_%');
     }
-    const status = await admin.get(`${path}/report`, { params: report({ search: '404' }) });
+    const status = await admin.get(`${path}/report`, { params: { ...range, search: '404' } });
     expect(status.body.meta.totalLogs).toBe(38);
-    expect((await admin.get(`${path}/report`, { params: report({ cursor: 'bad' }) })).status).toBe(
-      400,
-    );
+    expect(
+      (await admin.get(`${path}/report`, { params: { ...range, cursor: 'bad' } })).status,
+    ).toBe(409);
   });
   test('merges independent settings edits and honors an explicitly empty rule list', async ({
     admin,
@@ -869,7 +876,7 @@ test('keeps empty search redirects in traffic totals and exposes their status in
       ['https://www.baidu.com/link?url=opaque&wd=', '/?utm_term=manual-example'],
     ];
     for (const [i, [referrer, url]] of sources.entries()) {
-      const response = await api.post('/api/send', {
+      const response = await sendBrowserFixture(api, {
         type: 'event',
         payload: {
           website: website.id,

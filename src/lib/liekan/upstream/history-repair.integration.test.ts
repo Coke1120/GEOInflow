@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { catalogHash } from '../crawlers/catalog-validation';
 import type { CatalogPayload } from '../contracts/crawler-registry';
 import { evidenceManifestDigest } from '../history-repair/model';
@@ -207,6 +207,95 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
     );
     first = await event('2020-01-01T00:00:00.000001Z');
   });
+  it.each(['event properties', 'sessions'] as const)(
+    'keeps uncached native %s count and rows in one repair generation',
+    async kind => {
+      const { getEventData } = await import('@/queries/sql/events/getEventData');
+      const { getWebsiteSessions } = await import('@/queries/sql/sessions/getWebsiteSessions');
+      const { cacheHeadersEnabled } = await import('./cache-context');
+      const secondSession = randomUUID();
+      await execute(
+        'INSERT INTO session(session_id,website_id) VALUES($1::uuid,$2::uuid)',
+        secondSession,
+        site,
+      );
+      const second = await event('2020-01-01T00:00:01Z', {
+        session: secondSession,
+        reasons: ['ua_bot'],
+        type: 2,
+      });
+      await execute(
+        "UPDATE website_event SET event_type=2,event_name='snapshot-fixture' WHERE website_id=$1::uuid",
+        site,
+      );
+      for (const id of [first, second])
+        await execute(
+          "INSERT INTO event_data(event_data_id,website_id,website_event_id,data_key,string_value,data_type,created_at) VALUES(gen_random_uuid(),$1::uuid,$2::uuid,'label','fixture',1,'2020-01-01')",
+          site,
+          id,
+        );
+      const prepared = await finish(await scan());
+      let published = false;
+      const intercept =
+        (raw: (sql: string, ...values: unknown[]) => Promise<unknown>) =>
+        async (sql: string, ...values: unknown[]) => {
+          const value = await raw(sql, ...values);
+          if (!published && /select count\(\*\) as num/i.test(sql)) {
+            published = true;
+            await execute(
+              'UPDATE liekan_history_repair_run SET active_generation=generation,active_revision=active_revision+1 WHERE id=$1::uuid',
+              prepared.id,
+            );
+          }
+          return value;
+        };
+      const direct = prisma.client.$queryRawUnsafe;
+      const transaction: any = prisma.client.$transaction.bind(prisma.client);
+      vi.spyOn(prisma.client, '$queryRawUnsafe').mockImplementation(function (
+        this: typeof prisma.client,
+        sql: string,
+        ...values: unknown[]
+      ) {
+        return intercept(direct.bind(this))(sql, ...values) as any;
+      });
+      vi.spyOn(prisma.client, '$transaction').mockImplementation(((work: any, options: any) =>
+        transaction(
+          (tx: any) =>
+            work(
+              new Proxy(tx, {
+                get(target, property) {
+                  const value = Reflect.get(target, property);
+                  if (property === '$queryRawUnsafe') return intercept(value.bind(target));
+                  return typeof value === 'function' ? value.bind(target) : value;
+                },
+              }),
+            ),
+          options,
+        )) as any);
+      const filters = {
+        startDate: new Date('2019-01-01'),
+        endDate: new Date('2021-01-01'),
+        event: 'eq.snapshot-fixture',
+        pageSize: 100,
+      };
+      const read = () =>
+        kind === 'event properties'
+          ? getEventData(site, filters)
+          : getWebsiteSessions(site, filters);
+      const ids = (result: any) =>
+        result.data.map((row: any) => (kind === 'event properties' ? row.eventId : row.id)).sort();
+      expect(cacheHeadersEnabled()).toBe(false);
+      const before = await read();
+      expect(published).toBe(true);
+      expect(Number(before.count)).toBe(2);
+      expect(ids(before)).toEqual(
+        (kind === 'event properties' ? [first, second] : [session, secondSession]).sort(),
+      );
+      const after = await read();
+      expect(Number(after.count)).toBe(1);
+      expect(ids(after)).toEqual([kind === 'event properties' ? first : session]);
+    },
+  );
   it('returns stable schemas and omits new websites from campaign eligibility', async () => {
     const list = await listHistoryRepair(actor);
     expect(historyRepairListSchema.safeParse(list).success).toBe(true);

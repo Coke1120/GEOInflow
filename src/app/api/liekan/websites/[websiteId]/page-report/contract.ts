@@ -3,6 +3,7 @@ import { reportQuery } from '@/lib/liekan/contracts/query';
 import { pageReportSchema } from '@/lib/liekan/contracts/page-report';
 import {
   defineOperation,
+  apiErrorSchema,
   badRequestResponse,
   notFoundResponse,
   unauthorizedResponse,
@@ -30,6 +31,10 @@ export const operations = [
         '400': badRequestResponse,
         '401': unauthorizedResponse,
         '404': notFoundResponse,
+        '409': {
+          description: 'The reporting revision or cursor scope changed; reload the report',
+          content: { 'application/json': { schema: apiErrorSchema } },
+        },
       },
     },
   }),
