@@ -9,6 +9,11 @@ import {
 } from './viewState';
 
 describe('shareable GEO view conditions', () => {
+  it('restores old other-known links using the residual category and resets its owned condition', () => {
+    expect(readViewState({ filter: '其他已知' }, 'ai/bots').filter).toBe('其他爬虫');
+    expect(readViewState({ filter: '其他爬虫' }, 'ai/bots').filter).toBe('其他爬虫');
+    expect(Object.keys(resetViewParams)).toContain('botCategory');
+  });
   it('restores the full geography selection from its URL', () => {
     expect(
       readViewState(

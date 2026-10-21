@@ -28,6 +28,9 @@ const h = vi.hoisted(() => ({
   query: {} as Record<string, string>,
   calls: [] as any[],
   health: undefined as any,
+  readError: null as any,
+  placeholder: false,
+  fetching: false,
 }));
 vi.mock('./context', () => ({
   useFeature: () => ({
@@ -49,8 +52,9 @@ vi.mock('./context', () => ({
     return {
       data: key[0] === 'crawler-registry' ? h.data : h.health,
       refetch: h.refetch,
-      isFetching: false,
-      error: null,
+      isFetching: key[0] === 'crawler-registry' && h.fetching,
+      isPlaceholderData: key[0] === 'crawler-registry' && h.placeholder,
+      error: key[0] === 'crawler-registry' ? h.readError : null,
     };
   },
 }));
@@ -175,6 +179,9 @@ beforeEach(() => {
   h.query = {};
   h.calls = [];
   h.health = undefined;
+  h.readError = null;
+  h.placeholder = false;
+  h.fetching = false;
   h.post.mockReset();
   h.get.mockReset();
   h.refetch.mockReset().mockImplementation(async () => ({ data: h.data }));
@@ -250,6 +257,76 @@ it('keeps one operation ID across an uncertain create retry', async () => {
   await waitFor(() => expect(h.post).toHaveBeenCalledTimes(2));
   expect(h.post.mock.calls[0][1].operationId).toBe(h.post.mock.calls[1][1].operationId);
 });
+it('creates one draft from Add and opens an editable identity form after confirmation', async () => {
+  h.data.drafts = [];
+  let finish: (value: any) => void;
+  h.post.mockImplementationOnce(() => new Promise(resolve => (finish = resolve)));
+  render(<CrawlerRegistryPage />);
+  const add = await screen.findByRole('button', { name: '新增爬虫身份' });
+  expect(add).toBeEnabled();
+  fireEvent.click(add);
+  fireEvent.click(add);
+  expect(add).toBeDisabled();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(h.post).toHaveBeenCalledTimes(1);
+  expect(h.post.mock.calls[0][1]).toMatchObject({ action: 'createDraft' });
+  await act(async () => finish({ action: 'createDraft', draft: { ...draft, revision: '7' } }));
+  const form = await screen.findByRole('dialog', { name: '新增爬虫身份' });
+  for (const [label, value] of [
+    ['稳定 ID', 'new-bot'],
+    ['名称', 'NewBot'],
+    ['运营主体', 'Fixture'],
+    ['UA 匹配词', 'NewBot'],
+  ])
+    fireEvent.change(within(form).getByRole('textbox', { name: new RegExp(`^${label}`) }), {
+      target: { value },
+    });
+  h.post.mockResolvedValueOnce({ action: 'updateDraft', draft: { ...draft, revision: '8' } });
+  fireEvent.click(within(form).getByRole('button', { name: '保存到草稿' }));
+  await waitFor(() => expect(h.post).toHaveBeenCalledTimes(2));
+  expect(h.post.mock.calls[1][1]).toMatchObject({
+    action: 'updateDraft',
+    draftId: draft.id,
+    expectedDraftRevision: '7',
+    payload: { identities: expect.arrayContaining([expect.objectContaining({ id: 'new-bot' })]) },
+  });
+  expect(h.post.mock.calls.map(call => call[1].action)).toEqual(['createDraft', 'updateDraft']);
+});
+it('adds to a selected draft without creating another draft', async () => {
+  render(<CrawlerRegistryPage />);
+  await screen.findByRole('button', { name: '新增爬虫身份' });
+  chooseDraft();
+  fireEvent.click(screen.getByRole('button', { name: '新增爬虫身份' }));
+  expect(await screen.findByRole('dialog', { name: '新增爬虫身份' })).toBeVisible();
+  expect(h.post).not.toHaveBeenCalled();
+});
+it('resumes Add after an uncertain create retry with the same operation ID', async () => {
+  h.post.mockRejectedValueOnce(new Error('Network unavailable')).mockResolvedValueOnce({
+    action: 'createDraft',
+    draft,
+  });
+  render(<CrawlerRegistryPage />);
+  fireEvent.click(await screen.findByRole('button', { name: '新增爬虫身份' }));
+  const retry = await screen.findByRole('button', { name: '重试同一操作' });
+  expect(screen.getByRole('button', { name: '新增爬虫身份' })).toBeDisabled();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(retry);
+  expect(await screen.findByRole('dialog', { name: '新增爬虫身份' })).toBeVisible();
+  expect(h.post).toHaveBeenCalledTimes(2);
+  expect(h.post.mock.calls[0][1].operationId).toBe(h.post.mock.calls[1][1].operationId);
+});
+it('discards a pending Add when administrator access changes', async () => {
+  let finish: (value: any) => void;
+  h.post.mockImplementationOnce(() => new Promise(resolve => (finish = resolve)));
+  const view = render(<CrawlerRegistryPage />);
+  fireEvent.click(await screen.findByRole('button', { name: '新增爬虫身份' }));
+  expect(h.post).toHaveBeenCalledTimes(1);
+  h.admin = false;
+  view.rerender(<CrawlerRegistryPage />);
+  await act(async () => finish({ action: 'createDraft', draft }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.queryByRole('button', { name: '新增爬虫身份' })).toBeNull();
+});
 it('shows a revision conflict and requires reload before editing again', async () => {
   h.post.mockRejectedValueOnce(Object.assign(new Error('Conflict'), { status: 409 }));
   render(<CrawlerRegistryPage />);
@@ -258,6 +335,7 @@ it('shows a revision conflict and requires reload before editing again', async (
   fireEvent.click(screen.getByRole('button', { name: '停用' }));
   expect(await screen.findByText(/目录或草稿已更新/)).toBeVisible();
   expect(screen.getByRole('button', { name: '新建草稿' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '新增爬虫身份' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: '重新读取最新版本' }));
   await waitFor(() => expect(screen.getByRole('button', { name: '新建草稿' })).toBeEnabled());
 });
@@ -276,13 +354,14 @@ it('locks editing while a manual reload is pending', async () => {
   fireEvent.click(screen.getByRole('button', { name: '重新读取' }));
   expect(screen.getByRole('button', { name: /查看与编辑|查看详情/ })).toBeDisabled();
   expect(screen.getByRole('button', { name: '新建草稿' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '新增爬虫身份' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: /查看与编辑|查看详情/ }));
   expect(screen.queryByRole('dialog')).toBeNull();
   await act(async () => finish({ data: h.data }));
   expect(screen.getByRole('button', { name: /查看与编辑|查看详情/ })).toBeEnabled();
 });
 it('requires positive and negative samples, then a reviewed preview before publishing', async () => {
-  render(<CrawlerRegistryPage />);
+  const view = render(<CrawlerRegistryPage />);
   await screen.findByRole('button', { name: '新建草稿' });
   chooseDraft();
   fireEvent.click(screen.getByRole('tab', { name: '待核实与变更' }));
@@ -322,8 +401,8 @@ it('requires positive and negative samples, then a reviewed preview before publi
   h.post.mockResolvedValueOnce({
     action: 'publish',
     current: { ...h.data.current, revision: '2' },
-    draft: { ...draft, status: 'published', preview },
   });
+  h.refetch.mockResolvedValue({ error: new Error('Read unavailable after publication') });
   fireEvent.click(confirm);
   await waitFor(() =>
     expect(h.post.mock.calls[1][1]).toMatchObject({
@@ -332,6 +411,28 @@ it('requires positive and negative samples, then a reviewed preview before publi
       previewHash: 'b'.repeat(64),
     }),
   );
+  await waitFor(() =>
+    expect(screen.getByRole('combobox', { name: '编辑版本' })).toHaveValue(''),
+  );
+  h.readError = Object.assign(new Error('Retained stale read'), { status: 503 });
+  view.rerender(<CrawlerRegistryPage />);
+  expect(screen.getByText(`2 · ${h.data.current.version}`)).toBeInTheDocument();
+  h.readError = null;
+  h.placeholder = true;
+  h.fetching = true;
+  view.rerender(<CrawlerRegistryPage />);
+  expect(screen.getByText(`2 · ${h.data.current.version}`)).toBeInTheDocument();
+  h.placeholder = false;
+  h.fetching = false;
+  h.readError = Object.assign(new Error('Refresh still unavailable'), { status: 503 });
+  view.rerender(<CrawlerRegistryPage />);
+  expect(screen.queryByRole('option', { name: 'Saved draft · r1' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('tab', { name: '爬虫库' }));
+  const nextDraft = { ...draft, id: '44444444-4444-4444-8444-444444444444' };
+  h.post.mockResolvedValueOnce({ action: 'createDraft', draft: nextDraft });
+  fireEvent.click(screen.getByRole('button', { name: '新增爬虫身份' }));
+  expect(await screen.findByRole('dialog', { name: '新增爬虫身份' })).toBeVisible();
+  expect(h.post.mock.calls[2][1]).toMatchObject({ action: 'createDraft' });
 });
 it('clears site editing when the selected website changes and respects read-only ownership', async () => {
   h.admin = false;

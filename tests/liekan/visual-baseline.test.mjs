@@ -77,7 +77,7 @@ test('the supplemental reference preserves original panels and charts while addi
         addedColumn: { label: '标题' },
         crawlerSelector: '具体爬虫',
         defaultCrawler: '全部爬虫',
-        typeFilters: ['全部', 'AI 训练', 'AI 搜索', '用户触发', '传统搜索', '其他已知'],
+        typeFilters: ['全部', 'AI 训练', 'AI 搜索', '用户触发', '传统搜索', 'AI 工作台', '个人 Agent', '其他爬虫'],
       })})`,
     );
     assert.deepEqual(headers(), expected);
@@ -87,7 +87,7 @@ test('the supplemental reference preserves original panels and charts while addi
     assert.equal(document.querySelector('select[aria-label="具体爬虫"]').textContent, '全部爬虫');
     assert.deepEqual(
       [...table.closest('table').previousElementSibling.children].map(el => el.textContent),
-      ['全部', 'AI 训练', 'AI 搜索', '用户触发', '传统搜索', '其他已知'],
+      ['全部', 'AI 训练', 'AI 搜索', '用户触发', '传统搜索', 'AI 工作台', '个人 Agent', '其他爬虫'],
     );
     assert.equal(document.querySelectorAll('main .card').length, panels);
     assert.equal(document.getElementById('ap1').outerHTML, chart);

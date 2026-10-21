@@ -13,7 +13,7 @@ import Link from '@/components/liekan/Link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { keywordConditionsSchema } from '@/lib/liekan/contracts/keywords';
-import { crawlerPageFiltersSchema } from '@/lib/liekan/contracts/query';
+import { crawlerPageFiltersSchema, crawlerProductFormForLabel } from '@/lib/liekan/contracts/query';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 import { managementLabels } from '@/lib/liekan/contracts/management';
 import {
@@ -94,8 +94,25 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const { filter, search, logPage, cursor, seek, chartPeriod, sort, compare, tablePages } =
     readViewState(params, resource);
   const keywordParsed = keywordConditionsSchema.safeParse(params);
+  const otherCrawlers =
+    resource === 'ai/bots'
+      ? filter === '其他爬虫'
+      : resource === 'ai/pages' && (params.botCategory === 'other' || params.botType === '其他');
   const crawlerParsed = crawlerPageFiltersSchema.safeParse({
-    botType: params.botType || undefined,
+    botType: otherCrawlers ? undefined : params.botType || undefined,
+    botCategory:
+      resource === 'ai/bots'
+        ? otherCrawlers
+          ? 'other'
+          : undefined
+        : otherCrawlers
+          ? 'other'
+          : params.botCategory || undefined,
+    botProductForm: otherCrawlers
+      ? undefined
+      : resource === 'ai/bots'
+        ? crawlerProductFormForLabel(filter)
+        : params.botProductForm || undefined,
     botId: params.botId || undefined,
     botName: params.botName || undefined,
   });
@@ -195,7 +212,14 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   ]);
   const reportInput = {
     resource,
-    ...(resource === 'ai/pages' ? crawlerConditions : {}),
+    ...(resource === 'ai/pages'
+      ? crawlerConditions
+      : resource === 'ai/bots'
+        ? {
+            botProductForm: crawlerConditions.botProductForm,
+            botCategory: crawlerConditions.botCategory,
+          }
+        : {}),
     startAt,
     endAt,
     timezone,
@@ -616,7 +640,14 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           try {
             const conditions = {
               reportResource: resource,
-              ...(resource === 'ai/pages' ? crawlerConditions : {}),
+              ...(resource === 'ai/pages'
+                ? crawlerConditions
+                : resource === 'ai/bots'
+                  ? {
+                      botProductForm: crawlerConditions.botProductForm,
+                      botCategory: crawlerConditions.botCategory,
+                    }
+                  : {}),
               reportDisplay: JSON.stringify({ filter, sort, search }),
               startAt: report.range.startAt,
               endAt: report.range.endAt,
@@ -853,6 +884,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                   updateView({
                     ...clearTablePages(tablePages),
                     botType: next.botType,
+                    botProductForm: next.botProductForm,
+                    botCategory: next.botCategory,
                     botId: next.botId,
                     botName: next.botName,
                     page: undefined,

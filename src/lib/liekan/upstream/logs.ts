@@ -54,6 +54,32 @@ async function readLogFacts(
   );
   const args = [id, start, end, timezone];
   const q = (sql: string) => read(sql, ...args);
+  const withForms = ['ai/bots', 'ai/pages'].includes(metrics.resource);
+  // Resolve product forms from each request's immutable catalog, once per used version.
+  // Missing historical bindings remain unknown; current catalog edits cannot reclassify them.
+  const formScope = `WITH scoped_crawlers AS MATERIALIZED (
+    SELECT bot,vendor,bot_type,path,created_at,ai_eligible,recognition_state,
+      e.crawler_id AS "botId",e.catalog_version
+    ${identityBase}${known}
+  ), catalog_forms AS MATERIALIZED (
+    SELECT v.version,i.identity->>'id' AS "botId",i.identity->>'productForm' AS form
+    FROM liekan_crawler_registry_version v
+    JOIN (SELECT DISTINCT catalog_version FROM scoped_crawlers) used ON used.catalog_version=v.version
+    CROSS JOIN LATERAL jsonb_array_elements(v.payload->'identities') i(identity)
+  )`;
+  const formBase = `FROM scoped_crawlers l LEFT JOIN catalog_forms f
+    ON f.version=l.catalog_version AND f."botId"=l."botId"
+    WHERE ($5::text IS NULL OR f.form=$5)
+      AND ($6::text IS NULL OR (
+        bot_type NOT IN ('训练','搜索','用户触发','传统搜索')
+        AND coalesce(f.form,'unknown') NOT IN ('workbench','personal_agent')
+      ))`;
+  const formBots = `${formScope}
+    SELECT bot AS name,vendor,bot_type AS type,l."botId",
+      string_agg(DISTINCT coalesce(f.form,'unknown'),',' ORDER BY coalesce(f.form,'unknown')) AS "productForm",
+      count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests",
+      count(distinct path)::int AS pages,max(created_at) AS "lastVisit"
+    ${formBase} GROUP BY 1,2,3,4 ORDER BY requests DESC,name,"botId"`;
   const filterSql =
     filter === 'ai'
       ? ai
@@ -128,26 +154,31 @@ async function readLogFacts(
           )
         : Promise.resolve([]),
       needs('bots')
-        ? q(
-            `SELECT bot AS name,vendor,bot_type AS type,e.crawler_id AS "botId",count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests",count(distinct path)::int AS pages,max(created_at) AS "lastVisit" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY requests DESC,name,"botId"`,
-          )
+        ? withForms
+          ? read(formBots, ...args, metrics.botProductForm ?? null, metrics.botCategory ?? null)
+          : q(
+              `SELECT bot AS name,vendor,bot_type AS type,e.crawler_id AS "botId",count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests",count(distinct path)::int AS pages,max(created_at) AS "lastVisit" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY requests DESC,name,"botId"`,
+            )
         : Promise.resolve([]),
       needs('pages')
-        ? read(
-            `SELECT path,bot,e.crawler_id AS "botId",count(*)::int AS requests,max(created_at) AS "lastCrawled" ${identityBase}${ai}${
-              metrics.resource === 'ai/pages'
-                ? ' AND ($5::text IS NULL OR bot_type=$5) AND ($6::text IS NULL OR e.crawler_id=$6) AND ($7::text IS NULL OR (e.crawler_id IS NULL AND bot=$7))'
-                : ''
-            } GROUP BY 1,2,3 ORDER BY requests DESC`,
-            ...args,
-            ...(metrics.resource === 'ai/pages'
-              ? [
-                  metrics.botType ?? null,
-                  metrics.botId ?? null,
-                  metrics.botId ? null : (metrics.botName ?? null),
-                ]
-              : []),
-          )
+        ? withForms
+          ? read(
+              `${formScope} SELECT path,bot,l."botId",count(*)::int AS requests,max(created_at) AS "lastCrawled"
+            ${formBase}${ai}
+            AND ($7::text IS NULL OR bot_type=$7) AND ($8::text IS NULL OR l."botId"=$8)
+            AND ($9::text IS NULL OR (l."botId" IS NULL AND bot=$9))
+            GROUP BY 1,2,3 ORDER BY requests DESC`,
+              ...args,
+              metrics.botProductForm ?? null,
+              metrics.botCategory ?? null,
+              metrics.resource === 'ai/pages' ? (metrics.botType ?? null) : null,
+              metrics.resource === 'ai/pages' ? (metrics.botId ?? null) : null,
+              metrics.resource === 'ai/pages' && !metrics.botId ? (metrics.botName ?? null) : null,
+            )
+          : read(
+              `SELECT path,bot,e.crawler_id AS "botId",count(*)::int AS requests,max(created_at) AS "lastCrawled" ${identityBase}${ai} GROUP BY 1,2,3 ORDER BY requests DESC`,
+              ...args,
+            )
         : Promise.resolve([]),
       needs('statuses')
         ? q(
@@ -202,8 +233,10 @@ async function readLogFacts(
     previousCursor: page > 1 && recent.length ? encodeCursor(recent[0], cursorScope) : '',
     totalLogs: count[0].count,
     previousBots: needs('previousBots')
-      ? await query(
-          `SELECT bot AS name,vendor,bot_type AS type,e.crawler_id AS "botId",count(*)::int AS requests FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=$1::uuid AND ${timeCondition}${identityScope} GROUP BY 1,2,3,4`,
+      ? await read(
+          withForms
+            ? formBots
+            : `SELECT bot AS name,vendor,bot_type AS type,e.crawler_id AS "botId",count(*)::int AS requests FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id WHERE l.website_id=$1::uuid AND ${timeCondition}${identityScope} GROUP BY 1,2,3,4`,
           id,
           new Date(
             Math.max(
@@ -213,6 +246,9 @@ async function readLogFacts(
             ),
           ),
           new Date(start.getTime() - (metrics.crawlerMetricsVersion === 1 ? 0 : 1)),
+          ...(withForms
+            ? [timezone, metrics.botProductForm ?? null, metrics.botCategory ?? null]
+            : []),
         )
       : [],
   };

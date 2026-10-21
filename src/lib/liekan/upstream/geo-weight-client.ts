@@ -13,7 +13,12 @@ export function useGeoWeight(
   return useManualQuery<GeoWeightResponse>({
     queryKey: ['liekan-feature', userId, 'geo-weight', websiteId, asOf, timezone, view],
     queryFn: ({ signal }) =>
-      featureApi.get(`/liekan/websites/${websiteId}/geo-weight`, { asOf, timezone, view }, signal),
+      featureApi.get(
+        `/liekan/websites/${websiteId}/geo-weight`,
+        // An explicit detail read must not reuse evidence older than the visible summary.
+        { asOf, timezone, view, ...(view === 'detail' ? { refresh: 1 } : {}) },
+        signal,
+      ),
     enabled: enabled && !!userId && !!websiteId,
   });
 }

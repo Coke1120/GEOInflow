@@ -661,7 +661,8 @@ try {
       return {
         id: r.id,
         max: Math.max(
-          ...(name === 'ai-pages' ? ['x', 'width', 'height'] : ['x', 'y', 'width', 'height']).map(
+          ...(name === 'ai-pages' || crawlerUiApproval?.wrapFilters
+            ? ['x', 'width', 'height'] : ['x', 'y', 'width', 'height']).map(
             key => Math.abs(r[key] - (key === 'y' ? verticalOffset : 0) - ref[key]),
           ),
         ),
@@ -680,10 +681,10 @@ try {
               legend: {
                 ...option.legend[0],
                 ...legend,
-                data: [...data]
-                  .sort((a, b) => b.value - a.value)
-                  .slice(0, limit)
-                  .map(row => row.name),
+                data: (limit == null
+                  ? data
+                  : [...data].sort((a, b) => b.value - a.value).slice(0, limit)
+                ).map(row => row.name),
               },
             });
           },
@@ -835,6 +836,12 @@ try {
           }
           if (!approval.filters) return;
           const original = [...document.querySelectorAll('main .chip')];
+          if (approval.wrapFilters) {
+            for (const container of [original[0].parentElement, original[0].parentElement.parentElement]) {
+              container.style.flexWrap = 'wrap';
+              container.style.maxWidth = '100%';
+            }
+          }
           for (const [index, label] of approval.filters.entries()) {
             const chip = original[0].cloneNode(true);
             chip.textContent = label;
@@ -845,6 +852,20 @@ try {
         },
         { ...crawlerUiApproval, columnRenames },
       );
+    if (crawlerUiApproval?.wrapFilters) {
+      const approvedGeometry = await measure(reference, 'approved-reference');
+      for (const [index, panel] of approvedGeometry.cards.entries()) {
+        assert(['x', 'y', 'width', 'height'].every(key =>
+          Math.abs(geometry.cards[index][key] - (key === 'y' ? verticalOffset : 0) - panel[key]) <= 2),
+        `${name} approved filter layout changed panel ${index}`);
+      }
+      for (const expected of approvedGeometry.charts) {
+        const chart = geometry.charts.find(chart => chart.id === expected.id);
+        assert(['x', 'y', 'width', 'height'].every(key =>
+          Math.abs(chart[key] - (key === 'y' ? verticalOffset : 0) - expected[key]) <= 2),
+        `${name} chart geometry after approved filter wrapping`);
+      }
+    }
     let crawlerPagesChecks = null;
     if (name === 'ai-pages') {
       const approved = navigationBaseline.crawlerPagesApproval;

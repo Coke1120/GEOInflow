@@ -194,7 +194,7 @@ export async function buildReport(
         ? {
             crawlerPageBots: l.bots
               .filter(bot => crawlerAiRequests(bot) > 0)
-              .map(bot => ({ botId: bot.botId ?? null, name: bot.name, type: bot.type })),
+              .map(bot => ({ botId: bot.botId ?? null, name: bot.name, type: bot.type, productForm: bot.productForm })),
           }
         : {}),
       ...(!parts || parts.human?.includes('geo' as never)
@@ -411,6 +411,7 @@ export async function buildReport(
     aiRequests: crawlerAiRequests(b),
     vendor: b.vendor,
     type: b.type,
+    productForm: b.productForm ?? 'unknown',
     requests: b.requests,
     dailyAverage: Math.round((b.requests / days) * 100) / 100,
     pages: b.pages,

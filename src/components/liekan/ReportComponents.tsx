@@ -558,7 +558,21 @@ function Cell({
       </span>
     );
   if (['type', 'channel', 'evaluation', 'classification', 'freshness'].includes(field))
-    return <Badge value={value} field={field} />;
+    return (
+      <>
+        <Badge value={value} field={field} />
+        {table === 'botBody' &&
+          field === 'type' &&
+          String(row.productForm ?? '')
+            .split(',')
+            .filter(form => ['workbench', 'personal_agent'].includes(form))
+            .map(form => (
+              <span key={form} className="block text-[10.5px] text-faint mt-1">
+                {i18n.text(form === 'workbench' ? 'AI 工作台' : '个人 Agent')}
+              </span>
+            ))}
+      </>
+    );
   if (table === 'searchEngineBody' && field === 'share') return <>{percentage(value)}</>;
   if (field === 'heat' || field === 'share') {
     if (value == null) return <>–</>;

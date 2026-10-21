@@ -14,23 +14,24 @@ import type { CrawlerPageFilters } from '../contracts/query';
 export function pageReportQuery(
   userId: string,
   websiteId: string,
-  input: Partial<KeywordConditions> & CrawlerPageFilters & {
-    resource: ReportResource;
-    startAt: number;
-    endAt: number;
-    timezone: string;
-    crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
-    crawlerMetricsVersion?: 1;
-    chartPeriod?: string;
-    filter?: string;
-    search?: string;
-    page?: number;
-    cursor?: string;
-    keywordSnapshot?: string;
-    seek?: string;
-    tablePages?: Record<string, number>;
-    geoSort?: 'city' | 'sessions' | 'share' | 'duration' | 'bounceRate' | 'conversionRate';
-  },
+  input: Partial<KeywordConditions> &
+    CrawlerPageFilters & {
+      resource: ReportResource;
+      startAt: number;
+      endAt: number;
+      timezone: string;
+      crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
+      crawlerMetricsVersion?: 1;
+      chartPeriod?: string;
+      filter?: string;
+      search?: string;
+      page?: number;
+      cursor?: string;
+      keywordSnapshot?: string;
+      seek?: string;
+      tablePages?: Record<string, number>;
+      geoSort?: 'city' | 'sessions' | 'share' | 'duration' | 'bounceRate' | 'conversionRate';
+    },
   teamId?: string,
   fresh?: () => boolean,
   priority: 'foreground' | 'prefetch' = 'foreground',
@@ -66,8 +67,16 @@ export function pageReportQuery(
     );
   if (p.resource === 'human/geo')
     queryKey.push(JSON.stringify([p.geoSort || 'sessions', p.direction || 'desc']));
-  if (p.resource === 'ai/pages')
-    queryKey.push(JSON.stringify([p.botType ?? '', p.botId ?? '', p.botName ?? '']));
+  if (p.resource === 'ai/pages' || p.resource === 'ai/bots')
+    queryKey.push(
+      JSON.stringify([
+        p.botType ?? '',
+        p.botId ?? '',
+        p.botName ?? '',
+        p.botProductForm ?? '',
+        p.botCategory ?? '',
+      ]),
+    );
   if (p.resource === 'human/keywords')
     queryKey.push(
       JSON.stringify([

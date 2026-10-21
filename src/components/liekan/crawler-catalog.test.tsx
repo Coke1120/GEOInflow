@@ -76,10 +76,20 @@ it.each(['zh-CN', 'en-US'] as const)(
       </LiekanLocaleContext.Provider>,
     );
     expect(
-      screen.getByRole('button', { name: locale === 'zh-CN' ? '其他已知' : 'Other known' }),
+      screen.getByRole('button', { name: locale === 'zh-CN' ? '其他爬虫' : 'Other crawlers' }),
     ).toBeVisible();
     expect(
       screen.getByRole('button', { name: locale === 'zh-CN' ? '用户触发' : 'User-triggered' }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: locale === 'zh-CN' ? 'AI 工作台' : 'AI workbench',
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole('button', {
+        name: locale === 'zh-CN' ? '个人 Agent' : 'Personal agent',
+      }),
     ).toBeVisible();
     expect(
       screen.getByRole('button', {

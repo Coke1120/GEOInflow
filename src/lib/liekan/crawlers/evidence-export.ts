@@ -73,6 +73,9 @@ async function exportEvidenceSnapshot(
       viewQuery.data.resource !== reportResource ||
       (reportResource === 'ai/pages' &&
         ['botType', 'botId', 'botName'].some(key => viewQuery.data[key] !== query[key])) ||
+      viewQuery.data.botProductForm !==
+        ('botProductForm' in query ? query.botProductForm : undefined) ||
+      viewQuery.data.botCategory !== ('botCategory' in query ? query.botCategory : undefined) ||
       viewQuery.data.startAt !== query.startAt ||
       viewQuery.data.endAt !== query.endAt ||
       viewQuery.data.timezone !== query.timezone ||

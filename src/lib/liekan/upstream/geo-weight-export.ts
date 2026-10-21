@@ -1,3 +1,4 @@
+import { GEO_ACTIVITY_FORMULA, GEO_LEVEL_MINIMUMS } from '../geo-weight/policy';
 import { geoWeightExportSchema } from '../contracts/geo-weight';
 import { safeCsvCell } from '../contracts/exports';
 import type { GeoWeightResponse } from '../contracts/geo-weight';
@@ -40,8 +41,8 @@ export function geoWeightCsv(result: GeoWeightResponse, locale: LiekanLocale) {
         calculatedAt: result.calculatedAt,
         locale,
         scope: result.scope,
-        formula:
-          'S=100*(0.50*L(P,1000)+0.40*L(E,10000)+0.10*min(B/K,1))*(0.5+0.5*D/30); L=min(1,ln(1+x)/ln(1+M)); G=0.50*S_search+0.35*S_user+0.15*S_training',
+        formula: GEO_ACTIVITY_FORMULA,
+        levelMinimums: GEO_LEVEL_MINIMUMS,
       }),
     ],
   ];

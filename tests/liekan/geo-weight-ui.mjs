@@ -10,7 +10,7 @@ export async function verifyGeoWeightUi({
   asOf,
   startAt,
   endAt,
-  expectedScore,
+  expectedLevel,
 }) {
   isolatedAcceptanceTarget(base);
   const out = 'outputs/geo-weight-ui';
@@ -47,7 +47,7 @@ export async function verifyGeoWeightUi({
           const path = `${base}/websites/${websiteId}/geo?date=range:${startAt}:${endAt}&timezone=Asia%2FShanghai`;
           await page.goto(path);
           const summary = page.locator('[data-geo-weight]');
-          await expect(summary).toContainText(`${expectedScore.toFixed(1)} / 100`, {
+          await expect(summary.locator('strong')).toHaveText(String(expectedLevel), {
             timeout: 30000,
           });
           await expect(summary).toContainText(asOf);
@@ -69,7 +69,7 @@ export async function verifyGeoWeightUi({
           });
           await expect(dialog).toContainText('3,000');
           await expect(dialog).toContainText(
-            zh ? '距下一等级还差 6.3 分' : '6.3 points to the next level',
+            zh ? '距权重 7 还差 143,200 加权单元' : 'Weight 7 requires 143,200 more weighted units',
           );
           await expect(dialog).toContainText(
             zh ? '工作台与个人 Agent 观察' : 'Workbench and personal agent observations',
@@ -101,10 +101,9 @@ export async function verifyGeoWeightUi({
           await page.waitForTimeout(1200);
           expect(reads).toHaveLength(count);
           await page.goto(path.replace('/geo?', '/geo/ai?'));
-          await expect(page.locator('[data-geo-weight]')).toContainText(
-            `${expectedScore.toFixed(1)} / 100`,
-            { timeout: 30000 },
-          );
+          await expect(page.locator('[data-geo-weight] strong')).toHaveText(String(expectedLevel), {
+            timeout: 30000,
+          });
           await expect(page.locator('[data-geo-weight]')).toContainText(
             zh ? '用户触发' : 'User-triggered',
           );
@@ -113,7 +112,7 @@ export async function verifyGeoWeightUi({
           checks.push({
             locale,
             width,
-            score: expectedScore,
+            level: expectedLevel,
             catalogPinned: true,
             export: true,
             noPolling: true,

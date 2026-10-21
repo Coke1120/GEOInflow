@@ -546,7 +546,7 @@
     },
     {
       "id": "crawlers-manage",
-      "title": "爬虫与 AI 平台",
+      "title": "爬虫管理",
       "group": "crawlers",
       "summary": "统一维护爬虫身份、平台、引荐域名与核验来源。",
       "route": "/crawlers/manage",

@@ -48,6 +48,13 @@ export function parseEvidenceQuery(input: unknown, reconciliation = false, now =
       p.verificationGroup)
   )
     throw new LiekanError('统计条件无效', 400);
+  if (
+    (('botProductForm' in p && p.botProductForm) || ('botCategory' in p && p.botCategory)) &&
+    (!('reportResource' in p) || !['ai/bots', 'ai/pages'].includes(p.reportResource))
+  )
+    throw new LiekanError('统计条件无效', 400);
+  if ('botCategory' in p && p.botCategory && (p.botType || p.botProductForm))
+    throw new LiekanError('统计条件无效', 400);
   if (p.startAt >= p.endAt || p.endAt > now || p.endAt - p.startAt > 90 * 86400000)
     throw new LiekanError('分析时间范围需要在过去 90 天内', 400);
   try {
@@ -665,8 +672,8 @@ async function queryEvidenceSnapshot<
             );
       const baseline = {
         catalog: contentHash(catalog),
-    registryVersion: getPublishedCatalog()?.version ?? null,
-    populationVersion: TRAFFIC_POLICY_VERSION,
+        registryVersion: getPublishedCatalog()?.version ?? null,
+        populationVersion: TRAFFIC_POLICY_VERSION,
         policy: policy || { mode: 'standard', revision: '0' },
         epoch: state?.epoch ?? 1,
         metricVersion: CRAWLER_METRIC_VERSION,

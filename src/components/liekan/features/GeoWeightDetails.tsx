@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { GEO_ACTIVITY_FORMULA, GEO_LEVEL_MINIMUMS } from '@/lib/liekan/geo-weight/policy';
 import type { GeoWeightResponse } from '@/lib/liekan/contracts/geo-weight';
 import {
   geoPurposeLabels,
@@ -43,12 +44,13 @@ export function GeoWeightDetails({
   }, [data?.snapshot]);
   const num = (v: number | null, digits = 0) =>
     v === null
-      ? i18n.text('暂无评分')
+      ? i18n.text('暂无权重')
       : v.toLocaleString(i18n.locale, {
           minimumFractionDigits: digits,
           maximumFractionDigits: digits,
         });
   async function exportCsv() {
+    if (!data || data.view !== 'detail' || loading || stale || error) return;
     const captured = data;
     const locale = i18n.locale;
     const owned = new AbortController();
@@ -91,7 +93,11 @@ export function GeoWeightDetails({
       size="wide"
     >
       <div className={styles.details}>
-        {(loading || (!data && !error)) && <Notice>{i18n.text('正在计算 GEO 权重')}</Notice>}
+        {(loading || (!data && !error)) && (
+          <Notice>
+            {i18n.text(data ? '正在读取历史与详细依据，当前权重已显示' : '正在计算 GEO 权重')}
+          </Notice>
+        )}
         {!!error && (
           <Notice tone="red">
             {i18n.system((error as Error).message || 'GEO 权重计算未完成，请重新读取')}
@@ -105,7 +111,10 @@ export function GeoWeightDetails({
           <Button disabled={loading || exporting} onClick={onReload}>
             {i18n.text('重新读取')}
           </Button>
-          <Button disabled={!data || loading || stale || exporting || !!error} onClick={exportCsv}>
+          <Button
+            disabled={!data || data.view !== 'detail' || loading || stale || exporting || !!error}
+            onClick={exportCsv}
+          >
             {i18n.text(exporting ? '正在导出' : '导出计算依据')}
           </Button>
         </div>
@@ -113,21 +122,21 @@ export function GeoWeightDetails({
           <>
             <section className={styles.section}>
               <h3>
-                {i18n.text(geoPointStateLabel(current))} · {num(current.score, 1)} / 100
+                {i18n.text('GEO 权重')} {num(current.level)} ·{' '}
+                {i18n.text(geoPointStateLabel(current))}
               </h3>
               <p>
                 {i18n.text('截至 {v0} 的 30 个完整自然日', [current.asOf])} · {data.timezone} ·{' '}
                 {data.hostname}
               </p>
               <p>
-                {current.level === null
-                  ? i18n.text('证据积累期间暂不评级')
-                  : i18n.text('{v0} / 10 级', [current.level])}
+                {current.level === null ? i18n.text('证据积累期间暂不评级') : i18n.text('最高 10')}
                 {current.level !== null &&
                   (current.level >= 10
                     ? ` · ${i18n.text('已达最高等级')}`
-                    : ` · ${i18n.text('距下一等级还差 {v0} 分', [num(Math.round((current.level * 10 + 0.1 - current.score) * 10) / 10, 1)])}`)}
+                    : ` · ${i18n.text('距权重 {v0} 还差 {v1} 加权单元', [current.level + 1, num(GEO_LEVEL_MINIMUMS[current.level] - current.weightedUnits)])}`)}
               </p>
+              <p>{i18n.text('当前加权活动量：{v0}', [num(current.weightedUnits)])}</p>
               <p className={styles.caption}>
                 {i18n.text('抓取反映内容取用活动；实际引用、训练采用与获客效果需要独立证据。')}
               </p>
@@ -145,13 +154,12 @@ export function GeoWeightDetails({
                     <tr>
                       {[
                         '用途',
-                        '权重',
+                        '计入系数',
                         '内容路径 P',
                         '有效单元 E',
                         '活跃日 D',
                         '合格运营方 B',
-                        '子指数',
-                        '综合贡献',
+                        '加权单元',
                       ].map(label => (
                         <th key={label}>{i18n.text(label)}</th>
                       ))}
@@ -161,15 +169,12 @@ export function GeoWeightDetails({
                     {current.categories.map(c => (
                       <tr key={c.purpose}>
                         <th>{i18n.text(geoPurposeLabels[c.purpose])}</th>
-                        <td>{num(c.weight * 100)}%</td>
+                        <td>×{num(c.coefficient)}</td>
                         <td>{num(c.paths)}</td>
                         <td>{num(c.units)}</td>
                         <td>{num(c.days)}</td>
-                        <td>
-                          {num(c.operators)} / {c.operatorAnchor}
-                        </td>
-                        <td>{num(c.score, 2)}</td>
-                        <td>{num(c.contribution, 2)}</td>
+                        <td>{num(c.operators)}</td>
+                        <td>{num(c.weightedUnits)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -181,7 +186,9 @@ export function GeoWeightDetails({
                 )}
               </p>
               <p className={styles.caption}>
-                {i18n.text('子指数和贡献独立舍入，合计可能存在尾差。未观察到的类别按零贡献计算。')}
+                {i18n.text(
+                  '加权活动量为各类有效单元乘以系数后的整数之和。路径、活跃日和运营方数量用于解释数据。',
+                )}
               </p>
               <p>
                 {i18n.text('有效请求 {v0} · GET 200 {v1} · GET 304 {v2}', [
@@ -221,76 +228,78 @@ export function GeoWeightDetails({
                 </dl>
               </details>
             </section>
-            <section className={styles.section}>
-              <h3>{i18n.text('历史观察与前期比较')}</h3>
-              <p>
-                {data.comparison?.comparable
-                  ? i18n.text('较前期 {v0} 分', [num(data.comparison.delta, 1)])
-                  : i18n.text('观察条件未对齐，暂不显示确定升降')}
-              </p>
-              <p>
-                {i18n.text('前期指数')}：{num(data.previous?.score ?? null, 1)}
-              </p>
-              <svg
-                className={styles.chart}
-                viewBox="0 0 560 160"
-                role="img"
-                aria-label={i18n.text('五个 30 日滚动观察点')}
-              >
-                {[0, 50, 100].map(v => (
-                  <g key={v}>
-                    <line x1="35" y1={130 - v} x2="535" y2={130 - v} stroke="#e9ecf1" />
-                    <text x="5" y={134 - v}>
-                      {v}
-                    </text>
-                  </g>
-                ))}
-                {(data.observations || []).map((p, index, all) => (
-                  <g key={p.asOf}>
-                    {p.connectPrevious && index > 0 && (
-                      <line
-                        x1={45 + (index - 1) * 120}
-                        y1={130 - all[index - 1].score}
-                        x2={45 + index * 120}
-                        y2={130 - p.score}
-                        stroke="#0f62fe"
-                        strokeWidth="2"
-                      />
-                    )}
-                    {p.score !== null && (
-                      <circle cx={45 + index * 120} cy={130 - p.score} r="4" fill="#0f62fe">
-                        <title>
-                          {p.asOf}: {num(p.score, 1)}
-                        </title>
-                      </circle>
-                    )}
-                    <text x={45 + index * 120} y="155" textAnchor="middle">
-                      {p.asOf.slice(5)}
-                    </text>
-                  </g>
-                ))}
-              </svg>
-              <div className={styles.tableScroll}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>{i18n.text('截止日期')}</th>
-                      <th>{i18n.text('指数')}</th>
-                      <th>{i18n.text('证据状态')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.observations?.map(p => (
-                      <tr key={p.asOf}>
-                        <th>{p.asOf}</th>
-                        <td>{num(p.score, 1)}</td>
-                        <td>{i18n.text(geoPointStateLabel(p))}</td>
+            {data.view === 'detail' && (
+              <section className={styles.section}>
+                <h3>{i18n.text('历史观察与前期比较')}</h3>
+                <p>
+                  {data.comparison?.comparable
+                    ? i18n.text('较前期变化 {v0} 级', [num(data.comparison.delta)])
+                    : i18n.text('观察条件未对齐，暂不显示确定升降')}
+                </p>
+                <p>
+                  {i18n.text('前期权重')}：{num(data.previous?.level ?? null)}
+                </p>
+                <svg
+                  className={styles.chart}
+                  viewBox="0 0 560 160"
+                  role="img"
+                  aria-label={i18n.text('五个 30 日滚动观察点')}
+                >
+                  {[0, 5, 10].map(v => (
+                    <g key={v}>
+                      <line x1="35" y1={130 - v * 10} x2="535" y2={130 - v * 10} stroke="#e9ecf1" />
+                      <text x="5" y={134 - v * 10}>
+                        {v}
+                      </text>
+                    </g>
+                  ))}
+                  {(data.observations || []).map((p, index, all) => (
+                    <g key={p.asOf}>
+                      {p.connectPrevious && index > 0 && (
+                        <line
+                          x1={45 + (index - 1) * 120}
+                          y1={130 - all[index - 1].level * 10}
+                          x2={45 + index * 120}
+                          y2={130 - p.level * 10}
+                          stroke="#0f62fe"
+                          strokeWidth="2"
+                        />
+                      )}
+                      {p.level !== null && (
+                        <circle cx={45 + index * 120} cy={130 - p.level * 10} r="4" fill="#0f62fe">
+                          <title>
+                            {p.asOf}: {num(p.level)}
+                          </title>
+                        </circle>
+                      )}
+                      <text x={45 + index * 120} y="155" textAnchor="middle">
+                        {p.asOf.slice(5)}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
+                <div className={styles.tableScroll}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>{i18n.text('截止日期')}</th>
+                        <th>{i18n.text('GEO 权重')}</th>
+                        <th>{i18n.text('证据状态')}</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+                    </thead>
+                    <tbody>
+                      {data.observations?.map(p => (
+                        <tr key={p.asOf}>
+                          <th>{p.asOf}</th>
+                          <td>{num(p.level)}</td>
+                          <td>{i18n.text(geoPointStateLabel(p))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
             <section className={styles.section}>
               <h3>{i18n.text('计分范围与统一目录')}</h3>
               <p>
@@ -392,15 +401,34 @@ export function GeoWeightDetails({
             </section>
             <details className={styles.section}>
               <summary>{i18n.text('公式、版本与计算时间')}</summary>
-              <code>L(x,M) = min(1, ln(1+x) / ln(1+M))</code>
-              <br />
-              <code>
-                S = 100 × (0.50L(P,1000) + 0.40L(E,10000) + 0.10min(B/K,1)) × (0.5+0.5D/30)
-              </code>
-              <br />
-              <p>{i18n.text('搜索占 50%，用户触发占 35%，训练占 15%；K 分别为 5、5、3。')}</p>
-              <p>{i18n.text('总分统一保留一位小数后分档：0 分为 0 级，其余每 10 分一档。')}</p>
-              <p>{i18n.text('这些阈值为 Beta 参数，尚未进行行业校准；网站内容规模会影响得分。')}</p>
+              <code>{GEO_ACTIVITY_FORMULA}</code>
+              <p>
+                {i18n.text('搜索、用户触发、训练的有效单元分别乘以 10、7、3，按下表取整数权重。')}
+              </p>
+              <div className={styles.tableScroll}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>{i18n.text('GEO 权重')}</th>
+                      <th>{i18n.text('加权活动量区间')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {GEO_LEVEL_MINIMUMS.map((minimum, index) => (
+                      <tr key={minimum}>
+                        <th>{index + 1}</th>
+                        <td>
+                          {index === 9
+                            ? `≥ ${num(minimum)}`
+                            : `${num(minimum)} – ${num(GEO_LEVEL_MINIMUMS[index + 1] - 1)}`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p>{i18n.text('完整观测且有效活动量为零时显示 0；缺少证据或积累不足时暂不评级。')}</p>
+              <p>{i18n.text('区间用于近似评估，等级越高门槛越高；Beta 阈值尚未进行行业校准。')}</p>
               <dl className={styles.definition}>
                 {[
                   ['算法版本', data.algorithm],

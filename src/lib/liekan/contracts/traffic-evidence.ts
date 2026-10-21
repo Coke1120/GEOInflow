@@ -24,8 +24,13 @@ export const evidenceQuerySchema = z.strictObject({
   endAt: z.coerce.number().int().nonnegative(),
   timezone: z.string().max(80).default('UTC'),
   sourceId: z.union([z.uuid(), z.literal('manual')]).optional(),
-  botId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/).optional(),
+  botId: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9-]{0,79}$/)
+    .optional(),
   botType: z.enum(['训练', '搜索', '用户触发', '传统搜索', '其他']).optional(),
+  botProductForm: z.enum(['workbench', 'personal_agent']).optional(),
+  botCategory: z.literal('other').optional(),
   botName: z.string().min(1).max(80).optional(),
   population: z
     .enum(['recognized_crawlers', 'ai_crawlers', 'all_logs'])
@@ -35,7 +40,9 @@ export const evidenceQuerySchema = z.strictObject({
   logFilter: z.enum(['ai', 'abnormal', 'other']).optional(),
   view: z.enum(['matrix', 'requests', 'summary']).default('matrix'),
   responseGroup: z.enum(['1xx', '2xx', '3xx', '304', 'denied', 'other4xx', '5xx']).optional(),
-  verificationGroup: z.enum(['verified_range', 'verified_dns', 'verified_edge', 'range_mismatch', 'unverified']).optional(),
+  verificationGroup: z
+    .enum(['verified_range', 'verified_dns', 'verified_edge', 'range_mismatch', 'unverified'])
+    .optional(),
   path: crawlerPathSchema.shape.value.optional(),
   crawlerIdentityScope: crawlerIdentityScopeSchema.default('all'),
   crawlerMetricsVersion: z.coerce.number().pipe(z.literal(1)).default(1),
@@ -49,6 +56,8 @@ export const evidenceQuerySchema = z.strictObject({
 });
 export const performanceQuerySchema = evidenceQuerySchema
   .omit({
+    botProductForm: true,
+    botCategory: true,
     view: true,
     responseGroup: true,
     verificationGroup: true,
@@ -84,6 +93,8 @@ export const reconciliationQuerySchema = evidenceQuerySchema
     botId: true,
     botName: true,
     botType: true,
+    botProductForm: true,
+    botCategory: true,
     view: true,
     responseGroup: true,
     verificationGroup: true,
@@ -150,7 +161,13 @@ export const evidenceMetaSchema = z.looseObject({
 });
 const base = z.object({ meta: evidenceMetaSchema });
 const matrixRow = z.object({
-  identity: z.enum(['verified_range', 'verified_dns', 'verified_edge', 'range_mismatch', 'unverified']),
+  identity: z.enum([
+    'verified_range',
+    'verified_dns',
+    'verified_edge',
+    'range_mismatch',
+    'unverified',
+  ]),
   response: z.enum(['1xx', '2xx', '3xx', '304', 'denied', 'other4xx', '5xx']),
   requests: z.number(),
 });

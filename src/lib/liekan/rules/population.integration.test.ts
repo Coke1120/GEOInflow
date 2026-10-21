@@ -250,6 +250,7 @@ describe.skipIf(!enabled)('crawler qualification across real statistics queries'
         botId: null,
         name: 'GPTBot',
         type: '训练',
+        productForm: 'unknown',
       });
       const custom = await buildReport(info, false, { ...pageQuery, botName: 'GPTBot' }, true);
       expect(custom.tables.apBody).toEqual([

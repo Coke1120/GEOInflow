@@ -48,18 +48,15 @@ export type GeoWeightPoint = {
   startAt: number;
   endAt: number;
   state: GeoWeightState;
-  score: number | null;
   level: number | null;
-  rawScore: number | null;
+  weightedUnits: number | null;
   observedDays: number;
   reasons: GeoReason[];
   categories: Array<
     GeoFactors & {
       purpose: GeoPurpose;
-      score: number;
-      contribution: number;
-      weight: number;
-      operatorAnchor: number;
+      coefficient: number;
+      weightedUnits: number;
     }
   >;
   requests: number;
@@ -117,7 +114,6 @@ export type GeoWeightResponse = {
 
 const purpose = z.enum(['search', 'user', 'training']);
 const count = z.number().int().nonnegative();
-const score = z.number().min(0).max(100);
 const exclusion = z.enum([
   'self_check',
   'host',
@@ -149,8 +145,7 @@ const geoPointSchema = z.object({
   startAt: z.number(),
   endAt: z.number(),
   state: z.enum(['missing', 'unavailable', 'warming_up', 'reference', 'aligned', 'observed_zero']),
-  score: score.nullable(),
-  rawScore: score.nullable(),
+  weightedUnits: count.nullable(),
   level: z.number().int().min(0).max(10).nullable(),
   observedDays: count.max(30),
   reasons: z.array(reason),
@@ -161,10 +156,8 @@ const geoPointSchema = z.object({
       units: count,
       days: count.max(30),
       operators: count,
-      score,
-      contribution: score,
-      weight: z.number(),
-      operatorAnchor: count,
+      coefficient: count,
+      weightedUnits: count,
     }),
   ),
   requests: count,
@@ -216,6 +209,10 @@ export const geoWeightResponseSchema = z.object({
   previous: geoPointSchema.optional(),
   observations: z.array(geoPointSchema.extend({ connectPrevious: z.boolean() })).optional(),
   comparison: z
-    .object({ delta: z.number().nullable(), comparable: z.boolean(), reasons: z.array(reason) })
+    .object({
+      delta: z.number().int().min(-10).max(10).nullable(),
+      comparable: z.boolean(),
+      reasons: z.array(reason),
+    })
     .optional(),
 });

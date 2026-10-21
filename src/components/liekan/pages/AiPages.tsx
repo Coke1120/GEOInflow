@@ -1,5 +1,9 @@
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
-import { crawlerPageTypes } from '@/lib/liekan/contracts/query';
+import {
+  crawlerPageTypes,
+  crawlerProductFormFilters,
+  isOtherCrawler,
+} from '@/lib/liekan/contracts/query';
 import { useReportActions } from '../ReportContext';
 import { useDataLoading } from '../DataLoading';
 import { crawlerIdentityLabel } from '../data';
@@ -22,6 +26,12 @@ export function AiPages({ report, rangeLabel }: ReportViewProps) {
     ...new Map(
       (report?.meta.crawlerPageBots ?? [])
         .filter(bot => !conditions.botType || bot.type === conditions.botType)
+        .filter(bot => !conditions.botCategory || isOtherCrawler(bot))
+        .filter(
+          bot =>
+            !conditions.botProductForm ||
+            bot.productForm?.split(',').includes(conditions.botProductForm),
+        )
         .map(bot => [JSON.stringify([bot.botId, bot.name]), bot]),
     ).entries(),
   ];
@@ -78,6 +88,8 @@ export function AiPages({ report, rangeLabel }: ReportViewProps) {
                 const bot = options.find(([key]) => key === event.target.value)?.[1];
                 crawlers?.onChange({
                   botType: conditions.botType,
+                  botCategory: conditions.botCategory,
+                  ...(conditions.botProductForm && { botProductForm: conditions.botProductForm }),
                   botId: (bot?.botId as typeof conditions.botId) ?? undefined,
                   botName: bot && !bot.botId ? bot.name : undefined,
                 });
@@ -107,14 +119,39 @@ export function AiPages({ report, rangeLabel }: ReportViewProps) {
             <button
               key={value}
               type="button"
-              className={`chip${(conditions.botType ?? '') === value ? ' on' : ''}`}
-              aria-pressed={(conditions.botType ?? '') === value}
+              className={`chip${!conditions.botCategory && !conditions.botProductForm && (conditions.botType ?? '') === value ? ' on' : ''}`}
+              aria-pressed={
+                !conditions.botCategory &&
+                !conditions.botProductForm &&
+                (conditions.botType ?? '') === value
+              }
               disabled={loading}
               onClick={() => crawlers?.onChange({ botType: value || undefined })}
             >
               {i18n.text(label)}
             </button>
           ))}
+          {crawlerProductFormFilters.map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              className={`chip${conditions.botProductForm === value ? ' on' : ''}`}
+              aria-pressed={conditions.botProductForm === value}
+              disabled={loading}
+              onClick={() => crawlers?.onChange({ botProductForm: value })}
+            >
+              {i18n.text(label)}
+            </button>
+          ))}
+          <button
+            type="button"
+            className={`chip${conditions.botCategory === 'other' ? ' on' : ''}`}
+            aria-pressed={conditions.botCategory === 'other'}
+            disabled={loading}
+            onClick={() => crawlers?.onChange({ botCategory: 'other' })}
+          >
+            {i18n.text('其他爬虫')}
+          </button>
         </div>
         <table className="crawler-pages-table w-full text-[12.5px]">
           <thead className="whitespace-nowrap">

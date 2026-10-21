@@ -269,6 +269,290 @@
       "documentationUrls": [
         "https://www.notion.so"
       ]
+    },
+    {
+      "id": "kingsoft",
+      "name": "金山办公",
+      "operator": "金山办公",
+      "website": "https://www.wps.cn",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://lingxi.wps.cn/cowork"
+      ]
+    },
+    {
+      "id": "jd",
+      "name": "京东",
+      "operator": "京东",
+      "website": "https://www.jdcloud.com",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://joycode.jd.com/docs/start/intro/"
+      ]
+    },
+    {
+      "id": "meituan",
+      "name": "美团",
+      "operator": "美团",
+      "website": "https://nocode.cn",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://nocode.cn/"
+      ]
+    },
+    {
+      "id": "jetbrains",
+      "name": "JetBrains",
+      "operator": "JetBrains",
+      "website": "https://www.jetbrains.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.jetbrains.com/help/air/supported-agents.html",
+        "https://www.jetbrains.com/junie/"
+      ]
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel",
+      "operator": "Vercel",
+      "website": "https://vercel.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://vercel.com/docs/v0"
+      ]
+    },
+    {
+      "id": "stackblitz",
+      "name": "StackBlitz",
+      "operator": "StackBlitz",
+      "website": "https://stackblitz.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://bolt.new/"
+      ]
+    },
+    {
+      "id": "lovable",
+      "name": "Lovable",
+      "operator": "Lovable",
+      "website": "https://lovable.dev",
+      "region": "global",
+      "documentationUrls": [
+        "https://lovable.dev/"
+      ]
+    },
+    {
+      "id": "genspark",
+      "name": "Genspark",
+      "operator": "Genspark",
+      "website": "https://www.genspark.ai",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.genspark.ai/business"
+      ]
+    },
+    {
+      "id": "dify",
+      "name": "Dify",
+      "operator": "Dify",
+      "website": "https://dify.ai",
+      "region": "global",
+      "documentationUrls": [
+        "https://dify.ai/"
+      ]
+    },
+    {
+      "id": "n8n",
+      "name": "n8n",
+      "operator": "n8n",
+      "website": "https://n8n.io",
+      "region": "global",
+      "documentationUrls": [
+        "https://blog.n8n.io/introducing-n8n-agents/"
+      ]
+    },
+    {
+      "id": "lindy",
+      "name": "Lindy",
+      "operator": "Lindy",
+      "website": "https://www.lindy.ai",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.lindy.ai/"
+      ]
+    },
+    {
+      "id": "salesforce",
+      "name": "Salesforce",
+      "operator": "Salesforce",
+      "website": "https://www.salesforce.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.salesforce.com/agentforce/agent-builder/"
+      ]
+    },
+    {
+      "id": "servicenow",
+      "name": "ServiceNow",
+      "operator": "ServiceNow",
+      "website": "https://www.servicenow.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.servicenow.com/docs/r/intelligent-experiences/ai-agent-studio.html"
+      ]
+    },
+    {
+      "id": "sap",
+      "name": "SAP",
+      "operator": "SAP",
+      "website": "https://www.sap.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://help.sap.com/docs/joule-studio/joule-studio/agents?version=CLOUD"
+      ]
+    },
+    {
+      "id": "ibm",
+      "name": "IBM",
+      "operator": "IBM",
+      "website": "https://www.ibm.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.ibm.com/products/watsonx-orchestrate"
+      ]
+    },
+    {
+      "id": "oracle",
+      "name": "Oracle",
+      "operator": "Oracle",
+      "website": "https://www.oracle.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://docs.oracle.com/en/cloud/saas/fusion-ai/26c/aiaas/index.html"
+      ]
+    },
+    {
+      "id": "atlassian",
+      "name": "Atlassian",
+      "operator": "Atlassian",
+      "website": "https://www.atlassian.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://support.atlassian.com/rovo/docs/work-with-rovo-dev-in-the-ide/",
+        "https://support.atlassian.com/studio/docs/what-is-rovo-studio/"
+      ]
+    },
+    {
+      "id": "adobe",
+      "name": "Adobe",
+      "operator": "Adobe",
+      "website": "https://www.adobe.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://news.adobe.com/news/2025/08/acrobat-studio-delivers-new-ai-powered-home-for-productivity-creativity"
+      ]
+    },
+    {
+      "id": "samsung-sds",
+      "name": "三星 SDS",
+      "operator": "三星 SDS",
+      "website": "https://www.samsungsds.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.samsungsds.com/en/ai-fabrix/fabrix.html"
+      ]
+    },
+    {
+      "id": "zoom",
+      "name": "Zoom",
+      "operator": "Zoom",
+      "website": "https://www.zoom.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.zoom.com/en/blog/custom-ai-companion-for-your-organization/"
+      ]
+    },
+    {
+      "id": "figma",
+      "name": "Figma",
+      "operator": "Figma",
+      "website": "https://www.figma.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.figma.com/solutions/design-to-code/"
+      ]
+    },
+    {
+      "id": "canva",
+      "name": "Canva",
+      "operator": "Canva",
+      "website": "https://www.canva.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.canva.com/newsroom/news/canva-create-2026-ai/"
+      ]
+    },
+    {
+      "id": "anomaly",
+      "name": "Anomaly",
+      "operator": "Anomaly",
+      "website": "https://anoma.ly",
+      "region": "global",
+      "documentationUrls": [
+        "https://opencode.ai/docs/"
+      ]
+    },
+    {
+      "id": "cline",
+      "name": "Cline",
+      "operator": "Cline",
+      "website": "https://cline.bot",
+      "region": "global",
+      "documentationUrls": [
+        "https://cline.bot/"
+      ]
+    },
+    {
+      "id": "augment",
+      "name": "Augment Code",
+      "operator": "Augment Code",
+      "website": "https://www.augmentcode.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.augmentcode.com/"
+      ]
+    },
+    {
+      "id": "amp",
+      "name": "Amp",
+      "operator": "Amp",
+      "website": "https://ampcode.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://ampcode.com/about"
+      ]
+    },
+    {
+      "id": "petal",
+      "name": "华为",
+      "operator": "华为",
+      "region": "domestic",
+      "website": "https://www.huawei.com",
+      "documentationUrls": [
+        "https://aspiegel.com/petalbot",
+        "https://codearts.huaweicloud.com/"
+      ]
+    },
+    {
+      "id": "kimi",
+      "name": "Kimi",
+      "operator": "月之暗面（Moonshot AI）",
+      "region": "domestic",
+      "website": "https://www.kimi.com",
+      "documentationUrls": [
+        "https://www.kimi.ai/policies/kimi-crawlers",
+        "https://www.kimi.com/code/en"
+      ]
     }
   ],
   "products": [
@@ -360,13 +644,16 @@
       "website": "https://www.doubao.com/work",
       "form": "workbench",
       "documentationUrls": [
-        "https://www.doubao.com/work"
+        "https://www.doubao.com/work",
+        "https://www.feishu.cn/content/article/7677519271848610746"
       ],
       "aliases": [],
-      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "notes": "豆包工作 Agent 工作台，支持工具、网页读取和持续任务。专属出站身份待核实；Bytespider 的公司归属不足以确认该产品绑定。",
       "identityIds": [],
       "supportStatus": "pending",
-      "tags": []
+      "tags": [
+        "office"
+      ]
     },
     {
       "id": "doubao-aily",
@@ -529,17 +816,22 @@
     {
       "id": "tongyi-lingma",
       "platformId": "alibaba",
-      "name": "通义灵码",
+      "name": "通义灵码 / Qoder CN",
       "website": "https://tongyi.aliyun.com",
       "form": "workbench",
       "documentationUrls": [
-        "https://tongyi.aliyun.com"
+        "https://www.alibabacloud.com/help/zh/lingma/"
       ],
-      "aliases": [],
-      "notes": "产品关系及出站身份尚未完成官方核验；保留候选，不启用识别和引荐规则。",
+      "aliases": [
+        "通义灵码",
+        "Qoder CN"
+      ],
+      "notes": "官方国内产品资料已更新为 Qoder CN 系列，包含原通义灵码与编码入口。保留既有产品 ID；QoderWork 办公产品单独登记。专属网页抓取身份与产品绑定待核实。",
       "identityIds": [],
       "supportStatus": "pending",
-      "tags": []
+      "tags": [
+        "coding"
+      ]
     },
     {
       "id": "yuanbao",
@@ -575,16 +867,18 @@
       "id": "workbuddy",
       "platformId": "tencent",
       "name": "WorkBuddy",
-      "website": "https://cloud.tencent.com/product/workbuddy",
+      "website": "https://www.codebuddy.cn/work/",
       "form": "workbench",
       "documentationUrls": [
-        "https://cloud.tencent.com/product/workbuddy"
+        "https://www.codebuddy.cn/docs/workbuddy/Changelog"
       ],
       "aliases": [],
-      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "notes": "腾讯通用任务工作台。官方日志确认 MCP 连接器默认携带 WorkBuddy User-Agent；本地客户端静态证据显示 WorkBuddy/<version>，可被配置覆盖。通用网页抓取覆盖与独立爬虫身份待核实。",
       "identityIds": [],
       "supportStatus": "pending",
-      "tags": []
+      "tags": [
+        "office"
+      ]
     },
     {
       "id": "ima",
@@ -986,13 +1280,17 @@
       "website": "https://openai.com/codex",
       "form": "workbench",
       "documentationUrls": [
-        "https://openai.com/codex"
+        "https://developers.openai.com/blog/codex-as-a-platform"
       ],
-      "aliases": [],
-      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "aliases": [
+        "OpenAI Codex"
+      ],
+      "notes": "OpenAI Agent 工作台，覆盖桌面、CLI、IDE 和云端任务。产品资料已确认；专属网页抓取身份与产品绑定待核实。",
       "identityIds": [],
       "supportStatus": "pending",
-      "tags": []
+      "tags": [
+        "coding"
+      ]
     },
     {
       "id": "claude",
@@ -1017,16 +1315,20 @@
       "id": "cowork",
       "platformId": "anthropic",
       "name": "Cowork",
-      "website": "https://claude.com",
+      "website": "https://claude.com/product/cowork",
       "form": "workbench",
       "documentationUrls": [
-        "https://claude.com"
+        "https://support.claude.com/en/articles/13345190-get-started-with-claude-cowork"
       ],
-      "aliases": [],
-      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "aliases": [
+        "Claude Cowork"
+      ],
+      "notes": "Anthropic 知识工作 Agent，支持文件、工具和多步骤任务。产品资料已确认；专属网页抓取身份与产品绑定待核实。",
       "identityIds": [],
       "supportStatus": "pending",
-      "tags": []
+      "tags": [
+        "office"
+      ]
     },
     {
       "id": "claude-code",
@@ -1035,13 +1337,15 @@
       "website": "https://claude.com/product/claude-code",
       "form": "workbench",
       "documentationUrls": [
-        "https://claude.com/product/claude-code"
+        "https://code.claude.com/docs/en/overview"
       ],
       "aliases": [],
-      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "notes": "Anthropic 编程 Agent，支持项目文件、终端、工具和开发任务。产品资料已确认；专属网页抓取身份与产品绑定待核实。",
       "identityIds": [],
       "supportStatus": "pending",
-      "tags": []
+      "tags": [
+        "coding"
+      ]
     },
     {
       "id": "perplexity",
@@ -1110,16 +1414,24 @@
       "id": "mistral-vibe",
       "platformId": "mistral",
       "name": "Mistral Vibe",
-      "website": "https://mistral.ai",
-      "form": "general",
+      "website": "https://mistral.ai/products/vibe/",
+      "form": "workbench",
       "documentationUrls": [
-        "https://docs.mistral.ai/robots"
+        "https://mistral.ai/products/vibe/",
+        "https://help.mistral.ai/en/articles/682992-le-chat-is-now-vibe"
       ],
-      "aliases": [],
-      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "aliases": [
+        "Le Chat",
+        "Vibe Work",
+        "Vibe Code"
+      ],
+      "notes": "Mistral Vibe 统一办公与编程 Agent，原 Le Chat 已更名。产品资料已确认；专属网页抓取身份与产品绑定待核实。",
       "identityIds": [],
       "supportStatus": "pending",
-      "tags": []
+      "tags": [
+        "office",
+        "coding"
+      ]
     },
     {
       "id": "meta-ai",
@@ -1490,6 +1802,966 @@
       ],
       "supportStatus": "confirmed",
       "tags": []
+    },
+    {
+      "id": "antigravity",
+      "platformId": "google",
+      "name": "Google Antigravity",
+      "website": "https://www.antigravity.google/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.antigravity.google/docs/overview?tab=ide"
+      ],
+      "aliases": [],
+      "notes": "跨编辑器、终端和浏览器执行任务的 Agent 开发工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "gemini-cli",
+      "platformId": "google",
+      "name": "Gemini CLI",
+      "website": "https://geminicli.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://geminicli.com/docs/"
+      ],
+      "aliases": [],
+      "notes": "终端编程 Agent，可操作文件和工具；免费及 Google One 用户自 2026-06-18 起迁移到 Antigravity CLI，企业支持以官方文档为准。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "jules",
+      "platformId": "google",
+      "name": "Jules",
+      "website": "https://jules.google/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://blog.google/innovation-and-ai/models-and-research/google-labs/jules-now-available/"
+      ],
+      "aliases": [],
+      "notes": "异步云端编程 Agent，连接代码仓库并交付修改。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "gemini-enterprise",
+      "platformId": "google",
+      "name": "Gemini Enterprise",
+      "website": "https://cloud.google.com/gemini-enterprise",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://cloud.google.com/gemini-enterprise/agents"
+      ],
+      "aliases": [],
+      "notes": "企业 Agent 工作入口，连接企业资料、研究任务和业务流程。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "github-copilot",
+      "platformId": "microsoft",
+      "name": "GitHub Copilot",
+      "website": "https://github.com/features/copilot",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://docs.github.com/en/copilot/how-tos/copilot-in-your-ide/use-copilot-agents"
+      ],
+      "aliases": [],
+      "notes": "IDE 与云端编程 Agent，可编辑文件、执行命令并处理开发任务。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "microsoft-365-copilot",
+      "platformId": "microsoft",
+      "name": "Microsoft 365 Copilot",
+      "website": "https://www.microsoft.com/en-us/microsoft-365-copilot",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://learn.microsoft.com/microsoft-365/copilot/agent-essentials/m365-agents-admin-guide"
+      ],
+      "aliases": [],
+      "notes": "办公工作台与 Agent 入口，连接 Microsoft 365 内容和工具；与消费级 Copilot 分开登记。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "copilot-studio",
+      "platformId": "microsoft",
+      "name": "Microsoft Copilot Studio",
+      "website": "https://www.microsoft.com/en-us/microsoft-copilot/microsoft-copilot-studio",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://learn.microsoft.com/en-us/microsoft-copilot-studio/fundamentals-what-is-copilot-studio"
+      ],
+      "aliases": [],
+      "notes": "企业 Agent 与工作流构建工作台，支持工具、数据和业务动作。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "kiro",
+      "platformId": "amazon",
+      "name": "Kiro",
+      "website": "https://kiro.dev/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://kiro.dev/docs/cli/setup/"
+      ],
+      "aliases": [
+        "Kiro IDE",
+        "Kiro CLI"
+      ],
+      "notes": "覆盖 IDE、终端和云端任务的 Agent 开发工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "amazon-q-developer",
+      "platformId": "amazon",
+      "name": "Amazon Q Developer",
+      "website": "https://aws.amazon.com/q/developer/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://aws.amazon.com/q/developer/"
+      ],
+      "aliases": [],
+      "notes": "AWS 开发与运维助手；IDE 插件计划于 2027-04-30 结束支持，官方推荐迁移到 Kiro；AWS 控制台等入口保留。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "amazon-quick",
+      "platformId": "amazon",
+      "name": "Amazon Quick Suite",
+      "website": "https://aws.amazon.com/quicksuite/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://aws.amazon.com/about-aws/whats-new/2025/10/amazon-quick-suite-agentic-ai-powered-workspace/"
+      ],
+      "aliases": [
+        "Quick Suite"
+      ],
+      "notes": "结合研究、商业分析和跨应用自动化的企业 Agent 工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "cohere-north",
+      "platformId": "cohere",
+      "name": "Cohere North",
+      "website": "https://cohere.com/north",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://cohere.com/north"
+      ],
+      "aliases": [],
+      "notes": "企业 AI 工作台，支持企业知识、文档交付、自定义 Agent 和自动化。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "perplexity-computer",
+      "platformId": "perplexity",
+      "name": "Perplexity Computer",
+      "website": "https://www.perplexity.ai/products/computer",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.perplexity.ai/products/computer"
+      ],
+      "aliases": [],
+      "notes": "通用任务工作台，支持浏览器操作、研究、代码、工具连接和持续任务。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "qoder",
+      "platformId": "alibaba",
+      "name": "Qoder",
+      "website": "https://qoder.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://docs.qoder.com/qoder/overview"
+      ],
+      "aliases": [
+        "Qoder IDE",
+        "Qoder CLI"
+      ],
+      "notes": "编程与任务执行工作台，覆盖桌面 Agent、IDE 和终端入口。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "qwen-code",
+      "platformId": "alibaba",
+      "name": "Qwen Code",
+      "website": "https://qwenlm.github.io/qwen-code-docs/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://qwenlm.github.io/qwen-code-docs/en/users/features/sub-agents/"
+      ],
+      "aliases": [],
+      "notes": "开源终端编程 Agent，支持工具、文件操作和子任务。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "baidu-dumate",
+      "platformId": "baidu",
+      "name": "百度 Dumate",
+      "website": "https://cloud.baidu.com/product/dumate",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://cloud.baidu.com/doc/Dumate/index.html"
+      ],
+      "aliases": [],
+      "notes": "面向桌面办公的任务 Agent，处理文件、数据和办公自动化。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "baidu-comate",
+      "platformId": "baidu",
+      "name": "文心快码 Comate",
+      "website": "https://comate.baidu.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://comate.baidu.com/docs/vscode.html"
+      ],
+      "aliases": [],
+      "notes": "百度编程工作台，包含 Zulu 编程智能体和多种开发任务智能体。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "kimi-code",
+      "platformId": "kimi",
+      "name": "Kimi Code",
+      "website": "https://www.kimi.com/code/en",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.kimi.com/code/docs/en/kimi-code-cli/guides/getting-started.html"
+      ],
+      "aliases": [],
+      "notes": "Moonshot AI 编程 Agent，支持终端、IDE、文件操作、命令执行和网页读取。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "zcode",
+      "platformId": "zhipu",
+      "name": "ZCode",
+      "website": "https://zcode.z.ai/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://zcode.z.ai/en/docs/agent-framework"
+      ],
+      "aliases": [],
+      "notes": "智谱桌面开发工作台，连接项目、终端、浏览器上下文和长任务。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "huawei-codearts",
+      "platformId": "petal",
+      "name": "华为云码道 CodeArts",
+      "website": "https://codearts.huaweicloud.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://codearts.huaweicloud.com/"
+      ],
+      "aliases": [
+        "CodeArts Doer",
+        "CodeArts Snap"
+      ],
+      "notes": "华为云代码智能体，覆盖 IDE、插件、桌面端和 CLI 等开发入口。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "iflytek-astron",
+      "platformId": "iflytek",
+      "name": "讯飞星辰 Agent",
+      "website": "https://agent.xfyun.cn/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.xfyun.cn/doc/spark/Agent03-%E5%BC%80%E5%8F%91%E6%8C%87%E5%8D%97.html"
+      ],
+      "aliases": [],
+      "notes": "智能体与工作流构建工作台，支持知识、工具、MCP 和应用发布。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "wps-lingxi",
+      "platformId": "kingsoft",
+      "name": "WPS 灵犀",
+      "website": "https://lingxi.wps.cn/cowork",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://lingxi.wps.cn/cowork"
+      ],
+      "aliases": [],
+      "notes": "办公任务工作台，包含文档、表格、研究、技能和定时任务入口。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "jd-joycode",
+      "platformId": "jd",
+      "name": "JoyCode",
+      "website": "https://joycode.jd.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://joycode.jd.com/docs/start/intro/"
+      ],
+      "aliases": [
+        "京东 JoyCode"
+      ],
+      "notes": "京东企业编程工作台，支持代码库理解、规约编程和多智能体协同。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "meituan-nocode",
+      "platformId": "meituan",
+      "name": "美团 NoCode",
+      "website": "https://nocode.cn/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://nocode.cn/"
+      ],
+      "aliases": [],
+      "notes": "通过自然语言创建应用和网站的无代码工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "no_code"
+      ]
+    },
+    {
+      "id": "jetbrains-air",
+      "platformId": "jetbrains",
+      "name": "JetBrains Air",
+      "website": "https://www.jetbrains.com/air/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.jetbrains.com/help/air/supported-agents.html"
+      ],
+      "aliases": [],
+      "notes": "多 Agent 开发工作台，可在任务中选用 Codex、Claude Agent、Junie 等。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "jetbrains-junie",
+      "platformId": "jetbrains",
+      "name": "JetBrains Junie",
+      "website": "https://junie.jetbrains.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://junie.jetbrains.com/"
+      ],
+      "aliases": [],
+      "notes": "JetBrains 编程 Agent，可在开发环境中完成复杂代码任务。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "vercel-v0",
+      "platformId": "vercel",
+      "name": "v0",
+      "website": "https://v0.app/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://vercel.com/docs/v0"
+      ],
+      "aliases": [
+        "v0.dev",
+        "v0.app"
+      ],
+      "notes": "Vercel 应用构建工作台，生成代码、界面并部署应用。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "no_code"
+      ]
+    },
+    {
+      "id": "bolt",
+      "platformId": "stackblitz",
+      "name": "Bolt",
+      "website": "https://bolt.new/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://bolt.new/"
+      ],
+      "aliases": [
+        "Bolt.new"
+      ],
+      "notes": "StackBlitz 的 AI 应用构建工作台，可生成、测试和迭代网站与应用。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "no_code"
+      ]
+    },
+    {
+      "id": "lovable",
+      "platformId": "lovable",
+      "name": "Lovable",
+      "website": "https://lovable.dev/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://lovable.dev/"
+      ],
+      "aliases": [],
+      "notes": "通过对话构建、迭代和部署全栈应用的工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "no_code"
+      ]
+    },
+    {
+      "id": "genspark",
+      "platformId": "genspark",
+      "name": "Genspark",
+      "website": "https://www.genspark.ai/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.genspark.ai/business"
+      ],
+      "aliases": [],
+      "notes": "通用 Agent 工作台，集成研究、文档、表格、幻灯片和浏览器任务。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "dify",
+      "platformId": "dify",
+      "name": "Dify",
+      "website": "https://dify.ai/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://dify.ai/"
+      ],
+      "aliases": [],
+      "notes": "可视化 Agent、知识与工作流构建工作台，支持云端与自行部署。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "n8n",
+      "platformId": "n8n",
+      "name": "n8n Agents",
+      "website": "https://n8n.io/ai-agents/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://blog.n8n.io/introducing-n8n-agents/"
+      ],
+      "aliases": [],
+      "notes": "连接业务工具、工作流、触发器和记忆的 Agent 自动化工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "lindy",
+      "platformId": "lindy",
+      "name": "Lindy",
+      "website": "https://www.lindy.ai/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.lindy.ai/"
+      ],
+      "aliases": [],
+      "notes": "跨应用办公 Agent，支持工具连接、任务执行和定时工作。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "agentforce",
+      "platformId": "salesforce",
+      "name": "Salesforce Agentforce Builder",
+      "website": "https://www.salesforce.com/agentforce/agent-builder/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.salesforce.com/agentforce/agent-builder/"
+      ],
+      "aliases": [],
+      "notes": "企业 Agent 构建、预览、测试和部署工作台，连接业务动作与数据。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "servicenow-agent-studio",
+      "platformId": "servicenow",
+      "name": "ServiceNow AI Agent Studio",
+      "website": "https://www.servicenow.com/products/ai-agents.html",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.servicenow.com/docs/r/intelligent-experiences/ai-agent-studio.html"
+      ],
+      "aliases": [],
+      "notes": "ServiceNow 企业 Agent 与自动执行工作流构建工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "joule-studio",
+      "platformId": "sap",
+      "name": "SAP Joule Studio",
+      "website": "https://www.sap.com/products/technology-platform/build/joule-studio.html",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://help.sap.com/docs/joule-studio/joule-studio/agents?version=CLOUD"
+      ],
+      "aliases": [],
+      "notes": "SAP Agent 与业务技能构建工作台；部分 Agent 功能处于 Early Adopter Care 范围。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "watsonx-orchestrate",
+      "platformId": "ibm",
+      "name": "IBM watsonx Orchestrate",
+      "website": "https://www.ibm.com/products/watsonx-orchestrate",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.ibm.com/products/watsonx-orchestrate"
+      ],
+      "aliases": [],
+      "notes": "企业 Agent 构建与编排工作台，连接工具、业务应用和自动化流程。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "oracle-ai-agent-studio",
+      "platformId": "oracle",
+      "name": "Oracle AI Agent Studio",
+      "website": "https://www.oracle.com/applications/fusion-ai/ai-agents/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://docs.oracle.com/en/cloud/saas/fusion-ai/26c/aiaas/index.html"
+      ],
+      "aliases": [],
+      "notes": "Oracle Fusion 企业 Agent、工作流和应用构建工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "rovo-dev",
+      "platformId": "atlassian",
+      "name": "Atlassian Rovo Dev",
+      "website": "https://www.atlassian.com/software/rovo-dev",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://support.atlassian.com/rovo/docs/work-with-rovo-dev-in-the-ide/"
+      ],
+      "aliases": [],
+      "notes": "连接 Atlassian 工作资料的编程 Agent，支持实现、审查和开发任务。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "rovo-studio",
+      "platformId": "atlassian",
+      "name": "Atlassian Rovo Studio",
+      "website": "https://www.atlassian.com/software/rovo",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://support.atlassian.com/studio/docs/what-is-rovo-studio/"
+      ],
+      "aliases": [],
+      "notes": "统一创建和管理 Agent、无代码应用与自动化流程的工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "adobe-acrobat-studio",
+      "platformId": "adobe",
+      "name": "Adobe Acrobat Studio",
+      "website": "https://www.adobe.com/acrobat/acrobat-studio.html",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://news.adobe.com/news/2025/08/acrobat-studio-delivers-new-ai-powered-home-for-productivity-creativity"
+      ],
+      "aliases": [],
+      "notes": "文档与内容工作台，结合 PDF Spaces、AI Agent 和 Express 创建工具。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "samsung-fabrix",
+      "platformId": "samsung-sds",
+      "name": "Samsung SDS FabriX",
+      "website": "https://www.samsungsds.com/en/ai-fabrix/fabrix.html",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.samsungsds.com/en/ai-fabrix/fabrix.html"
+      ],
+      "aliases": [],
+      "notes": "企业 Agent 工作台，连接知识、业务系统、工具与模型，支持创建、共享和使用 Agent。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "zoommate",
+      "platformId": "zoom",
+      "name": "ZoomMate",
+      "website": "https://www.zoom.com/en/products/ai-assistant/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.zoom.com/en/blog/custom-ai-companion-for-your-organization/"
+      ],
+      "aliases": [
+        "Zoom AI Companion",
+        "AI Companion"
+      ],
+      "notes": "Zoom 办公 AI 工作台，支持研究、工作流和成果交付；官方于 2026 年 6 月启用 ZoomMate 名称。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "xcode-coding-intelligence",
+      "platformId": "apple",
+      "name": "Xcode Coding Intelligence",
+      "website": "https://developer.apple.com/xcode/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://developer.apple.com/documentation/xcode/coding-intelligence"
+      ],
+      "aliases": [],
+      "notes": "Xcode 中的编程 Agent 工作环境，可连接外部 Agent；承载平台与模型供应方分别登记。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "qoder-work",
+      "platformId": "alibaba",
+      "name": "QoderWork",
+      "website": "https://qoder.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.alibabacloud.com/en/marketplace/qoder"
+      ],
+      "aliases": [
+        "QoderWork CN"
+      ],
+      "notes": "面向日常办公任务的桌面 Agent；与 Qoder 编程产品分别登记，国内版名称为 QoderWork CN。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "deepseek-harness",
+      "platformId": "deepseek",
+      "name": "DeepSeek Harness",
+      "website": "https://www.deepseek.com/en/harness/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.deepseek.com/en/harness/"
+      ],
+      "aliases": [],
+      "notes": "面向办公、编程、研究和后台任务的开源 Agent 工作台，提供桌面与 Web 界面；当前为公开预览。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "grok-build",
+      "platformId": "xai",
+      "name": "Grok Build",
+      "website": "https://x.ai/build",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://docs.x.ai/build/overview"
+      ],
+      "aliases": [],
+      "notes": "支持交互终端、无界面执行和 ACP 的编程 Agent，具备工具、技能与任务工作环境。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "ibm-bob",
+      "platformId": "ibm",
+      "name": "IBM Bob",
+      "website": "https://bob.ibm.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://bob.ibm.com/docs/ide"
+      ],
+      "aliases": [],
+      "notes": "覆盖代码理解、规划、实现、调试与任务自动化的开发 Agent 工作台。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "figma-make",
+      "platformId": "figma",
+      "name": "Figma Make",
+      "website": "https://www.figma.com/make/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.figma.com/solutions/design-to-code/"
+      ],
+      "aliases": [],
+      "notes": "从设计和自然语言生成可运行代码，并在同一工作台中编辑、测试和分享应用原型。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "no_code"
+      ]
+    },
+    {
+      "id": "canva-ai",
+      "platformId": "canva",
+      "name": "Canva AI",
+      "website": "https://www.canva.com/ai/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.canva.com/newsroom/news/canva-create-2026-ai/"
+      ],
+      "aliases": [],
+      "notes": "支持对话式创作、Agent 编辑、工具连接、网页研究、定时任务和代码生成的创作工作台；AI 2.0 官方以研究预览推出。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
+    },
+    {
+      "id": "opencode",
+      "platformId": "anomaly",
+      "name": "OpenCode",
+      "website": "https://opencode.ai/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://opencode.ai/docs/"
+      ],
+      "aliases": [],
+      "notes": "开源编程 Agent 工作台，提供终端、桌面和 Web 入口。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "cline",
+      "platformId": "cline",
+      "name": "Cline",
+      "website": "https://cline.bot/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://cline.bot/"
+      ],
+      "aliases": [],
+      "notes": "开源开发 Agent，提供桌面、IDE 和 CLI 入口，并支持多模型与工具调用。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "augment-code",
+      "platformId": "augment",
+      "name": "Augment Code",
+      "website": "https://www.augmentcode.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.augmentcode.com/"
+      ],
+      "aliases": [],
+      "notes": "面向代码库与团队研发的 Agent 开发工作台，支持编程任务和上下文管理。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "amp",
+      "platformId": "amp",
+      "name": "Amp",
+      "website": "https://ampcode.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://ampcode.com/about"
+      ],
+      "aliases": [],
+      "notes": "独立 Agent 研究公司的编程 Agent 与开发环境；平台归属按当前官方资料登记。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "coding"
+      ]
+    },
+    {
+      "id": "qoder-wake",
+      "platformId": "alibaba",
+      "name": "QoderWake",
+      "website": "https://qoder.com/",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.alibabacloud.com/en/marketplace/qoder"
+      ],
+      "aliases": [],
+      "notes": "持久运行的企业 Agent 协作工作台，支持角色、记忆、技能和定时或触发任务。 产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "agent_builder"
+      ]
+    },
+    {
+      "id": "kimi-work",
+      "platformId": "kimi",
+      "name": "Kimi Work",
+      "website": "https://www.kimi.com/products/kimi-work",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.kimi.com/products/kimi-work"
+      ],
+      "aliases": [
+        "Kimi 桌面端"
+      ],
+      "notes": "面向知识工作的桌面 Agent，支持本地文件、浏览器自动化、定时任务和办公成果生成。产品资料已确认；专属网页抓取身份与产品绑定待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": [
+        "office"
+      ]
     }
   ],
   "referrals": [

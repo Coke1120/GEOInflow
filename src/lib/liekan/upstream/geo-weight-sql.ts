@@ -37,10 +37,26 @@ export async function geoWeightAggregate(
       SELECT v.version,v.payload FROM liekan_crawler_registry_version v
       JOIN (SELECT DISTINCT catalog_version FROM raw) r ON r.catalog_version=v.version
     ), identities AS MATERIALIZED (
-      SELECT c.version,i.identity,c.payload FROM catalogs c
+      SELECT c.version,i.identity FROM catalogs c
       CROSS JOIN LATERAL jsonb_array_elements(c.payload->'identities') i(identity)
+    ), range_bindings AS MATERIALIZED (
+      SELECT DISTINCT c.version AS catalog_version,rs.version AS verification_version,ids.id AS crawler_id
+      FROM catalogs c
+      CROSS JOIN LATERAL jsonb_array_elements(c.payload->'rangeSources') s(source)
+      JOIN liekan_crawler_range_snapshot rs ON rs.source_id=s.source->>'id' AND rs.source_url=s.source->>'url'
+      JOIN (SELECT DISTINCT verification_version FROM raw) used ON used.verification_version=rs.version
+      CROSS JOIN LATERAL jsonb_array_elements_text(rs.crawler_ids) ids(id)
+      WHERE s.source->'crawlerIds' ? ids.id AND s.source->>'enabled' IS DISTINCT FROM 'false'
     ), evaluated AS MATERIALIZED (
-      SELECT r.*,p.purpose,p."platformId",i.identity->>'productForm' AS form,
+      SELECT r.created_at,r.path,r.status,r.source_id,r.ai_eligible,r.recognition_state,
+        r.verification,r.self_check,r.crawler_id,r.catalog_version,r.classification_version,r.mime_state,
+        r.measurement->>'host'=$3 AS host_matches,
+        r.measurement->>'hostBasis' IS DISTINCT FROM 'request_host' AS inferred_host,
+        (r.measurement->>'samplingTimeBasis' IS DISTINCT FROM 'event_time'
+          OR r.measurement->>'samplingBasis' IS DISTINCT FROM 'observed_provider_config'
+          OR r.measurement->'samplingRate' IS DISTINCT FROM '1'::jsonb) AS sampling_unknown,
+        r.identity_evidence->>'reason'='identity_conflict' AS identity_conflict,
+        p.purpose,p."platformId",i.identity->>'productForm' AS form,
         c.version IS NOT NULL AND r.rule_available AS history_available,
         CASE
           WHEN r.self_check THEN 'self_check'
@@ -60,13 +76,7 @@ export async function geoWeightAggregate(
             OR r.verification_reason IS DISTINCT FROM 'verified_range'
             OR r.verification_observed_at IS NULL
             OR abs(extract(epoch FROM r.created_at-r.verification_observed_at))>604800
-            OR NOT EXISTS (
-              SELECT 1 FROM liekan_crawler_range_snapshot rs
-              JOIN LATERAL jsonb_array_elements(i.payload->'rangeSources') s(source) ON true
-              WHERE rs.version=r.verification_version AND rs.crawler_ids ? r.crawler_id
-                AND s.source->>'id'=rs.source_id AND s.source->>'url'=rs.source_url
-                AND s.source->'crawlerIds' ? r.crawler_id AND s.source->>'enabled' IS DISTINCT FROM 'false'
-            ) THEN 'verification'
+            OR rb.verification_version IS NULL THEN 'verification'
           WHEN r.method<>'GET' OR r.status NOT IN(200,304) THEN 'response'
           WHEN r.path ~* $6 OR r.mime_state='invalid'
             OR (r.mime_state='present' AND NOT(coalesce(r.mime,'')=ANY($8::text[])))
@@ -75,6 +85,8 @@ export async function geoWeightAggregate(
       FROM raw r LEFT JOIN policy p ON p.id=r.crawler_id
       LEFT JOIN catalogs c ON c.version=r.catalog_version
       LEFT JOIN identities i ON i.version=r.catalog_version AND i.identity->>'id'=r.crawler_id
+      LEFT JOIN range_bindings rb ON rb.catalog_version=r.catalog_version
+        AND rb.verification_version=r.verification_version AND rb.crawler_id=r.crawler_id
     ), scoped AS MATERIALIZED (
       SELECT w."asOf",e.*,(e.created_at AT TIME ZONE $4)::date AS day
       FROM windows w JOIN evaluated e ON e.created_at>=w."startAt" AND e.created_at<w."endAt"
@@ -90,21 +102,25 @@ export async function geoWeightAggregate(
       FROM units u GROUP BY 1,2
     ), excluded AS (
       SELECT "asOf",exclusion,count(*)::float8 AS count FROM scoped WHERE exclusion IS NOT NULL GROUP BY 1,2
-    ), identity_exclusions AS (
+    ), identity_exclusions AS MATERIALIZED (
       SELECT "asOf",crawler_id,exclusion,count(*)::float8 AS count FROM scoped
       WHERE crawler_id IS NOT NULL AND exclusion IS NOT NULL AND NOT self_check GROUP BY 1,2,3
-    ), seen AS (
+    ), identity_exclusion_totals AS MATERIALIZED (
+      SELECT "asOf",crawler_id,jsonb_object_agg(exclusion,count) AS exclusions
+      FROM identity_exclusions GROUP BY 1,2
+    ), identity_counts AS (
       SELECT "asOf",crawler_id AS id,count(*)::float8 AS requests,
         count(*) FILTER(WHERE verification='verified_range' AND recognition_state='recognized')::float8 AS verified,
-        count(*) FILTER(WHERE exclusion IS NULL)::float8 AS accepted,
-        coalesce((SELECT jsonb_object_agg(x.exclusion,x.count) FROM identity_exclusions x
-          WHERE x."asOf"=s."asOf" AND x.crawler_id=s.crawler_id),'{}') AS exclusions
-      FROM scoped s WHERE crawler_id IS NOT NULL AND NOT self_check GROUP BY 1,2
+        count(*) FILTER(WHERE exclusion IS NULL)::float8 AS accepted
+      FROM scoped WHERE crawler_id IS NOT NULL AND NOT self_check GROUP BY 1,2
+    ), seen AS MATERIALIZED (
+      SELECT s.*,coalesce(x.exclusions,'{}') AS exclusions FROM identity_counts s
+      LEFT JOIN identity_exclusion_totals x ON x."asOf"=s."asOf" AND x.crawler_id=s.id
     ), forms AS (
       SELECT "asOf",form,count(*)::float8 AS requests FROM scoped
       WHERE form IN('workbench','personal_agent') AND history_available AND NOT self_check
         AND exclusion IS DISTINCT FROM 'host'
-        AND recognition_state='recognized' AND identity_evidence->>'reason' IS DISTINCT FROM 'identity_conflict'
+        AND recognition_state='recognized' AND identity_conflict IS DISTINCT FROM true
       GROUP BY 1,2
     ), stats AS (
       SELECT "asOf",count(*)::float8 AS requests,
@@ -113,14 +129,12 @@ export async function geoWeightAggregate(
         count(*) FILTER(WHERE exclusion IS NULL AND status=304)::float8 AS "status304",
         count(*) FILTER(WHERE exclusion IS NULL AND mime_state='present')::float8 AS "mimeConfirmed",
         count(*) FILTER(WHERE exclusion IS NULL AND coalesce(mime_state,'unknown')<>'present')::float8 AS "pathInferred",
-        count(*) FILTER(WHERE NOT self_check AND measurement->>'hostBasis' IS DISTINCT FROM 'request_host')::float8 AS "inferredHost",
-        count(*) FILTER(WHERE NOT self_check AND (measurement->>'samplingTimeBasis' IS DISTINCT FROM 'event_time'
-          OR measurement->>'samplingBasis' IS DISTINCT FROM 'observed_provider_config'
-          OR measurement->'samplingRate' IS DISTINCT FROM '1'::jsonb))::float8 AS "samplingUnknown",
+        count(*) FILTER(WHERE NOT self_check AND inferred_host)::float8 AS "inferredHost",
+        count(*) FILTER(WHERE NOT self_check AND sampling_unknown)::float8 AS "samplingUnknown",
         count(*) FILTER(WHERE NOT self_check AND (history_available IS DISTINCT FROM true OR exclusion='history'))::float8 AS "historyMissing",
         count(*) FILTER(WHERE NOT self_check AND (exclusion IN('ambiguous','history','semantics','verification')
           OR recognition_state IS DISTINCT FROM 'recognized' AND ai_eligible IS DISTINCT FROM false))::float8 AS "identityMissing",
-        min(day) FILTER(WHERE history_available AND NOT self_check AND measurement->>'host'=$3)::text AS "firstEvidenceDay",
+        min(day) FILTER(WHERE history_available AND NOT self_check AND host_matches)::text AS "firstEvidenceDay",
         coalesce(array_agg(DISTINCT catalog_version::text ORDER BY catalog_version::text) FILTER(WHERE catalog_version IS NOT NULL AND NOT self_check),'{}') AS "catalogVersions",
         coalesce(array_agg(DISTINCT classification_version ORDER BY classification_version) FILTER(WHERE classification_version IS NOT NULL AND NOT self_check),'{}') AS "classificationVersions",
         coalesce(array_agg(DISTINCT coalesce(source_id::text,'manual') ORDER BY coalesce(source_id::text,'manual')) FILTER(WHERE NOT self_check),'{}') AS sources

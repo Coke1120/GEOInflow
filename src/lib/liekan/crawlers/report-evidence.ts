@@ -26,8 +26,16 @@ export const readReportEvidence: EvidenceReader = async (tx, websiteId, p, input
           crawlerMetricsVersion: 1,
           resource: p.reportResource,
           ...(p.reportResource === 'ai/pages'
-            ? { botType: p.botType, botId: p.botId, botName: p.botName }
-            : {}),
+            ? {
+                botType: p.botType,
+                botId: p.botId,
+                botName: p.botName,
+                botProductForm: p.botProductForm,
+                botCategory: p.botCategory,
+              }
+            : p.reportResource === 'ai/bots'
+              ? { botProductForm: p.botProductForm, botCategory: p.botCategory }
+              : {}),
           filter: p.logFilter ?? '',
           search: p.reportResource === 'logs' ? (p.search ?? '') : '',
         },

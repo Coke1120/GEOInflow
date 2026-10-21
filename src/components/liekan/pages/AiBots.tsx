@@ -2,6 +2,7 @@ import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { FilterChip, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 import { useReportActions } from '../ReportContext';
+import { crawlerFilterLabels } from '@/lib/liekan/contracts/query';
 
 export function AiBots({ report, rangeLabel }: ReportViewProps) {
   const i18n = useLiekanI18n();
@@ -9,19 +10,16 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
       <section className="card fade-in d1 overflow-hidden">
-        <div className="px-6 py-4 border-b border-line flex items-center justify-between gap-3">
+        <div className="px-6 py-4 border-b border-line flex crawler-page-controls items-center justify-between gap-3">
           <h2 className="text-[14px] font-bold tracking-tight">
             {i18n.fragment('AI 蜘蛛台账（', false, true)}
             {i18n.system(rangeLabel)}
             {i18n.fragment(' 抓取量排序）', true, false)}
           </h2>
-          <div className="flex items-center gap-2">
-            <FilterChip label="全部" />
-            <FilterChip label="AI 训练" />
-            <FilterChip label="AI 搜索" />
-            <FilterChip label="用户触发" />
-            <FilterChip label="传统搜索" />
-            <FilterChip label="其他已知" />
+          <div className="flex crawler-page-controls items-center gap-2">
+            {crawlerFilterLabels.map(label => (
+              <FilterChip key={label} label={label} />
+            ))}
           </div>
         </div>
         <table className="w-full text-[12.5px]">
@@ -52,7 +50,7 @@ export function AiBots({ report, rangeLabel }: ReportViewProps) {
           <div className="px-6 pt-5 pb-2">
             <h2 className="text-[14px] font-bold tracking-tight">{i18n.text('蜘蛛类型构成')}</h2>
             <p className="text-[11.5px] text-faint mt-0.5">
-              {i18n.text('AI 训练 / AI 搜索 / 用户触发 / 传统搜索 / 其他已知')}
+              {i18n.text('AI 训练 / AI 搜索 / 用户触发 / 传统搜索 / 其他用途')}
             </p>
           </div>
           <ReferenceChart id="b1" height={230} report={report} />
