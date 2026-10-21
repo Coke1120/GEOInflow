@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { defineOperation } from '@/openapi/operation';
 import {
   browserRiskReportSchema,
-  qualityRangeSchema,
+  browserRiskRangeSchema,
 } from '@/lib/liekan/contracts/traffic-quality';
 import {
   badRequestResponse,
@@ -20,7 +20,7 @@ export const operations = [
       operationId: 'getLiekanBrowserRisk',
       summary: 'Read browser behavior observations',
       tags: ['Liekan'],
-      requestParams: { path: z.object({ websiteId: z.uuid() }), query: qualityRangeSchema },
+      requestParams: { path: z.object({ websiteId: z.uuid() }), query: browserRiskRangeSchema },
       responses: {
         '200': {
           description: 'Quality analysis',

@@ -853,5 +853,6 @@
   "m_5016da970574": "Worked example: search 300/3000/24/3, user-initiated 80/400/16/2, training 800/8000/12/3 (P/E/D/B), yielding 63.8 points and reference level 7.",
   "m_92397ef3a641": "Missing input or verification yields no score. Spans shorter than 30 days receive no level; limited evidence yields a reference level. Zero requires proof of an observed zero. Crawling does not establish citations, training use or acquisition; content size affects the score.",
   "m_9899618e3d87": "Crawl index",
-  "m_9fa3f8e413d7": "30 calendar days ending on the selected last complete date, in the analytics timezone. Local filters do not change the website score."
+  "m_9fa3f8e413d7": "30 calendar days ending on the selected last complete date, in the analytics timezone. Local filters do not change the website score.",
+  "m_e0a7ab54b1d1": "AI / browser ratio"
 }

@@ -177,7 +177,10 @@ export async function processBrowserRisk() {
 export async function browserRiskReport(websiteId: string, parameters: URLSearchParams) {
   if (process.env.CLICKHOUSE_URL)
     return { available: false, reason: '行为风险观察当前支持 PostgreSQL' };
-  const range = parseQualityRange(parameters);
+  // Observations retain whole visit windows; audit paths must not narrow their totals.
+  const riskParameters = new URLSearchParams(parameters);
+  riskParameters.delete('path');
+  const range = parseQualityRange(riskParameters);
   return qualityReadTransaction(async tx => {
     const [state] = await tx.$queryRawUnsafe(
       'SELECT started_at AS "startedAt",computed_at AS "computedAt",next_window AS "nextWindow",error_code AS "errorCode",rule_version AS "ruleVersion" FROM liekan_browser_risk_state WHERE website_id=$1::uuid',

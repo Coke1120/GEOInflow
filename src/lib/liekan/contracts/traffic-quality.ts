@@ -31,6 +31,7 @@ export const qualityRangeSchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).optional(),
   cursor: z.string().max(2048).optional(),
 });
+export const browserRiskRangeSchema = qualityRangeSchema.omit({ path: true });
 export const qualityTotalsSchema = z.object({
   rawPV: z.number(),
   includedPV: z.number(),

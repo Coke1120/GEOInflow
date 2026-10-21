@@ -1182,6 +1182,13 @@ try {
       same(preview.preview.rawPV, 1, 'Policy preview retains the path scope');
       same(preview.preview.includedPV, 1, 'Raw preview preserves the excluded event');
     }
+    const risk = (await json(qualityPath + '/risk?' + window, { auth: true })).body;
+    const riskWithPath = (
+      await json(qualityPath + '/risk?' + window + '&path=%2Fmissing', { auth: true })
+    ).body;
+    ensure(risk.impact.includedUV > 0, 'Risk scope regression needs included visitors');
+    same(riskWithPath.impact, risk.impact, 'Audit paths must not narrow behavior risk totals');
+    ensure(riskWithPath.impact.fullyExcludedUV >= 0, 'Risk excluded UV cannot be negative');
     for (const row of audit.rows) {
       const match = fixtures.find(f => f.path === row.path);
       ensure(

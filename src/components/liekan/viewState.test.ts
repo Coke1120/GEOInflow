@@ -120,3 +120,48 @@ it('restores visitor overview sorting and applies it to the exported rows', asyn
   const csv = tableCsv('visitorTopBody', rows, '', ascending.sort);
   expect(csv.indexOf('/small')).toBeLessThan(csv.indexOf('/large'));
 });
+it.each([
+  ['人类 PV', '浏览 PV', 'asc', '/small', '/large'],
+  ['人类 PV', '浏览 PV', 'desc', '/large', '/small'],
+  ['AI/人 比值', 'AI/浏览 比值', 'asc', '/large', '/small'],
+  ['AI/人 比值', 'AI/浏览 比值', 'desc', '/small', '/large'],
+])(
+  'preserves bookmarked overview sort %s (%s, %s) in rows and CSV',
+  async (previousLabel, label, direction, first, last) => {
+    const { tableCsv, selectRows } = await import('./data');
+    const { translateText } = await import('@/lib/liekan/i18n/text');
+    const rows = [
+      { path: '/large', humanPv: 20, ratio: 1 },
+      { path: '/small', humanPv: 1, ratio: 4 },
+    ];
+    const state = readViewState({ sort: previousLabel, direction }, 'overview');
+    expect(state.sort).toEqual({ label, direction: direction === 'asc' ? 1 : -1 });
+    expect(state.sort).toEqual(readViewState({ sort: label, direction }, 'overview').sort);
+    expect(selectRows(rows, state.filter, state.sort, 'topBody').map(row => row.path)).toEqual([
+      first,
+      last,
+    ]);
+    for (const locale of ['zh-CN', 'en-US'] as const) {
+      const csv = tableCsv(
+        'topBody',
+        rows,
+        state.filter,
+        state.sort,
+        '',
+        undefined,
+        locale,
+        source => translateText(source, locale),
+      );
+      expect(csv.split('\r\n')[1]).toContain(first);
+      expect(csv.split('\r\n')[2]).toContain(last);
+    }
+  },
+);
+it('keeps renamed overview sort aliases within the overview whitelist', () => {
+  for (const sort of ['人类 PV', 'AI/人 比值', '浏览 PV', 'AI/浏览 比值']) {
+    for (const resource of ['human/overview', 'content', 'logs', 'ai/pages'] as const) {
+      expect(readViewState({ sort, direction: 'asc' }, resource).sort.label).toBe('');
+    }
+  }
+  expect(readViewState({ sort: 'unknown' }, 'overview').sort.label).toBe('');
+});

@@ -349,7 +349,7 @@ const metrics: Metric[] = [
   ],
   [
     'ai-human',
-    'AI / 人比值',
+    'AI / 浏览比值',
     'AI 请求量与浏览采集 PV 的比值。',
     'AI 请求数 ÷ 浏览 PV',
     '倍',
@@ -357,7 +357,7 @@ const metrics: Metric[] = [
     'AI 请求为 200、浏览 PV 为 100，比值为 2。',
     '浏览 PV 为零时无定义。两种来源的覆盖范围不同，该值不能代表真实人类与机器人的人口比例。',
     'reading-data',
-    ['ratio', 'AI 人'],
+    ['ratio', 'AI 人', 'AI / 人比值', 'AI/浏览 比值'],
   ],
   [
     'ai-referral',

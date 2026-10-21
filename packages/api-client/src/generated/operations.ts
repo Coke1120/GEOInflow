@@ -989,7 +989,6 @@ export const operations = {
       'classification',
       'source',
       'hostname',
-      'path',
       'page',
       'cursor',
     ],

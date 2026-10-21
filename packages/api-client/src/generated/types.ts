@@ -26817,8 +26817,6 @@ export interface operations {
         hostname?: string;
         /** @description Page number, starting at 1. */
         page?: number;
-        /** @description Filter by page URL path. */
-        path?: string;
         source?: 'browser' | 'authenticated_server' | 'legacy_override';
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt?: number;
