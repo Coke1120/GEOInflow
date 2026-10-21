@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   evidence: vi.fn(),
   exportEvidence: vi.fn(),
   resource: 'ai/bots',
+  replace: vi.fn(),
 }));
 vi.mock('next/link', () => ({
   useLinkStatus: () => ({ pending: false }),
@@ -32,6 +33,8 @@ vi.mock('./AnalysisLoading', async () => {
       <>
         <button onClick={() => actions.onAction('蜘蛛归因与控制')}>查看蜘蛛</button>
         <button onClick={() => actions.onAction('导出')}>导出测试范围</button>
+        <button onClick={() => actions.onAction('特征库管理')}>编辑蜘蛛规则</button>
+        <button onClick={() => actions.onAction('解析规则')}>编辑日志规则</button>
       </>
     ) : null;
   }
@@ -43,6 +46,7 @@ vi.mock('./AnalysisLoading', async () => {
       'ai/bots': View,
       'ai/pages': View,
       overview: View,
+      logs: View,
       content: View,
     },
   };
@@ -74,7 +78,7 @@ vi.mock('@/lib/liekan/upstream/client', async () => {
       pathname: `/websites/${state.handle}/geo${state.resource === 'overview' ? '' : '/' + state.resource}`,
       websiteId: state.handle,
       query: { date: '30day' },
-      router: { push: vi.fn(), replace: vi.fn() },
+      router: { push: vi.fn(), replace: state.replace },
       updateParams: vi.fn(),
     }),
   };
@@ -82,6 +86,7 @@ vi.mock('@/lib/liekan/upstream/client', async () => {
 let client: QueryClient;
 beforeEach(() => {
   state.resource = 'ai/bots';
+  state.replace.mockReset();
   state.download.mockReset();
   state.evidence.mockReset();
   state.exportEvidence.mockReset();
@@ -152,6 +157,7 @@ it.each([
             policySnapshot: 'policy',
             query: {
               resource: 'ai/bots',
+              replace: vi.fn(),
               startAt: Date.parse(start),
               endAt: Date.parse(end),
               timezone: 'Asia/Shanghai',
@@ -265,3 +271,25 @@ it('keeps the mixed-definition notice absent for one current classification vers
     screen.queryByText('所选期间包含旧版或混合分类数据，历史记录保留采集时口径。'),
   ).not.toBeInTheDocument();
 });
+
+it.each([
+  ['102', 'ai/bots', '编辑蜘蛛规则'],
+  ['102', 'logs', '编辑日志规则'],
+  ['b880cb21-e65a-4fdf-9c0e-3da5aed4e0fa', 'ai/bots', '编辑蜘蛛规则'],
+  ['b880cb21-e65a-4fdf-9c0e-3da5aed4e0fa', 'logs', '编辑日志规则'],
+] as const)(
+  'keeps the resolved website when %s opens %s rules',
+  async (handle, resource, button) => {
+    state.handle = handle;
+    state.resource = resource;
+    render(
+      <QueryClientProvider client={client}>
+        <LiekanPage resource={resource} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: button }));
+    await waitFor(() =>
+      expect(state.replace).toHaveBeenCalledWith(`/crawlers/manage?site=${state.website.id}`),
+    );
+  },
+);

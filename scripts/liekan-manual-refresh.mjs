@@ -470,6 +470,7 @@ try {
     try {
       const policy = manualPageReads(item.featureId, {
         websiteId: seed.website.id,
+        admin: true,
         id: item.resourceId,
         eventName: seed.data.eventNames[0],
         goalId: goalDefinitions[0]?.id,

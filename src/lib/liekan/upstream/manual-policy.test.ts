@@ -77,3 +77,16 @@ it.each(['tracking', 'install-check', 'website-settings'])(
     expect(() => assertManualPageReads(policy, [presence], page)).toThrow('/api/websites/site');
   },
 );
+
+it('requires the actual catalog and source reads for administrator crawler management', () => {
+  const admin = manualPageReads('crawlers-manage', { websiteId: 'site', admin: true });
+  expect(admin.endpoints).toEqual([
+    { path: '/api/liekan/admin/crawler-registry' },
+    { path: '/api/liekan/admin/crawler-sources' },
+  ]);
+  expect(() =>
+    assertManualPageReads(admin, [{ path: '/api/liekan/crawler-registry' }], 'admin catalog'),
+  ).toThrow();
+  const ordinary = manualPageReads('crawlers-manage', { websiteId: 'site' });
+  expect(ordinary.endpoints).toEqual([{ path: '/api/liekan/crawler-registry' }]);
+});

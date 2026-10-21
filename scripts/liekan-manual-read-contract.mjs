@@ -94,7 +94,12 @@ export function manualPageReads(id, values) {
   if (excluded[id]) return { endpoints: [], exception: excluded[id] };
   const map = {
     help: [endpoint('/api/liekan/crawler-registry')],
-    'crawlers-manage': [endpoint('/api/liekan/crawler-registry')],
+    'crawlers-manage': values.admin
+      ? [
+          endpoint('/api/liekan/admin/crawler-registry'),
+          endpoint('/api/liekan/admin/crawler-sources'),
+        ]
+      : [endpoint('/api/liekan/crawler-registry')],
     'history-repair': [endpoint('/api/liekan/history-repair')],
     websites: [endpoint('/api/me/websites'), endpoint('/api/liekan/websites/summary')],
     dashboard: [endpoint('/api/liekan/websites/summary')],

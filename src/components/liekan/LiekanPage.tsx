@@ -1204,7 +1204,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         : (action || compare) && (
             <ManagementDrawer
               action={compare ? '对比上周' : action}
-              websiteId={websiteId}
+              websiteId={crawlerWebsite?.id || websiteId}
               websiteName={report?.website?.name || website?.name}
               websiteDomain={report?.website?.domain || website?.domain}
               canManage={report?.meta.canManage || false}
