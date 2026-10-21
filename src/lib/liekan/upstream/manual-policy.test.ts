@@ -4,6 +4,7 @@ import { expect, it } from 'vitest';
 import {
   assertManualReadPolicy,
   manualPageReads,
+  manualRouteFeature,
   assertManualPageReads,
 } from '../../../../scripts/liekan-manual-read-contract.mjs';
 
@@ -89,4 +90,18 @@ it('requires the actual catalog and source reads for administrator crawler manag
   ).toThrow();
   const ordinary = manualPageReads('crawlers-manage', { websiteId: 'site' });
   expect(ordinary.endpoints).toEqual([{ path: '/api/liekan/crawler-registry' }]);
+});
+
+it('classifies actual route aliases through the canonical feature inventory', () => {
+  const inventory = assertManualReadPolicy();
+  for (const route of [...inventory.routes, ...inventory.geo]) {
+    if (route.route.includes('[[...path]]') || route.entry === '弹层拦截') continue;
+    const id = manualRouteFeature(route, inventory.features);
+    expect(
+      () => manualPageReads(id, { websiteId: 'site', id: 'record', admin: true }),
+      route.source,
+    ).not.toThrow();
+  }
+  const catalog = inventory.routes.find(route => route.route === '/crawlers/manage');
+  expect(manualRouteFeature(catalog, inventory.features)).toBe('crawlers-manage');
 });

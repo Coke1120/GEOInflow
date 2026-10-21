@@ -57,6 +57,19 @@ export function assertManualReadPolicy(readSource = path => readFileSync(path, '
   return inventory;
 }
 
+// Resolve canonical route ownership from the same feature inventory used by the product.
+export function manualRouteFeature(route, features) {
+  if (route.route === '/boards/create') return 'boards';
+  const source = readFileSync(route.source, 'utf8');
+  const geoResource = /resource="([^"]+)"/.exec(source)?.[1];
+  if (geoResource) return `geo:${geoResource}`;
+  const feature = features.find(item => item.route === route.route);
+  if (feature) return feature.id;
+  return route.target === 'reference/index.html'
+    ? 'geo:overview'
+    : route.target.replace('.html', '');
+}
+
 // Positive entry evidence must include the page's own data, independently of navigation metadata.
 export function manualPageReads(id, values) {
   const W = `/api/websites/${values.websiteId}`;

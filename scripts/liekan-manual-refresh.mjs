@@ -6,6 +6,7 @@ import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptanc
 import {
   manualReadInventory,
   manualPageReads,
+  manualRouteFeature,
   assertManualPageReads,
 } from './liekan-manual-read-contract.mjs';
 
@@ -312,18 +313,13 @@ for (const route of [...inventory.routes, ...inventory.geo]) {
   if (route.route.includes('[[...path]]')) continue;
   if (route.entry === '弹层拦截') continue; // Their direct detail and modal flows have separate UI acceptance.
   const url = route.route.replace(/\[([^\]]+)\]/g, (_, key) => values[key]);
-  const geoResource = /resource="([^"]+)"/.exec(fs.readFileSync(route.source, 'utf8'))?.[1];
-  const featureId = geoResource
-    ? `geo:${geoResource}`
-    : route.target === 'reference/index.html'
-      ? 'geo:overview'
-      : route.target.replace('.html', '');
+  const featureId = manualRouteFeature(route, inventory.features);
   const resourceKey = [...route.route.matchAll(/\[([^\]]+)\]/g)]
     .map(match => match[1])
     .find(key => key !== 'websiteId');
   cases.push({
     id: route.source,
-    featureId: route.route === '/boards/create' ? 'boards' : featureId,
+    featureId,
     resourceId: resourceKey ? values[resourceKey] : null,
     url,
     authenticated: !['/login', '/login/two-factor', '/sso'].includes(url),
