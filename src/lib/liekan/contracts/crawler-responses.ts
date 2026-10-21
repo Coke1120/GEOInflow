@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { crawlerBotIds, crawlerPlatformIds, crawlerPolicyInputSchema } from './crawlers';
+import { crawlerPolicyInputSchema } from './crawlers';
 
 const id = z.uuid(),
   date = z.string(),
@@ -24,12 +24,14 @@ const counts = z.object({
   head: z.number(),
   successfulGets: z.number(),
 });
-const botId = z.enum(crawlerBotIds).nullable();
+const botId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/).nullable();
 const bot = counts.extend({
   botId,
   name: z.string(),
   bytes: z.number(),
   verifiedRange: z.number(),
+  verifiedDns: z.number().optional(),
+  verifiedEdge: z.number().optional(),
   rangeMismatch: z.number(),
   unverified: z.number(),
   successfulCatalogPages: z.number(),
@@ -47,7 +49,7 @@ const page = counts.extend({
   ownedMatches: z.number(),
 });
 const platform = z.object({
-  platformId: z.enum(crawlerPlatformIds),
+  platformId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
   state: z.enum(['available', 'missing', 'unsupported']),
   visits: z.number().nullable(),
   conversions: z.number().nullable(),
@@ -140,11 +142,11 @@ export const crawlerAnalysisResponseSchema = z.object({
   quality,
   directory: z.array(
     z.object({
-      id: z.enum(crawlerBotIds),
+      id: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
       name: z.string(),
-      platformId: z.enum(crawlerPlatformIds),
+      platformId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
       type: z.enum(['training', 'search', 'user', 'traditional_search', 'other']),
-      kind: z.enum(['http_crawler', 'robots_purpose']),
+      kind: z.enum(['http_crawler', 'robots_purpose', 'signed_agent']),
       uaSelector: z.string().nullable(),
       robotsToken: z.string().nullable(),
       robotsApplicability: z.enum(['applicable', 'user_triggered_caveat']),
@@ -153,8 +155,8 @@ export const crawlerAnalysisResponseSchema = z.object({
       identityEvidence: z.string(),
       family: z.string(),
       aiEligible: z.boolean(),
-      status: z.enum(['active', 'pending']),
-      evidence: z.enum(['operator', 'observed', 'pending']),
+      status: z.enum(['active', 'pending', 'inactive']),
+      evidence: z.enum(['operator', 'observed', 'pending', 'inactive']),
       reviewedAt: z.string(),
       sources: z.array(z.object({ label: z.string(), url: z.string() })),
       control: z.object({ remote: z.boolean(), nginx: z.boolean() }),
@@ -173,7 +175,7 @@ export const crawlerAnalysisResponseSchema = z.object({
   findings: z.array(
     z.object({
       key: z.string(),
-      botId: z.enum(crawlerBotIds),
+      botId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
       type: z.enum([
         'access',
         'origin',

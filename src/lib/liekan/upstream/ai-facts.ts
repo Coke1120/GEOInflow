@@ -17,6 +17,9 @@ import { waitForLogStatisticsReads } from './ai-log-read-priority';
 import { channelFilterColumn } from './filter-extension';
 import { withinQuerySnapshot } from './query-snapshot';
 import { query } from './server';
+import { getPublishedCatalog } from '../crawlers/published';
+import { withPublishedRegistry } from './crawler-registry-context';
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 
 type Row = Record<string, any>;
 const ai = crawlerAiSql();
@@ -50,6 +53,9 @@ export async function buildAiFactsContext(input: {
   if (!parsed.success) throw new AiError('invalid_request', 'AI 请求参数无效');
   normalizeAiRange(parsed.data, new Date());
   checkSignal(input.signal);
+  const catalog = getPublishedCatalog();
+  if (!catalog) return withPublishedRegistry(() => buildAiFactsContext(input));
+  const catalogVersion = catalog.version;
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new AiError('database_unavailable', '数据库尚未配置', 503);
   const schema = new URL(databaseUrl).searchParams.get('schema') || 'public';
@@ -204,7 +210,7 @@ export async function buildAiFactsContext(input: {
           const classifiedLogs = await q(`WITH input AS (
   SELECT ${period} AS period,
     bot AS name,vendor,e.crawler_id AS bot_id,bot_type,${ai} AS ai_eligible,
-    CASE WHEN verification IN ('verified_range','range_mismatch') THEN verification ELSE 'unverified' END AS verification,
+    CASE WHEN verification IN ('verified_range','verified_dns','verified_edge','range_mismatch') THEN verification ELSE 'unverified' END AS verification,
     status,CASE WHEN ${ai} OR status IN (403,404) OR status BETWEEN 500 AND 599 THEN split_part(split_part(path,'?',1),'#',1) END AS path
   ${logRange}
 ), bins AS MATERIALIZED (
@@ -514,6 +520,8 @@ export async function buildAiFactsContext(input: {
             timeZone: parsed.data.timezone,
             generatedAt: generatedAt.toISOString(),
             metricVersion: 'liekan-ai-facts-v1',
+            catalogVersion,
+            trafficPolicyVersion: TRAFFIC_POLICY_VERSION,
             promptVersion: 'liekan-ai-prompt-v1',
             coverage: 'unverified',
             sourceStates,
@@ -521,7 +529,7 @@ export async function buildAiFactsContext(input: {
             metrics: [
               ...(['pageviews', 'visitors', 'visits'] as const).map(key => ({
                 key,
-                label: { pageviews: '人类浏览量', visitors: '人类访客', visits: '人类访问' }[key],
+                label: { pageviews: '浏览量', visitors: '访客', visits: '访问次数' }[key],
                 value: sources.browser ? current[key] : null,
                 state: humanState,
                 changePercent: aiChangePercent(current[key], previous[key]),
@@ -584,6 +592,8 @@ export function unsupportedAiFactsContext(
     timeZone: input.timezone,
     generatedAt: asOf.toISOString(),
     metricVersion: 'liekan-ai-facts-v1',
+    catalogVersion: getPublishedCatalog()?.version,
+    trafficPolicyVersion: TRAFFIC_POLICY_VERSION,
     promptVersion: 'liekan-ai-prompt-v1',
     coverage: 'unverified',
     sourceStates: {
@@ -597,9 +607,9 @@ export function unsupportedAiFactsContext(
     metrics: keys.map(key => ({
       key,
       label: {
-        pageviews: '人类浏览量',
-        visitors: '人类访客',
-        visits: '人类访问',
+        pageviews: '浏览量',
+        visitors: '访客',
+        visits: '访问次数',
         aiRequests: 'AI 爬虫请求',
         aiReferrals: 'AI 引荐访问',
       }[key],

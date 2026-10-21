@@ -1,3 +1,6 @@
+import { withPublishedRegistry } from '../upstream/crawler-registry-context';
+import { getPublishedCatalog } from './published';
+import { TRAFFIC_POLICY_VERSION } from '../upstream/traffic-query';
 import { evidenceCache } from '../upstream/evidence-cache';
 import { cancellableEvidence } from '../upstream/query-cancellation';
 import { createHash } from 'node:crypto';
@@ -38,9 +41,7 @@ export function parseEvidenceQuery(input: unknown, reconciliation = false, now =
     'reportResource' in p &&
     p.reportResource &&
     (p.sourceId ||
-      p.botId ||
-      p.botName ||
-      p.botType ||
+      (p.reportResource !== 'ai/pages' && (p.botId || p.botName || p.botType)) ||
       p.path ||
       p.recognitionGroup ||
       p.responseGroup ||
@@ -164,6 +165,8 @@ export async function evidenceInputs(
       );
   const baseline = {
     catalog: contentHash(catalog),
+    registryVersion: getPublishedCatalog()?.version ?? null,
+    populationVersion: TRAFFIC_POLICY_VERSION,
     policy: policy || { mode: 'standard', revision: '0' },
     epoch: state?.epoch ?? 1,
     metricVersion: CRAWLER_METRIC_VERSION,
@@ -193,6 +196,8 @@ export function evidenceMeta(
     timeBoundary: 'half_open',
     readAt: new Date().toISOString(),
     catalogBaseline: input.baseline.catalog,
+    registryVersion: input.baseline.registryVersion,
+    populationVersion: input.baseline.populationVersion,
     policySnapshot: input.policySnapshot,
     policy: input.policy,
     dataRevision: input.dataRevision,
@@ -251,7 +256,7 @@ export async function readCrawlerEvidence(
     if (p.responseGroup) scope.sql += ` AND (${responses[p.responseGroup]})`;
     if (p.verificationGroup) {
       scope.args.push(p.verificationGroup);
-      scope.sql += ` AND CASE WHEN verification IN('verified_range','range_mismatch') THEN verification ELSE 'unverified' END=$${scope.args.length}`;
+      scope.sql += ` AND CASE WHEN verification IN('verified_range','verified_dns','verified_edge','range_mismatch') THEN verification ELSE 'unverified' END=$${scope.args.length}`;
     }
     const rows = await tx.query(
       `SELECT l.id,l.created_at AS time,l.path,l.method,l.status,l.bot,l.verification ${scope.sql} ORDER BY l.created_at DESC,l.id DESC LIMIT 100001`,
@@ -262,7 +267,7 @@ export async function readCrawlerEvidence(
   }
   const all = evidenceScope(websiteId, p, true, false);
   const rows = await tx.query<{ identity: string; response: string; requests: number }>(
-    `SELECT CASE WHEN verification IN('verified_range','range_mismatch') THEN verification ELSE 'unverified' END AS identity,
+    `SELECT CASE WHEN verification IN('verified_range','verified_dns','verified_edge','range_mismatch') THEN verification ELSE 'unverified' END AS identity,
     CASE WHEN status<200 THEN '1xx' WHEN status<300 THEN '2xx' WHEN status=304 THEN '304' WHEN status<400 THEN '3xx' WHEN status IN(401,403,429,451) THEN 'denied' WHEN status<500 THEN 'other4xx' ELSE '5xx' END AS response,count(*)::float8 AS requests
     ${all.sql} GROUP BY 1,2 ORDER BY 1,2`,
     ...all.args,
@@ -475,7 +480,7 @@ export type EvidenceReader = (
   p: any,
   input: EvidenceInputs,
 ) => Promise<any>;
-export async function queryEvidence<
+async function queryEvidenceSnapshot<
   P extends {
     startAt: number;
     endAt: number;
@@ -660,6 +665,8 @@ export async function queryEvidence<
             );
       const baseline = {
         catalog: contentHash(catalog),
+    registryVersion: getPublishedCatalog()?.version ?? null,
+    populationVersion: TRAFFIC_POLICY_VERSION,
         policy: policy || { mode: 'standard', revision: '0' },
         epoch: state?.epoch ?? 1,
         metricVersion: CRAWLER_METRIC_VERSION,
@@ -686,3 +693,7 @@ export async function queryEvidence<
     throw error;
   }
 }
+
+export const queryEvidence: typeof queryEvidenceSnapshot = (...args) => {
+  return withPublishedRegistry(() => queryEvidenceSnapshot(...args));
+};

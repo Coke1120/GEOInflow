@@ -1,4 +1,5 @@
 'use client';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { createContext, useContext, useEffect } from 'react';
 import type { LiekanLocale } from './locale';
 import {
@@ -36,6 +37,6 @@ export function useLiekanI18n() {
 export function useLiekanPageTitle(title: string) {
   const { locale, system } = useLiekanI18n();
   useEffect(() => {
-    document.title = `${system(title)} | Liekan`;
+    document.title = `${system(title)} | ${liekanProduct.name}`;
   }, [title, locale]);
 }

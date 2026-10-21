@@ -1,3 +1,5 @@
+import { getPublishedCatalog } from './crawlers/published';
+import { withPublishedRegistry } from './upstream/crawler-registry-context';
 import { parseLogInputWithGeography, persistLogGeography } from './upstream/log-geography';
 import { invalidateWebsiteAnalytics } from './upstream/query-cache';
 import { bumpAnalyticsRevision } from './upstream/analytics-revision';
@@ -48,7 +50,7 @@ function settingsFromRow(row?: {
     rules: resolved.rules,
     crawlerRules: resolved.configuration,
     rulesRevision: Number(row?.rulesRevision ?? 0),
-    classificationVersion: crawlerClassificationVersion(resolved.rules),
+    classificationVersion: crawlerClassificationVersion(resolved.rules, resolved.configuration),
     isDemo: row?.isDemo ?? false,
     aiCrawlerEnabled: row?.aiCrawlerEnabled ?? true,
     logsConfigured: row?.logsConfigured ?? false,
@@ -169,7 +171,7 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
       rules: resolved.rules,
       crawlerRules: configuration,
       rulesRevision,
-      classificationVersion: crawlerClassificationVersion(resolved.rules),
+      classificationVersion: crawlerClassificationVersion(resolved.rules, configuration),
       aiCrawlerEnabled: has('aiCrawlerEnabled') ? body.aiCrawlerEnabled : current.aiCrawlerEnabled,
     };
     await tx.$executeRawUnsafe(
@@ -182,7 +184,7 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
       JSON.stringify(configuration),
       rulesRevision,
     );
-    await archiveCrawlerRules(tx, id, resolved.rules);
+    await archiveCrawlerRules(tx, id, resolved.rules, configuration);
     await tx.$executeRawUnsafe(
       'INSERT INTO liekan_log_state(website_id,data_revision) VALUES ($1::uuid,1) ON CONFLICT(website_id) DO UPDATE SET data_revision=liekan_log_state.data_revision+1,updated_at=now()',
       id,
@@ -194,9 +196,12 @@ export async function saveSettings(id: string, body: any, identity?: WriteIdenti
   return result;
 }
 export async function importLogs(id: string, domain: string, input: any, identity?: WriteIdentity) {
+  return withPublishedRegistry(() => importPinnedLogs(id, domain, input, identity));
+}
+async function importPinnedLogs(id: string, domain: string, input: any, identity?: WriteIdentity) {
   id = id.toLowerCase();
   const settings = await getSettings(id);
-  const classificationVersion = crawlerClassificationVersion(settings.rules);
+  const classificationVersion = settings.classificationVersion;
   let parsed: ReturnType<typeof parseLogInput>;
   try {
     parsed = await parseLogInputWithGeography(
@@ -224,7 +229,7 @@ export async function importLogs(id: string, domain: string, input: any, identit
     await lockWritableWebsite(tx, id, identity);
     if ((await getSettings(id, tx)).classificationVersion !== classificationVersion)
       throw new LiekanError('规则已被更新，请重新提交日志', 409);
-    await archiveCrawlerRules(tx, id, settings.rules);
+    await archiveCrawlerRules(tx, id, settings.rules, settings.crawlerRules);
     const old = await tx.$queryRawUnsafe(
       'SELECT id,accepted,rejected FROM liekan_import WHERE website_id=$1::uuid AND digest=$2',
       id,
@@ -286,6 +291,7 @@ export async function importLogs(id: string, domain: string, input: any, identit
           id: row.id,
           measurement: row.measurement,
           classificationVersion,
+          catalogVersion: getPublishedCatalog()?.version ?? null,
           crawlerId: crawlerIdentityId(row.userAgent, settings.rules),
         })),
       );

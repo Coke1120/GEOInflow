@@ -1,3 +1,4 @@
+import { crawlerCatalog } from '@/lib/liekan/crawlers/catalog';
 import userEvent from '@testing-library/user-event';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
@@ -79,7 +80,7 @@ describe('real data states and interactions', () => {
         <table>
           <thead>
             <tr>
-              <SortHeading label="人类 PV" className="" />
+              <SortHeading label="浏览 PV" className="" />
             </tr>
           </thead>
         </table>
@@ -87,8 +88,8 @@ describe('real data states and interactions', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: '7 天' }));
     expect(handlers.onFilter).toHaveBeenCalledWith('7 天');
-    fireEvent.click(screen.getByRole('button', { name: '人类 PV' }));
-    expect(handlers.onSort).toHaveBeenCalledWith('人类 PV');
+    fireEvent.click(screen.getByRole('button', { name: '浏览 PV' }));
+    expect(handlers.onSort).toHaveBeenCalledWith('浏览 PV');
   });
   it('provides the complete User-Agent on truncated log cells', () => {
     const data = report();
@@ -119,6 +120,7 @@ describe('real data states and interactions', () => {
     ];
     render(
       <ManagementDrawer
+        centralCatalog={{ identities: crawlerCatalog } as any}
         action="对比上周"
         websiteId="site"
         canManage
@@ -186,6 +188,7 @@ describe('real data states and interactions', () => {
     const user = userEvent.setup();
     render(
       <ManagementDrawer
+        centralCatalog={{ identities: crawlerCatalog } as any}
         action="sitemap 管理"
         websiteId="site"
         canManage
@@ -215,6 +218,7 @@ describe('real data states and interactions', () => {
     const onSaved = vi.fn();
     render(
       <ManagementDrawer
+        centralCatalog={{ identities: crawlerCatalog } as any}
         action="robots.txt 编辑"
         websiteId="site"
         canManage
@@ -266,6 +270,7 @@ describe('real data states and interactions', () => {
       api.put.mockResolvedValue(returned);
       render(
         <ManagementDrawer
+          centralCatalog={{ identities: crawlerCatalog } as any}
           action={action}
           websiteId="site"
           canManage
@@ -309,6 +314,7 @@ describe('real data states and interactions', () => {
     });
     render(
       <ManagementDrawer
+        centralCatalog={{ identities: crawlerCatalog } as any}
         action="日志查询"
         websiteId="site"
         canManage
@@ -342,6 +348,7 @@ describe('real data states and interactions', () => {
     const onSaved = vi.fn();
     render(
       <ManagementDrawer
+        centralCatalog={{ identities: crawlerCatalog } as any}
         action="日志查询"
         websiteId="site"
         canManage
@@ -385,6 +392,7 @@ describe('real data states and interactions', () => {
     api.put.mockResolvedValue({ accepted: 3, mode: 'upsert' });
     render(
       <ManagementDrawer
+        centralCatalog={{ identities: crawlerCatalog } as any}
         action="sitemap 管理"
         websiteId="site"
         canManage
@@ -418,6 +426,7 @@ it('keeps saved configuration locked until its report refresh completes', async 
   const onSaved = vi.fn(() => updating);
   render(
     <ManagementDrawer
+      centralCatalog={{ identities: crawlerCatalog } as any}
       action="robots.txt 编辑"
       websiteId="site"
       canManage
@@ -449,6 +458,7 @@ it('preserves write confirmation when the follow-up refresh fails', async () => 
   });
   render(
     <ManagementDrawer
+      centralCatalog={{ identities: crawlerCatalog } as any}
       action="robots.txt 编辑"
       websiteId="site"
       canManage

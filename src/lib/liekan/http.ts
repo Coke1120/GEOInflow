@@ -1,3 +1,6 @@
+import { withPublishedRegistry } from './upstream/crawler-registry-context';
+import { getPublishedCatalog } from './crawlers/published';
+import { z } from 'zod';
 import { LiekanError } from './upstream/server';
 import { withQueryCacheHeaders } from './upstream/cache-context';
 import { AnalyticsRestart, AnalyticsUnavailable } from './upstream/analytics-budget';
@@ -28,13 +31,19 @@ export async function readBody(request: Request, maxBytes = 11 * 1024 * 1024) {
 export async function api(
   work: () => Promise<unknown>,
   headers: () => Record<string, string> = () => ({}),
+  request?: Request,
 ) {
   return withQueryCacheHeaders(async () => {
   try {
-    const value = await work();
-    return Response.json(value, {
-      headers: { 'Cache-Control': 'private, no-store', ...headers() },
-    });
+    const requested = request?.headers.get('x-liekan-catalog-version');
+    if (requested && !z.uuid().safeParse(requested).success) throw new LiekanError('目录版本无效', 400);
+    const pinned = request && (request.method === 'GET' || /\/(?:exports|export)$/.test(new URL(request.url).pathname)) ? requested || undefined : undefined;
+    return await withPublishedRegistry(async () => {
+      const value = await work();
+      return Response.json(value, {
+        headers: { 'Cache-Control': 'private, no-store', 'X-Liekan-Catalog-Version': getPublishedCatalog()?.version || '', ...headers() },
+      });
+    }, pinned);
   } catch (error) {
     if (error instanceof AnalyticsRestart) throw error;
     const status = error instanceof LiekanError ? error.status : 500;
@@ -50,4 +59,8 @@ export async function api(
     );
   }
   });
+}
+
+export function requestApi(request: Request, work: () => Promise<unknown>, headers?: () => Record<string, string>) {
+  return api(work, headers, request);
 }

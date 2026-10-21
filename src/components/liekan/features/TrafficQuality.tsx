@@ -16,6 +16,7 @@ import {
   Body,
   Button,
   DialogActions,
+  Field,
   LiekanDialog,
   Notice,
   Panel,
@@ -26,9 +27,9 @@ import {
 } from './ui';
 
 const labels: Record<string, string> = {
-  browser: '浏览器相容',
+  browser: '浏览器特征',
   automated: '已知自动化',
-  suspected: '来源可疑',
+  suspected: '待核查',
   unknown: '证据未知',
   browserSource: '公共浏览器',
   authenticated_server: '授权服务端',
@@ -40,7 +41,7 @@ const labels: Record<string, string> = {
 const modes: [string, string][] = [
   ['standard', '标准：排除已知自动化'],
   ['strict', '严格：额外排除来源可疑'],
-  ['raw', '原始：查看全部事件'],
+  ['raw', '原始：查看全部浏览器事件'],
 ];
 function QualityClose({ disabled }: { disabled: boolean }) {
   const i18n = useLiekanI18n();
@@ -67,6 +68,8 @@ export function TrafficQuality({
   const [classification, setClassification] = useState(''),
     [source, setSource] = useState(''),
     [hostname, setHostname] = useState('');
+  const [pathDraft, setPathDraft] = useState('');
+  const [path, setPath] = useState('');
   const [cursors, setCursors] = useState<string[]>([]);
   const [draft, setDraft] = useState<(TrafficPolicy & { revision: string }) | null>(null);
   const [hosts, setHosts] = useState(''),
@@ -80,12 +83,13 @@ export function TrafficQuality({
     classification: classification || undefined,
     source: source || undefined,
     hostname: hostname || undefined,
+    path: path || undefined,
   };
   const audit = useData<TrafficAudit>(['traffic-quality', scope, cursors.at(-1)], signal =>
     c.api.get(endpoint, { ...scope, cursor: cursors.at(-1) }, signal),
   );
-  const risk = useData<BrowserRiskReport>(['browser-risk', scope], signal =>
-    c.api.get(`${endpoint}/risk`, scope, signal),
+  const risk = useData<BrowserRiskReport>(['browser-risk', range], signal =>
+    c.api.get(`${endpoint}/risk`, range, signal),
   );
   const data = audit.data;
   useEffect(() => {
@@ -96,10 +100,20 @@ export function TrafficQuality({
   }, [data?.policy, draft]);
   useEffect(() => {
     setPreview(null);
-  }, [draft, hosts, classification, source, hostname, range.startAt, range.endAt, range.timezone]);
+  }, [
+    draft,
+    hosts,
+    classification,
+    source,
+    hostname,
+    path,
+    range.startAt,
+    range.endAt,
+    range.timezone,
+  ]);
   useEffect(() => {
     setCursors([]);
-  }, [classification, source, hostname, range.startAt, range.endAt, range.timezone]);
+  }, [classification, source, hostname, path, range.startAt, range.endAt, range.timezone]);
   const date = (value: string | number) =>
     new Intl.DateTimeFormat('zh-CN', {
       timeZone: range.timezone,
@@ -142,6 +156,9 @@ export function TrafficQuality({
         {date(range.endAt)} · {range.timezone}
         {i18n.fragment('。本页读取随手动刷新更新。', true, false)}
       </p>
+      <p className="muted">
+        {i18n.text('路径和分类筛选作用于口径汇总及事件明细；采集诊断与行为观察覆盖全站。')}
+      </p>
       <details onToggle={event => setShowObservations(event.currentTarget.open)}>
         <summary>{i18n.text('观察证据')}</summary>
         {showObservations && (
@@ -178,6 +195,39 @@ export function TrafficQuality({
                   'UV 沿用 Umami 匿名标识规则，同一人的网络或浏览器变化可能产生多个标识。',
                 )}
               >
+                <Table
+                  columns={['质量分类', '浏览 PV', '访客 UV', '纳入 PV']}
+                  numeric={[1, 2, 3]}
+                  rows={['browser', 'automated', 'suspected', 'unknown'].map(classification => {
+                    const row = data.summary?.find(item => item.classification === classification);
+                    return [
+                      i18n.system(labels[classification]),
+                      data.summary ? (row?.pageviews ?? 0) : null,
+                      data.summary ? (row?.visitors ?? 0) : null,
+                      data.summary ? (row ? (row.included_pageviews ?? null) : 0) : null,
+                    ];
+                  })}
+                />
+                <Body>
+                  <p className="muted">
+                    {i18n.text(
+                      '浏览指标仅纳入来源明确的浏览器事件。授权服务端、兼容覆盖来源及来源缺失历史分别审计。已知自动化默认排除；浏览器特征仍可能含伪装自动化。各类 UV 请勿相加。',
+                    )}
+                  </p>
+                  <p className="muted">
+                    {i18n.fragment(
+                      '排除 UV 表示没有任何纳入浏览事件的匿名标识；不同分类的 UV 存在交集。历史缺失判定 PV：',
+                      false,
+                      true,
+                    )}
+                    {totals?.missingVerdictPV ?? i18n.text('未读取')}。
+                  </p>
+                  <p className="muted">
+                    {i18n.text(
+                      '日志“今日总请求”包括内容请求中的机器人、API、探测与失败请求。浏览 PV、UV 使用当前所选范围；各指标具有独立来源和单位。',
+                    )}
+                  </p>
+                </Body>
                 <Body>
                   <div className="form-grid">
                     <Select
@@ -220,6 +270,26 @@ export function TrafficQuality({
                       localizeLabels
                     />
                   </div>
+                  <form
+                    onSubmit={event => {
+                      event.preventDefault();
+                      setPath(pathDraft);
+                    }}
+                  >
+                    <Field
+                      label={i18n.text('页面路径（精确匹配）')}
+                      value={pathDraft}
+                      onChange={event => setPathDraft(event.target.value)}
+                      placeholder="/cases/"
+                      maxLength={2000}
+                      pattern="/.*"
+                      disabled={busy}
+                      help={i18n.text('留空查看全部页面；/cases 与 /cases/ 分别统计。')}
+                    />
+                    <Button type="submit" disabled={busy}>
+                      {i18n.text('应用路径')}
+                    </Button>
+                  </form>
                 </Body>
                 {totals && (
                   <Table
@@ -231,21 +301,6 @@ export function TrafficQuality({
                     ]}
                   />
                 )}
-                <Body>
-                  <p className="muted">
-                    {i18n.fragment(
-                      '排除 UV 表示没有任何纳入浏览事件的匿名标识；不同分类的 UV 存在交集。历史缺失判定 PV：',
-                      false,
-                      true,
-                    )}
-                    {totals?.missingVerdictPV ?? i18n.text('未读取')}。
-                  </p>
-                  <p className="muted">
-                    {i18n.text(
-                      '日志“今日总请求”包括内容请求中的机器人、API、探测与失败请求。浏览 PV、UV 使用当前所选范围；各指标具有独立来源和单位。',
-                    )}
-                  </p>
-                </Body>
               </Panel>
               <Panel
                 title={i18n.text('统计策略')}
@@ -278,7 +333,7 @@ export function TrafficQuality({
                         disabled={!canManage || busy}
                         onChange={e => setHosts(e.target.value)}
                         help={i18n.text(
-                          '每行一个精确主机名；留空仅审计。主机声明用于统计管理，原始模式保留完整回看。',
+                          '每行一个精确主机名；留空仅审计。原始模式查看浏览器来源，全部来源保留在原始审计。',
                         )}
                       />
                       <div className="form-actions">
@@ -466,7 +521,7 @@ export function TrafficQuality({
                           </p>
                           <p className="muted">
                             {i18n.text(
-                              '明细按当前筛选限定访问，特征值保留完整观察窗口。网络集中补发、自动刷新及共享匿名标识可能形成异常线索，需要结合明细核查。',
+                              '全站明细保留完整观察窗口。网络集中补发、自动刷新及共享匿名标识可能形成异常线索，需要结合明细核查。',
                             )}
                           </p>
                         </Body>

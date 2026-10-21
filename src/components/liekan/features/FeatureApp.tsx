@@ -1,4 +1,5 @@
 'use client';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { useLiekanPageTitle } from '@/lib/liekan/i18n/client';
 import { LanguageSelector } from '../LanguageSelector';
@@ -50,6 +51,9 @@ import { AnalyticsPages, analysisPages } from './AnalyticsPages';
 import { CorePages } from './CorePages';
 import { AiPages, aiPages } from './AiPages';
 import dynamic from 'next/dynamic';
+const CrawlerRegistryPage = dynamic(() =>
+  import('./CrawlerRegistryPage').then(module => module.CrawlerRegistryPage),
+);
 const HelpCenter = dynamic(() => import('./HelpCenter').then(module => module.HelpCenter));
 import { FeatureProvider, type WebsiteDeletedNotice } from './context';
 import { ExtendedPages, extendedPages } from './ExtendedPages';
@@ -60,6 +64,7 @@ import { Button, DialogActions, LiekanDialog, Field, Form, Icon, Notice, QuerySt
 import { WorkspacePages, workspacePages } from './WorkspacePages';
 
 export const coreFeaturePages = new Set([
+  'crawlers-manage',
   'help',
   'websites',
   'onboarding',
@@ -165,12 +170,14 @@ export function FeatureApp({
       ? route.teamId
       : undefined;
   const siteScope =
+    route.page === 'crawlers-manage' ||
     ['boards', 'board-view', 'board-editor', 'board-design'].includes(route.page) ||
     websiteRequired ||
     nav.query.scope === 'all'
       ? 'all'
       : 'personal';
   const needsSites =
+    route.page === 'crawlers-manage' ||
     websiteRequired ||
     [
       'websites',
@@ -376,7 +383,7 @@ export function FeatureApp({
       ? family.label
       : current.id && /-editor$/.test(current.page)
         ? (page?.title || '').replace(/^创建/, '编辑')
-        : page?.title || '猎看统计';
+        : page?.title || liekanProduct.name;
   const pageKey = `${siteId || current.teamId || user.id}:${current.page}:${current.id || ''}`;
   const invalidRange = datePage && range.endAt - range.startAt > 1096 * 86400000;
   const readOnlyGlobalPage = !setup && ['websites'].includes(current.page);
@@ -754,6 +761,7 @@ function FeaturePage({ page }: { page: string }) {
     );
   if (aiPages.has(page)) return <AiPages page={page} />;
   if (page === 'help') return <HelpCenter />;
+  if (page === 'crawlers-manage') return <CrawlerRegistryPage />;
   if (coreFeaturePages.has(page)) return <CorePages page={page} />;
   if (analysisPages.has(page)) return <AnalyticsPages page={page} />;
   if (extendedPages.has(page)) return <ExtendedPages page={page} />;

@@ -16,7 +16,7 @@ export {
 
 import type { CrawlerBotId, CrawlerPlatformId, CrawlerType } from '../crawlers/registry';
 
-export type CrawlerIdentity = 'declared_ua' | 'verified_range' | 'range_mismatch' | 'unverified';
+export type CrawlerIdentity = 'declared_ua' | 'verified_dns' | 'verified_edge' | 'verified_range' | 'range_mismatch' | 'unverified';
 export const CRAWLER_MAX_LOCAL_DRAFTS = 20;
 
 export function crawlerHasControlCharacters(value: string) {

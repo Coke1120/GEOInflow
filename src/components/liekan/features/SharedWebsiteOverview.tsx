@@ -234,7 +234,7 @@ export function SharedWebsiteOverview({
           <ReportChart
             id="d1"
             title={i18n.system(
-              crawlerEnabled ? i18n.text('AI 蜘蛛 vs 人类访问趋势') : i18n.text('访客浏览趋势'),
+              crawlerEnabled ? i18n.text('AI 蜘蛛与浏览访问趋势') : i18n.text('访客浏览趋势'),
             )}
             subtitle={i18n.system(
               `${trendPeriod} · ${crawlerEnabled ? i18n.text('浏览器 PV / 日志 AI 请求') : i18n.text('浏览器 PV')}`,
@@ -253,7 +253,7 @@ export function SharedWebsiteOverview({
             )}
             <ReportChart
               id="d3"
-              title={i18n.text('人类来源渠道')}
+              title={i18n.text('访客来源渠道')}
               subtitle={i18n.text('{v0} · 按会话', [period])}
               report={report}
             />

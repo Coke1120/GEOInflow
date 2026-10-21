@@ -1,10 +1,14 @@
 # 本地安装、体验与恢复
 
+产品显示名称为 GEOInflow，界面版本 v1.2 对应工程和镜像版本 1.2.0。`liekan` 命令、镜像仓库名、Compose 项目、数据卷与环境变量沿用原标识。升级已有实例时保留运行中的数据库大版本和私有配置，仅更新应用与后台处理服务。
+
 ## 一键部署
 
 安装并启动 Docker 与 Docker Compose 后，在项目根目录运行 `sh scripts/liekan-deploy.sh`。服务器无需安装 Node.js 或 pnpm，镜像内使用固定版本完成构建。首次运行生成权限为 0600 的 `.env`，分别创建独立随机数据库密码、应用密钥和 2FA 密钥；配置与密钥不会打印。随后构建镜像、启动服务并等待健康检查。应用默认绑定 `127.0.0.1:3002`，公网通过反向代理配置域名与 HTTPS。
 
 重复执行保留 `.env` 和已有数据库、账号与自定义密码。检测到既有数据库卷却没有 `.env` 时停止，要求恢复原配置，避免替换旧应用与 2FA 密钥。部署失败保留已生成配置供重试。构建依赖 Docker 镜像源与依赖下载源可达；脚本不会安装或调整宿主机的 Docker、反向代理与网络。
+
+升级时按当前 Compose 项目识别已有数据库与缓存容器，保留其容器、镜像、配置和数据卷。已停止的原容器会先启动并通过健康检查；依赖服务异常时停止应用更新。已有数据库卷且原容器缺失时，在构建前停止，需按原 PostgreSQL 大版本恢复容器。首次安装按 Compose 默认版本创建数据库，缺失的缓存单独创建。应用通过健康检查后更新后台处理服务。直接执行全栈 `docker compose up` 会绕过这些升级保护，请使用上述部署脚本。
 
 ## 地理数据自动准备
 
@@ -36,13 +40,14 @@ docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-de
 
 默认示例仅在显式运行初始化命令时创建。重启和升级保留现有网站与示例删除状态。
 
-构建自动准备地理库，也可优先使用已获授权的本地 City MMDB。首次安装先运行独立数据库并完成迁移和演示站接入，再将已审查代码提交。完整验收会生成带候选 SHA 的镜像，验收通过后给该镜像固定版本标签并启动体验服务：
+构建自动准备地理库，也可优先使用已获授权的本地 City MMDB。首次安装先运行独立数据库并完成迁移和演示站接入，再将已审查代码提交。完整验收会生成带候选 SHA 的镜像。以下升级示例要求原数据库与缓存容器正在运行且健康，仅更新应用与后台处理服务，并直接使用已验收镜像。首次安装或依赖服务需要恢复时使用上述部署脚本。
 
 ```sh
 pnpm liekan:verify
 liekan_version=$(node -p "require('./package.json').version")
 docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" "liekan:${liekan_version}"
-docker compose -f docker-compose.liekan.yml up -d --no-build
+docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 app
+docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 log-worker analytics-worker
 ```
 
 启动依次检查并应用 Umami 迁移、应用 Liekan 校验和迁移、更新 tracker 文件、启动服务器。首次安装的默认用户名为 `admin`，密码为 `liekan`。Liekan 的第 5 项迁移仅更新身份、名称、角色及密码摘要仍与上游初始管理员完全一致的有效账号，保留自定义密码、改名账号和已删除账号。迁移账本保证后续重启保留用户修改后的密码。已有账号继续使用其设置的密码。

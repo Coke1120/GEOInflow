@@ -113,6 +113,10 @@ describe.skipIf(!enabled)(
           index ? '' : 'chatgpt',
           index ? 'signup' : '',
         );
+      await q(
+        "INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status) SELECT event_id,website_id,'browser','browser','{}','fixture-browser','missing' FROM website_event WHERE website_id=$1::uuid ON CONFLICT DO NOTHING",
+        websiteId,
+      );
     });
     afterAll(async () => {
       if (!enabled) return;
@@ -295,7 +299,22 @@ describe.skipIf(!enabled)(
         "UPDATE liekan_log SET verification='verified_range' WHERE website_id=$1::uuid AND path='/important'",
         websiteId,
       );
+      expect(
+        await q(
+          `SELECT e.crawler_id AS "botId",l.verification,count(*)::int AS requests
+        FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id
+        WHERE l.website_id=$1::uuid AND l.path='/important' GROUP BY 1,2`,
+          websiteId,
+        ),
+      ).toEqual([{ botId: 'oai-searchbot', verification: 'verified_range', requests: 3 }]);
       await recomputeCrawlerRisks(websiteId, window.endAt + 15 * 60000);
+      const computed = await q(
+        `SELECT a.epoch,a.data_revision::text AS revision,a.quality->>'catalogVersion' AS "catalogVersion",r.version AS "currentCatalogVersion"
+        FROM liekan_crawler_analysis_state a CROSS JOIN liekan_crawler_registry_current r WHERE a.website_id=$1::uuid AND r.id=1`,
+        websiteId,
+      );
+      expect(computed).toHaveLength(1);
+      expect(computed[0].catalogVersion).toBe(computed[0].currentCatalogVersion);
       const report = await crawlerAnalysis(actor, websiteId, range);
       const risk = report.findings.find(
         row => row.botId === 'oai-searchbot' && row.type === 'expected_access',

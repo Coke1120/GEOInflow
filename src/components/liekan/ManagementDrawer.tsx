@@ -3,7 +3,10 @@ import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
 import { fromZonedTime } from 'date-fns-tz';
 import { useEffect, useId, useRef, useState } from 'react';
-import { useApi } from '@/lib/liekan/upstream/client';
+import { useApi, useNavigation } from '@/lib/liekan/upstream/client';
+import type { CatalogPayload } from '@/lib/liekan/contracts/crawler-registry';
+import { catalogBotRules } from './features/crawlerRegistryUi';
+import { featureHref } from './features/routes';
 import { getFeaturePreferences } from '@/lib/liekan/upstream/features-client';
 import { managementLabels, parseEditableAllowlist } from '@/lib/liekan/contracts/management';
 import { CrawlerCandidatesPanel } from './features/CrawlerCandidatesPanel';
@@ -34,8 +37,23 @@ type LogImportResult = {
   duplicate: boolean;
   errors: ImportError[];
 };
-export function ManagementDrawer({
+export function ManagementDrawer(props: Parameters<typeof ManagementDrawerContent>[0]) {
+  return ['特征库管理', '解析规则'].includes(props.action) && !props.centralCatalog ? (
+    <CrawlerRegistryRedirect websiteId={props.websiteId} />
+  ) : (
+    <ManagementDrawerContent {...props} />
+  );
+}
+function CrawlerRegistryRedirect({ websiteId }: { websiteId: string }) {
+  const nav = useNavigation();
+  useEffect(() => {
+    nav.router.replace(featureHref('crawlers-manage', { site: websiteId }));
+  }, [websiteId]);
+  return null;
+}
+function ManagementDrawerContent({
   action,
+  centralCatalog,
   websiteId,
   websiteName,
   websiteDomain,
@@ -53,6 +71,7 @@ export function ManagementDrawer({
   comparison,
 }: {
   action: string;
+  centralCatalog?: CatalogPayload;
   websiteId: string;
   websiteName?: string;
   websiteDomain?: string;
@@ -229,7 +248,12 @@ export function ManagementDrawer({
             allowlist: parseEditableAllowlist(content),
           };
         else {
-          const crawlerRules = parseRuleEditorDraft(content);
+          const crawlerRules = parseRuleEditorDraft(
+            content,
+            centralCatalog?.identities
+              .filter(item => item.kind !== 'robots_purpose')
+              .map(item => item.id),
+          );
           patch = {
             crawlerRules,
             expectedRulesRevision: settings.rulesRevision ?? 0,
@@ -625,6 +649,10 @@ export function ManagementDrawer({
                   <>
                     <CrawlerRulesEditor
                       content={content}
+                      officialRules={centralCatalog ? catalogBotRules(centralCatalog) : undefined}
+                      knownIds={centralCatalog?.identities
+                        .filter(item => item.kind !== 'robots_purpose')
+                        .map(item => item.id)}
                       onConversionConfirmed={() => setConversionConfirmed(true)}
                       disabled={!canManage || busy || !settings}
                       onChange={value => {

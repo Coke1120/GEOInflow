@@ -358,6 +358,7 @@ export function CrawlerDialog({
                 options={[
                   ['all', i18n.text('全部声明')],
                   ['verified_range', i18n.text('官方范围匹配')],
+                  ['verified_identity', i18n.text('已核验身份')],
                 ]}
               />
               <TrafficEvidencePanel
@@ -449,10 +450,10 @@ export function CrawlerDialog({
                       [i18n.text('响应发送字节'), num(sum('bytes'))],
                       [
                         i18n.text('身份核验'),
-                        i18n.text('官方范围匹配 {v0} · 未匹配 {v1} · 未核验 {v2}', [
+                        i18n.text('范围 {v0} · DNS {v3} · 边缘 {v4} · 未匹配 {v1} · 未核验 {v2}', [
                           num(sum('verifiedRange')),
                           num(sum('rangeMismatch')),
-                          num(sum('unverified')),
+                          num(sum('unverified')), num(sum('verifiedDns')), num(sum('verifiedEdge')),
                         ]),
                       ],
                     ]}

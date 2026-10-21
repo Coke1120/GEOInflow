@@ -100,7 +100,7 @@ describe('feature navigation scope', () => {
     expect(await screen.findByRole('heading', { name: '使用指南与参考资料' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '帮助中心', level: 1 })).toBeInTheDocument();
     expect(mocks.sites).not.toHaveBeenCalled();
-    expect(mocks.get).not.toHaveBeenCalled();
+    expect(mocks.get.mock.calls.every(([path]) => path === '/liekan/crawler-registry')).toBe(true);
     expect(screen.queryByRole('button', { name: /所属空间/ })).not.toBeInTheDocument();
   });
 

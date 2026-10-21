@@ -26,6 +26,7 @@ vi.mock('../upstream/server', () => ({
     work({ $executeRawUnsafe: vi.fn(async () => 1), $queryRawUnsafe: vi.fn(async () => []) }),
   ),
 }));
+vi.mock('../upstream/crawler-registry-context', () => ({ initializeCrawlerRegistry: vi.fn(), withPublishedRegistry: (work: () => unknown) => work() }));
 vi.mock('../geography/update', () => ({ maintainGeography: vi.fn() }));
 vi.mock('../upstream/browser-risk', () => ({ processBrowserRisk: vi.fn() }));
 vi.mock('../log-ingestion/maintenance', () => ({ reconcilePermissions: vi.fn() }));

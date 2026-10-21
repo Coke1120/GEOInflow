@@ -29,7 +29,13 @@ const botRow = z.object({
   botId: z.string().max(80).nullable().optional(),
   vendor: text,
   class: z.enum(['训练', '搜索', '用户触发', '传统搜索', '其他']),
-  verification: z.enum(['verified_range', 'range_mismatch', 'unverified']),
+  verification: z.enum([
+    'verified_range',
+    'verified_dns',
+    'verified_edge',
+    'range_mismatch',
+    'unverified',
+  ]),
   requests: count,
   previousRequests: count,
   changePercent: ratio,
@@ -169,6 +175,8 @@ export const aiFactsContextSchema = z.object({
   timeZone: z.string().max(100),
   generatedAt: timestamp,
   metricVersion: z.literal('liekan-ai-facts-v1'),
+  catalogVersion: aiUuidSchema.optional(),
+  trafficPolicyVersion: z.string().min(1).max(128).optional(),
   promptVersion: z.literal('liekan-ai-prompt-v1'),
   coverage: z.literal('unverified'),
   rangeNotes: z.object({

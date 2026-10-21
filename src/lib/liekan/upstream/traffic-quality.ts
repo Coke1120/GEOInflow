@@ -1,3 +1,4 @@
+import { getPublishedCatalog } from '../crawlers/published';
 import { createHash } from 'node:crypto';
 import { diagnosticCoverage } from '../traffic-quality/diagnostics';
 import {
@@ -9,6 +10,7 @@ import {
 import { normalizeCollectionHostname, COLLECTION_RULE_VERSION } from './collection-quality';
 import { bumpAnalyticsRevision } from './analytics-revision';
 import { invalidateWebsiteAnalytics } from './query-cache';
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { LiekanError, lockWritableWebsite, transaction, type WriteIdentity } from './server';
 
 export function requireQualitySupport() {
@@ -25,6 +27,7 @@ export async function getTrafficPolicy(websiteId: string, tx?: any) {
       allowedHostnames: row?.allowed_hostnames || [],
       revision: row?.revision || '0',
       ruleVersion: COLLECTION_RULE_VERSION,
+      populationVersion: TRAFFIC_POLICY_VERSION,
     };
   };
   return tx ? load(tx) : transaction(load);
@@ -137,7 +140,8 @@ export function qualityReadTransaction<T>(work: (tx: any) => Promise<T>): Promis
 }
 const scope = `e.website_id=$1::uuid AND e.created_at BETWEEN $2 AND $3
  AND ($4::text IS NULL OR COALESCE(q.classification,'unknown')=$4)
- AND ($5::text IS NULL OR q.source=$5) AND ($6::text IS NULL OR e.hostname=$6 OR q.hostname=$6)`;
+ AND ($5::text IS NULL OR q.source=$5) AND ($6::text IS NULL OR e.hostname=$6 OR q.hostname=$6)
+ AND ($7::text IS NULL OR e.url_path=$7)`;
 const evidenceJoins = `FROM website_event e LEFT JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id`;
 const joins = `${evidenceJoins}
  LEFT JOIN liekan_effective_website_event effective ON effective.event_id=e.event_id AND effective.website_id=e.website_id
@@ -149,6 +153,7 @@ const bindings = (id: string, range: Range) => [
   range.classification || null,
   range.source || null,
   range.hostname || null,
+  range.path || null,
 ];
 export async function qualityTotals(
   tx: any,
@@ -163,10 +168,10 @@ export async function qualityTotals(
     // The preview reads normalized historical hosts without changing saved policy or evidence.
     const hosts = proposed.allowedHostnames.length ? await hostRepresentations(tx, websiteId) : [];
     params.push(proposed.mode, proposed.allowedHostnames as any, JSON.stringify(hosts));
-    extra = `LEFT JOIN jsonb_to_recordset($9::jsonb) AS h(reported text,hostname text) ON h.reported=e.hostname`;
-    included = `($7='raw' OR (COALESCE(q.classification,'unknown')<>'automated'
-      AND ($7<>'strict' OR COALESCE(q.classification,'unknown')<>'suspected')
-      AND (cardinality($8::text[])=0 OR COALESCE(q.hostname,h.hostname)=ANY($8::text[]))))`;
+    extra = `LEFT JOIN jsonb_to_recordset($10::jsonb) AS h(reported text,hostname text) ON h.reported=e.hostname`;
+    included = `((q.source='browser' OR e.event_type IN (3,4)) AND ($8='raw' OR (COALESCE(q.classification,'unknown')<>'automated'
+      AND ($8<>'strict' OR COALESCE(q.classification,'unknown')<>'suspected')
+      AND (cardinality($9::text[])=0 OR COALESCE(q.hostname,h.hostname)=ANY($9::text[])))))`;
   }
   const [result] = await tx.$queryRawUnsafe(
     `SELECT COUNT(*)::float8 AS "rawPV",COUNT(*) FILTER(WHERE ${included})::float8 AS "includedPV",
@@ -216,7 +221,7 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
     const policy = await getTrafficPolicy(websiteId, tx);
     const values = bindings(websiteId, range);
     const signature = createHash('sha256')
-      .update(JSON.stringify([values, policy.revision]))
+      .update(JSON.stringify([values, policy.revision, TRAFFIC_POLICY_VERSION, getPublishedCatalog()?.version]))
       .digest('hex');
     let cursor: { time: string; id: string; signature: string } | undefined;
     if (range.cursor) {
@@ -245,7 +250,8 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
     );
     const summary = await tx.$queryRawUnsafe(
       `SELECT COALESCE(q.classification,'unknown') AS classification,COUNT(*)::float8 AS events,
-       COUNT(DISTINCT e.session_id)::float8 AS visitors,COUNT(*) FILTER(WHERE e.event_type=1)::float8 AS pageviews,
+       COUNT(DISTINCT e.session_id) FILTER(WHERE e.event_type=1)::float8 AS visitors,COUNT(*) FILTER(WHERE e.event_type=1)::float8 AS pageviews,
+       COUNT(*) FILTER(WHERE e.event_type=1 AND effective.event_id IS NOT NULL)::float8 AS included_pageviews,
        COUNT(*) FILTER(WHERE q.event_id IS NULL)::float8 AS missing_verdict,COUNT(*) FILTER(WHERE effective.event_id IS NOT NULL)::float8 AS included
        ${joins} WHERE ${scope} GROUP BY 1 ORDER BY 1`,
       ...values,
@@ -254,8 +260,8 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
       `SELECT e.event_id::text AS "eventId",e.created_at AS "createdAt",to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "cursorTime",
        e.url_path AS path,e.hostname,q.hostname AS "normalizedHostname",COALESCE(q.classification,'unknown') AS classification,q.source,COALESCE(q.reasons,'{}') AS reasons,
        q.rule_version AS "ruleVersion",q.range_status AS "rangeStatus",q.range_version AS "rangeVersion",(effective.event_id IS NOT NULL) AS included
-       ${joins} WHERE ${scope} AND ($7::timestamptz IS NULL OR (e.created_at,e.event_id)<($7::timestamptz,$8::uuid))
-       ORDER BY e.created_at DESC,e.event_id DESC LIMIT 101 OFFSET $9`,
+       ${joins} WHERE ${scope} AND ($8::timestamptz IS NULL OR (e.created_at,e.event_id)<($8::timestamptz,$9::uuid))
+       ORDER BY e.created_at DESC,e.event_id DESC LIMIT 101 OFFSET $10`,
       ...values,
       cursor?.time || null,
       cursor?.id || null,

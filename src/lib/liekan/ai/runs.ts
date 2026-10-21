@@ -14,6 +14,9 @@ import { loadAiConnection, requireAiEnabled, type AiConnectionRow } from './conn
 import { loadAiConversation } from './conversations';
 import { aiTransaction, type AiTx } from '../upstream/ai-db';
 import { aiId, aiSpaceFromRow, authorizeAiSpace, type AiActor } from '../upstream/ai-access';
+import { getPublishedCatalog } from '../crawlers/published';
+import { withPublishedRegistry } from '../upstream/crawler-registry-context';
+import { TRAFFIC_POLICY_VERSION } from '../upstream/traffic-query';
 export const AI_TERMINAL = new Set<AiRunState>([
   'completed',
   'failed',
@@ -156,6 +159,9 @@ export async function expireAiRuns(tx: AiTx) {
 }
 export async function acceptAiRun(actor: AiActor, input: AiRunInput): Promise<AiRunHandle> {
   requireAiEnabled();
+  const catalog = getPublishedCatalog();
+  if (input.operation === 'analysis' && !catalog)
+    return withPublishedRegistry(() => acceptAiRun(actor, input));
   if (input.localOnly && (input.operation !== 'analysis' || input.connectionId))
     throw new AiError('invalid_request', '本地指引不能同时选择收费模型');
   input = {
@@ -274,15 +280,23 @@ export async function acceptAiRun(actor: AiActor, input: AiRunInput): Promise<Ai
     }
     const id = randomUUID(),
       token = randomUUID();
-    const snapshot = connection
-      ? {
-          provider: connection.provider,
-          protocol: connection.protocol,
-          baseUrl: connection.base_url,
-          model: connection.model,
-          name: connection.name,
-        }
-      : {};
+    const snapshot = {
+      ...(connection
+        ? {
+            provider: connection.provider,
+            protocol: connection.protocol,
+            baseUrl: connection.base_url,
+            model: connection.model,
+            name: connection.name,
+          }
+        : {}),
+      ...(input.operation === 'analysis' && catalog
+        ? {
+            catalogVersion: catalog.version,
+            trafficPolicyVersion: TRAFFIC_POLICY_VERSION,
+          }
+        : {}),
+    };
     const [row] = await tx.query<AiRunRow>(
       "INSERT INTO liekan_ai_run(id,creator_id,identity_id,owner_user_id,team_id,client_request_id,request_hash,operation,connection_id,connection_snapshot,config_version,test_sequence,website_id,website_epoch,conversation_id,lease_token,lease_until) VALUES($1::uuid,$2::uuid,$2::uuid,$3::uuid,$4::uuid,$5::uuid,$6,$7,$8::uuid,$9::jsonb,$10,$11,$12::uuid,$13::uuid,$14::uuid,$15::uuid,now()+interval '10 seconds') RETURNING *",
       id,
@@ -449,6 +463,13 @@ export async function saveAiContext(actor: AiActor, handle: AiRunHandle, context
       context.space.id !== aiSpaceFromRow(row).id
     )
       throw new AiError('invalidated', '分析依据与当前网站不匹配', 409);
+    const snapshot = row.connection_snapshot;
+    if (
+      (snapshot?.catalogVersion && snapshot.catalogVersion !== context.catalogVersion) ||
+      (snapshot?.trafficPolicyVersion &&
+        snapshot.trafficPolicyVersion !== context.trafficPolicyVersion)
+    )
+      throw new AiError('invalidated', '分析依据与已受理的目录或统计策略版本不匹配', 409);
     if (!row.conversation_id) throw new AiError('invalidated', '对话已清理', 409);
     await tx.execute(
       'INSERT INTO liekan_ai_context(id,conversation_id,website_epoch,facts,checksum) VALUES($1::uuid,$2::uuid,$3::uuid,$4::jsonb,$5)',

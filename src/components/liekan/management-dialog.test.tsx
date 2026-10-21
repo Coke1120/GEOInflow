@@ -1,3 +1,4 @@
+import { crawlerCatalog } from '@/lib/liekan/crawlers/catalog';
 import { useState } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -70,6 +71,7 @@ function Mount({
   return (
     open && (
       <ManagementDrawer
+        centralCatalog={{ identities: crawlerCatalog } as any}
         action={action}
         websiteId="site-a"
         websiteName="演示网站"

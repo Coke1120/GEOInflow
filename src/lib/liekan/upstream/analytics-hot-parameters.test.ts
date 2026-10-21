@@ -1,9 +1,15 @@
 import { describe, expect, test } from 'vitest';
-import { analyticsRefreshJobSchema, parseAnalyticsHotParameters } from './analytics-hot-parameters';
+import { analyticsHotCatalogVersion, analyticsRefreshJobSchema, parseAnalyticsHotParameters } from './analytics-hot-parameters';
 
 const range = { startAt: 1727740800000, endAt: 1727827199999, timezone: 'UTC' };
 
 describe('normalized preheating parameters', () => {
+  test('restores the accepted catalog from the stored strong version and handles legacy jobs', () => {
+    const version = '11111111-1111-4111-8111-111111111111';
+    expect(analyticsHotCatalogVersion(JSON.stringify(['policy-v1', version, [], [], []]))).toBe(version);
+    for (const value of ['v1', '[]', JSON.stringify(['policy-v1', 'bundled', [], [], []]), JSON.stringify([version])])
+      expect(analyticsHotCatalogVersion(value)).toBeUndefined();
+  });
   test('accepts parsed ordered breakdown fields and funnel steps with their window', () => {
     const fields = ['country', 'browser'];
     expect(parseAnalyticsHotParameters('native:breakdown', { ...range, fields })).toMatchObject({

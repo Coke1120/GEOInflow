@@ -1,3 +1,5 @@
+import { verifyDnsBatch } from '../crawlers/request-verification';
+import type { AutomaticRecord } from '../log-ingestion/protocol';
 import { providerText } from '../geography/evidence';
 import { getGeographyEvidence } from '@/lib/detect';
 import { normalizeIp } from '@/lib/ip';
@@ -49,7 +51,7 @@ export async function parseLogInputWithGeography(...args: Parameters<typeof pars
 export async function normalizeAutomaticWithGeography(
   ...args: Parameters<typeof normalizeAutomatic>
 ) {
-  const observed: { ip: string; record: LogRecord }[] = [];
+  const observed: { ip: string; record: AutomaticRecord }[] = [];
   const parsed = normalizeAutomatic(
     args[0],
     args[1],
@@ -59,8 +61,10 @@ export async function normalizeAutomaticWithGeography(
     args[5],
     args[6],
     (ip, record) => observed.push({ ip, record }),
+    args[8],
   );
   await locateObserved(observed);
+  await verifyDnsBatch(observed);
   return parsed;
 }
 export async function persistLogGeography(tx: any, websiteId: string, records: LogRecord[]) {

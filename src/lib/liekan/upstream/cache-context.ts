@@ -1,3 +1,6 @@
+import { withPublishedRegistry } from './crawler-registry-context';
+import { getPublishedCatalog } from '../crawlers/published';
+import { z } from 'zod';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 import type { CachedResult } from './query-cache';
@@ -100,7 +103,17 @@ export function analyticsWorkerContext<T>(
     work,
   );
 }
-export async function withQueryCacheHeaders(work: () => Promise<Response>) {
+export async function withQueryCacheHeaders(work: () => Promise<Response>, request?: Request): Promise<Response> {
+  if (request && !process.env.CLICKHOUSE_URL) {
+    const version = request.headers.get('x-liekan-catalog-version');
+    if (version && !z.uuid().safeParse(version).success)
+      return Response.json({ error: { message: '目录版本无效', status: 400 } }, { status: 400 });
+    return withPublishedRegistry(async () => {
+      const response = await withQueryCacheHeaders(work);
+      response.headers.set('X-Liekan-Catalog-Version', getPublishedCatalog()?.version || '');
+      return response;
+    }, version || undefined);
+  }
   if (contexts.getStore() && !contexts.getStore().bypass) return work();
   const context: CacheContext = {
     results: [],

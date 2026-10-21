@@ -1,3 +1,29 @@
+import { getPublishedCatalog } from '../crawlers/published';
+import coverage from '../../../../config/liekan/ai-platform-coverage.json' with { type: 'json' };
+export const getAiReferralRules = () => (getPublishedCatalog()?.payload.referrals ?? coverage.referrals)
+  .filter(rule => rule.enabled && rule.kind === 'ai');
+export function referralForHost(host: string) {
+  return getAiReferralRules().find(rule => host === rule.host || (rule.includeSubdomains && host.endsWith(`.${rule.host}`)));
+}
+export function referralPlatformName(rule: ReturnType<typeof getAiReferralRules>[number]) {
+  const payload = getPublishedCatalog()?.payload;
+  return (payload?.products ?? coverage.products).find(product => product.id === rule.productId)?.name ||
+    ({ openai: 'ChatGPT', anthropic: 'Claude', perplexity: 'Perplexity', bytedance: '豆包', google: 'Gemini', microsoft: 'Copilot', baidu: '文心一言', kimi: 'Kimi' }[rule.platformId]) ||
+    (payload?.platforms ?? coverage.platforms).find(platform => platform.id === rule.platformId)?.name || rule.platformId;
+}
+const traditionalPlatformHosts = { google: ['google.com','google.com.hk','google.cn'], microsoft: ['bing.com'], baidu: ['baidu.com'], sogou: ['sogou.com'], '360': ['so.com'], duckduckgo: ['duckduckgo.com'] };
+export function platformSupportsReferralRatio(id: string) {
+  return !Object.hasOwn(traditionalPlatformHosts, id) && getAiReferralRules().some(rule => rule.platformId === id);
+}
+export function platformForReferral(host: string) {
+  const ai = referralForHost(host);
+  if (ai) return { id: ai.platformId, ratio: platformSupportsReferralRatio(ai.platformId) };
+  const traditional = Object.entries(traditionalPlatformHosts).find(([, hosts]) => hosts.some(domain => host === domain || host.endsWith(`.${domain}`)));
+  return traditional ? { id: traditional[0], ratio: false } : undefined;
+}
+export function platformHasReferrals(id: string) {
+  return Object.hasOwn(traditionalPlatformHosts, id) || getAiReferralRules().some(rule => rule.platformId === id);
+}
 export type EntrySource = {
   utmSource?: string | null;
   utmMedium?: string | null;
@@ -46,7 +72,7 @@ export const nonSearchMedia = new Set([
 const domains = (host: string, values: string[]) =>
   values.some(domain => host === domain || host.endsWith(`.${domain}`));
 const domainChannel = (host: string): Channel =>
-  domains(host, Object.values(aiAliases))
+  referralForHost(host)
     ? 'AI 搜索引荐'
     : domains(host, Object.values(searchAliases))
       ? '传统搜索'
@@ -58,7 +84,7 @@ export function classifyEntrySource(entry: EntrySource): { source: string; chann
   const normalized = source.toLowerCase();
   // Only explicit aliases and approved domains identify a platform. Unknown UTM values stay visible.
   const canonical =
-    (Object.hasOwn(aiAliases, normalized) ? aiAliases[normalized] : '') ||
+    (getAiReferralRules().find(rule => rule.aliases.some(alias => alias.toLowerCase() === normalized))?.host || '') ||
     (Object.hasOwn(searchAliases, normalized) ? searchAliases[normalized] : '') ||
     source;
   if (source || medium)

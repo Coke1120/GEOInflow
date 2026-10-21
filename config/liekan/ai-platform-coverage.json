@@ -1,0 +1,2043 @@
+{
+  "platforms": [
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "operator": "DeepSeek",
+      "website": "https://www.deepseek.com",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://www.deepseek.com"
+      ]
+    },
+    {
+      "id": "alibaba",
+      "name": "阿里巴巴",
+      "operator": "阿里巴巴",
+      "website": "https://www.qianwen.com",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://www.qianwen.com"
+      ]
+    },
+    {
+      "id": "zhipu",
+      "name": "智谱",
+      "operator": "智谱",
+      "website": "https://www.zhipuai.cn/zh",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://www.zhipuai.cn/zh"
+      ]
+    },
+    {
+      "id": "iflytek",
+      "name": "科大讯飞",
+      "operator": "科大讯飞",
+      "website": "https://xinghuo.xfyun.cn",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://xinghuo.xfyun.cn"
+      ]
+    },
+    {
+      "id": "metaso",
+      "name": "秘塔",
+      "operator": "秘塔",
+      "website": "https://metaso.cn",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://metaso.cn"
+      ]
+    },
+    {
+      "id": "minimax",
+      "name": "MiniMax",
+      "operator": "MiniMax",
+      "website": "https://agent.minimax.io",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://agent.minimax.io"
+      ]
+    },
+    {
+      "id": "stepfun",
+      "name": "阶跃星辰",
+      "operator": "阶跃星辰",
+      "website": "https://chat.stepfun.com",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://chat.stepfun.com"
+      ]
+    },
+    {
+      "id": "skywork",
+      "name": "昆仑万维",
+      "operator": "昆仑万维",
+      "website": "https://www.tiangong.cn",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://www.tiangong.cn"
+      ]
+    },
+    {
+      "id": "sensetime",
+      "name": "商汤",
+      "operator": "商汤",
+      "website": "https://chat.sensetime.com",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://chat.sensetime.com"
+      ]
+    },
+    {
+      "id": "baichuan",
+      "name": "百川",
+      "operator": "百川",
+      "website": "https://www.baichuan-ai.com",
+      "region": "domestic",
+      "documentationUrls": [
+        "https://www.baichuan-ai.com"
+      ]
+    },
+    {
+      "id": "manus",
+      "name": "Manus",
+      "operator": "Manus",
+      "website": "https://manus.im",
+      "region": "global",
+      "documentationUrls": [
+        "https://manus.im"
+      ]
+    },
+    {
+      "id": "exa",
+      "name": "Exa",
+      "operator": "Exa",
+      "website": "https://exa.ai",
+      "region": "global",
+      "documentationUrls": [
+        "https://exa.ai"
+      ]
+    },
+    {
+      "id": "kagi",
+      "name": "Kagi",
+      "operator": "Kagi",
+      "website": "https://kagi.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://kagi.com"
+      ]
+    },
+    {
+      "id": "cohere",
+      "name": "Cohere",
+      "operator": "Cohere",
+      "website": "https://cohere.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://cohere.com"
+      ]
+    },
+    {
+      "id": "you",
+      "name": "You.com",
+      "operator": "You.com",
+      "website": "https://you.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://you.com"
+      ]
+    },
+    {
+      "id": "xai",
+      "name": "xAI",
+      "operator": "xAI",
+      "website": "https://x.ai",
+      "region": "global",
+      "documentationUrls": [
+        "https://x.ai"
+      ]
+    },
+    {
+      "id": "brave",
+      "name": "Brave",
+      "operator": "Brave",
+      "website": "https://brave.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://brave.com"
+      ]
+    },
+    {
+      "id": "parallel",
+      "name": "Parallel",
+      "operator": "Parallel",
+      "website": "https://parallel.ai",
+      "region": "global",
+      "documentationUrls": [
+        "https://parallel.ai"
+      ]
+    },
+    {
+      "id": "diffbot",
+      "name": "Diffbot",
+      "operator": "Diffbot",
+      "website": "https://www.diffbot.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.diffbot.com"
+      ]
+    },
+    {
+      "id": "tavily",
+      "name": "Tavily",
+      "operator": "Tavily",
+      "website": "https://www.tavily.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.tavily.com"
+      ]
+    },
+    {
+      "id": "firecrawl",
+      "name": "Firecrawl",
+      "operator": "Firecrawl",
+      "website": "https://www.firecrawl.dev",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.firecrawl.dev"
+      ]
+    },
+    {
+      "id": "jina",
+      "name": "Jina",
+      "operator": "Jina",
+      "website": "https://jina.ai",
+      "region": "global",
+      "documentationUrls": [
+        "https://jina.ai"
+      ]
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "operator": "Cursor",
+      "website": "https://cursor.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://cursor.com"
+      ]
+    },
+    {
+      "id": "windsurf",
+      "name": "Windsurf",
+      "operator": "Windsurf",
+      "website": "https://windsurf.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://windsurf.com"
+      ]
+    },
+    {
+      "id": "cognition",
+      "name": "Cognition",
+      "operator": "Cognition",
+      "website": "https://cognition.ai",
+      "region": "global",
+      "documentationUrls": [
+        "https://cognition.ai"
+      ]
+    },
+    {
+      "id": "replit",
+      "name": "Replit",
+      "operator": "Replit",
+      "website": "https://replit.com",
+      "region": "global",
+      "documentationUrls": [
+        "https://replit.com"
+      ]
+    },
+    {
+      "id": "notion",
+      "name": "Notion",
+      "operator": "Notion",
+      "website": "https://www.notion.so",
+      "region": "global",
+      "documentationUrls": [
+        "https://www.notion.so"
+      ]
+    }
+  ],
+  "products": [
+    {
+      "id": "kimi",
+      "platformId": "kimi",
+      "name": "Kimi",
+      "website": "https://www.kimi.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://www.kimi.ai/policies/kimi-crawlers"
+      ],
+      "aliases": [],
+      "notes": "官方身份与产品关系已有文档依据；具体请求的身份核验结果单独记录。",
+      "identityIds": [
+        "kimibot",
+        "kimi-searchbot",
+        "kimi-user"
+      ],
+      "supportStatus": "confirmed",
+      "tags": []
+    },
+    {
+      "id": "hunyuan",
+      "platformId": "tencent",
+      "name": "腾讯混元",
+      "website": "https://hy.tencent.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://hy.tencent.com/polices/hy-crawlers"
+      ],
+      "aliases": [],
+      "notes": "官方身份与产品关系已有文档依据；具体请求的身份核验结果单独记录。",
+      "identityIds": [
+        "hyspider"
+      ],
+      "supportStatus": "confirmed",
+      "tags": []
+    },
+    {
+      "id": "deepseek-chat",
+      "platformId": "deepseek",
+      "name": "DeepSeek 助手",
+      "website": "https://chat.deepseek.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://chat.deepseek.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "deepseek-search",
+      "platformId": "deepseek",
+      "name": "DeepSeek Search / Fetch",
+      "website": "https://api-docs.deepseek.com/zh-cn/guides/search/",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://api-docs.deepseek.com/zh-cn/guides/search/"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "doubao",
+      "platformId": "bytedance",
+      "name": "豆包",
+      "website": "https://www.doubao.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://www.doubao.com/about"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "doubao-work",
+      "platformId": "bytedance",
+      "name": "豆包工作",
+      "website": "https://www.doubao.com/work",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.doubao.com/work"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "doubao-aily",
+      "platformId": "bytedance",
+      "name": "豆包工作伙伴",
+      "website": "https://aily.feishu.cn",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://aily.feishu.cn/hc/1u7kleqg_3d5z9ttt"
+      ],
+      "aliases": [
+        "飞书 aily",
+        "aily"
+      ],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "volc-search",
+      "platformId": "bytedance",
+      "name": "豆包搜索 / 火山联网搜索",
+      "website": "https://docs.volcengine.com/docs/Networkedsearch?lang=zh",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://docs.volcengine.com/docs/Networkedsearch?lang=zh"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "coze",
+      "platformId": "bytedance",
+      "name": "扣子",
+      "website": "https://www.coze.cn",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://docs.coze.cn/"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "coze-code",
+      "platformId": "bytedance",
+      "name": "扣子编程",
+      "website": "https://code.coze.cn",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://docs.coze.cn/cozespace_coze_app_faq"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "trae",
+      "platformId": "bytedance",
+      "name": "TRAE",
+      "website": "https://www.trae.cn",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.trae.cn"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "trae-solo",
+      "platformId": "bytedance",
+      "name": "TRAE SOLO",
+      "website": "https://www.trae.cn",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.trae.cn"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "qwen",
+      "platformId": "alibaba",
+      "name": "千问 / Qwen",
+      "website": "https://www.qianwen.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://help.aliyun.com/zh/model-studio/web-search",
+        "https://chat.qwen.ai"
+      ],
+      "aliases": [
+        "千问",
+        "Qwen",
+        "通义千问"
+      ],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "quark",
+      "platformId": "alibaba",
+      "name": "夸克 AI",
+      "website": "https://b.quark.cn/apps/quark_ai_video/routes/home",
+      "form": "general",
+      "documentationUrls": [
+        "https://b.quark.cn/apps/quark_ai_video/routes/home"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "dingtalk-ai",
+      "platformId": "alibaba",
+      "name": "钉钉 AI",
+      "website": "https://www.dingtalk.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.dingtalk.com"
+      ],
+      "aliases": [],
+      "notes": "产品关系及出站身份尚未完成官方核验；保留候选，不启用识别和引荐规则。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "wukong",
+      "platformId": "alibaba",
+      "name": "悟空（产品关系待核实）",
+      "website": "https://www.dingtalk.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.dingtalk.com"
+      ],
+      "aliases": [],
+      "notes": "产品关系及出站身份尚未完成官方核验；保留候选，不启用识别和引荐规则。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "tongyi-lingma",
+      "platformId": "alibaba",
+      "name": "通义灵码",
+      "website": "https://tongyi.aliyun.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://tongyi.aliyun.com"
+      ],
+      "aliases": [],
+      "notes": "产品关系及出站身份尚未完成官方核验；保留候选，不启用识别和引荐规则。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "yuanbao",
+      "platformId": "tencent",
+      "name": "腾讯元宝",
+      "website": "https://yuanbao.tencent.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://yuanbao.tencent.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "wechat-search",
+      "platformId": "tencent",
+      "name": "微信搜一搜",
+      "website": "https://weixin.qq.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://static.www.tencent.com/uploads/2025/03/19/5894f24eb4ade2dea94826d62bd7b11b.pdf"
+      ],
+      "aliases": [],
+      "notes": "混合搜索与 AI 功能；MicroMessenger 仅说明微信浏览环境，不建立爬虫身份。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "workbuddy",
+      "platformId": "tencent",
+      "name": "WorkBuddy",
+      "website": "https://cloud.tencent.com/product/workbuddy",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://cloud.tencent.com/product/workbuddy"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "ima",
+      "platformId": "tencent",
+      "name": "ima",
+      "website": "https://ima.qq.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://ima.qq.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "qclaw",
+      "platformId": "tencent",
+      "name": "QClaw",
+      "website": "https://www.tencent.com/zh-cn/tencent-cloud-debuts-productivity-agent-suite-creating-a-new-gateway-to-ai-for-users-and-enterprises/",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://www.tencent.com/zh-cn/tencent-cloud-debuts-productivity-agent-suite-creating-a-new-gateway-to-ai-for-users-and-enterprises/"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "codebuddy",
+      "platformId": "tencent",
+      "name": "CodeBuddy",
+      "website": "https://sjwx.tencent.com/products",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://sjwx.tencent.com/products"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "marvis",
+      "platformId": "tencent",
+      "name": "Marvis 马维斯",
+      "website": "https://sjwx.tencent.com/products",
+      "form": "unknown",
+      "documentationUrls": [
+        "https://sjwx.tencent.com/products"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "wenxin",
+      "platformId": "baidu",
+      "name": "百度文心",
+      "website": "https://wantalk.baidu.com/pc",
+      "form": "general",
+      "documentationUrls": [
+        "https://wantalk.baidu.com/pc"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "baidu-ai-search",
+      "platformId": "baidu",
+      "name": "百度 AI 搜索",
+      "website": "https://www.baidu.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://www.baidu.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "miaoda",
+      "platformId": "baidu",
+      "name": "百度秒哒",
+      "website": "https://cloud.baidu.com/doc/MIAODA/index.html",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://cloud.baidu.com/doc/MIAODA/index.html"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "qingyan",
+      "platformId": "zhipu",
+      "name": "智谱清言",
+      "website": "https://chatglm.cn",
+      "form": "general",
+      "documentationUrls": [
+        "https://chatglm.cn"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "autoglm",
+      "platformId": "zhipu",
+      "name": "AutoGLM",
+      "website": "https://new-front.chatglm.cn/webagent/landing/",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://new-front.chatglm.cn/webagent/landing/"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "glm-pc",
+      "platformId": "zhipu",
+      "name": "GLM-PC",
+      "website": "https://www.zhipuai.cn/zh",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://www.zhipuai.cn/zh"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "codegeex",
+      "platformId": "zhipu",
+      "name": "CodeGeeX",
+      "website": "https://www.zhipuai.cn/zh",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.zhipuai.cn/zh"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "spark",
+      "platformId": "iflytek",
+      "name": "讯飞星火",
+      "website": "https://xinghuo.xfyun.cn",
+      "form": "general",
+      "documentationUrls": [
+        "https://xinghuo.xfyun.cn"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "metaso",
+      "platformId": "metaso",
+      "name": "秘塔 AI 搜索",
+      "website": "https://metaso.cn",
+      "form": "general",
+      "documentationUrls": [
+        "https://metaso.cn"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "minimax-agent",
+      "platformId": "minimax",
+      "name": "MiniMax Agent",
+      "website": "https://agent.minimax.io",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://agent.minimax.io"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "minimax-code",
+      "platformId": "minimax",
+      "name": "MiniMax Code",
+      "website": "https://agent.minimax.io",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://agent.minimax.io"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "stepfun",
+      "platformId": "stepfun",
+      "name": "阶跃 AI",
+      "website": "https://chat.stepfun.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://chat.stepfun.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "stepclaw",
+      "platformId": "stepfun",
+      "name": "StepClaw",
+      "website": "https://chat.stepfun.com/subscription",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://chat.stepfun.com/subscription"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "tiangong",
+      "platformId": "skywork",
+      "name": "天工",
+      "website": "https://www.tiangong.cn",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.tiangong.cn/help"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "skywork",
+      "platformId": "skywork",
+      "name": "Skywork",
+      "website": "https://skywork.ai",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.tiangong.cn/help"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "namiai",
+      "platformId": "360",
+      "name": "纳米 AI",
+      "website": "https://www.n.cn",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.n.cn"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "sensechat",
+      "platformId": "sensetime",
+      "name": "商量",
+      "website": "https://chat.sensetime.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://chat.sensetime.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "celia",
+      "platformId": "petal",
+      "name": "华为小艺",
+      "website": "https://consumer.huawei.com/cn/mobileservices/celia/",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://consumer.huawei.com/cn/mobileservices/celia/"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "pangu",
+      "platformId": "petal",
+      "name": "盘古",
+      "website": "https://consumer.huawei.com/cn/support/content/zh-cn16043756/",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://consumer.huawei.com/cn/support/content/zh-cn16043756/"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "petal-search",
+      "platformId": "petal",
+      "name": "Petal 搜索",
+      "website": "https://consumer.huawei.com",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://consumer.huawei.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "baichuan",
+      "platformId": "baichuan",
+      "name": "百川",
+      "website": "https://www.baichuan-ai.com",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://www.baichuan-ai.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "chatgpt",
+      "platformId": "openai",
+      "name": "ChatGPT",
+      "website": "https://chatgpt.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://developers.openai.com/api/docs/bots"
+      ],
+      "aliases": [],
+      "notes": "官方身份与产品关系已有文档依据；具体请求的身份核验结果单独记录。",
+      "identityIds": [
+        "oai-searchbot",
+        "chatgpt-user"
+      ],
+      "supportStatus": "confirmed",
+      "tags": []
+    },
+    {
+      "id": "codex",
+      "platformId": "openai",
+      "name": "Codex",
+      "website": "https://openai.com/codex",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://openai.com/codex"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "claude",
+      "platformId": "anthropic",
+      "name": "Claude",
+      "website": "https://claude.ai",
+      "form": "general",
+      "documentationUrls": [
+        "https://claude.ai"
+      ],
+      "aliases": [],
+      "notes": "官方身份与产品关系已有文档依据；具体请求的身份核验结果单独记录。",
+      "identityIds": [
+        "claudebot",
+        "claude-searchbot",
+        "claude-user"
+      ],
+      "supportStatus": "confirmed",
+      "tags": []
+    },
+    {
+      "id": "cowork",
+      "platformId": "anthropic",
+      "name": "Cowork",
+      "website": "https://claude.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://claude.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "claude-code",
+      "platformId": "anthropic",
+      "name": "Claude Code",
+      "website": "https://claude.com/product/claude-code",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://claude.com/product/claude-code"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "perplexity",
+      "platformId": "perplexity",
+      "name": "Perplexity",
+      "website": "https://www.perplexity.ai",
+      "form": "general",
+      "documentationUrls": [
+        "https://www.perplexity.ai"
+      ],
+      "aliases": [],
+      "notes": "官方身份与产品关系已有文档依据；具体请求的身份核验结果单独记录。",
+      "identityIds": [
+        "perplexitybot",
+        "perplexity-user"
+      ],
+      "supportStatus": "confirmed",
+      "tags": []
+    },
+    {
+      "id": "comet",
+      "platformId": "perplexity",
+      "name": "Comet",
+      "website": "https://www.perplexity.ai",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://www.perplexity.ai"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "nova-act",
+      "platformId": "amazon",
+      "name": "Nova Act",
+      "website": "https://nova.amazon.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://developer.amazon.com/amazonbot"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "buy-for-me",
+      "platformId": "amazon",
+      "name": "Buy for Me",
+      "website": "https://www.amazon.com",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://developer.amazon.com/amazonbot"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "mistral-vibe",
+      "platformId": "mistral",
+      "name": "Mistral Vibe",
+      "website": "https://mistral.ai",
+      "form": "general",
+      "documentationUrls": [
+        "https://docs.mistral.ai/robots"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "meta-ai",
+      "platformId": "meta",
+      "name": "Meta AI",
+      "website": "https://www.meta.ai",
+      "form": "general",
+      "documentationUrls": [
+        "https://www.meta.ai"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "meta-muse",
+      "platformId": "meta",
+      "name": "Meta Muse",
+      "website": "https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "manus",
+      "platformId": "manus",
+      "name": "Manus",
+      "website": "https://manus.im",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://manus.im/blog/introducing-manus-2-0",
+        "https://radar.cloudflare.com/bots/directory/manus-bot"
+      ],
+      "aliases": [],
+      "notes": "Cloudflare 目录提供签名线索；未确认可用精确核验映射，保留平台级候选，产品未细分。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "cue",
+      "platformId": "manus",
+      "name": "Cue by Manus",
+      "website": "https://cue.im",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://manus.im/blog/introducing-manus-2-0"
+      ],
+      "aliases": [
+        "Cue"
+      ],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "cohere",
+      "platformId": "cohere",
+      "name": "Cohere",
+      "website": "https://cohere.com",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://docs.cohere.com/v2/docs/cohere-web-crawlers"
+      ],
+      "aliases": [],
+      "notes": "官方表示当前未使用其 bot 抓取网页训练基础模型；Coherebot 是假设性 robots 示例。其他检索业务身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "you",
+      "platformId": "you",
+      "name": "You.com",
+      "website": "https://you.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://you.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "grok",
+      "platformId": "xai",
+      "name": "Grok",
+      "website": "https://grok.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://x.ai"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "brave-search",
+      "platformId": "brave",
+      "name": "Brave Search",
+      "website": "https://search.brave.com",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://brave.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "parallel",
+      "platformId": "parallel",
+      "name": "Parallel",
+      "website": "https://parallel.ai",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://docs.parallel.ai/introduction"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "diffbot",
+      "platformId": "diffbot",
+      "name": "Diffbot",
+      "website": "https://www.diffbot.com",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://www.diffbot.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "tavily",
+      "platformId": "tavily",
+      "name": "Tavily",
+      "website": "https://www.tavily.com",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://www.tavily.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "firecrawl",
+      "platformId": "firecrawl",
+      "name": "Firecrawl",
+      "website": "https://www.firecrawl.dev",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://www.firecrawl.dev/crawl"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "jina-reader",
+      "platformId": "jina",
+      "name": "Jina Reader",
+      "website": "https://jina.ai",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://jina.ai/it/reader/"
+      ],
+      "aliases": [],
+      "notes": "官方支持自定义 User-Agent；无法用单一 token 覆盖，身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "cursor",
+      "platformId": "cursor",
+      "name": "Cursor",
+      "website": "https://cursor.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://cursor.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "windsurf",
+      "platformId": "windsurf",
+      "name": "Windsurf",
+      "website": "https://windsurf.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://windsurf.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "devin",
+      "platformId": "cognition",
+      "name": "Devin",
+      "website": "https://devin.ai",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://cognition.ai"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "replit",
+      "platformId": "replit",
+      "name": "Replit",
+      "website": "https://replit.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://replit.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "notion-ai",
+      "platformId": "notion",
+      "name": "Notion AI",
+      "website": "https://www.notion.so/product/ai",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://www.notion.so/product/ai"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "notebooklm",
+      "platformId": "google",
+      "name": "NotebookLM",
+      "website": "https://notebooklm.google.com",
+      "form": "workbench",
+      "documentationUrls": [
+        "https://notebooklm.google.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "gemini",
+      "platformId": "google",
+      "name": "Gemini",
+      "website": "https://gemini.google.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://gemini.google.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "copilot",
+      "platformId": "microsoft",
+      "name": "Copilot",
+      "website": "https://copilot.microsoft.com",
+      "form": "general",
+      "documentationUrls": [
+        "https://copilot.microsoft.com"
+      ],
+      "aliases": [],
+      "notes": "产品资料已收录；专属出站抓取身份待核实。",
+      "identityIds": [],
+      "supportStatus": "pending",
+      "tags": []
+    },
+    {
+      "id": "exa",
+      "platformId": "exa",
+      "name": "Exa Search / Fetch",
+      "website": "https://exa.ai",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://crawler.exa.ai"
+      ],
+      "aliases": [],
+      "notes": "官方身份与产品关系已有文档依据；具体请求的身份核验结果单独记录。",
+      "identityIds": [
+        "exasearchbot",
+        "exauser"
+      ],
+      "supportStatus": "confirmed",
+      "tags": []
+    },
+    {
+      "id": "kagi",
+      "platformId": "kagi",
+      "name": "Kagi Search",
+      "website": "https://kagi.com",
+      "form": "infrastructure",
+      "documentationUrls": [
+        "https://kagi.com/bot"
+      ],
+      "aliases": [],
+      "notes": "官方身份与产品关系已有文档依据；具体请求的身份核验结果单独记录。",
+      "identityIds": [
+        "kagibot"
+      ],
+      "supportStatus": "confirmed",
+      "tags": []
+    },
+    {
+      "id": "chatgpt-agent",
+      "platformId": "openai",
+      "name": "ChatGPT Agent / Cloud browser",
+      "website": "https://chatgpt.com",
+      "form": "personal_agent",
+      "documentationUrls": [
+        "https://help.openai.com/en/articles/11845367-chatgpt-works-cloud-browser-allowlisting"
+      ],
+      "aliases": [],
+      "notes": "官方身份与产品关系已有文档依据；具体请求的身份核验结果单独记录。",
+      "identityIds": [
+        "chatgpt-agent"
+      ],
+      "supportStatus": "confirmed",
+      "tags": []
+    }
+  ],
+  "referrals": [
+    {
+      "id": "kimi-com",
+      "platformId": "kimi",
+      "productId": "kimi",
+      "host": "kimi.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "kimi"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.kimi.ai/policies/kimi-crawlers"
+      ]
+    },
+    {
+      "id": "www-kimi-com",
+      "platformId": "kimi",
+      "productId": "kimi",
+      "host": "www.kimi.com",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.kimi.ai/policies/kimi-crawlers"
+      ]
+    },
+    {
+      "id": "kimi-ai",
+      "platformId": "kimi",
+      "productId": "kimi",
+      "host": "kimi.ai",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.kimi.ai/policies/kimi-crawlers"
+      ]
+    },
+    {
+      "id": "www-kimi-ai",
+      "platformId": "kimi",
+      "productId": "kimi",
+      "host": "www.kimi.ai",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.kimi.ai/policies/kimi-crawlers"
+      ]
+    },
+    {
+      "id": "kimi-moonshot-cn",
+      "platformId": "kimi",
+      "productId": "kimi",
+      "host": "kimi.moonshot.cn",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.kimi.ai/policies/kimi-crawlers"
+      ]
+    },
+    {
+      "id": "chat-deepseek-com",
+      "platformId": "deepseek",
+      "productId": "deepseek-chat",
+      "host": "chat.deepseek.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "deepseek"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://chat.deepseek.com"
+      ]
+    },
+    {
+      "id": "doubao-com",
+      "platformId": "bytedance",
+      "productId": "doubao",
+      "host": "doubao.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "doubao"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://doubao.com"
+      ]
+    },
+    {
+      "id": "www-doubao-com",
+      "platformId": "bytedance",
+      "productId": "doubao",
+      "host": "www.doubao.com",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.doubao.com"
+      ]
+    },
+    {
+      "id": "aily-feishu-cn",
+      "platformId": "bytedance",
+      "productId": "doubao-aily",
+      "host": "aily.feishu.cn",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "documentation",
+      "enabled": true,
+      "documentationUrls": [
+        "https://aily.feishu.cn/hc/1u7kleqg_3d5z9ttt"
+      ]
+    },
+    {
+      "id": "qianwen-com",
+      "platformId": "alibaba",
+      "productId": "qwen",
+      "host": "qianwen.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "qwen",
+        "qianwen"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://help.aliyun.com/zh/model-studio/web-search",
+        "https://chat.qwen.ai"
+      ]
+    },
+    {
+      "id": "www-qianwen-com",
+      "platformId": "alibaba",
+      "productId": "qwen",
+      "host": "www.qianwen.com",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://help.aliyun.com/zh/model-studio/web-search",
+        "https://chat.qwen.ai"
+      ]
+    },
+    {
+      "id": "chat-qwen-ai",
+      "platformId": "alibaba",
+      "productId": "qwen",
+      "host": "chat.qwen.ai",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://help.aliyun.com/zh/model-studio/web-search",
+        "https://chat.qwen.ai"
+      ]
+    },
+    {
+      "id": "yuanbao-tencent-com",
+      "platformId": "tencent",
+      "productId": "yuanbao",
+      "host": "yuanbao.tencent.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "yuanbao"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://yuanbao.tencent.com"
+      ]
+    },
+    {
+      "id": "ima-qq-com",
+      "platformId": "tencent",
+      "productId": "ima",
+      "host": "ima.qq.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "ima"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://ima.qq.com"
+      ]
+    },
+    {
+      "id": "chatglm-cn",
+      "platformId": "zhipu",
+      "productId": "qingyan",
+      "host": "chatglm.cn",
+      "includeSubdomains": false,
+      "aliases": [
+        "chatglm"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://chatglm.cn"
+      ]
+    },
+    {
+      "id": "metaso-cn",
+      "platformId": "metaso",
+      "productId": "metaso",
+      "host": "metaso.cn",
+      "includeSubdomains": false,
+      "aliases": [
+        "metaso"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://metaso.cn"
+      ]
+    },
+    {
+      "id": "xinghuo-xfyun-cn",
+      "platformId": "iflytek",
+      "productId": "spark",
+      "host": "xinghuo.xfyun.cn",
+      "includeSubdomains": false,
+      "aliases": [
+        "xinghuo"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://xinghuo.xfyun.cn"
+      ]
+    },
+    {
+      "id": "agent-minimax-io",
+      "platformId": "minimax",
+      "productId": "minimax-agent",
+      "host": "agent.minimax.io",
+      "includeSubdomains": false,
+      "aliases": [
+        "minimax"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://agent.minimax.io"
+      ]
+    },
+    {
+      "id": "chat-stepfun-com",
+      "platformId": "stepfun",
+      "productId": "stepfun",
+      "host": "chat.stepfun.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "stepfun"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://chat.stepfun.com"
+      ]
+    },
+    {
+      "id": "www-tiangong-cn",
+      "platformId": "skywork",
+      "productId": "tiangong",
+      "host": "www.tiangong.cn",
+      "includeSubdomains": false,
+      "aliases": [
+        "tiangong"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.tiangong.cn/help"
+      ]
+    },
+    {
+      "id": "www-n-cn",
+      "platformId": "360",
+      "productId": "namiai",
+      "host": "www.n.cn",
+      "includeSubdomains": false,
+      "aliases": [
+        "namiai"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.n.cn"
+      ]
+    },
+    {
+      "id": "chat-sensetime-com",
+      "platformId": "sensetime",
+      "productId": "sensechat",
+      "host": "chat.sensetime.com",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://chat.sensetime.com"
+      ]
+    },
+    {
+      "id": "coze-cn",
+      "platformId": "bytedance",
+      "productId": "coze",
+      "host": "coze.cn",
+      "includeSubdomains": false,
+      "aliases": [
+        "coze"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://docs.coze.cn/"
+      ]
+    },
+    {
+      "id": "www-coze-cn",
+      "platformId": "bytedance",
+      "productId": "coze",
+      "host": "www.coze.cn",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://docs.coze.cn/"
+      ]
+    },
+    {
+      "id": "code-coze-cn",
+      "platformId": "bytedance",
+      "productId": "coze-code",
+      "host": "code.coze.cn",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://docs.coze.cn/cozespace_coze_app_faq"
+      ]
+    },
+    {
+      "id": "www-trae-cn",
+      "platformId": "bytedance",
+      "productId": "doubao",
+      "host": "www.trae.cn",
+      "includeSubdomains": false,
+      "aliases": [
+        "trae"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.trae.cn"
+      ]
+    },
+    {
+      "id": "manus-im",
+      "platformId": "manus",
+      "productId": "manus",
+      "host": "manus.im",
+      "includeSubdomains": false,
+      "aliases": [
+        "manus"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://manus.im/blog/introducing-manus-2-0",
+        "https://radar.cloudflare.com/bots/directory/manus-bot"
+      ]
+    },
+    {
+      "id": "cue-im",
+      "platformId": "manus",
+      "productId": "cue",
+      "host": "cue.im",
+      "includeSubdomains": false,
+      "aliases": [
+        "cue"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://manus.im/blog/introducing-manus-2-0"
+      ]
+    },
+    {
+      "id": "chatgpt-com",
+      "platformId": "openai",
+      "productId": "chatgpt",
+      "host": "chatgpt.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "chatgpt",
+        "openai"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://chatgpt.com"
+      ]
+    },
+    {
+      "id": "chat-openai-com",
+      "platformId": "openai",
+      "productId": "chatgpt",
+      "host": "chat.openai.com",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://chat.openai.com"
+      ]
+    },
+    {
+      "id": "claude-ai",
+      "platformId": "anthropic",
+      "productId": "claude",
+      "host": "claude.ai",
+      "includeSubdomains": false,
+      "aliases": [
+        "claude"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://claude.ai"
+      ]
+    },
+    {
+      "id": "perplexity-ai",
+      "platformId": "perplexity",
+      "productId": "perplexity",
+      "host": "perplexity.ai",
+      "includeSubdomains": false,
+      "aliases": [
+        "perplexity"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://perplexity.ai"
+      ]
+    },
+    {
+      "id": "www-perplexity-ai",
+      "platformId": "perplexity",
+      "productId": "perplexity",
+      "host": "www.perplexity.ai",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://www.perplexity.ai"
+      ]
+    },
+    {
+      "id": "gemini-google-com",
+      "platformId": "google",
+      "productId": "gemini",
+      "host": "gemini.google.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "gemini"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://gemini.google.com"
+      ]
+    },
+    {
+      "id": "copilot-microsoft-com",
+      "platformId": "microsoft",
+      "productId": "copilot",
+      "host": "copilot.microsoft.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "copilot"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://copilot.microsoft.com"
+      ]
+    },
+    {
+      "id": "yiyan-baidu-com",
+      "platformId": "baidu",
+      "productId": "wenxin",
+      "host": "yiyan.baidu.com",
+      "includeSubdomains": false,
+      "aliases": [
+        "yiyan"
+      ],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://wantalk.baidu.com/pc"
+      ]
+    },
+    {
+      "id": "deepseek-com",
+      "platformId": "deepseek",
+      "productId": "deepseek-chat",
+      "host": "deepseek.com",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "mixed",
+      "enabled": false,
+      "documentationUrls": [
+        "https://www.deepseek.com"
+      ]
+    },
+    {
+      "id": "perplexity-app",
+      "platformId": "perplexity",
+      "productId": "perplexity",
+      "host": "app.perplexity.ai",
+      "includeSubdomains": false,
+      "aliases": [],
+      "kind": "ai",
+      "enabled": true,
+      "documentationUrls": [
+        "https://perplexity.ai"
+      ]
+    }
+  ]
+}

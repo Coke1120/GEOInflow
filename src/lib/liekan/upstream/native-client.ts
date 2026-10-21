@@ -1,6 +1,7 @@
 'use client';
 import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef } from 'react';
+import { clientCatalogVersion } from './catalog-client';
 import { getApiUrl } from '@/lib/api-url';
 import { getClientAuthToken } from '@/lib/client';
 import { SHARE_CONTEXT_HEADER, SHARE_TOKEN_HEADER } from '@/lib/constants';
@@ -94,6 +95,14 @@ export async function nativeGet<T = any>(
   new Headers(headers).forEach((value, key) => {
     requestHeaders.set(key, value);
   });
+  if (aggregate && context?.catalogScope) {
+    const version = await clientCatalogVersion(
+      context.catalogScope,
+      Object.fromEntries(requestHeaders.entries()),
+    );
+    if (version) requestHeaders.set('X-Liekan-Catalog-Version', version);
+    signal?.throwIfAborted();
+  }
   // Preserve the native API's parameter coercion and third-argument header overrides.
   const url = buildPath(getApiUrl(path), {
     ...params,

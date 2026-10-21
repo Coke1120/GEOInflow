@@ -1,3 +1,4 @@
+import { getPublishedCatalog } from './published';
 /** Reviewed official feeds and exact HTTP crawler bindings; safe for client imports. */
 export type RangeSource = {
   id: string;
@@ -6,6 +7,7 @@ export type RangeSource = {
   crawlerIds: readonly string[];
   parserVersion: string;
   reviewedAt: string;
+  enabled?: boolean;
 };
 
 export const rangeSources: readonly RangeSource[] = Object.freeze([
@@ -64,6 +66,38 @@ export const rangeSources: readonly RangeSource[] = Object.freeze([
     crawlerIds: Object.freeze(['perplexity-user']),
     parserVersion: 'prefixes-v1',
     reviewedAt: '2026-10-15',
+  }),
+  Object.freeze({
+    id: 'kimi-bot',
+    url: 'https://www.kimi.ai/policies/kimibot.json',
+    names: Object.freeze(['KimiBot']),
+    crawlerIds: Object.freeze(['kimibot']),
+    parserVersion: 'prefixes-v1',
+    reviewedAt: '2026-10-21',
+  }),
+  Object.freeze({
+    id: 'kimi-search',
+    url: 'https://www.kimi.ai/policies/kimi-searchbot.json',
+    names: Object.freeze(['Kimi-SearchBot']),
+    crawlerIds: Object.freeze(['kimi-searchbot']),
+    parserVersion: 'prefixes-v1',
+    reviewedAt: '2026-10-21',
+  }),
+  Object.freeze({
+    id: 'kimi-user',
+    url: 'https://www.kimi.ai/policies/kimi-user.json',
+    names: Object.freeze(['Kimi-User']),
+    crawlerIds: Object.freeze(['kimi-user']),
+    parserVersion: 'prefixes-v1',
+    reviewedAt: '2026-10-21',
+  }),
+  Object.freeze({
+    id: 'tencent-hyspider',
+    url: 'https://hy.tencent.com/policy/hyspider.json',
+    names: Object.freeze(['HySpider']),
+    crawlerIds: Object.freeze(['hyspider']),
+    parserVersion: 'prefixes-v1',
+    reviewedAt: '2026-10-21',
   }),
   Object.freeze({
     id: 'google-common',
@@ -182,3 +216,5 @@ export const rangeSources: readonly RangeSource[] = Object.freeze([
     reviewedAt: '2026-10-17',
   }),
 ]);
+
+export const getRangeSources = (): readonly RangeSource[] => getPublishedCatalog()?.payload.rangeSources.filter(source => source.enabled !== false) ?? rangeSources;

@@ -1,5 +1,6 @@
+import { safeSourceFetch } from './source-fetch';
 import { createHash } from 'node:crypto';
-import { documentSources, type DocumentSource } from './document-sources';
+import { getDocumentSources, type DocumentSource } from './document-sources';
 
 export type DocumentObservation = {
   hash: string;
@@ -138,7 +139,7 @@ export async function checkDocumentSource(
   previous?: DocumentObservation,
   options: { fetcher?: typeof fetch; now?: () => Date } = {},
 ): Promise<DocumentCheckResult> {
-  const fixed = documentSources.find(entry => entry.id === source?.id);
+  const fixed = getDocumentSources().find(entry => entry.id === source?.id);
   if (!fixed || JSON.stringify(fixed) !== JSON.stringify(source)) return fail('invalid_source');
   if (previous && !qualifiedDocumentHash(previous.hash)) return fail('invalid_cache');
   previous = previous ? { ...previous } : undefined;
@@ -163,7 +164,7 @@ export async function checkDocumentSource(
     return await Promise.race([
       deadline,
       (async (): Promise<DocumentCheckResult> => {
-        response = await (options.fetcher || fetch)(fixed.url, {
+        response = await (options.fetcher || safeSourceFetch)(fixed.url, {
           headers,
           redirect: 'error',
           signal: controller.signal,

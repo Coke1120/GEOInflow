@@ -1,5 +1,7 @@
+import { getPublishedCatalog } from './crawlers/published';
 import { crawlerAiRequests, isUnknownCrawler } from './rules/population';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { isbot } from 'isbot';
 import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
 import { parseReportQuery, pagableTables, tablePageSize } from './contracts/query';
 import {
@@ -187,6 +189,14 @@ export async function buildReport(
     tables: {},
     insights: [],
     meta: {
+      catalogVersion: getPublishedCatalog()?.version,
+      ...(p.resource === 'ai/pages'
+        ? {
+            crawlerPageBots: l.bots
+              .filter(bot => crawlerAiRequests(bot) > 0)
+              .map(bot => ({ botId: bot.botId ?? null, name: bot.name, type: bot.type })),
+          }
+        : {}),
       ...(!parts || parts.human?.includes('geo' as never)
         ? { geographyCoverage: geographyCoverage(h.geo, t.visits) }
         : {}),
@@ -231,7 +241,22 @@ export async function buildReport(
     state: DataState = humanState,
     unit = '',
     detail = '所选统计范围',
-  ) => r.cards.push({ key: label, label, value, state, unit, detail });
+  ) =>
+    r.cards.push({
+      // Preserve published machine keys when display terminology changes.
+      key:
+        (
+          { '访客（UV）': '人类访客（UV）', '案例页 AI/浏览 比值': '案例页 AI/人 比值' } as Record<
+            string,
+            string
+          >
+        )[label] || label,
+      label,
+      value,
+      state,
+      unit,
+      detail,
+    });
   const chart = (
     id: string,
     labels: string[],
@@ -268,14 +293,21 @@ export async function buildReport(
       botId: row.botId,
       lastCrawled: row.lastCrawled,
       main: 0,
+      leaders: [],
     };
     old.requests += row.requests;
     old.bots++;
-    if (row.requests > old.main) {
-      old.bot = row.bot;
-      old.botId = row.botId;
-      old.main = row.requests;
-    }
+    old.leaders = [...old.leaders, row]
+      .sort(
+        (a, b) =>
+          b.requests - a.requests ||
+          String(a.bot).localeCompare(String(b.bot)) ||
+          String(a.botId ?? '').localeCompare(String(b.botId ?? '')),
+      )
+      .slice(0, 2);
+    old.bot = old.leaders[0].bot;
+    old.botId = old.leaders[0].botId;
+    old.main = old.leaders[0].requests;
     if (row.lastCrawled > old.lastCrawled) old.lastCrawled = row.lastCrawled;
     paths.set(row.path, old);
   }
@@ -407,12 +439,15 @@ export async function buildReport(
   }));
   r.tables.apBody = aiPages.map(page => ({
     path: page.path,
+    title: catalog.get(page.path)?.title?.trim() || null,
     requests: page.requests,
     bots: page.bots,
     heat: pct(page.requests, aiPages[0]?.requests ?? 0),
     repeatRate: null,
     bot: page.bot,
     ...(page.botId !== undefined && { botId: page.botId }),
+    bot2: page.leaders[1]?.bot ?? null,
+    ...(page.leaders[1]?.botId !== undefined && { bot2Id: page.leaders[1].botId }),
     lastCrawled: page.lastCrawled,
     freshness: catalog.get(page.path)?.updatedAt
       ? `${Math.max(0, Math.floor((p.endAt - new Date(catalog.get(page.path).updatedAt).getTime()) / 86400000))} 天`
@@ -467,8 +502,10 @@ export async function buildReport(
     ...row,
     time: row.time,
     classification: isUnknownCrawler(row)
-      ? '未知／未分类'
-      : `${row.bot} · ${row.verification === 'verified_range' ? '官方 IP 范围匹配' : row.verification === 'range_mismatch' ? '官方范围未匹配' : '身份未核验'}`,
+      ? isbot(row.userAgent || '')
+        ? '自动化特征 · 身份未核验'
+        : '未知／未分类'
+      : `${row.bot} · ${row.verification === 'verified_range' ? '官方 IP 范围匹配' : row.verification === 'verified_dns' ? '官方 DNS 双向核验' : row.verification === 'verified_edge' ? '可信边缘身份核验' : row.verification === 'range_mismatch' ? '官方范围未匹配' : '身份未核验'}`,
   }));
   r.tables.blindList = (l.latest ? blind : []).map(page => ({
     path: page.path,
@@ -531,7 +568,7 @@ export async function buildReport(
   ).sort();
   chart('d1', plotLabels, [
     {
-      name: '人类 PV',
+      name: '浏览 PV',
       values: plotLabels.map(day => Number(plotHuman.find(d => d.day === day)?.pv ?? 0)),
     },
     {
@@ -694,7 +731,7 @@ export async function buildReport(
     [
       { name: 'AI 蜘蛛', values: contentTypes.map(c => pct(c.count, l.summary.ai)) },
       {
-        name: '人类 PV',
+        name: '浏览 PV',
         values: contentTypes.map(c =>
           pct(
             l.catalog
@@ -799,7 +836,7 @@ export async function buildReport(
     ],
     goalState,
   );
-  card('人类访客（UV）', t.visitors);
+  card('访客（UV）', t.visitors, humanState, '', '按当前流量策略去重，可能含未识别自动化');
   card('AI 蜘蛛请求', l.latest ? l.summary.ai : null, logState);
   card(
     '今日总请求',
@@ -878,7 +915,7 @@ export async function buildReport(
     catalogLogState,
   );
   card(
-    '案例页 AI/人 比值',
+    '案例页 AI/浏览 比值',
     l.latest && catalog.size ? ratio(cases.ai, cases.human) : null,
     catalogLogState,
   );
@@ -968,7 +1005,7 @@ export async function buildReport(
         ? formatInTimeZone(time, p.timezone, 'yyyy-MM-dd')
         : new Date(time).toISOString().slice(0, 10);
     r.insights = [
-      `${insightDate(p.startAt)} 至 ${insightDate(p.endAt)}：${t.pageviews} 次人类浏览、${t.visits} 次访问。`,
+      `${insightDate(p.startAt)} 至 ${insightDate(p.endAt)}：${t.pageviews} 次浏览、${t.visits} 次访问。`,
       l.latest
         ? `已导入日志识别 ${l.summary.ai} 次 AI 请求；按 UA 分类，官方 IP 范围匹配结果见访问流。`
         : '接入服务器日志后可计算 AI 抓取统计。',

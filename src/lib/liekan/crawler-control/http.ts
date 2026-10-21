@@ -1,10 +1,10 @@
 import type { z } from 'zod';
-import { api, readBody } from '../http';
+import { requestApi, readBody } from '../http';
 import { authenticateCrawler, type CrawlerActor } from '../upstream/crawler-access';
 import { LiekanError } from '../upstream/errors';
 
 export function crawlerApi(request: Request, work: (actor: CrawlerActor) => Promise<unknown>) {
-  return api(async () => work(await authenticateCrawler(request)));
+  return requestApi(request, async () => work(await authenticateCrawler(request)));
 }
 export async function crawlerBody<T extends z.ZodType>(
   request: Request,

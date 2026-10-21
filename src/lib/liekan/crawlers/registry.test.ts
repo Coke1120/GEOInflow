@@ -7,8 +7,8 @@ import { crawlerCatalog } from './catalog';
 import {
   crawlerDirectory,
   crawlerDirectoryForObserved,
-  getCrawler,
   crawlerIdForName,
+  getCrawler,
 } from './directory';
 import {
   ACTIVE_CRAWLER_IDS,
@@ -28,11 +28,11 @@ const policy = {
 };
 
 describe('central crawler identity registry', () => {
-  it('keeps 57 catalog entries, 54 HTTP entries, 53 recognized names and 3 purpose controls', () => {
-    expect(crawlerCatalog).toHaveLength(57);
-    expect(new Set(crawlerCatalog.map(entry => entry.id)).size).toBe(57);
-    expect(crawlerRegistry.filter(entry => entry.kind === 'http_crawler')).toHaveLength(54);
-    expect(ALL_HTTP_CRAWLER_IDS).toHaveLength(53);
+  it('keeps 61 catalog entries, 58 HTTP entries, 57 recognized names and 3 purpose controls', () => {
+    expect(crawlerCatalog).toHaveLength(61);
+    expect(new Set(crawlerCatalog.map(entry => entry.id)).size).toBe(61);
+    expect(crawlerRegistry.filter(entry => entry.kind === 'http_crawler')).toHaveLength(58);
+    expect(ALL_HTTP_CRAWLER_IDS).toHaveLength(57);
     expect(ACTIVE_CRAWLER_IDS).toEqual(ALL_HTTP_CRAWLER_IDS);
     expect(crawlerRegistry.filter(entry => entry.kind === 'robots_purpose')).toHaveLength(3);
     expect(
@@ -64,7 +64,11 @@ describe('central crawler identity registry', () => {
     expect(helpCrawlers.map(entry => entry.id)).toEqual(crawlerCatalog.map(entry => entry.id));
     for (const entry of crawlerCatalog) {
       expect(entry.metadata.sources.length).toBeGreaterThan(0);
-      expect(entry.metadata.reviewedAt).toBe('2026-10-05');
+      expect(entry.metadata.reviewedAt).toBe(
+        ['kimibot', 'kimi-searchbot', 'kimi-user', 'hyspider'].includes(entry.id)
+          ? '2026-10-21'
+          : '2026-10-05',
+      );
     }
     for (const name of [
       'Bytespider',

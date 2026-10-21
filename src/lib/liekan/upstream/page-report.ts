@@ -1,3 +1,5 @@
+import { withPublishedRegistry } from './crawler-registry-context';
+import { getPublishedCatalog } from '../crawlers/published';
 import { CRAWLER_POPULATION_VERSION } from '../rules/population';
 import { geographyVersion } from '../contracts/geography';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
@@ -16,7 +18,7 @@ import {
 import { query, reportSnapshot } from './server';
 import { attachReportEvidenceView } from './report-evidence-view';
 
-export async function readPageReport(
+async function readPageReportSnapshot(
   website: { id: string; name: string; domain: string },
   input: unknown,
   refresh = false,
@@ -53,6 +55,7 @@ export async function readPageReport(
         resource: p.resource,
         meta: {
           ...result.value.meta,
+          catalogVersion: getPublishedCatalog()?.version,
           generatedAt: result.generatedAt,
           expiresAt: result.expiresAt,
         },
@@ -90,7 +93,7 @@ export async function readPageReport(
         )
       )[0] || { data: '0', policy: '0' };
   const key = analyticsCacheKey(
-    `page-report-v7-${geographyVersion}-${CRAWLER_POPULATION_VERSION}`,
+    `page-report-v8-${geographyVersion}-${CRAWLER_POPULATION_VERSION}`,
     [process.env.DATABASE_URL, website.id, p, revision],
   );
   const result = await analyticsCache.read(
@@ -104,3 +107,8 @@ export async function readPageReport(
   result.value.meta.expiresAt = result.expiresAt;
   return result;
 }
+
+export const readPageReport: typeof readPageReportSnapshot = (...args) => {
+  if (process.env.CLICKHOUSE_URL) return readPageReportSnapshot(...args);
+  return withPublishedRegistry(() => readPageReportSnapshot(...args));
+};

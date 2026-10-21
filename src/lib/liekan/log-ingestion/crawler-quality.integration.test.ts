@@ -12,6 +12,7 @@ import { beforeAll, beforeEach, afterAll, describe, it, expect } from 'vitest';
 import { aiTransaction } from '../upstream/ai-db';
 import { importLogs } from '../store';
 import { BOT_RULES } from '../rules/bots';
+import { officialRuleConfiguration } from '../rules/configuration';
 import { crawlerWindowQuality } from '../crawlers/analysis';
 import { recomputeCrawlerRisks } from '../crawlers/worker';
 import { crawlerClassificationVersion } from './crawler-evidence';
@@ -38,6 +39,8 @@ describe.skipIf(!enabled)('collector coverage evidence on isolated PostgreSQL', 
         1,
         { ...health(), ...override },
         BOT_RULES,
+        Date.now(),
+        officialRuleConfiguration(),
       ),
     );
   async function batch(records: any[]) {
@@ -347,7 +350,7 @@ describe.skipIf(!enabled)('collector coverage evidence on isolated PostgreSQL', 
     const quality = {
       state: 'complete',
       basis: 'event_time',
-      classificationVersion: crawlerClassificationVersion(BOT_RULES),
+      classificationVersion: crawlerClassificationVersion(BOT_RULES, officialRuleConfiguration()),
       sourceVersion: source + ':' + interval,
       timezone: 'UTC',
     };

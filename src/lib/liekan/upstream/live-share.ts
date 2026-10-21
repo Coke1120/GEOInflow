@@ -4,7 +4,7 @@ import prisma, { getRawQueryClient } from '@/lib/prisma';
 import type { BoardParameters } from '@/lib/types';
 import { getShare } from '@/queries/prisma';
 import { publicShareParameters, sharePasswordProof } from './share-security';
-import { analyticsCacheKey } from './query-cache';
+import { analyticsInfrastructureKey } from './query-cache';
 
 const primary = (): any => getRawQueryClient(prisma.client, { write: true });
 export async function loadShareEntity(type: number, id: string) {
@@ -32,7 +32,7 @@ export async function currentShareScope(share: any, previous?: any) {
   };
   if (share.shareType === ENTITY_TYPE.board) {
     fresh.boardId = entity.id;
-    fresh.boardLayoutHash = analyticsCacheKey('public-board-layout-v1', [entity.type, entity.parameters]);
+    fresh.boardLayoutHash = analyticsInfrastructureKey('public-board-layout-v1', [entity.type, entity.parameters]);
     const ids = getBoardEntityIds({
       type: entity.type,
       parameters: entity.parameters as BoardParameters,

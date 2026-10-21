@@ -24,6 +24,7 @@ export const featurePages = [
   },
 ];
 const unscopedPages = new Set([
+  'crawlers-manage',
   'ai-chat',
   'ai-config',
   'help',
@@ -46,7 +47,7 @@ const unscopedPages = new Set([
   'share-preview',
 ]);
 export function normalizeFeatureScope(route: FeatureRoute): FeatureRoute {
-  if (route.page === 'help') return { page: 'help' };
+  if (['help', 'crawlers-manage'].includes(route.page)) return { page: route.page };
   return {
     ...route,
     ...(['ai-chat', 'ai-config'].includes(route.page)
@@ -68,6 +69,7 @@ export function matchFeatureRoute(
   pathname: string,
   query: Record<string, string> = {},
 ): FeatureRoute | null {
+  if (/^\/crawlers\/manage\/?$/.test(pathname)) return { page: 'crawlers-manage' };
   if (query.legacy === '1') return null;
   if (/^\/liekan\/?$/.test(pathname)) return { page: 'websites' };
   let path = pathname;
@@ -116,6 +118,14 @@ export function matchFeatureRoute(
   return null;
 }
 export function featureHref(page: string, params: Record<string, any> = {}): string {
+  if (page === 'crawlers-manage') {
+    const search = new URLSearchParams();
+    if (typeof params.site === 'string' && /^[a-f0-9-]{36}$/i.test(params.site))
+      search.set('site', params.site);
+    if (['library', 'platforms', 'sources', 'changes'].includes(params.tab))
+      search.set('tab', params.tab);
+    return `/crawlers/manage${search.size ? '?' + search.toString() : ''}`;
+  }
   if (['ai-chat', 'ai-config'].includes(page)) {
     const search = new URLSearchParams();
     for (const key of ['aiSite', 'aiConversation', 'aiRun', 'aiRequest']) {
@@ -207,14 +217,14 @@ export function featureWebsiteSwitchHref(
 }
 
 const websiteFilter =
-  /^(drill_|(?:path|referrer|channel|title|query|os|tag|hostname|distinctId|language|country|region|city|browser|device|event)\d*$|utm|crawlerIdentityScope$|sourceId$|botId$|botName$|snapshot$|cursor$|seek$|segment$|cohort$|match$|excludeBounce$|spf\d|epf\d)/;
+  /^(drill_|(?:path|referrer|channel|title|query|os|tag|hostname|distinctId|language|country|region|city|browser|device|event)\d*$|utm|crawlerIdentityScope$|sourceId$|botId$|botName$|botType$|snapshot$|cursor$|seek$|segment$|cohort$|match$|excludeBounce$|spf\d|epf\d)/;
 export function featureNavigationHref(
   route: FeatureRoute,
   query: Record<string, string>,
   page: string,
   params: Record<string, any> = {},
 ) {
-  if (page === 'help') return featureHref(page, params);
+  if (['help', 'crawlers-manage'].includes(page)) return featureHref(page, params);
   if (route.context === 'admin' && page === 'teams') page = 'admin-teams';
   if (route.context === 'admin' && page === 'websites') page = 'admin-websites';
   const target = {

@@ -31,5 +31,11 @@
   "027_crawler_workflow_lifecycle.sql": "bb331b8410e9bff004fcf38aeb7699d0f83902218b41a2d90e66da987955b345",
   "025_traffic_observation.sql": "13b32fa2bdc01d3485f4683a8fd24035b020b91bf3c3340058e20df6ba80e8ac",
   "026_crawler_workflow.sql": "b770a0533ae4a90b26325473e54b259a86ada519c95325a7004e587e1179a917",
-  "024_log_metric_evidence.sql": "05730b14bda3d767244262671d526e42877e236f1a2b0d63df9c6b31022f70bf"
+  "024_log_metric_evidence.sql": "05730b14bda3d767244262671d526e42877e236f1a2b0d63df9c6b31022f70bf",
+  "028_browser_sources.sql": "32d830fe6b7b6bef5fd1a7cc41766ee832fd550891387552c1bc5bc2ce537eb2",
+  "029_crawler_registry.sql": "1c743d0fde258ae4284a41cd2a3b2043512d919ff5253456bba2aae9e3ea6dd7",
+  "030_crawler_catalog_evidence.sql": "146a4e122750ff5f03009f8dea0cd7f9c429f99a8230efd5d45c6fb589b5f5e1",
+  "031_registry_seed_review.sql": "900f95c8249b4e399a386dca42f5db213081d29bc1d441e6563536ce486249c2",
+  "032_crawler_identity_evidence.sql": "aa0c434bfee1754996534a0c5678a4b2e2c6e188d347adc0a0bb0fb13abfa72a",
+  "033_crawler_rule_configuration.sql": "22a86f14fafbf7a4618cb7f60e39c0afb0a0e85301597d29cfa8fdae7c5409e6"
 }

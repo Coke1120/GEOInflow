@@ -273,6 +273,7 @@ describe('atomic collection writes', () => {
       quality.rangeVersion,
       quality.rangeStatus,
       quality.hostname,
+      quality.catalogVersion ?? null,
     ]);
     expect(collectionWriteClient()).toBe(prisma.client);
   });

@@ -1,4 +1,5 @@
 'use client';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import {
   Button,
   Column,
@@ -102,7 +103,7 @@ export function LoginTwoFactorPage() {
           }}
         />
       </Icon>
-      <Heading>猎看统计</Heading>
+      <Heading>{liekanProduct.name}</Heading>
       <Column gap="4" style={{ minWidth: 300 }}>
         <Heading size="xl">{t(labels.twoFactorLogin)}</Heading>
         <Text>{t(messages.twoFactorLoginDescription)}</Text>

@@ -1,3 +1,4 @@
+vi.mock('@/lib/liekan/upstream/crawler-registry-context', () => ({ withPublishedRegistry: (work: () => unknown) => work() }));
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({

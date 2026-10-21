@@ -2,10 +2,11 @@ import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { MetricCard, ReferenceChart, ReportList } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
 
-export function AiOverview({ report, rangeLabel }: ReportViewProps) {
+export function AiOverview({ report, rangeLabel, geoWeight }: ReportViewProps) {
   const i18n = useLiekanI18n();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
+      {geoWeight}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label="AI 蜘蛛请求（30天）"
@@ -48,7 +49,7 @@ export function AiOverview({ report, rangeLabel }: ReportViewProps) {
         <div className="card fade-in d3">
           <div className="px-6 pt-5 pb-2">
             <h2 className="text-[14px] font-bold tracking-tight">
-              {i18n.text('AI vs 人类占比演化')}
+              {i18n.text('AI 与浏览访问占比趋势')}
             </h2>
             <p className="text-[11.5px] text-faint mt-0.5">
               {i18n.text('近 6 个月 · AI 请求占比')}

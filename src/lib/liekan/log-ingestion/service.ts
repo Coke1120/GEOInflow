@@ -1,3 +1,6 @@
+import { applyTrustedEdgeIdentity } from '../crawlers/request-verification';
+import { withPublishedRegistry } from '../upstream/crawler-registry-context';
+import { getPublishedCatalog } from '../crawlers/published';
 import { applyEdgeCapabilities } from './edge-observation';
 import { samplingAtReceipt } from './measurement';
 import { normalizeAutomaticWithGeography, persistLogGeography } from '../upstream/log-geography';
@@ -168,6 +171,9 @@ export async function listSources(websiteId: string) {
   );
 }
 export async function receiveBatch(request: Request, sourceId: string) {
+  return withPublishedRegistry(() => receivePinnedBatch(request, sourceId));
+}
+async function receivePinnedBatch(request: Request, sourceId: string) {
   sourceId = uuid(sourceId);
   const token = request.headers.get('authorization')?.match(/^Bearer ([A-Za-z0-9_-]{43})$/)?.[1];
   if (!token) throw new LiekanError('需要来源凭据', 401);
@@ -195,6 +201,8 @@ export async function receiveBatch(request: Request, sourceId: string) {
     secret,
     settings.rules,
     await verificationSnapshots(),
+    undefined,
+    settings.crawlerRules,
   );
   const digest = createHmac('sha256', secret)
     .update(`${sourceId}:${upload.epoch}:${upload.digest}`)
@@ -235,6 +243,8 @@ export async function receiveBatch(request: Request, sourceId: string) {
           record.crawlerEvidence.edgeObservation,
           live.source.health?.fieldCapabilities,
         );
+    if (principal.source.provider_job_id === live.source.provider_job_id)
+      for (const record of parsed.records) applyTrustedEdgeIdentity(record, live.source, settings.crawlerRules);
     const old = (
       await tx.$queryRawUnsafe(
         'SELECT id,digest,valid,rejected,state,inserted,duplicates FROM liekan_ingest_batch WHERE id=$1::uuid',
@@ -275,7 +285,7 @@ export async function receiveBatch(request: Request, sourceId: string) {
     const effective = await getSettings(live.source.website_id, tx);
     if (effective.classificationVersion !== settings.classificationVersion)
       throw new LiekanError('规则已被更新，请重试当前批次', 409);
-    await archiveCrawlerRules(tx, live.source.website_id, settings.rules);
+    await archiveCrawlerRules(tx, live.source.website_id, settings.rules, settings.crawlerRules);
     const rate = (
       await tx.$queryRawUnsafe(
         "SELECT (SELECT count(*)::int FROM liekan_ingest_batch WHERE website_id=$1::uuid AND state='pending') AS pending,(SELECT count(*)::int FROM liekan_ingest_batch WHERE website_id=$1::uuid AND received_at>now()-interval '1 minute') AS recent",
@@ -288,7 +298,7 @@ export async function receiveBatch(request: Request, sourceId: string) {
     const valid = parsed.records.filter(row => +new Date(row.time) >= resetAt);
     const rejected = parsed.rejected + parsed.records.length - valid.length;
     await tx.$executeRawUnsafe(
-      'INSERT INTO liekan_ingest_batch(id,website_id,source_id,epoch,digest,payload,received,valid,rejected,errors) VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::jsonb,$7,$8,$9,$10::jsonb)',
+      'INSERT INTO liekan_ingest_batch(id,website_id,source_id,epoch,digest,payload,received,valid,rejected,errors,catalog_version) VALUES ($1::uuid,$2::uuid,$3::uuid,$4,$5,$6::jsonb,$7,$8,$9,$10::jsonb,$11::uuid)',
       batchId,
       live.source.website_id,
       sourceId,
@@ -299,6 +309,7 @@ export async function receiveBatch(request: Request, sourceId: string) {
       valid.length,
       rejected,
       JSON.stringify(parsed.errors),
+      getPublishedCatalog()?.version ?? null,
     );
     await enqueue(tx, LOG_QUEUE, { batchId }, batchId);
     if (valid.length)
@@ -460,6 +471,8 @@ export async function heartbeat(sourceId: string, token: string, input: unknown)
       live.epoch,
       health.data,
       setting.rules,
+      Date.now(),
+      setting.crawlerRules,
     );
     return {
       version: 1,
@@ -468,7 +481,7 @@ export async function heartbeat(sourceId: string, token: string, input: unknown)
       coverageBinding:
         String((await ensureState(tx, live.source.website_id)).policy_revision) +
         ':' +
-        crawlerClassificationVersion(setting.rules),
+        crawlerClassificationVersion(setting.rules, setting.crawlerRules),
       epoch: live.epoch,
       state: live.source.state,
       resetAt: live.resetAt,

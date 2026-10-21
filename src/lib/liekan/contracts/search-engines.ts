@@ -1,3 +1,4 @@
+import { referralForHost, referralPlatformName } from './sources';
 import type { Row } from './report';
 
 export const searchChannels = ['传统搜索', 'AI 搜索引荐'] as const;
@@ -44,7 +45,8 @@ export function summarizeSearchEngines(sources: SearchSourceFact[], hasGoals: bo
         item.channel === channel &&
         item.domains.some(domain => host === domain || host.endsWith(`.${domain}`)),
     );
-    const engine = platform?.name || '未识别平台';
+    const aiRule = channel === 'AI 搜索引荐' ? referralForHost(host) : undefined;
+    const engine = aiRule ? referralPlatformName(aiRule) : (channel === '传统搜索' ? platform?.name : undefined) || '未识别平台';
     const key = JSON.stringify([channel, engine]);
     const group = groups.get(key) || {
       engine,

@@ -135,9 +135,9 @@ export const columns: Record<string, Array<[string, string, boolean?]>> = {
   ],
   topBody: [
     ['path', '页面'],
-    ['humanPv', '人类 PV', true],
+    ['humanPv', '浏览 PV', true],
     ['aiRequests', 'AI 抓取', true],
-    ['ratio', 'AI/人 比值', true],
+    ['ratio', 'AI/浏览 比值', true],
     ['bot', '最活跃蜘蛛'],
     ['evaluation', 'GEO 评价'],
   ],
@@ -153,6 +153,7 @@ export const columns: Record<string, Array<[string, string, boolean?]>> = {
   ],
   apBody: [
     ['path', '页面'],
+    ['title', '标题'],
     ['requests', '抓取次数', true],
     ['bots', '蜘蛛种类', true],
     ['heat', '抓取热度'],
@@ -309,13 +310,27 @@ export function formatCellValue(
   display: (source: string) => string = source => source,
 ) {
   const value = row[field];
+  if (table === 'apBody' && field === 'title' && (value == null || value === ''))
+    return display('未提供');
   if (value == null || value === '') return '–';
   if (field === 'source' && row.sourceLabel === 'direct') return display('直接访问');
   if (table === 'botBody' && field === 'name') {
     const identity = crawlerIdentityLabel(row, display);
     return `${formatValue(value, locale)}${row.vendor ? ` / ${row.vendor}` : ''}${identity ? ` / ${identity}` : ''}`;
   }
-  if (field === 'bot' && ['topBody', 'apBody'].includes(table)) {
+  if (field === 'bot' && table === 'apBody') {
+    return [
+      { bot: row.bot, botId: row.botId },
+      { bot: row.bot2, botId: row.bot2Id },
+    ]
+      .filter(bot => bot.bot)
+      .map(bot => {
+        const identity = crawlerIdentityLabel(bot, display);
+        return `${formatValue(bot.bot, locale)}${identity ? ` / ${identity}` : ''}`;
+      })
+      .join('\n');
+  }
+  if (field === 'bot' && table === 'topBody') {
     const identity = crawlerIdentityLabel(row, display);
     return `${formatValue(value, locale)}${identity ? ` / ${identity}` : ''}`;
   }

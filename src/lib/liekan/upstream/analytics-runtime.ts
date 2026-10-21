@@ -10,6 +10,7 @@ import { analyticsRedis, type AnalyticsRedis } from './analytics-redis';
 import { readAnalyticsVersions, type AnalyticsVersions } from './analytics-revision';
 import {
   analyticsCacheKey,
+  analyticsInfrastructureKey,
   decodeAnalyticsResult,
   encodeAnalyticsResult,
   type CachedResult,
@@ -67,7 +68,7 @@ export function installAnalyticsRuntime(
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema))
     throw new Error('Invalid analytics database schema');
   const url = new URL(process.env.DATABASE_URL);
-  const database = analyticsCacheKey('database-v1', [url.protocol, url.host, url.pathname, schema]);
+  const database = analyticsInfrastructureKey('database-v1', [url.protocol, url.host, url.pathname, schema]);
 
   async function readVersions(
     tags: string[],

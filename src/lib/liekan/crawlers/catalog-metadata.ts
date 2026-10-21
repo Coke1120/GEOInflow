@@ -28,6 +28,14 @@ const officialExamples: Record<string, string> = {
     'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; PerplexityBot/1.0; +https://perplexity.ai/perplexitybot)',
   'Perplexity-User':
     'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Perplexity-User/1.0; +https://perplexity.ai/perplexity-user)',
+  KimiBot:
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; KimiBot/1.0; +https://www.kimi.com/policies/kimi-crawlers',
+  'Kimi-SearchBot':
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; Kimi-SearchBot/1.0; +https://www.kimi.com/policies/kimi-crawlers',
+  'Kimi-User':
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; Kimi-User/1.0; +https://www.kimi.com/policies/kimi-crawlers',
+  HySpider:
+    'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; HySpider/1.0; +https://hy.tencent.com/polices/hy-crawlers',
   Amazonbot:
     'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Amazonbot/0.1) Chrome/W.X.Y.Z Safari/537.36',
   'Amzn-User':
@@ -188,6 +196,67 @@ export const crawlerMetadata: Crawler[] = [
           feeds: [
             source('Perplexity-User IP 范围', 'https://www.perplexity.ai/perplexity-user.json'),
           ],
+        },
+      ],
+    ],
+  ),
+  ...vendor(
+    {
+      name: 'Kimi',
+      sources: [source('Kimi：爬虫说明', 'https://www.kimi.ai/policies/kimi-crawlers')],
+      verification:
+        '分别核对 KimiBot、Kimi-SearchBot、Kimi-User 的官方 feed、准确 UA 与可信来源 IP。三者地址可能重合，IP 范围仅用于佐证 UA 身份；来源和快照独立保存。',
+      robots:
+        '各 token 用途独立，支持按子域名设置 robots 与 Crawl-delay。Kimi-User 由用户操作触发，robots.txt 规则可能不直接适用。',
+    },
+    [
+      [
+        'KimiBot',
+        ['训练'],
+        '抓取可能用于训练 Kimi 基础模型的网页内容。',
+        {
+          feeds: [source('KimiBot IP 范围', 'https://www.kimi.ai/policies/kimibot.json')],
+          reviewedAt: '2026-10-21',
+        },
+      ],
+      [
+        'Kimi-SearchBot',
+        ['AI 搜索'],
+        '分析网页相关性并建立 Kimi 搜索索引。',
+        {
+          feeds: [
+            source('Kimi-SearchBot IP 范围', 'https://www.kimi.ai/policies/kimi-searchbot.json'),
+          ],
+          reviewedAt: '2026-10-21',
+        },
+      ],
+      [
+        'Kimi-User',
+        ['用户触发'],
+        '响应 Kimi 用户操作获取文章或实时网页资料。',
+        {
+          feeds: [source('Kimi-User IP 范围', 'https://www.kimi.ai/policies/kimi-user.json')],
+          reviewedAt: '2026-10-21',
+        },
+      ],
+    ],
+  ),
+  ...vendor(
+    {
+      name: 'Tencent',
+      sources: [source('腾讯混元：Hy 爬虫说明', 'https://hy.tencent.com/polices/hy-crawlers')],
+      verification: officialRange,
+      robots:
+        'HySpider 支持按子域名设置 robots 与 Crawl-delay。官方 IP 范围会动态变化，核验应使用对应时间的快照。',
+    },
+    [
+      [
+        'HySpider',
+        ['训练'],
+        '抓取可能用于训练腾讯混元基础模型的网页内容。',
+        {
+          feeds: [source('HySpider IP 范围', 'https://hy.tencent.com/policy/hyspider.json')],
+          reviewedAt: '2026-10-21',
         },
       ],
     ],

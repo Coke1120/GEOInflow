@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Run only against resources created by this process. The candidate image is built separately.
 import { runTrafficQualityUpgradeChecks } from './traffic-quality-upgrade.mjs';
+import { verifyVisitorQualityUi } from './visitor-quality-ui.mjs';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { readFile, readdir } from 'node:fs/promises';
@@ -326,10 +327,11 @@ function expectedCounts() {
 function included(mode, hosts = []) {
   return fixtures.filter(
     f =>
-      mode === 'raw' ||
+      f.source === 'browser' &&
+      (mode === 'raw' ||
       (f.classification !== 'automated' &&
         (mode !== 'strict' || f.classification !== 'suspected') &&
-        (!hosts.length || hosts.includes(f.host))),
+        (!hosts.length || hosts.includes(f.host)))),
   );
 }
 function unique(rows, field = 'sessionId') {
@@ -1035,7 +1037,7 @@ try {
       { userAgent: botUa },
     );
   });
-  await test('historical unclassified event remains unknown and eligible', async () => {
+  await test('historical unclassified event stays raw and outside browser population', async () => {
     const sessionId = randomUUID(),
       eventId = randomUUID(),
       visitId = randomUUID();
@@ -1056,11 +1058,6 @@ try {
       properties: 0,
       missingVerdict: true,
     });
-    // Synthetic country fixtures cover both legacy metadata and event geography anchors.
-    await sql(`UPDATE session SET country='US' WHERE website_id=${websiteSql};`);
-    await sql(
-      `UPDATE liekan_event_geography SET country='US',region=NULL,city=NULL,precision='country',reason='synthetic_fixture' WHERE website_id=${websiteSql};`,
-    );
     same(
       await counts(),
       expectedCounts(),
@@ -1099,6 +1096,23 @@ try {
     }
     same(await counts(), expectedCounts(), 'Historical aliases must retain missing verdicts');
   });
+  await test('registered browser-like crawler stays separate from a normal short visit', async () => {
+    await record(event('/cases', { timestamp }), browserQuality);
+    await record(
+      event('/cases/', { timestamp }),
+      {
+        classification: 'automated',
+        source: 'browser',
+        reason: 'crawler_ua_token',
+      },
+      { userAgent: `${browserUa} Claude-User/1.0` },
+    );
+    // Normalize geography after all intake fixtures, including the new case-page visits.
+    await sql(`UPDATE session SET country='US' WHERE website_id=${websiteSql};`);
+    await sql(
+      `UPDATE liekan_event_geography SET country='US',region=NULL,city=NULL,precision='country',reason='synthetic_fixture' WHERE website_id=${websiteSql};`,
+    );
+  });
   await test('recording fixtures link to the actual collected visits', async () => {
     const emptyRecording = gzipSync(Buffer.from('[]')).toString('hex');
     await sql(`INSERT INTO heatmap_event(heatmap_event_id,website_id,session_id,visit_id,url_path,event_type,created_at)
@@ -1127,6 +1141,47 @@ try {
       expectedSummary,
       'Audit summary must preserve each evidence class',
     );
+    for (const row of audit.summary) {
+      const pages = fixtures.filter(f => f.classification === row.classification && f.pageview);
+      same(
+        row.visitors,
+        new Set(pages.map(f => f.sessionId)).size,
+        'Class UV counts only pageview visitors',
+      );
+      same(row.pageviews, pages.length, 'Class PV excludes custom events');
+      same(
+        row.included_pageviews,
+        pages.filter(f => f.source === 'browser' && f.classification !== 'automated').length,
+        'Class included PV shares the saved policy',
+      );
+    }
+    for (const path of ['/cases', '/cases/']) {
+      const selected = (
+        await json(qualityPath + '?' + window + '&path=' + encodeURIComponent(path), { auth: true })
+      ).body;
+      ensure(
+        selected.rows.length === 1 && selected.rows[0].path === path,
+        'Exact paths keep their trailing slash',
+      );
+      same(selected.totals.rawPV, 1, 'Path totals use the selected path');
+      same(
+        selected.totals.includedPV,
+        path === '/cases' ? 1 : 0,
+        'Normal short visits stay included; known automation is excluded',
+      );
+      const preview = (
+        await json(qualityPath + '/preview', {
+          method: 'POST',
+          auth: true,
+          body: {
+            policy: { mode: 'raw', allowedHostnames: [] },
+            range: { startAt, endAt, timezone: 'UTC', path },
+          },
+        })
+      ).body;
+      same(preview.preview.rawPV, 1, 'Policy preview retains the path scope');
+      same(preview.preview.includedPV, 1, 'Raw preview preserves the excluded event');
+    }
     for (const row of audit.rows) {
       const match = fixtures.find(f => f.path === row.path);
       ensure(
@@ -1140,7 +1195,7 @@ try {
         );
       else {
         ensure(
-          row.ruleVersion === 'traffic-quality-v2' && row.reasons.includes(match.reason),
+          row.ruleVersion === 'traffic-quality-v3' && row.reasons.includes(match.reason),
           'Audit must preserve the classification rule and reason',
         );
         if (row.path === '/official-range')
@@ -1150,7 +1205,7 @@ try {
           );
       }
       ensure(
-        row.included === (match.classification !== 'automated'),
+        row.included === (match.source === 'browser' && match.classification !== 'automated'),
         'Default standard audit inclusion must match policy',
       );
     }
@@ -1168,6 +1223,7 @@ try {
           'website_id',
         ],
         liekan_event_quality: [
+          'catalog_version',
           'classification',
           'created_at',
           'event_id',
@@ -1441,7 +1497,7 @@ try {
       })
     ).body;
     ensure(
-      result.mode === mode && result.ruleVersion === 'traffic-quality-v2',
+      result.mode === mode && result.ruleVersion === 'traffic-quality-v3',
       'Policy response must retain versioned semantics',
     );
     const after = await sql(
@@ -1452,6 +1508,10 @@ try {
       'Policy mutation must advance the durable analytics revision',
     );
     return result;
+  }
+  if (process.env.LIEKAN_TRAFFIC_UI === '1') {
+    await test('visitor quality UI at desktop and mobile sizes in both languages', () =>
+      verifyVisitorQualityUi({ base, token, websiteId, startAt, endAt }));
   }
   await test('standard policy covers native analytics, report and exports', () =>
     verifySurfaces('standard'));
@@ -1510,35 +1570,10 @@ try {
         { auth: true },
       )
     ).body;
-    const supported = [
-      'openai',
-      'anthropic',
-      'perplexity',
-      'bytedance',
-      'google',
-      'baidu',
-      'microsoft',
-    ];
-    const unsupported = [
-      'apple',
-      'amazon',
-      'mistral',
-      'duckduckgo',
-      'common-crawl',
-      'ai2',
-      'sogou',
-      '360',
-      'yandex',
-      'naver',
-      'seznam',
-      'qwant',
-      'mojeek',
-      'meta',
-      'ahrefs',
-      'semrush',
-      'majestic',
-      'petal',
-    ];
+    const supported = ["360", "alibaba", "anthropic", "baidu", "bytedance", "deepseek", "duckduckgo", "google", "iflytek", "kimi", "manus", "metaso", "microsoft", "minimax", "openai", "perplexity", "sensetime", "skywork", "sogou", "stepfun", "tencent", "zhipu"];
+    const published = (await json('/api/liekan/crawler-registry', { auth: true })).body;
+    ensure(published.payload.platforms.length === 54, 'The current catalog must retain all reviewed platforms');
+    const unsupported = published.payload.platforms.map(row => row.id).filter(id => !supported.includes(id));
     same(
       analysis.platforms.map(row => row.platformId).sort(),
       [...supported, ...unsupported].sort(),

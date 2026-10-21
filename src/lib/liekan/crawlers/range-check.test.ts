@@ -2,8 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   checkRangeSource,
-  parseRangeFeed,
   isQualifiedRangeContent,
+  parseRangeFeed,
   RangeCheckError,
   type RangeObservation,
   rangeBaselines,
@@ -15,8 +15,8 @@ import { crawlerRegistry } from './registry';
 const now = () => new Date('2026-10-15T02:00:00Z');
 
 describe('reviewed official crawler range sources', () => {
-  it('checks all 19 bundled sources through their fixed feed shapes', async () => {
-    expect(rangeSources).toHaveLength(19);
+  it('checks all 23 bundled sources through their fixed feed shapes', async () => {
+    expect(rangeSources).toHaveLength(23);
     for (const source of rangeSources) {
       const baseline = rangeBaselines[source.id];
       expect(baseline.content.prefixes.length).toBeGreaterThan(0);
@@ -32,11 +32,11 @@ describe('reviewed official crawler range sources', () => {
           : Response.json(feed);
       const checked = await checkRangeSource(source, undefined, {
         fetcher,
-        now: () => new Date('2026-10-18T02:00:00Z'),
+        now: () => new Date('2026-10-21T02:00:00Z'),
       });
       expect(checked.status).toBe('unchanged');
       expect(checked.content.version).toBe(baseline.content.version);
-      expect(checked.observedAt).toBe('2026-10-18T02:00:00.000Z');
+      expect(checked.observedAt).toBe('2026-10-21T02:00:00.000Z');
       expect(Object.isFrozen(checked.content.prefixes)).toBe(true);
     }
   });
@@ -62,8 +62,8 @@ afterEach(() => vi.useRealTimers());
 
 describe('source and reviewed baseline boundaries', () => {
   it('binds only the explicit HTTP identities and shares the Claude feed once', () => {
-    expect(new Set(rangeSources.map(source => source.id)).size).toBe(19);
-    expect(new Set(rangeSources.map(source => source.url)).size).toBe(19);
+    expect(new Set(rangeSources.map(source => source.id)).size).toBe(23);
+    expect(new Set(rangeSources.map(source => source.url)).size).toBe(23);
     for (const entry of rangeSources) {
       expect(Object.isFrozen(entry)).toBe(true);
       expect(entry.url.startsWith('https://')).toBe(true);

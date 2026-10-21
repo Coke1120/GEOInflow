@@ -543,6 +543,14 @@
       "summary": "管理模型连接、实时测试和默认分析模型。",
       "route": "",
       "kind": "AI 能力"
+    },
+    {
+      "id": "crawlers-manage",
+      "title": "爬虫与 AI 平台",
+      "group": "crawlers",
+      "summary": "统一维护爬虫身份、平台、引荐域名与核验来源。",
+      "route": "/crawlers/manage",
+      "kind": "增补管理页"
     }
   ],
   "routes": [
@@ -892,6 +900,12 @@
       "source": "src/app/sso/page.tsx",
       "route": "/sso",
       "target": "sso.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/crawlers/manage/page.tsx",
+      "route": "/crawlers/manage",
+      "target": "crawler-registry.html",
       "entry": "页面"
     }
   ]

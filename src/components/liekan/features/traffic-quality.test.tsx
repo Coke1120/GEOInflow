@@ -6,15 +6,19 @@ const mocks = vi.hoisted(() => ({
   risk: null as any,
   refetch: vi.fn(),
   close: vi.fn(),
+  reads: vi.fn(),
 }));
 vi.mock('./context', () => ({
   useFeature: () => mocks.context,
-  useData: (key: any) => ({
-    data: key[0] === 'traffic-quality' ? mocks.audit : mocks.risk,
-    isFetching: false,
-    isPending: false,
-    refetch: mocks.refetch,
-  }),
+  useData: (key: any) => (
+    mocks.reads(key),
+    {
+      data: key[0] === 'traffic-quality' ? mocks.audit : mocks.risk,
+      isFetching: false,
+      isPending: false,
+      refetch: mocks.refetch,
+    }
+  ),
 }));
 vi.mock('./LiekanDialog', () => ({
   useDialog: () => ({ requestClose: mocks.close }),
@@ -44,6 +48,10 @@ beforeEach(() => {
     domainAudit: { hosts: [] },
     history: [],
     rows: [],
+    summary: [
+      { classification: 'browser', events: 3, pageviews: 3, visitors: 2, included_pageviews: 3 },
+      { classification: 'automated', events: 2, pageviews: 2, visitors: 1, included_pageviews: 0 },
+    ],
   };
   mocks.risk = {
     available: true,
@@ -63,6 +71,24 @@ beforeEach(() => {
     api: { post: vi.fn(), put: vi.fn() },
     refresh: vi.fn(),
   };
+});
+it('shows browser-like and automated traffic separately and applies exact paths on submit', async () => {
+  render(<TrafficQuality canManage={false} onClose={mocks.close} />);
+  expect(screen.getByText(/浏览指标仅纳入来源明确的浏览器事件/)).toBeVisible();
+  const input = screen.getByLabelText(/^页面路径（精确匹配）/);
+  fireEvent.change(input, { target: { value: '/cases/' } });
+  expect(
+    mocks.reads.mock.calls.filter(([key]) => key[0] === 'traffic-quality').at(-1)?.[0][1].path,
+  ).toBeUndefined();
+  fireEvent.submit(input.closest('form')!);
+  await waitFor(() =>
+    expect(
+      mocks.reads.mock.calls.filter(([key]) => key[0] === 'traffic-quality').at(-1)?.[0][1].path,
+    ).toBe('/cases/'),
+  );
+  expect(
+    mocks.reads.mock.calls.filter(([key]) => key[0] === 'browser-risk').at(-1)?.[0][1].path,
+  ).toBeUndefined();
 });
 it('requires preview and management permission before saving', async () => {
   const view = render(<TrafficQuality canManage={false} onClose={mocks.close} />);

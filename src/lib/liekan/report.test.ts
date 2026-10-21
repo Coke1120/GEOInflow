@@ -35,6 +35,34 @@ import { geographyLabel, regionName } from './contracts/geography';
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
 
+it('shows automation evidence for an unregistered spider without granting an official identity', async () => {
+  const logs = await mocks.logs();
+  const unknown = {
+    bot: '其他',
+    recognitionState: 'unknown',
+    aiEligible: false,
+    path: '/cases/',
+    time: '1970-01-01T01:00:00Z',
+  };
+  mocks.logs.mockResolvedValue({
+    ...logs,
+    recent: [
+      { ...unknown, userAgent: 'YisouSpider' },
+      { ...unknown, userAgent: 'Mozilla/5.0 Chrome/151.0.0.0 Safari/537.36' },
+      { ...unknown, userAgent: '' },
+    ],
+  });
+  const report = await buildReport(website, false, { ...params, resource: 'logs' });
+  expect(report.tables.logBody.map(row => row.classification)).toEqual([
+    '自动化特征 · 身份未核验',
+    '未知／未分类',
+    '未知／未分类',
+  ]);
+  expect(
+    report.tables.logBody.every(row => row.recognitionState === 'unknown' && !row.aiEligible),
+  ).toBe(true);
+});
+
 it.each(['gptbot', null])(
   'keeps the selected %s identity separate in the estimated crawl sequence',
   async botId => {
@@ -89,6 +117,61 @@ it.each(['gptbot', null])(
     expect(report.tables.topBody[0]).toMatchObject({ bot: 'GPTBot', botId, aiRequests: 10 });
   },
 );
+
+it('uses catalog titles and ranks two crawler identities per page without changing totals', async () => {
+  const logs = await mocks.logs();
+  const page = { path: '/article', lastCrawled: '1970-01-01T01:00:00Z' };
+  mocks.logs.mockResolvedValue({
+    ...logs,
+    latest: page.lastCrawled,
+    pages: [
+      { ...page, bot: 'ThirdBot', botId: null, requests: 1 },
+      { ...page, bot: 'GPTBot', botId: null, requests: 8 },
+      { ...page, bot: 'GPTBot', botId: 'gptbot', requests: 12 },
+      { ...page, path: '/missing', bot: 'OnlyBot', botId: null, requests: 2 },
+      { ...page, path: '/blank', bot: 'OnlyBot', botId: null, requests: 1 },
+    ],
+    catalog: [
+      { path: '/article', title: '文章标题 <test>' },
+      { path: '/blank', title: '  ' },
+    ],
+  });
+  const report = await buildReport(website, false, { ...params, resource: 'ai/pages' }, true);
+  expect(report.tables.apBody[0]).toMatchObject({
+    title: '文章标题 <test>',
+    requests: 21,
+    bots: 3,
+    heat: 100,
+    bot: 'GPTBot',
+    botId: 'gptbot',
+    bot2: 'GPTBot',
+    bot2Id: null,
+  });
+  expect(report.tables.apBody.slice(1).every(row => row.title === null && row.bot2 === null)).toBe(
+    true,
+  );
+  expect(liekanReportSchema.shape.tables.safeParse(report.tables).success).toBe(true);
+});
+
+it('keeps equal-count crawler ranks deterministic across input order', async () => {
+  const logs = await mocks.logs();
+  const rows = ['ZuluBot', 'AlphaBot', 'BetaBot'].map(bot => ({
+    path: '/a',
+    bot,
+    botId: null,
+    requests: 5,
+    lastCrawled: '1970-01-01T01:00:00Z',
+  }));
+  for (const pages of [rows, [...rows].reverse()]) {
+    mocks.logs.mockResolvedValue({ ...logs, pages });
+    const report = await buildReport(website, false, { ...params, resource: 'ai/pages' });
+    expect(report.tables.apBody[0]).toMatchObject({
+      bot: 'AlphaBot',
+      bot2: 'BetaBot',
+      requests: 15,
+    });
+  }
+});
 
 it('matches generated and supplied direct-source trends by their distinct display identities', async () => {
   const human = await mocks.human();
@@ -192,6 +275,16 @@ beforeEach(() => {
   mocks.months.mockResolvedValue([]);
 });
 describe('report evidence states', () => {
+  it('keeps published metric keys while clarifying visitor display labels', async () => {
+    const report = await buildReport(website, false, params);
+    expect(report.cards.find(card => card.key === '人类访客（UV）')).toMatchObject({
+      label: '访客（UV）',
+      detail: '按当前流量策略去重，可能含未识别自动化',
+    });
+    expect(report.cards.find(card => card.key === '案例页 AI/人 比值')).toMatchObject({
+      label: '案例页 AI/浏览 比值',
+    });
+  });
   it('accepts existing report contracts without geography display metadata and validates stable city IDs when provided', async () => {
     const report = await buildReport(website, false, params);
     expect(liekanReportSchema.safeParse(report).success).toBe(true);
@@ -392,7 +485,7 @@ describe('report evidence states', () => {
       humanPaths.map((path, i) => [path, i + 1, '已被抓取']),
     );
     expect(report.tables.pgBody.map(row => row.aiRequests)).toEqual([1, 2, 3]);
-    expect(report.charts.pf1.series.find(series => series.name === '人类 PV').values).toEqual([
+    expect(report.charts.pf1.series.find(series => series.name === '浏览 PV').values).toEqual([
       33.33, 33.33, 33.33,
     ]);
   });

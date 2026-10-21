@@ -4,7 +4,7 @@
 import type { RequestOptions } from '../types';
 import type { components, operations as OperationTypes } from './types';
 
-export const API_VERSION = '0.2.4';
+export const API_VERSION = '1.2.0';
 
 export type HttpMethod = 'get' | 'post' | 'put' | 'patch' | 'delete';
 
@@ -989,6 +989,7 @@ export const operations = {
       'classification',
       'source',
       'hostname',
+      'path',
       'page',
       'cursor',
     ],
@@ -1128,6 +1129,9 @@ export const operations = {
     queryParams: [
       'crawlerIdentityScope',
       'crawlerMetricsVersion',
+      'botType',
+      'botId',
+      'botName',
       'refresh',
       'resource',
       'startAt',
@@ -1159,6 +1163,9 @@ export const operations = {
     queryParams: [
       'crawlerIdentityScope',
       'crawlerMetricsVersion',
+      'botType',
+      'botId',
+      'botName',
       'refresh',
       'resource',
       'startAt',
@@ -1210,6 +1217,7 @@ export const operations = {
       'classification',
       'source',
       'hostname',
+      'path',
       'page',
       'cursor',
     ],

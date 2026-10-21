@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { featureRequest, downloadTrafficEvidence } from '@/lib/liekan/upstream/features-client';
+import { withClientFreshness } from '@/lib/liekan/upstream/client-freshness';
 import type { CrawlerIdentityScope } from '@/lib/liekan/contracts/crawler-metrics';
 import { verificationReasonLabel } from '@/lib/liekan/rules/verification-labels';
 import { downloadFile } from '../data';
@@ -9,6 +10,8 @@ import { Button, Notice, Panel, Select, Table } from './ui';
 
 const identityLabels = {
   verified_range: '官方范围匹配',
+  verified_dns: '官方 DNS 双向核验',
+  verified_edge: '可信边缘身份核验',
   range_mismatch: '官方范围未匹配',
   unverified: '未核验',
 };
@@ -56,6 +59,7 @@ export function TrafficEvidencePanel({
   mode?: 'evidence' | 'reconciliation' | 'performance' | 'outcomes' | 'observations';
 }) {
   const i18n = useLiekanI18n();
+  const [catalogReadId] = useState(() => crypto.randomUUID());
   const [sourceId, setSourceId] = useState(''),
     [sources, setSources] = useState<any[]>([]),
     [response, setResponse] = useState<{ key: string; data: any } | null>(null);
@@ -94,6 +98,7 @@ export function TrafficEvidencePanel({
   }, [range.startAt, range.endAt, range.timezone, revision]);
   const needsSource = mode === 'reconciliation' || mode === 'performance' || mode === 'outcomes';
   const base = `/liekan/websites/${websiteId}`;
+  const catalogScope = JSON.stringify([catalogReadId, websiteId, fixed, revision]);
   const endpoint =
     mode === 'reconciliation' || mode === 'observations'
       ? `${base}/traffic-quality/${mode}`
@@ -130,11 +135,16 @@ export function TrafficEvidencePanel({
   useEffect(() => {
     if (mode === 'observations') return;
     const abort = new AbortController();
-    featureRequest<any>(
-      'GET',
-      `${base}/crawler-analysis/evidence`,
-      { ...fixed, crawlerMetricsVersion: 1 },
+    withClientFreshness(
       abort.signal,
+      () =>
+        featureRequest<any>(
+          'GET',
+          `${base}/crawler-analysis/evidence`,
+          { ...fixed, crawlerMetricsVersion: 1 },
+          abort.signal,
+        ),
+      { catalogScope },
     )
       .then(data => {
         if (abort.signal.aborted) return;
@@ -154,7 +164,7 @@ export function TrafficEvidencePanel({
         if (!abort.signal.aborted) setError(e.message);
       });
     return () => abort.abort();
-  }, [base, fixed, needsSource, mode]);
+  }, [base, fixed, needsSource, mode, catalogScope]);
   useEffect(() => {
     if (needsSource && !sourceId) {
       setLoading(false);
@@ -163,11 +173,16 @@ export function TrafficEvidencePanel({
     const abort = new AbortController();
     setLoading(true);
     setError('');
-    featureRequest<any>(
-      'GET',
-      endpoint,
-      { ...JSON.parse(conditions), page, snapshot: snapshot.current },
+    withClientFreshness(
       abort.signal,
+      () =>
+        featureRequest<any>(
+          'GET',
+          endpoint,
+          { ...JSON.parse(conditions), page, snapshot: snapshot.current },
+          abort.signal,
+        ),
+      { catalogScope },
     )
       .then(data => {
         if (abort.signal.aborted) return;
@@ -190,7 +205,7 @@ export function TrafficEvidencePanel({
         if (!abort.signal.aborted) setLoading(false);
       });
     return () => abort.abort();
-  }, [conditions, endpoint, requestKey, page, needsSource, sourceId, revision]);
+  }, [conditions, endpoint, requestKey, page, needsSource, sourceId, revision, catalogScope]);
   const number = (value: unknown) =>
     value == null
       ? i18n.text('未提供')
@@ -212,6 +227,8 @@ export function TrafficEvidencePanel({
           viewSnapshot: result.meta.snapshot,
           policySnapshot: result.meta.policySnapshot,
         },
+        undefined,
+        result.meta.registryVersion,
       );
       downloadFile(exported.csv, `liekan-${mode}.csv`);
       setExportMessage(
@@ -223,7 +240,7 @@ export function TrafficEvidencePanel({
       setBusy(false);
     }
   };
-  const matrix = ['verified_range', 'range_mismatch', 'unverified']
+  const matrix = ['verified_range', 'verified_dns', 'verified_edge', 'range_mismatch', 'unverified']
     .filter(identity => identityScope === 'all' || identity === identityScope)
     .map(identity => [
       i18n.text(identityLabels[identity]),

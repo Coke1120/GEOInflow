@@ -37,7 +37,7 @@ const ids = [
 
 describe('crawler directory and contracts', () => {
   it('maps every unchanged existing rule to one historical stable identity', () => {
-    expect(new Set(BOT_RULES.map(crawlerIdForRule)).size).toBe(53);
+    expect(new Set(BOT_RULES.map(crawlerIdForRule)).size).toBe(57);
     for (const rule of BOT_RULES) {
       expect(getCrawler(crawlerIdForRule(rule)).uaSelector).toBe(rule.pattern);
       expect(crawlerIdForName(rule.name)).toBe(crawlerIdForRule(rule));

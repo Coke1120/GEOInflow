@@ -82,7 +82,6 @@ export function manualPageReads(id, values) {
     'access-denied': '权限状态入口',
     'session-expired': '身份到期状态入口',
     'not-found': '资源不存在状态入口',
-    help: '静态帮助文章',
   };
   if (
     ['goal-editor', 'funnel-editor', 'segment-editor', 'cohort-editor'].includes(id) &&
@@ -94,6 +93,8 @@ export function manualPageReads(id, values) {
   }
   if (excluded[id]) return { endpoints: [], exception: excluded[id] };
   const map = {
+    help: [endpoint('/api/liekan/crawler-registry')],
+    'crawlers-manage': [endpoint('/api/liekan/crawler-registry')],
     websites: [endpoint('/api/me/websites'), endpoint('/api/liekan/websites/summary')],
     dashboard: [endpoint('/api/liekan/websites/summary')],
     'dashboard-edit': [endpoint('/api/liekan/websites/summary')],

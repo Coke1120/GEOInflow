@@ -11,6 +11,6 @@ export async function GET(
       const { websiteId } = await params;
       const { website } = await authorize(request, websiteId);
       return featureAnalytics(website.id, Object.fromEntries(new URL(request.url).searchParams));
-    }),
+    }), request
   );
 }

@@ -49,7 +49,9 @@ describe.skipIf(!enabled)('durable official source observations', () => {
         version: rangeBaselines[entry.id].content.version,
       });
     expect(rows.filter(row => row.source_id.startsWith('legacy-bundled:'))).toHaveLength(6);
-    expect(Object.keys(await readRangeSnapshots())).toHaveLength(26);
+    expect(Object.keys(await readRangeSnapshots()).sort()).toEqual(
+      [...new Set(rangeSources.flatMap(source => [...source.names]))].sort(),
+    );
   });
   it('renews unchanged observations, captures per-log evidence and keeps content versions stable', async () => {
     await restoreRangeSnapshot(source, baseline.content.version);
@@ -191,7 +193,7 @@ describe.skipIf(!enabled)('durable official source observations', () => {
     });
     release();
     await running;
-    expect(calls).toBe(16);
+    expect(calls).toBe(rangeSources.length);
     expect(peak).toBeLessThanOrEqual(2);
   });
 });

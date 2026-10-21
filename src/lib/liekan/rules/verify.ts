@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import ipaddr from 'ipaddr.js';
 import snapshots from '../../../../config/liekan/bot-ranges.json';
 import { rangeBaselines } from '../crawlers/range-check';
-import { rangeSources } from '../crawlers/range-sources';
-import { classifyBot } from './bots';
+import { rangeSources, getRangeSources } from '../crawlers/range-sources';
+import { classifyBot, officialCrawlerForRule, LEGACY_BOT_RULES, type BotClassification } from './bots';
 
 export type VerificationSnapshots = Record<
   string,
@@ -77,7 +77,7 @@ export function verifyBotIpEvidence(
   ua: string,
   time: string,
   evidence: VerificationSnapshots = bundledVerificationSnapshots,
-  options: { trustedIp?: boolean; now?: number } = {},
+  options: { trustedIp?: boolean; now?: number; identity?: BotClassification } = {},
 ): {
   status: 'unverified' | 'verified_range' | 'range_mismatch';
   reason: VerificationReason;
@@ -95,10 +95,13 @@ export function verifyBotIpEvidence(
     version,
     observedAt,
   });
-  const identity = classifyBot(ua);
+  const supplied = options.identity;
+  const historical = supplied && Object.keys(supplied).length === 4 && LEGACY_BOT_RULES.some(rule =>
+    Object.entries(rule).every(([key, value]) => supplied[key] === value));
+  const identity = supplied && !historical ? supplied : classifyBot(ua);
   if (identity.recognition === 'ambiguous') return result('ambiguous_name');
-  if (!identity.crawlerId || identity.name !== bot) return result('unmapped_identity');
-  const source = rangeSources.find(
+  if (!identity.crawlerId || identity.name !== bot || !officialCrawlerForRule(identity)) return result('unmapped_identity');
+  const source = getRangeSources().find(
     entry => entry.names.includes(bot) && entry.crawlerIds.includes(identity.crawlerId!),
   );
   if (!source) return result('no_official_source');

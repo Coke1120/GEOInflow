@@ -1382,7 +1382,7 @@ describe('core form flows', () => {
     render(<CorePages page="website-settings" />);
     await user.click(screen.getByRole('button', { name: '清空访问数据' }));
     const dialog = within(screen.getByRole('dialog'));
-    expect(dialog.getByRole('alert')).toHaveTextContent('Liekan 日志与导入记录');
+    expect(dialog.getByRole('alert')).toHaveTextContent('GEOInflow 日志与导入记录');
     expect(dialog.getByRole('alert')).toHaveTextContent(
       '内容目录、策略、网站设置和安装标识继续保留',
     );

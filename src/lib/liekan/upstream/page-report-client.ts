@@ -9,16 +9,17 @@ import {
   withClientFreshness,
 } from './client-freshness';
 import { featureApi } from './features-client';
+import type { CrawlerPageFilters } from '../contracts/query';
 
 export function pageReportQuery(
   userId: string,
   websiteId: string,
-  input: Partial<KeywordConditions> & {
+  input: Partial<KeywordConditions> & CrawlerPageFilters & {
     resource: ReportResource;
     startAt: number;
     endAt: number;
     timezone: string;
-    crawlerIdentityScope?: 'all' | 'verified_range';
+    crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
     crawlerMetricsVersion?: 1;
     chartPeriod?: string;
     filter?: string;
@@ -65,6 +66,8 @@ export function pageReportQuery(
     );
   if (p.resource === 'human/geo')
     queryKey.push(JSON.stringify([p.geoSort || 'sessions', p.direction || 'desc']));
+  if (p.resource === 'ai/pages')
+    queryKey.push(JSON.stringify([p.botType ?? '', p.botId ?? '', p.botName ?? '']));
   if (p.resource === 'human/keywords')
     queryKey.push(
       JSON.stringify([

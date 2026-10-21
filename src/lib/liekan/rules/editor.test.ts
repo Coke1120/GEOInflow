@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BOT_RULES, LEGACY_BOT_RULES } from './bots';
+import { getCrawlerRegistry } from '../crawlers/registry';
 import {
   parseRuleEditorDraft,
   previewOfficialConversion,
@@ -53,7 +54,11 @@ describe('versioned crawler rule editor', () => {
       ],
     });
     expect(preview.enabled).toEqual(['gptbot']);
-    expect(preview.disabled).toHaveLength(BOT_RULES.length - 1);
+    expect(preview.disabled).toHaveLength(
+      getCrawlerRegistry().filter(
+        item => item.kind !== 'robots_purpose' && item.status === 'active',
+      ).length - 1,
+    );
     expect(preview.additions).toEqual([]);
     expect(preview.removals).toEqual([]);
   });
@@ -76,6 +81,32 @@ describe('versioned crawler rule editor', () => {
     const preview = previewOfficialConversion({ mode: 'disabled' });
     expect(preview.enabled).toEqual([]);
     expect(preview.disabled).toHaveLength(BOT_RULES.length);
+  });
+  it('preserves the client catalog IDs when only HTTP matching rules were supplied', () => {
+    const preview = previewOfficialConversion({ mode: 'disabled' }, BOT_RULES, [
+      ...BOT_RULES.map(rule => rule.crawlerId),
+      'published-signed-agent',
+    ]);
+    expect(preview.configuration).toMatchObject({
+      disabledIds: expect.arrayContaining(['published-signed-agent']),
+    });
+    expect(preview.disabled).toContain('published-signed-agent');
+  });
+  it('includes signed identity metadata without inventing a UA matching rule', () => {
+    const preview = previewOfficialConversion({ mode: 'disabled' }, [
+      ...BOT_RULES,
+      {
+        name: 'Published Agent',
+        vendor: 'Fixture',
+        crawlerId: 'published-agent',
+        type: '用户触发',
+      },
+    ]);
+    expect(preview.configuration).toMatchObject({
+      disabledIds: expect.arrayContaining(['published-agent']),
+    });
+    expect(preview.disabled).toContain('Published Agent');
+    expect(preview.enabled).toEqual([]);
   });
   it('preserves explicit official and custom selection even when both share a name', () => {
     expect(crawlerDetailSelection('蜘蛛详情:{"name":"GPTBot","botId":"gptbot"}')).toEqual({

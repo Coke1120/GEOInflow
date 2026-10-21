@@ -13,6 +13,7 @@ import Link from '@/components/liekan/Link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { keywordConditionsSchema } from '@/lib/liekan/contracts/keywords';
+import { crawlerPageFiltersSchema } from '@/lib/liekan/contracts/query';
 import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 import { managementLabels } from '@/lib/liekan/contracts/management';
 import {
@@ -58,6 +59,7 @@ import { featureNavigationHref } from './features/routes';
 import { useLiekanShell } from './LiekanShell';
 import { ManagementDrawer } from './ManagementDrawer';
 import { CrawlerDialog } from './features/CrawlerDialog';
+import { GeoWeightSummary } from './features/GeoWeightSummary';
 import { ReportContext } from './ReportContext';
 import type { LiekanReport, Resource } from './types';
 import {
@@ -92,6 +94,12 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const { filter, search, logPage, cursor, seek, chartPeriod, sort, compare, tablePages } =
     readViewState(params, resource);
   const keywordParsed = keywordConditionsSchema.safeParse(params);
+  const crawlerParsed = crawlerPageFiltersSchema.safeParse({
+    botType: params.botType || undefined,
+    botId: params.botId || undefined,
+    botName: params.botName || undefined,
+  });
+  const crawlerConditions = crawlerParsed.success ? crawlerParsed.data : {};
   const keywordConditions = keywordParsed.success
     ? keywordParsed.data
     : keywordConditionsSchema.parse({});
@@ -187,6 +195,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   ]);
   const reportInput = {
     resource,
+    ...(resource === 'ai/pages' ? crawlerConditions : {}),
     startAt,
     endAt,
     timezone,
@@ -194,9 +203,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     ...(resource.startsWith('ai/') || resource === 'logs'
       ? {
           crawlerIdentityScope:
-            params.crawlerIdentityScope === 'verified_range'
-              ? ('verified_range' as const)
-              : ('all' as const),
+            params.crawlerIdentityScope === 'verified_identity'
+              ? ('verified_identity' as const)
+              : params.crawlerIdentityScope === 'verified_range'
+                ? ('verified_range' as const)
+                : ('all' as const),
           crawlerMetricsVersion: 1 as const,
           endAt: Math.min(endAt % 1000 === 999 ? endAt + 1 : endAt, now),
         }
@@ -572,6 +583,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             chunks.push(chunk);
           }
         },
+        report.meta?.catalogVersion,
       );
       if (owner !== currentPage.current.identity || controller.signal.aborted) return;
       if (!file || file.size !== bytes) throw new Error('导出传输未完成');
@@ -604,6 +616,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           try {
             const conditions = {
               reportResource: resource,
+              ...(resource === 'ai/pages' ? crawlerConditions : {}),
               reportDisplay: JSON.stringify({ filter, sort, search }),
               startAt: report.range.startAt,
               endAt: report.range.endAt,
@@ -623,7 +636,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                 ? { logFilter: reportInput.filter }
                 : {}),
             };
-            const base = `/liekan/websites/${websiteId}/crawler-analysis`;
+            const base = `/liekan/websites/${reportWebsiteId}/crawler-analysis`;
             const view = report.meta.crawlerEvidenceView;
             if (!view) throw new Error(i18n.text('请刷新页面后导出'));
             const viewSnapshot = bytesToHex(
@@ -633,14 +646,19 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                 ),
               ),
             );
-            const exported = await downloadTrafficEvidence(`${base}/export`, {
-              kind: 'evidence',
-              query: conditions,
-              locale: i18n.locale,
-              viewSnapshot,
-              viewReportQuery: view.query,
-              policySnapshot: view.policySnapshot,
-            });
+            const exported = await downloadTrafficEvidence(
+              `${base}/export`,
+              {
+                kind: 'evidence',
+                query: conditions,
+                locale: i18n.locale,
+                viewSnapshot,
+                viewReportQuery: view.query,
+                policySnapshot: view.policySnapshot,
+              },
+              undefined,
+              report.meta.catalogVersion,
+            );
             downloadFile(exported.csv, reportCsvFilename(resource, report.range));
             setMessage(
               `${i18n.text('导出读取时间')}：${exported.readAt || '—'} · ${i18n.text(exported.changed === 'true' ? '按导出时数据生成' : '页面数据未变化')}`,
@@ -763,7 +781,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           <span>{i18n.text('蜘蛛身份范围')}</span>
           <select
             aria-label={i18n.text('蜘蛛身份范围')}
-            value={params.crawlerIdentityScope === 'verified_range' ? 'verified_range' : 'all'}
+            value={
+              params.crawlerIdentityScope === 'verified_identity'
+                ? 'verified_identity'
+                : params.crawlerIdentityScope === 'verified_range'
+                  ? 'verified_range'
+                  : 'all'
+            }
             onChange={event =>
               updateView({
                 ...clearTablePages(tablePages),
@@ -775,6 +799,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             }
           >
             <option value="all">{i18n.text('全部声明')}</option>
+            <option value="verified_identity">{i18n.text('已核验身份')}</option>
             <option value="verified_range">{i18n.text('官方范围匹配')}</option>
           </select>
         </label>
@@ -820,6 +845,22 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   return (
     <ReportContext.Provider
       value={{
+        crawlers:
+          resource === 'ai/pages'
+            ? {
+                conditions: crawlerConditions,
+                onChange: next =>
+                  updateView({
+                    ...clearTablePages(tablePages),
+                    botType: next.botType,
+                    botId: next.botId,
+                    botName: next.botName,
+                    page: undefined,
+                    cursor: undefined,
+                    seek: undefined,
+                  }),
+              }
+            : undefined,
         keywords:
           resource === 'human/keywords'
             ? {
@@ -893,6 +934,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         ) : (
           <>
             <Link href={href('filters')}>{i18n.text('高级筛选')}</Link>
+            <Link
+              href={href('website-settings', { section: 'collection', panel: 'traffic-quality' })}
+            >
+              {i18n.text('流量质量')}
+            </Link>
             <Link href={href('annotations')}>{i18n.text('图表注释')}</Link>
             <Link href={href('exports')}>{i18n.text('导出数据')}</Link>
             <Link href={href('sharing', { context: 'website' })}>{i18n.text('分享当前网站')}</Link>
@@ -1055,6 +1101,21 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       {report ? (
         <View
           report={report}
+          geoWeight={
+            !crawlerHidden &&
+            !!userId &&
+            report.range &&
+            ['overview', 'ai/overview'].includes(resource) ? (
+              <GeoWeightSummary
+                userId={userId}
+                websiteId={report.website.id}
+                endAt={report.range.endAt}
+                readAt={now}
+                timezone={report.range.timezone}
+                expanded={resource === 'ai/overview'}
+              />
+            ) : undefined
+          }
           aiCrawlerEnabled={!crawlerHidden}
           rangeLabel={i18n.system(rangeLabel)}
           live={liveLogs}
@@ -1097,7 +1158,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               botName={crawlerDetailSelection(action).name}
               selectedIdentity={crawlerDetailSelection(action).botId}
               identityScope={
-                params.crawlerIdentityScope === 'verified_range' ? 'verified_range' : 'all'
+                params.crawlerIdentityScope === 'verified_identity'
+                  ? 'verified_identity'
+                  : params.crawlerIdentityScope === 'verified_range'
+                    ? 'verified_range'
+                    : 'all'
               }
               range={report?.range}
               onClose={close}

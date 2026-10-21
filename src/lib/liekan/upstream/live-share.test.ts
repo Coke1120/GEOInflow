@@ -37,6 +37,8 @@ import { ENTITY_TYPE } from '@/lib/constants';
 import { validateLiveShare } from './live-share';
 import { secureShareParameters, sharePasswordProof } from './share-security';
 import { getShareByCode } from '@/queries/prisma/share';
+import { getBundledPublishedCatalog } from '../crawlers/catalog-seed';
+import { installPublishedCatalogResolver } from '../crawlers/published';
 describe('current primary share authorization', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -92,5 +94,19 @@ describe('current primary share authorization', () => {
     state.board.parameters.websiteId = 'site';
     state.website.userId = 'another';
     expect(await validateLiveShare(token)).toMatchObject({ websiteIds: [] });
+  });
+  it('keeps board layout authorization stable across catalog versions', async () => {
+    state.share = { id: 'share', entityId: 'board', shareType: ENTITY_TYPE.board, parameters: { overview: true } };
+    state.board = { id: 'board', type: 'website', userId: 'owner', parameters: { websiteId: 'site', rows: [] } };
+    const token = { shareId: 'share', boardId: 'board', shareType: ENTITY_TYPE.board, websiteIds: ['site'] };
+    try {
+      const original = await validateLiveShare(token);
+      installPublishedCatalogResolver(() => getBundledPublishedCatalog());
+      expect((await validateLiveShare(token)).boardLayoutHash).toBe(original.boardLayoutHash);
+      state.board.parameters.rows = [{ id: 'new-layout-row' }];
+      expect((await validateLiveShare(token)).boardLayoutHash).not.toBe(original.boardLayoutHash);
+    } finally {
+      installPublishedCatalogResolver(() => undefined);
+    }
   });
 });

@@ -1,16 +1,22 @@
-# Liekan · 猎看统计
+# GEOInflow
 
-面向 GEO 增长的 AI 与搜索流量分析系统。Liekan 基于 Umami v3.4.0，保留浏览器采集、账号权限、网站与团队、目标和漏斗，通过独立日志接入分析 AI 抓取行为与搜索引荐。
+联合发布：猎看科技　北京日报社智源GEO。
+
+沿用 Liekan 的兼容接口和部署标识，基于 Umami 开发并保留 MIT 版权与许可。
+
+面向 GEO 增长的 AI 与搜索流量分析系统。GEOInflow 基于 Umami v3.4.0，保留浏览器采集、账号权限、网站与团队、目标和漏斗，通过独立日志接入分析 AI 抓取行为与搜索引荐。
 
 主项目采用 MIT 许可，完整版权与许可声明见 [LICENSE](LICENSE)。第三方组件和地理数据许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 企业私有仓库：[liekan/liekan-statistics](https://gitee.com/liekan/liekan-statistics)。访问需要对应企业仓库权限。
 
-当前版本为 0.2.4，本地体验默认地址为 **http://localhost:3002**。新增数据库和容器与原 Umami 独立。
+当前版本为 v1.2（工程版本 1.2.0），本地体验默认地址为 **http://localhost:3002**。新增数据库和容器与原 Umami 独立。
 
 - 保留 11 个 GEO 统计页面与 22 个图表，接入已确认的 68 个补充 UI 场景。
 - 人类 PV/UV、来源、地域、内容、目标与漏斗复用 Umami 数据。
 - AI 抓取来自上传的服务器 combined / JSON 日志，支持蜘蛛分类、官方 IP 范围匹配、覆盖和路径观察。
+- 统一爬虫管理维护平台、产品、请求身份和官方来源，支持版本发布与回滚，国内外 AI 平台及个人 Agent 的核验状态分别展示。
+- GEO 权重 Beta 汇总最近 30 个完整自然日的已核验 AI 内容访问，在流量总览和 AI 抓取总览展示分数、等级、计算明细与 CSV 导出。
 - sitemap / CSV / JSON 内容目录、网站级规则、robots 草稿和 CIDR 白名单管理。
 - 网站接入、身份安全、目标漏斗、访客分析、工作台、看板、协作、分享和扩展统计使用统一 UI。
 - 完整导出支持 ZIP、CSV 和 JSON，提供真实进度、取消、字段清单和敏感信息处理；演示站独立标识。
@@ -61,3 +67,5 @@ pnpm liekan:verify
 更新工具从官方 upstream 获取稳定版本，在隔离候选中保留历史并合并。Liekan 自有 UI、数据契约、适配层与独立 SQL 迁移共同保护产品行为。验证通过后再更新本地 main 和发布标签。
 
 系统组成与源码入口见 [系统说明](docs/system-overview.md)。维护规则见 [上游更新流程](docs/upstream-upgrade.md)、[统计口径](docs/data-definitions.md)、[页面覆盖与下一阶段缺口](docs/ui-coverage.md)、[设计约束](DESIGN.md)。镜像发布渠道需按部署环境配置。
+
+爬虫身份与管理规则见 [蜘蛛目录](docs/crawler-directory.md)、[识别与统一管理](docs/crawler-recognition.md)；GEO 权重的公式、证据要求及适用范围见 [GEO 权重说明](docs/geo-weight.md)。

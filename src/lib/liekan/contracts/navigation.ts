@@ -31,6 +31,7 @@ export const globalNavigation: NavigationGroup[] = [
       { page: 'websites', label: '网站管理', icon: 'globe' },
       { page: 'boards', label: '数据看板', icon: 'bars' },
       { page: 'links', label: '追踪管理', icon: 'target' },
+      { page: 'crawlers-manage', label: '爬虫与 AI 平台', icon: 'bot' },
     ],
   },
   {
@@ -196,6 +197,7 @@ export const geoPaths: Record<string, string> = {
 };
 
 const pageDefinitions: Array<[PageScope, string, string | undefined, string[]]> = [
+  ['global', 'crawlers-manage', undefined, ['crawlers-manage']],
   ['global', 'ai-chat', undefined, ['ai-chat']],
   ['global', 'ai-config', undefined, ['ai-config']],
   ['global', 'help', undefined, ['help']],
@@ -259,6 +261,7 @@ for (const group of websiteNavigation) {
   }
 }
 const titles: Record<string, string> = {
+  'crawlers-manage': '爬虫与 AI 平台',
   'ai-chat': '快速发起',
   'ai-config': 'AI配置器',
   'geo-content': '页面与内容',

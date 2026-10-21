@@ -1,8 +1,11 @@
+import type { RequestIdentityEvidence } from '../crawlers/request-verification';
+import { getPublishedCatalog } from '../crawlers/published';
 import { edgeObservation, type EdgeObservation } from './edge-observation';
 import { logMeasurementSchema, type LogMeasurement } from './measurement';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { BotRule } from '../rules/bots';
+import type { CrawlerRuleConfiguration } from '../rules/configuration';
 import { classifyBot, MATCHER_VERSION } from '../rules/bots';
 import { crawlerIdForRule } from '../crawlers/directory';
 
@@ -25,7 +28,21 @@ const evidenceSchema = z.object({
 export type CrawlerLogEvidence = z.infer<typeof evidenceSchema> & {
   edgeObservation?: EdgeObservation;
 };
-export function crawlerClassificationVersion(rules: BotRule[]) {
+function orderedConfiguration(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(orderedConfiguration);
+  if (value && typeof value === 'object')
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map(key => [key, orderedConfiguration(value[key])]),
+    );
+  return value;
+}
+/** Include signed-identity settings; JSONB key order cannot change the effective version. */
+export function crawlerClassificationVersion(
+  rules: BotRule[],
+  configuration?: CrawlerRuleConfiguration,
+) {
   const ordered = rules.map(rule => ({
     name: rule.name,
     vendor: rule.vendor,
@@ -36,18 +53,38 @@ export function crawlerClassificationVersion(rules: BotRule[]) {
     aiEligible: rule.aiEligible ?? ['训练', '搜索', '用户触发'].includes(rule.type),
   }));
   return createHash('sha256')
-    .update(JSON.stringify({ matcher: MATCHER_VERSION, rules: ordered }))
+    .update(
+      JSON.stringify({
+        matcher: MATCHER_VERSION,
+        catalog: getPublishedCatalog()?.version ?? null,
+        rules: ordered,
+        configuration:
+          configuration &&
+          orderedConfiguration(
+            configuration.mode === 'official'
+              ? { ...configuration, disabledIds: [...configuration.disabledIds].sort() }
+              : configuration,
+          ),
+      }),
+    )
     .digest('hex');
 }
-export async function archiveCrawlerRules(tx: any, websiteId: string, rules: BotRule[]) {
-  const version = crawlerClassificationVersion(rules);
+export async function archiveCrawlerRules(
+  tx: any,
+  websiteId: string,
+  rules: BotRule[],
+  configuration?: CrawlerRuleConfiguration,
+) {
+  const version = crawlerClassificationVersion(rules, configuration);
   await tx.$executeRawUnsafe(
-    `INSERT INTO liekan_crawler_rule_version(website_id,version,matcher_version,rules)
-     VALUES($1::uuid,$2,$3,$4::jsonb) ON CONFLICT(website_id,version) DO NOTHING`,
+    `INSERT INTO liekan_crawler_rule_version(website_id,version,matcher_version,rules,catalog_version,crawler_configuration)
+     VALUES($1::uuid,$2,$3,$4::jsonb,$5::uuid,$6::jsonb) ON CONFLICT(website_id,version) DO NOTHING`,
     websiteId,
     version,
     MATCHER_VERSION,
     JSON.stringify(rules),
+    getPublishedCatalog()?.version ?? null,
+    configuration ? JSON.stringify(configuration) : null,
   );
   return version;
 }
@@ -79,6 +116,8 @@ export async function persistCrawlerEvidence(
     id: string;
     measurement?: LogMeasurement;
     classificationVersion?: string;
+    catalogVersion?: string | null;
+    identityEvidence?: RequestIdentityEvidence;
     crawlerId?: string | null;
     crawlerEvidence?: CrawlerLogEvidence | null;
   }>,
@@ -87,15 +126,17 @@ export async function persistCrawlerEvidence(
   const evidence = records.map(row => ({
     id: row.id,
     classificationVersion: row.classificationVersion ?? null,
+    catalogVersion: row.catalogVersion ?? null,
+    identityEvidence: row.identityEvidence ?? null,
     crawlerId: row.crawlerId ?? null,
     measurement: row.measurement ? logMeasurementSchema.parse(row.measurement) : null,
     ...(row.crawlerEvidence ?? {}),
   }));
   // Keep the indexed event lookup batch-bounded while enforcing import ownership.
   await tx.$executeRawUnsafe(
-    `INSERT INTO liekan_crawler_evidence(website_id,log_id,classification_version,crawler_id,security_action,terminating_rule_id,matched_rule_ids,cache_status,duration_ms,measurement,edge_observation)
-     SELECT $1::uuid,r.id,r."classificationVersion",r."crawlerId",r."securityAction",r."terminatingRuleId",r."matchedRuleIds",r."cacheStatus",r."durationMs",r.measurement,r."edgeObservation"
-     FROM jsonb_to_recordset($3::jsonb) AS r(id text,"classificationVersion" text,"crawlerId" text,"securityAction" text,"terminatingRuleId" text,"matchedRuleIds" jsonb,"cacheStatus" text,"durationMs" double precision,measurement jsonb,"edgeObservation" jsonb)
+    `INSERT INTO liekan_crawler_evidence(website_id,log_id,classification_version,crawler_id,security_action,terminating_rule_id,matched_rule_ids,cache_status,duration_ms,measurement,edge_observation,catalog_version,identity_evidence)
+     SELECT $1::uuid,r.id,r."classificationVersion",r."crawlerId",r."securityAction",r."terminatingRuleId",r."matchedRuleIds",r."cacheStatus",r."durationMs",r.measurement,r."edgeObservation",r."catalogVersion",r."identityEvidence"
+     FROM jsonb_to_recordset($3::jsonb) AS r(id text,"classificationVersion" text,"crawlerId" text,"securityAction" text,"terminatingRuleId" text,"matchedRuleIds" jsonb,"cacheStatus" text,"durationMs" double precision,measurement jsonb,"edgeObservation" jsonb,"catalogVersion" uuid,"identityEvidence" jsonb)
      JOIN LATERAL (SELECT 1 FROM liekan_log l
        WHERE l.website_id=$1::uuid AND l.id=r.id AND l.import_id=$2::uuid OFFSET 0) l ON true
      ON CONFLICT(website_id,log_id) DO NOTHING`,

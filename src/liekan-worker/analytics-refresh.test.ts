@@ -1,12 +1,15 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
-import { analyticsCacheKey } from '../lib/liekan/upstream/query-cache';
-import { processAnalyticsRefresh } from './analytics-refresh';
+import { analyticsInfrastructureKey } from '../lib/liekan/upstream/query-cache';
+import { processAnalyticsRefresh, readAnalyticsHotStrongVersion } from './analytics-refresh';
 import { AnalyticsGate } from '../lib/liekan/upstream/analytics-budget';
+import { getPublishedCatalog } from '../lib/liekan/crawlers/published';
+import { getBundledPublishedCatalog } from '../lib/liekan/crawlers/catalog-seed';
 
 const state = vi.hoisted(() => ({
   job: undefined as any,
   website: undefined as any,
   context: undefined as any,
+  catalog: undefined as any,
   user: vi.fn(),
   membership: vi.fn(),
   strong: vi.fn(),
@@ -25,6 +28,10 @@ const state = vi.hoisted(() => ({
   stats: vi.fn(),
   pageviews: vi.fn(),
   sessions: vi.fn(),
+}));
+vi.mock('../lib/liekan/upstream/crawler-registry', () => ({
+  readCrawlerRegistryPointer: async () => ({ version: state.catalog.version, revision: '1' }),
+  readPublishedRegistry: async (version: string) => ({ ...state.catalog, version }),
 }));
 vi.mock('../lib/prisma', () => ({
   getRawQueryClient: () => ({
@@ -91,11 +98,12 @@ describe('analytics worker current authorization and completion', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv('DATABASE_URL', 'postgresql://localhost/isolated_worker');
+    state.catalog = getBundledPublishedCatalog();
     state.job = {
       websiteId: site,
       target: 'native:breakdown',
       actorId: actor,
-      scopeHash: analyticsCacheKey('scope-v1', { private: true }),
+      scopeHash: analyticsInfrastructureKey('scope-v1', { private: true }),
       fingerprint: 'a'.repeat(64),
       scheduledAt: Date.now() - 5000,
       expectedStrongVersion: 'v1',
@@ -122,6 +130,33 @@ describe('analytics worker current authorization and completion', () => {
       endDate: new Date(1727827199999),
     });
     state.canShare.mockResolvedValue(true);
+  });
+
+  test('pins authorization, strong checks and native warming to the accepted catalog', async () => {
+    const accepted = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const strong = JSON.stringify(['policy-v1', accepted, [site], [], []]);
+    const observed: Array<string | undefined> = [];
+    state.job.target = 'native:stats';
+    state.job.expectedStrongVersion = strong;
+    state.user.mockImplementation(async () => {
+      expect(getPublishedCatalog()?.version).toBe(accepted);
+      return { id: actor, role: 'user' };
+    });
+    state.strong.mockImplementation(async () => {
+      observed.push(getPublishedCatalog()?.version);
+      return { strong, data: 'd1' };
+    });
+    state.stats.mockImplementation(async () => {
+      observed.push(getPublishedCatalog()?.version);
+      return [];
+    });
+    expect(getPublishedCatalog()).toBeUndefined();
+    expect(await readAnalyticsHotStrongVersion(site, strong)).toBe(strong);
+    await processAnalyticsRefresh(state.job);
+    expect(observed).toHaveLength(5);
+    expect(new Set(observed)).toEqual(new Set([accepted]));
+    expect(state.schedule).toHaveBeenCalled();
+    expect(getPublishedCatalog()).toBeUndefined();
   });
 
   test('warms normalized breakdown and renews from recorded result using original planned deadline', async () => {
@@ -258,7 +293,7 @@ describe('analytics worker current authorization and completion', () => {
       ...state.job,
       actorId: undefined,
       shareId: actor,
-      scopeHash: analyticsCacheKey('scope-v1', scope),
+      scopeHash: analyticsInfrastructureKey('scope-v1', scope),
     };
     state.share.mockResolvedValue({ id: actor });
     state.shareScope.mockResolvedValue({ ...scope, boardLayoutHash: 'new-layout' });

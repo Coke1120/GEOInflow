@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cloudflareCrawlerEvidence, crawlerClassificationVersion } from './crawler-evidence';
 import { normalizeAutomatic } from './protocol';
 import { BOT_RULES, LEGACY_BOT_RULES } from '../rules/bots';
+import { officialRuleConfiguration, resolveCrawlerRules } from '../rules/configuration';
 
 const source = 'efc986b6-4e64-43f8-86c8-6d7cc0bda883';
 const raw = {
@@ -18,6 +19,39 @@ const raw = {
   RayID: 'ray',
 };
 describe('crawler log evidence compatibility', () => {
+  it('versions signed identity settings while leaving HTTP matchers unchanged', () => {
+    const enabled = officialRuleConfiguration();
+    const disabled = { ...enabled, disabledIds: ['chatgpt-agent'] };
+    const changedType = { ...enabled, overrides: { 'chatgpt-agent': { type: '其他' as const } } };
+    const rules = resolveCrawlerRules({ crawlerRules: enabled }).rules;
+    expect(resolveCrawlerRules({ crawlerRules: disabled }).rules).toEqual(rules);
+    expect(crawlerClassificationVersion(rules, disabled)).not.toBe(
+      crawlerClassificationVersion(rules, enabled),
+    );
+    expect(crawlerClassificationVersion(rules, changedType)).not.toBe(
+      crawlerClassificationVersion(rules, enabled),
+    );
+  });
+  it('keeps configuration hashes stable across JSONB key order and disabled identity order', () => {
+    const first = {
+      mode: 'official' as const,
+      disabledIds: ['chatgpt-agent', 'gptbot'],
+      overrides: { gptbot: { type: '搜索' as const }, 'chatgpt-agent': { type: '训练' as const } },
+      customRules: [],
+    };
+    const second = {
+      customRules: [],
+      overrides: { 'chatgpt-agent': { type: '训练' as const }, gptbot: { type: '搜索' as const } },
+      disabledIds: ['gptbot', 'chatgpt-agent'],
+      mode: 'official' as const,
+    };
+    expect(crawlerClassificationVersion(BOT_RULES, first)).toBe(
+      crawlerClassificationVersion(BOT_RULES, second),
+    );
+    expect(crawlerClassificationVersion([], { mode: 'disabled' })).not.toBe(
+      crawlerClassificationVersion([], { mode: 'legacy', rules: [] }),
+    );
+  });
   it('keeps original identity and digest when optional evidence changes', () => {
     const plain = normalizeAutomatic('cloudflare', source, [raw], 'example.com', 'fixture');
     const extended = normalizeAutomatic(

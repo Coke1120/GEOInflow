@@ -439,7 +439,7 @@ export function CrawlerPoliciesPanel({
       <h3>{i18n.text('访问策略')}</h3>
       <p className="muted">
         {i18n.text(
-          '观察只在猎看内分析；屏蔽会发布到 Cloudflare。按声明 UA 匹配，隐藏身份抓取需要现有安全系统继续判断。',
+          '观察只在 GEOInflow 内分析；屏蔽会发布到 Cloudflare。按声明 UA 匹配，隐藏身份抓取需要现有安全系统继续判断。',
         )}
       </p>
       <Table

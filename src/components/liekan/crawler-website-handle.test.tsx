@@ -123,6 +123,7 @@ it.each([
 ] as const)(
   'exports the actual report interval and timezone while preserving %s CSV columns',
   async (locale, start) => {
+    state.handle = '102';
     const end = '2026-09-29T16:00:00.000Z';
     state.get.mockResolvedValue(
       freshAggregateFixture({
@@ -145,6 +146,7 @@ it.each([
         meta: {
           canManage: true,
           demo: false,
+          catalogVersion: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
           crawlerEvidenceView: {
             snapshot: 'original',
             policySnapshot: 'policy',
@@ -187,6 +189,8 @@ it.each([
           population: 'recognized_crawlers',
         }),
       }),
+      undefined,
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     );
     expect(content).toContain('full snapshot');
     expect(state.evidence).not.toHaveBeenCalled();

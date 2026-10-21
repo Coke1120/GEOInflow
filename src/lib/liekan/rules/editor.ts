@@ -1,5 +1,6 @@
 import { parseEditableRules } from '../contracts/management';
-import { BOT_RULES, type BotRule } from './bots';
+import { getBotRules, type BotRule } from './bots';
+import { getCrawlerRegistry } from '../crawlers/registry';
 import {
   type CrawlerRuleConfiguration,
   migrateRuleConfiguration,
@@ -14,7 +15,10 @@ export function ruleEditorConfiguration(settings: {
 }
 
 /** Legacy drafts retain ordered rules and extension fields until an explicit conversion. */
-export function parseRuleEditorDraft(content: string): CrawlerRuleConfiguration {
+export function parseRuleEditorDraft(
+  content: string,
+  knownIds?: readonly string[],
+): CrawlerRuleConfiguration {
   let value: any;
   try {
     value = JSON.parse(content);
@@ -23,10 +27,38 @@ export function parseRuleEditorDraft(content: string): CrawlerRuleConfiguration 
   }
   if (value?.mode === 'legacy')
     return { mode: 'legacy', rules: parseEditableRules(JSON.stringify(value.rules)) };
-  return validateCrawlerConfiguration(value);
+  return validateCrawlerConfiguration(value, knownIds);
 }
 
-export function previewOfficialConversion(configuration: CrawlerRuleConfiguration) {
+/** Identity settings include signed agents without adding them to the UA matcher. */
+export type OfficialRuleOption = Omit<BotRule, 'pattern'> & { pattern?: string };
+export function getOfficialRuleOptions(): OfficialRuleOption[] {
+  const rules = getBotRules();
+  return getCrawlerRegistry()
+    .filter(identity => identity.kind !== 'robots_purpose' && identity.status === 'active')
+    .map(
+      identity =>
+        rules.find(rule => rule.crawlerId === identity.id) ?? {
+          crawlerId: identity.id,
+          name: identity.name,
+          vendor: identity.vendor,
+          type: {
+            training: '训练',
+            search: '搜索',
+            user: '用户触发',
+            traditional_search: '传统搜索',
+            other: '其他',
+          }[identity.type],
+          aiEligible: identity.aiEligible,
+        },
+    );
+}
+
+export function previewOfficialConversion(
+  configuration: CrawlerRuleConfiguration,
+  officialRules: readonly OfficialRuleOption[] = getOfficialRuleOptions(),
+  knownIds: readonly string[] = officialRules.map(rule => rule.crawlerId),
+) {
   if (configuration.mode === 'official') throw new Error('规则已采用官方目录');
   const rules =
     configuration.mode === 'legacy' ? parseEditableRules(JSON.stringify(configuration.rules)) : [];
@@ -37,8 +69,9 @@ export function previewOfficialConversion(configuration: CrawlerRuleConfiguratio
   const customRules: Extract<CrawlerRuleConfiguration, { mode: 'official' }>['customRules'] = [];
   const mappings: { name: string; crawlerId: string | null; matchMode: string }[] = [];
   for (const rule of rules) {
-    const official = BOT_RULES.find(
+    const official = officialRules.find(
       candidate =>
+        !!candidate.pattern &&
         candidate.name === rule.name &&
         candidate.vendor === rule.vendor &&
         candidate.pattern === rule.pattern &&
@@ -64,19 +97,23 @@ export function previewOfficialConversion(configuration: CrawlerRuleConfiguratio
       });
     }
   }
-  const next = validateCrawlerConfiguration({
-    mode: 'official',
-    disabledIds: BOT_RULES.filter(rule => !enabled.has(rule.crawlerId)).map(rule => rule.crawlerId),
-    overrides,
-    customRules,
-  });
+  const disabledIds = [...new Set(knownIds)].filter(id => !enabled.has(id));
+  const next = validateCrawlerConfiguration(
+    {
+      mode: 'official',
+      disabledIds,
+      overrides,
+      customRules,
+    },
+    knownIds,
+  );
   return {
     configuration: next,
     mappings,
     enabled: [...enabled],
-    disabled: BOT_RULES.filter(rule => !enabled.has(rule.crawlerId)).map(rule => rule.name),
+    disabled: disabledIds.map(id => officialRules.find(rule => rule.crawlerId === id)?.name ?? id),
     overrides: Object.entries(overrides).map(([id, value]) => ({
-      name: BOT_RULES.find(rule => rule.crawlerId === id).name,
+      name: officialRules.find(rule => rule.crawlerId === id).name,
       type: value.type,
     })),
     additions: [] as string[],

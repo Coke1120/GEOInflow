@@ -47,7 +47,7 @@ test.describe('crawler snapshots and local drafts', () => {
     const sources = await admin.get(sourcesPath);
     expect(sources.status, sources.text).toBe(200);
     expect(sources.headers['cache-control']).toMatch(/private.*no-store/);
-    expect(sources.body.ipSources).toHaveLength(19);
+    expect(sources.body.ipSources).toHaveLength(23);
     expect(sources.body.ipSources.map(source => source.id)).toEqual(
       expect.arrayContaining(['amazonbot', 'amazon-search', 'amazon-user']),
     );
@@ -61,7 +61,7 @@ test.describe('crawler snapshots and local drafts', () => {
       expect(response.headers['cache-control']).toMatch(/private.*no-store/);
       if (endpoint === 'crawler-recognition') {
         expect(response.body.mode).toBe('official');
-        expect(response.body.enabledIds).toHaveLength(53);
+        expect(response.body.enabledIds).toHaveLength(57);
         expect(response.body.classificationVersion).toMatch(/^[a-f0-9]{64}$/);
       } else {
         expect(response.body).toMatchObject({

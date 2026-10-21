@@ -1,3 +1,4 @@
+import { getPublishedCatalog } from '../crawlers/published';
 import { geographyVersion } from '../contracts/geography';
 import { GEOGRAPHY_ANCHOR_VERSION } from '../geography/evidence';
 import { analyticsCacheLimits } from './cache-policy';
@@ -202,7 +203,11 @@ export function invalidateWebsiteAnalytics(...ids: string[]) {
     .catch(() => {});
 }
 export function analyticsCacheKey(namespace: string, value: unknown) {
-  namespace = `${namespace}:${geographyVersion}:${GEOGRAPHY_ANCHOR_VERSION}`;
+  namespace = `${namespace}:${getPublishedCatalog()?.version || 'bundled'}:${geographyVersion}:${GEOGRAPHY_ANCHOR_VERSION}`;
+  return analyticsInfrastructureKey(namespace, value);
+}
+/** Infrastructure and permission identities stay stable across request catalog snapshots. */
+export function analyticsInfrastructureKey(namespace: string, value: unknown) {
   const canonical = (item: any): any => {
     if (item instanceof Date) return item.toISOString();
     if (typeof item === 'bigint') return { bigint: String(item) };

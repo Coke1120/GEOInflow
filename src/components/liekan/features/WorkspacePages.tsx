@@ -1,5 +1,5 @@
 'use client';
-import { CrawlerSourcesPanel } from './CrawlerSourcesPanel';
+import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
@@ -1646,7 +1646,16 @@ function AdminSecurity() {
           </Panel>
         </div>
       </QueryState>
-      <CrawlerSourcesPanel />
+      <Panel
+        title={i18n.text('爬虫来源与核验')}
+        subtitle={i18n.text('来源状态、官方资料和目录变更集中在爬虫管理页。')}
+      >
+        <Body>
+          <LinkButton page="crawlers-manage" params={{ tab: 'sources' }}>
+            {i18n.text('打开爬虫管理')}
+          </LinkButton>
+        </Body>
+      </Panel>
     </>
   );
 }
@@ -3899,7 +3908,7 @@ export function ShareFeatureView({
         <div className="public-brand">
           <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
           <div>
-            <strong>{i18n.text('猎看统计')}</strong>
+            <strong>{liekanProduct.name}</strong>
             <small style={{ display: 'block' }}>
               {authorizedShare?.name || i18n.text('公开分享')}
               {i18n.fragment(' · 只读分享', true, false)}

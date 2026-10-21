@@ -10,6 +10,7 @@ import {
   scheduleNextAnalyticsHot,
 } from '../lib/liekan/upstream/analytics-hot';
 import {
+  analyticsHotCatalogVersion,
   analyticsRefreshJobSchema,
   parseAnalyticsHotParameters,
 } from '../lib/liekan/upstream/analytics-hot-parameters';
@@ -23,7 +24,8 @@ import {
 import { featureAnalytics, featureJourney } from '../lib/liekan/upstream/feature-analytics';
 import { currentShareScope, loadShareEntity } from '../lib/liekan/upstream/live-share';
 import { readPageReport } from '../lib/liekan/upstream/page-report';
-import { analyticsCacheKey, websiteCacheTag } from '../lib/liekan/upstream/query-cache';
+import { analyticsInfrastructureKey, websiteCacheTag } from '../lib/liekan/upstream/query-cache';
+import { withPublishedRegistry } from '../lib/liekan/upstream/crawler-registry-context';
 import prisma, { getRawQueryClient } from '../lib/prisma';
 import {
   analyticsRemaining,
@@ -138,7 +140,12 @@ async function readStrongVersion(websiteId: string) {
   );
 }
 
-export { readStrongVersion as readAnalyticsHotStrongVersion };
+export function readAnalyticsHotStrongVersion(websiteId: string, expectedStrongVersion?: string) {
+  return withPublishedRegistry(
+    () => readStrongVersion(websiteId),
+    expectedStrongVersion ? analyticsHotCatalogVersion(expectedStrongVersion) : undefined,
+  );
+}
 
 async function authorize(job: AnalyticsRefreshJob) {
   return runCacheAuthorization(() => authorizeMetadata(job));
@@ -201,7 +208,7 @@ async function authorizeMetadata(job: AnalyticsRefreshJob) {
     auth = { user: { ...user, isAdmin: user.role === 'admin' } };
     scope = { private: true };
   }
-  if (analyticsCacheKey('scope-v1', scope) !== job.scopeHash) return null;
+  if (analyticsInfrastructureKey('scope-v1', scope) !== job.scopeHash) return null;
   const target = job.target.split(':')[1];
   const section: any = ['stats', 'pageviews'].includes(target)
     ? ['overview', 'compare']
@@ -231,6 +238,12 @@ export async function processAnalyticsRefresh(input: unknown) {
   const parsed = analyticsRefreshJobSchema.safeParse(input);
   if (!parsed.success) return;
   const job = parsed.data as AnalyticsRefreshJob;
+  return withPublishedRegistry(
+    () => processAnalyticsRefreshSnapshot(job),
+    analyticsHotCatalogVersion(job.expectedStrongVersion),
+  );
+}
+async function processAnalyticsRefreshSnapshot(job: AnalyticsRefreshJob) {
   const now = Date.now();
   const hot = await readAnalyticsHot(job, now);
   if (

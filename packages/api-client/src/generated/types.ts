@@ -530,6 +530,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/admin/crawler-registry': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCrawlerRegistryAdmin */
+    get: operations['getLiekanCrawlerRegistryAdmin'];
+    put?: never;
+    /** mutateLiekanCrawlerRegistry */
+    post: operations['mutateLiekanCrawlerRegistry'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/admin/crawler-sources': {
     parameters: {
       query?: never;
@@ -787,6 +805,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/catalog-version': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanCatalogVersion */
+    get: operations['getLiekanCatalogVersion'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/collect': {
     parameters: {
       query?: never;
@@ -849,6 +884,23 @@ export interface paths {
     put?: never;
     /** postLiekanCrawlerHandoffReconcile */
     post: operations['postLiekanCrawlerHandoffReconcile'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/crawler-registry': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanPublishedCrawlerRegistry */
+    get: operations['getLiekanPublishedCrawlerRegistry'];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1480,6 +1532,40 @@ export interface paths {
      * @description 返回 NDJSON：progress 为实际文件生成/传输进度，file 为文件元数据与字段清单，chunk 为顺序 Base64 数据，complete 为完成。普通 CSV/JSON 使用 summary；ZIP 使用勾选范围；kind=source-keywords 的 CSV 导出全部筛选关键词及搜索引擎，包含读取时间与条件。取消请求终止传输。查询阶段超过 100000 明细行或 50 MiB 返回 413；传输阶段错误为 error 帧。
      */
     post: operations['createLiekanExport'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/geo-weight': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** getLiekanGeoWeight */
+    get: operations['getLiekanGeoWeight'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/geo-weight/export': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Export a pinned private GEO weight calculation */
+    post: operations['postLiekanGeoWeightExport'];
     delete?: never;
     options?: never;
     head?: never;
@@ -7714,6 +7800,1246 @@ export interface operations {
       };
     };
   };
+  getLiekanCrawlerRegistryAdmin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            current: {
+              contentHash: string;
+              payload: {
+                identities: {
+                  aiEligible: boolean;
+                  control: {
+                    nginx: boolean;
+                    remote: boolean;
+                  };
+                  family: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @enum {string} */
+                  kind: 'http_crawler' | 'robots_purpose' | 'signed_agent';
+                  metadata: {
+                    advice: string;
+                    aliases: string[];
+                    /** @enum {string} */
+                    evidence: 'operator' | 'observed' | 'pending' | 'inactive';
+                    feeds: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    /** @description Unique identifier of the resource. */
+                    id: string;
+                    /** @enum {string} */
+                    kind: 'crawler' | 'control';
+                    /** @description Display name of the resource. */
+                    name: string;
+                    purposes: (
+                      | '训练'
+                      | 'AI 搜索'
+                      | '用户触发'
+                      | '传统搜索'
+                      | '广告'
+                      | 'SEO 工具'
+                      | '研究数据'
+                      | '链接预览'
+                      | '通用抓取'
+                    )[];
+                    /** Format: date */
+                    reviewedAt: string;
+                    robots: string;
+                    robotsToken?: string;
+                    sources: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    summary: string;
+                    token: string;
+                    ua?: string;
+                    vendor: string;
+                    verification: string;
+                  };
+                  /** @description Display name of the resource. */
+                  name: string;
+                  parentId: string | null;
+                  platformId: string;
+                  /** @enum {string} */
+                  productForm:
+                    | 'general'
+                    | 'workbench'
+                    | 'personal_agent'
+                    | 'infrastructure'
+                    | 'unknown';
+                  productIds: string[];
+                  /** @enum {string} */
+                  purpose: 'training' | 'search' | 'user' | 'multi' | 'other' | 'unknown';
+                  robotsToken: string | null;
+                  /** @enum {string} */
+                  status: 'active' | 'pending' | 'inactive';
+                  /** @enum {string} */
+                  type: 'training' | 'search' | 'user' | 'traditional_search' | 'other';
+                  uaSelector: string | null;
+                  vendor: string;
+                }[];
+                platforms: {
+                  documentationUrls: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @description Display name of the resource. */
+                  name: string;
+                  operator: string;
+                  /**
+                   * @description Region or subdivision of the visitor.
+                   * @enum {string}
+                   */
+                  region: 'domestic' | 'global';
+                  website: string;
+                }[];
+                products: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  /** @enum {string} */
+                  form: 'general' | 'workbench' | 'personal_agent' | 'infrastructure' | 'unknown';
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  identityIds: string[];
+                  /** @description Display name of the resource. */
+                  name: string;
+                  notes: string;
+                  platformId: string;
+                  /** @enum {string} */
+                  supportStatus: 'confirmed' | 'pending' | 'unsupported' | 'inactive';
+                  tags: string[];
+                  website: string;
+                }[];
+                rangeBaselines: {
+                  [key: string]: {
+                    /** Format: date-time */
+                    observedAt: string;
+                    prefixes: string[];
+                    publishedAt: string | null;
+                    source: string;
+                  };
+                };
+                rangeSources: {
+                  crawlerIds: string[];
+                  enabled?: boolean;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  names: string[];
+                  /** @enum {string} */
+                  parserVersion: 'prefixes-v1' | 'amazon-code-json-v1' | 'manual-reviewed-v1';
+                  /** Format: date */
+                  reviewedAt: string;
+                  /** @description URL associated with the resource. */
+                  url: string;
+                }[];
+                referrals: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  enabled: boolean;
+                  host: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  includeSubdomains: boolean;
+                  /** @enum {string} */
+                  kind: 'ai' | 'mixed' | 'documentation';
+                  platformId: string;
+                  productId: string | null;
+                }[];
+                /** @constant */
+                schemaVersion: 1;
+                verificationMethods: {
+                  crawlerIds: string[];
+                  detectionIds?: number[];
+                  documentationUrl: string;
+                  enabled?: boolean;
+                  hostSuffixes?: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  keyDirectory?: string;
+                  /** @enum {string} */
+                  method: 'dns' | 'signature' | 'edge';
+                  provider?: string;
+                  signatureAgent?: string;
+                }[];
+              };
+              /** Format: date-time */
+              publishedAt: string;
+              revision: string;
+              /** @enum {string} */
+              state: 'published' | 'fallback';
+              /** Format: uuid */
+              version: string;
+            };
+            drafts: {
+              baseRevision: string;
+              /** Format: uuid */
+              baseVersion: string;
+              conflicts: string[];
+              /**
+               * Format: date-time
+               * @description Date and time the record was created.
+               */
+              createdAt: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              payload: {
+                identities: {
+                  aiEligible: boolean;
+                  control: {
+                    nginx: boolean;
+                    remote: boolean;
+                  };
+                  family: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @enum {string} */
+                  kind: 'http_crawler' | 'robots_purpose' | 'signed_agent';
+                  metadata: {
+                    advice: string;
+                    aliases: string[];
+                    /** @enum {string} */
+                    evidence: 'operator' | 'observed' | 'pending' | 'inactive';
+                    feeds: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    /** @description Unique identifier of the resource. */
+                    id: string;
+                    /** @enum {string} */
+                    kind: 'crawler' | 'control';
+                    /** @description Display name of the resource. */
+                    name: string;
+                    purposes: (
+                      | '训练'
+                      | 'AI 搜索'
+                      | '用户触发'
+                      | '传统搜索'
+                      | '广告'
+                      | 'SEO 工具'
+                      | '研究数据'
+                      | '链接预览'
+                      | '通用抓取'
+                    )[];
+                    /** Format: date */
+                    reviewedAt: string;
+                    robots: string;
+                    robotsToken?: string;
+                    sources: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    summary: string;
+                    token: string;
+                    ua?: string;
+                    vendor: string;
+                    verification: string;
+                  };
+                  /** @description Display name of the resource. */
+                  name: string;
+                  parentId: string | null;
+                  platformId: string;
+                  /** @enum {string} */
+                  productForm:
+                    | 'general'
+                    | 'workbench'
+                    | 'personal_agent'
+                    | 'infrastructure'
+                    | 'unknown';
+                  productIds: string[];
+                  /** @enum {string} */
+                  purpose: 'training' | 'search' | 'user' | 'multi' | 'other' | 'unknown';
+                  robotsToken: string | null;
+                  /** @enum {string} */
+                  status: 'active' | 'pending' | 'inactive';
+                  /** @enum {string} */
+                  type: 'training' | 'search' | 'user' | 'traditional_search' | 'other';
+                  uaSelector: string | null;
+                  vendor: string;
+                }[];
+                platforms: {
+                  documentationUrls: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @description Display name of the resource. */
+                  name: string;
+                  operator: string;
+                  /**
+                   * @description Region or subdivision of the visitor.
+                   * @enum {string}
+                   */
+                  region: 'domestic' | 'global';
+                  website: string;
+                }[];
+                products: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  /** @enum {string} */
+                  form: 'general' | 'workbench' | 'personal_agent' | 'infrastructure' | 'unknown';
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  identityIds: string[];
+                  /** @description Display name of the resource. */
+                  name: string;
+                  notes: string;
+                  platformId: string;
+                  /** @enum {string} */
+                  supportStatus: 'confirmed' | 'pending' | 'unsupported' | 'inactive';
+                  tags: string[];
+                  website: string;
+                }[];
+                rangeBaselines: {
+                  [key: string]: {
+                    /** Format: date-time */
+                    observedAt: string;
+                    prefixes: string[];
+                    publishedAt: string | null;
+                    source: string;
+                  };
+                };
+                rangeSources: {
+                  crawlerIds: string[];
+                  enabled?: boolean;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  names: string[];
+                  /** @enum {string} */
+                  parserVersion: 'prefixes-v1' | 'amazon-code-json-v1' | 'manual-reviewed-v1';
+                  /** Format: date */
+                  reviewedAt: string;
+                  /** @description URL associated with the resource. */
+                  url: string;
+                }[];
+                referrals: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  enabled: boolean;
+                  host: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  includeSubdomains: boolean;
+                  /** @enum {string} */
+                  kind: 'ai' | 'mixed' | 'documentation';
+                  platformId: string;
+                  productId: string | null;
+                }[];
+                /** @constant */
+                schemaVersion: 1;
+                verificationMethods: {
+                  crawlerIds: string[];
+                  detectionIds?: number[];
+                  documentationUrl: string;
+                  enabled?: boolean;
+                  hostSuffixes?: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  keyDirectory?: string;
+                  /** @enum {string} */
+                  method: 'dns' | 'signature' | 'edge';
+                  provider?: string;
+                  signatureAgent?: string;
+                }[];
+              };
+              preview: {
+                changes: {
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @enum {string} */
+                  kind: 'added' | 'changed' | 'disabled';
+                  section: string;
+                }[];
+                conflicts: string[];
+                contentHash: string;
+                counts: {
+                  added: number;
+                  changed: number;
+                  disabled: number;
+                };
+                currentRevision: string;
+                draftRevision: string;
+                hash: string;
+                samples: {
+                  expectedId: string | null;
+                  matchedId: string | null;
+                  passed: boolean;
+                  userAgent: string;
+                }[];
+              } | null;
+              revision: string;
+              /** @enum {string} */
+              status: 'draft' | 'published';
+              /** @description Title of the page. */
+              title: string;
+              /**
+               * Format: date-time
+               * @description Date and time the record was last updated.
+               */
+              updatedAt: string;
+            }[];
+            history: {
+              /** @enum {string} */
+              action: 'seed' | 'publish' | 'rollback';
+              actorId: string | null;
+              contentHash: string;
+              /** Format: date-time */
+              publishedAt: string;
+              revision: string;
+              /** Format: uuid */
+              version: string;
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  mutateLiekanCrawlerRegistry: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json':
+          | {
+              /** @constant */
+              action: 'createDraft';
+              /** Format: uuid */
+              operationId: string;
+              /** Format: uuid */
+              sourceVersion?: string;
+              /** @description Title of the page. */
+              title?: string;
+            }
+          | {
+              /** @constant */
+              action: 'rollbackDraft';
+              /** Format: uuid */
+              operationId: string;
+              /** Format: uuid */
+              sourceVersion: string;
+              /** @description Title of the page. */
+              title?: string;
+            }
+          | {
+              /** @constant */
+              action: 'updateDraft';
+              /** Format: uuid */
+              draftId: string;
+              expectedDraftRevision: string;
+              /** Format: uuid */
+              operationId: string;
+              payload: {
+                identities: {
+                  aiEligible: boolean;
+                  control: {
+                    nginx: boolean;
+                    remote: boolean;
+                  };
+                  family: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @enum {string} */
+                  kind: 'http_crawler' | 'robots_purpose' | 'signed_agent';
+                  metadata: {
+                    advice: string;
+                    aliases: string[];
+                    /** @enum {string} */
+                    evidence: 'operator' | 'observed' | 'pending' | 'inactive';
+                    feeds: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    /** @description Unique identifier of the resource. */
+                    id: string;
+                    /** @enum {string} */
+                    kind: 'crawler' | 'control';
+                    /** @description Display name of the resource. */
+                    name: string;
+                    purposes: (
+                      | '训练'
+                      | 'AI 搜索'
+                      | '用户触发'
+                      | '传统搜索'
+                      | '广告'
+                      | 'SEO 工具'
+                      | '研究数据'
+                      | '链接预览'
+                      | '通用抓取'
+                    )[];
+                    /** Format: date */
+                    reviewedAt: string;
+                    robots: string;
+                    robotsToken?: string;
+                    sources: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    summary: string;
+                    token: string;
+                    ua?: string;
+                    vendor: string;
+                    verification: string;
+                  };
+                  /** @description Display name of the resource. */
+                  name: string;
+                  parentId: string | null;
+                  platformId: string;
+                  /** @enum {string} */
+                  productForm:
+                    | 'general'
+                    | 'workbench'
+                    | 'personal_agent'
+                    | 'infrastructure'
+                    | 'unknown';
+                  productIds: string[];
+                  /** @enum {string} */
+                  purpose: 'training' | 'search' | 'user' | 'multi' | 'other' | 'unknown';
+                  robotsToken: string | null;
+                  /** @enum {string} */
+                  status: 'active' | 'pending' | 'inactive';
+                  /** @enum {string} */
+                  type: 'training' | 'search' | 'user' | 'traditional_search' | 'other';
+                  uaSelector: string | null;
+                  vendor: string;
+                }[];
+                platforms: {
+                  documentationUrls: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @description Display name of the resource. */
+                  name: string;
+                  operator: string;
+                  /**
+                   * @description Region or subdivision of the visitor.
+                   * @enum {string}
+                   */
+                  region: 'domestic' | 'global';
+                  website: string;
+                }[];
+                products: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  /** @enum {string} */
+                  form: 'general' | 'workbench' | 'personal_agent' | 'infrastructure' | 'unknown';
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  identityIds: string[];
+                  /** @description Display name of the resource. */
+                  name: string;
+                  notes: string;
+                  platformId: string;
+                  /** @enum {string} */
+                  supportStatus: 'confirmed' | 'pending' | 'unsupported' | 'inactive';
+                  tags: string[];
+                  website: string;
+                }[];
+                rangeBaselines: {
+                  [key: string]: {
+                    /** Format: date-time */
+                    observedAt: string;
+                    prefixes: string[];
+                    publishedAt: string | null;
+                    source: string;
+                  };
+                };
+                rangeSources: {
+                  crawlerIds: string[];
+                  enabled?: boolean;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  names: string[];
+                  /** @enum {string} */
+                  parserVersion: 'prefixes-v1' | 'amazon-code-json-v1' | 'manual-reviewed-v1';
+                  /** Format: date */
+                  reviewedAt: string;
+                  /** @description URL associated with the resource. */
+                  url: string;
+                }[];
+                referrals: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  enabled: boolean;
+                  host: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  includeSubdomains: boolean;
+                  /** @enum {string} */
+                  kind: 'ai' | 'mixed' | 'documentation';
+                  platformId: string;
+                  productId: string | null;
+                }[];
+                /** @constant */
+                schemaVersion: 1;
+                verificationMethods: {
+                  crawlerIds: string[];
+                  detectionIds?: number[];
+                  documentationUrl: string;
+                  enabled?: boolean;
+                  hostSuffixes?: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  keyDirectory?: string;
+                  /** @enum {string} */
+                  method: 'dns' | 'signature' | 'edge';
+                  provider?: string;
+                  signatureAgent?: string;
+                }[];
+              };
+            }
+          | {
+              /** @constant */
+              action: 'preview';
+              /** Format: uuid */
+              draftId: string;
+              expectedDraftRevision: string;
+              /** Format: uuid */
+              operationId: string;
+              samples?: {
+                expectedId: string | null;
+                userAgent: string;
+              }[];
+            }
+          | {
+              /** @constant */
+              action: 'publish';
+              /** Format: uuid */
+              draftId: string;
+              expectedCurrentRevision: string;
+              expectedDraftRevision: string;
+              /** Format: uuid */
+              operationId: string;
+              previewHash: string;
+            };
+      };
+    };
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            action: 'createDraft' | 'rollbackDraft' | 'updateDraft' | 'preview' | 'publish';
+            current?: {
+              contentHash: string;
+              payload: {
+                identities: {
+                  aiEligible: boolean;
+                  control: {
+                    nginx: boolean;
+                    remote: boolean;
+                  };
+                  family: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @enum {string} */
+                  kind: 'http_crawler' | 'robots_purpose' | 'signed_agent';
+                  metadata: {
+                    advice: string;
+                    aliases: string[];
+                    /** @enum {string} */
+                    evidence: 'operator' | 'observed' | 'pending' | 'inactive';
+                    feeds: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    /** @description Unique identifier of the resource. */
+                    id: string;
+                    /** @enum {string} */
+                    kind: 'crawler' | 'control';
+                    /** @description Display name of the resource. */
+                    name: string;
+                    purposes: (
+                      | '训练'
+                      | 'AI 搜索'
+                      | '用户触发'
+                      | '传统搜索'
+                      | '广告'
+                      | 'SEO 工具'
+                      | '研究数据'
+                      | '链接预览'
+                      | '通用抓取'
+                    )[];
+                    /** Format: date */
+                    reviewedAt: string;
+                    robots: string;
+                    robotsToken?: string;
+                    sources: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    summary: string;
+                    token: string;
+                    ua?: string;
+                    vendor: string;
+                    verification: string;
+                  };
+                  /** @description Display name of the resource. */
+                  name: string;
+                  parentId: string | null;
+                  platformId: string;
+                  /** @enum {string} */
+                  productForm:
+                    | 'general'
+                    | 'workbench'
+                    | 'personal_agent'
+                    | 'infrastructure'
+                    | 'unknown';
+                  productIds: string[];
+                  /** @enum {string} */
+                  purpose: 'training' | 'search' | 'user' | 'multi' | 'other' | 'unknown';
+                  robotsToken: string | null;
+                  /** @enum {string} */
+                  status: 'active' | 'pending' | 'inactive';
+                  /** @enum {string} */
+                  type: 'training' | 'search' | 'user' | 'traditional_search' | 'other';
+                  uaSelector: string | null;
+                  vendor: string;
+                }[];
+                platforms: {
+                  documentationUrls: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @description Display name of the resource. */
+                  name: string;
+                  operator: string;
+                  /**
+                   * @description Region or subdivision of the visitor.
+                   * @enum {string}
+                   */
+                  region: 'domestic' | 'global';
+                  website: string;
+                }[];
+                products: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  /** @enum {string} */
+                  form: 'general' | 'workbench' | 'personal_agent' | 'infrastructure' | 'unknown';
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  identityIds: string[];
+                  /** @description Display name of the resource. */
+                  name: string;
+                  notes: string;
+                  platformId: string;
+                  /** @enum {string} */
+                  supportStatus: 'confirmed' | 'pending' | 'unsupported' | 'inactive';
+                  tags: string[];
+                  website: string;
+                }[];
+                rangeBaselines: {
+                  [key: string]: {
+                    /** Format: date-time */
+                    observedAt: string;
+                    prefixes: string[];
+                    publishedAt: string | null;
+                    source: string;
+                  };
+                };
+                rangeSources: {
+                  crawlerIds: string[];
+                  enabled?: boolean;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  names: string[];
+                  /** @enum {string} */
+                  parserVersion: 'prefixes-v1' | 'amazon-code-json-v1' | 'manual-reviewed-v1';
+                  /** Format: date */
+                  reviewedAt: string;
+                  /** @description URL associated with the resource. */
+                  url: string;
+                }[];
+                referrals: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  enabled: boolean;
+                  host: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  includeSubdomains: boolean;
+                  /** @enum {string} */
+                  kind: 'ai' | 'mixed' | 'documentation';
+                  platformId: string;
+                  productId: string | null;
+                }[];
+                /** @constant */
+                schemaVersion: 1;
+                verificationMethods: {
+                  crawlerIds: string[];
+                  detectionIds?: number[];
+                  documentationUrl: string;
+                  enabled?: boolean;
+                  hostSuffixes?: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  keyDirectory?: string;
+                  /** @enum {string} */
+                  method: 'dns' | 'signature' | 'edge';
+                  provider?: string;
+                  signatureAgent?: string;
+                }[];
+              };
+              /** Format: date-time */
+              publishedAt: string;
+              revision: string;
+              /** @enum {string} */
+              state: 'published' | 'fallback';
+              /** Format: uuid */
+              version: string;
+            };
+            draft?: {
+              baseRevision: string;
+              /** Format: uuid */
+              baseVersion: string;
+              conflicts: string[];
+              /**
+               * Format: date-time
+               * @description Date and time the record was created.
+               */
+              createdAt: string;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              payload: {
+                identities: {
+                  aiEligible: boolean;
+                  control: {
+                    nginx: boolean;
+                    remote: boolean;
+                  };
+                  family: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @enum {string} */
+                  kind: 'http_crawler' | 'robots_purpose' | 'signed_agent';
+                  metadata: {
+                    advice: string;
+                    aliases: string[];
+                    /** @enum {string} */
+                    evidence: 'operator' | 'observed' | 'pending' | 'inactive';
+                    feeds: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    /** @description Unique identifier of the resource. */
+                    id: string;
+                    /** @enum {string} */
+                    kind: 'crawler' | 'control';
+                    /** @description Display name of the resource. */
+                    name: string;
+                    purposes: (
+                      | '训练'
+                      | 'AI 搜索'
+                      | '用户触发'
+                      | '传统搜索'
+                      | '广告'
+                      | 'SEO 工具'
+                      | '研究数据'
+                      | '链接预览'
+                      | '通用抓取'
+                    )[];
+                    /** Format: date */
+                    reviewedAt: string;
+                    robots: string;
+                    robotsToken?: string;
+                    sources: {
+                      label: string;
+                      /** @description URL associated with the resource. */
+                      url: string;
+                    }[];
+                    summary: string;
+                    token: string;
+                    ua?: string;
+                    vendor: string;
+                    verification: string;
+                  };
+                  /** @description Display name of the resource. */
+                  name: string;
+                  parentId: string | null;
+                  platformId: string;
+                  /** @enum {string} */
+                  productForm:
+                    | 'general'
+                    | 'workbench'
+                    | 'personal_agent'
+                    | 'infrastructure'
+                    | 'unknown';
+                  productIds: string[];
+                  /** @enum {string} */
+                  purpose: 'training' | 'search' | 'user' | 'multi' | 'other' | 'unknown';
+                  robotsToken: string | null;
+                  /** @enum {string} */
+                  status: 'active' | 'pending' | 'inactive';
+                  /** @enum {string} */
+                  type: 'training' | 'search' | 'user' | 'traditional_search' | 'other';
+                  uaSelector: string | null;
+                  vendor: string;
+                }[];
+                platforms: {
+                  documentationUrls: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @description Display name of the resource. */
+                  name: string;
+                  operator: string;
+                  /**
+                   * @description Region or subdivision of the visitor.
+                   * @enum {string}
+                   */
+                  region: 'domestic' | 'global';
+                  website: string;
+                }[];
+                products: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  /** @enum {string} */
+                  form: 'general' | 'workbench' | 'personal_agent' | 'infrastructure' | 'unknown';
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  identityIds: string[];
+                  /** @description Display name of the resource. */
+                  name: string;
+                  notes: string;
+                  platformId: string;
+                  /** @enum {string} */
+                  supportStatus: 'confirmed' | 'pending' | 'unsupported' | 'inactive';
+                  tags: string[];
+                  website: string;
+                }[];
+                rangeBaselines: {
+                  [key: string]: {
+                    /** Format: date-time */
+                    observedAt: string;
+                    prefixes: string[];
+                    publishedAt: string | null;
+                    source: string;
+                  };
+                };
+                rangeSources: {
+                  crawlerIds: string[];
+                  enabled?: boolean;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  names: string[];
+                  /** @enum {string} */
+                  parserVersion: 'prefixes-v1' | 'amazon-code-json-v1' | 'manual-reviewed-v1';
+                  /** Format: date */
+                  reviewedAt: string;
+                  /** @description URL associated with the resource. */
+                  url: string;
+                }[];
+                referrals: {
+                  aliases: string[];
+                  documentationUrls: string[];
+                  enabled: boolean;
+                  host: string;
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  includeSubdomains: boolean;
+                  /** @enum {string} */
+                  kind: 'ai' | 'mixed' | 'documentation';
+                  platformId: string;
+                  productId: string | null;
+                }[];
+                /** @constant */
+                schemaVersion: 1;
+                verificationMethods: {
+                  crawlerIds: string[];
+                  detectionIds?: number[];
+                  documentationUrl: string;
+                  enabled?: boolean;
+                  hostSuffixes?: string[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  keyDirectory?: string;
+                  /** @enum {string} */
+                  method: 'dns' | 'signature' | 'edge';
+                  provider?: string;
+                  signatureAgent?: string;
+                }[];
+              };
+              preview: {
+                changes: {
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @enum {string} */
+                  kind: 'added' | 'changed' | 'disabled';
+                  section: string;
+                }[];
+                conflicts: string[];
+                contentHash: string;
+                counts: {
+                  added: number;
+                  changed: number;
+                  disabled: number;
+                };
+                currentRevision: string;
+                draftRevision: string;
+                hash: string;
+                samples: {
+                  expectedId: string | null;
+                  matchedId: string | null;
+                  passed: boolean;
+                  userAgent: string;
+                }[];
+              } | null;
+              revision: string;
+              /** @enum {string} */
+              status: 'draft' | 'published';
+              /** @description Title of the page. */
+              title: string;
+              /**
+               * Format: date-time
+               * @description Date and time the record was last updated.
+               */
+              updatedAt: string;
+            };
+            preview?: {
+              changes: {
+                /** @description Unique identifier of the resource. */
+                id: string;
+                /** @enum {string} */
+                kind: 'added' | 'changed' | 'disabled';
+                section: string;
+              }[];
+              conflicts: string[];
+              contentHash: string;
+              counts: {
+                added: number;
+                changed: number;
+                disabled: number;
+              };
+              currentRevision: string;
+              draftRevision: string;
+              hash: string;
+              samples: {
+                expectedId: string | null;
+                matchedId: string | null;
+                passed: boolean;
+                userAgent: string;
+              }[];
+            };
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getLiekanCrawlerSources: {
     parameters: {
       query?: never;
@@ -9533,6 +10859,8 @@ export interface operations {
                 state: 'unconfigured';
                 value: null;
               };
+              /** Format: uuid */
+              catalogVersion?: string;
               /** @constant */
               coverage: 'unverified';
               currentRange: {
@@ -9619,7 +10947,12 @@ export interface operations {
                         requests: number;
                         vendor: string;
                         /** @enum {string} */
-                        verification: 'verified_range' | 'range_mismatch' | 'unverified';
+                        verification:
+                          | 'verified_range'
+                          | 'verified_dns'
+                          | 'verified_edge'
+                          | 'range_mismatch'
+                          | 'unverified';
                       }[];
                       /** @enum {string} */
                       scope:
@@ -9863,6 +11196,7 @@ export interface operations {
                     kind: 'team';
                   };
               timeZone: string;
+              trafficPolicyVersion?: string;
               website: {
                 /** @description Domain name associated with the resource. */
                 domain: string | null;
@@ -10853,6 +12187,121 @@ export interface operations {
       };
     };
   };
+  getLiekanCatalogVersion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            version: string | null;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   collectLiekanServerEvent: {
     parameters: {
       query?: never;
@@ -11419,6 +12868,287 @@ export interface operations {
              * @description ID of the website.
              */
             websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanPublishedCrawlerRegistry: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            contentHash: string;
+            payload: {
+              identities: {
+                aiEligible: boolean;
+                control: {
+                  nginx: boolean;
+                  remote: boolean;
+                };
+                family: string;
+                /** @description Unique identifier of the resource. */
+                id: string;
+                /** @enum {string} */
+                kind: 'http_crawler' | 'robots_purpose' | 'signed_agent';
+                metadata: {
+                  advice: string;
+                  aliases: string[];
+                  /** @enum {string} */
+                  evidence: 'operator' | 'observed' | 'pending' | 'inactive';
+                  feeds: {
+                    label: string;
+                    /** @description URL associated with the resource. */
+                    url: string;
+                  }[];
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  /** @enum {string} */
+                  kind: 'crawler' | 'control';
+                  /** @description Display name of the resource. */
+                  name: string;
+                  purposes: (
+                    | '训练'
+                    | 'AI 搜索'
+                    | '用户触发'
+                    | '传统搜索'
+                    | '广告'
+                    | 'SEO 工具'
+                    | '研究数据'
+                    | '链接预览'
+                    | '通用抓取'
+                  )[];
+                  /** Format: date */
+                  reviewedAt: string;
+                  robots: string;
+                  robotsToken?: string;
+                  sources: {
+                    label: string;
+                    /** @description URL associated with the resource. */
+                    url: string;
+                  }[];
+                  summary: string;
+                  token: string;
+                  ua?: string;
+                  vendor: string;
+                  verification: string;
+                };
+                /** @description Display name of the resource. */
+                name: string;
+                parentId: string | null;
+                platformId: string;
+                /** @enum {string} */
+                productForm:
+                  | 'general'
+                  | 'workbench'
+                  | 'personal_agent'
+                  | 'infrastructure'
+                  | 'unknown';
+                productIds: string[];
+                /** @enum {string} */
+                purpose: 'training' | 'search' | 'user' | 'multi' | 'other' | 'unknown';
+                robotsToken: string | null;
+                /** @enum {string} */
+                status: 'active' | 'pending' | 'inactive';
+                /** @enum {string} */
+                type: 'training' | 'search' | 'user' | 'traditional_search' | 'other';
+                uaSelector: string | null;
+                vendor: string;
+              }[];
+              platforms: {
+                documentationUrls: string[];
+                /** @description Unique identifier of the resource. */
+                id: string;
+                /** @description Display name of the resource. */
+                name: string;
+                operator: string;
+                /**
+                 * @description Region or subdivision of the visitor.
+                 * @enum {string}
+                 */
+                region: 'domestic' | 'global';
+                website: string;
+              }[];
+              products: {
+                aliases: string[];
+                documentationUrls: string[];
+                /** @enum {string} */
+                form: 'general' | 'workbench' | 'personal_agent' | 'infrastructure' | 'unknown';
+                /** @description Unique identifier of the resource. */
+                id: string;
+                identityIds: string[];
+                /** @description Display name of the resource. */
+                name: string;
+                notes: string;
+                platformId: string;
+                /** @enum {string} */
+                supportStatus: 'confirmed' | 'pending' | 'unsupported' | 'inactive';
+                tags: string[];
+                website: string;
+              }[];
+              rangeBaselines: {
+                [key: string]: {
+                  /** Format: date-time */
+                  observedAt: string;
+                  prefixes: string[];
+                  publishedAt: string | null;
+                  source: string;
+                };
+              };
+              rangeSources: {
+                crawlerIds: string[];
+                enabled?: boolean;
+                /** @description Unique identifier of the resource. */
+                id: string;
+                names: string[];
+                /** @enum {string} */
+                parserVersion: 'prefixes-v1' | 'amazon-code-json-v1' | 'manual-reviewed-v1';
+                /** Format: date */
+                reviewedAt: string;
+                /** @description URL associated with the resource. */
+                url: string;
+              }[];
+              referrals: {
+                aliases: string[];
+                documentationUrls: string[];
+                enabled: boolean;
+                host: string;
+                /** @description Unique identifier of the resource. */
+                id: string;
+                includeSubdomains: boolean;
+                /** @enum {string} */
+                kind: 'ai' | 'mixed' | 'documentation';
+                platformId: string;
+                productId: string | null;
+              }[];
+              /** @constant */
+              schemaVersion: 1;
+              verificationMethods: {
+                crawlerIds: string[];
+                detectionIds?: number[];
+                documentationUrl: string;
+                enabled?: boolean;
+                hostSuffixes?: string[];
+                /** @description Unique identifier of the resource. */
+                id: string;
+                keyDirectory?: string;
+                /** @enum {string} */
+                method: 'dns' | 'signature' | 'edge';
+                provider?: string;
+                signatureAgent?: string;
+              }[];
+            };
+            /** Format: date-time */
+            publishedAt: string;
+            revision: string;
+            /** @enum {string} */
+            state: 'published' | 'fallback';
+            /** Format: uuid */
+            version: string;
           };
         };
       };
@@ -13665,67 +15395,7 @@ export interface operations {
               windowEnd: string;
             } | null;
             bots: {
-              botId:
-                | (
-                    | 'gptbot'
-                    | 'oai-searchbot'
-                    | 'chatgpt-user'
-                    | 'oai-adsbot'
-                    | 'claudebot'
-                    | 'claude-searchbot'
-                    | 'claude-user'
-                    | 'perplexitybot'
-                    | 'perplexity-user'
-                    | 'amazonbot'
-                    | 'amzn-searchbot'
-                    | 'amzn-user'
-                    | 'mistralai-user'
-                    | 'mistralai-index'
-                    | 'mistralai-training'
-                    | 'googlebot'
-                    | 'googlebot-image'
-                    | 'googlebot-video'
-                    | 'googleother'
-                    | 'googleother-image'
-                    | 'googleother-video'
-                    | 'storebot-google'
-                    | 'google-inspectiontool'
-                    | 'google-cloudvertexbot'
-                    | 'google-extended'
-                    | 'googlebot-news'
-                    | 'applebot'
-                    | 'applebot-extended'
-                    | 'bingbot'
-                    | 'duckduckbot'
-                    | 'duckassistbot'
-                    | 'ccbot'
-                    | 'ai2bot'
-                    | 'baiduspider'
-                    | 'baiduspider-render'
-                    | 'sogou-web-spider'
-                    | 'sogou-inst-spider'
-                    | '360spider'
-                    | 'yandexbot'
-                    | 'yeti'
-                    | 'ads-naver'
-                    | 'blueno'
-                    | 'seznambot'
-                    | 'freshbot'
-                    | 'qwantbot'
-                    | 'qwantbot-news'
-                    | 'mojeekbot'
-                    | 'meta-externalagent'
-                    | 'meta-externalfetcher'
-                    | 'facebookbot'
-                    | 'bytespider'
-                    | 'ahrefsbot'
-                    | 'ahrefssiteaudit'
-                    | 'semrushbot'
-                    | 'siteauditbot'
-                    | 'mj12bot'
-                    | 'petalbot'
-                  )
-                | null;
+              botId: string | null;
               bytes: number;
               denied403429: number;
               head: number;
@@ -13744,6 +15414,8 @@ export interface operations {
               successfulCatalogPages: number;
               successfulGets: number;
               unverified: number;
+              verifiedDns?: number;
+              verifiedEdge?: number;
               verifiedRange: number;
             }[];
             criticalPaths: string[];
@@ -13755,103 +15427,17 @@ export interface operations {
               };
               documentationUrl: string;
               /** @enum {string} */
-              evidence: 'operator' | 'observed' | 'pending';
+              evidence: 'operator' | 'observed' | 'pending' | 'inactive';
               family: string;
-              /**
-               * @description Unique identifier of the resource.
-               * @enum {string}
-               */
-              id:
-                | 'gptbot'
-                | 'oai-searchbot'
-                | 'chatgpt-user'
-                | 'oai-adsbot'
-                | 'claudebot'
-                | 'claude-searchbot'
-                | 'claude-user'
-                | 'perplexitybot'
-                | 'perplexity-user'
-                | 'amazonbot'
-                | 'amzn-searchbot'
-                | 'amzn-user'
-                | 'mistralai-user'
-                | 'mistralai-index'
-                | 'mistralai-training'
-                | 'googlebot'
-                | 'googlebot-image'
-                | 'googlebot-video'
-                | 'googleother'
-                | 'googleother-image'
-                | 'googleother-video'
-                | 'storebot-google'
-                | 'google-inspectiontool'
-                | 'google-cloudvertexbot'
-                | 'google-extended'
-                | 'googlebot-news'
-                | 'applebot'
-                | 'applebot-extended'
-                | 'bingbot'
-                | 'duckduckbot'
-                | 'duckassistbot'
-                | 'ccbot'
-                | 'ai2bot'
-                | 'baiduspider'
-                | 'baiduspider-render'
-                | 'sogou-web-spider'
-                | 'sogou-inst-spider'
-                | '360spider'
-                | 'yandexbot'
-                | 'yeti'
-                | 'ads-naver'
-                | 'blueno'
-                | 'seznambot'
-                | 'freshbot'
-                | 'qwantbot'
-                | 'qwantbot-news'
-                | 'mojeekbot'
-                | 'meta-externalagent'
-                | 'meta-externalfetcher'
-                | 'facebookbot'
-                | 'bytespider'
-                | 'ahrefsbot'
-                | 'ahrefssiteaudit'
-                | 'semrushbot'
-                | 'siteauditbot'
-                | 'mj12bot'
-                | 'petalbot';
+              /** @description Unique identifier of the resource. */
+              id: string;
               identityEvidence: string;
               impact: string;
               /** @enum {string} */
-              kind: 'http_crawler' | 'robots_purpose';
+              kind: 'http_crawler' | 'robots_purpose' | 'signed_agent';
               /** @description Display name of the resource. */
               name: string;
-              /** @enum {string} */
-              platformId:
-                | '360'
-                | 'openai'
-                | 'anthropic'
-                | 'perplexity'
-                | 'bytedance'
-                | 'google'
-                | 'baidu'
-                | 'microsoft'
-                | 'apple'
-                | 'amazon'
-                | 'mistral'
-                | 'duckduckgo'
-                | 'common-crawl'
-                | 'ai2'
-                | 'sogou'
-                | 'yandex'
-                | 'naver'
-                | 'seznam'
-                | 'qwant'
-                | 'mojeek'
-                | 'meta'
-                | 'ahrefs'
-                | 'semrush'
-                | 'majestic'
-                | 'petal';
+              platformId: string;
               reviewedAt: string;
               /** @enum {string} */
               robotsApplicability: 'applicable' | 'user_triggered_caveat';
@@ -13862,71 +15448,13 @@ export interface operations {
                 url: string;
               }[];
               /** @enum {string} */
-              status: 'active' | 'pending';
+              status: 'active' | 'pending' | 'inactive';
               /** @enum {string} */
               type: 'training' | 'search' | 'user' | 'traditional_search' | 'other';
               uaSelector: string | null;
             }[];
             findings: {
-              /** @enum {string} */
-              botId:
-                | 'gptbot'
-                | 'oai-searchbot'
-                | 'chatgpt-user'
-                | 'oai-adsbot'
-                | 'claudebot'
-                | 'claude-searchbot'
-                | 'claude-user'
-                | 'perplexitybot'
-                | 'perplexity-user'
-                | 'amazonbot'
-                | 'amzn-searchbot'
-                | 'amzn-user'
-                | 'mistralai-user'
-                | 'mistralai-index'
-                | 'mistralai-training'
-                | 'googlebot'
-                | 'googlebot-image'
-                | 'googlebot-video'
-                | 'googleother'
-                | 'googleother-image'
-                | 'googleother-video'
-                | 'storebot-google'
-                | 'google-inspectiontool'
-                | 'google-cloudvertexbot'
-                | 'google-extended'
-                | 'googlebot-news'
-                | 'applebot'
-                | 'applebot-extended'
-                | 'bingbot'
-                | 'duckduckbot'
-                | 'duckassistbot'
-                | 'ccbot'
-                | 'ai2bot'
-                | 'baiduspider'
-                | 'baiduspider-render'
-                | 'sogou-web-spider'
-                | 'sogou-inst-spider'
-                | '360spider'
-                | 'yandexbot'
-                | 'yeti'
-                | 'ads-naver'
-                | 'blueno'
-                | 'seznambot'
-                | 'freshbot'
-                | 'qwantbot'
-                | 'qwantbot-news'
-                | 'mojeekbot'
-                | 'meta-externalagent'
-                | 'meta-externalfetcher'
-                | 'facebookbot'
-                | 'bytespider'
-                | 'ahrefsbot'
-                | 'ahrefssiteaudit'
-                | 'semrushbot'
-                | 'siteauditbot'
-                | 'mj12bot'
-                | 'petalbot';
+              botId: string;
               /** @enum {string} */
               confidence: 'confirmed' | 'possible' | 'insufficient';
               facts: {
@@ -13961,67 +15489,7 @@ export interface operations {
             }[];
             generatedAt: string;
             pages: {
-              botId:
-                | (
-                    | 'gptbot'
-                    | 'oai-searchbot'
-                    | 'chatgpt-user'
-                    | 'oai-adsbot'
-                    | 'claudebot'
-                    | 'claude-searchbot'
-                    | 'claude-user'
-                    | 'perplexitybot'
-                    | 'perplexity-user'
-                    | 'amazonbot'
-                    | 'amzn-searchbot'
-                    | 'amzn-user'
-                    | 'mistralai-user'
-                    | 'mistralai-index'
-                    | 'mistralai-training'
-                    | 'googlebot'
-                    | 'googlebot-image'
-                    | 'googlebot-video'
-                    | 'googleother'
-                    | 'googleother-image'
-                    | 'googleother-video'
-                    | 'storebot-google'
-                    | 'google-inspectiontool'
-                    | 'google-cloudvertexbot'
-                    | 'google-extended'
-                    | 'googlebot-news'
-                    | 'applebot'
-                    | 'applebot-extended'
-                    | 'bingbot'
-                    | 'duckduckbot'
-                    | 'duckassistbot'
-                    | 'ccbot'
-                    | 'ai2bot'
-                    | 'baiduspider'
-                    | 'baiduspider-render'
-                    | 'sogou-web-spider'
-                    | 'sogou-inst-spider'
-                    | '360spider'
-                    | 'yandexbot'
-                    | 'yeti'
-                    | 'ads-naver'
-                    | 'blueno'
-                    | 'seznambot'
-                    | 'freshbot'
-                    | 'qwantbot'
-                    | 'qwantbot-news'
-                    | 'mojeekbot'
-                    | 'meta-externalagent'
-                    | 'meta-externalfetcher'
-                    | 'facebookbot'
-                    | 'bytespider'
-                    | 'ahrefsbot'
-                    | 'ahrefssiteaudit'
-                    | 'semrushbot'
-                    | 'siteauditbot'
-                    | 'mj12bot'
-                    | 'petalbot'
-                  )
-                | null;
+              botId: string | null;
               bytes: number;
               denied403429: number;
               head: number;
@@ -14059,33 +15527,7 @@ export interface operations {
                 visits: number;
               }[];
               landingPagesTruncated: boolean;
-              /** @enum {string} */
-              platformId:
-                | '360'
-                | 'openai'
-                | 'anthropic'
-                | 'perplexity'
-                | 'bytedance'
-                | 'google'
-                | 'baidu'
-                | 'microsoft'
-                | 'apple'
-                | 'amazon'
-                | 'mistral'
-                | 'duckduckgo'
-                | 'common-crawl'
-                | 'ai2'
-                | 'sogou'
-                | 'yandex'
-                | 'naver'
-                | 'seznam'
-                | 'qwant'
-                | 'mojeek'
-                | 'meta'
-                | 'ahrefs'
-                | 'semrush'
-                | 'majestic'
-                | 'petal';
+              platformId: string;
               /** @enum {string} */
               state: 'available' | 'missing' | 'unsupported';
               /** @description Visit counts for the selected period. */
@@ -14093,67 +15535,7 @@ export interface operations {
             }[];
             previous: {
               bots: {
-                botId:
-                  | (
-                      | 'gptbot'
-                      | 'oai-searchbot'
-                      | 'chatgpt-user'
-                      | 'oai-adsbot'
-                      | 'claudebot'
-                      | 'claude-searchbot'
-                      | 'claude-user'
-                      | 'perplexitybot'
-                      | 'perplexity-user'
-                      | 'amazonbot'
-                      | 'amzn-searchbot'
-                      | 'amzn-user'
-                      | 'mistralai-user'
-                      | 'mistralai-index'
-                      | 'mistralai-training'
-                      | 'googlebot'
-                      | 'googlebot-image'
-                      | 'googlebot-video'
-                      | 'googleother'
-                      | 'googleother-image'
-                      | 'googleother-video'
-                      | 'storebot-google'
-                      | 'google-inspectiontool'
-                      | 'google-cloudvertexbot'
-                      | 'google-extended'
-                      | 'googlebot-news'
-                      | 'applebot'
-                      | 'applebot-extended'
-                      | 'bingbot'
-                      | 'duckduckbot'
-                      | 'duckassistbot'
-                      | 'ccbot'
-                      | 'ai2bot'
-                      | 'baiduspider'
-                      | 'baiduspider-render'
-                      | 'sogou-web-spider'
-                      | 'sogou-inst-spider'
-                      | '360spider'
-                      | 'yandexbot'
-                      | 'yeti'
-                      | 'ads-naver'
-                      | 'blueno'
-                      | 'seznambot'
-                      | 'freshbot'
-                      | 'qwantbot'
-                      | 'qwantbot-news'
-                      | 'mojeekbot'
-                      | 'meta-externalagent'
-                      | 'meta-externalfetcher'
-                      | 'facebookbot'
-                      | 'bytespider'
-                      | 'ahrefsbot'
-                      | 'ahrefssiteaudit'
-                      | 'semrushbot'
-                      | 'siteauditbot'
-                      | 'mj12bot'
-                      | 'petalbot'
-                    )
-                  | null;
+                botId: string | null;
                 bytes: number;
                 denied403429: number;
                 head: number;
@@ -14179,33 +15561,7 @@ export interface operations {
                   visits: number;
                 }[];
                 landingPagesTruncated: boolean;
-                /** @enum {string} */
-                platformId:
-                  | '360'
-                  | 'openai'
-                  | 'anthropic'
-                  | 'perplexity'
-                  | 'bytedance'
-                  | 'google'
-                  | 'baidu'
-                  | 'microsoft'
-                  | 'apple'
-                  | 'amazon'
-                  | 'mistral'
-                  | 'duckduckgo'
-                  | 'common-crawl'
-                  | 'ai2'
-                  | 'sogou'
-                  | 'yandex'
-                  | 'naver'
-                  | 'seznam'
-                  | 'qwant'
-                  | 'mojeek'
-                  | 'meta'
-                  | 'ahrefs'
-                  | 'semrush'
-                  | 'majestic'
-                  | 'petal';
+                platformId: string;
                 /** @enum {string} */
                 state: 'available' | 'missing' | 'unsupported';
                 /** @description Visit counts for the selected period. */
@@ -14473,67 +15829,10 @@ export interface operations {
   getLiekanCrawlerEvidence: {
     parameters: {
       query: {
-        botId?:
-          | 'gptbot'
-          | 'oai-searchbot'
-          | 'chatgpt-user'
-          | 'oai-adsbot'
-          | 'claudebot'
-          | 'claude-searchbot'
-          | 'claude-user'
-          | 'perplexitybot'
-          | 'perplexity-user'
-          | 'amazonbot'
-          | 'amzn-searchbot'
-          | 'amzn-user'
-          | 'mistralai-user'
-          | 'mistralai-index'
-          | 'mistralai-training'
-          | 'googlebot'
-          | 'googlebot-image'
-          | 'googlebot-video'
-          | 'googleother'
-          | 'googleother-image'
-          | 'googleother-video'
-          | 'storebot-google'
-          | 'google-inspectiontool'
-          | 'google-cloudvertexbot'
-          | 'google-extended'
-          | 'googlebot-news'
-          | 'applebot'
-          | 'applebot-extended'
-          | 'bingbot'
-          | 'duckduckbot'
-          | 'duckassistbot'
-          | 'ccbot'
-          | 'ai2bot'
-          | 'baiduspider'
-          | 'baiduspider-render'
-          | 'sogou-web-spider'
-          | 'sogou-inst-spider'
-          | '360spider'
-          | 'yandexbot'
-          | 'yeti'
-          | 'ads-naver'
-          | 'blueno'
-          | 'seznambot'
-          | 'freshbot'
-          | 'qwantbot'
-          | 'qwantbot-news'
-          | 'mojeekbot'
-          | 'meta-externalagent'
-          | 'meta-externalfetcher'
-          | 'facebookbot'
-          | 'bytespider'
-          | 'ahrefsbot'
-          | 'ahrefssiteaudit'
-          | 'semrushbot'
-          | 'siteauditbot'
-          | 'mj12bot'
-          | 'petalbot';
+        botId?: string;
         botName?: string;
         botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
-        crawlerIdentityScope?: 'all' | 'verified_range';
+        crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
         crawlerMetricsVersion?: number;
         dimension?: 'bot' | 'path' | 'day';
         direction?: 'asc' | 'desc';
@@ -14566,7 +15865,12 @@ export interface operations {
         startAt: number;
         /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
         timezone?: string;
-        verificationGroup?: 'verified_range' | 'range_mismatch' | 'unverified';
+        verificationGroup?:
+          | 'verified_range'
+          | 'verified_dns'
+          | 'verified_edge'
+          | 'range_mismatch'
+          | 'unverified';
         view?: 'matrix' | 'requests' | 'summary';
       };
       header?: never;
@@ -14617,6 +15921,7 @@ export interface operations {
                   };
                   policySnapshot: string;
                   population: string;
+                  populationVersion?: string;
                   quality: {
                     /** @enum {string} */
                     basis: 'event_time' | 'ingestion_time' | 'unknown';
@@ -14628,6 +15933,7 @@ export interface operations {
                     timezone: string;
                   };
                   readAt: string;
+                  registryVersion?: string | null;
                   reset: boolean;
                   snapshot: string;
                   sources: {
@@ -14708,6 +16014,7 @@ export interface operations {
                   };
                   policySnapshot: string;
                   population: string;
+                  populationVersion?: string;
                   quality: {
                     /** @enum {string} */
                     basis: 'event_time' | 'ingestion_time' | 'unknown';
@@ -14719,6 +16026,7 @@ export interface operations {
                     timezone: string;
                   };
                   readAt: string;
+                  registryVersion?: string | null;
                   reset: boolean;
                   snapshot: string;
                   sources: {
@@ -14742,7 +16050,12 @@ export interface operations {
                 };
                 outsideScope: {
                   /** @enum {string} */
-                  identity: 'verified_range' | 'range_mismatch' | 'unverified';
+                  identity:
+                    | 'verified_range'
+                    | 'verified_dns'
+                    | 'verified_edge'
+                    | 'range_mismatch'
+                    | 'unverified';
                   requests: number;
                   /** @enum {string} */
                   response: '304' | '1xx' | '2xx' | '3xx' | 'denied' | 'other4xx' | '5xx';
@@ -14753,7 +16066,12 @@ export interface operations {
                 }[];
                 rows: {
                   /** @enum {string} */
-                  identity: 'verified_range' | 'range_mismatch' | 'unverified';
+                  identity:
+                    | 'verified_range'
+                    | 'verified_dns'
+                    | 'verified_edge'
+                    | 'range_mismatch'
+                    | 'unverified';
                   requests: number;
                   /** @enum {string} */
                   response: '304' | '1xx' | '2xx' | '3xx' | 'denied' | 'other4xx' | '5xx';
@@ -14794,6 +16112,7 @@ export interface operations {
                   };
                   policySnapshot: string;
                   population: string;
+                  populationVersion?: string;
                   quality: {
                     /** @enum {string} */
                     basis: 'event_time' | 'ingestion_time' | 'unknown';
@@ -14805,6 +16124,7 @@ export interface operations {
                     timezone: string;
                   };
                   readAt: string;
+                  registryVersion?: string | null;
                   reset: boolean;
                   snapshot: string;
                   sources: {
@@ -14828,7 +16148,12 @@ export interface operations {
                 };
                 outsideScope: {
                   /** @enum {string} */
-                  identity: 'verified_range' | 'range_mismatch' | 'unverified';
+                  identity:
+                    | 'verified_range'
+                    | 'verified_dns'
+                    | 'verified_edge'
+                    | 'range_mismatch'
+                    | 'unverified';
                   requests: number;
                   /** @enum {string} */
                   response: '304' | '1xx' | '2xx' | '3xx' | 'denied' | 'other4xx' | '5xx';
@@ -14876,6 +16201,7 @@ export interface operations {
                   };
                   policySnapshot: string;
                   population: string;
+                  populationVersion?: string;
                   quality: {
                     /** @enum {string} */
                     basis: 'event_time' | 'ingestion_time' | 'unknown';
@@ -14887,6 +16213,7 @@ export interface operations {
                     timezone: string;
                   };
                   readAt: string;
+                  registryVersion?: string | null;
                   reset: boolean;
                   snapshot: string;
                   sources: {
@@ -15107,67 +16434,10 @@ export interface operations {
   getLiekanCrawlerOutcomes: {
     parameters: {
       query: {
-        botId?:
-          | 'gptbot'
-          | 'oai-searchbot'
-          | 'chatgpt-user'
-          | 'oai-adsbot'
-          | 'claudebot'
-          | 'claude-searchbot'
-          | 'claude-user'
-          | 'perplexitybot'
-          | 'perplexity-user'
-          | 'amazonbot'
-          | 'amzn-searchbot'
-          | 'amzn-user'
-          | 'mistralai-user'
-          | 'mistralai-index'
-          | 'mistralai-training'
-          | 'googlebot'
-          | 'googlebot-image'
-          | 'googlebot-video'
-          | 'googleother'
-          | 'googleother-image'
-          | 'googleother-video'
-          | 'storebot-google'
-          | 'google-inspectiontool'
-          | 'google-cloudvertexbot'
-          | 'google-extended'
-          | 'googlebot-news'
-          | 'applebot'
-          | 'applebot-extended'
-          | 'bingbot'
-          | 'duckduckbot'
-          | 'duckassistbot'
-          | 'ccbot'
-          | 'ai2bot'
-          | 'baiduspider'
-          | 'baiduspider-render'
-          | 'sogou-web-spider'
-          | 'sogou-inst-spider'
-          | '360spider'
-          | 'yandexbot'
-          | 'yeti'
-          | 'ads-naver'
-          | 'blueno'
-          | 'seznambot'
-          | 'freshbot'
-          | 'qwantbot'
-          | 'qwantbot-news'
-          | 'mojeekbot'
-          | 'meta-externalagent'
-          | 'meta-externalfetcher'
-          | 'facebookbot'
-          | 'bytespider'
-          | 'ahrefsbot'
-          | 'ahrefssiteaudit'
-          | 'semrushbot'
-          | 'siteauditbot'
-          | 'mj12bot'
-          | 'petalbot';
+        botId?: string;
         botName?: string;
         botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
-        crawlerIdentityScope?: 'all' | 'verified_range';
+        crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
         crawlerMetricsVersion?: number;
         dimension?: 'bot' | 'path' | 'day';
         direction?: 'asc' | 'desc';
@@ -15236,6 +16506,7 @@ export interface operations {
               };
               policySnapshot: string;
               population: string;
+              populationVersion?: string;
               quality: {
                 /** @enum {string} */
                 basis: 'event_time' | 'ingestion_time' | 'unknown';
@@ -15247,6 +16518,7 @@ export interface operations {
                 timezone: string;
               };
               readAt: string;
+              registryVersion?: string | null;
               reset: boolean;
               snapshot: string;
               sources: {
@@ -15422,67 +16694,10 @@ export interface operations {
   getLiekanCrawlerPerformance: {
     parameters: {
       query: {
-        botId?:
-          | 'gptbot'
-          | 'oai-searchbot'
-          | 'chatgpt-user'
-          | 'oai-adsbot'
-          | 'claudebot'
-          | 'claude-searchbot'
-          | 'claude-user'
-          | 'perplexitybot'
-          | 'perplexity-user'
-          | 'amazonbot'
-          | 'amzn-searchbot'
-          | 'amzn-user'
-          | 'mistralai-user'
-          | 'mistralai-index'
-          | 'mistralai-training'
-          | 'googlebot'
-          | 'googlebot-image'
-          | 'googlebot-video'
-          | 'googleother'
-          | 'googleother-image'
-          | 'googleother-video'
-          | 'storebot-google'
-          | 'google-inspectiontool'
-          | 'google-cloudvertexbot'
-          | 'google-extended'
-          | 'googlebot-news'
-          | 'applebot'
-          | 'applebot-extended'
-          | 'bingbot'
-          | 'duckduckbot'
-          | 'duckassistbot'
-          | 'ccbot'
-          | 'ai2bot'
-          | 'baiduspider'
-          | 'baiduspider-render'
-          | 'sogou-web-spider'
-          | 'sogou-inst-spider'
-          | '360spider'
-          | 'yandexbot'
-          | 'yeti'
-          | 'ads-naver'
-          | 'blueno'
-          | 'seznambot'
-          | 'freshbot'
-          | 'qwantbot'
-          | 'qwantbot-news'
-          | 'mojeekbot'
-          | 'meta-externalagent'
-          | 'meta-externalfetcher'
-          | 'facebookbot'
-          | 'bytespider'
-          | 'ahrefsbot'
-          | 'ahrefssiteaudit'
-          | 'semrushbot'
-          | 'siteauditbot'
-          | 'mj12bot'
-          | 'petalbot';
+        botId?: string;
         botName?: string;
         botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
-        crawlerIdentityScope?: 'all' | 'verified_range';
+        crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
         crawlerMetricsVersion?: number;
         dimension?: 'bot' | 'path' | 'day';
         direction?: 'asc' | 'desc';
@@ -15580,6 +16795,7 @@ export interface operations {
               };
               policySnapshot: string;
               population: string;
+              populationVersion?: string;
               quality: {
                 /** @enum {string} */
                 basis: 'event_time' | 'ingestion_time' | 'unknown';
@@ -15591,6 +16807,7 @@ export interface operations {
                 timezone: string;
               };
               readAt: string;
+              registryVersion?: string | null;
               reset: boolean;
               snapshot: string;
               sources: {
@@ -17255,6 +18472,10 @@ export interface operations {
                   | 'claude-user'
                   | 'perplexitybot'
                   | 'perplexity-user'
+                  | 'kimibot'
+                  | 'kimi-searchbot'
+                  | 'kimi-user'
+                  | 'hyspider'
                   | 'amazonbot'
                   | 'amzn-searchbot'
                   | 'amzn-user'
@@ -20256,6 +21477,820 @@ export interface operations {
       };
     };
   };
+  getLiekanGeoWeight: {
+    parameters: {
+      query: {
+        asOf: string;
+        /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+        timezone: string;
+        view?: 'summary' | 'detail';
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authenticated website crawler operation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            algorithm: string;
+            calculatedAt: string;
+            canManageCatalog: boolean;
+            /** @enum {string} */
+            catalogState: 'published' | 'fallback';
+            /** @description Analytics for the comparison period. */
+            comparison?: {
+              comparable: boolean;
+              delta: number | null;
+              reasons: (
+                | 'coverage_missing'
+                | 'coverage_partial'
+                | 'backlog'
+                | 'sampling_unknown'
+                | 'host_inferred'
+                | 'classification_changed'
+                | 'source_changed'
+                | 'catalog_fallback'
+                | 'identity_incomplete'
+                | 'content_inferred'
+                | 'content_mixed'
+                | 'history_incomplete'
+              )[];
+            };
+            current: {
+              accepted: number;
+              asOf: string;
+              catalogVersions: string[];
+              categories: {
+                contribution: number;
+                days: number;
+                operatorAnchor: number;
+                operators: number;
+                paths: number;
+                /** @enum {string} */
+                purpose: 'search' | 'user' | 'training';
+                score: number;
+                units: number;
+                weight: number;
+              }[];
+              classificationVersions: string[];
+              comparableKey: string | null;
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              exclusions: {
+                [key: string]: number;
+              };
+              forms: {
+                form: string;
+                requests: number;
+              }[];
+              identities: {
+                accepted: number;
+                exclusions: {
+                  [key: string]: number;
+                };
+                /** @description Unique identifier of the resource. */
+                id: string;
+                requests: number;
+                verified: number;
+              }[];
+              level: number | null;
+              mimeConfirmed: number;
+              observedDays: number;
+              operators: {
+                days: number;
+                platformId: string;
+                /** @enum {string} */
+                purpose: 'search' | 'user' | 'training';
+                units: number;
+              }[];
+              pathInferred: number;
+              rawScore: number | null;
+              reasons: (
+                | 'coverage_missing'
+                | 'coverage_partial'
+                | 'backlog'
+                | 'sampling_unknown'
+                | 'host_inferred'
+                | 'classification_changed'
+                | 'source_changed'
+                | 'catalog_fallback'
+                | 'identity_incomplete'
+                | 'content_inferred'
+                | 'content_mixed'
+                | 'history_incomplete'
+              )[];
+              requests: number;
+              score: number | null;
+              sources: string[];
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @enum {string} */
+              state:
+                | 'missing'
+                | 'unavailable'
+                | 'warming_up'
+                | 'reference'
+                | 'aligned'
+                | 'observed_zero';
+              status200: number;
+              status304: number;
+            };
+            dataRevision: string;
+            directoryCounts: {
+              identities: number;
+              platforms: number;
+              products: number;
+            };
+            epoch: number;
+            /** @description Hostname on which the activity occurred. */
+            hostname: string;
+            observations?: {
+              accepted: number;
+              asOf: string;
+              catalogVersions: string[];
+              categories: {
+                contribution: number;
+                days: number;
+                operatorAnchor: number;
+                operators: number;
+                paths: number;
+                /** @enum {string} */
+                purpose: 'search' | 'user' | 'training';
+                score: number;
+                units: number;
+                weight: number;
+              }[];
+              classificationVersions: string[];
+              comparableKey: string | null;
+              connectPrevious: boolean;
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              exclusions: {
+                [key: string]: number;
+              };
+              forms: {
+                form: string;
+                requests: number;
+              }[];
+              identities: {
+                accepted: number;
+                exclusions: {
+                  [key: string]: number;
+                };
+                /** @description Unique identifier of the resource. */
+                id: string;
+                requests: number;
+                verified: number;
+              }[];
+              level: number | null;
+              mimeConfirmed: number;
+              observedDays: number;
+              operators: {
+                days: number;
+                platformId: string;
+                /** @enum {string} */
+                purpose: 'search' | 'user' | 'training';
+                units: number;
+              }[];
+              pathInferred: number;
+              rawScore: number | null;
+              reasons: (
+                | 'coverage_missing'
+                | 'coverage_partial'
+                | 'backlog'
+                | 'sampling_unknown'
+                | 'host_inferred'
+                | 'classification_changed'
+                | 'source_changed'
+                | 'catalog_fallback'
+                | 'identity_incomplete'
+                | 'content_inferred'
+                | 'content_mixed'
+                | 'history_incomplete'
+              )[];
+              requests: number;
+              score: number | null;
+              sources: string[];
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @enum {string} */
+              state:
+                | 'missing'
+                | 'unavailable'
+                | 'warming_up'
+                | 'reference'
+                | 'aligned'
+                | 'observed_zero';
+              status200: number;
+              status304: number;
+            }[];
+            previous?: {
+              accepted: number;
+              asOf: string;
+              catalogVersions: string[];
+              categories: {
+                contribution: number;
+                days: number;
+                operatorAnchor: number;
+                operators: number;
+                paths: number;
+                /** @enum {string} */
+                purpose: 'search' | 'user' | 'training';
+                score: number;
+                units: number;
+                weight: number;
+              }[];
+              classificationVersions: string[];
+              comparableKey: string | null;
+              /** @description End of the date range as a Unix timestamp in milliseconds. */
+              endAt: number;
+              exclusions: {
+                [key: string]: number;
+              };
+              forms: {
+                form: string;
+                requests: number;
+              }[];
+              identities: {
+                accepted: number;
+                exclusions: {
+                  [key: string]: number;
+                };
+                /** @description Unique identifier of the resource. */
+                id: string;
+                requests: number;
+                verified: number;
+              }[];
+              level: number | null;
+              mimeConfirmed: number;
+              observedDays: number;
+              operators: {
+                days: number;
+                platformId: string;
+                /** @enum {string} */
+                purpose: 'search' | 'user' | 'training';
+                units: number;
+              }[];
+              pathInferred: number;
+              rawScore: number | null;
+              reasons: (
+                | 'coverage_missing'
+                | 'coverage_partial'
+                | 'backlog'
+                | 'sampling_unknown'
+                | 'host_inferred'
+                | 'classification_changed'
+                | 'source_changed'
+                | 'catalog_fallback'
+                | 'identity_incomplete'
+                | 'content_inferred'
+                | 'content_mixed'
+                | 'history_incomplete'
+              )[];
+              requests: number;
+              score: number | null;
+              sources: string[];
+              /** @description Start of the date range as a Unix timestamp in milliseconds. */
+              startAt: number;
+              /** @enum {string} */
+              state:
+                | 'missing'
+                | 'unavailable'
+                | 'warming_up'
+                | 'reference'
+                | 'aligned'
+                | 'observed_zero';
+              status200: number;
+              status304: number;
+            };
+            readCatalogHash: string;
+            /** Format: uuid */
+            readCatalogVersion: string;
+            scope: {
+              documentation: string | null;
+              /** @description Unique identifier of the resource. */
+              id: string;
+              /** @description Display name of the resource. */
+              name: string;
+              platform: string;
+              platformId: string;
+              productForm: string;
+              /** @enum {string} */
+              purpose: 'search' | 'user' | 'training';
+              reviewedAt: string | null;
+            }[];
+            scoreScopeHash: string;
+            snapshot: string;
+            /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+            timezone: string;
+            /** @enum {string} */
+            view: 'summary' | 'detail';
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Version, context, remote state or preview conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded rate exceeded */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Database, worker or provider unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  postLiekanGeoWeightExport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          asOf: string;
+          /** Format: uuid */
+          catalogVersion: string;
+          /** @enum {string} */
+          locale: 'zh-CN' | 'en-US';
+          snapshot: string;
+          /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+          timezone: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Localized CSV calculation evidence */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/csv': string;
+        };
+      };
+      /** @description Invalid input */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Full session required */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Permission denied or feature disabled */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Website unavailable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Snapshot changed; reload the updated result before exporting */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @description Error details returned when the operation fails. */
+            error: {
+              /** @description Human-readable explanation of the result. */
+              message: string;
+              status: number;
+            };
+            updated?: {
+              algorithm: string;
+              calculatedAt: string;
+              canManageCatalog: boolean;
+              /** @enum {string} */
+              catalogState: 'published' | 'fallback';
+              /** @description Analytics for the comparison period. */
+              comparison?: {
+                comparable: boolean;
+                delta: number | null;
+                reasons: (
+                  | 'coverage_missing'
+                  | 'coverage_partial'
+                  | 'backlog'
+                  | 'sampling_unknown'
+                  | 'host_inferred'
+                  | 'classification_changed'
+                  | 'source_changed'
+                  | 'catalog_fallback'
+                  | 'identity_incomplete'
+                  | 'content_inferred'
+                  | 'content_mixed'
+                  | 'history_incomplete'
+                )[];
+              };
+              current: {
+                accepted: number;
+                asOf: string;
+                catalogVersions: string[];
+                categories: {
+                  contribution: number;
+                  days: number;
+                  operatorAnchor: number;
+                  operators: number;
+                  paths: number;
+                  /** @enum {string} */
+                  purpose: 'search' | 'user' | 'training';
+                  score: number;
+                  units: number;
+                  weight: number;
+                }[];
+                classificationVersions: string[];
+                comparableKey: string | null;
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                exclusions: {
+                  [key: string]: number;
+                };
+                forms: {
+                  form: string;
+                  requests: number;
+                }[];
+                identities: {
+                  accepted: number;
+                  exclusions: {
+                    [key: string]: number;
+                  };
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  requests: number;
+                  verified: number;
+                }[];
+                level: number | null;
+                mimeConfirmed: number;
+                observedDays: number;
+                operators: {
+                  days: number;
+                  platformId: string;
+                  /** @enum {string} */
+                  purpose: 'search' | 'user' | 'training';
+                  units: number;
+                }[];
+                pathInferred: number;
+                rawScore: number | null;
+                reasons: (
+                  | 'coverage_missing'
+                  | 'coverage_partial'
+                  | 'backlog'
+                  | 'sampling_unknown'
+                  | 'host_inferred'
+                  | 'classification_changed'
+                  | 'source_changed'
+                  | 'catalog_fallback'
+                  | 'identity_incomplete'
+                  | 'content_inferred'
+                  | 'content_mixed'
+                  | 'history_incomplete'
+                )[];
+                requests: number;
+                score: number | null;
+                sources: string[];
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @enum {string} */
+                state:
+                  | 'missing'
+                  | 'unavailable'
+                  | 'warming_up'
+                  | 'reference'
+                  | 'aligned'
+                  | 'observed_zero';
+                status200: number;
+                status304: number;
+              };
+              dataRevision: string;
+              directoryCounts: {
+                identities: number;
+                platforms: number;
+                products: number;
+              };
+              epoch: number;
+              /** @description Hostname on which the activity occurred. */
+              hostname: string;
+              observations?: {
+                accepted: number;
+                asOf: string;
+                catalogVersions: string[];
+                categories: {
+                  contribution: number;
+                  days: number;
+                  operatorAnchor: number;
+                  operators: number;
+                  paths: number;
+                  /** @enum {string} */
+                  purpose: 'search' | 'user' | 'training';
+                  score: number;
+                  units: number;
+                  weight: number;
+                }[];
+                classificationVersions: string[];
+                comparableKey: string | null;
+                connectPrevious: boolean;
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                exclusions: {
+                  [key: string]: number;
+                };
+                forms: {
+                  form: string;
+                  requests: number;
+                }[];
+                identities: {
+                  accepted: number;
+                  exclusions: {
+                    [key: string]: number;
+                  };
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  requests: number;
+                  verified: number;
+                }[];
+                level: number | null;
+                mimeConfirmed: number;
+                observedDays: number;
+                operators: {
+                  days: number;
+                  platformId: string;
+                  /** @enum {string} */
+                  purpose: 'search' | 'user' | 'training';
+                  units: number;
+                }[];
+                pathInferred: number;
+                rawScore: number | null;
+                reasons: (
+                  | 'coverage_missing'
+                  | 'coverage_partial'
+                  | 'backlog'
+                  | 'sampling_unknown'
+                  | 'host_inferred'
+                  | 'classification_changed'
+                  | 'source_changed'
+                  | 'catalog_fallback'
+                  | 'identity_incomplete'
+                  | 'content_inferred'
+                  | 'content_mixed'
+                  | 'history_incomplete'
+                )[];
+                requests: number;
+                score: number | null;
+                sources: string[];
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @enum {string} */
+                state:
+                  | 'missing'
+                  | 'unavailable'
+                  | 'warming_up'
+                  | 'reference'
+                  | 'aligned'
+                  | 'observed_zero';
+                status200: number;
+                status304: number;
+              }[];
+              previous?: {
+                accepted: number;
+                asOf: string;
+                catalogVersions: string[];
+                categories: {
+                  contribution: number;
+                  days: number;
+                  operatorAnchor: number;
+                  operators: number;
+                  paths: number;
+                  /** @enum {string} */
+                  purpose: 'search' | 'user' | 'training';
+                  score: number;
+                  units: number;
+                  weight: number;
+                }[];
+                classificationVersions: string[];
+                comparableKey: string | null;
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                exclusions: {
+                  [key: string]: number;
+                };
+                forms: {
+                  form: string;
+                  requests: number;
+                }[];
+                identities: {
+                  accepted: number;
+                  exclusions: {
+                    [key: string]: number;
+                  };
+                  /** @description Unique identifier of the resource. */
+                  id: string;
+                  requests: number;
+                  verified: number;
+                }[];
+                level: number | null;
+                mimeConfirmed: number;
+                observedDays: number;
+                operators: {
+                  days: number;
+                  platformId: string;
+                  /** @enum {string} */
+                  purpose: 'search' | 'user' | 'training';
+                  units: number;
+                }[];
+                pathInferred: number;
+                rawScore: number | null;
+                reasons: (
+                  | 'coverage_missing'
+                  | 'coverage_partial'
+                  | 'backlog'
+                  | 'sampling_unknown'
+                  | 'host_inferred'
+                  | 'classification_changed'
+                  | 'source_changed'
+                  | 'catalog_fallback'
+                  | 'identity_incomplete'
+                  | 'content_inferred'
+                  | 'content_mixed'
+                  | 'history_incomplete'
+                )[];
+                requests: number;
+                score: number | null;
+                sources: string[];
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @enum {string} */
+                state:
+                  | 'missing'
+                  | 'unavailable'
+                  | 'warming_up'
+                  | 'reference'
+                  | 'aligned'
+                  | 'observed_zero';
+                status200: number;
+                status304: number;
+              };
+              readCatalogHash: string;
+              /** Format: uuid */
+              readCatalogVersion: string;
+              scope: {
+                documentation: string | null;
+                /** @description Unique identifier of the resource. */
+                id: string;
+                /** @description Display name of the resource. */
+                name: string;
+                platform: string;
+                platformId: string;
+                productForm: string;
+                /** @enum {string} */
+                purpose: 'search' | 'user' | 'training';
+                reviewedAt: string | null;
+              }[];
+              scoreScopeHash: string;
+              snapshot: string;
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+              /** @enum {string} */
+              view: 'summary' | 'detail';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+          };
+        };
+      };
+      /** @description Request body too large */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Calculation unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getLiekanGeographyDiagnostics: {
     parameters: {
       query?: {
@@ -22102,8 +24137,11 @@ export interface operations {
   getLiekanPageReport: {
     parameters: {
       query: {
+        botId?: string;
+        botName?: string;
+        botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
         chartPeriod?: '30d' | '7d' | '24h';
-        crawlerIdentityScope?: 'all' | 'verified_range';
+        crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
         crawlerMetricsVersion?: number;
         cursor?: string;
         direction?: 'asc' | 'desc';
@@ -22209,6 +24247,8 @@ export interface operations {
             meta: {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
+              /** Format: uuid */
+              catalogVersion?: string;
               crawlerClassification?: {
                 legacyRequests: number;
                 /** @enum {string} */
@@ -22226,11 +24266,17 @@ export interface operations {
               crawlerMetrics?: {
                 population: string;
                 /** @enum {string} */
-                scope: 'all' | 'verified_range';
+                scope: 'all' | 'verified_range' | 'verified_identity';
                 /** @enum {string} */
                 timeBoundary: 'half_open' | 'legacy_inclusive';
                 version: 1 | null;
               };
+              crawlerPageBots?: {
+                botId: string | null;
+                /** @description Display name of the resource. */
+                name: string;
+                type: string;
+              }[];
               demo: boolean;
               /** @description Date and time the credential expires. */
               expiresAt: number;
@@ -22422,8 +24468,11 @@ export interface operations {
   getLiekanReport: {
     parameters: {
       query: {
+        botId?: string;
+        botName?: string;
+        botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
         chartPeriod?: '30d' | '7d' | '24h';
-        crawlerIdentityScope?: 'all' | 'verified_range';
+        crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
         crawlerMetricsVersion?: number;
         cursor?: string;
         direction?: 'asc' | 'desc';
@@ -22827,6 +24876,8 @@ export interface operations {
             meta: {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
+              /** Format: uuid */
+              catalogVersion?: string;
               crawlerClassification?: {
                 legacyRequests: number;
                 /** @enum {string} */
@@ -22844,11 +24895,17 @@ export interface operations {
               crawlerMetrics?: {
                 population: string;
                 /** @enum {string} */
-                scope: 'all' | 'verified_range';
+                scope: 'all' | 'verified_range' | 'verified_identity';
                 /** @enum {string} */
                 timeBoundary: 'half_open' | 'legacy_inclusive';
                 version: 1 | null;
               };
+              crawlerPageBots?: {
+                botId: string | null;
+                /** @description Display name of the resource. */
+                name: string;
+                type: string;
+              }[];
               demo: boolean;
               geography?: {
                 cards?: {
@@ -23396,6 +25453,8 @@ export interface operations {
             meta: {
               aiCrawlerEnabled?: boolean;
               canManage: boolean;
+              /** Format: uuid */
+              catalogVersion?: string;
               crawlerClassification?: {
                 legacyRequests: number;
                 /** @enum {string} */
@@ -23413,11 +25472,17 @@ export interface operations {
               crawlerMetrics?: {
                 population: string;
                 /** @enum {string} */
-                scope: 'all' | 'verified_range';
+                scope: 'all' | 'verified_range' | 'verified_identity';
                 /** @enum {string} */
                 timeBoundary: 'half_open' | 'legacy_inclusive';
                 version: 1 | null;
               };
+              crawlerPageBots?: {
+                botId: string | null;
+                /** @description Display name of the resource. */
+                name: string;
+                type: string;
+              }[];
               demo: boolean;
               geography?: {
                 cards?: {
@@ -23619,6 +25684,8 @@ export interface operations {
         hostname?: string;
         /** @description Page number, starting at 1. */
         page?: number;
+        /** @description Filter by page URL path. */
+        path?: string;
         source?: 'browser' | 'authenticated_server' | 'legacy_override';
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt?: number;
@@ -23674,6 +25741,7 @@ export interface operations {
                 allowedHostnames: string[];
                 /** @enum {string} */
                 mode: 'standard' | 'strict' | 'raw';
+                populationVersion?: string;
                 revision: string;
                 ruleVersion: string;
               };
@@ -23681,6 +25749,7 @@ export interface operations {
                 allowedHostnames: string[];
                 /** @enum {string} */
                 mode: 'standard' | 'strict' | 'raw';
+                populationVersion?: string;
                 revision: string;
                 ruleVersion: string;
               };
@@ -23698,6 +25767,7 @@ export interface operations {
               allowedHostnames: string[];
               /** @enum {string} */
               mode: 'standard' | 'strict' | 'raw';
+              populationVersion?: string;
               revision: string;
               ruleVersion: string;
             };
@@ -23731,6 +25801,7 @@ export interface operations {
               classification: string;
               events: number;
               included: number;
+              included_pageviews: number;
               missing_verdict: number;
               /** @description Pageview counts for the selected period. */
               pageviews: number;
@@ -23854,6 +25925,7 @@ export interface operations {
             allowedHostnames: string[];
             /** @enum {string} */
             mode: 'standard' | 'strict' | 'raw';
+            populationVersion?: string;
             revision: string;
             ruleVersion: string;
           };
@@ -24122,6 +26194,7 @@ export interface operations {
               };
               policySnapshot: string;
               population: string;
+              populationVersion?: string;
               quality: {
                 /** @enum {string} */
                 basis: 'event_time' | 'ingestion_time' | 'unknown';
@@ -24133,6 +26206,7 @@ export interface operations {
                 timezone: string;
               };
               readAt: string;
+              registryVersion?: string | null;
               reset: boolean;
               snapshot: string;
               sources: {
@@ -24310,6 +26384,7 @@ export interface operations {
             endAt?: number;
             /** @description Hostname on which the activity occurred. */
             hostname?: string;
+            path?: string;
             /** @enum {string} */
             source?: 'browser' | 'authenticated_server' | 'legacy_override';
             /** @description Start of the date range as a Unix timestamp in milliseconds. */
@@ -24341,6 +26416,7 @@ export interface operations {
               allowedHostnames: string[];
               /** @enum {string} */
               mode: 'standard' | 'strict' | 'raw';
+              populationVersion?: string;
               revision: string;
               ruleVersion: string;
             };
@@ -24529,6 +26605,7 @@ export interface operations {
               };
               policySnapshot: string;
               population: string;
+              populationVersion?: string;
               quality: {
                 /** @enum {string} */
                 basis: 'event_time' | 'ingestion_time' | 'unknown';
@@ -24540,6 +26617,7 @@ export interface operations {
                 timezone: string;
               };
               readAt: string;
+              registryVersion?: string | null;
               reset: boolean;
               snapshot: string;
               sources: {
@@ -24739,6 +26817,8 @@ export interface operations {
         hostname?: string;
         /** @description Page number, starting at 1. */
         page?: number;
+        /** @description Filter by page URL path. */
+        path?: string;
         source?: 'browser' | 'authenticated_server' | 'legacy_override';
         /** @description Start of the date range as a Unix timestamp in milliseconds. */
         startAt?: number;

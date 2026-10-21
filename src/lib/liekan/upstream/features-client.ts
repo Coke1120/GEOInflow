@@ -1,4 +1,5 @@
 'use client';
+import { clientCatalogVersion } from './catalog-client';
 import { isAggregateRequest } from './cache-policy';
 import { isReportOwnedBy } from '../contracts/query';
 import type { QueryClient } from '@tanstack/react-query';
@@ -25,6 +26,7 @@ export async function streamFeatureExport(
   body: ExportRequest,
   signal: AbortSignal,
   onFrame: (frame: ExportFrame) => void,
+  catalogVersion?: string,
 ) {
   const response = await fetch(
     new URL(getApiUrl(`/liekan/websites/${websiteId}/exports`), window.location.origin),
@@ -33,6 +35,7 @@ export async function streamFeatureExport(
       headers: {
         'Content-Type': 'application/json',
         authorization: `Bearer ${getClientAuthToken() || ''}`,
+        ...(catalogVersion ? { 'X-Liekan-Catalog-Version': catalogVersion } : {}),
       },
       body: JSON.stringify(body),
       signal,
@@ -124,6 +127,17 @@ export async function featureRequest<T = any>(
   } else {
     const token = tokenOverride ?? getClientAuthToken();
     if (token) headers.authorization = `Bearer ${token}`;
+  }
+  if (
+    context?.catalogScope &&
+    method === 'GET' &&
+    (aggregate ||
+      /^\/liekan\/websites\/[^/]+\//.test(path) ||
+      ['/liekan/crawler-registry', '/liekan/admin/crawler-sources'].includes(path))
+  ) {
+    const version = await clientCatalogVersion(context.catalogScope, headers);
+    if (version) headers['X-Liekan-Catalog-Version'] = version;
+    signal?.throwIfAborted();
   }
   const load = async (requestSignal?: AbortSignal) => {
     const startedAt = monotonicNow();
@@ -416,6 +430,7 @@ export async function downloadTrafficEvidence(
   path: string,
   body: Record<string, unknown>,
   signal?: AbortSignal,
+  catalogVersion?: string,
 ) {
   const response = await fetch(new URL(getApiUrl(path), window.location.origin), {
     method: 'POST',
@@ -424,6 +439,7 @@ export async function downloadTrafficEvidence(
     headers: {
       'Content-Type': 'application/json',
       authorization: `Bearer ${getClientAuthToken() || ''}`,
+      ...(catalogVersion ? { 'X-Liekan-Catalog-Version': catalogVersion } : {}),
     },
     body: JSON.stringify(body),
   });

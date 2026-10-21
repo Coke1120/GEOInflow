@@ -13,6 +13,7 @@ import { getLogFacts } from './logs';
 import { withLogStatisticsRead } from './ai-log-read-priority';
 import { humanTotals } from './server';
 import { withinQuerySnapshot } from './query-snapshot';
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 
 // This public integration seam intentionally requires the named isolated acceptance database.
 const enabled = process.env.LIEKAN_AI_FACTS_TEST === '1';
@@ -126,6 +127,8 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
         signal: new AbortController().signal,
       });
       expect(context.facts).toHaveLength(6);
+      expect(context.catalogVersion).toMatch(/^[0-9a-f-]{36}$/);
+      expect(context.trafficPolicyVersion).toBe(TRAFFIC_POLICY_VERSION);
       expect(context.facts.find(f => f.id === 'summary')?.data).toMatchObject({
         logs: { requests: 1 },
         previousLogs: { requests: 1 },
@@ -585,7 +588,7 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
       previousRequests: 4,
     });
     if (bots?.id === 'bots') {
-      expect(bots.data.rows).toHaveLength(20);
+      expect(bots.data.rows).toHaveLength(24);
       expect(bots.data.rows.find(row => row.name === 'test-demo-bot-25')).toMatchObject({
         requests: 1,
         previousRequests: 2,
@@ -602,7 +605,7 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
     const pages = context.facts.find(f => f.id === 'pages');
     expect(pages?.data).toMatchObject({ total: 28, omitted: 8, truncated: true });
     if (pages?.id === 'pages') {
-      expect(pages.data.rows).toHaveLength(20);
+      expect(pages.data.rows).toHaveLength(24);
       expect(pages.data.rows.find(row => row.path === '/test-demo-bin/25')).toMatchObject({
         humanPageviews: null,
         previousHumanPageviews: null,
@@ -672,13 +675,46 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
     const source = 'd4000000-0000-4000-8000-000000000081';
     const interval = 'd4000000-0000-4000-8000-000000000082';
     try {
-      await db.query("INSERT INTO liekan_log_source(id,website_id,kind,domain,created_by,owner_id,state) VALUES($1,$2,'server','example.com',$3,$3,'active')", [source, ids.website, ids.user]);
-      await db.query("INSERT INTO liekan_log_interval(id,website_id,source_id,starts_at) VALUES($1,$2,$3,'2026-10-01T00:00:00Z')", [interval, ids.website, source]);
-      await db.query("INSERT INTO liekan_log(id,website_id,import_id,source_id,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification) VALUES('test-demo-automatic',$1,$2,$3,'2026-10-02T11:00:00Z','/automatic','GET',200,0,'','','','','GPTBot','OpenAI','训练','unverified')", [ids.website, ids.import, source]);
-      const context = await buildAiFactsContext({ actor: { id: ids.user, role: 'user' }, conversationId: ids.conversation, input, signal: new AbortController().signal });
-      const dashboard = await getLogFacts(ids.website, new Date(input.startAt), new Date(input.endAt), 'UTC', 1, '', '', '', 'after', ['summary']);
-      expect(context.facts.find(f => f.id === 'summary')?.data).toMatchObject({ logs: { requests: dashboard.summary.requests, aiRequests: dashboard.summary.ai, errors403: 0 } });
-      expect(context.facts.find(f => f.id === 'log-errors')?.data).toMatchObject({ current: { requests: 0, errors403: 0 } });
+      await db.query(
+        "INSERT INTO liekan_log_source(id,website_id,kind,domain,created_by,owner_id,state) VALUES($1,$2,'server','example.com',$3,$3,'active')",
+        [source, ids.website, ids.user],
+      );
+      await db.query(
+        "INSERT INTO liekan_log_interval(id,website_id,source_id,starts_at) VALUES($1,$2,$3,'2026-10-01T00:00:00Z')",
+        [interval, ids.website, source],
+      );
+      await db.query(
+        "INSERT INTO liekan_log(id,website_id,import_id,source_id,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification) VALUES('test-demo-automatic',$1,$2,$3,'2026-10-02T11:00:00Z','/automatic','GET',200,0,'','','','','GPTBot','OpenAI','训练','unverified')",
+        [ids.website, ids.import, source],
+      );
+      const context = await buildAiFactsContext({
+        actor: { id: ids.user, role: 'user' },
+        conversationId: ids.conversation,
+        input,
+        signal: new AbortController().signal,
+      });
+      const dashboard = await getLogFacts(
+        ids.website,
+        new Date(input.startAt),
+        new Date(input.endAt),
+        'UTC',
+        1,
+        '',
+        '',
+        '',
+        'after',
+        ['summary'],
+      );
+      expect(context.facts.find(f => f.id === 'summary')?.data).toMatchObject({
+        logs: {
+          requests: dashboard.summary.requests,
+          aiRequests: dashboard.summary.ai,
+          errors403: 0,
+        },
+      });
+      expect(context.facts.find(f => f.id === 'log-errors')?.data).toMatchObject({
+        current: { requests: 0, errors403: 0 },
+      });
     } finally {
       await db.query("DELETE FROM liekan_log WHERE id='test-demo-automatic'");
       await db.query('DELETE FROM liekan_log_interval WHERE id=$1', [interval]);
@@ -717,10 +753,32 @@ describe.skipIf(!enabled)('authorized AI facts snapshot (isolated test demo)', (
     const source = 'd4000000-0000-4000-8000-000000000083';
     const interval = 'd4000000-0000-4000-8000-000000000084';
     try {
-      await db.query("INSERT INTO liekan_log_source(id,website_id,kind,domain,created_by,owner_id,state) VALUES($1,$2,'server','example.com',$3,$3,'active')", [source, ids.website, ids.user]);
-      await db.query("INSERT INTO liekan_log_interval(id,website_id,source_id,starts_at) VALUES($1,$2,$3,'2026-10-01T00:00:00Z')", [interval, ids.website, source]);
-      const context = await buildAiFactsContext({ actor: { id: ids.user, role: 'user' }, conversationId: ids.conversation, input, signal: new AbortController().signal });
-      const dashboard = await getLogFacts(ids.website, new Date(input.startAt), new Date(input.endAt), 'UTC', 1, '', '', '', 'after', ['summary', 'latest']);
+      await db.query(
+        "INSERT INTO liekan_log_source(id,website_id,kind,domain,created_by,owner_id,state) VALUES($1,$2,'server','example.com',$3,$3,'active')",
+        [source, ids.website, ids.user],
+      );
+      await db.query(
+        "INSERT INTO liekan_log_interval(id,website_id,source_id,starts_at) VALUES($1,$2,$3,'2026-10-01T00:00:00Z')",
+        [interval, ids.website, source],
+      );
+      const context = await buildAiFactsContext({
+        actor: { id: ids.user, role: 'user' },
+        conversationId: ids.conversation,
+        input,
+        signal: new AbortController().signal,
+      });
+      const dashboard = await getLogFacts(
+        ids.website,
+        new Date(input.startAt),
+        new Date(input.endAt),
+        'UTC',
+        1,
+        '',
+        '',
+        '',
+        'after',
+        ['summary', 'latest'],
+      );
       expect(dashboard.connected).toBe(true);
       expect(dashboard.latest).toBeNull();
       expect(context.sourceStates.logs).toBe('empty');

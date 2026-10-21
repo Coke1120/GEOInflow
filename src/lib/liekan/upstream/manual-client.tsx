@@ -451,7 +451,7 @@ export function useManualQueryOptions(options: any) {
             return withClientFreshness(
               context.signal,
               () => options.queryFn({ ...context, queryKey: options.queryKey }),
-              { refresh: !!reading?.busy && reading.page.force && !normalSelection, queryKey: key },
+              { refresh: !!reading?.busy && reading.page.force && !normalSelection, queryKey: key, catalogScope: reading ? `${reading.page.token}:${reading.page.round}` : undefined },
             );
           }
         : options.queryFn,

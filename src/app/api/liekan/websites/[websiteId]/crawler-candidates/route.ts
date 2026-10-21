@@ -1,4 +1,4 @@
-import { api } from '@/lib/liekan/http';
+import { requestApi, api } from '@/lib/liekan/http';
 import {
   authenticateCrawlerMaintenance,
   crawlerCandidates,
@@ -7,7 +7,7 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
-  return api(async () =>
+  return requestApi(request, async () =>
     crawlerCandidates(await authenticateCrawlerMaintenance(request), (await params).websiteId),
   );
 }
