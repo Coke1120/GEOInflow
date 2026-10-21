@@ -21,6 +21,12 @@ async function api(method, path, body) {
     method,
     headers: {
       'content-type': 'application/json',
+      ...(method === 'POST' && path === '/send'
+        ? {
+            'user-agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+          }
+        : {}),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -62,8 +68,6 @@ try {
           ? 'https://www.google.com/'
           : 'https://www.google.com/search?q=' + encodeURIComponent(term),
         id: `keyword-visual-${i}`,
-        ip: '10.89.0.1',
-        userAgent: 'Mozilla/5.0 Chrome/124.0.0.0',
         timestamp: Math.floor(now / 1000),
       },
     });
@@ -81,8 +85,6 @@ try {
         url: '/',
         referrer,
         id: `keyword-status-visual-${i}`,
-        ip: '10.89.0.1',
-        userAgent: 'Mozilla/5.0 Chrome/124.0.0.0',
         timestamp: Math.floor(now / 1000),
       },
     });
@@ -200,8 +202,6 @@ try {
         url: '/',
         referrer: 'https://www.google.com/search?q=word00',
         id: `keyword-refresh-${width}`,
-        ip: '10.89.0.1',
-        userAgent: 'Mozilla/5.0 Chrome/124.0.0.0',
         timestamp: Math.floor(now / 1000),
       },
     });

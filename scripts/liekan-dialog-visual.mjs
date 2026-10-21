@@ -167,6 +167,17 @@ try {
     await page.waitForLoadState('networkidle');
     return { page, context };
   }
+  const entryPages = new WeakMap();
+  async function openDialog(page, button) {
+    const entry = page.url();
+    await page.getByRole('button', { name: button, exact: true }).click();
+    if (button === '蜘蛛识别规则') {
+      await page.waitForURL(url => url.pathname === '/crawlers/manage');
+      await expect(page.getByLabel(/^选择网站/)).toHaveValue(seed.website.id);
+      await page.getByRole('button', { name: '编辑网站识别规则', exact: true }).click();
+      entryPages.set(page, entry);
+    }
+  }
   async function record(page, id, title, duplicate = false) {
     await page.getByRole('dialog', { name: title, exact: true }).waitFor();
     if (id === 44) await page.getByRole('img', { name: '链接二维码', exact: true }).waitFor();
@@ -208,12 +219,18 @@ try {
       await page.evaluate(() => document.activeElement !== document.body),
       'Dialog did not restore focus to its entry',
     );
+    if (entryPages.has(page)) {
+      const entry = entryPages.get(page);
+      entryPages.delete(page);
+      await page.goto(entry);
+      await page.waitForLoadState('networkidle');
+    }
   }
   async function buttons(feature, cases, params = {}, credential = token) {
     const { page, context } = await at(feature, params, credential);
     try {
       for (const [id, button, title] of cases) {
-        await page.getByRole('button', { name: button, exact: true }).click();
+        await openDialog(page, button);
         await record(page, id, title);
         await dismiss(page);
       }
@@ -291,7 +308,7 @@ try {
     const { page, context } = await geo(name);
     try {
       for (const [id, button, title] of cases) {
-        await page.getByRole('button', { name: button, exact: true }).click();
+        await openDialog(page, button);
         await record(page, id, title, [2, 3, 4, 5].includes(id));
         if (id === 7) {
           const query = 'unapplied dialog query';
@@ -668,7 +685,7 @@ try {
         ['管理蜘蛛白名单', 'standard'],
         ['蜘蛛识别规则', 'wide'],
       ]) {
-        await page.getByRole('button', { name: button, exact: true }).click();
+        await openDialog(page, button);
         const longDomainStress = width === 375 && button === '导入网站日志';
         if (longDomainStress)
           await page.locator('.dialog-subtitle').evaluate(element => {
@@ -696,7 +713,7 @@ try {
     ]) {
       const { page, context } = await at(feature, params, token, width, 900);
       try {
-        await page.getByRole('button', { name: button, exact: true }).click();
+        await openDialog(page, button);
         await page.getByRole('dialog', { name: title, exact: true }).waitFor();
         if (feature === 'link-detail')
           await page.getByRole('img', { name: '链接二维码', exact: true }).waitFor();

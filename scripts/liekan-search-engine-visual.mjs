@@ -21,6 +21,12 @@ async function api(method, path, body) {
     method,
     headers: {
       'content-type': 'application/json',
+      ...(method === 'POST' && path === '/send'
+        ? {
+            'user-agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+          }
+        : {}),
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
@@ -58,7 +64,7 @@ try {
     'doubao.com',
     'kimi.com',
     'yiyan.baidu.com',
-    'deepseek.com',
+    'chat.deepseek.com',
     'chat.openai.com',
     'kimi.moonshot.cn',
   ];
@@ -72,7 +78,6 @@ try {
         referrer: `https://${host}/`,
         id: `engine-visual-${index}`,
         timestamp: Math.floor(now / 1000),
-        userAgent: 'Mozilla/5.0 Chrome/124.0.0.0',
       },
     });
   for (const [id, url, referrer] of [
@@ -89,7 +94,6 @@ try {
         url,
         referrer,
         timestamp: Math.floor(now / 1000),
-        userAgent: 'Mozilla/5.0 Chrome/124.0.0.0',
       },
     });
   const parameters = new URLSearchParams({ resource: 'human/search-engines', ...range });
