@@ -15,11 +15,12 @@ const seed = JSON.parse(fs.readFileSync(acceptanceSeedFile(target), 'utf8'));
 const inventory = manualReadInventory();
 const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 let token;
-async function api(method, path, body) {
+async function api(method, path, body, headers = {}) {
   const response = await fetch(base + '/api' + path, {
     method,
     headers: {
       'content-type': 'application/json',
+      ...headers,
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -112,7 +113,13 @@ const ordinary = request => {
   return (
     path.startsWith('/api/') &&
     request.method() === 'GET' &&
-    !['/api/auth/verify', '/api/2fa/status', '/api/auth/subscription'].includes(path) &&
+    ![
+      '/api/auth/verify',
+      '/api/2fa/status',
+      '/api/auth/subscription',
+      // Upgrade notices read task metadata on focus; analytics remain manual.
+      '/api/liekan/history-repair',
+    ].includes(path) &&
     !/^\/api\/admin\/users\/[^/]+\/2fa$/.test(path) &&
     !/^\/api\/share\/[^/]+$/.test(path)
   );
@@ -129,7 +136,7 @@ async function waitForForcedReadCooldown() {
   while (Date.now() - lastForcedRead < 5100)
     await new Promise(resolve => setTimeout(resolve, 5100 - (Date.now() - lastForcedRead)));
 }
-async function open(url, authenticated = true) {
+async function open(url, authenticated = true, cacheableDocument = false) {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
     locale: 'zh-CN',
@@ -143,6 +150,21 @@ async function open(url, authenticated = true) {
       },
       { origin: target.origin, token },
     );
+  let sourceCacheControl;
+  if (cacheableDocument) {
+    // Chrome recommends a response-header fixture for testing a cacheable document.
+    // https://developer.chrome.com/docs/devtools/application/back-forward-cache
+    // The fixture changes only this synthetic HTML response; API privacy headers stay intact.
+    await context.route(base + url, async route => {
+      const response = await route.fetch();
+      sourceCacheControl = response.headers()['cache-control'];
+      assert.match(sourceCacheControl, /no-store/);
+      await route.fulfill({
+        response,
+        headers: { ...response.headers(), 'cache-control': 'private, no-cache, max-age=0' },
+      });
+    });
+  }
   const page = await context.newPage();
   await context.addInitScript(() => {
     window.addEventListener('pageshow', event => {
@@ -203,9 +225,18 @@ async function open(url, authenticated = true) {
     if (forcedInFlight.delete(request)) lastForcedRead = Date.now();
   });
   page.on('pageerror', error => report.errors.push(error.message));
-  await page.goto(base + url);
+  const documentResponse = await page.goto(base + url);
   await ready(page);
-  return { context, page, reads, successes, logouts };
+  if (cacheableDocument) await context.unroute(base + url);
+  return {
+    context,
+    page,
+    reads,
+    successes,
+    logouts,
+    sourceCacheControl: sourceCacheControl || documentResponse.headers()['cache-control'],
+    documentCacheControl: documentResponse.headers()['cache-control'],
+  };
 }
 async function ready(page) {
   await page.waitForLoadState('networkidle');
@@ -341,60 +372,90 @@ try {
   );
   const realStarted = Date.now();
   const realBaselines = realSessions.map(session => session.reads.length);
-  // This untouched clock context must exercise an actual BFCache return.
-  const history = await open(`/share/${share.slug}`, false);
-  try {
-    // Native history navigation avoids Playwright's unsupported BFCache load lifecycle.
-    const native = await history.context.newCDPSession(history.page);
-    await native.send('Page.enable');
-    const entries = await native.send('Page.getNavigationHistory');
-    const entryId = entries.entries[entries.currentIndex].id;
-    await history.page.evaluate(() => {
-      window.__manualAcceptanceLifetime = 'cached-history';
-    });
-    await history.page.goto(base + '/liekan/help');
-    await ready(history.page);
-    const prior = history.successes.length;
-    const read = history.page.waitForResponse(
-      response =>
-        response.ok() &&
-        response.request().method() === 'GET' &&
-        new URL(response.url()).pathname.endsWith('/shared-report'),
-    );
-    await native.send('Page.navigateToHistoryEntry', { entryId });
-    await read;
-    await ready(history.page);
-    const state = await native.send('Runtime.evaluate', {
-      expression:
-        'JSON.stringify({marker:window.__manualAcceptanceLifetime,event:window.__manualPageShow})',
-      returnByValue: true,
-    });
-    const restored = JSON.parse(state.result.value);
-    assert.equal(
-      restored.marker,
-      'cached-history',
-      'History return did not preserve the cached document',
-    );
-    assert.deepEqual(
-      restored.event,
-      { trusted: true, persisted: true },
-      'No actual BFCache pageshow was observed',
-    );
-    assertManualPageReads(
-      manualPageReads('public-share', { websiteId: seed.website.id }),
-      history.successes.slice(prior),
-      'BFCache history return',
-    );
-    report.cachedHistory = {
-      passed: true,
-      driver: 'native-browser-history',
-      restored,
-      newReads: history.successes.length - prior,
-    };
-    save();
-  } finally {
-    await history.context.close();
+  // Verify production privacy eviction and a genuine cacheable-document BFCache return.
+  async function verifyHistory(cacheableDocument) {
+    const history = await open(`/share/${share.slug}`, false, cacheableDocument);
+    try {
+      // Native history navigation avoids Playwright's unsupported BFCache load lifecycle.
+      const native = await history.context.newCDPSession(history.page);
+      const evictions = [];
+      native.on('Page.backForwardCacheNotUsed', event => evictions.push(event));
+      await native.send('Page.enable');
+      const entries = await native.send('Page.getNavigationHistory');
+      const entryId = entries.entries[entries.currentIndex].id;
+      await history.page.evaluate(() => {
+        window.__manualAcceptanceLifetime = 'cached-history';
+      });
+      await history.page.goto(base + '/liekan/help');
+      await ready(history.page);
+      const prior = history.successes.length;
+      const read = history.page.waitForResponse(
+        response =>
+          response.ok() &&
+          response.request().method() === 'GET' &&
+          new URL(response.url()).pathname.endsWith('/shared-report'),
+      );
+      await native.send('Page.navigateToHistoryEntry', { entryId });
+      await read;
+      await ready(history.page);
+      const state = await native.send('Runtime.evaluate', {
+        expression:
+          'JSON.stringify({marker:window.__manualAcceptanceLifetime,event:window.__manualPageShow})',
+        returnByValue: true,
+      });
+      const restored = JSON.parse(state.result.value);
+      assert.match(history.sourceCacheControl, /no-store/);
+      if (cacheableDocument) {
+        assert.equal(restored.marker, 'cached-history', 'History return lost the cached document');
+        assert.deepEqual(
+          restored.event,
+          { trusted: true, persisted: true },
+          'No actual BFCache pageshow',
+        );
+        assert.doesNotMatch(history.documentCacheControl, /no-store/);
+      } else {
+        assert.equal(
+          restored.marker,
+          undefined,
+          'Private no-store document unexpectedly persisted',
+        );
+        assert.deepEqual(restored.event, { trusted: true, persisted: false });
+        assert.match(history.documentCacheControl, /no-store/);
+        assert(
+          evictions.some(event =>
+            event.notRestoredExplanations.some(
+              item => item.reason === 'JsNetworkRequestReceivedCacheControlNoStoreResource',
+            ),
+          ),
+          'Browser did not report the private no-store request eviction',
+        );
+      }
+      assertManualPageReads(
+        manualPageReads('public-share', { websiteId: seed.website.id }),
+        history.successes.slice(prior),
+        'BFCache history return',
+      );
+      const proof = {
+        passed: true,
+        cacheableDocumentFixture: cacheableDocument,
+        sourceCacheControl: history.sourceCacheControl,
+        documentCacheControl: history.documentCacheControl,
+        evictionReasons: evictions.flatMap(event =>
+          event.notRestoredExplanations.map(item => item.reason),
+        ),
+        driver: 'native-browser-history',
+        restored,
+        newReads: history.successes.length - prior,
+      };
+      if (cacheableDocument) report.cachedHistory = proof;
+      else report.noStoreHistory = proof;
+      save();
+    } finally {
+      await history.context.close();
+    }
   }
+  await verifyHistory(false);
+  await verifyHistory(true);
   for (const item of cases) {
     const key = `${item.authenticated !== false}:${item.url}`;
     if (seen.has(key)) {
@@ -549,18 +610,22 @@ try {
   const before = await api('GET', statsPath);
   const beforeReadAt = Date.now();
   const userAgent = await session.page.evaluate(() => navigator.userAgent);
-  await api('POST', '/send', {
-    type: 'event',
-    payload: {
-      website: seed.website.id,
-      hostname: seed.website.domain,
-      url: '/manual-refresh-acceptance',
-      title: 'Manual read acceptance',
-      language: 'zh-CN',
-      screen: '1440x1000',
-      userAgent,
+  await api(
+    'POST',
+    '/send',
+    {
+      type: 'event',
+      payload: {
+        website: seed.website.id,
+        hostname: seed.website.domain,
+        url: '/manual-refresh-acceptance',
+        title: 'Manual read acceptance',
+        language: 'zh-CN',
+        screen: '1440x1000',
+      },
     },
-  });
+    { 'user-agent': userAgent },
+  );
   // Respect the existing five-second forced-read limit.
   while (Date.now() - realStarted < 600000 || Date.now() - beforeReadAt < 5100)
     await new Promise(resolve =>

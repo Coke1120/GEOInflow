@@ -539,7 +539,8 @@ try {
         ).pages.map(page => page.id),
       ) ||
     report.manualRefresh.realIdle.length !== 4 ||
-    !report.manualRefresh.cachedHistory?.passed
+    !report.manualRefresh.cachedHistory?.passed ||
+    !report.manualRefresh.noStoreHistory?.passed
   )
     throw new Error('Manual refresh acceptance incomplete');
   await run(process.execPath, ['scripts/liekan-ai-visual.mjs'], 'ai-visual', {
