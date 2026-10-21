@@ -49,6 +49,15 @@ with sync_playwright() as p:
      zh=locale=='zh-CN'
      expect(page.get_by_role('heading',name='历史数据修复' if zh else 'Historical data repair',exact=True)).to_be_visible()
      expect(page.get_by_text('80',exact=True).first).to_be_visible()
+     source_input=page.get_by_label('来源说明' if zh else 'Source description',exact=True)
+     source_input.fill('isolated evidence source')
+     evidence_input=page.locator('input[type=file]')
+     evidence_input.set_input_files({'name':'isolated-evidence.jsonl','mimeType':'application/x-ndjson','buffer':b'{}\n'})
+     with page.expect_response(lambda response: urlparse(response.url).path=='/api/liekan/history-repair',timeout=5000):
+      with page.expect_response(lambda response: urlparse(response.url).path==f'/api/liekan/websites/{site}/history-repair',timeout=5000):
+       page.locator('[data-manual-refresh]').first.click()
+     expect(source_input).to_have_value('isolated evidence source')
+     assert evidence_input.evaluate('(input)=>input.files.length')==1, 'refresh cleared an unsubmitted file'
      page.get_by_role('button',name='确认并生效' if zh else 'Confirm and apply',exact=True).click()
      dialog=page.get_by_role('dialog');expect(dialog).to_be_visible()
      confirm=dialog.get_by_role('button',name='确认并生效' if zh else 'Confirm and apply',exact=True)

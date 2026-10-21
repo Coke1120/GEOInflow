@@ -8,6 +8,7 @@ import type {
   HistoryRepairRun,
 } from '@/lib/liekan/contracts/history-repair';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import { useManualQuery, useManualRefresh } from '@/lib/liekan/contracts/manual-refresh';
 import { downloadHistoryRepair } from '@/lib/liekan/upstream/history-repair-client';
 import { useFeature } from './context';
 import { HistoryRepairPreview } from './HistoryRepairPreview';
@@ -58,6 +59,11 @@ type BatchPreview = { websiteId: string; name: string; run: HistoryRepairRun };
 export function HistoryRepairPage() {
   const c = useFeature(),
     i18n = useLiekanI18n();
+  const reading = useManualRefresh();
+  const listingRead = useManualQuery<HistoryRepairList>({
+    queryKey: ['history-repair-list', c.user.id],
+    queryFn: ({ signal }) => c.api.get<HistoryRepairList>(endpoint, undefined, signal),
+  });
   const [list, setList] = useState<HistoryRepairList>();
   const [batch, setBatch] = useState<BatchPreview[]>();
   const [batchResults, setBatchResults] = useState<
@@ -93,6 +99,8 @@ export function HistoryRepairPage() {
   currentSite.current = siteId;
   const actor = useRef(c.user.id);
   actor.current = c.user.id;
+  const manualEpoch = `${reading?.page.token}:${reading?.page.round}`;
+  const lastManualRead = useRef({ epoch: manualEpoch, siteId, actorId: c.user.id });
   const run = detail?.run,
     preview = run?.preview;
   const site = list?.websites.find(item => item.id === siteId);
@@ -146,21 +154,15 @@ export function HistoryRepairPage() {
     return result;
   }
   useEffect(() => {
-    const abort = new AbortController();
-    setLoading(true);
-    setList(undefined);
     setSelected([]);
     setBatch(undefined);
     setBatchResults([]);
-    void loadList(abort.signal)
-      .catch(e => {
-        if (!abort.signal.aborted) setError(e.message);
-      })
-      .finally(() => {
-        if (!abort.signal.aborted) setLoading(false);
-      });
-    return () => abort.abort();
   }, [c.user.id]);
+  useEffect(() => {
+    setList(listingRead.data);
+    setLoading(listingRead.isPending);
+    if (listingRead.error) setError(listingRead.error.message);
+  }, [listingRead.data, listingRead.error, listingRead.isPending]);
   useEffect(() => {
     controller.current?.abort();
     const abort = new AbortController();
@@ -189,6 +191,20 @@ export function HistoryRepairPage() {
         });
     return () => abort.abort();
   }, [siteId, c.user.id]);
+  useEffect(() => {
+    const previous = lastManualRead.current;
+    const current = { epoch: manualEpoch, siteId, actorId: c.user.id };
+    if (previous.siteId !== siteId || previous.actorId !== c.user.id) {
+      lastManualRead.current = current;
+      return;
+    }
+    if (previous.epoch === manualEpoch || busy || mutation.current) return;
+    lastManualRead.current = current;
+    void loadSite().catch(e => {
+      if (e.name !== 'AbortError' && currentSite.current === siteId && actor.current === c.user.id)
+        setError(e.message);
+    });
+  }, [siteId, c.user.id, manualEpoch, busy]);
   useEffect(() => {
     if (!run || !runningRepairStatuses.has(run.status)) return;
     let fetching = false;
