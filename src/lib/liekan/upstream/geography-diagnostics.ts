@@ -1,3 +1,4 @@
+import { identityUsable } from '../contracts/browser-population';
 import { geographyAttribution } from '@/lib/detect';
 import clickhouse from '@/lib/clickhouse';
 import { query, LiekanError, reportSnapshot } from './server';
@@ -70,7 +71,10 @@ export async function geographyDiagnostics(id: string, input: URLSearchParams) {
           available: true,
           ingress,
           range: { startAt, endAt, timezone },
-          coverage: geographyCoverage(facts.geo, facts.totals.visits),
+          coverage: identityUsable(facts.totals.population)
+            ? geographyCoverage(facts.geo, facts.totals.visits)
+            : null,
+          population: facts.totals.population,
           evidence,
           versions: {
             dictionary: geographyVersion,

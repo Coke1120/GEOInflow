@@ -220,6 +220,11 @@ export function validateCatalog(input: unknown, previous?: CatalogPayload): Cata
       const identity = maps.identities.get(id);
       if (!identity || identity.kind !== 'http_crawler' || identity.name !== source.names[index])
         fail(`${source.id}: invalid HTTP feed identity ${id}`);
+      if (
+        source.browserExclusion === 'dedicated_crawler' &&
+        identity?.metadata.evidence !== 'operator'
+      )
+        fail(`${source.id}: browser exclusion requires reviewed operator crawler evidence`);
       if (source.enabled !== false) {
         if (enabledFeeds.has(id)) fail(`${id}: multiple enabled IP sources`);
         enabledFeeds.set(id, source.id);

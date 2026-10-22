@@ -1,3 +1,21 @@
+vi.mock('./browser-population', async importOriginal => {
+  const actual = await importOriginal<typeof import('./browser-population')>();
+  return {
+    ...actual,
+    readBrowserPopulation: async (_id: string, start: Date, end: Date, timezone = 'UTC') =>
+      actual.populationFromRow(
+        {
+          resourceKind: 'website',
+          eligibleEvents: 1,
+          qualifiedEvents: 1,
+          eligiblePV: 1,
+          qualifiedPV: 1,
+          qualifiedVisitors: 1,
+        },
+        { startAt: +start, endAt: +end, timezone },
+      ),
+  };
+});
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { chartIds } from '../contracts/report';
 import { analysisQuery, journeyQuery } from '../contracts/analysis';
@@ -209,7 +227,7 @@ const entries = [
   },
   {
     name: 'feature-analysis',
-    read: async (p: any) => (await featureAnalytics(id, { ...p, kind: 'sources' }))[0].value,
+    read: async (p: any) => (await featureAnalytics(id, { ...p, kind: 'sources' })).rows[0].value,
   },
   { name: 'feature-journey', read: async (p: any) => (await featureJourney(id, p)).visitors },
   {

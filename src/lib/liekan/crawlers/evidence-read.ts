@@ -1,3 +1,6 @@
+import { readTransactionBrowserPopulation } from '../upstream/browser-population';
+import { identityUsable, unavailableFields } from '../contracts/browser-population';
+import { noteBrowserPopulation } from '../upstream/cache-context';
 import { withPublishedRegistry } from '../upstream/crawler-registry-context';
 import { getPublishedCatalog } from './published';
 import { TRAFFIC_POLICY_VERSION } from '../upstream/traffic-query';
@@ -170,7 +173,13 @@ export async function evidenceInputs(
     count(*) FILTER(WHERE e.measurement->>'sourceIntervalVersion' IS NOT NULL)::float8 AS "intervalSamples" ${crawlerBase}${sourceCondition}`,
         ...sourceArgs,
       );
-  const [repair]='reportResource' in p&&p.reportResource?await tx.query('SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',websiteId):[];
+  const [repair] =
+    'reportResource' in p && p.reportResource
+      ? await tx.query(
+          'SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',
+          websiteId,
+        )
+      : [];
   const baseline = {
     catalog: contentHash(catalog),
     registryVersion: getPublishedCatalog()?.version ?? null,
@@ -178,7 +187,9 @@ export async function evidenceInputs(
     policy: policy || { mode: 'standard', revision: '0' },
     epoch: state?.epoch ?? 1,
     metricVersion: CRAWLER_METRIC_VERSION,
-    ...('reportResource' in p&&p.reportResource?{historyRepair:repair||{generation:null,revision:'0'}}:{}),
+    ...('reportResource' in p && p.reportResource
+      ? { historyRepair: repair || { generation: null, revision: '0' } }
+      : {}),
   };
   return {
     access,
@@ -340,6 +351,8 @@ export async function readReconciliation(
   p: ReconciliationQuery,
   input: EvidenceInputs,
 ) {
+  const browserPopulation = await readTransactionBrowserPopulation(tx, websiteId, p);
+  const identityReady = identityUsable(browserPopulation);
   const hostname = normalizeCollectionHostname(p.hostname);
   const sourceHost =
     p.sourceId === 'manual'
@@ -454,9 +467,14 @@ export async function readReconciliation(
       observedPv: presence.connected ? (browser?.pv ?? 0) : null,
       unknownHostPv: unknownByPath.get(mapping.humanPath) ?? 0,
       pv: presence.connected && !unknownByPath.has(mapping.humanPath) ? (browser?.pv ?? 0) : null,
-      uv: presence.connected && !unknownByPath.has(mapping.humanPath) ? (browser?.uv ?? 0) : null,
+      uv:
+        identityReady && presence.connected && !unknownByPath.has(mapping.humanPath)
+          ? (browser?.uv ?? 0)
+          : null,
       visits:
-        presence.connected && !unknownByPath.has(mapping.humanPath) ? (browser?.visits ?? 0) : null,
+        identityReady && presence.connected && !unknownByPath.has(mapping.humanPath)
+          ? (browser?.visits ?? 0)
+          : null,
       difference: evidenceValue(
         reason ? null : total('candidate') - (browser?.pv ?? 0),
         total('hostSamples'),
@@ -475,9 +493,19 @@ export async function readReconciliation(
     mappings.map(row => row.humanPath),
   );
   return {
-    meta: { ...evidenceMeta(query, input), population: 'catalog_page_requests', hostname },
+    meta: {
+      ...evidenceMeta(query, input),
+      population: 'catalog_page_requests',
+      hostname,
+      browserPopulation,
+    },
     rows,
-    browserTotals: presence.connected && !unknownHosts.length ? browserTotals : null,
+    browserTotals:
+      presence.connected && !unknownHosts.length
+        ? identityReady
+          ? browserTotals
+          : unavailableFields(browserTotals, ['uv', 'visits'])
+        : null,
     state: paths.length ? 'available' : 'missing',
     reasonCode: paths.length ? null : 'catalog_missing',
     rawRequests: logs.reduce((n, row) => n + row.requests, 0),
@@ -616,6 +644,8 @@ async function queryEvidenceSnapshot<
             'hostname',
             'mappingVersion',
             'goalsConfigured',
+            'browserPopulation',
+            'observationIdentity',
           ]
             .filter(key => result.meta[key] !== undefined)
             .map(key => [key, result.meta[key]]),
@@ -640,7 +670,12 @@ async function queryEvidenceSnapshot<
         return fresh
           ? await compute(signal)
           : await evidenceCache.read(
-              analyticsCacheKey(`traffic-evidence-${kind}`, { websiteId, conditions, revisions }),
+              analyticsCacheKey(`traffic-evidence-identity-v1-${kind}`, {
+                websiteId,
+                conditions,
+                revisions,
+                populationVersion: TRAFFIC_POLICY_VERSION,
+              }),
               [websiteCacheTag(websiteId)],
               compute,
               signal,
@@ -672,7 +707,13 @@ async function queryEvidenceSnapshot<
               'SELECT path,updated_at AS "updatedAt" FROM liekan_catalog WHERE website_id=$1::uuid ORDER BY path',
               websiteId,
             );
-      const [repair]='reportResource' in conditions&&conditions.reportResource?await tx.query('SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',websiteId):[];
+      const [repair] =
+        'reportResource' in conditions && conditions.reportResource
+          ? await tx.query(
+              'SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',
+              websiteId,
+            )
+          : [];
       const baseline = {
         catalog: contentHash(catalog),
         registryVersion: getPublishedCatalog()?.version ?? null,
@@ -680,11 +721,15 @@ async function queryEvidenceSnapshot<
         policy: policy || { mode: 'standard', revision: '0' },
         epoch: state?.epoch ?? 1,
         metricVersion: CRAWLER_METRIC_VERSION,
-        ...('reportResource' in conditions&&conditions.reportResource?{historyRepair:repair||{generation:null,revision:'0'}}:{}),
+        ...('reportResource' in conditions && conditions.reportResource
+          ? { historyRepair: repair || { generation: null, revision: '0' } }
+          : {}),
       };
       if (contentHash(baseline) !== result.meta.policySnapshot)
         throw new LiekanError('统计基准已变化，请重新读取', 409);
     });
+    if (result.meta.browserPopulation)
+      noteBrowserPopulation(websiteId, result.meta.browserPopulation);
     const reset = !!p.snapshot && p.snapshot !== result.meta.snapshot;
     const page = reset ? 1 : p.page;
     return {

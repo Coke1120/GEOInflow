@@ -284,3 +284,46 @@ it.each(['gptbot', null])(
     expect(screen.getByLabelText('蜘蛛')).toHaveValue(selectedIdentity ?? 'custom:GPTBot');
   },
 );
+
+it('explains unavailable platform identities without claiming goals are unconfigured', async () => {
+  mocks.request.mockResolvedValue({
+    quality: { state: 'unknown' },
+    directory: crawlerDirectory,
+    bots: [],
+    pages: [],
+    platforms: [
+      {
+        platformId: 'openai',
+        state: 'unknown',
+        visits: null,
+        conversions: null,
+        goalEvents: 2,
+        landingPages: [{ path: '/docs', visits: null, conversions: null, goalEvents: 2 }],
+      },
+    ],
+    previous: { bots: [], platforms: [] },
+    findings: [],
+    criticalPaths: [],
+    analysis: null,
+    range: { startAt: 1792022400000, endAt: 1792108800000, timezone: 'UTC' },
+    permissions: { canDraft: false, canControl: false },
+  });
+  render(
+    <CrawlerDialog
+      websiteId="12345678-1234-4234-8234-123456789012"
+      botName="GPTBot"
+      selectedIdentity="gptbot"
+      onClose={() => {}}
+      controlPanel={() => null}
+    />,
+  );
+  expect(
+    await screen.findByText(
+      '所选范围存在身份信息缺失，访客、会话及依赖身份的指标不可用；浏览量仍可统计。',
+    ),
+  ).toBeInTheDocument();
+  expect(screen.queryByText('未配置目标')).not.toBeInTheDocument();
+  expect(
+    screen.getAllByText('转化会话 / 目标事件').find(el => el.tagName === 'DT')!.parentElement,
+  ).toHaveTextContent('— / 2');
+});

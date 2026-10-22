@@ -1,3 +1,5 @@
+import { readBrowserPopulation } from './browser-population';
+import { identityUsable, unavailableFields } from '../contracts/browser-population';
 import { getPublishedCatalog } from '../crawlers/published';
 import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { liekanProduct } from '@/lib/liekan/contracts/product';
@@ -181,6 +183,12 @@ async function prepareSnapshot(
   } catch {
     throw new LiekanError('时区无效');
   }
+  const population = await readBrowserPopulation(
+    website.id,
+    new Date(p.startAt),
+    new Date(p.endAt),
+    p.timezone,
+  );
   const sections = p.format === 'zip' ? [...new Set(p.sections)] : ['summary'];
   for (const key of ['segment', 'cohort'])
     if (p.filters[key] && !(await getWebsiteSegment(website.id, p.filters[key])))
@@ -258,7 +266,10 @@ async function prepareSnapshot(
     const data: any[] = [];
     let bufferedBytes = 0;
     for (let offset = 0; ; offset += 1000) {
-      const page = await run(`${sql} LIMIT 1000 OFFSET {{offset}}`, { offset });
+      const rawPage = await run(`${sql} LIMIT 1000 OFFSET {{offset}}`, { offset });
+      const page = identityUsable(population)
+        ? rawPage
+        : rawPage.map(row => unavailableFields(row, ['visitors', 'visits', 'seconds']));
       for (const row of page) {
         const mapped = mapper(row);
         bufferedBytes += Buffer.byteLength(JSON.stringify(sanitizeExportValue(mapped)));
@@ -310,7 +321,7 @@ async function prepareSnapshot(
       ),
     );
   }
-  if (sections.includes('sessions')) {
+  if (sections.includes('sessions') && identityUsable(population)) {
     add(
       'sessions.csv',
       await paged(
@@ -343,12 +354,16 @@ async function prepareSnapshot(
   const manifest = {
     catalogVersion: getPublishedCatalog()?.version ?? null,
     populationVersion: TRAFFIC_POLICY_VERSION,
+    snapshotVersion: 'browser-population-v1',
+    population,
     product: p.format === 'json' ? 'Liekan 猎看统计' : liekanProduct.name,
     createdAt: new Date().toISOString(),
     website: { name: website.name, domain: website.domain },
     range: { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
     filterFields: Object.keys(p.filters),
     sections,
+    unavailableSections:
+      !identityUsable(population) && sections.includes('sessions') ? ['sessions'] : [],
     format: p.format,
     consistency: 'repeatable-read',
     limits: { rows: EXPORT_MAX_ROWS, bytes: EXPORT_MAX_BYTES },
@@ -479,6 +494,12 @@ async function prepareKeywordSnapshot(
 ) {
   validateKeywordRange(p);
   const facts = await readKeywordFacts(website.id, p, signal);
+  const population = await readBrowserPopulation(
+    website.id,
+    new Date(p.startAt),
+    new Date(p.endAt),
+    p.timezone,
+  );
   const conditions = keywordConditionsSchema.parse(p);
   const selected = selectKeywords(
     facts.rows,
@@ -514,10 +535,10 @@ async function prepareKeywordSnapshot(
     row.keyword || exportLabel(keywordStatusLabels[row.status], p.locale),
     exportLabel(row.engine, p.locale),
     exportLabel(keywordEvidenceLabels[row.evidence], p.locale),
-    row.sessions,
-    row.share,
-    row.bounceRate,
-    row.conversionRate,
+    identityUsable(population) ? row.sessions : null,
+    identityUsable(population) ? row.share : null,
+    identityUsable(population) ? row.bounceRate : null,
+    identityUsable(population) ? row.conversionRate : null,
   ]);
   const content =
     '\ufeff' +
@@ -529,6 +550,8 @@ async function prepareKeywordSnapshot(
   const manifest = {
     catalogVersion: getPublishedCatalog()?.version ?? null,
     populationVersion: TRAFFIC_POLICY_VERSION,
+    snapshotVersion: 'browser-population-v1',
+    population,
     kind: p.kind,
     createdAt,
     website: { name: website.name, domain: website.domain },
@@ -574,7 +597,18 @@ async function prepareGeographySnapshot(
     { rows: EXPORT_MAX_ROWS, bytes: EXPORT_MAX_BYTES },
   );
   aborted();
-  const rows = geographyTable(facts.geo, facts.totals.visits, !!facts.goals.length, p, p.locale);
+  const population = facts.totals.population;
+  const rows = geographyTable(
+    facts.geo,
+    facts.totals.visits,
+    !!facts.goals.length,
+    p,
+    p.locale,
+  ).map(row =>
+    identityUsable(population)
+      ? row
+      : unavailableFields(row, ['sessions', 'share', 'duration', 'bounceRate', 'conversionRate']),
+  );
   if (rows.length > EXPORT_MAX_ROWS)
     throw new LiekanError('地域导出超过 100,000 行，请缩小范围', 413);
   const fields = ['城市', '会话', '占比(%)', '平均时长(秒)', '跳出率(%)', '转化率(%)'].map(label =>
@@ -603,10 +637,14 @@ async function prepareGeographySnapshot(
   const manifest = {
     catalogVersion: getPublishedCatalog()?.version ?? null,
     populationVersion: TRAFFIC_POLICY_VERSION,
+    snapshotVersion: 'browser-population-v1',
+    population,
     kind: p.kind,
     createdAt,
     geographyVersion,
-    geographyCoverage: geographyCoverage(facts.geo, facts.totals.visits),
+    geographyCoverage: identityUsable(population)
+      ? geographyCoverage(facts.geo, facts.totals.visits)
+      : null,
     rows: rows.length,
     fields,
     range: { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },

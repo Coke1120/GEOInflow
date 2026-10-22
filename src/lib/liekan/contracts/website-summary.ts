@@ -1,3 +1,4 @@
+import { browserPopulationSchema } from './browser-population';
 import { z } from 'zod';
 
 export const websiteSummaryQuery = z
@@ -18,12 +19,13 @@ export const websiteSummaryQuery = z
   })
   .refine(p => p.endAt >= p.startAt, '日期范围无效');
 const totals = z.object({
+  population: browserPopulationSchema.optional(),
   pageviews: z.number(),
-  visitors: z.number(),
-  visits: z.number(),
-  bounces: z.number(),
-  totaltime: z.number(),
-  aiVisits: z.number(),
+  visitors: z.number().nullable(),
+  visits: z.number().nullable(),
+  bounces: z.number().nullable(),
+  totaltime: z.number().nullable(),
+  aiVisits: z.number().nullable(),
 });
 export const websiteSummarySchema = z.array(
   totals.extend({

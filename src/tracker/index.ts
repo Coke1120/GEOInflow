@@ -210,6 +210,7 @@ type TrackerWindow = Window &
     __umamiTrackerInstances?: Record<string, UmamiTracker>;
   };
 type TrackerDocument = Document & {
+  prerendering?: boolean;
   currentScript: HTMLScriptElement | null;
 };
 type MetricEntry = PerformanceEntry & {
@@ -441,7 +442,7 @@ type MetricEntry = PerformanceEntry & {
     (dnt && hasDoNotTrack());
 
   const send = async (payload: Payload | null | undefined, type = 'event'): Promise<void> => {
-    if (trackingDisabled()) return;
+    if (trackingDisabled() || (document as TrackerDocument).prerendering) return;
 
     const eventId = validEventId(payload?.eventId) ? payload.eventId : createEventId();
 
@@ -488,8 +489,10 @@ type MetricEntry = PerformanceEntry & {
   };
 
   const init = () => {
+    if ((document as TrackerDocument).prerendering) return;
     if (!initialized) {
       initialized = true;
+      currentUrl = normalize(location.href);
       if (autoPageview) track();
       handlePathChanges();
       handleClicks();
@@ -723,6 +726,8 @@ type MetricEntry = PerformanceEntry & {
   }
 
   if (autoTrack && !trackingDisabled()) {
+    if ((document as TrackerDocument).prerendering)
+      document.addEventListener('prerenderingchange', init, { once: true });
     if (document.readyState === 'complete') {
       init();
     } else {

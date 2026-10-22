@@ -31,13 +31,13 @@ export const operations = [
                       type: 'number',
                     },
                     visitors: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     returnVisitors: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     percentage: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                   },
                   required: ['date', 'day', 'visitors', 'returnVisitors', 'percentage'],

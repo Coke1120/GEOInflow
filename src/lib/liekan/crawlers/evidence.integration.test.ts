@@ -15,7 +15,7 @@ import { getLogFacts } from '../upstream/logs';
 import { readPerformance } from './performance-read';
 import { readOutcomes } from './outcomes-read';
 import { readReportEvidence, reportEvidenceCsv } from './report-evidence';
-import { readObservations } from './observation-read';
+import { parseObservationQuery, readObservations } from './observation-read';
 import {
   changeFindingWorkflow,
   findingWorkflow,
@@ -626,6 +626,21 @@ describe.skipIf(!enabled)('traffic evidence PostgreSQL contracts', () => {
       websiteId: site,
       eventId: clientId,
       fingerprint: 'fixed-test-payload',
+      identity: {
+        scope: 'browser' as const,
+        available: true,
+        version: 'fixture-trusted-browser',
+        sessionId: session,
+        browser: 'Safari',
+        os: null,
+        device: null,
+        screen: null,
+        language: null,
+        originHostname: 'example.com',
+        hostname: 'example.com',
+        distinctId: null,
+        classification: quality.classification,
+      },
       quality,
       observation: observeCollection(
         new Request('https://example.com/api/send', {
@@ -719,6 +734,175 @@ describe.skipIf(!enabled)('traffic evidence PostgreSQL contracts', () => {
       true,
     );
     expect(uppercase.rows.find(row => row.platformId === 'openai')?.visits).toBe(1);
+  });
+  it('keeps event-time identities separate from raw and eligible reception identities, including CSV', async () => {
+    const eventId = randomUUID(),
+      diagnosticSession = randomUUID();
+    const observationQuery = parseObservationQuery({
+      startAt,
+      endAt,
+      timezone: p.timezone,
+      page: 1,
+      sort: 'requests' as const,
+      direction: 'desc' as const,
+      subset: 'raw' as const,
+      crawlerMetricsVersion: 1 as const,
+    });
+    const conditions = { ...p, sourceId: 'manual' };
+    const complete = await queryEvidence(actor, site, conditions, 'outcomes', readOutcomes, true);
+    expect(complete.meta.browserPopulation.identity.status).toBe('complete');
+    try {
+      // This pageview arrived in the observation window with an earlier business timestamp.
+      await q(
+        'INSERT INTO session(session_id,website_id) VALUES($1::uuid,$2::uuid)',
+        diagnosticSession,
+        site,
+      );
+      await q(
+        "INSERT INTO liekan_raw_website_event(event_id,website_id,session_id,visit_id,event_type,created_at,url_path,referrer_domain) VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,1,$5,'/article','chatgpt.com')",
+        eventId,
+        site,
+        diagnosticSession,
+        randomUUID(),
+        new Date(startAt - 1000),
+      );
+      await q(
+        "INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,hostname,created_at) VALUES($1::uuid,$2::uuid,'browser','browser','{}','fixture-browser','missing','example.com',$3)",
+        eventId,
+        site,
+        new Date(startAt + 10000),
+      );
+      const observed = await queryEvidence(
+        actor,
+        site,
+        observationQuery,
+        'observations',
+        readObservations,
+        true,
+      );
+      expect(observed.meta.observationIdentity).toMatchObject({
+        timeBasis: 'received_at',
+        population: 'raw_public_pv',
+        status: 'partial',
+        totalPV: 2,
+        qualifiedPV: 1,
+        coverage: 0.5,
+      });
+      expect(observed.totals).toMatchObject({ pv: 2, uv: null, visits: null, flaggedUv: null });
+      expect(observed.rows.every(row => row.uv === null)).toBe(true);
+      const eligible = await queryEvidence(
+        actor,
+        site,
+        { ...observationQuery, subset: 'eligible' },
+        'observations',
+        readObservations,
+        true,
+      );
+      expect(eligible.meta.observationIdentity).toMatchObject({
+        population: 'eligible_public_pv',
+        status: 'partial',
+        totalPV: 2,
+      });
+      const unchanged = await queryEvidence(
+        actor,
+        site,
+        conditions,
+        'outcomes',
+        readOutcomes,
+        true,
+      );
+      expect(unchanged.meta.browserPopulation.identity.status).toBe('complete');
+      expect(unchanged.rows.find(row => row.platformId === 'openai').visits).toBe(1);
+      authentication.value = { authType: 'session', user: { id: owner, role: 'user' } };
+      const csv = await (
+        await exportEvidence(
+          actor,
+          site,
+          {
+            kind: 'observations',
+            locale: 'en-US',
+            query: observationQuery,
+            policySnapshot: observed.meta.policySnapshot,
+          },
+          new Request('https://example.com/api/liekan/test', { method: 'POST' }),
+          ['observations'],
+        )
+      ).text();
+      const fields = (line: string) =>
+        (line.match(/"(?:[^"]|"")*"/g) || []).map(value =>
+          value.slice(1, -1).replaceAll('""', '"'),
+        );
+      const lines = csv.split('\r\n');
+      const metadata = JSON.parse(fields(lines[0])[1]);
+      expect(metadata.observationIdentity).toEqual(observed.meta.observationIdentity);
+      expect(metadata.exportSnapshot).toBe(observed.meta.snapshot);
+      const headerAt = lines.findIndex(line => fields(line)[0] === 'rows');
+      expect(fields(lines[headerAt + 1])[fields(lines[headerAt]).indexOf('uv')]).toBe('');
+      // Rejecting this raw event makes the eligible reception subset complete on its own terms.
+      await q(
+        "UPDATE liekan_event_quality SET classification='automated' WHERE event_id=$1::uuid",
+        eventId,
+      );
+      const eligibleComplete = await queryEvidence(
+        actor,
+        site,
+        { ...observationQuery, subset: 'eligible' },
+        'observations',
+        readObservations,
+        true,
+      );
+      expect(eligibleComplete.meta.observationIdentity).toMatchObject({
+        status: 'complete',
+        totalPV: 1,
+        coverage: 1,
+      });
+      expect(eligibleComplete.totals.uv).toBe(1);
+      const rawStillPartial = await queryEvidence(
+        actor,
+        site,
+        observationQuery,
+        'observations',
+        readObservations,
+        true,
+      );
+      expect(rawStillPartial.meta.observationIdentity.status).toBe('partial');
+      // Formal metrics use the full event window, even when a catalog path has identity evidence.
+      await q(
+        'UPDATE liekan_event_environment SET identity_available=false WHERE website_id=$1::uuid',
+        site,
+      );
+      const unavailable = await queryEvidence(
+        actor,
+        site,
+        conditions,
+        'outcomes',
+        readOutcomes,
+        true,
+      );
+      expect(unavailable.meta.browserPopulation.identity.status).toBe('unavailable');
+      expect(unavailable.rows.find(row => row.platformId === 'openai')).toMatchObject({
+        visits: null,
+        observedVisits: null,
+        conversions: null,
+        ratioDenominator: null,
+      });
+      const reconciliation = await queryEvidence(
+        actor,
+        site,
+        { ...conditions, hostname: 'example.com' },
+        'reconciliation',
+        readReconciliation,
+        true,
+      );
+      expect(reconciliation.browserTotals).toMatchObject({ pv: 1, uv: null, visits: null });
+    } finally {
+      await q(
+        'UPDATE liekan_event_environment SET identity_available=true WHERE website_id=$1::uuid',
+        site,
+      );
+      await q('DELETE FROM liekan_raw_website_event WHERE event_id=$1::uuid', eventId);
+      await q('DELETE FROM session WHERE session_id=$1::uuid', diagnosticSession);
+    }
   });
   it('keeps receipt-time and legacy sampling unknown in actual outcome reads and CSV', async () => {
     const saved = await q(

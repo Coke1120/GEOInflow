@@ -1,3 +1,6 @@
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { isRelationalOnly } from '@/lib/db';
 import { parseRequest } from '@/lib/request';
 import { badRequest, json, notFound, ok, unauthorized } from '@/lib/response';
@@ -5,7 +8,7 @@ import { canDeleteWebsite, canViewWebsiteSection } from '@/permissions';
 import { deleteSession } from '@/queries/prisma';
 import { getLinkedDistinctIds, getLinkedSessionIds, getWebsiteSession } from '@/queries/sql';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string; sessionId: string }> },
 ) {
@@ -28,6 +31,16 @@ export async function GET(
 
   if (!data) {
     return notFound();
+  }
+
+  if (!identityUsable(data.population)) {
+    return json({
+      ...data,
+      distinctId: undefined,
+      canDelete,
+      distinctIds: [],
+      stitchedSessionCount: null,
+    });
   }
 
   let sessionIds = [sessionId];
@@ -86,4 +99,8 @@ export async function DELETE(
   }
 
   return ok();
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => nativeSnapshot(() => getResponse(...args)), args[0]);
 }

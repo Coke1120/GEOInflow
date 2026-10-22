@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures';
 import { UNKNOWN_UUID } from './helpers/constants';
+import { PERSONAS } from './seed/dataset';
 import { randomUUID } from 'node:crypto';
 
 test('publishes geography provider credit without analytics or private configuration', async ({
@@ -47,6 +48,7 @@ test('collection persists the sanitized header city consistently without decodin
         },
         {
           headers: {
+            'user-agent': PERSONAS[0].userAgent,
             'x-real-ip': '223.6.6.6',
             'cf-ipcountry': 'CN',
             'cf-region-code': 'GD',

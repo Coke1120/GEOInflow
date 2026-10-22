@@ -3,7 +3,8 @@ import { SEED_IDS } from './ids';
 /**
  * Deterministic analytics dataset ingested through the real collection
  * endpoints (/api/send, /api/batch, /api/record). Works for both Postgres and
- * ClickHouse. Backdated events use `timestamp` (seconds).
+ * ClickHouse. Historical timestamps are applied only to owned PostgreSQL test rows
+ * after browser intake; ClickHouse retains its existing timestamp transport.
  *
  * Persona metadata stays deterministic. The browser ingest adapter sends UA
  * through request headers and omits public payload identity overrides.

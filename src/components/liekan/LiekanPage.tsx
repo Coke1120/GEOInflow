@@ -1,4 +1,6 @@
 'use client';
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { downloadTrafficEvidence } from '@/lib/liekan/upstream/features-client';
 import { reportEvidenceViewPayload } from '@/lib/liekan/contracts/report-evidence-view';
 import { sha256 } from '@noble/hashes/sha2.js';
@@ -1073,6 +1075,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               {i18n.text('清除查询')}
             </button>
           )}
+        </div>
+      )}
+      {report && !identityUsable(report.meta.population) && (
+        <div className={styles.notice} role="status">
+          {i18n.system(identityUnavailableReason)}
         </div>
       )}
       {report && query.isFetching && (

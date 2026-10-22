@@ -1,3 +1,5 @@
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { formatPercentage, formatValue, stateLabels } from '../data';
 import { MetricCard, ReferenceChart, ReportRows, SortHeading } from '../ReportComponents';
@@ -8,6 +10,8 @@ export function HumanSources({ report, rangeLabel }: ReportViewProps) {
   const i18n = useLiekanI18n();
   const loading = useDataLoading();
   const aiRows = report?.tables.srcBody?.filter(row => row.channel === 'AI 搜索引荐') || [];
+  const unavailable =
+    !identityUsable(report?.meta.population) || aiRows.some(row => row.sessions === null);
   const sessions = aiRows.reduce((sum, row) => sum + Number(row.sessions || 0), 0);
   const bounceRows = aiRows.filter(
     row => typeof row.bounceRate === 'number' && typeof row.sessions === 'number',
@@ -100,15 +104,17 @@ export function HumanSources({ report, rangeLabel }: ReportViewProps) {
             <Skeleton width="65%" />
           ) : (
             <>
-              {sessions
-                ? i18n.text('当前范围识别 {v0} 次 AI 引荐会话；跳出率 {v1}，转化率 {v2}。', [
-                    formatValue(sessions),
-                    formatPercentage(bounceRate),
-                    formatPercentage(conversion?.value),
-                  ])
-                : !report || report.states.human === 'not_connected'
-                  ? i18n.text('引荐数据待接入。')
-                  : i18n.text('当前范围暂无可识别的 AI 引荐会话。')}
+              {unavailable
+                ? i18n.text(identityUnavailableReason)
+                : sessions
+                  ? i18n.text('当前范围识别 {v0} 次 AI 引荐会话；跳出率 {v1}，转化率 {v2}。', [
+                      formatValue(sessions),
+                      formatPercentage(bounceRate),
+                      formatPercentage(conversion?.value),
+                    ])
+                  : !report || report.states.human === 'not_connected'
+                    ? i18n.text('引荐数据待接入。')
+                    : i18n.text('当前范围暂无可识别的 AI 引荐会话。')}
               {conversion?.value == null
                 ? i18n.text('转化指标{v0}。', [
                     i18n.system(stateLabels[conversion?.state || 'not_connected']),

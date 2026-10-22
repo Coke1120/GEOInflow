@@ -82,6 +82,11 @@ async function event(
     );
   return id;
 }
+async function proveFixtureIdentities() {
+  await execute(`INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available)
+    SELECT event_id,website_id,'browser','cookieless-trusted-input-v2',true FROM website_event WHERE website_id=$1::uuid
+    ON CONFLICT(event_id) DO NOTHING`,site);
+}
 async function log(ua = 'GPTBot/1.0') {
   const imported = randomUUID();
   const id = randomUUID().replaceAll('-', '').repeat(2);
@@ -237,7 +242,7 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
       site,
     );
     await execute(
-      "INSERT INTO liekan_worker_state(id,version) VALUES('fixture-history-worker','history-repair-v1.1') ON CONFLICT(id) DO UPDATE SET heartbeat_at=clock_timestamp(),version=EXCLUDED.version",
+      "INSERT INTO liekan_worker_state(id,version) VALUES('fixture-history-worker','history-repair-v1.2') ON CONFLICT(id) DO UPDATE SET heartbeat_at=clock_timestamp(),version=EXCLUDED.version",
     );
     first = await event('2020-01-01T00:00:00.000001Z');
   });
@@ -436,6 +441,7 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
           site,
           id,
         );
+      await proveFixtureIdentities();
       const prepared = await finish(await scan());
       let published = false;
       const intercept =
@@ -548,7 +554,7 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
         actor,
       );
       expect(standard.preview.rawPV).toBe(expected);
-      expect(standard.preview.rawUV).toBe(expected);
+      expect(standard.preview.rawUV).toBe(expected ? null : 0);
       expect(standard.preview.includedPV).toBe(0);
     }
   });
@@ -944,9 +950,49 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
     );
     expect(input.value).not.toContain('GPTBot/1.0');
   });
+  it('keeps historical identity gaps unavailable in previews, days and export', async () => {
+    const prepared = await finish(await scan());
+    expect(prepared.counts.beforePV).toBe('1');
+    expect(prepared.counts.beforeUV).toBeNull();
+    expect(prepared.preview.counts.beforeQualifiedUV).toBe('0');
+    expect(prepared.preview.counts.beforeIdentityMissingPV).toBe('1');
+    const detail = await getHistoryRepair(site, new URLSearchParams({ view: 'days' }), actor);
+    expect(detail.days.items[0].beforeUV).toBeNull();
+    expect(detail.days.items[0].beforeIdentityMissingPV).toBe('1');
+    const result = await exportHistoryRepair(site, {}, actor);
+    expect(result.csv).toContain('原缺失身份PV');
+  });
+  it('normalizes a pre-upgrade action receipt without rewriting the saved receipt', async () => {
+    const body = { actionId: randomUUID(), timezone: 'America/New_York' };
+    await scanHistoryRepair(site,body,actor);
+    await execute(`UPDATE liekan_history_repair_action SET response=jsonb_set(response,'{counts}',
+      ((response->'counts')-'beforeIdentityMissingPV'-'afterIdentityMissingPV'-'beforeQualifiedUV'-'afterQualifiedUV') || '{"beforeUV":"7","afterUV":"7"}'::jsonb) WHERE id=$1::uuid`,body.actionId);
+    const replay = await scanHistoryRepair(site,body,actor);
+    expect(replay.counts.beforeUV).toBeNull();
+    const [saved] = await q<{uv:string}[]>(`SELECT response#>>'{counts,beforeUV}' AS uv FROM liekan_history_repair_action WHERE id=$1::uuid`,body.actionId);
+    expect(saved.uv).toBe('7');
+  });
+  it('aligns repair preview with Origin and confirmed governance and fences a changed governance revision', async () => {
+    const excluded = randomUUID();
+    await execute(`UPDATE liekan_event_quality SET reasons=ARRAY['ua_bot'] WHERE event_id=$1::uuid`,first);
+    await execute(`INSERT INTO liekan_collection_policy(website_id,mode,allowed_hostnames) VALUES($1::uuid,'standard',ARRAY['example.test'])`,site);
+    const conflict = await event('2020-01-02Z');
+    await event('2020-01-03Z');
+    await proveFixtureIdentities();
+    await execute(`UPDATE liekan_event_environment SET origin_hostname='other.test' WHERE event_id=$1::uuid`,conflict);
+    await execute(`INSERT INTO liekan_traffic_exclusion(id,website_id,epoch,actor_id,state,base_revision,policy_revision,rule_version,window_end,received_cutoff,membership_digest,evidence,expires_at)
+      VALUES($1::uuid,$2::uuid,1,$3::uuid,'active',0,0,'test',now(),now(),repeat('a',64),'{}',now())`,excluded,site,actor.userId);
+    await execute(`INSERT INTO liekan_traffic_exclusion_member(website_id,collection_id,event_id) VALUES($1::uuid,$2::uuid,$3::uuid)`,site,excluded,first);
+    const prepared = await finish(await scan());
+    expect(prepared.preview.counts.beforePV).toBe('1');
+    expect(prepared.preview.counts.afterPV).toBe('1');
+    await execute(`INSERT INTO liekan_traffic_governance(website_id,revision) VALUES($1::uuid,1)`,site);
+    await expect(confirmHistoryRepair(site,{runId:prepared.id,actionId:randomUUID(),expectedRevision:prepared.revision,generation:prepared.generation,previewDigest:prepared.preview.digest,partialConfirmed:true},actor)).rejects.toMatchObject({status:409});
+  });
   it('counts whole-range UV independently of daily UV across natural days and years', async () => {
     await event('2025-07-01T05:00:00Z', { reasons: ['ua_bot'] });
     await event('2025-07-02T05:00:00Z');
+    await proveFixtureIdentities();
     await log();
     const prepared = await finish(await scan());
     expect(prepared.counts.beforeUV).toBe('1');
@@ -1127,7 +1173,7 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
     );
     await expect(scan()).rejects.toMatchObject({ status: 503 });
     await execute(
-      "UPDATE liekan_worker_state SET version='history-repair-v1.1',heartbeat_at=clock_timestamp()",
+      "UPDATE liekan_worker_state SET version='history-repair-v1.2',heartbeat_at=clock_timestamp()",
     );
     await log();
     const prepared = await finish(await scan());
@@ -2383,6 +2429,7 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
     await log('GPTBot/1.0');
     await log('GPTBot/1.0');
     await log('Googlebot/2.1');
+    await proveFixtureIdentities();
     const prepared = await finish(await scan());
     expect(prepared.preview.logImpact.afterIdentities).toBe('2');
     expect(prepared.preview.logImpact.afterAiPages).toBe('1');

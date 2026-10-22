@@ -1,3 +1,4 @@
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { beforeEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   query: vi.fn(),
@@ -191,5 +192,8 @@ it('filters and sorts before slicing, resets a changed snapshot and reuses the b
   await readKeywordPage(website, p(), 30000, false);
   await readKeywordPage(website, p({ page: 2, engine: 'Google', search: 'word' }), 30000, false);
   expect(mocks.cache.mock.calls[0][0]).toBe(mocks.cache.mock.calls[1][0]);
-  expect(mocks.key).toHaveBeenCalledWith('source-keywords-v3', expect.any(Array));
+  expect(mocks.key).toHaveBeenCalledWith(
+    `source-keywords-v4-${TRAFFIC_POLICY_VERSION}`,
+    expect.any(Array),
+  );
 });

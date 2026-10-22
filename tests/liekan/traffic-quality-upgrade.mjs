@@ -22,7 +22,8 @@ export async function runTrafficQualityUpgradeChecks({
     assert.equal(audit.totals.includedPV, Number(native.pageviews));
     assert.equal(audit.totals.includedUV, Number(native.visitors));
     assert.equal(audit.totals.rawPV, audit.totals.includedPV + audit.totals.excludedPV);
-    assert.equal(audit.totals.rawUV, audit.totals.includedUV + audit.totals.fullyExcludedUV);
+    assert.equal(audit.totals.rawUV, null);
+    assert.equal(audit.totals.fullyExcludedUV, null); // Historical identity evidence stays unknown.
     const range = Object.fromEntries(new URLSearchParams(window));
     const preview = (
       await json(`${qualityPath}/preview`, {
@@ -34,9 +35,22 @@ export async function runTrafficQualityUpgradeChecks({
         },
       })
     ).body;
-    const browserRaw = (await json(`${qualityPath}?${window}&source=browser`, { auth: true })).body;
-    assert.equal(preview.preview.includedPV, browserRaw.totals.rawPV);
-    assert.equal(preview.preview.includedUV, browserRaw.totals.rawUV);
+    const standardPreview = (
+      await json(`${qualityPath}/preview`, {
+        method: 'POST',
+        auth: true,
+        body: {
+          policy: {
+            mode: 'standard',
+            allowedHostnames: [],
+            expectedRevision: audit.policy.revision,
+          },
+          range,
+        },
+      })
+    ).body;
+    assert.equal(preview.preview.includedPV, standardPreview.preview.includedPV);
+    assert.equal(preview.preview.includedUV, standardPreview.preview.includedUV);
     const after = (await json(`${qualityPath}?${window}`, { auth: true })).body;
     assert.deepEqual(after.policy, audit.policy);
     assert.deepEqual(after.history, audit.history);
@@ -123,11 +137,12 @@ export async function runTrafficQualityUpgradeChecks({
         ),
       );
       assert.equal(report.impact.flaggedPV, 31);
-      assert.equal(report.impact.fullyExcludedUV, 1);
+      assert.equal(report.impact.fullyExcludedUV, null);
       const after = (await json(`${native}/stats?${riskRange}`, { auth: true })).body;
       assert.equal(Number(before.pageviews), 31);
       assert.equal(Number(after.pageviews), 31);
-      assert.equal(Number(after.visitors), 1);
+      assert.equal(after.visitors, null);
+      assert.equal(after.population.identity.status, 'unavailable');
       for (const filter of [
         'source=authenticated_server',
         'hostname=unrelated.invalid',
@@ -172,7 +187,7 @@ export async function runTrafficQualityUpgradeChecks({
       );
       assert.equal(first.totals.rawPV, 10032);
       assert.equal(first.totals.includedPV, 10032);
-      assert.equal(first.totals.rawUV, 1);
+      assert.equal(first.totals.rawUV, null);
       assert.equal(first.rows.length, 100);
       assert(first.nextCursor);
       const cursor = JSON.parse(Buffer.from(first.nextCursor, 'base64url').toString());
@@ -307,7 +322,13 @@ export async function runTrafficQualityUpgradeChecks({
         INSERT INTO liekan_browser_risk_state(website_id,epoch,next_window,rule_version)
         VALUES('${riskSite}',COALESCE((SELECT epoch FROM liekan_log_state WHERE website_id='${riskSite}'),1),date_trunc('minute',now())-interval '2 minutes','browser-behavior-v1');`);
       await docker(
-        ['exec', names.application, 'node', 'dist/liekan-worker.mjs', '--observe-browser-risk-once'],
+        [
+          'exec',
+          names.application,
+          'node',
+          'dist/liekan-worker.mjs',
+          '--observe-browser-risk-once',
+        ],
         { timeout: 180000 },
       );
       const latest = await sqlJson(

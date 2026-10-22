@@ -12,7 +12,7 @@ describe('one relational traffic policy', () => {
     const sql =
       'select website_event.session_id from website_event join session s on s.session_id=website_event.session_id where exists(select 1 from website_event e where e.event_id=website_event.event_id)';
     expect(withTrafficPolicy(sql)).toBe(
-      `WITH website_event AS NOT MATERIALIZED (SELECT * FROM liekan_geographic_website_event) ${sql}`,
+      `WITH website_event AS NOT MATERIALIZED (SELECT * FROM liekan_geographic_website_event), session AS NOT MATERIALIZED (SELECT * FROM liekan_effective_session) ${sql}`,
     );
   });
   it('covers properties and revenue sharing a session with an excluded event', () => {

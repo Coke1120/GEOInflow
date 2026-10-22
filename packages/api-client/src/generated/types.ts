@@ -2002,6 +2002,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/websites/{websiteId}/traffic-quality/exclusions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read a stable page of confirmed traffic exclusions */
+    get: operations['getLiekanTrafficExclusions'];
+    put?: never;
+    /** Preview, confirm or revoke a bounded traffic exclusion */
+    post: operations['manageLiekanTrafficExclusions'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/websites/{websiteId}/traffic-quality/export-evidence': {
     parameters: {
       query?: never;
@@ -4390,7 +4408,7 @@ export interface components {
   schemas: {
     ActiveVisitors: {
       /** @description Unique visitor counts for the selected period. */
-      visitors: number;
+      visitors: number | null;
     };
     /** @description Standard Umami API error response. */
     ApiError: {
@@ -4470,7 +4488,7 @@ export interface components {
       /** @description Dimension value (e.g. a path or country). */
       x: string | null;
       /** @description Count of views/events or unique visitors. */
-      y: number;
+      y: number | null;
     };
     MetricRows: components['schemas']['MetricRow'][];
     /** @description Successful operation response. */
@@ -4523,7 +4541,7 @@ export interface components {
       /** @description Bucket start (ISO date/time). */
       x: string;
       /** @description Value for the bucket. */
-      y: number;
+      y: number | null;
     };
     UpdateWebsiteRequest: {
       /** @description Domain name associated with the resource. */
@@ -4643,7 +4661,11 @@ export interface components {
          */
         endDate: string;
         /** @description Pageview counts for the selected period. */
-        pageviews: components['schemas']['TimeSeriesPoint'][];
+        pageviews: {
+          /** @description Bucket start (ISO date/time). */
+          x: string;
+          y: number;
+        }[];
         sessions: components['schemas']['TimeSeriesPoint'][];
         /**
          * Format: date-time
@@ -4657,7 +4679,11 @@ export interface components {
        */
       endDate?: string;
       /** @description Pageview counts for the selected period. */
-      pageviews: components['schemas']['TimeSeriesPoint'][];
+      pageviews: {
+        /** @description Bucket start (ISO date/time). */
+        x: string;
+        y: number;
+      }[];
       sessions: components['schemas']['TimeSeriesPoint'][];
       /**
        * Format: date-time
@@ -4710,7 +4736,7 @@ export interface components {
       /** @description Pageview counts for the selected period. */
       views: number;
       /** @description Visit counts for the selected period. */
-      visits: number;
+      visits: number | null;
       /**
        * Format: uuid
        * @description ID of the website.
@@ -4721,7 +4747,7 @@ export interface components {
     };
     WebsiteSessionPage: {
       /** @description Number of matching records. */
-      count: number;
+      count: number | null;
       /** @description Data returned by the operation. */
       data: components['schemas']['WebsiteSession'][];
       /** @description Whether the results were truncated by the maximum result limit. */
@@ -4730,32 +4756,167 @@ export interface components {
       page: number;
       /** @description Number of results per page. */
       pageSize: number;
+      population?: {
+        /** @enum {string} */
+        capability: 'supported' | 'unsupported';
+        catalogVersions: string[];
+        epoch: string | null;
+        governanceProcessing?: {
+          computedAt: string | null;
+          errorCode: string | null;
+          nextWindow: string | null;
+          /** @enum {string} */
+          state: 'observed' | 'unknown';
+        };
+        governanceRevision: string | null;
+        governanceWatermark: string | null;
+        historyActiveGeneration: string | null;
+        historyRevision: string | null;
+        identity: {
+          coverage: number | null;
+          eligibleEvents: number | null;
+          eligiblePV: number | null;
+          qualifiedPV: number | null;
+          qualifiedVisitors: number | null;
+          /** @enum {string} */
+          status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+          versions: string[];
+        };
+        policyRevision: string | null;
+        populationVersion: string;
+        range: {
+          /** @description End of the date range as a Unix timestamp in milliseconds. */
+          endAt: number;
+          endExclusive?: boolean;
+          /** @description Start of the date range as a Unix timestamp in milliseconds. */
+          startAt: number;
+          /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+          timezone: string;
+        };
+        resourceId?: string;
+        /** @enum {string} */
+        resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+        ruleVersions: string[];
+        /** @constant */
+        scope: 'resource-window';
+        versionSetsTruncated: boolean;
+      };
     };
     WebsiteStats: {
       /** @description Number of visits with only one pageview. */
-      bounces: number;
+      bounces: number | null;
       /** @description The same totals for the comparison period (previous period by default). */
       comparison: components['schemas']['WebsiteStatsValues'];
       /** @description Pageview counts for the selected period. */
       pageviews: number;
+      population?: {
+        /** @enum {string} */
+        capability: 'supported' | 'unsupported';
+        catalogVersions: string[];
+        epoch: string | null;
+        governanceProcessing?: {
+          computedAt: string | null;
+          errorCode: string | null;
+          nextWindow: string | null;
+          /** @enum {string} */
+          state: 'observed' | 'unknown';
+        };
+        governanceRevision: string | null;
+        governanceWatermark: string | null;
+        historyActiveGeneration: string | null;
+        historyRevision: string | null;
+        identity: {
+          coverage: number | null;
+          eligibleEvents: number | null;
+          eligiblePV: number | null;
+          qualifiedPV: number | null;
+          qualifiedVisitors: number | null;
+          /** @enum {string} */
+          status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+          versions: string[];
+        };
+        policyRevision: string | null;
+        populationVersion: string;
+        range: {
+          /** @description End of the date range as a Unix timestamp in milliseconds. */
+          endAt: number;
+          endExclusive?: boolean;
+          /** @description Start of the date range as a Unix timestamp in milliseconds. */
+          startAt: number;
+          /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+          timezone: string;
+        };
+        resourceId?: string;
+        /** @enum {string} */
+        resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+        ruleVersions: string[];
+        /** @constant */
+        scope: 'resource-window';
+        versionSetsTruncated: boolean;
+      };
       /** @description Total visit duration in seconds. */
-      totaltime: number;
+      totaltime: number | null;
       /** @description Unique visitor counts for the selected period. */
-      visitors: number;
+      visitors: number | null;
       /** @description Visit counts for the selected period. */
-      visits: number;
+      visits: number | null;
     };
     WebsiteStatsValues: {
       /** @description Number of visits with only one pageview. */
-      bounces: number;
+      bounces: number | null;
       /** @description Pageview counts for the selected period. */
       pageviews: number;
+      population?: {
+        /** @enum {string} */
+        capability: 'supported' | 'unsupported';
+        catalogVersions: string[];
+        epoch: string | null;
+        governanceProcessing?: {
+          computedAt: string | null;
+          errorCode: string | null;
+          nextWindow: string | null;
+          /** @enum {string} */
+          state: 'observed' | 'unknown';
+        };
+        governanceRevision: string | null;
+        governanceWatermark: string | null;
+        historyActiveGeneration: string | null;
+        historyRevision: string | null;
+        identity: {
+          coverage: number | null;
+          eligibleEvents: number | null;
+          eligiblePV: number | null;
+          qualifiedPV: number | null;
+          qualifiedVisitors: number | null;
+          /** @enum {string} */
+          status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+          versions: string[];
+        };
+        policyRevision: string | null;
+        populationVersion: string;
+        range: {
+          /** @description End of the date range as a Unix timestamp in milliseconds. */
+          endAt: number;
+          endExclusive?: boolean;
+          /** @description Start of the date range as a Unix timestamp in milliseconds. */
+          startAt: number;
+          /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+          timezone: string;
+        };
+        resourceId?: string;
+        /** @enum {string} */
+        resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+        ruleVersions: string[];
+        /** @constant */
+        scope: 'resource-window';
+        versionSetsTruncated: boolean;
+      };
       /** @description Total visit duration in seconds. */
-      totaltime: number;
+      totaltime: number | null;
       /** @description Unique visitor counts for the selected period. */
-      visitors: number;
+      visitors: number | null;
       /** @description Visit counts for the selected period. */
-      visits: number;
+      visits: number | null;
     };
     WebsiteUser: {
       /**
@@ -8072,6 +8233,8 @@ export interface operations {
                   };
                 };
                 rangeSources: {
+                  /** @enum {string} */
+                  browserExclusion?: 'dedicated_crawler' | 'unsupported';
                   crawlerIds: string[];
                   enabled?: boolean;
                   /** @description Unique identifier of the resource. */
@@ -8254,6 +8417,8 @@ export interface operations {
                   };
                 };
                 rangeSources: {
+                  /** @enum {string} */
+                  browserExclusion?: 'dedicated_crawler' | 'unsupported';
                   crawlerIds: string[];
                   enabled?: boolean;
                   /** @description Unique identifier of the resource. */
@@ -8596,6 +8761,8 @@ export interface operations {
                   };
                 };
                 rangeSources: {
+                  /** @enum {string} */
+                  browserExclusion?: 'dedicated_crawler' | 'unsupported';
                   crawlerIds: string[];
                   enabled?: boolean;
                   /** @description Unique identifier of the resource. */
@@ -8794,6 +8961,8 @@ export interface operations {
                   };
                 };
                 rangeSources: {
+                  /** @enum {string} */
+                  browserExclusion?: 'dedicated_crawler' | 'unsupported';
                   crawlerIds: string[];
                   enabled?: boolean;
                   /** @description Unique identifier of the resource. */
@@ -8976,6 +9145,8 @@ export interface operations {
                   };
                 };
                 rangeSources: {
+                  /** @enum {string} */
+                  browserExclusion?: 'dedicated_crawler' | 'unsupported';
                   crawlerIds: string[];
                   enabled?: boolean;
                   /** @description Unique identifier of the resource. */
@@ -11028,9 +11199,9 @@ export interface operations {
                         /** @description Pageview counts for the selected period. */
                         pageviews: number;
                         /** @description Unique visitor counts for the selected period. */
-                        visitors: number;
+                        visitors: number | null;
                         /** @description Visit counts for the selected period. */
-                        visits: number;
+                        visits: number | null;
                       } | null;
                       logs: {
                         aiRequests: number;
@@ -11043,9 +11214,9 @@ export interface operations {
                         /** @description Pageview counts for the selected period. */
                         pageviews: number;
                         /** @description Unique visitor counts for the selected period. */
-                        visitors: number;
+                        visitors: number | null;
                         /** @description Visit counts for the selected period. */
-                        visits: number;
+                        visits: number | null;
                       } | null;
                       previousLogs: {
                         aiRequests: number;
@@ -11064,7 +11235,13 @@ export interface operations {
                     id: 'summary';
                     label: string;
                     /** @enum {string} */
-                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                    state:
+                      | 'available'
+                      | 'empty'
+                      | 'not_connected'
+                      | 'unsupported'
+                      | 'estimated'
+                      | 'unavailable';
                   }
                 | {
                     /** @description Data returned by the operation. */
@@ -11105,7 +11282,13 @@ export interface operations {
                     id: 'bots';
                     label: string;
                     /** @enum {string} */
-                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                    state:
+                      | 'available'
+                      | 'empty'
+                      | 'not_connected'
+                      | 'unsupported'
+                      | 'estimated'
+                      | 'unavailable';
                   }
                 | {
                     /** @description Data returned by the operation. */
@@ -11156,7 +11339,13 @@ export interface operations {
                     id: 'log-errors';
                     label: string;
                     /** @enum {string} */
-                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                    state:
+                      | 'available'
+                      | 'empty'
+                      | 'not_connected'
+                      | 'unsupported'
+                      | 'estimated'
+                      | 'unavailable';
                   }
                 | {
                     /** @description Data returned by the operation. */
@@ -11178,7 +11367,13 @@ export interface operations {
                     id: 'ai-referrals';
                     label: string;
                     /** @enum {string} */
-                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                    state:
+                      | 'available'
+                      | 'empty'
+                      | 'not_connected'
+                      | 'unsupported'
+                      | 'estimated'
+                      | 'unavailable';
                   }
                 | {
                     /** @description Data returned by the operation. */
@@ -11203,7 +11398,13 @@ export interface operations {
                     id: 'pages';
                     label: string;
                     /** @enum {string} */
-                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                    state:
+                      | 'available'
+                      | 'empty'
+                      | 'not_connected'
+                      | 'unsupported'
+                      | 'estimated'
+                      | 'unavailable';
                   }
                 | {
                     /** @description Data returned by the operation. */
@@ -11213,12 +11414,12 @@ export interface operations {
                       omitted: number;
                       rows: {
                         changePercent: number | null;
-                        convertedVisits: number;
+                        convertedVisits: number | null;
                         /** @description Number of matching records. */
                         count: number;
                         /** @description Display name of the resource. */
                         name: string;
-                        previousConvertedVisits: number;
+                        previousConvertedVisits: number | null;
                         previousCount: number;
                         previousRatePercent: number | null;
                         ratePercent: number | null;
@@ -11237,7 +11438,13 @@ export interface operations {
                     id: 'goals';
                     label: string;
                     /** @enum {string} */
-                    state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                    state:
+                      | 'available'
+                      | 'empty'
+                      | 'not_connected'
+                      | 'unsupported'
+                      | 'estimated'
+                      | 'unavailable';
                   }
               )[];
               /** Format: date-time */
@@ -11266,7 +11473,13 @@ export interface operations {
                 key: 'pageviews' | 'visitors' | 'visits' | 'aiRequests' | 'aiReferrals';
                 label: string;
                 /** @enum {string} */
-                state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
                 value: number | null;
               }[];
               /** @constant */
@@ -11282,6 +11495,96 @@ export interface operations {
                 provider: string;
                 /** @description Region or subdivision of the visitor. */
                 region?: string | null;
+              };
+              population?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
+              previousPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
               };
               previousRange: {
                 /**
@@ -11307,15 +11610,45 @@ export interface operations {
               };
               sourceStates: {
                 /** @enum {string} */
-                aiReferrals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                aiReferrals:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
                 /** @enum {string} */
-                catalog: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                catalog:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
                 /** @enum {string} */
-                goals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                goals:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
                 /** @enum {string} */
-                human: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                human:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
                 /** @enum {string} */
-                logs: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                logs:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               space:
                 | {
@@ -13241,6 +13574,8 @@ export interface operations {
                 };
               };
               rangeSources: {
+                /** @enum {string} */
+                browserExclusion?: 'dedicated_crawler' | 'unsupported';
                 crawlerIds: string[];
                 enabled?: boolean;
                 /** @description Unique identifier of the resource. */
@@ -13456,10 +13791,14 @@ export interface operations {
                 campaignId: string;
                 completedAt: string | null;
                 counts: {
+                  afterIdentityMissingPV?: string | null;
                   afterPV: string;
-                  afterUV: string;
+                  afterQualifiedUV?: string | null;
+                  afterUV: string | null;
+                  beforeIdentityMissingPV?: string | null;
                   beforePV: string;
-                  beforeUV: string;
+                  beforeQualifiedUV?: string | null;
+                  beforeUV: string | null;
                   browserEvidence: string;
                   changedEvents: string;
                   changedLogs: string;
@@ -13486,10 +13825,14 @@ export interface operations {
                   browserCoverage: number | null;
                   complete: boolean;
                   counts: {
+                    afterIdentityMissingPV?: string | null;
                     afterPV: string;
-                    afterUV: string;
+                    afterQualifiedUV?: string | null;
+                    afterUV: string | null;
+                    beforeIdentityMissingPV?: string | null;
                     beforePV: string;
-                    beforeUV: string;
+                    beforeQualifiedUV?: string | null;
+                    beforeUV: string | null;
                     browserEvidence: string;
                     changedEvents: string;
                     changedLogs: string;
@@ -14840,6 +15183,51 @@ export interface operations {
                 page: number;
                 /** @description Number of results per page. */
                 pageSize: number;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 properties: {
                   /** @description Data type of the custom property. */
                   dataType: number;
@@ -14855,7 +15243,7 @@ export interface operations {
                   properties: number;
                   triggers: number;
                   /** @description Unique visitor counts for the selected period. */
-                  visitors: number;
+                  visitors: number | null;
                 }[];
                 totals: {
                   /** @description Date and time of the most recent recorded activity. */
@@ -14863,7 +15251,7 @@ export interface operations {
                   total: number;
                   types: number;
                   /** @description Unique visitor counts for the selected period. */
-                  visitors: number;
+                  visitors: number | null;
                   withProperties: number;
                 };
                 values: {
@@ -14877,6 +15265,51 @@ export interface operations {
                 dimensionTotal?: number;
                 events: number;
                 limited?: boolean;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 rows?: {
                   utm: string;
                   /** @description Pageview counts for the selected period. */
@@ -14885,23 +15318,115 @@ export interface operations {
                 /** @description Pageview counts for the selected period. */
                 views: number;
                 /** @description Unique visitor counts for the selected period. */
-                visitors: number;
+                visitors: number | null;
               }
             | {
-                /** @description URL of the referring page. */
-                referrer: string | null;
-                /** @description Pageview counts for the selected period. */
-                views: number;
-                /** @description Unique visitor counts for the selected period. */
-                visitors: number;
-              }[]
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
+                rows: {
+                  /** @description URL of the referring page. */
+                  referrer: string | null;
+                  /** @description Pageview counts for the selected period. */
+                  views: number;
+                  /** @description Unique visitor counts for the selected period. */
+                  visitors: number | null;
+                }[];
+              }
             | {
                 /** @description Number of matching records. */
-                count: number;
+                count: number | null;
                 /** @description Page number, starting at 1. */
                 page: number;
                 /** @description Number of results per page. */
                 pageSize: number;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 rows: ({
                   /** @description Browser used by the visitor. */
                   browser: string | null;
@@ -14939,6 +15464,51 @@ export interface operations {
                 page: number;
                 /** @description Number of results per page. */
                 pageSize: number;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 rows: {
                   /** @description Date and time the record was created. */
                   createdAt: string | null;
@@ -14972,7 +15542,7 @@ export interface operations {
                 }[];
                 totals: {
                   /** @description Number of matching records. */
-                  count: number;
+                  count: number | null;
                   entryPath: string | null;
                   events: number;
                   exitPath: string | null;
@@ -14993,12 +15563,57 @@ export interface operations {
                 page: number;
                 /** @description Number of results per page. */
                 pageSize: number;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 rows: {
                   /** @description Data type of the custom property. */
                   dataType: number;
                   /** @description Display name of the resource. */
                   name: string;
-                  sessions: number;
+                  sessions: number | null;
                   value: string | null;
                 }[];
               }
@@ -15006,18 +15621,63 @@ export interface operations {
                 pages: {
                   /** @description Display name of the resource. */
                   name: string;
-                  value: number;
+                  value: number | null;
                 }[];
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 sources: {
                   /** @description Display name of the resource. */
                   name: string;
                   /** @constant */
                   sourceLabel?: 'direct';
-                  value: number;
+                  value: number | null;
                 }[];
                 totals: {
-                  active: number;
-                  ai: number;
+                  active: number | null;
+                  ai: number | null;
                   events: number;
                   /** @description Pageview counts for the selected period. */
                   views: number;
@@ -15040,6 +15700,51 @@ export interface operations {
                 lcpP50: number | null;
                 lcpP75: number | null;
                 lcpP95: number | null;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 ttfbCount: number;
                 ttfbP50: number | null;
                 ttfbP75: number | null;
@@ -15052,6 +15757,51 @@ export interface operations {
                 page: number;
                 /** @description Number of results per page. */
                 pageSize: number;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 rows: {
                   amount: number | string | null;
                   /** @description Date and time the record was created. */
@@ -15073,32 +15823,167 @@ export interface operations {
               }
             | {
                 limited: boolean;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 /** @description URL of the referring page. */
                 referrer: {
                   /** @description Display name of the resource. */
                   name: string;
-                  value: number;
+                  value: number | null;
                 }[];
                 total: {
-                  attributed: number;
+                  attributed: number | null;
                   /** @description Unique visitor counts for the selected period. */
-                  visitors: number;
+                  visitors: number | null;
                 };
               }
             | {
-                reach25: number;
-                reach50: number;
-                reach75: number;
-                reach100: number;
-                total: number;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
+                reach25: number | null;
+                reach50: number | null;
+                reach75: number | null;
+                reach100: number | null;
+                total: number | null;
               }
             | {
                 /** @description Number of matching records. */
-                count: number;
+                count: number | null;
                 /** @description Page number, starting at 1. */
                 page: number;
                 /** @description Number of results per page. */
                 pageSize: number;
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
                 rows: {
                   /** @description Browser used by the visitor. */
                   browser: string | null;
@@ -16081,15 +16966,60 @@ export interface operations {
                 goalEvents: number | null;
                 path: string;
                 /** @description Visit counts for the selected period. */
-                visits: number;
+                visits: number | null;
               }[];
               landingPagesTruncated: boolean;
               platformId: string;
               /** @enum {string} */
-              state: 'available' | 'missing' | 'unsupported';
+              state: 'available' | 'missing' | 'unsupported' | 'unknown';
               /** @description Visit counts for the selected period. */
               visits: number | null;
             }[];
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             previous: {
               bots: {
                 botId: string | null;
@@ -16115,15 +17045,60 @@ export interface operations {
                   goalEvents: number | null;
                   path: string;
                   /** @description Visit counts for the selected period. */
-                  visits: number;
+                  visits: number | null;
                 }[];
                 landingPagesTruncated: boolean;
                 platformId: string;
                 /** @enum {string} */
-                state: 'available' | 'missing' | 'unsupported';
+                state: 'available' | 'missing' | 'unsupported' | 'unknown';
                 /** @description Visit counts for the selected period. */
                 visits: number | null;
               }[];
+              population?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
               quality: {
                 /** @enum {string} */
                 basis: 'event_time' | 'ingestion_time' | 'unknown';
@@ -16450,6 +17425,51 @@ export interface operations {
           'application/json':
             | {
                 meta: {
+                  browserPopulation?: {
+                    /** @enum {string} */
+                    capability: 'supported' | 'unsupported';
+                    catalogVersions: string[];
+                    epoch: string | null;
+                    governanceProcessing?: {
+                      computedAt: string | null;
+                      errorCode: string | null;
+                      nextWindow: string | null;
+                      /** @enum {string} */
+                      state: 'observed' | 'unknown';
+                    };
+                    governanceRevision: string | null;
+                    governanceWatermark: string | null;
+                    historyActiveGeneration: string | null;
+                    historyRevision: string | null;
+                    identity: {
+                      coverage: number | null;
+                      eligibleEvents: number | null;
+                      eligiblePV: number | null;
+                      qualifiedPV: number | null;
+                      qualifiedVisitors: number | null;
+                      /** @enum {string} */
+                      status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                      versions: string[];
+                    };
+                    policyRevision: string | null;
+                    populationVersion: string;
+                    range: {
+                      /** @description End of the date range as a Unix timestamp in milliseconds. */
+                      endAt: number;
+                      endExclusive?: boolean;
+                      /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                      startAt: number;
+                      /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                      timezone: string;
+                    };
+                    resourceId?: string;
+                    /** @enum {string} */
+                    resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                    ruleVersions: string[];
+                    /** @constant */
+                    scope: 'resource-window';
+                    versionSetsTruncated: boolean;
+                  };
                   catalogBaseline: string;
                   conditions: {
                     /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -16465,6 +17485,32 @@ export interface operations {
                   epoch: number;
                   /** @constant */
                   metricVersion: 'crawler-metrics-v1';
+                  observationIdentity?: {
+                    coverage: number | null;
+                    /** @enum {string} */
+                    population: 'raw_public_pv' | 'eligible_public_pv';
+                    qualifiedPV: number;
+                    qualifiedVisitors: number;
+                    range: {
+                      /** @description End of the date range as a Unix timestamp in milliseconds. */
+                      endAt: number;
+                      /** @constant */
+                      endExclusive: true;
+                      /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                      startAt: number;
+                      /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                      timezone: string;
+                    };
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty';
+                    /** @constant */
+                    timeBasis: 'received_at';
+                    totalPV: number;
+                    /** @constant */
+                    version: 'received-browser-identity-v1';
+                    versions: string[];
+                    versionsTruncated: boolean;
+                  };
                   /** @description Page number, starting at 1. */
                   page: number;
                   /**
@@ -16543,6 +17589,51 @@ export interface operations {
                   value: number | string | null;
                 };
                 meta: {
+                  browserPopulation?: {
+                    /** @enum {string} */
+                    capability: 'supported' | 'unsupported';
+                    catalogVersions: string[];
+                    epoch: string | null;
+                    governanceProcessing?: {
+                      computedAt: string | null;
+                      errorCode: string | null;
+                      nextWindow: string | null;
+                      /** @enum {string} */
+                      state: 'observed' | 'unknown';
+                    };
+                    governanceRevision: string | null;
+                    governanceWatermark: string | null;
+                    historyActiveGeneration: string | null;
+                    historyRevision: string | null;
+                    identity: {
+                      coverage: number | null;
+                      eligibleEvents: number | null;
+                      eligiblePV: number | null;
+                      qualifiedPV: number | null;
+                      qualifiedVisitors: number | null;
+                      /** @enum {string} */
+                      status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                      versions: string[];
+                    };
+                    policyRevision: string | null;
+                    populationVersion: string;
+                    range: {
+                      /** @description End of the date range as a Unix timestamp in milliseconds. */
+                      endAt: number;
+                      endExclusive?: boolean;
+                      /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                      startAt: number;
+                      /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                      timezone: string;
+                    };
+                    resourceId?: string;
+                    /** @enum {string} */
+                    resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                    ruleVersions: string[];
+                    /** @constant */
+                    scope: 'resource-window';
+                    versionSetsTruncated: boolean;
+                  };
                   catalogBaseline: string;
                   conditions: {
                     /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -16558,6 +17649,32 @@ export interface operations {
                   epoch: number;
                   /** @constant */
                   metricVersion: 'crawler-metrics-v1';
+                  observationIdentity?: {
+                    coverage: number | null;
+                    /** @enum {string} */
+                    population: 'raw_public_pv' | 'eligible_public_pv';
+                    qualifiedPV: number;
+                    qualifiedVisitors: number;
+                    range: {
+                      /** @description End of the date range as a Unix timestamp in milliseconds. */
+                      endAt: number;
+                      /** @constant */
+                      endExclusive: true;
+                      /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                      startAt: number;
+                      /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                      timezone: string;
+                    };
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty';
+                    /** @constant */
+                    timeBasis: 'received_at';
+                    totalPV: number;
+                    /** @constant */
+                    version: 'received-browser-identity-v1';
+                    versions: string[];
+                    versionsTruncated: boolean;
+                  };
                   /** @description Page number, starting at 1. */
                   page: number;
                   /**
@@ -16641,6 +17758,51 @@ export interface operations {
               }
             | {
                 meta: {
+                  browserPopulation?: {
+                    /** @enum {string} */
+                    capability: 'supported' | 'unsupported';
+                    catalogVersions: string[];
+                    epoch: string | null;
+                    governanceProcessing?: {
+                      computedAt: string | null;
+                      errorCode: string | null;
+                      nextWindow: string | null;
+                      /** @enum {string} */
+                      state: 'observed' | 'unknown';
+                    };
+                    governanceRevision: string | null;
+                    governanceWatermark: string | null;
+                    historyActiveGeneration: string | null;
+                    historyRevision: string | null;
+                    identity: {
+                      coverage: number | null;
+                      eligibleEvents: number | null;
+                      eligiblePV: number | null;
+                      qualifiedPV: number | null;
+                      qualifiedVisitors: number | null;
+                      /** @enum {string} */
+                      status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                      versions: string[];
+                    };
+                    policyRevision: string | null;
+                    populationVersion: string;
+                    range: {
+                      /** @description End of the date range as a Unix timestamp in milliseconds. */
+                      endAt: number;
+                      endExclusive?: boolean;
+                      /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                      startAt: number;
+                      /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                      timezone: string;
+                    };
+                    resourceId?: string;
+                    /** @enum {string} */
+                    resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                    ruleVersions: string[];
+                    /** @constant */
+                    scope: 'resource-window';
+                    versionSetsTruncated: boolean;
+                  };
                   catalogBaseline: string;
                   conditions: {
                     /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -16656,6 +17818,32 @@ export interface operations {
                   epoch: number;
                   /** @constant */
                   metricVersion: 'crawler-metrics-v1';
+                  observationIdentity?: {
+                    coverage: number | null;
+                    /** @enum {string} */
+                    population: 'raw_public_pv' | 'eligible_public_pv';
+                    qualifiedPV: number;
+                    qualifiedVisitors: number;
+                    range: {
+                      /** @description End of the date range as a Unix timestamp in milliseconds. */
+                      endAt: number;
+                      /** @constant */
+                      endExclusive: true;
+                      /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                      startAt: number;
+                      /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                      timezone: string;
+                    };
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty';
+                    /** @constant */
+                    timeBasis: 'received_at';
+                    totalPV: number;
+                    /** @constant */
+                    version: 'received-browser-identity-v1';
+                    versions: string[];
+                    versionsTruncated: boolean;
+                  };
                   /** @description Page number, starting at 1. */
                   page: number;
                   /**
@@ -16730,6 +17918,51 @@ export interface operations {
               }
             | {
                 meta: {
+                  browserPopulation?: {
+                    /** @enum {string} */
+                    capability: 'supported' | 'unsupported';
+                    catalogVersions: string[];
+                    epoch: string | null;
+                    governanceProcessing?: {
+                      computedAt: string | null;
+                      errorCode: string | null;
+                      nextWindow: string | null;
+                      /** @enum {string} */
+                      state: 'observed' | 'unknown';
+                    };
+                    governanceRevision: string | null;
+                    governanceWatermark: string | null;
+                    historyActiveGeneration: string | null;
+                    historyRevision: string | null;
+                    identity: {
+                      coverage: number | null;
+                      eligibleEvents: number | null;
+                      eligiblePV: number | null;
+                      qualifiedPV: number | null;
+                      qualifiedVisitors: number | null;
+                      /** @enum {string} */
+                      status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                      versions: string[];
+                    };
+                    policyRevision: string | null;
+                    populationVersion: string;
+                    range: {
+                      /** @description End of the date range as a Unix timestamp in milliseconds. */
+                      endAt: number;
+                      endExclusive?: boolean;
+                      /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                      startAt: number;
+                      /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                      timezone: string;
+                    };
+                    resourceId?: string;
+                    /** @enum {string} */
+                    resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                    ruleVersions: string[];
+                    /** @constant */
+                    scope: 'resource-window';
+                    versionSetsTruncated: boolean;
+                  };
                   catalogBaseline: string;
                   conditions: {
                     /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -16745,6 +17978,32 @@ export interface operations {
                   epoch: number;
                   /** @constant */
                   metricVersion: 'crawler-metrics-v1';
+                  observationIdentity?: {
+                    coverage: number | null;
+                    /** @enum {string} */
+                    population: 'raw_public_pv' | 'eligible_public_pv';
+                    qualifiedPV: number;
+                    qualifiedVisitors: number;
+                    range: {
+                      /** @description End of the date range as a Unix timestamp in milliseconds. */
+                      endAt: number;
+                      /** @constant */
+                      endExclusive: true;
+                      /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                      startAt: number;
+                      /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                      timezone: string;
+                    };
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty';
+                    /** @constant */
+                    timeBasis: 'received_at';
+                    totalPV: number;
+                    /** @constant */
+                    version: 'received-browser-identity-v1';
+                    versions: string[];
+                    versionsTruncated: boolean;
+                  };
                   /** @description Page number, starting at 1. */
                   page: number;
                   /**
@@ -17035,6 +18294,51 @@ export interface operations {
         content: {
           'application/json': {
             meta: {
+              browserPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
               catalogBaseline: string;
               conditions: {
                 /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -17050,6 +18354,32 @@ export interface operations {
               epoch: number;
               /** @constant */
               metricVersion: 'crawler-metrics-v1';
+              observationIdentity?: {
+                coverage: number | null;
+                /** @enum {string} */
+                population: 'raw_public_pv' | 'eligible_public_pv';
+                qualifiedPV: number;
+                qualifiedVisitors: number;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  /** @constant */
+                  endExclusive: true;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty';
+                /** @constant */
+                timeBasis: 'received_at';
+                totalPV: number;
+                /** @constant */
+                version: 'received-browser-identity-v1';
+                versions: string[];
+                versionsTruncated: boolean;
+              };
               /** @description Page number, starting at 1. */
               page: number;
               /**
@@ -17112,6 +18442,7 @@ export interface operations {
             }[];
             rows: {
               ambiguous: boolean;
+              browserHostKnown: boolean;
               catalogPaths: number;
               configKnown: boolean;
               conversionRate: number | null;
@@ -17144,7 +18475,7 @@ export interface operations {
               };
               ratioDenominator: number | null;
               requests: number;
-              unknownBrowserHost: number;
+              unknownBrowserHost: number | null;
               unsampled: boolean | null;
               /** @description Visit counts for the selected period. */
               visits: number | null;
@@ -17324,6 +18655,51 @@ export interface operations {
               value: string | number | null;
             }[];
             meta: {
+              browserPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
               catalogBaseline: string;
               conditions: {
                 /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -17339,6 +18715,32 @@ export interface operations {
               epoch: number;
               /** @constant */
               metricVersion: 'crawler-metrics-v1';
+              observationIdentity?: {
+                coverage: number | null;
+                /** @enum {string} */
+                population: 'raw_public_pv' | 'eligible_public_pv';
+                qualifiedPV: number;
+                qualifiedVisitors: number;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  /** @constant */
+                  endExclusive: true;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty';
+                /** @constant */
+                timeBasis: 'received_at';
+                totalPV: number;
+                /** @constant */
+                version: 'received-browser-identity-v1';
+                versions: string[];
+                versionsTruncated: boolean;
+              };
               /** @description Page number, starting at 1. */
               page: number;
               /**
@@ -23097,12 +24499,57 @@ export interface operations {
         content: {
           'application/json': {
             conversions: number;
-            num: number;
+            num: number | null;
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             series: {
               x: string;
               y: number;
             }[];
-            total: number;
+            total: number | null;
           };
         };
       };
@@ -23233,10 +24680,14 @@ export interface operations {
             campaignId: string;
             days?: {
               items: {
+                afterIdentityMissingPV?: string | null;
                 afterPV: string;
-                afterUV: string;
+                afterQualifiedUV?: string | null;
+                afterUV: string | null;
+                beforeIdentityMissingPV?: string | null;
                 beforePV: string;
-                beforeUV: string;
+                beforeQualifiedUV?: string | null;
+                beforeUV: string | null;
                 changedEvents: string;
                 changedLogs: string;
                 /** @enum {string} */
@@ -23259,10 +24710,14 @@ export interface operations {
               campaignId: string;
               completedAt: string | null;
               counts: {
+                afterIdentityMissingPV?: string | null;
                 afterPV: string;
-                afterUV: string;
+                afterQualifiedUV?: string | null;
+                afterUV: string | null;
+                beforeIdentityMissingPV?: string | null;
                 beforePV: string;
-                beforeUV: string;
+                beforeQualifiedUV?: string | null;
+                beforeUV: string | null;
                 browserEvidence: string;
                 changedEvents: string;
                 changedLogs: string;
@@ -23289,10 +24744,14 @@ export interface operations {
                 browserCoverage: number | null;
                 complete: boolean;
                 counts: {
+                  afterIdentityMissingPV?: string | null;
                   afterPV: string;
-                  afterUV: string;
+                  afterQualifiedUV?: string | null;
+                  afterUV: string | null;
+                  beforeIdentityMissingPV?: string | null;
                   beforePV: string;
-                  beforeUV: string;
+                  beforeQualifiedUV?: string | null;
+                  beforeUV: string | null;
                   browserEvidence: string;
                   changedEvents: string;
                   changedLogs: string;
@@ -23396,10 +24855,14 @@ export interface operations {
                 browserCoverage: number | null;
                 complete: boolean;
                 counts: {
+                  afterIdentityMissingPV?: string | null;
                   afterPV: string;
-                  afterUV: string;
+                  afterQualifiedUV?: string | null;
+                  afterUV: string | null;
+                  beforeIdentityMissingPV?: string | null;
                   beforePV: string;
-                  beforeUV: string;
+                  beforeQualifiedUV?: string | null;
+                  beforeUV: string | null;
                   browserEvidence: string;
                   changedEvents: string;
                   changedLogs: string;
@@ -23616,10 +25079,14 @@ export interface operations {
             campaignId: string;
             completedAt: string | null;
             counts: {
+              afterIdentityMissingPV?: string | null;
               afterPV: string;
-              afterUV: string;
+              afterQualifiedUV?: string | null;
+              afterUV: string | null;
+              beforeIdentityMissingPV?: string | null;
               beforePV: string;
-              beforeUV: string;
+              beforeQualifiedUV?: string | null;
+              beforeUV: string | null;
               browserEvidence: string;
               changedEvents: string;
               changedLogs: string;
@@ -23646,10 +25113,14 @@ export interface operations {
               browserCoverage: number | null;
               complete: boolean;
               counts: {
+                afterIdentityMissingPV?: string | null;
                 afterPV: string;
-                afterUV: string;
+                afterQualifiedUV?: string | null;
+                afterUV: string | null;
+                beforeIdentityMissingPV?: string | null;
                 beforePV: string;
-                beforeUV: string;
+                beforeQualifiedUV?: string | null;
+                beforeUV: string | null;
                 browserEvidence: string;
                 changedEvents: string;
                 changedLogs: string;
@@ -23877,10 +25348,14 @@ export interface operations {
             campaignId: string;
             completedAt: string | null;
             counts: {
+              afterIdentityMissingPV?: string | null;
               afterPV: string;
-              afterUV: string;
+              afterQualifiedUV?: string | null;
+              afterUV: string | null;
+              beforeIdentityMissingPV?: string | null;
               beforePV: string;
-              beforeUV: string;
+              beforeQualifiedUV?: string | null;
+              beforeUV: string | null;
               browserEvidence: string;
               changedEvents: string;
               changedLogs: string;
@@ -23907,10 +25382,14 @@ export interface operations {
               browserCoverage: number | null;
               complete: boolean;
               counts: {
+                afterIdentityMissingPV?: string | null;
                 afterPV: string;
-                afterUV: string;
+                afterQualifiedUV?: string | null;
+                afterUV: string | null;
+                beforeIdentityMissingPV?: string | null;
                 beforePV: string;
-                beforeUV: string;
+                beforeQualifiedUV?: string | null;
+                beforeUV: string | null;
                 browserEvidence: string;
                 changedEvents: string;
                 changedLogs: string;
@@ -24440,10 +25919,14 @@ export interface operations {
             campaignId: string;
             completedAt: string | null;
             counts: {
+              afterIdentityMissingPV?: string | null;
               afterPV: string;
-              afterUV: string;
+              afterQualifiedUV?: string | null;
+              afterUV: string | null;
+              beforeIdentityMissingPV?: string | null;
               beforePV: string;
-              beforeUV: string;
+              beforeQualifiedUV?: string | null;
+              beforeUV: string | null;
               browserEvidence: string;
               changedEvents: string;
               changedLogs: string;
@@ -24470,10 +25953,14 @@ export interface operations {
               browserCoverage: number | null;
               complete: boolean;
               counts: {
+                afterIdentityMissingPV?: string | null;
                 afterPV: string;
-                afterUV: string;
+                afterQualifiedUV?: string | null;
+                afterUV: string | null;
+                beforeIdentityMissingPV?: string | null;
                 beforePV: string;
-                beforeUV: string;
+                beforeQualifiedUV?: string | null;
+                beforeUV: string | null;
                 browserEvidence: string;
                 changedEvents: string;
                 changedLogs: string;
@@ -24703,10 +26190,14 @@ export interface operations {
             campaignId: string;
             completedAt: string | null;
             counts: {
+              afterIdentityMissingPV?: string | null;
               afterPV: string;
-              afterUV: string;
+              afterQualifiedUV?: string | null;
+              afterUV: string | null;
+              beforeIdentityMissingPV?: string | null;
               beforePV: string;
-              beforeUV: string;
+              beforeQualifiedUV?: string | null;
+              beforeUV: string | null;
               browserEvidence: string;
               changedEvents: string;
               changedLogs: string;
@@ -24733,10 +26224,14 @@ export interface operations {
               browserCoverage: number | null;
               complete: boolean;
               counts: {
+                afterIdentityMissingPV?: string | null;
                 afterPV: string;
-                afterUV: string;
+                afterQualifiedUV?: string | null;
+                afterUV: string | null;
+                beforeIdentityMissingPV?: string | null;
                 beforePV: string;
-                beforeUV: string;
+                beforeQualifiedUV?: string | null;
+                beforeUV: string | null;
                 browserEvidence: string;
                 changedEvents: string;
                 changedLogs: string;
@@ -25196,20 +26691,65 @@ export interface operations {
         content: {
           'application/json': {
             /** @description Number of matching records. */
-            count?: number;
+            count?: number | null;
             limited: boolean;
             /** @description Page number, starting at 1. */
             page: number;
             /** @description Number of results per page. */
             pageSize: number;
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             rows: {
               nodes: string[];
               seconds: number | null;
               source: string | null;
               /** @description Unique visitor counts for the selected period. */
-              visitors: number;
+              visitors: number | null;
               /** @description Visit counts for the selected period. */
-              visits: number;
+              visits: number | null;
             }[];
             sessions?: ({
               /** @description Browser used by the visitor. */
@@ -25242,7 +26782,7 @@ export interface operations {
               [key: string]: unknown;
             })[];
             /** @description Unique visitor counts for the selected period. */
-            visitors: number;
+            visitors: number | null;
           };
         };
       };
@@ -25356,20 +26896,65 @@ export interface operations {
         content: {
           'application/json': {
             /** @description Number of matching records. */
-            count?: number;
+            count?: number | null;
             limited: boolean;
             /** @description Page number, starting at 1. */
             page: number;
             /** @description Number of results per page. */
             pageSize: number;
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             rows: {
               nodes: string[];
               seconds: number | null;
               source: string | null;
               /** @description Unique visitor counts for the selected period. */
-              visitors: number;
+              visitors: number | null;
               /** @description Visit counts for the selected period. */
-              visits: number;
+              visits: number | null;
             }[];
             sessions?: ({
               /** @description Browser used by the visitor. */
@@ -25402,7 +26987,7 @@ export interface operations {
               [key: string]: unknown;
             })[];
             /** @description Unique visitor counts for the selected period. */
-            visitors: number;
+            visitors: number | null;
           };
         };
       };
@@ -26510,7 +28095,13 @@ export interface operations {
               key: string;
               label: string;
               /** @enum {string} */
-              state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              state:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @description Time interval used to group results: minute, hour, day, month, or year. */
               unit?: string;
               value: number | string | null;
@@ -26527,7 +28118,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
             };
             /** @constant */
@@ -26633,6 +28230,51 @@ export interface operations {
               page?: number;
               /** @description Number of results per page. */
               pageSize?: number;
+              population?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
               previousCursor?: string;
               ruleCount: number;
               tablePages?: {
@@ -26671,13 +28313,37 @@ export interface operations {
               | 'logs';
             states: {
               /** @enum {string} */
-              catalog: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              catalog:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @enum {string} */
-              goals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              goals:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @enum {string} */
-              human: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              human:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @enum {string} */
-              logs: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              logs:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
             };
             tables: {
               [key: string]: {
@@ -26852,7 +28518,13 @@ export interface operations {
               key: string;
               label: string;
               /** @enum {string} */
-              state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              state:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @description Time interval used to group results: minute, hour, day, month, or year. */
               unit?: string;
               value: number | string | null;
@@ -26869,7 +28541,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               a2: {
                 labels: string[];
@@ -26882,7 +28560,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               a3: {
                 labels: string[];
@@ -26895,7 +28579,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               a4: {
                 labels: string[];
@@ -26908,7 +28598,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               ap1: {
                 labels: string[];
@@ -26921,7 +28617,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               b1: {
                 labels: string[];
@@ -26934,7 +28636,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               c1: {
                 labels: string[];
@@ -26947,7 +28655,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               d1: {
                 labels: string[];
@@ -26960,7 +28674,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               d2: {
                 labels: string[];
@@ -26973,7 +28693,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               d3: {
                 labels: string[];
@@ -26986,7 +28712,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               f1: {
                 labels: string[];
@@ -26999,7 +28731,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               f2: {
                 labels: string[];
@@ -27012,7 +28750,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               f3: {
                 labels: string[];
@@ -27025,7 +28769,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               g1: {
                 labels: string[];
@@ -27038,7 +28788,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               g2: {
                 labels: string[];
@@ -27051,7 +28807,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               h1: {
                 labels: string[];
@@ -27064,7 +28826,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               h2: {
                 labels: string[];
@@ -27077,7 +28845,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               h3: {
                 labels: string[];
@@ -27090,7 +28864,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               pf1: {
                 labels: string[];
@@ -27103,7 +28883,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               pf2: {
                 labels: string[];
@@ -27116,7 +28902,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               s1: {
                 labels: string[];
@@ -27129,7 +28921,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               s2: {
                 labels: string[];
@@ -27142,7 +28940,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               se1: {
                 labels: string[];
@@ -27155,7 +28959,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               se2: {
                 labels: string[];
@@ -27168,7 +28978,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
             };
             /** @constant */
@@ -27271,6 +29087,51 @@ export interface operations {
               page?: number;
               /** @description Number of results per page. */
               pageSize?: number;
+              population?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
               previousCursor?: string;
               ruleCount: number;
               tablePages?: {
@@ -27294,13 +29155,37 @@ export interface operations {
             };
             states: {
               /** @enum {string} */
-              catalog: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              catalog:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @enum {string} */
-              goals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              goals:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @enum {string} */
-              human: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              human:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @enum {string} */
-              logs: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              logs:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
             };
             tables: {
               [key: string]: {
@@ -27647,7 +29532,13 @@ export interface operations {
               key: string;
               label: string;
               /** @enum {string} */
-              state: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              state:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @description Time interval used to group results: minute, hour, day, month, or year. */
               unit?: string;
               value: number | string | null;
@@ -27664,7 +29555,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               d2: {
                 labels: string[];
@@ -27677,7 +29574,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               d3: {
                 labels: string[];
@@ -27690,7 +29593,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               g1: {
                 labels: string[];
@@ -27703,7 +29612,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               g2: {
                 labels: string[];
@@ -27716,7 +29631,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               h1: {
                 labels: string[];
@@ -27729,7 +29650,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               h2: {
                 labels: string[];
@@ -27742,7 +29669,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
               h3: {
                 labels: string[];
@@ -27755,7 +29688,13 @@ export interface operations {
                   values: (number | null)[];
                 }[];
                 /** @enum {string} */
-                state?: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+                state?:
+                  | 'available'
+                  | 'empty'
+                  | 'not_connected'
+                  | 'unsupported'
+                  | 'estimated'
+                  | 'unavailable';
               };
             };
             /** @constant */
@@ -27858,6 +29797,51 @@ export interface operations {
               page?: number;
               /** @description Number of results per page. */
               pageSize?: number;
+              population?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
               previousCursor?: string;
               ruleCount: number;
               tablePages?: {
@@ -27881,13 +29865,37 @@ export interface operations {
             };
             states: {
               /** @enum {string} */
-              catalog: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              catalog:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @enum {string} */
-              goals: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              goals:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @enum {string} */
-              human: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              human:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
               /** @enum {string} */
-              logs: 'available' | 'empty' | 'not_connected' | 'unsupported' | 'estimated';
+              logs:
+                | 'available'
+                | 'empty'
+                | 'not_connected'
+                | 'unsupported'
+                | 'estimated'
+                | 'unavailable';
             };
             tables: {
               cityBody: {
@@ -27897,7 +29905,7 @@ export interface operations {
                 conversionRate: number | null;
                 /** @description Replay duration in milliseconds. */
                 duration: number | null;
-                sessions: number;
+                sessions: number | null;
                 share: number | null;
               }[];
               envGrid: {
@@ -28049,21 +30057,57 @@ export interface operations {
                 pageviews: number;
               }[];
             };
+            governance?: {
+              collections: {
+                confirmedAt: string | null;
+                /** @description Date and time the record was created. */
+                createdAt: string;
+                digest: string;
+                epoch: string;
+                events: number;
+                evidence: {
+                  behaviorVersion: string;
+                  coverage: string;
+                  events: number;
+                  /** @description Pageview counts for the selected period. */
+                  pageviews: number;
+                };
+                /** @description Unique identifier of the resource. */
+                id: string;
+                /** @description Date and time the credential was revoked. */
+                revokedAt: string | null;
+                /** @enum {string} */
+                state: 'active' | 'revoked';
+                windowEnd: string;
+              }[];
+              computedAt: string | null;
+              epoch: string;
+              errorCode: string | null;
+              nextCursor?: string | null;
+              nextWindow: string | null;
+              revision: string;
+            };
             history?: {
               actorId: string;
               after: {
                 allowedHostnames: string[];
                 /** @enum {string} */
+                effectiveMode?: 'standard' | 'strict';
+                /** @enum {string} */
                 mode: 'standard' | 'strict' | 'raw';
                 populationVersion?: string;
+                rawAuditOnly?: boolean;
                 revision: string;
                 ruleVersion: string;
               };
               before: {
                 allowedHostnames: string[];
                 /** @enum {string} */
+                effectiveMode?: 'standard' | 'strict';
+                /** @enum {string} */
                 mode: 'standard' | 'strict' | 'raw';
                 populationVersion?: string;
+                rawAuditOnly?: boolean;
                 revision: string;
                 ruleVersion: string;
               };
@@ -28077,11 +30121,19 @@ export interface operations {
             page?: number;
             /** @description Number of results per page. */
             pageSize?: number;
+            partition?: {
+              bucket: string;
+              /** @description Pageview counts for the selected period. */
+              pageviews: number;
+            }[];
             policy?: {
               allowedHostnames: string[];
               /** @enum {string} */
+              effectiveMode?: 'standard' | 'strict';
+              /** @enum {string} */
               mode: 'standard' | 'strict' | 'raw';
               populationVersion?: string;
+              rawAuditOnly?: boolean;
               revision: string;
               ruleVersion: string;
             };
@@ -28123,16 +30175,19 @@ export interface operations {
               /** @description Pageview counts for the selected period. */
               pageviews: number;
               /** @description Unique visitor counts for the selected period. */
-              visitors: number;
+              visitors: number | null;
             }[];
             totals?: {
               excludedPV: number;
-              fullyExcludedUV: number;
+              fullyExcludedUV: number | null;
+              identityCoverage?: number | null;
               includedPV: number;
-              includedUV: number;
+              includedUV: number | null;
               missingVerdictPV: number;
+              qualifiedPV?: number;
+              qualifiedUV?: number;
               rawPV: number;
-              rawUV: number;
+              rawUV: number | null;
             };
           };
         };
@@ -28241,8 +30296,11 @@ export interface operations {
           'application/json': {
             allowedHostnames: string[];
             /** @enum {string} */
+            effectiveMode?: 'standard' | 'strict';
+            /** @enum {string} */
             mode: 'standard' | 'strict' | 'raw';
             populationVersion?: string;
+            rawAuditOnly?: boolean;
             revision: string;
             ruleVersion: string;
           };
@@ -28322,6 +30380,322 @@ export interface operations {
       };
       /** @description Policy revision conflict */
       409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Unsupported analytics backend */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanTrafficExclusions: {
+    parameters: {
+      query?: {
+        cursor?: string;
+      };
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Traffic governance page */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            collections: {
+              confirmedAt: string | null;
+              /** @description Date and time the record was created. */
+              createdAt: string;
+              digest: string;
+              epoch: string;
+              events: number;
+              evidence: {
+                behaviorVersion: string;
+                coverage: string;
+                events: number;
+                /** @description Pageview counts for the selected period. */
+                pageviews: number;
+              };
+              /** @description Unique identifier of the resource. */
+              id: string;
+              /** @description Date and time the credential was revoked. */
+              revokedAt: string | null;
+              /** @enum {string} */
+              state: 'active' | 'revoked';
+              windowEnd: string;
+            }[];
+            computedAt: string | null;
+            epoch: string;
+            errorCode: string | null;
+            nextCursor?: string | null;
+            nextWindow: string | null;
+            revision: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Governance changed; restart pagination */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  manageLiekanTrafficExclusions: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json':
+          | {
+              /** @constant */
+              action: 'preview';
+              expectedRevision: string;
+              /** @description Visit counts for the selected period. */
+              visits: {
+                /**
+                 * Format: uuid
+                 * @description ID of the visitor session.
+                 */
+                sessionId: string;
+                /**
+                 * Format: uuid
+                 * @description ID of the visit.
+                 */
+                visitId: string;
+              }[];
+              /** Format: date-time */
+              windowEnd: string;
+            }
+          | {
+              /** @constant */
+              action: 'confirm';
+              digest: string;
+              expectedRevision: string;
+              /** Format: uuid */
+              previewId: string;
+            }
+          | {
+              /** @constant */
+              action: 'revoke';
+              /** Format: uuid */
+              collectionId: string;
+              expectedRevision: string;
+            };
+      };
+    };
+    responses: {
+      /** @description Traffic governance result */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            action: 'preview' | 'confirm' | 'revoke';
+            digest?: string;
+            evidence?: {
+              behaviorVersion: string;
+              /** @constant */
+              coverage: 'observed';
+              events: number;
+              /** @description Pageview counts for the selected period. */
+              pageviews: number;
+              /** @description Visit counts for the selected period. */
+              visits: {
+                /** @description ID of the visitor session. */
+                sessionId: string;
+                /** @description ID of the visit. */
+                visitId: string;
+              }[];
+              windowComputedAt: string;
+            };
+            /** @description Date and time the credential expires. */
+            expiresAt?: string;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            revision: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Stale preview or changed authority */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Window budget exceeded */
+      413: {
         headers: {
           [name: string]: unknown;
         };
@@ -28481,6 +30855,51 @@ export interface operations {
               };
             };
             meta: {
+              browserPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
               catalogBaseline: string;
               conditions: {
                 /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -28496,6 +30915,32 @@ export interface operations {
               epoch: number;
               /** @constant */
               metricVersion: 'crawler-metrics-v1';
+              observationIdentity?: {
+                coverage: number | null;
+                /** @enum {string} */
+                population: 'raw_public_pv' | 'eligible_public_pv';
+                qualifiedPV: number;
+                qualifiedVisitors: number;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  /** @constant */
+                  endExclusive: true;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty';
+                /** @constant */
+                timeBasis: 'received_at';
+                totalPV: number;
+                /** @constant */
+                version: 'received-browser-identity-v1';
+                versions: string[];
+                versionsTruncated: boolean;
+              };
               /** @description Page number, starting at 1. */
               page: number;
               /**
@@ -28562,7 +31007,7 @@ export interface operations {
               pv: number;
               smallSample: boolean;
               source: string;
-              uv: number;
+              uv: number | null;
               version: string;
             }[];
             /** @enum {string} */
@@ -28722,29 +31167,38 @@ export interface operations {
           'application/json': {
             current: {
               excludedPV: number;
-              fullyExcludedUV: number;
+              fullyExcludedUV: number | null;
+              identityCoverage?: number | null;
               includedPV: number;
-              includedUV: number;
+              includedUV: number | null;
               missingVerdictPV: number;
+              qualifiedPV?: number;
+              qualifiedUV?: number;
               rawPV: number;
-              rawUV: number;
+              rawUV: number | null;
             };
             policy: {
               allowedHostnames: string[];
               /** @enum {string} */
+              effectiveMode?: 'standard' | 'strict';
+              /** @enum {string} */
               mode: 'standard' | 'strict' | 'raw';
               populationVersion?: string;
+              rawAuditOnly?: boolean;
               revision: string;
               ruleVersion: string;
             };
             preview: {
               excludedPV: number;
-              fullyExcludedUV: number;
+              fullyExcludedUV: number | null;
+              identityCoverage?: number | null;
               includedPV: number;
-              includedUV: number;
+              includedUV: number | null;
               missingVerdictPV: number;
+              qualifiedPV?: number;
+              qualifiedUV?: number;
               rawPV: number;
-              rawUV: number;
+              rawUV: number | null;
             };
             proposed: {
               allowedHostnames: string[];
@@ -28892,6 +31346,51 @@ export interface operations {
               [key: string]: number | null;
             } | null;
             meta: {
+              browserPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
               catalogBaseline: string;
               conditions: {
                 /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -28907,6 +31406,32 @@ export interface operations {
               epoch: number;
               /** @constant */
               metricVersion: 'crawler-metrics-v1';
+              observationIdentity?: {
+                coverage: number | null;
+                /** @enum {string} */
+                population: 'raw_public_pv' | 'eligible_public_pv';
+                qualifiedPV: number;
+                qualifiedVisitors: number;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  /** @constant */
+                  endExclusive: true;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty';
+                /** @constant */
+                timeBasis: 'received_at';
+                totalPV: number;
+                /** @constant */
+                version: 'received-browser-identity-v1';
+                versions: string[];
+                versionsTruncated: boolean;
+              };
               /** @description Page number, starting at 1. */
               page: number;
               /**
@@ -29184,9 +31709,9 @@ export interface operations {
             }[];
             impact?: {
               flaggedPV: number;
-              fullyExcludedUV: number;
+              fullyExcludedUV: number | null;
               includedPV: number;
-              includedUV: number;
+              includedUV: number | null;
             };
             /** @constant */
             mode?: 'observe';
@@ -29325,22 +31850,67 @@ export interface operations {
         };
         content: {
           'application/json': {
-            aiVisits: number;
+            aiVisits: number | null;
             /** @description Number of visits with only one pageview. */
-            bounces: number;
+            bounces: number | null;
             /** @description Analytics for the comparison period. */
             comparison: {
-              aiVisits: number;
+              aiVisits: number | null;
               /** @description Number of visits with only one pageview. */
-              bounces: number;
+              bounces: number | null;
               /** @description Pageview counts for the selected period. */
               pageviews: number;
+              population?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
               /** @description Total visit duration in seconds. */
-              totaltime: number;
+              totaltime: number | null;
               /** @description Unique visitor counts for the selected period. */
-              visitors: number;
+              visitors: number | null;
               /** @description Visit counts for the selected period. */
-              visits: number;
+              visits: number | null;
             };
             /**
              * Format: uuid
@@ -29351,15 +31921,60 @@ export interface operations {
             lastAt: string | null;
             /** @description Pageview counts for the selected period. */
             pageviews: number;
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             received: boolean;
             /** @description Total visit duration in seconds. */
-            totaltime: number;
+            totaltime: number | null;
             /** @description Pageview counts for the selected period. */
             views: number;
             /** @description Unique visitor counts for the selected period. */
-            visitors: number;
+            visitors: number | null;
             /** @description Visit counts for the selected period. */
-            visits: number;
+            visits: number | null;
           }[];
         };
       };
@@ -30170,6 +32785,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -30177,8 +32794,53 @@ export interface operations {
             /** @description Data returned by the operation. */
             data: {
               [key: string]: {
-                total: number;
-                values: number[];
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
+                total: number | null;
+                values: (number | null)[];
               };
             };
           };
@@ -31628,6 +34290,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -31635,8 +34299,53 @@ export interface operations {
             /** @description Data returned by the operation. */
             data: {
               [key: string]: {
-                total: number;
-                values: number[];
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
+                total: number | null;
+                values: (number | null)[];
               };
             };
           };
@@ -31750,6 +34459,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -31780,6 +34491,51 @@ export interface operations {
               /** @description Path portion of the page URL. */
               urlPath: string;
             }[];
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             referrers: {
               [key: string]: number;
             };
@@ -31794,7 +34550,7 @@ export interface operations {
               visitors: {
                 t: string;
                 x: string;
-                y: number;
+                y: number | null;
               }[];
             };
             timestamp: number;
@@ -31804,7 +34560,7 @@ export interface operations {
               /** @description Pageview counts for the selected period. */
               views: number;
               /** @description Unique visitor counts for the selected period. */
-              visitors: number;
+              visitors: number | null;
             };
             urls: {
               [key: string]: number;
@@ -35569,6 +38325,8 @@ export interface operations {
       /** @description Active visitor count. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -35623,6 +38381,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -35817,6 +38577,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -36145,6 +38907,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -36152,46 +38916,91 @@ export interface operations {
             paidAds: {
               /** @description Display name of the resource. */
               name: string;
-              value: number;
+              value: number | null;
             }[];
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             /** @description URL of the referring page. */
             referrer: {
               /** @description Display name of the resource. */
               name: string;
-              value: number;
+              value: number | null;
             }[];
             total: {
               /** @description Pageview counts for the selected period. */
               pageviews: number;
               /** @description Unique visitor counts for the selected period. */
-              visitors: number;
+              visitors: number | null;
               /** @description Visit counts for the selected period. */
-              visits: number;
+              visits: number | null;
             };
             utm_campaign: {
               /** @description Display name of the resource. */
               name: string;
-              value: number;
+              value: number | null;
             }[];
             utm_content: {
               /** @description Display name of the resource. */
               name: string;
-              value: number;
+              value: number | null;
             }[];
             utm_medium: {
               /** @description Display name of the resource. */
               name: string;
-              value: number;
+              value: number | null;
             }[];
             utm_source: {
               /** @description Display name of the resource. */
               name: string;
-              value: number;
+              value: number | null;
             }[];
             utm_term: {
               /** @description Display name of the resource. */
               name: string;
-              value: number;
+              value: number | null;
             }[];
           };
         };
@@ -36328,20 +39137,22 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': ({
             /** @description Number of visits with only one pageview. */
-            bounces: number;
+            bounces: number | null;
             /** @description Total visit duration in seconds. */
-            totaltime: number;
+            totaltime: number | null;
             /** @description Pageview counts for the selected period. */
             views: number;
             /** @description Unique visitor counts for the selected period. */
-            visitors: number;
+            visitors: number | null;
             /** @description Visit counts for the selected period. */
-            visits: number;
+            visits: number | null;
           } & {
             [key: string]: string | number;
           })[];
@@ -36418,6 +39229,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -36531,6 +39344,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -36688,6 +39503,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -36842,6 +39659,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -36966,6 +39785,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -37093,6 +39914,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -37214,6 +40037,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -37346,6 +40171,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -37411,6 +40238,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -37536,6 +40365,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -37662,6 +40493,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -37782,6 +40615,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -37904,6 +40739,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -38028,6 +40865,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -38164,6 +41003,8 @@ export interface operations {
       /** @description A page of events. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -38284,6 +41125,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -38412,6 +41255,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -38424,11 +41269,56 @@ export interface operations {
                 /** @description Number of unique events. */
                 uniqueEvents: number;
                 /** @description Unique visitor counts for the selected period. */
-                visitors: number;
+                visitors: number | null;
                 /** @description Visit counts for the selected period. */
-                visits: number;
+                visits: number | null;
               }[];
               length: number;
+            };
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
             };
           };
         };
@@ -38507,6 +41397,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -38586,6 +41478,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -38838,6 +41732,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -39169,24 +42065,26 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
-            dropoff: number;
-            dropped: number;
+            dropoff: number | null;
+            dropped: number | null;
             /** @description Filters applied to the analytics data. */
             filters?: {
               operator: string;
               property: string;
               value: string;
             }[];
-            previous: number;
-            remaining: number;
+            previous: number | null;
+            remaining: number | null;
             type: string;
             value: string;
             /** @description Unique visitor counts for the selected period. */
-            visitors: number;
+            visitors: number | null;
           }[];
         };
       };
@@ -39323,24 +42221,26 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
-            dropoff: number;
-            dropped: number;
+            dropoff: number | null;
+            dropped: number | null;
             /** @description Filters applied to the analytics data. */
             filters?: {
               operator: string;
               property: string;
               value: string;
             }[];
-            previous: number;
-            remaining: number;
+            previous: number | null;
+            remaining: number | null;
             type: string;
             value: string;
             /** @description Unique visitor counts for the selected period. */
-            visitors: number;
+            visitors: number | null;
           }[];
         };
       };
@@ -39424,6 +42324,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -39665,6 +42567,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -39985,17 +42889,19 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             conversions?: number;
-            num: number;
+            num: number | null;
             series?: {
               x: string;
               y: number;
             }[];
-            total: number;
+            total: number | null;
           };
         };
       };
@@ -40133,12 +43039,14 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
-            num: number;
-            total: number;
+            num: number | null;
+            total: number | null;
           };
         };
       };
@@ -40276,6 +43184,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -40284,7 +43194,7 @@ export interface operations {
             pages: {
               /** @description Number of matching records. */
               count: number;
-              sessions: number;
+              sessions: number | null;
               /** @description Path portion of the page URL. */
               urlPath: string;
             }[];
@@ -40306,6 +43216,51 @@ export interface operations {
               x: number;
               y: number;
             }[];
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             scroll: {
               buckets: {
                 depth: number;
@@ -40313,7 +43268,7 @@ export interface operations {
                 pageH: number;
                 /** @description Page width in pixels. */
                 pageW: number;
-                sessions: number;
+                sessions: number | null;
                 /** @description Viewport height in pixels. */
                 viewportH: number;
                 /** @description Viewport width in pixels. */
@@ -40323,7 +43278,7 @@ export interface operations {
               pageH: number;
               /** @description Page width in pixels. */
               pageW: number;
-              totalSessions: number;
+              totalSessions: number | null;
               /** @description Viewport height in pixels. */
               viewportH: number;
               /** @description Viewport width in pixels. */
@@ -40482,12 +43437,14 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             /** @description Number of matching records. */
-            count: number;
+            count: number | null;
             items: string[];
           }[];
         };
@@ -40637,6 +43594,8 @@ export interface operations {
       /** @description Ranked rows. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -40769,22 +43728,24 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             /** @description Number of visits with only one pageview. */
-            bounces: number;
+            bounces: number | null;
             /** @description Display name of the resource. */
             name: string;
             /** @description Pageview counts for the selected period. */
             pageviews: number;
             /** @description Total visit duration in seconds. */
-            totaltime: number;
+            totaltime: number | null;
             /** @description Unique visitor counts for the selected period. */
-            visitors: number;
+            visitors: number | null;
             /** @description Visit counts for the selected period. */
-            visits: number;
+            visits: number | null;
           }[];
         };
       };
@@ -40907,6 +43868,8 @@ export interface operations {
       /** @description Time series. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -41028,6 +43991,8 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -41178,6 +44143,8 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -41323,6 +44290,8 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -41428,6 +44397,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -41545,12 +44516,14 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             /** @description Number of matching records. */
-            count: number;
+            count: number | null;
             /** @description Data returned by the operation. */
             data: {
               /** @description Browser used by the visitor. */
@@ -41590,6 +44563,51 @@ export interface operations {
             page: number;
             /** @description Number of results per page. */
             pageSize: number;
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             /** @description Search text used to filter results. */
             search?: string;
             /** @description Whether to sort results in descending order. */
@@ -41652,6 +44670,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -41720,6 +44740,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -41817,6 +44839,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -42041,16 +45065,18 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             date: string;
             day: number;
-            percentage: number;
-            returnVisitors: number;
+            percentage: number | null;
+            returnVisitors: number | null;
             /** @description Unique visitor counts for the selected period. */
-            visitors: number;
+            visitors: number | null;
           }[];
         };
       };
@@ -42192,6 +45218,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -42328,6 +45356,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -42474,12 +45504,14 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             /** @description Number of matching records. */
-            count: number;
+            count: number | null;
             /** @description Data returned by the operation. */
             data: {
               /** @description Browser used by the visitor. */
@@ -42524,6 +45556,51 @@ export interface operations {
             page: number;
             /** @description Number of results per page. */
             pageSize: number;
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             /** @description Search text used to filter results. */
             search?: string;
             /** @description Whether to sort results in descending order. */
@@ -42651,12 +45728,31 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
+            arpu: number | null;
+            /** @description Arithmetic mean of the numeric property values. */
+            average: number;
             /** @description Analytics for the comparison period. */
-            comparison: unknown;
+            comparison: {
+              arpu: number | null;
+              /** @description Arithmetic mean of the numeric property values. */
+              average: number;
+              /** @description Number of matching records. */
+              count: number;
+              sum: number | string | null;
+              total_sessions: number | null;
+              unique_count: number | null;
+            };
+            /** @description Number of matching records. */
+            count: number;
+            sum: number | string | null;
+            total_sessions: number | null;
+            unique_count: number | null;
           };
         };
       };
@@ -42718,6 +45814,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -42957,6 +46055,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -43318,12 +46418,14 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             /** @description Number of matching records. */
-            count: number;
+            count: number | null;
             /** @description Data returned by the operation. */
             data: {
               /** @description Date and time the record was created. */
@@ -43345,6 +46447,51 @@ export interface operations {
             page: number;
             /** @description Number of results per page. */
             pageSize: number;
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             /** @description Search text used to filter results. */
             search?: string;
             /** @description Whether to sort results in descending order. */
@@ -43466,13 +46613,15 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             t: string;
             x: string;
-            y: number;
+            y: number | null;
           }[];
         };
       };
@@ -43588,12 +46737,14 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             t: string;
-            y: number;
+            y: number | null;
           }[];
         };
       };
@@ -43713,12 +46864,14 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             t: string;
-            y: number;
+            y: number | null;
           }[];
         };
       };
@@ -43834,19 +46987,21 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             /** @description Arithmetic mean of the numeric property values. */
-            average: number;
+            average: number | null;
             /** @description Maximum numeric property value. */
-            max: number;
+            max: number | null;
             /** @description Median of the numeric property values. */
-            median: number;
+            median: number | null;
             /** @description Minimum numeric property value. */
-            min: number;
-            total: number;
+            min: number | null;
+            total: number | null;
           };
         };
       };
@@ -43960,6 +47115,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -43968,7 +47125,7 @@ export interface operations {
             dataType: number;
             /** @description Name of the custom event or session property. */
             propertyName: string;
-            total: number;
+            total: number | null;
           }[];
         };
       };
@@ -44086,13 +47243,15 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             t: string;
             x: string;
-            y: number;
+            y: number | null;
           }[];
         };
       };
@@ -44210,6 +47369,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -44217,11 +47378,11 @@ export interface operations {
             activity: number;
             events: number;
             label: string;
-            sessions: number;
+            sessions: number | null;
             /** @description Pageview counts for the selected period. */
             views: number;
             /** @description Visit counts for the selected period. */
-            visits: number;
+            visits: number | null;
           }[];
         };
       };
@@ -44337,11 +47498,13 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
-            total: number;
+            total: number | null;
             value: string;
           }[];
         };
@@ -44473,6 +47636,8 @@ export interface operations {
       /** @description A page of sessions. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -44534,12 +47699,64 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             canDelete: unknown;
-            stitchedSessionCount: unknown;
+            distinctIds?: string[];
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
+            stitchedSessionCount: number | null;
+            /** @description Total visit duration in seconds. */
+            totaltime?: number | string | null;
+            /** @description Visit counts for the selected period. */
+            visits?: number | null;
           };
         };
       };
@@ -44690,6 +47907,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -44771,6 +47990,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -44854,12 +48075,14 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
           'application/json': {
             /** @description Number of matching records. */
-            count: number;
+            count: number | null;
             /** @description Data returned by the operation. */
             data: {
               /** @description Browser used by the visitor. */
@@ -44899,6 +48122,51 @@ export interface operations {
             page: number;
             /** @description Number of results per page. */
             pageSize: number;
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
             /** @description Search text used to filter results. */
             search?: string;
             /** @description Whether to sort results in descending order. */
@@ -45014,10 +48282,76 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
-          'application/json': Record<string, never>;
+          'application/json': {
+            countries: {
+              value: number;
+            };
+            events: {
+              value: number;
+            };
+            /** @description Pageview counts for the selected period. */
+            pageviews: {
+              value: number;
+            };
+            population?: {
+              /** @enum {string} */
+              capability: 'supported' | 'unsupported';
+              catalogVersions: string[];
+              epoch: string | null;
+              governanceProcessing?: {
+                computedAt: string | null;
+                errorCode: string | null;
+                nextWindow: string | null;
+                /** @enum {string} */
+                state: 'observed' | 'unknown';
+              };
+              governanceRevision: string | null;
+              governanceWatermark: string | null;
+              historyActiveGeneration: string | null;
+              historyRevision: string | null;
+              identity: {
+                coverage: number | null;
+                eligibleEvents: number | null;
+                eligiblePV: number | null;
+                qualifiedPV: number | null;
+                qualifiedVisitors: number | null;
+                /** @enum {string} */
+                status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                versions: string[];
+              };
+              policyRevision: string | null;
+              populationVersion: string;
+              range: {
+                /** @description End of the date range as a Unix timestamp in milliseconds. */
+                endAt: number;
+                endExclusive?: boolean;
+                /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                startAt: number;
+                /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                timezone: string;
+              };
+              resourceId?: string;
+              /** @enum {string} */
+              resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+              ruleVersions: string[];
+              /** @constant */
+              scope: 'resource-window';
+              versionSetsTruncated: boolean;
+            };
+            /** @description Unique visitor counts for the selected period. */
+            visitors: {
+              value: number | null;
+            };
+            /** @description Visit counts for the selected period. */
+            visits: {
+              value: number | null;
+            };
+          };
         };
       };
       /** @description Bad request. */
@@ -45130,10 +48464,12 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
-          'application/json': number[][];
+          'application/json': (number | null)[][];
         };
       };
       /** @description Bad request. */
@@ -45246,6 +48582,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -45540,6 +48878,8 @@ export interface operations {
       /** @description Summary stats with comparison. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -45790,6 +49130,8 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -45890,6 +49232,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -45955,6 +49299,8 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
         content: {
@@ -45962,8 +49308,53 @@ export interface operations {
             /** @description Data returned by the operation. */
             data: {
               [key: string]: {
-                total: number;
-                values: number[];
+                population?: {
+                  /** @enum {string} */
+                  capability: 'supported' | 'unsupported';
+                  catalogVersions: string[];
+                  epoch: string | null;
+                  governanceProcessing?: {
+                    computedAt: string | null;
+                    errorCode: string | null;
+                    nextWindow: string | null;
+                    /** @enum {string} */
+                    state: 'observed' | 'unknown';
+                  };
+                  governanceRevision: string | null;
+                  governanceWatermark: string | null;
+                  historyActiveGeneration: string | null;
+                  historyRevision: string | null;
+                  identity: {
+                    coverage: number | null;
+                    eligibleEvents: number | null;
+                    eligiblePV: number | null;
+                    qualifiedPV: number | null;
+                    qualifiedVisitors: number | null;
+                    /** @enum {string} */
+                    status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                    versions: string[];
+                  };
+                  policyRevision: string | null;
+                  populationVersion: string;
+                  range: {
+                    /** @description End of the date range as a Unix timestamp in milliseconds. */
+                    endAt: number;
+                    endExclusive?: boolean;
+                    /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                    startAt: number;
+                    /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                    timezone: string;
+                  };
+                  resourceId?: string;
+                  /** @enum {string} */
+                  resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                  ruleVersions: string[];
+                  /** @constant */
+                  scope: 'resource-window';
+                  versionSetsTruncated: boolean;
+                };
+                total: number | null;
+                values: (number | null)[];
               };
             };
           };

@@ -142,7 +142,12 @@ describe('Liekan authenticated website boundary', () => {
   });
   it('resolves a short site number to the UUID and keys downstream checks on it', async () => {
     mocks.auth.mockResolvedValue({ user: { id: 'reader' } });
-    mocks.website.mockResolvedValue({ id, name: 'Website', domain: 'example.com', siteNumber: 101 });
+    mocks.website.mockResolvedValue({
+      id,
+      name: 'Website',
+      domain: 'example.com',
+      siteNumber: 101,
+    });
     const access = await authorize(request, '101');
     expect(mocks.website).toHaveBeenCalledWith({
       where: { siteNumber: 101, deletedAt: null },
@@ -213,7 +218,11 @@ describe('upstream human metric contract', () => {
   it('returns validated numeric totals and ignores compatible additional fields', async () => {
     mocks.stats.mockResolvedValue({ ...totals, additionalField: 'upstream extension' });
     await expect(humanTotals(id, start, end)).resolves.toEqual(totals);
-    expect(mocks.stats).toHaveBeenCalledWith(id, { startDate: start, endDate: end });
+    expect(mocks.stats).toHaveBeenCalledWith(id, {
+      startDate: start,
+      endDate: end,
+      timezone: 'UTC',
+    });
     mocks.stats.mockResolvedValue({
       pageviews: 0,
       visitors: 0,
@@ -222,6 +231,15 @@ describe('upstream human metric contract', () => {
       totaltime: 0.5,
     });
     await expect(humanTotals(id, start, end)).resolves.toMatchObject({ totaltime: 0.5 });
+  });
+  it('carries an explicit reporting timezone without a request cache context', async () => {
+    mocks.stats.mockResolvedValue(totals);
+    await humanTotals(id, start, end, 'Asia/Shanghai');
+    expect(mocks.stats).toHaveBeenCalledWith(id, {
+      startDate: start,
+      endDate: end,
+      timezone: 'Asia/Shanghai',
+    });
   });
   it('normalizes the native PostgreSQL bigint counts without losing precision', async () => {
     mocks.stats.mockResolvedValue({
@@ -232,6 +250,34 @@ describe('upstream human metric contract', () => {
       totaltime: 300n,
     });
     await expect(humanTotals(id, start, end)).resolves.toEqual(totals);
+  });
+  it('preserves unavailable identities when accompanied by population evidence', async () => {
+    const { populationFromRow } = await import('./browser-population');
+    const population = populationFromRow(
+      {
+        resourceKind: 'website',
+        eligibleEvents: 4,
+        qualifiedEvents: 1,
+        eligiblePV: 4,
+        qualifiedPV: 1,
+        qualifiedVisitors: 1,
+      },
+      { startAt: +start, endAt: +end, timezone: 'UTC' },
+    );
+    mocks.stats.mockResolvedValue({
+      pageviews: 4n,
+      visitors: null,
+      visits: null,
+      bounces: null,
+      totaltime: null,
+      population,
+    });
+    await expect(humanTotals(id, start, end)).resolves.toMatchObject({
+      pageviews: 4,
+      visitors: null,
+      visits: null,
+      population,
+    });
   });
   it('rejects missing or renamed units with a redacted contract failure', async () => {
     const { totaltime, ...remaining } = totals;

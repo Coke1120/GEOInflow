@@ -1,3 +1,7 @@
+import { applyFeaturePopulation } from '../contracts/population-results';
+import { readBrowserPopulation } from './browser-population';
+import { nativeSnapshot } from './native-snapshot';
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { geographyVersion } from '../contracts/geography';
 import { getPostgresCountrySQL } from '@/lib/country';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './query-cache';
@@ -81,6 +85,18 @@ function attributionCte(
     direction = p.model === 'first-click' ? 'ASC' : 'DESC';
   return `${cte}, ${prefix}conversions AS(SELECT session_id,MAX(created_at) AS last_conversion FROM ${source} WHERE event_type={{${prefix}conversionType}} AND ${column}={{${prefix}step}} GROUP BY session_id), ${prefix}attributed AS(SELECT c.session_id,source.referrer_domain,source.hostname FROM ${prefix}conversions c LEFT JOIN LATERAL(SELECT e.referrer_domain,e.hostname FROM website_event e WHERE e.website_id={{websiteId::uuid}} AND e.session_id=c.session_id AND e.created_at BETWEEN {{startDate}} AND {{endDate}} AND e.created_at${p.model === 'last-click' ? '<' : '<='}c.last_conversion AND e.event_type IN(1,2) ORDER BY e.created_at ${direction},e.event_id ${direction} LIMIT 1) source ON TRUE)`;
 }
+async function featurePopulation(websiteId: string, p: any, load: () => Promise<any>) {
+  return nativeSnapshot(async () => {
+    const value = await load();
+    const population = await readBrowserPopulation(
+      websiteId,
+      new Date(p.startAt),
+      new Date(p.endAt),
+      p.timezone,
+    );
+    return applyFeaturePopulation(value, p.kind || 'properties', population);
+  });
+}
 export async function featureAnalytics(websiteId: string, input: unknown) {
   const parsed = analysisQuery.safeParse(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
@@ -94,7 +110,7 @@ export async function featureAnalytics(websiteId: string, input: unknown) {
     ['events', 'utm', 'sources', 'performance', 'attribution', 'heatmap-scroll'].includes(p.kind)
   ) {
     const result = await analyticsCache.read(
-      analyticsCacheKey(`feature-analytics-v2-${geographyVersion}`, [
+      analyticsCacheKey(`feature-analytics-v3-${geographyVersion}-${TRAFFIC_POLICY_VERSION}`, [
         process.env.DATABASE_URL,
         websiteId,
         p,
@@ -102,13 +118,13 @@ export async function featureAnalytics(websiteId: string, input: unknown) {
       ]),
       statisticsCacheTtl(p.endAt, p.timezone),
       [websiteCacheTag(websiteId)],
-      () => computeFeatureAnalytics(websiteId, p, filters),
+      () => featurePopulation(websiteId, p, () => computeFeatureAnalytics(websiteId, p, filters)),
       refresh === '1',
     );
     noteCacheResult(result);
     return result.value;
   }
-  return computeFeatureAnalytics(websiteId, p, filters);
+  return featurePopulation(websiteId, p, () => computeFeatureAnalytics(websiteId, p, filters));
 }
 async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) {
   let source = p.retentionDate ? 'cohort_events' : 'filtered_events';
@@ -394,20 +410,25 @@ export async function featureJourney(websiteId: string, input: unknown): Promise
   }
   if (!nodes && !bypassQueryCache()) {
     const result = await analyticsCache.read(
-      analyticsCacheKey(`feature-journey-v3-${geographyVersion}`, [
+      analyticsCacheKey(`feature-journey-v4-${geographyVersion}-${TRAFFIC_POLICY_VERSION}`, [
         process.env.DATABASE_URL,
         websiteId,
         p,
       ]),
       statisticsCacheTtl(p.endAt, p.timezone),
       [websiteCacheTag(websiteId)],
-      () => computeFeatureJourney(websiteId, p, nodes),
+      () =>
+        featurePopulation(websiteId, { ...p, kind: 'journey' }, () =>
+          computeFeatureJourney(websiteId, p, nodes),
+        ),
       refresh === '1',
     );
     noteCacheResult(result);
     return result.value;
   }
-  return computeFeatureJourney(websiteId, p, nodes);
+  return featurePopulation(websiteId, { ...p, kind: 'journey' }, () =>
+    computeFeatureJourney(websiteId, p, nodes),
+  );
 }
 async function computeFeatureJourney(
   websiteId: string,
@@ -468,6 +489,12 @@ async function computeFeatureJourney(
 }
 
 export async function featureGoal(websiteId: string, goalId: string, input: unknown, auth: Auth) {
+  const p = analysisQuery.parse(input);
+  return featurePopulation(websiteId, { ...p, kind: 'goal' }, () =>
+    computeFeatureGoal(websiteId, goalId, input, auth),
+  );
+}
+async function computeFeatureGoal(websiteId: string, goalId: string, input: unknown, auth: Auth) {
   const parsed = analysisQuery.safeParse(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
   const report = await getReport(goalId);

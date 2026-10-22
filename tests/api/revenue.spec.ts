@@ -7,9 +7,10 @@ import { buildDataset } from './seed/dataset';
  * each send a `purchase` on 3 days with revenue 49.5 / 59.5 / 69.5 in USD.
  * 9 purchases, sum 535.5, average 59.5. Nothing else in the suite ingests
  * `revenue` for this website, so these totals are asserted exactly.
- * The test server uses the default monthly session salt in UTC. The seeded
- * purchase days can cross a month boundary, creating one session per persona
- * in each observed month. Revenue queries count session IDs, even with identify.
+ * The test server uses the default monthly session salt in UTC. PostgreSQL
+ * fixtures retain the identity created at intake when their event dates are
+ * moved into the historical window; ClickHouse uses the supplied event month.
+ * Revenue queries count session IDs, even with identify.
  */
 
 const PURCHASE_REVENUES = [49.5, 59.5, 69.5];
@@ -31,7 +32,9 @@ test.describe('Revenue', () => {
       purchases.map(event =>
         JSON.stringify([
           event.payload.id,
-          new Date(Number(event.payload.timestamp) * 1000).toISOString().slice(0, 7),
+          seed.db === 'clickhouse'
+            ? new Date(Number(event.payload.timestamp) * 1000).toISOString().slice(0, 7)
+            : new Date(seed.createdAt).toISOString().slice(0, 7),
         ]),
       ),
     ).size;

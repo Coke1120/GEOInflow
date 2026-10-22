@@ -1,3 +1,4 @@
+import type { BrowserPopulation } from '../contracts/browser-population';
 import { withPublishedRegistry } from './crawler-registry-context';
 import { getPublishedCatalog } from '../crawlers/published';
 import { z } from 'zod';
@@ -8,6 +9,7 @@ import { AnalyticsRestart, AnalyticsUnavailable } from './analytics-budget';
 import { processSingleton } from './process-singleton';
 
 interface CacheContext {
+  populations?: Map<string, BrowserPopulation>;
   bypass?: boolean;
   results: Array<Omit<CachedResult<unknown>, 'value'>>;
   deadline?: number;
@@ -77,6 +79,28 @@ export function bindCacheRequest(
   context.parameters = parameters;
   context.reauthorize = reauthorize;
 }
+export function noteBrowserPopulation(resourceId: string, population: BrowserPopulation) {
+  const context = contexts.getStore();
+  if (!context) return;
+  context.populations ||= new Map();
+  context.populations.set(JSON.stringify([resourceId, population.range]), {
+    ...population,
+    resourceId,
+  });
+}
+/** Capture only metadata emitted by this load, including concurrent aggregate requests. */
+export async function captureBrowserPopulations<T>(load: () => Promise<T>) {
+  const context = contexts.getStore();
+  const captured = {
+    ...context,
+    results: context?.results || [],
+    populations: new Map<string, BrowserPopulation>(),
+  };
+  return contexts.run(captured, async () => ({
+    value: await load(),
+    populations: [...captured.populations.values()],
+  }));
+}
 export function noteCacheResult({ generatedAt, expiresAt, status, tier }: CachedResult<unknown>) {
   contexts.getStore()?.results.push({ generatedAt, expiresAt, status, tier });
 }
@@ -103,7 +127,10 @@ export function analyticsWorkerContext<T>(
     work,
   );
 }
-export async function withQueryCacheHeaders(work: () => Promise<Response>, request?: Request): Promise<Response> {
+export async function withQueryCacheHeaders(
+  work: () => Promise<Response>,
+  request?: Request,
+): Promise<Response> {
   if (request && !process.env.CLICKHOUSE_URL) {
     const version = request.headers.get('x-liekan-catalog-version');
     if (version && !z.uuid().safeParse(version).success)
@@ -135,6 +162,7 @@ export async function withQueryCacheHeaders(work: () => Promise<Response>, reque
             : error;
         context.versions.clear();
         context.results = [];
+        context.populations?.clear();
         context.prepared = false;
       }
     }
@@ -159,6 +187,28 @@ export async function withQueryCacheHeaders(work: () => Promise<Response>, reque
     );
   }
   response.headers.set('X-Liekan-Server-Time', String(Date.now()));
+  if (response.ok && context.populations?.size) {
+    const populations = [...context.populations.values()];
+    // Full metadata lives on object contracts; legacy arrays receive a bounded summary.
+    const summary = populations
+      .slice(0, 4)
+      .map(({ ruleVersions, catalogVersions, identity, ...population }) => ({
+        ...population,
+        identity: { ...identity, versions: identity.versions.slice(0, 4) },
+        ruleVersions: ruleVersions.slice(0, 4),
+        catalogVersions: catalogVersions.slice(0, 4),
+        versionSetsTruncated:
+          population.versionSetsTruncated ||
+          ruleVersions.length > 4 ||
+          catalogVersions.length > 4 ||
+          identity.versions.length > 4,
+      }));
+    response.headers.set(
+      'X-Liekan-Population',
+      JSON.stringify({ populations: summary, truncated: populations.length > 4 }),
+    );
+  }
+
   if (response.ok && context.results.length) {
     const { results } = context;
     response.headers.set(

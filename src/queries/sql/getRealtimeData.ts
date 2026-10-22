@@ -1,3 +1,6 @@
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { getWebsiteStats } from './getWebsiteStats';
 import { normalizeCountryCode } from '@/lib/country';
 import type { QueryFilters, RealtimeActivity, RealtimeData, RealtimeEvent } from '@/lib/types';
 import { getRealtimeActivity } from '@/queries/sql/getRealtimeActivity';
@@ -18,10 +21,19 @@ export async function getRealtimeData(
   websiteId: string,
   filters: QueryFilters,
 ): Promise<RealtimeData> {
-  const [activity, pageviews, sessions] = await Promise.all([
+  return process.env.CLICKHOUSE_URL
+    ? computeRealtimeData(websiteId, filters)
+    : nativeSnapshot(() => computeRealtimeData(websiteId, filters));
+}
+async function computeRealtimeData(
+  websiteId: string,
+  filters: QueryFilters,
+): Promise<RealtimeData> {
+  const [activity, pageviews, sessions, totals] = await Promise.all([
     getRealtimeActivity(websiteId, filters),
     getPageviewStats(websiteId, filters),
     getSessionStats(websiteId, filters),
+    getWebsiteStats(websiteId, filters),
   ]);
 
   const uniques = new Set();
@@ -41,7 +53,7 @@ export async function getRealtimeData(
       const country = normalizeCountryCode(event.country);
       const normalizedEvent = { ...event, country };
 
-      if (!uniques.has(sessionId)) {
+      if (identityUsable(totals.population) && !uniques.has(sessionId)) {
         uniques.add(sessionId);
         increment(countries, country);
 
@@ -64,6 +76,7 @@ export async function getRealtimeData(
   );
 
   return {
+    population: totals.population,
     countries,
     urls,
     referrers,
@@ -74,7 +87,9 @@ export async function getRealtimeData(
     },
     totals: {
       views: pageviews.reduce((sum: number, { y }: { y: number }) => Number(sum) + Number(y), 0),
-      visitors: sessions.reduce((sum: number, { y }: { y: number }) => Number(sum) + Number(y), 0),
+      visitors: process.env.CLICKHOUSE_URL
+        ? sessions.reduce((sum: number, { y }: { y: number }) => Number(sum) + Number(y), 0)
+        : totals.visitors,
       events: activity.filter(e => e.eventName).length,
       countries: Object.keys(countries).length,
     },

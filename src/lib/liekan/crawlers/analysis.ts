@@ -1,3 +1,6 @@
+import { readTransactionBrowserPopulation } from '../upstream/browser-population';
+import { identityUsable, type BrowserPopulation } from '../contracts/browser-population';
+import { TRAFFIC_POLICY_VERSION } from '../upstream/traffic-query';
 import { withPublishedRegistry } from '../upstream/crawler-registry-context';
 import { platformForReferral, platformHasReferrals } from '../contracts/sources';
 import { getCrawlerPlatformIds } from './registry';
@@ -19,7 +22,7 @@ import {
 import { LiekanError } from '../upstream/errors';
 import { humanPathFromEncoded } from '../upstream/paths';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from '../upstream/query-cache';
-import { noteCacheResult } from '../upstream/cache-context';
+import { noteCacheResult, noteBrowserPopulation } from '../upstream/cache-context';
 import { crawlerDirectoryForObserved } from './directory';
 import { crawlerOwnedBlock, crawlerOwnedMatch } from './execution';
 
@@ -60,7 +63,7 @@ export function crawlerRange(search: URLSearchParams, now = Date.now()) {
 
 export const crawlerBase = `FROM liekan_effective_log l LEFT JOIN liekan_crawler_evidence e ON e.website_id=l.website_id AND e.log_id=l.id
   WHERE l.website_id=$1::uuid AND l.created_at>=$2::timestamptz AND l.created_at<$3::timestamptz AND l.user_agent NOT LIKE 'Liekan-Crawler-Check/%'`;
-const reportingCrawlerBase = crawlerBase.replace('liekan_effective_log','liekan_reporting_log');
+const reportingCrawlerBase = crawlerBase.replace('liekan_effective_log', 'liekan_reporting_log');
 export const crawlerCountColumns = `count(*)::float8 AS requests,
   count(*) FILTER(WHERE status>=100 AND status<200)::float8 AS "status1xx",
   count(*) FILTER(WHERE status>=200 AND status<300)::float8 AS "status2xx",
@@ -157,14 +160,26 @@ async function crawlerAnalysisSnapshot(
     );
     return {
       website,
-      version: { epoch: state?.epoch ?? 1, revision: String(state?.data_revision ?? 0) },
+      version: {
+        epoch: state?.epoch ?? 1,
+        revision: String(state?.data_revision ?? 0),
+        browserRevision: String(
+          (
+            await tx.query(
+              "SELECT revision::text FROM liekan_analytics_revision WHERE resource_type='website' AND resource_id=$1::uuid",
+              websiteId,
+            )
+          )[0]?.revision ?? 0,
+        ),
+      },
     };
   });
   const cached = await analyticsCache.read(
-    analyticsCacheKey('crawler-analysis-v3-' + CRAWLER_POPULATION_VERSION, {
+    analyticsCacheKey('crawler-analysis-identity-v1-' + CRAWLER_POPULATION_VERSION, {
       websiteId,
       ...range,
       identityScope,
+      populationVersion: TRAFFIC_POLICY_VERSION,
       ...access.version,
     }),
     30000,
@@ -214,15 +229,23 @@ async function crawlerAnalysisSnapshot(
             tx,
             websiteId,
             new Date(previousRange.startAt),
-            new Date(previousRange.endAt - 1),
+            new Date(previousRange.endAt),
             timezone,
+            { halfOpen: true },
           );
           const referralRows = await crawlerReferralRows(
             tx,
             websiteId,
             new Date(startAt),
-            new Date(endAt - 1),
+            new Date(endAt),
             timezone,
+            { halfOpen: true },
+          );
+          const population = await readTransactionBrowserPopulation(tx, websiteId, range);
+          const previousPopulation = await readTransactionBrowserPopulation(
+            tx,
+            websiteId,
+            previousRange,
           );
           const [browser] = await tx.query(
             'SELECT EXISTS(SELECT 1 FROM liekan_raw_website_event WHERE website_id=$1::uuid LIMIT 1) AS connected',
@@ -232,9 +255,13 @@ async function crawlerAnalysisSnapshot(
             "SELECT count(*)::int AS count FROM report WHERE website_id=$1::uuid AND type='goal'",
             websiteId,
           );
-          const summarizePlatforms = (rows: Awaited<ReturnType<typeof crawlerReferralRows>>) =>
+          const summarizePlatforms = (
+            rows: Awaited<ReturnType<typeof crawlerReferralRows>>,
+            population: BrowserPopulation,
+          ) =>
             getCrawlerPlatformIds().map(platformId => {
               const supported = platformHasReferrals(platformId);
+              const identityReady = identityUsable(population);
               const matching = rows.filter(row => {
                 const source = classifyEntrySource(row);
                 return (
@@ -271,14 +298,16 @@ async function crawlerAnalysisSnapshot(
                 state: !supported
                   ? ('unsupported' as const)
                   : browser.connected
-                    ? ('available' as const)
+                    ? identityReady
+                      ? ('available' as const)
+                      : ('unknown' as const)
                     : ('missing' as const),
                 visits:
-                  supported && browser.connected
+                  supported && browser.connected && identityReady
                     ? matching.reduce((n, row) => n + row.visits, 0)
                     : null,
                 conversions:
-                  supported && browser.connected && goals.count
+                  supported && browser.connected && identityReady && goals.count
                     ? matching.reduce((n, row) => n + row.conversions, 0)
                     : null,
                 goalEvents:
@@ -287,11 +316,16 @@ async function crawlerAnalysisSnapshot(
                     : null,
                 landingPages: [...landing.values()]
                   .sort((a, b) => b.visits - a.visits)
-                  .slice(0, 1000),
+                  .slice(0, 1000)
+                  .map(row => ({
+                    ...row,
+                    visits: identityReady ? row.visits : null,
+                    conversions: identityReady ? row.conversions : null,
+                  })),
                 landingPagesTruncated: landing.size > 1000,
               };
             });
-          const platforms = summarizePlatforms(referralRows);
+          const platforms = summarizePlatforms(referralRows, population);
           const [configured] = await tx.query(
             'SELECT critical_paths FROM liekan_crawler_state WHERE website_id=$1::uuid',
             websiteId,
@@ -311,6 +345,7 @@ async function crawlerAnalysisSnapshot(
           }
           return {
             range,
+            population,
             quality,
             directory: crawlerDirectoryForObserved(
               [...bots, ...previousBots, ...findings].map(row => row.botId).filter(Boolean),
@@ -325,9 +360,10 @@ async function crawlerAnalysisSnapshot(
             platforms,
             previous: {
               range: previousRange,
+              population: previousPopulation,
               quality: previousQuality,
               bots: previousBots,
-              platforms: summarizePlatforms(previousReferrals),
+              platforms: summarizePlatforms(previousReferrals, previousPopulation),
             },
             findings,
             criticalPaths: configured?.critical_paths || [],
@@ -339,6 +375,9 @@ async function crawlerAnalysisSnapshot(
       ),
   );
   noteCacheResult(cached);
+  if (cached.value.population) noteBrowserPopulation(websiteId, cached.value.population);
+  if (cached.value.previous?.population)
+    noteBrowserPopulation(websiteId, cached.value.previous.population);
   const currentAccess = await crawlerTransaction(tx => authorizeCrawler(tx, actor, websiteId));
   return {
     ...cached.value,

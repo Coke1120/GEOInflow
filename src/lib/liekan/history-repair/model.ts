@@ -56,11 +56,13 @@ export const emptyCounts = (): HistoryRepairCounts => ({
   afterPV: '0',
   beforeUV: '0',
   afterUV: '0',
+  beforeIdentityMissingPV: '0',
+  afterIdentityMissingPV: '0',
 });
 export function addCounts(base: HistoryRepairCounts, add: Partial<HistoryRepairCounts>) {
   const output = { ...base };
   for (const key of Object.keys(add) as (keyof HistoryRepairCounts)[])
-    output[key] = (BigInt(output[key]) + BigInt(add[key])).toString();
+    output[key] = (BigInt(output[key] ?? '0') + BigInt(add[key] ?? '0')).toString();
   return output;
 }
 export function fraction(numerator: string, denominator: string): number | null {
@@ -298,12 +300,31 @@ export function includedEvent(
   eventType: number,
   hostname: string | null,
   policy: PreviewPolicy,
+  context: { originHostname?: string | null; excluded?: boolean } = {},
 ) {
-  if (verdict.source !== 'browser' && ![3, 4].includes(eventType)) return false;
-  if (policy.mode === 'raw') return true;
+  if (context.excluded) return false;
+  if (verdict.source !== 'browser' || ![1, 2, 5].includes(eventType)) return false;
   return (
     verdict.classification !== 'automated' &&
+    !verdict.reasons.includes('bot_check_disabled') &&
     (policy.mode !== 'strict' || verdict.classification !== 'suspected') &&
-    (!policy.allowedHostnames.length || policy.allowedHostnames.includes(hostname))
+    (!policy.allowedHostnames.length || (policy.allowedHostnames.includes(hostname) &&
+      (!context.originHostname || policy.allowedHostnames.includes(context.originHostname))))
   );
+}
+
+/** Missing historical identity evidence remains unknown in public previews and exports. */
+export function publicRepairCounts(counts: HistoryRepairCounts): HistoryRepairCounts {
+  const result = { ...counts };
+  for (const side of ['before', 'after'] as const) {
+    const missing = counts[`${side}IdentityMissingPV`];
+    const qualified = counts[`${side}QualifiedUV`] ?? (missing != null ? counts[`${side}UV`] : null);
+    result[`${side}QualifiedUV`] = qualified;
+    result[`${side}IdentityMissingPV`] = missing ?? null;
+    result[`${side}UV`] = missing === '0' ? qualified : null;
+  }
+  return result;
+}
+export function publicRepairPreview<T extends { counts: HistoryRepairCounts }>(preview: T | null): T | null {
+  return preview ? { ...preview, counts: publicRepairCounts(preview.counts) } : null;
 }

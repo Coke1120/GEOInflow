@@ -87,7 +87,7 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
       order by "count" desc, "value"
       limit 10`,
       { websiteId, startDate, endDate, search: `%${search}%`, ...params },
-      FUNCTION_NAME,
+      'getSessionValues',
     );
   }
 
@@ -110,7 +110,7 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
       limit 10
       `,
       { websiteId, startDate, endDate, search: `%${search}%`, ...params },
-      FUNCTION_NAME,
+      'getSessionValues',
     );
   }
 

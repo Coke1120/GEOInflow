@@ -294,7 +294,20 @@ test.describe('Analytics', () => {
     const denied = await viewer.get(path);
 
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ visitors: expect.any(Number) });
+    expect(response.body).toEqual({
+      visitors: expect.any(Number),
+      ...(seed.db === 'postgres'
+        ? {
+            population: expect.objectContaining({
+              capability: 'supported',
+              identity: expect.objectContaining({
+                status: expect.stringMatching(/^(complete|empty)$/),
+              }),
+            }),
+          }
+        : {}),
+    });
+    expect(response.headers['x-liekan-population']).toBeTruthy();
     expect(response.body.visitors).toBeGreaterThanOrEqual(0);
     expect(shared.status).toBe(200);
     expect(denied.status).toBe(401);

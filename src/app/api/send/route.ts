@@ -1,3 +1,7 @@
+import {
+  collectionAdmission,
+  normalizeCollectionOrigin,
+} from '@/lib/liekan/upstream/collection-admission';
 import { withPublishedRegistry } from '@/lib/liekan/upstream/crawler-registry-context';
 import { observeCollection } from '@/lib/liekan/upstream/collection-observation';
 import { recordGeographyIngress } from '@/lib/liekan/upstream/geography-ingress';
@@ -10,15 +14,18 @@ import { getSalt, hash, secret, uuid } from '@/lib/crypto';
 import { getClientInfo, hasBlockedIp } from '@/lib/detect';
 import { isAuthenticatedCollection } from '@/lib/liekan/upstream/collection-auth';
 import { classifyCollection } from '@/lib/liekan/upstream/collection-quality';
+import { collectionIdentity } from '@/lib/liekan/upstream/collection-identity';
 import { collectionFingerprint } from '@/lib/liekan/upstream/collection-fingerprint';
 import { collectionSnapshots } from '@/lib/liekan/upstream/collection-snapshots';
 import {
   CollectionConflictError,
   withCollectionWrite,
+  recordCollectionIdentity,
 } from '@/lib/liekan/upstream/collection-write';
 import { truncateString } from '@/lib/format';
 import { createToken, parseToken } from '@/lib/jwt';
 import { fetchWebsite } from '@/lib/load';
+import { getLink, getPixel } from '@/queries/prisma';
 import { parseRequest } from '@/lib/request';
 import { badRequest, forbidden, json, serverError } from '@/lib/response';
 import { anyObjectParam, urlOrPathParam } from '@/lib/schema';
@@ -37,6 +44,8 @@ interface Cache {
   visitId: string;
   iat: number;
   sessionLinkId?: string;
+  collectionScope?: string;
+  resourceType?: string;
 }
 
 // Reject strings whose first character is a spreadsheet formula trigger to
@@ -92,7 +101,9 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  return process.env.CLICKHOUSE_URL ? collect(request) : withPublishedRegistry(() => collect(request));
+  return process.env.CLICKHOUSE_URL
+    ? collect(request)
+    : withPublishedRegistry(() => collect(request));
 }
 async function collect(request: Request) {
   const receivedAt = new Date();
@@ -128,6 +139,14 @@ async function collect(request: Request) {
     } = payload;
 
     const sourceId = websiteId || pixelId || linkId;
+    const resourceType = websiteId ? 'website' : linkId ? 'link' : 'pixel';
+    const resource = websiteId
+      ? await fetchWebsite(websiteId)
+      : linkId
+        ? await getLink(linkId)
+        : await getPixel(pixelId);
+    if (!resource || resource.deletedAt || (!websiteId && type !== COLLECTION_TYPE.event))
+      return badRequest({ message: 'Collection resource not found or type mismatch.' });
 
     // Cache check
     let cache: Cache | null = null;
@@ -140,24 +159,13 @@ async function collect(request: Request) {
 
         if (
           result?.type === CACHE_TOKEN_TYPE &&
-          result.websiteId?.toLowerCase() === websiteId.toLowerCase()
+          result.websiteId?.toLowerCase() === websiteId.toLowerCase() &&
+          (!result.resourceType || result.resourceType === resourceType)
         ) {
           cache = result;
         }
       }
-
-      // Find website
-      if (!cache?.websiteId) {
-        const website = await fetchWebsite(websiteId);
-
-        if (!website) {
-          return badRequest({ message: 'Website not found.' });
-        }
-      }
     }
-
-    // Carried forward in the cache token so repeat identify calls skip identity writes
-    let sessionLinkId = cache?.sessionLinkId;
 
     // Client info
     const {
@@ -175,7 +183,8 @@ async function collect(request: Request) {
 
     const qualityEnabled = Boolean(websiteId && !clickhouse.enabled);
     // Liekan keeps evidence with raw website events; the shared read policy filters automation.
-    if (!qualityEnabled && !process.env.DISABLE_BOT_CHECK && isbot(userAgent)) {
+    const botCheckDisabled = ['1', 'true'].includes(process.env.DISABLE_BOT_CHECK?.toLowerCase());
+    if (!qualityEnabled && !botCheckDisabled && isbot(userAgent)) {
       return json({ beep: 'boop' });
     }
 
@@ -188,37 +197,60 @@ async function collect(request: Request) {
       return forbidden();
     }
 
-    const createdAt = timestamp ? new Date(timestamp * 1000) : new Date();
+    const createdAt = timestamp != null ? new Date(timestamp * 1000) : receivedAt;
+    if (!Number.isFinite(createdAt.getTime()))
+      return badRequest({ message: 'Invalid event time.' });
     const now = Math.floor(Date.now() / 1000);
     const distinctId = truncateString(id, FIELD_LENGTH.distinctId);
 
     const saltRotation = process.env.SALT_ROTATION || 'month';
     const sessionSalt = getSalt(saltRotation, createdAt);
     const visitSalt = hash(startOfHour(createdAt).toUTCString());
+    const quality = qualityEnabled
+      ? classifyCollection({
+          request,
+          payload,
+          authenticated: isAuthenticatedCollection(request),
+          ip,
+          userAgent,
+          snapshots: await collectionSnapshots(),
+          receivedAt,
+        })
+      : undefined;
+    const admission =
+      quality?.source === 'browser' ? await collectionAdmission(websiteId) : undefined;
+    const identity = quality
+      ? collectionIdentity({
+          websiteId,
+          quality,
+          admission,
+          ip,
+          ipEvidence,
+          userAgent,
+          salt: sessionSalt,
+          distinctId,
+          browser,
+          os,
+          device,
+          screen,
+          language,
+          originHostname: normalizeCollectionOrigin(request.headers.get('origin')),
+        })
+      : undefined;
+    if (
+      identity &&
+      cache &&
+      cache.collectionScope !== identity.scope &&
+      !(cache.collectionScope == null && identity.scope === 'browser')
+    )
+      cache = null;
+    let sessionLinkId = cache?.sessionLinkId;
 
     // Identified users need a separate deterministic session from anonymous users
     // who happen to share the same IP address and user agent.
-    let sessionId = uuid(sourceId, ip, userAgent, sessionSalt, distinctId ?? '');
+    let sessionId =
+      identity?.sessionId || uuid(sourceId, ip, userAgent, sessionSalt, distinctId ?? '');
     const sessionDrift = !!websiteId && !!cache?.sessionId && cache.sessionId !== sessionId;
-    const shouldEnsureSession = !clickhouse.enabled && sessionDrift;
-
-    // Create a session if not found
-    if ((!clickhouse.enabled && !cache?.sessionId) || shouldEnsureSession) {
-      await createSession({
-        id: sessionId,
-        websiteId: sourceId,
-        browser,
-        os,
-        device,
-        screen,
-        language,
-        country,
-        region,
-        city,
-        distinctId,
-        createdAt,
-      });
-    }
 
     // Visit info
     let visitId = cache?.visitId || uuid(sessionId, visitSalt);
@@ -237,6 +269,23 @@ async function collect(request: Request) {
     }
 
     const collect = async () => {
+      if (!clickhouse.enabled) {
+        await createSession({
+          id: sessionId,
+          websiteId: sourceId,
+          browser,
+          os,
+          device,
+          screen,
+          language,
+          country,
+          region,
+          city,
+          distinctId,
+          createdAt,
+        });
+      }
+      if (identity) await recordCollectionIdentity(websiteId, identity);
       if (type === COLLECTION_TYPE.event) {
         const base = hostname ? `https://${hostname}` : 'https://localhost';
         const currentUrl = new URL(url, base);
@@ -354,8 +403,7 @@ async function collect(request: Request) {
           const newLinkId = hash(sessionId, distinctId);
 
           if (sessionLinkId !== newLinkId) {
-            // Best-effort: identity link failures must not block the session data write below.
-            try {
+            const identify = async () => {
               await Promise.all([
                 saveSessionLink({
                   websiteId,
@@ -370,10 +418,9 @@ async function collect(request: Request) {
                 }),
               ]);
               sessionLinkId = newLinkId;
-            } catch (e) {
-              // eslint-disable-next-line no-console
-              console.error('Failed to save session link:', e);
-            }
+            };
+            if (qualityEnabled) await identify();
+            else await identify().catch(() => {});
           }
         }
 
@@ -415,21 +462,16 @@ async function collect(request: Request) {
         });
       }
     };
-    if (qualityEnabled && type !== COLLECTION_TYPE.identify) {
-      const quality = classifyCollection({
-        request,
-        payload: { ...payload, timestamp: createdAt.getTime() / 1000 },
-        authenticated: isAuthenticatedCollection(request),
-        ip,
-        userAgent,
-        snapshots: await collectionSnapshots(),
-      });
+    if (qualityEnabled) {
       const result = await withCollectionWrite(
         {
           websiteId,
-          eventId: payload.eventId,
+          eventId: type === COLLECTION_TYPE.identify ? undefined : payload.eventId,
           fingerprint: collectionFingerprint(type, payload),
           quality,
+          identity,
+          expectedPolicyRevision: admission?.revision,
+          identify: type === COLLECTION_TYPE.identify,
           geography: geographyEvidence,
           observation: isAuthenticatedCollection(request)
             ? undefined
@@ -448,7 +490,16 @@ async function collect(request: Request) {
     }
 
     const token = createToken(
-      { websiteId, sessionId, visitId, iat, sessionLinkId, type: CACHE_TOKEN_TYPE },
+      {
+        websiteId,
+        sessionId,
+        visitId,
+        iat,
+        sessionLinkId,
+        collectionScope: identity?.scope,
+        resourceType,
+        type: CACHE_TOKEN_TYPE,
+      },
       secret(),
     );
 

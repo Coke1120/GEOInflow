@@ -155,6 +155,7 @@ export const catalogReferralSchema = z
   .strict();
 export const catalogRangeSourceSchema = z
   .object({
+    browserExclusion: z.enum(['dedicated_crawler', 'unsupported']).optional(),
     enabled: z.boolean().optional(),
     id: catalogIdSchema,
     url: catalogUrlSchema,

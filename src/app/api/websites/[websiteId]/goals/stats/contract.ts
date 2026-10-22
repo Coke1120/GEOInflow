@@ -23,10 +23,10 @@ export const operations = [
                 type: 'object',
                 properties: {
                   num: {
-                    type: 'number',
+                    type: ['number', 'null'],
                   },
                   total: {
-                    type: 'number',
+                    type: ['number', 'null'],
                   },
                 },
                 required: ['num', 'total'],

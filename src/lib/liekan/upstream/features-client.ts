@@ -1,4 +1,5 @@
 'use client';
+import { browserPopulationSchema } from '../contracts/browser-population';
 import { clientCatalogVersion } from './catalog-client';
 import { isAggregateRequest } from './cache-policy';
 import { isReportOwnedBy } from '../contracts/query';
@@ -157,6 +158,26 @@ export async function featureRequest<T = any>(
         data?.error,
         retryAfter(response),
       );
+    if (data && typeof data === 'object' && !data.population) {
+      try {
+        const values = JSON.parse(response.headers.get('X-Liekan-Population') || '{}').populations;
+        const selected =
+          values?.find(
+            (entry: any) =>
+              entry.range?.startAt === Number(params?.startAt) &&
+              entry.range?.endAt === Number(params?.endAt),
+          ) || values?.[0];
+        const population = browserPopulationSchema.safeParse(selected);
+        if (population.success)
+          Object.defineProperty(data, 'population', {
+            value: population.data,
+            enumerable: !Array.isArray(data),
+            configurable: true,
+          });
+      } catch {
+        /* Invalid optional metadata never changes a successful legacy response. */
+      }
+    }
     if (aggregate) rememberResponseFreshness(data, response.headers, startedAt);
     return data;
   };

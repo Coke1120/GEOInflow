@@ -2,7 +2,7 @@ import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
-import type { PageResult, PropertyFilter, QueryFilters, SessionDataPivotRow } from '@/lib/types';
+import type { IdentityPageResult, PropertyFilter, QueryFilters, SessionDataPivotRow } from '@/lib/types';
 
 const FUNCTION_NAME = 'getSessionDataPivot';
 
@@ -13,7 +13,7 @@ export async function getSessionDataPivot(
     filters: QueryFilters,
     propertyFilters?: PropertyFilter[],
   ]
-): Promise<PageResult<SessionDataPivotRow[]>> {
+): Promise<IdentityPageResult<SessionDataPivotRow[]>> {
   return runQuery({
     [PRISMA]: () => relationalQuery(...args),
     [CLICKHOUSE]: () => clickhouseQuery(...args),

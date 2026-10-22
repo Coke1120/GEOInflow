@@ -49,7 +49,7 @@ describe.skipIf(!enabled)('owned large-history work-unit benchmark', () => {
       );
       const heartbeat = () =>
         db.query(
-          "INSERT INTO liekan_worker_state(id,version) VALUES('benchmark-worker','history-repair-v1.1') ON CONFLICT(id) DO UPDATE SET heartbeat_at=clock_timestamp(),version=EXCLUDED.version",
+          "INSERT INTO liekan_worker_state(id,version) VALUES('benchmark-worker','history-repair-v1.2') ON CONFLICT(id) DO UPDATE SET heartbeat_at=clock_timestamp(),version=EXCLUDED.version",
         );
       const read = () => getHistoryRepair(site, new URLSearchParams(), actor);
       const collect = async () => {

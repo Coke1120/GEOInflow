@@ -1,3 +1,4 @@
+import { browserPopulationSchema } from './browser-population';
 import { z } from 'zod';
 import { crawlerPolicyInputSchema } from './crawlers';
 
@@ -24,7 +25,10 @@ const counts = z.object({
   head: z.number(),
   successfulGets: z.number(),
 });
-const botId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/).nullable();
+const botId = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9-]{0,79}$/)
+  .nullable();
 const bot = counts.extend({
   botId,
   name: z.string(),
@@ -50,7 +54,7 @@ const page = counts.extend({
 });
 const platform = z.object({
   platformId: z.string().regex(/^[a-z0-9][a-z0-9-]{0,79}$/),
-  state: z.enum(['available', 'missing', 'unsupported']),
+  state: z.enum(['available', 'missing', 'unsupported', 'unknown']),
   visits: z.number().nullable(),
   conversions: z.number().nullable(),
   goalEvents: z.number().nullable(),
@@ -58,7 +62,7 @@ const platform = z.object({
   landingPages: z.array(
     z.object({
       path: z.string(),
-      visits: z.number(),
+      visits: z.number().nullable(),
       conversions: z.number().nullable(),
       goalEvents: z.number().nullable(),
     }),
@@ -138,6 +142,7 @@ const check = z.object({
   completedAt: nullableDate,
 });
 export const crawlerAnalysisResponseSchema = z.object({
+  population: browserPopulationSchema.optional(),
   range,
   quality,
   directory: z.array(
@@ -167,6 +172,7 @@ export const crawlerAnalysisResponseSchema = z.object({
   pages: z.array(page),
   platforms: z.array(platform),
   previous: z.object({
+    population: browserPopulationSchema.optional(),
     range,
     quality,
     bots: z.array(counts.extend({ botId, name: z.string().optional(), bytes: z.number() })),

@@ -42,3 +42,43 @@ it('reports the actual cached crawler snapshot time through the request boundary
   expect(response.headers.get('x-liekan-cache')).toBe('hit');
   expect(h.authorize).toHaveBeenCalledTimes(2);
 });
+
+it('replays cached current and previous identity metadata without reading a new population', async () => {
+  const { populationFromRow } = await import('../upstream/browser-population');
+  const population = populationFromRow(
+    { eligibleEvents: 2, qualifiedEvents: 1, eligiblePV: 2, qualifiedPV: 1, qualifiedVisitors: 1 },
+    { startAt: 1, endAt: 1000, timezone: 'UTC', endExclusive: true },
+  );
+  const previous = {
+    ...population,
+    range: { ...population.range, startAt: 0, endAt: 1 },
+    identity: {
+      ...population.identity,
+      status: 'empty' as const,
+      eligibleEvents: 0,
+      eligiblePV: 0,
+      qualifiedPV: 0,
+      qualifiedVisitors: 0,
+      coverage: null,
+    },
+  };
+  h.read.mockResolvedValue({
+    value: { population, previous: { population: previous }, platforms: [{ visits: null }] },
+    generatedAt: 1000,
+    expiresAt: 31000,
+    status: 'hit',
+    tier: 'memory',
+  });
+  const response = await withQueryCacheHeaders(async () =>
+    Response.json(await crawlerAnalysis({ id: 'actor', role: 'admin' }, 'site', population.range)),
+  );
+  expect(
+    JSON.parse(response.headers.get('X-Liekan-Population')!).populations.map(
+      row => row.identity.status,
+    ),
+  ).toEqual(['partial', 'empty']);
+  expect((await response.json()).population).toEqual(population);
+  expect(
+    h.query.mock.calls.every(([sql]) => !sql.includes('WITH population AS MATERIALIZED')),
+  ).toBe(true);
+});

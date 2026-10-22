@@ -1,3 +1,7 @@
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
+import { noteBrowserPopulation } from '@/lib/liekan/upstream/cache-context';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
 import {
@@ -12,9 +16,26 @@ import prisma from '@/lib/prisma';
 const FUNCTION_NAME = 'getWebsiteSession';
 
 export async function getWebsiteSession(...args: [websiteId: string, sessionId: string]) {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
+  return nativeSnapshot(async () => {
+    const data = await runQuery({
+      [PRISMA]: () => relationalQuery(...args),
+      [CLICKHOUSE]: () => clickhouseQuery(...args),
+    });
+    if (!data) return data;
+    const population = await readBrowserPopulation(
+      args[0],
+      new Date(data.firstAt),
+      new Date(data.lastAt),
+      'UTC',
+    );
+    noteBrowserPopulation(args[0], population);
+    return {
+      ...data,
+      ...(!identityUsable(population)
+        ? { visits: null, totaltime: null, distinctId: undefined }
+        : {}),
+      population,
+    };
   });
 }
 
@@ -26,11 +47,11 @@ async function relationalQuery(websiteId: string, sessionId: string) {
     select id,
       distinct_id as "distinctId",
       website_id as "websiteId",
-      browser,
-      os,
-      device,
-      screen,
-      language,
+      (array_agg(browser order by max_time desc,visit_id desc))[1] as browser,
+      (array_agg(os order by max_time desc,visit_id desc))[1] as os,
+      (array_agg(device order by max_time desc,visit_id desc))[1] as device,
+      (array_agg(screen order by max_time desc,visit_id desc))[1] as screen,
+      (array_agg(language order by max_time desc,visit_id desc))[1] as language,
       ${getPostgresCountrySQL('(array_agg(country order by max_time desc,visit_id desc))[1]')} as country,
       ${getPostgresRegionSQL('(array_agg(country order by max_time desc,visit_id desc))[1]', '(array_agg(region order by max_time desc,visit_id desc))[1]')} as region,
       (array_agg(city order by max_time desc,visit_id desc))[1] as city,
@@ -45,11 +66,11 @@ async function relationalQuery(websiteId: string, sessionId: string) {
           session.distinct_id,
           website_event.visit_id,
           session.website_id,
-          session.browser,
-          session.os,
-          session.device,
-          session.screen,
-          session.language,
+          (array_agg(session.browser order by website_event.created_at desc,website_event.event_id desc))[1] as browser,
+          (array_agg(session.os order by website_event.created_at desc,website_event.event_id desc))[1] as os,
+          (array_agg(session.device order by website_event.created_at desc,website_event.event_id desc))[1] as device,
+          (array_agg(session.screen order by website_event.created_at desc,website_event.event_id desc))[1] as screen,
+          (array_agg(session.language order by website_event.created_at desc,website_event.event_id desc))[1] as language,
           session.country as country,
           session.region as region,
           session.city as city,
@@ -62,8 +83,8 @@ async function relationalQuery(websiteId: string, sessionId: string) {
     where session.website_id = {{websiteId::uuid}}
       and session.session_id = {{sessionId::uuid}}
       and website_event.event_type != ${EVENT_TYPE.performance}
-    group by session.session_id, session.distinct_id, visit_id, session.website_id, session.browser, session.os, session.device, session.screen, session.language, session.country, session.region, session.city) t
-    group by id, distinct_id, website_id, browser, os, device, screen, language;
+    group by session.session_id, session.distinct_id, visit_id, session.website_id, session.country, session.region, session.city) t
+    group by id, distinct_id, website_id;
     `,
     { websiteId, sessionId },
     FUNCTION_NAME,

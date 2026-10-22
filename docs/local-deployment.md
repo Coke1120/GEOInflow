@@ -91,3 +91,39 @@ services:
 ```
 
 同时在私有 .env 中将 GEOLITE_DB_PATH 指向 `/app/private-geo/City.mmdb`，将 LIEKAN_GEO_XDB_MANIFEST 指向相应私有 JSON 清单。清单中 path 使用容器内位置。两个服务必须能读取同一授权文件，原文件不会自动覆盖。MaxMind 下载账号与密钥只进入 worker 环境。管理目录内 `.update-lock` 保证同一时间一个写入者；异常终止后先确认不存在更新进程，再清理锁。地理更新失败保留权限有效的旧版本，事件采集持续可用。
+
+## 浏览器身份的可信入口
+
+浏览 PV 可以在缺少可信 IP 入口时继续采集，UV、访问次数、跳出率和身份依赖分析需要可信输入。只填写 `CLIENT_IP_HEADER` 不能验证代理边界。部署者需要记录切换时间，先比较新旧身份覆盖；历史缺失输入保持未知。
+
+直接反向代理示例：应用仅绑定本机 `127.0.0.1:3002`，配置 `CLIENT_IP_HEADER=x-liekan-client-ip`，Nginx 从实际连接建立唯一地址，并覆盖或清空客户端转发字段。
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3002;
+    proxy_set_header Host $host;
+    proxy_set_header X-Liekan-Client-IP $remote_addr;
+    proxy_set_header X-Forwarded-For "";
+    proxy_set_header X-Real-IP "";
+    proxy_set_header True-Client-IP "";
+    proxy_set_header CF-Connecting-IP "";
+    proxy_set_header Forwarded "";
+    proxy_set_header X-Umami-Client-IP "";
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+CDN → 反向代理模式在上述入口增加真实地址恢复。以下以 Cloudflare 为例：`cloudflare-realip.conf` 只包含从 Cloudflare 官方清单维护的 `set_real_ip_from CIDR;`，同时由防火墙限定该入口只接受 CDN 网络，并禁止绕过 CDN 访问源站。不要配置 `0.0.0.0/0` 或 `::/0`。应用端口继续仅允许反向代理连接。
+
+```nginx
+include /etc/nginx/trusted-proxies/cloudflare-realip.conf;
+real_ip_header CF-Connecting-IP;
+real_ip_recursive on;
+# location / 使用上面的覆盖配置；$remote_addr 此时为经过可信 CDN 校验的地址。
+```
+
+验收使用隔离站点：客户端连续轮换上述伪造转发头，可信身份与官方范围结果应保持相同；直连应用端口应从外部不可达；绕过 CDN 的源站请求应被入口策略拒绝。撤掉可信入口配置后，合格 PV 继续写入，身份能力显示不足。不得把测试流量发送到真实业务站点。
+
+应用服务器仍兼容旧 tracker。爬虫范围用途更新在后台爬虫管理的升级草稿中预览并发布；应用与 worker 使用同一候选版本。回退选择保留来源、类型和自动化硬边界的兼容候选，数据库只保留增量结构。
+
+隔离恢复验收同时核对候选迁移校验和与恢复前的迁移记录。其它已应用的独立迁移须原样保留，候选不得重写其校验和或应用时间；验收报告列出这些迁移。该检查验证记录保留，相关独立功能仍由其所属候选验证。

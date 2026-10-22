@@ -1232,6 +1232,14 @@ export const operations = {
     queryParams: ['startAt', 'endAt', 'timezone', 'chartPeriod', 'refresh'],
     hasBody: false,
   },
+  getLiekanTrafficExclusions: {
+    operationId: 'getLiekanTrafficExclusions',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/traffic-quality/exclusions',
+    pathParams: ['websiteId'],
+    queryParams: ['cursor'],
+    hasBody: false,
+  },
   getLiekanTrafficQuality: {
     operationId: 'getLiekanTrafficQuality',
     method: 'get',
@@ -3374,6 +3382,14 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
+  manageLiekanTrafficExclusions: {
+    operationId: 'manageLiekanTrafficExclusions',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/traffic-quality/exclusions',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
   postLiekanAiAnalysis: {
     operationId: 'postLiekanAiAnalysis',
     method: 'post',
@@ -4693,6 +4709,17 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * Read a stable page of confirmed traffic exclusions
+   * `GET /api/liekan/websites/{websiteId}/traffic-quality/exclusions`
+   */
+  getLiekanTrafficExclusions(
+    input: OperationInput<'getLiekanTrafficExclusions'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanTrafficExclusions'>> {
+    return this.execute('getLiekanTrafficExclusions', input, options);
+  }
+
+  /**
    * Audit browser traffic quality
    * `GET /api/liekan/websites/{websiteId}/traffic-quality`
    */
@@ -5810,6 +5837,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'logout'>> {
     return this.execute('logout', input, options);
+  }
+
+  /**
+   * Preview, confirm or revoke a bounded traffic exclusion
+   * `POST /api/liekan/websites/{websiteId}/traffic-quality/exclusions`
+   */
+  manageLiekanTrafficExclusions(
+    input: OperationInput<'manageLiekanTrafficExclusions'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'manageLiekanTrafficExclusions'>> {
+    return this.execute('manageLiekanTrafficExclusions', input, options);
   }
 
   /**

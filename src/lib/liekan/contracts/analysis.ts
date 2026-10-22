@@ -1,3 +1,4 @@
+import type { BrowserPopulation } from './browser-population';
 import { z } from 'zod';
 import { fromZonedTime, formatInTimeZone } from 'date-fns-tz';
 import type { LiekanLocale } from '../i18n/locale';
@@ -13,11 +14,14 @@ export function completedObservationDate(endAt: number, timezone: string) {
 export function relativeDaySeries(points: any[], startAt: number, endAt: number, timezone: string) {
   const first = new Date(`${formatInTimeZone(startAt, timezone, 'yyyy-MM-dd')}T00:00:00Z`),
     last = formatInTimeZone(endAt, timezone, 'yyyy-MM-dd');
-  const byDay = new Map(points.map(p => [String(p.x).slice(0, 10), Number(p.y)]));
-  const result: number[] = [];
+  const byDay = new Map(
+    points.map(p => [String(p.x).slice(0, 10), p.y === null ? null : Number(p.y)]),
+  );
+  const result: (number | null)[] = [];
   for (; first.toISOString().slice(0, 10) <= last; first.setUTCDate(first.getUTCDate() + 1)) {
     if (result.length >= 1097) return [];
-    result.push(byDay.get(first.toISOString().slice(0, 10)) || 0);
+    const value = byDay.get(first.toISOString().slice(0, 10));
+    result.push(value === undefined ? 0 : value);
   }
   return result;
 }
@@ -123,14 +127,15 @@ export const journeyQuery = z
   });
 export type JourneyRow = {
   nodes: string[];
-  visitors: number;
-  visits: number;
+  visitors: number | null;
+  visits: number | null;
   seconds: number;
   source: string | null;
 };
 export type JourneyData = {
+  population?: BrowserPopulation;
   rows: JourneyRow[];
-  visitors: number;
+  visitors: number | null;
   sessions?: any[];
   count?: number;
   page: number;
@@ -138,7 +143,7 @@ export type JourneyData = {
   limited: boolean;
 };
 export const percentage = (num: number, den: number) =>
-  den ? `${((num / den) * 100).toFixed(2)}%` : '—';
+  num != null && den ? `${((num / den) * 100).toFixed(2)}%` : '—';
 export function duration(seconds: number | null | undefined, locale: LiekanLocale = 'zh-CN') {
   if (seconds == null || !Number.isFinite(seconds)) return '—';
   const s = Math.max(0, Math.round(seconds));
@@ -209,6 +214,8 @@ export function decodePropertyConditions(query: Record<string, string>) {
   };
 }
 export function retentionSummary(rows: any[], day: number, cutoff: string) {
+  if (rows.some(row => row.visitors === null || row.returnVisitors === null))
+    return { total: null, returned: null, percentage: null };
   let total = 0,
     returned = 0;
   for (const cohort of rows.filter(r => Number(r.day) === 0)) {

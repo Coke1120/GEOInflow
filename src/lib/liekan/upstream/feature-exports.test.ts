@@ -1,3 +1,21 @@
+vi.mock('./browser-population', async importOriginal => {
+  const actual = await importOriginal<typeof import('./browser-population')>();
+  return {
+    ...actual,
+    readBrowserPopulation: async (_id: string, start: Date, end: Date, timezone: string) =>
+      actual.populationFromRow(
+        {
+          resourceKind: 'website',
+          eligibleEvents: 5,
+          qualifiedEvents: 5,
+          eligiblePV: 5,
+          qualifiedPV: 5,
+          qualifiedVisitors: 2,
+        },
+        { startAt: +start, endAt: +end, timezone },
+      ),
+  };
+});
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import JSZip from 'jszip';
 import Papa from 'papaparse';

@@ -303,3 +303,31 @@ describe('reviewed publication regressions', () => {
     expect(() => validateCatalog(ranges)).toThrow();
   });
 });
+
+it('preserves explicit browser exclusion approval independently from official log verification', () => {
+  const current = seed();
+  expect(current.rangeSources.find(source => source.id === 'kimi-bot')?.browserExclusion).toBe(
+    'dedicated_crawler',
+  );
+  expect(
+    current.rangeSources.find(source => source.id === 'kagi-manual')?.browserExclusion,
+  ).toBeUndefined();
+  const previous = seed();
+  previous.rangeSources.forEach(source => {
+    delete source.browserExclusion;
+  });
+  const restored = validateCatalog(previous);
+  expect(restored.rangeSources.every(source => source.browserExclusion === undefined)).toBe(true);
+  expect(catalogHash(restored)).toBe(catalogHash(previous));
+  const merged = mergeCatalogSeed(previous, previous, current);
+  expect(
+    merged.payload.rangeSources.find(source => source.id === 'kimi-bot')?.browserExclusion,
+  ).toBe('dedicated_crawler');
+  expect(merged.conflicts).toEqual([]);
+  const revoked = structuredClone(current);
+  revoked.rangeSources[0].browserExclusion = 'unsupported';
+  expect(validateCatalog(revoked).rangeSources[0].browserExclusion).toBe('unsupported');
+  const unreviewed = seed();
+  unreviewed.identities.find(identity => identity.id === 'gptbot')!.metadata.evidence = 'observed';
+  expect(() => validateCatalog(unreviewed)).toThrow(/browser exclusion requires reviewed/);
+});

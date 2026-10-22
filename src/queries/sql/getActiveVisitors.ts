@@ -17,16 +17,17 @@ export async function getActiveVisitors(
 
 async function relationalQuery(websiteId: string) {
   const { rawQuery } = prisma;
-  const startDate = subMinutes(new Date(), 5);
+  const endDate = new Date();
+  const startDate = subMinutes(endDate, 5);
 
   const result = await rawQuery(
     `
     select count(distinct session_id) as "visitors"
     from website_event
     where website_id = {{websiteId::uuid}}
-    and created_at >= {{startDate}}
+    and created_at BETWEEN {{startDate}} AND {{endDate}}
     `,
-    { websiteId, startDate },
+    { websiteId, startDate, endDate },
     FUNCTION_NAME,
   );
 

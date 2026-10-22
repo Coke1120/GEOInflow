@@ -117,6 +117,10 @@ describe.skipIf(!enabled)(
         "INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status) SELECT event_id,website_id,'browser','browser','{}','fixture-browser','missing' FROM website_event WHERE website_id=$1::uuid ON CONFLICT DO NOTHING",
         websiteId,
       );
+      await q(
+        "INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available) SELECT event_id,website_id,'browser','fixture-trusted-browser',true FROM liekan_raw_website_event WHERE website_id=$1::uuid ON CONFLICT DO NOTHING",
+        websiteId,
+      );
     });
     afterAll(async () => {
       if (!enabled) return;
@@ -172,6 +176,37 @@ describe.skipIf(!enabled)(
       expect(report.directory.find(row => row.id === 'google-extended')).toMatchObject({
         kind: 'robots_purpose',
       });
+    });
+    it('withholds identity metrics on partial windows and keeps counted goal events', async () => {
+      const [event] = await q(
+        'SELECT event_id FROM liekan_raw_website_event WHERE website_id=$1::uuid AND event_type=2 LIMIT 1',
+        websiteId,
+      );
+      try {
+        await q(
+          'UPDATE liekan_event_environment SET identity_available=false WHERE event_id=$1::uuid',
+          event.event_id,
+        );
+        analyticsCache.invalidate(`website:${websiteId}`);
+        const result = await crawlerAnalysis(actor, websiteId, range);
+        expect(result.population.identity).toMatchObject({ status: 'partial', coverage: 1 });
+        expect(result.previous.population.identity.status).toBe('empty');
+        expect(result.platforms.find(row => row.platformId === 'openai')).toMatchObject({
+          state: 'unknown',
+          visits: null,
+          conversions: null,
+          goalEvents: 2,
+          landingPages: [{ path: '/docs', visits: null, conversions: null, goalEvents: 2 }],
+        });
+        const warm = await crawlerAnalysis(actor, websiteId, range);
+        expect(warm.population).toEqual(result.population);
+      } finally {
+        await q(
+          'UPDATE liekan_event_environment SET identity_available=true WHERE event_id=$1::uuid',
+          event.event_id,
+        );
+        analyticsCache.invalidate(`website:${websiteId}`);
+      }
     });
     it('reauthorizes the caller after a cached result waits for delivery', async () => {
       const original = analyticsCache.read.bind(analyticsCache);

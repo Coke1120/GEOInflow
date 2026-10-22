@@ -87,7 +87,9 @@ export async function processBrowserRisk() {
         );
         const complete = rows.length <= BROWSER_RISK_WINDOW_LIMIT;
         // The input budget covers all event types; behavior uses only the sampled pageviews.
-        const pageviews = rows.slice(0, BROWSER_RISK_WINDOW_LIMIT).filter(row => row.event_type === 1);
+        const pageviews = rows
+          .slice(0, BROWSER_RISK_WINDOW_LIMIT)
+          .filter(row => row.event_type === 1);
         const visits = new Map<string, any[]>();
         for (const row of pageviews) {
           const key = row.session_id + ':' + row.visit_id;
@@ -240,7 +242,7 @@ export async function browserRiskReport(websiteId: string, parameters: URLSearch
         includedPV: totals.includedPV,
         includedUV: totals.includedUV,
         flaggedPV: impact.flaggedPV,
-        fullyExcludedUV: totals.includedUV - impact.remainingUV,
+        fullyExcludedUV: totals.includedUV === null ? null : totals.includedUV - impact.remainingUV,
       },
       timeBasis: 'server-received',
       range: { startAt: range.startAt, endAt: range.endAt },

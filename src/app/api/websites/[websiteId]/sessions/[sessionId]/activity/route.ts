@@ -1,3 +1,5 @@
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { z } from 'zod';
 import { FIELD_LENGTH } from '@/lib/constants';
@@ -7,7 +9,7 @@ import type { SessionActivity } from '@/lib/types';
 import { canViewWebsiteSection } from '@/permissions';
 import { getLinkedDistinctIds, getLinkedSessionIds, getSessionActivity } from '@/queries/sql';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string; sessionId: string }> },
 ) {
@@ -58,4 +60,8 @@ export async function GET(
   const data = (await getSessionActivity(websiteId, sessionIds, filters)) as SessionActivity[];
 
   return json(data);
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => nativeSnapshot(() => getResponse(...args)), args[0]);
 }

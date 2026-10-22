@@ -1,7 +1,13 @@
+import { readTransactionBrowserPopulation } from '../upstream/browser-population';
+import { identityUsable } from '../contracts/browser-population';
 import { humanPathFromEncoded } from '../upstream/paths';
 import type { AiTx } from '../upstream/ai-db';
 import { crawlerReferralRows } from '../upstream/analytics';
-import { classifyEntrySource, platformForReferral, platformSupportsReferralRatio } from '../contracts/sources';
+import {
+  classifyEntrySource,
+  platformForReferral,
+  platformSupportsReferralRatio,
+} from '../contracts/sources';
 import type { EvidenceQuery } from '../contracts/traffic-evidence';
 import { evidenceValue } from '../contracts/crawler-metrics';
 import { getKnownCrawlerDirectory } from './directory';
@@ -22,6 +28,8 @@ export async function readOutcomes(
   p: EvidenceQuery,
   input: EvidenceInputs,
 ) {
+  const browserPopulation = await readTransactionBrowserPopulation(tx, websiteId, p);
+  const identityReady = identityUsable(browserPopulation);
   const scope = evidenceScope(websiteId, p);
   const logs = await tx.query(
     `SELECT e.crawler_id,l.bot,l.path,count(*)::float8 AS requests,
@@ -139,37 +147,43 @@ export async function readOutcomes(
         ? 'ambiguous_path'
         : !presence.connected
           ? 'browser_missing'
-          : row.unknownBrowserHost
-            ? 'browser_host_unknown'
-            : !p.sourceId || input.quality.state !== 'complete'
-              ? 'source_coverage'
-              : !row.requests
-                ? 'measurement_missing'
-                : !row.configKnown ||
-                    input.measurement.intervals !== 1 ||
-                    input.measurement.interval !== input.quality.sourceVersion ||
-                    input.measurement.intervalSamples !== input.measurement.requests ||
-                    input.measurement.versions !== 1 ||
-                    input.measurement.samples !== input.measurement.requests
-                  ? 'source_config_unknown'
-                  : !row.hostObserved
-                    ? 'host_evidence'
-                    : !row.unsampled
-                      ? 'sampling_unknown'
-                      : !row.visits
-                        ? 'zero_referrals'
-                        : null;
+          : !identityReady
+            ? 'browser_identity_unavailable'
+            : row.unknownBrowserHost
+              ? 'browser_host_unknown'
+              : !p.sourceId || input.quality.state !== 'complete'
+                ? 'source_coverage'
+                : !row.requests
+                  ? 'measurement_missing'
+                  : !row.configKnown ||
+                      input.measurement.intervals !== 1 ||
+                      input.measurement.interval !== input.quality.sourceVersion ||
+                      input.measurement.intervalSamples !== input.measurement.requests ||
+                      input.measurement.versions !== 1 ||
+                      input.measurement.samples !== input.measurement.requests
+                    ? 'source_config_unknown'
+                    : !row.hostObserved
+                      ? 'host_evidence'
+                      : !row.unsampled
+                        ? 'sampling_unknown'
+                        : !row.visits
+                          ? 'zero_referrals'
+                          : null;
     const browserKnown = presence.connected && !row.unknownBrowserHost;
     return {
       ...row,
       catalogPaths: row.catalogPaths.size,
-      observedVisits: presence.connected ? row.visits : null,
-      visits: browserKnown ? row.visits : null,
-      conversions: browserKnown ? row.conversions : null,
+      unknownBrowserHost: identityReady ? row.unknownBrowserHost : null,
+      browserHostKnown: !row.unknownBrowserHost,
+      observedVisits: identityReady && presence.connected ? row.visits : null,
+      visits: identityReady && browserKnown ? row.visits : null,
+      conversions: identityReady && browserKnown ? row.conversions : null,
       goalEvents: browserKnown ? row.goalEvents : null,
       conversionRate:
-        browserKnown && goals.configured && row.visits ? row.conversions / row.visits : null,
-      ratioDenominator: browserKnown ? row.visits : null,
+        identityReady && browserKnown && goals.configured && row.visits
+          ? row.conversions / row.visits
+          : null,
+      ratioDenominator: identityReady && browserKnown ? row.visits : null,
       ratio: evidenceValue(
         reason ? null : row.requests / row.visits,
         reason ? 0 : row.requests,
@@ -182,9 +196,9 @@ export async function readOutcomes(
   const platforms = [...new Set(rows.map(row => row.platformId))].map(platformId => {
     const items = rows.filter(row => row.platformId === platformId);
     const sum = (key: string) => items.reduce((n, row) => n + (row[key] ?? 0), 0);
-    const browserKnown = presence.connected && items.every(row => !row.unknownBrowserHost);
-    const visits = browserKnown ? sum('visits') : null,
-      conversions = browserKnown && goals.configured ? sum('conversions') : null;
+    const browserKnown = presence.connected && items.every(row => row.browserHostKnown);
+    const visits = identityReady && browserKnown ? sum('visits') : null,
+      conversions = identityReady && browserKnown && goals.configured ? sum('conversions') : null;
     return {
       platformId,
       requests: sum('requests'),
@@ -200,6 +214,7 @@ export async function readOutcomes(
     meta: {
       ...evidenceMeta(p, input),
       hostname,
+      browserPopulation,
       mappingVersion: OUTCOME_MAPPING_VERSION,
       goalsConfigured: goals.configured,
       browserScope: 'platform_referrals',
@@ -211,7 +226,7 @@ export async function readOutcomes(
       requests: rows.reduce((n, row) => n + row.requests, 0),
       get2xx: rows.reduce((n, row) => n + row.get2xx, 0),
       visits:
-        presence.connected && rows.every(row => !row.unknownBrowserHost)
+        identityReady && presence.connected && rows.every(row => row.browserHostKnown)
           ? rows.reduce((n, row) => n + (row.visits ?? 0), 0)
           : null,
     },

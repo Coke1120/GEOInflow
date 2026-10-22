@@ -39,7 +39,7 @@ export const sharedReportSchema = liekanReportSchema.extend({
     cityBody: z.array(
       z.object({
         city: z.string(),
-        sessions: z.number(),
+        sessions: z.number().nullable(),
         share: z.number().nullable(),
         duration: z.number().nullable(),
         bounceRate: z.number().nullable(),

@@ -23,6 +23,7 @@ import { invalidateWebsiteAnalytics } from './query-cache';
 import {
   canonicalRepairTimezone,
   emptyCounts,
+  publicRepairCounts, publicRepairPreview,
   hash,
   terminalStatuses,
   workingStatuses,
@@ -224,7 +225,7 @@ export async function getHistoryRepair(
     if (selected)
       response.selectedGeneration = {
         id: generation,
-        preview: selected.preview,
+        preview: publicRepairPreview(selected.preview),
         timezone: selected.snapshot.timezone,
         rulepackHash: selected.snapshot.rulepack.hash,
         catalogVersion: selected.snapshot.rulepack.catalogVersion,
@@ -235,7 +236,7 @@ export async function getHistoryRepair(
       if (cursor && !/^\d{4}-\d\d-\d\d$/.test(cursor.after))
         throw new LiekanError('日期游标无效', 400);
       const items = await tx.$queryRawUnsafe<Record<string, unknown>[]>(
-        `SELECT day::text,before_pv::text,after_pv::text,before_uv::text,after_uv::text,event_rows::text,log_rows::text,changed_events::text,changed_logs::text,coverage FROM liekan_history_repair_day WHERE run_id=$1::uuid AND generation=$2::uuid AND ($3::date IS NULL OR day>$3::date) ORDER BY day LIMIT $4`,
+        `SELECT day::text,before_pv::text,after_pv::text,before_uv::text,after_uv::text,before_identity_missing_pv::text,after_identity_missing_pv::text,event_rows::text,log_rows::text,changed_events::text,changed_logs::text,coverage FROM liekan_history_repair_day WHERE run_id=$1::uuid AND generation=$2::uuid AND ($3::date IS NULL OR day>$3::date) ORDER BY day LIMIT $4`,
         row.id,
         generation,
         cursor?.after || null,
@@ -352,7 +353,7 @@ export async function scanHistoryRepair(
         body.actionId,
         body,
       );
-      if (replay) return replay;
+      if (replay) return { ...replay, counts: publicRepairCounts(replay.counts), preview: publicRepairPreview(replay.preview) };
       const state = await eligibility(tx, websiteId);
       if (!state.eligible)
         throw new LiekanError('该网站不在本次升级登记范围', 409, 'history-repair-ineligible');
@@ -416,7 +417,7 @@ export async function previewHistoryRepair(
         body.actionId,
         body,
       );
-      if (replay) return replay;
+      if (replay) return { ...replay, counts: publicRepairCounts(replay.counts), preview: publicRepairPreview(replay.preview) };
       expected(row, body.expectedRevision, body.runId);
       if (row.active_generation)
         throw new LiekanError(
@@ -471,7 +472,7 @@ export async function confirmHistoryRepair(
         body.actionId,
         body,
       );
-      if (replay) return replay;
+      if (replay) return { ...replay, counts: publicRepairCounts(replay.counts), preview: publicRepairPreview(replay.preview) };
       expected(row, body.expectedRevision, body.runId);
       await requireCompatibleRepairWorker(tx);
       await assertSnapshot(tx, row, true);
@@ -539,7 +540,7 @@ export async function actHistoryRepair(
         body.actionId,
         body,
       );
-      if (replay) return replay;
+      if (replay) return { ...replay, counts: publicRepairCounts(replay.counts), preview: publicRepairPreview(replay.preview) };
       expected(row, body.expectedRevision, body.runId);
       if (body.action === 'pause') {
         if (!workingStatuses.includes(row.status))
@@ -679,7 +680,7 @@ export async function exportHistoryRepair(
     if (!saved?.preview?.complete || saved.preview.generation !== generation)
       throw new LiekanError('只可导出完整的固定预览', 409, 'history-repair-preview-required');
     const data = await tx.$queryRawUnsafe<Record<string, unknown>[]>(
-      `SELECT day::text,before_pv::text,after_pv::text,before_uv::text,after_uv::text,event_rows::text,log_rows::text,changed_events::text,changed_logs::text,coverage FROM liekan_history_repair_day WHERE run_id=$1::uuid AND generation=$2::uuid ORDER BY day`,
+      `SELECT day::text,before_pv::text,after_pv::text,before_uv::text,after_uv::text,before_identity_missing_pv::text,after_identity_missing_pv::text,event_rows::text,log_rows::text,changed_events::text,changed_logs::text,coverage FROM liekan_history_repair_day WHERE run_id=$1::uuid AND generation=$2::uuid ORDER BY day`,
       row.id,
       generation,
     );
@@ -695,7 +696,7 @@ export async function exportHistoryRepair(
             'Log rows',
             'Changed events',
             'Changed logs',
-            'Coverage',
+            'Coverage', 'Before qualified UV', 'After qualified UV', 'Before missing identity PV', 'After missing identity PV',
           ]
         : [
             '日期',
@@ -707,9 +708,9 @@ export async function exportHistoryRepair(
             '日志记录',
             '事件变化',
             '日志变化',
-            '证据覆盖',
+            '证据覆盖', '原已确认身份UV', '预计已确认身份UV', '原缺失身份PV', '预计缺失身份PV',
           ];
-    const total = saved.preview.counts;
+    const total = publicRepairCounts(saved.preview.counts);
     const notes =
       locale === 'en-US'
         ? ['Campaign', 'Generation', 'Scope', 'Timezone', 'Limitations', 'Raw UA and IP excluded']
@@ -721,6 +722,7 @@ export async function exportHistoryRepair(
     const translatedLimitations: Record<string, string> =
       locale === 'en-US'
         ? {
+            'identity-input-incomplete': 'Missing identity evidence makes visitor totals unavailable; qualified visitor counts remain partial.',
             'browser-input-incomplete':
               'Some browser records have no evidence sufficient for reclassification.',
             'log-input-incomplete': 'Some retained logs have missing or truncated user agents.',
@@ -735,6 +737,7 @@ export async function exportHistoryRepair(
               'Records with no event timestamp are audited separately and have no inferred calendar day.',
           }
         : {
+            'identity-input-incomplete': '身份信息缺失，访客总数不可用；已确认身份的访客数为部分覆盖。',
             'browser-input-incomplete': '部分浏览记录缺少足以重新分类的原始证据。',
             'log-input-incomplete': '部分历史日志缺少完整的用户代理信息。',
             'missing-quality-scan-time-only':
@@ -751,13 +754,15 @@ export async function exportHistoryRepair(
           value.day,
           value.before_pv,
           value.after_pv,
-          value.before_uv,
-          value.after_uv,
+          dayDto(value).beforeUV,
+          dayDto(value).afterUV,
           value.event_rows,
           value.log_rows,
           value.changed_events,
           value.changed_logs,
           translatedCoverage[String(value.coverage)],
+          dayDto(value).beforeQualifiedUV, dayDto(value).afterQualifiedUV,
+          dayDto(value).beforeIdentityMissingPV, dayDto(value).afterIdentityMissingPV,
         ]
           .map(csvCell)
           .join(','),
@@ -773,6 +778,7 @@ export async function exportHistoryRepair(
         total.changedEvents,
         total.changedLogs,
         translatedCoverage[saved.preview.partial ? 'partial' : 'complete'],
+        total.beforeQualifiedUV, total.afterQualifiedUV, total.beforeIdentityMissingPV, total.afterIdentityMissingPV,
       ]
         .map(csvCell)
         .join(','),

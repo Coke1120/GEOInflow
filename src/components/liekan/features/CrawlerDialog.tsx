@@ -1,4 +1,5 @@
 'use client';
+import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { CrawlerWorkflow } from './CrawlerWorkflow';
 import { TrafficEvidencePanel } from './TrafficEvidencePanel';
 import type { CrawlerIdentityScope } from '@/lib/liekan/contracts/crawler-metrics';
@@ -267,6 +268,9 @@ export function CrawlerDialog({
     metrics = data?.bots.filter(matchesSelection) || [],
     pages = data?.pages.filter(matchesSelection) || [],
     platform = data?.platforms.find(row => row.platformId === bot?.platformId);
+  const previousPlatform = data?.previous.platforms.find(row => row.platformId === bot?.platformId);
+  const platformNumber = (value: number | null | undefined, state = platform?.state) =>
+    state === 'unknown' && value == null ? '—' : num(value);
   const sum = (field: string) => metrics.reduce((total, row) => total + Number(row[field] || 0), 0);
   const botOptions = [
     ...(data?.directory || []).map(bot => ({ value: bot.id, label: bot.name })),
@@ -453,7 +457,9 @@ export function CrawlerDialog({
                         i18n.text('范围 {v0} · DNS {v3} · 边缘 {v4} · 未匹配 {v1} · 未核验 {v2}', [
                           num(sum('verifiedRange')),
                           num(sum('rangeMismatch')),
-                          num(sum('unverified')), num(sum('verifiedDns')), num(sum('verifiedEdge')),
+                          num(sum('unverified')),
+                          num(sum('verifiedDns')),
+                          num(sum('verifiedEdge')),
                         ]),
                       ],
                     ]}
@@ -489,6 +495,9 @@ export function CrawlerDialog({
                 <Notice>{i18n.text('暂不支持来源归因')}</Notice>
               )}
               {platform?.state === 'missing' && <Notice>{i18n.text('缺少来源数据')}</Notice>}
+              {(platform?.state === 'unknown' || previousPlatform?.state === 'unknown') && (
+                <Notice tone="amber">{i18n.text(identityUnavailableReason)}</Notice>
+              )}
               <p className="muted">
                 {i18n.text(
                   '同一平台的引荐与转化只汇总一次，各蜘蛛详情引用同一份平台数据。抓取与引荐并列观察，单次转化的因果归属需要额外证据。',
@@ -501,11 +510,11 @@ export function CrawlerDialog({
                 items={[
                   [
                     i18n.text('平台引荐会话 / 前期'),
-                    `${num(platform?.visits)} / ${num(data.previous.platforms.find(row => row.platformId === bot?.platformId)?.visits)}`,
+                    `${platformNumber(platform?.visits)} / ${platformNumber(previousPlatform?.visits, previousPlatform?.state)}`,
                   ],
                   [
                     i18n.text('转化会话 / 目标事件'),
-                    `${platform?.state === 'available' && platform.conversions == null ? i18n.text('未配置目标') : num(platform?.conversions)} / ${platform?.state === 'available' && platform.goalEvents == null ? i18n.text('未配置目标') : num(platform?.goalEvents)}`,
+                    `${platform?.state === 'available' && platform.conversions == null ? i18n.text('未配置目标') : platformNumber(platform?.conversions)} / ${platform?.state === 'available' && platform.goalEvents == null ? i18n.text('未配置目标') : platformNumber(platform?.goalEvents)}`,
                   ],
                 ]}
               />
@@ -548,8 +557,8 @@ export function CrawlerDialog({
                   >
                     {pageLink(row.path, websiteDomain, undefined, undefined, i18n.locale)}
                   </TableCell>,
-                  num(row.visits),
-                  `${num(row.conversions)} / ${num(row.goalEvents)}`,
+                  platformNumber(row.visits),
+                  `${platformNumber(row.conversions)} / ${platformNumber(row.goalEvents)}`,
                 ])}
                 empty={i18n.text('尚无平台落地页证据')}
               />

@@ -1,9 +1,5 @@
 import clickhouse from '@/lib/clickhouse';
-import {
-  FILTER_COLUMNS,
-  GROUPED_DOMAINS,
-  SESSION_COLUMNS,
-} from '@/lib/constants';
+import { FILTER_COLUMNS, GROUPED_DOMAINS, SESSION_COLUMNS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
@@ -19,10 +15,10 @@ export interface PageviewExpandedMetricsParameters {
 export interface PageviewExpandedMetricsData {
   name: string;
   pageviews: number;
-  visitors: number;
-  visits: number;
-  bounces: number;
-  totaltime: number;
+  visitors: number | null;
+  visits: number | null;
+  bounces: number | null;
+  totaltime: number | null;
 }
 
 export async function getPageviewExpandedMetrics(

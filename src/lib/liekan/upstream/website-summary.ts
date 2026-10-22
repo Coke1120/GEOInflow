@@ -1,3 +1,9 @@
+import { readBrowserPopulation } from './browser-population';
+import {
+  identityUsable,
+  totalIdentityFields,
+  unavailableFields,
+} from '../contracts/browser-population';
 import { checkAuth } from '@/lib/auth';
 import { DEFAULT_RESET_DATE } from '@/lib/constants';
 import { getCompareDate } from '@/lib/date';
@@ -8,7 +14,12 @@ import { canViewWebsiteSection } from '@/permissions';
 import { getWebsiteDateRange, getWebsiteStats } from '@/queries/sql';
 import { websiteSummaryQuery, websiteSummarySchema } from '../contracts/website-summary';
 import { statisticsCacheTtl } from './cache-policy';
-import { bindCacheRequest, noteCacheResult, prepareAnalyticsVersions, withoutQueryCache } from './cache-context';
+import {
+  bindCacheRequest,
+  noteCacheResult,
+  prepareAnalyticsVersions,
+  withoutQueryCache,
+} from './cache-context';
 import { channelFilterColumn } from './filter-extension';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './query-cache';
 import { LiekanError, query } from './server';
@@ -36,7 +47,9 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
   });
   await prepareAnalyticsVersions(p.ids.map(websiteCacheTag));
   // Check current ownership and permissions before every cache read.
-  const sites = await (getRawQueryClient(prisma.client, { write: true }) as typeof prisma.client).website.findMany({
+  const sites = await (
+    getRawQueryClient(prisma.client, { write: true }) as typeof prisma.client
+  ).website.findMany({
     where: { id: { in: p.ids }, deletedAt: null },
     select: { id: true, createdAt: true },
   });
@@ -51,9 +64,11 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
   const previous = getCompareDate('prev', current.startDate, current.endDate);
   const zero = { pageviews: 0, visitors: 0, visits: 0, bounces: 0, totaltime: 0, aiVisits: 0 };
   const normalize = (row: any) =>
-    Object.fromEntries(Object.keys(zero).map(key => [key, Number(row?.[key] ?? 0)])) as typeof zero;
+    Object.fromEntries(
+      Object.keys(zero).map(key => [key, row?.[key] === null ? null : Number(row?.[key] ?? 0)]),
+    ) as typeof zero;
   const result = await analyticsCache.read(
-    analyticsCacheKey('website-summary-v1', [
+    analyticsCacheKey('website-summary-browser-population-v2', [
       process.env.DATABASE_URL,
       process.env.CLICKHOUSE_URL,
       p,
@@ -76,24 +91,30 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
             site.id,
           );
           // The AI drill mirrors the workspace AI card: event-level channel attribution.
-          const [stats, comparison, dates, lifetime, ai, aiComparison] = await withoutQueryCache(() =>
-            Promise.all([
-              getWebsiteStats(site.id, filters),
-              getWebsiteStats(site.id, { ...filters, ...comparisonFilters }),
-              getWebsiteDateRange(site.id),
-              getWebsiteStats(site.id, lifetimeFilters),
-              getWebsiteStats(site.id, { ...filters, drill_channel: 'eq.AI 搜索引荐' }),
-              getWebsiteStats(site.id, {
-                ...filters,
-                ...comparisonFilters,
-                drill_channel: 'eq.AI 搜索引荐',
-              }),
-            ]),
+          const [stats, comparison, dates, lifetime, ai, aiComparison] = await withoutQueryCache(
+            () =>
+              Promise.all([
+                getWebsiteStats(site.id, filters),
+                getWebsiteStats(site.id, { ...filters, ...comparisonFilters }),
+                getWebsiteDateRange(site.id),
+                getWebsiteStats(site.id, lifetimeFilters),
+                getWebsiteStats(site.id, { ...filters, drill_channel: 'eq.AI 搜索引荐' }),
+                getWebsiteStats(site.id, {
+                  ...filters,
+                  ...comparisonFilters,
+                  drill_channel: 'eq.AI 搜索引荐',
+                }),
+              ]),
           );
           rows.push({
             id: site.id,
             ...normalize(stats),
-            comparison: { ...normalize(comparison), aiVisits: normalize(aiComparison).visits },
+            population: stats.population,
+            comparison: {
+              ...normalize(comparison),
+              aiVisits: normalize(aiComparison).visits,
+              population: comparison.population,
+            },
             views: normalize(stats).pageviews,
             received: normalize(lifetime).pageviews > 0,
             lastAt: dates?.endDate ? new Date(dates.endDate).toISOString() : null,
@@ -139,14 +160,40 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
         new Date(DEFAULT_RESET_DATE),
       );
       return websiteSummarySchema.parse(
-        facts.map(row => ({
-          id: row.id,
-          ...normalize(row.current),
-          comparison: normalize(row.previous),
-          views: normalize(row.current).pageviews,
-          received: row.received,
-          lastAt: row.last_at?.toISOString() ?? null,
-        })),
+        await Promise.all(
+          facts.map(async row => {
+            const population = await readBrowserPopulation(
+              row.id,
+              current.startDate,
+              current.endDate,
+              p.timezone,
+            );
+            const comparisonPopulation = await readBrowserPopulation(
+              row.id,
+              previous.startDate,
+              previous.endDate,
+              p.timezone,
+            );
+            const currentTotals = normalize(row.current),
+              previousTotals = normalize(row.previous);
+            return {
+              id: row.id,
+              ...(identityUsable(population)
+                ? currentTotals
+                : unavailableFields(currentTotals, [...totalIdentityFields, 'aiVisits'])),
+              population,
+              comparison: {
+                ...(identityUsable(comparisonPopulation)
+                  ? previousTotals
+                  : unavailableFields(previousTotals, [...totalIdentityFields, 'aiVisits'])),
+                population: comparisonPopulation,
+              },
+              views: normalize(row.current).pageviews,
+              received: row.received,
+              lastAt: row.last_at?.toISOString() ?? null,
+            };
+          }),
+        ),
       );
     },
   );

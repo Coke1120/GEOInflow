@@ -94,7 +94,10 @@ test.describe('Collection', () => {
     const response = await api.post('/api/send', pageview(UNKNOWN_UUID));
 
     expect(response.status).toBe(400);
-    expect(response.body.error).toMatchObject({ message: 'Website not found.', status: 400 });
+    expect(response.body.error).toMatchObject({
+      message: 'Collection resource not found or type mismatch.',
+      status: 400,
+    });
   });
 
   test('POST /api/send requires exactly one of website, link or pixel', async ({ api, seed }) => {

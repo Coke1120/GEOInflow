@@ -104,6 +104,7 @@ export async function repairActionId(value: string) {
 
 export const repairLimitationLabels: Record<string, string> = {
   'undated-events': '缺少事件时间的记录单列审计，不推测自然日归属。',
+  'identity-input-incomplete': '身份信息缺失，访客总数不可用；已确认身份的访客数为部分覆盖。',
   'browser-input-incomplete': '部分历史浏览记录缺少 UA 或精确事件关联，保持原有判定。',
   'log-input-incomplete': '部分历史日志缺少可用于重新识别的 UA。',
   'missing-quality-scan-time-only':

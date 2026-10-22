@@ -1,3 +1,4 @@
+import { trafficGovernanceState } from './traffic-exclusions';
 import { getPublishedCatalog } from '../crawlers/published';
 import { createHash } from 'node:crypto';
 import { diagnosticCoverage } from '../traffic-quality/diagnostics';
@@ -24,6 +25,8 @@ export async function getTrafficPolicy(websiteId: string, tx?: any) {
     );
     return {
       mode: row?.mode || 'standard',
+      effectiveMode: row?.mode === 'strict' ? 'strict' : 'standard',
+      rawAuditOnly: row?.mode === 'raw',
       allowedHostnames: row?.allowed_hostnames || [],
       revision: row?.revision || '0',
       ruleVersion: COLLECTION_RULE_VERSION,
@@ -142,7 +145,7 @@ const scope = `e.website_id=$1::uuid AND e.created_at BETWEEN $2 AND $3
  AND ($4::text IS NULL OR COALESCE(q.classification,'unknown')=$4)
  AND ($5::text IS NULL OR q.source=$5) AND ($6::text IS NULL OR e.hostname=$6 OR q.hostname=$6)
  AND ($7::text IS NULL OR e.url_path=$7)`;
-const evidenceJoins = `FROM website_event e LEFT JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id`;
+const evidenceJoins = `FROM website_event e LEFT JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id LEFT JOIN liekan_event_environment identity_env ON identity_env.event_id=e.event_id AND identity_env.website_id=e.website_id`;
 const joins = `${evidenceJoins}
  LEFT JOIN liekan_effective_website_event effective ON effective.event_id=e.event_id AND effective.website_id=e.website_id
  AND effective.created_at BETWEEN $2 AND $3`;
@@ -169,22 +172,33 @@ export async function qualityTotals(
     const hosts = proposed.allowedHostnames.length ? await hostRepresentations(tx, websiteId) : [];
     params.push(proposed.mode, proposed.allowedHostnames as any, JSON.stringify(hosts));
     extra = `LEFT JOIN liekan_reporting_event_quality candidate ON candidate.event_id=e.event_id AND candidate.website_id=e.website_id
-      LEFT JOIN jsonb_to_recordset($10::jsonb) AS h(reported text,hostname text) ON h.reported=e.hostname`;
-    included = `((candidate.source='browser' OR e.event_type IN (3,4)) AND ($8='raw' OR (COALESCE(candidate.classification,'unknown')<>'automated'
-      AND ($8<>'strict' OR COALESCE(candidate.classification,'unknown')<>'suspected')
-      AND (cardinality($9::text[])=0 OR COALESCE(candidate.hostname,h.hostname)=ANY($9::text[])))))`;
+      LEFT JOIN jsonb_to_recordset($10::jsonb) AS h(reported text,hostname text) ON h.reported=e.hostname
+      LEFT JOIN liekan_event_environment env ON env.event_id=e.event_id AND env.website_id=e.website_id`;
+    included = `(candidate.source='browser' AND e.event_type IN(1,2,5)
+      AND candidate.classification<>'automated' AND NOT('bot_check_disabled'=ANY(candidate.reasons))
+      AND ($8<>'strict' OR candidate.classification<>'suspected')
+      AND (cardinality($9::text[])=0 OR (COALESCE(candidate.hostname,h.hostname)=ANY($9::text[])
+        AND (env.origin_hostname IS NULL OR env.origin_hostname=ANY($9::text[]))))
+      AND NOT EXISTS(SELECT 1 FROM liekan_traffic_exclusion_member m JOIN liekan_traffic_exclusion x
+        ON x.id=m.collection_id AND x.website_id=m.website_id LEFT JOIN liekan_log_state ls ON ls.website_id=x.website_id
+        WHERE m.website_id=e.website_id AND m.event_id=e.event_id AND x.state='active' AND x.epoch=coalesce(ls.epoch,1)))`;
   }
   const [result] = await tx.$queryRawUnsafe(
     `SELECT COUNT(*)::float8 AS "rawPV",COUNT(*) FILTER(WHERE ${included})::float8 AS "includedPV",
-      COUNT(DISTINCT e.session_id)::float8 AS "rawUV",COUNT(DISTINCT e.session_id) FILTER(WHERE ${included})::float8 AS "includedUV",
+      CASE WHEN COUNT(*) FILTER(WHERE NOT COALESCE(identity_env.identity_available,false))=0 THEN COUNT(DISTINCT e.session_id)::float8 ELSE NULL END AS "rawUV",
+      CASE WHEN COUNT(*) FILTER(WHERE ${included} AND NOT COALESCE(identity_env.identity_available,false))=0 THEN COUNT(DISTINCT e.session_id) FILTER(WHERE ${included})::float8 ELSE NULL END AS "includedUV",
+      COUNT(DISTINCT e.session_id) FILTER(WHERE ${included} AND identity_env.identity_available)::float8 AS "qualifiedUV",
+      COUNT(*) FILTER(WHERE ${included} AND identity_env.identity_available)::float8 AS "qualifiedPV",
       COUNT(*) FILTER(WHERE q.event_id IS NULL)::float8 AS "missingVerdictPV"
-      ${proposed ? evidenceJoins : joins} ${extra} WHERE ${scope} AND e.event_type NOT IN (2,5)`,
+      ${proposed ? evidenceJoins : joins} ${extra} WHERE ${scope} AND e.event_type=1`,
     ...params,
   );
   return {
     ...result,
     excludedPV: result.rawPV - result.includedPV,
-    fullyExcludedUV: result.rawUV - result.includedUV,
+    fullyExcludedUV:
+      result.rawUV === null || result.includedUV === null ? null : result.rawUV - result.includedUV,
+    identityCoverage: result.includedPV ? result.qualifiedPV / result.includedPV : null,
   };
 }
 export async function previewTrafficPolicy(
@@ -222,9 +236,10 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
     const policy = await getTrafficPolicy(websiteId, tx);
     const values = bindings(websiteId, range);
     const [repair] = await tx.$queryRawUnsafe(
-      'SELECT active_generation::text,active_revision::text FROM liekan_history_repair_run WHERE website_id=$1::uuid',
+      "SELECT active_generation::text,active_revision::text FROM liekan_history_repair_run WHERE website_id=$1::uuid AND campaign_id='traffic-quality-repair-20261022-v1'",
       websiteId,
     );
+    const governance = await trafficGovernanceState(tx, websiteId);
     const signature = createHash('sha256')
       .update(
         JSON.stringify([
@@ -232,6 +247,8 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
           repair?.active_generation || null,
           repair?.active_revision || '0',
           policy.revision,
+          governance.revision,
+          governance.epoch,
           TRAFFIC_POLICY_VERSION,
           getPublishedCatalog()?.version,
         ]),
@@ -264,7 +281,7 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
     );
     const summary = await tx.$queryRawUnsafe(
       `SELECT COALESCE(q.classification,'unknown') AS classification,COUNT(*)::float8 AS events,
-       COUNT(DISTINCT e.session_id) FILTER(WHERE e.event_type=1)::float8 AS visitors,COUNT(*) FILTER(WHERE e.event_type=1)::float8 AS pageviews,
+       CASE WHEN COUNT(*) FILTER(WHERE e.event_type=1 AND NOT COALESCE(identity_env.identity_available,false))=0 THEN COUNT(DISTINCT e.session_id) FILTER(WHERE e.event_type=1)::float8 ELSE NULL END AS visitors,COUNT(*) FILTER(WHERE e.event_type=1)::float8 AS pageviews,
        COUNT(*) FILTER(WHERE e.event_type=1 AND effective.event_id IS NOT NULL)::float8 AS included_pageviews,
        COUNT(*) FILTER(WHERE q.event_id IS NULL)::float8 AS missing_verdict,COUNT(*) FILTER(WHERE effective.event_id IS NOT NULL)::float8 AS included
        ${joins} WHERE ${scope} GROUP BY 1 ORDER BY 1`,
@@ -281,6 +298,32 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
       cursor?.time || null,
       cursor?.id || null,
       cursor ? 0 : (range.page - 1) * 100,
+    );
+    const partition = await tx.$queryRawUnsafe(
+      `SELECT bucket,count(*)::int AS pageviews FROM (
+      SELECT CASE
+        WHEN effective.event_id IS NOT NULL THEN 'included'
+        WHEN q.source IS NULL THEN 'source_unknown'
+        WHEN q.source<>'browser' THEN 'nonbrowser_source'
+        WHEN current.classification='automated' THEN 'known_automation'
+        WHEN 'bot_check_disabled'=ANY(current.reasons) THEN 'unverified_collection'
+        WHEN p.mode='strict' AND current.classification='suspected' THEN 'strict_policy'
+        WHEN coalesce(cardinality(p.allowed_hostnames),0)>0 AND
+          (coalesce(current.hostname,h.hostname) IS NULL OR NOT(coalesce(current.hostname,h.hostname)=ANY(p.allowed_hostnames))
+           OR (env.origin_hostname IS NOT NULL AND NOT(env.origin_hostname=ANY(p.allowed_hostnames)))) THEN 'hostname_conflict'
+        WHEN EXISTS(SELECT 1 FROM liekan_traffic_exclusion_member m JOIN liekan_traffic_exclusion x
+          ON x.id=m.collection_id AND x.website_id=m.website_id LEFT JOIN liekan_log_state ls ON ls.website_id=x.website_id
+          WHERE m.website_id=e.website_id AND m.event_id=e.event_id AND x.state='active' AND x.epoch=coalesce(ls.epoch,1)) THEN 'confirmed_exclusion'
+        ELSE 'unknown_evidence' END AS bucket
+      ${joins}
+      LEFT JOIN liekan_reporting_event_quality current ON current.event_id=e.event_id AND current.website_id=e.website_id
+      LEFT JOIN liekan_event_environment env ON env.event_id=e.event_id AND env.website_id=e.website_id
+      LEFT JOIN liekan_collection_policy p ON p.website_id=e.website_id
+      LEFT JOIN liekan_collection_hostname h ON h.website_id=e.website_id AND current.hostname IS NULL
+        AND h.reported_hash=encode(sha256(convert_to(e.hostname,'UTF8')),'hex')
+      WHERE ${scope} AND e.event_type=1
+    ) partition GROUP BY bucket ORDER BY bucket`,
+      ...values,
     );
     const last = rows[99];
     const nextCursor =
@@ -317,10 +360,12 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
       classificationBasis: 'collection-original',
       reportingBasis: 'current-policy-and-active-history-repair',
       policy,
+      governance,
       range: { startAt: range.startAt, endAt: range.endAt, timezone: range.timezone },
       totals: await qualityTotals(tx, websiteId, range),
       domainAudit: { expectedHostname: normalizeCollectionHostname(website?.domain), hosts },
       summary,
+      partition,
       rows: rows.slice(0, 100).map(({ cursorTime, ...row }: any) => row),
       page: range.page,
       pageSize: 100,

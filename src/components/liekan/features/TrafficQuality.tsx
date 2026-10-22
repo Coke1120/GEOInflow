@@ -1,4 +1,5 @@
 'use client';
+import { TrafficGovernance } from './TrafficGovernance';
 import { TrafficEvidencePanel } from './TrafficEvidencePanel';
 import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
@@ -38,10 +39,21 @@ const labels: Record<string, string> = {
   'regular-timing': '机械节律',
   'repeated-path': '路径高度重复',
 };
+const partitionLabels: Record<string, string> = {
+  included: '已纳入浏览统计',
+  source_unknown: '采集来源未知',
+  nonbrowser_source: '非浏览器采集来源',
+  known_automation: '已知自动化',
+  unverified_collection: '采集时未执行自动化检查',
+  strict_policy: '严格策略排除',
+  hostname_conflict: '主机或来源冲突',
+  confirmed_exclusion: '经确认排除',
+  unknown_evidence: '证据不足',
+};
 const modes: [string, string][] = [
   ['standard', '标准：排除已知自动化'],
   ['strict', '严格：额外排除来源可疑'],
-  ['raw', '原始：查看全部浏览器事件'],
+  ['raw', '原始审计：主报表保持标准过滤'],
 ];
 function QualityClose({ disabled }: { disabled: boolean }) {
   const i18n = useLiekanI18n();
@@ -192,7 +204,9 @@ export function TrafficQuality({
               <Panel
                 title={i18n.text('统计口径')}
                 subtitle={i18n.text(
-                  'UV 沿用 Umami 匿名标识规则，同一人的网络或浏览器变化可能产生多个标识。',
+                  totals?.rawUV === null
+                    ? '所选范围存在身份信息缺失，访客、会话及依赖身份的指标不可用；浏览量仍可统计。'
+                    : 'UV 沿用 Umami 匿名标识规则，同一人的网络或浏览器变化可能产生多个标识。',
                 )}
               >
                 <Table
@@ -203,7 +217,7 @@ export function TrafficQuality({
                     return [
                       i18n.system(labels[classification]),
                       data.summary ? (row?.pageviews ?? 0) : null,
-                      data.summary ? (row?.visitors ?? 0) : null,
+                      data.summary ? (row ? row.visitors : 0) : null,
                       data.summary ? (row ? (row.included_pageviews ?? null) : 0) : null,
                     ];
                   })}
@@ -301,6 +315,25 @@ export function TrafficQuality({
                     ]}
                   />
                 )}
+                {data.partition && (
+                  <>
+                    <Table
+                      columns={['统计处理', '浏览 PV']}
+                      numeric={[1]}
+                      rows={data.partition.map(row => [
+                        i18n.system(partitionLabels[row.bucket] || row.bucket),
+                        row.pageviews,
+                      ])}
+                    />
+                    <Body>
+                      <p className="muted">
+                        {i18n.text(
+                          '每次浏览仅归入一项处理结果，以上 PV 合计等于当前范围的原始 PV。',
+                        )}
+                      </p>
+                    </Body>
+                  </>
+                )}
               </Panel>
               <Panel
                 title={i18n.text('统计策略')}
@@ -333,7 +366,7 @@ export function TrafficQuality({
                         disabled={!canManage || busy}
                         onChange={e => setHosts(e.target.value)}
                         help={i18n.text(
-                          '每行一个精确主机名；留空仅审计。原始模式查看浏览器来源，全部来源保留在原始审计。',
+                          '每行一个精确主机名；留空时不限制主机。原始审计保留全部来源，主报表持续应用浏览器来源和自动化过滤。',
                         )}
                       />
                       <div className="form-actions">
@@ -389,7 +422,7 @@ export function TrafficQuality({
                       {i18n.fragment('按预览时数据：有效 PV ', false, true)}
                       {preview.current.includedPV} → {preview.preview.includedPV}
                       {i18n.fragment('；有效 UV ', true, true)}
-                      {preview.current.includedUV} → {preview.preview.includedUV}
+                      {preview.current.includedUV ?? '—'} → {preview.preview.includedUV ?? '—'}
                       {i18n.fragment('。保存后，新到数据按相同策略计算。', true, false)}
                     </Notice>
                   )}
@@ -472,7 +505,9 @@ export function TrafficQuality({
               </Panel>
               <Panel
                 title={i18n.text('行为风险观察')}
-                subtitle={i18n.text('默认只观察；当前统计模式及 PV、UV 保持原有过滤规则。')}
+                subtitle={i18n.text(
+                  '默认只观察。完整候选窗口经预览和确认后，指定事件退出正式统计。',
+                )}
               >
                 <QueryState query={risk}>
                   {risk.data?.available === false ? (
@@ -604,6 +639,12 @@ export function TrafficQuality({
                   )}
                 </QueryState>
               </Panel>
+              <TrafficGovernance
+                audit={data}
+                findings={risk.data?.findings}
+                canManage={canManage}
+                refresh={() => Promise.all([audit.refetch(), risk.refetch()])}
+              />
               <Panel
                 title={i18n.text('质量明细')}
                 subtitle={i18n.text('按时间与事件标识稳定分页，每页最多 100 条。')}

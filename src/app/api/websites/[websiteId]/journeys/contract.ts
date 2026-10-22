@@ -31,7 +31,7 @@ export const operations = [
                       },
                     },
                     count: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                   },
                   required: ['items', 'count'],

@@ -25,19 +25,19 @@ export const operations = [
                   type: 'object',
                   properties: {
                     visitors: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     previous: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     dropped: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     dropoff: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     remaining: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     type: {
                       type: 'string',

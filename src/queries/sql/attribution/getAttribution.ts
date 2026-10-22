@@ -1,3 +1,10 @@
+import {
+  identityUsable,
+  unavailableFields,
+  type BrowserPopulation,
+} from '@/lib/liekan/contracts/browser-population';
+import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
 import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
@@ -14,14 +21,15 @@ export interface AttributionParameters {
 }
 
 export interface AttributionResult {
-  referrer: { name: string; value: number }[];
-  paidAds: { name: string; value: number }[];
-  utm_source: { name: string; value: number }[];
-  utm_medium: { name: string; value: number }[];
-  utm_campaign: { name: string; value: number }[];
-  utm_content: { name: string; value: number }[];
-  utm_term: { name: string; value: number }[];
-  total: { pageviews: number; visitors: number; visits: number };
+  population?: BrowserPopulation;
+  referrer: { name: string; value: number | null }[];
+  paidAds: { name: string; value: number | null }[];
+  utm_source: { name: string; value: number | null }[];
+  utm_medium: { name: string; value: number | null }[];
+  utm_campaign: { name: string; value: number | null }[];
+  utm_content: { name: string; value: number | null }[];
+  utm_term: { name: string; value: number | null }[];
+  total: { pageviews: number; visitors: number | null; visits: number | null };
 }
 
 export async function getAttribution(
@@ -29,8 +37,8 @@ export async function getAttribution(
 ): Promise<AttributionResult> {
   return runQuery({
     [PRISMA]: () =>
-      nativeAggregate('native-attribution-v1', args[0], args[1], args[2], () =>
-        relationalQuery(...args),
+      nativeAggregate('native-attribution-v2', args[0], args[1], args[2], () =>
+        nativeSnapshot(() => relationalQuery(...args)),
       ),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
@@ -126,6 +134,7 @@ async function relationalQuery(
     limit 20
     `,
     queryParams,
+    'getAttribution',
   );
 
   const paidAdsres = await rawQuery(
@@ -158,6 +167,7 @@ async function relationalQuery(
     WHERE name != ''
     `,
     queryParams,
+    'getAttribution',
   );
 
   const sourceRes = await rawQuery(
@@ -167,6 +177,7 @@ async function relationalQuery(
     ${getUTMQuery('utm_source')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const mediumRes = await rawQuery(
@@ -176,6 +187,7 @@ async function relationalQuery(
     ${getUTMQuery('utm_medium')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const campaignRes = await rawQuery(
@@ -185,6 +197,7 @@ async function relationalQuery(
     ${getUTMQuery('utm_campaign')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const contentRes = await rawQuery(
@@ -194,6 +207,7 @@ async function relationalQuery(
     ${getUTMQuery('utm_content')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const termRes = await rawQuery(
@@ -203,6 +217,7 @@ async function relationalQuery(
     ${getUTMQuery('utm_term')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const totalRes = await rawQuery(
@@ -220,9 +235,17 @@ async function relationalQuery(
         ${filterQuery}
     `,
     queryParams,
+    'getAttribution',
   ).then(result => result?.[0]);
 
+  const population = await readBrowserPopulation(
+    websiteId,
+    parameters.startDate,
+    parameters.endDate,
+    filters.timezone,
+  );
   return {
+    population,
     referrer: referrerRes,
     paidAds: paidAdsres,
     utm_source: sourceRes,
@@ -230,7 +253,9 @@ async function relationalQuery(
     utm_campaign: campaignRes,
     utm_content: contentRes,
     utm_term: termRes,
-    total: totalRes,
+    total: identityUsable(population)
+      ? totalRes
+      : unavailableFields(totalRes, ['visitors', 'visits']),
   };
 }
 
@@ -343,6 +368,7 @@ async function clickhouseQuery(
     limit 20
     `,
     queryParams,
+    'getAttribution',
   );
 
   const paidAdsres = await rawQuery<
@@ -376,6 +402,7 @@ async function clickhouseQuery(
     limit 20
     `,
     queryParams,
+    'getAttribution',
   );
 
   const sourceRes = await rawQuery<
@@ -390,6 +417,7 @@ async function clickhouseQuery(
     ${getUTMQuery('utm_source')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const mediumRes = await rawQuery<
@@ -404,6 +432,7 @@ async function clickhouseQuery(
     ${getUTMQuery('utm_medium')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const campaignRes = await rawQuery<
@@ -418,6 +447,7 @@ async function clickhouseQuery(
     ${getUTMQuery('utm_campaign')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const contentRes = await rawQuery<
@@ -432,6 +462,7 @@ async function clickhouseQuery(
     ${getUTMQuery('utm_content')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const termRes = await rawQuery<
@@ -446,6 +477,7 @@ async function clickhouseQuery(
     ${getUTMQuery('utm_term')}
     `,
     queryParams,
+    'getAttribution',
   );
 
   const totalRes = await rawQuery<{ pageviews: number; visitors: number; visits: number }>(

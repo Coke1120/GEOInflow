@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { z } from 'zod';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { json, unauthorized } from '@/lib/response';
@@ -20,7 +21,7 @@ interface EventDataRow {
 
 type EventProperty = Omit<EventDataRow, 'websiteId' | 'eventId' | 'eventName'>;
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -67,4 +68,8 @@ export async function GET(
   }
 
   return json({ data: [...eventMap.values()], count, page, pageSize });
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args), args[0]);
 }

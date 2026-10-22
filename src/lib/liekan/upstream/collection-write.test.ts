@@ -2,7 +2,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
-  receipts: new Map<string, { payload_hash: string; event_id: string | null }>(),
+  receipts: new Map<
+    string,
+    {
+      payload_hash: string;
+      event_id: string | null;
+      collection_source?: string | null;
+      collection_scope?: string | null;
+    }
+  >(),
   locks: new Map<string, Promise<void>>(),
   events: [] as any[],
   data: [] as any[],
@@ -58,7 +66,15 @@ vi.mock('@/lib/prisma', () => {
         observation: [] as any[],
         diagnostics: [] as any[],
       };
-      const receipts = new Map<string, { payload_hash: string; event_id: string | null }>();
+      const receipts = new Map<
+        string,
+        {
+          payload_hash: string;
+          event_id: string | null;
+          collection_source?: string | null;
+          collection_scope?: string | null;
+        }
+      >();
       const releases: (() => void)[] = [];
       const tx = {
         ...writers(pending),
@@ -81,7 +97,12 @@ vi.mock('@/lib/prisma', () => {
               if (state.locks.get(key) === lock) state.locks.delete(key);
             });
             if (state.receipts.has(key)) return [];
-            receipts.set(key, { payload_hash: values[2] as string, event_id: null });
+            receipts.set(key, {
+              payload_hash: values[2] as string,
+              event_id: null,
+              collection_source: values[3] as string,
+              collection_scope: values[4] as string,
+            });
             return [{ client_event_id: values[1] }];
           }
           if (/SELECT (?:r\.)?payload_hash/i.test(sql)) {
@@ -258,6 +279,8 @@ describe('atomic collection writes', () => {
     expect(state.receipts.get(`${websiteId}:${eventId}`)).toEqual({
       payload_hash: 'opaque-fixture-hash',
       event_id: savedId,
+      collection_source: 'browser',
+      collection_scope: 'browser',
     });
     expect(state.primaryOptions).toEqual([{ write: true }]);
     expect(state.queries[0]).toEqual({
@@ -312,6 +335,8 @@ describe('atomic collection writes', () => {
     state.receipts.set(`${websiteId}:${eventId}`, {
       payload_hash: 'opaque-fixture-hash',
       event_id: null,
+      collection_source: 'browser',
+      collection_scope: 'browser',
     });
     await expect(withCollectionWrite(collection(), () => saveEvent(args()))).rejects.toThrow(
       'Collection receipt is unavailable',
@@ -517,3 +542,16 @@ it.each(['event', 'data', 'revenue', 'quality', 'observation', 'receipt_link', '
     expect(state.observation).toHaveLength(1);
   },
 );
+
+it('rejects a replay from another collection source before executing writes', async () => {
+  await withCollectionWrite(collection(), () => saveEvent(args()));
+  const write = vi.fn(() => saveEvent(args()));
+  await expect(
+    withCollectionWrite(
+      collection({ quality: { ...quality, source: 'authenticated_server' } }),
+      write,
+    ),
+  ).rejects.toBeInstanceOf(CollectionConflictError);
+  expect(write).not.toHaveBeenCalled();
+  expect(state.events).toHaveLength(1);
+});

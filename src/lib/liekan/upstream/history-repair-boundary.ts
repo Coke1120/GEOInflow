@@ -4,7 +4,7 @@ export async function collectionRepairScope(
   websiteId: string,
 ): Promise<string | null> {
   const [row] = await tx.$queryRawUnsafe<{ repair_scope_id: string }[]>(
-    'SELECT repair_scope_id FROM liekan_history_repair_run WHERE website_id=$1::uuid',
+    "SELECT repair_scope_id FROM liekan_history_repair_run WHERE website_id=$1::uuid AND campaign_id='traffic-quality-repair-20261022-v1'",
     websiteId,
   );
   return row?.repair_scope_id || null;

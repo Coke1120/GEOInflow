@@ -223,7 +223,16 @@ test.describe('Sessions', () => {
       visits: { value: expect.anything() },
       countries: { value: expect.anything() },
       events: { value: expect.anything() },
+      ...(seed.db === 'postgres'
+        ? {
+            population: expect.objectContaining({
+              capability: 'supported',
+              identity: expect.objectContaining({ status: 'complete', coverage: 1 }),
+            }),
+          }
+        : {}),
     });
+    expect(response.headers['x-liekan-population']).toBeTruthy();
     expect(Number(response.body.pageviews.value)).toBeGreaterThanOrEqual(
       seed.data.expectedPageviews,
     );
