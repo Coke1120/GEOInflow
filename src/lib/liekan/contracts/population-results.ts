@@ -58,7 +58,7 @@ export function applyReportPopulation(
   const tableFields: Record<string, string[]> = {
     srcBody: ['sessions', 'share', 'bounceRate', 'conversionRate', 'trend'],
     searchEngineBody: ['sessions', 'share', 'bounceRate', 'conversionRate', 'trend'],
-    keywordBody: ['sessions', 'share', 'bounceRate', 'conversionRate'],
+    keywordBody: ['sessions', 'bounces', 'conversions', 'share', 'bounceRate', 'conversionRate'],
     cityBody: ['sessions', 'share', 'duration', 'bounceRate', 'conversionRate'],
     envGrid: ['share'],
     pgBody: ['uv', 'entries', 'duration', 'bounceRate', 'conversionRate'],
@@ -132,8 +132,8 @@ export function applyHumanFactsPopulation<T extends Record<string, any>>(
   const fields: Record<string, string[]> = {
     daily: ['uv', 'sessions', 'duration', 'bounces', 'conversions'],
     geo: ['sessions', 'duration', 'durationTotal', 'durationSamples', 'bounces', 'conversions'],
-    sources: ['sessions', 'duration', 'bounces', 'conversions', 'count'],
-    sourceEvidence: ['sessions', 'duration', 'bounces', 'conversions', 'count'],
+    sources: ['pv', 'sessions', 'duration', 'bounces', 'conversions', 'count'],
+    sourceEvidence: ['pv', 'sessions', 'duration', 'bounces', 'conversions', 'count'],
     environment: ['sessions'],
     pages: ['uv', 'entries', 'duration', 'samples', 'bounces'],
     heatmap: ['count'],

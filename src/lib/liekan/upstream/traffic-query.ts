@@ -1,4 +1,4 @@
-export const TRAFFIC_POLICY_VERSION = 'traffic-quality-browser-population-v3';
+export const TRAFFIC_POLICY_VERSION = 'traffic-quality-browser-population-v4';
 
 type Token = { value: string; start: number; end: number; identifier: boolean };
 

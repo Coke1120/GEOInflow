@@ -44,9 +44,9 @@ async function relationalQuery(websiteId: string, filters: QueryFilters, session
   const searchQuery = search
     ? `and (session.distinct_id ilike {{search}}
            or (CASE WHEN geo.present THEN geo.city ELSE session.city END) ilike {{search}}
-           or session.browser ilike {{search}}
-           or session.os ilike {{search}}
-           or session.device ilike {{search}})`
+           or env.browser ilike {{search}}
+           or env.os ilike {{search}}
+           or env.device ilike {{search}})`
     : '';
 
   const havingQuery = minDurationMs
@@ -59,9 +59,9 @@ async function relationalQuery(websiteId: string, filters: QueryFilters, session
       sr.visit_id as "id",
       sr.session_id as "sessionId",
       sr.website_id as "websiteId",
-      session.browser,
-      session.os,
-      session.device,
+      env.browser,
+      env.os,
+      env.device,
       ${getPostgresCountrySQL('CASE WHEN geo.present THEN geo.country ELSE session.country END')} as country,
       CASE WHEN geo.present THEN geo.city ELSE session.city END as city,
       sum(sr.event_count) as "eventCount",
@@ -79,6 +79,16 @@ async function relationalQuery(websiteId: string, filters: QueryFilters, session
       WHERE g.website_id=sr.website_id AND g.session_id=sr.session_id AND g.visit_id=sr.visit_id
       ORDER BY g.created_at,g.event_id LIMIT 1
     ) geo ON true
+    LEFT JOIN LATERAL (
+      SELECT website_event.liekan_browser AS browser,website_event.liekan_os AS os,website_event.liekan_device AS device
+      FROM website_event
+      ${joinSessionQuery}
+      ${cohortQuery}
+      WHERE website_event.website_id=sr.website_id AND website_event.session_id=sr.session_id AND website_event.visit_id=sr.visit_id
+        AND website_event.created_at BETWEEN {{startDate}} AND {{endDate}}
+        ${filterQuery}
+      ORDER BY website_event.created_at DESC,website_event.event_id DESC LIMIT 1
+    ) env ON true
     ${joinQuery}
     where sr.website_id = {{websiteId::uuid}}
       and sr.created_at between {{startDate}} and {{endDate}}
@@ -87,9 +97,9 @@ async function relationalQuery(websiteId: string, filters: QueryFilters, session
     group by sr.visit_id,
       sr.session_id,
       sr.website_id,
-      session.browser,
-      session.os,
-      session.device,
+      env.browser,
+      env.os,
+      env.device,
       geo.present,geo.country,geo.city,session.country,session.city
     ${havingQuery}
     order by max(sr.created_at) desc

@@ -473,10 +473,11 @@ export async function buildAiFactsContext(input: {
               state: sourceStates.aiReferrals,
               data: {
                 visits: sources.browser && identityReady ? safeAiCount(rc.visits) : null,
-                pageviews: sources.browser ? safeAiCount(rc.pv) : null,
+                pageviews: sources.browser && identityReady ? safeAiCount(rc.pv) : null,
                 previousVisits:
                   sources.browser && previousIdentityReady ? safeAiCount(rp.visits) : null,
-                previousPageviews: sources.browser ? safeAiCount(rp.pv) : null,
+                previousPageviews:
+                  sources.browser && previousIdentityReady ? safeAiCount(rp.pv) : null,
                 changePercent: aiChangePercent(
                   identityReady ? safeAiCount(rc.visits) : null,
                   previousIdentityReady ? safeAiCount(rp.visits) : null,

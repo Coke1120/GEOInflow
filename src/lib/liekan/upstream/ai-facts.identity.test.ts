@@ -40,10 +40,10 @@ vi.mock('./browser-population', async importOriginal => {
         {
           resourceKind: 'website',
           eligibleEvents: events,
-          qualifiedEvents: status === 'partial' ? 2 : events,
+          qualifiedEvents: status === 'unavailable' ? 0 : status === 'partial' ? 2 : events,
           eligiblePV: events,
-          qualifiedPV: status === 'partial' ? 2 : events,
-          qualifiedVisitors: events ? 2 : 0,
+          qualifiedPV: status === 'unavailable' ? 0 : status === 'partial' ? 2 : events,
+          qualifiedVisitors: events && status !== 'unavailable' ? 2 : 0,
         },
         { startAt: +start, endAt: +end, timezone: 'UTC' },
       );
@@ -88,6 +88,11 @@ vi.mock('./server', () => ({
           total: 1,
         },
       ];
+    if (sql.includes(', entry_visits AS ('))
+      return [
+        { period: 0, visits: 1, pv: 2 },
+        { period: 1, visits: 1, pv: 1 },
+      ];
     return [];
   },
 }));
@@ -120,6 +125,29 @@ async function goalFact() {
   return { context, row: goal.data.rows[0] };
 }
 describe('AI goal rates preserve identity availability', () => {
+  it.each([
+    ['unavailable', 'complete'],
+    ['partial', 'complete'],
+    ['complete', 'unavailable'],
+    ['complete', 'partial'],
+    ['complete', 'complete'],
+  ])(
+    'gates entry-attributed AI pageviews for %s current and %s previous identities',
+    async (current, previous) => {
+      fixture.current = current;
+      fixture.previous = previous;
+      const { context, row } = await goalFact();
+      const referrals = context.facts.find(fact => fact.id === 'ai-referrals');
+      expect(referrals?.data).toMatchObject({
+        visits: current === 'complete' ? 1 : null,
+        pageviews: current === 'complete' ? 2 : null,
+        previousVisits: previous === 'complete' ? 1 : null,
+        previousPageviews: previous === 'complete' ? 1 : null,
+      });
+      expect(context.metrics.find(metric => metric.key === 'pageviews')?.value).toBe(4);
+      expect(row).toMatchObject({ count: 3, previousCount: 2 });
+    },
+  );
   it('retains event counts and valid facts when current identity cannot supply a denominator', async () => {
     const { context, row } = await goalFact();
     expect(context.metrics.find(metric => metric.key === 'pageviews')?.value).toBe(4);

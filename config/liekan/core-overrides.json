@@ -3349,12 +3349,13 @@
     },
     {
       "path": "src/queries/sql/breakdown/getBreakdown.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3422,13 +3423,14 @@
     },
     {
       "path": "src/queries/sql/getValues.ts",
-      "purpose": "Inherited device/geography compatibility; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; restrict session filter candidates to the same eligible traffic population; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
+      "purpose": "Inherited device/geography compatibility; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; restrict session filter candidates to the same eligible traffic population; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "src/lib/liekan/contracts/geography.test.ts",
-        "pnpm test:traffic-quality"
+        "pnpm test:traffic-quality",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3495,14 +3497,15 @@
     },
     {
       "path": "src/queries/sql/performance/getPerformanceMetrics.ts",
-      "purpose": "Preserve non-null metric sample counts and apply bounce exclusion consistently to performance dimensions",
+      "purpose": "Preserve non-null metric sample counts and apply bounce exclusion consistently to performance dimensions; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
         "src/queries/sql/performance/getPerformance.test.ts",
         "tests/api/liekan-features.spec.ts",
-        "pnpm liekan:verify"
+        "pnpm liekan:verify",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ]
     },
     {
@@ -3519,10 +3522,11 @@
     },
     {
       "path": "src/queries/sql/replays/getSessionReplays.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3627,12 +3631,13 @@
     },
     {
       "path": "src/queries/sql/sessions/getSessionExpandedMetrics.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3640,12 +3645,13 @@
     },
     {
       "path": "src/queries/sql/sessions/getSessionMetrics.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -5314,7 +5320,7 @@
     },
     {
       "path": "src/queries/sql/pageviews/getPageviewExpandedMetrics.ts",
-      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "pnpm liekan:verify",
         "pnpm test:history-repair",
@@ -5537,6 +5543,39 @@
       "owner": "Liekan analytics maintenance",
       "constraint": "Keep exact metric assertions and preserve ClickHouse response compatibility",
       "removalCondition": "Remove when upstream provides equivalent population metadata and these regressions pass"
+    },
+    {
+      "path": "src/queries/sql/events/getEventExpandedMetrics.ts",
+      "purpose": "Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
+      "tests": [
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve ClickHouse, link and pixel semantics; keep missing historical environments unknown",
+      "removalCondition": "Remove when upstream supplies event-scoped environment dimensions with equivalent regression coverage"
+    },
+    {
+      "path": "src/queries/sql/events/getEventMetrics.ts",
+      "purpose": "Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
+      "tests": [
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve ClickHouse, link and pixel semantics; keep missing historical environments unknown",
+      "removalCondition": "Remove when upstream supplies event-scoped environment dimensions with equivalent regression coverage"
+    },
+    {
+      "path": "src/queries/sql/pageviews/getPageviewMetrics.ts",
+      "purpose": "Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
+      "tests": [
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve ClickHouse, link and pixel semantics; keep missing historical environments unknown",
+      "removalCondition": "Remove when upstream supplies event-scoped environment dimensions with equivalent regression coverage"
     }
   ]
 }

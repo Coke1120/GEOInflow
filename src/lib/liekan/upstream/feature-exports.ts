@@ -302,7 +302,7 @@ async function prepareSnapshot(
       ['countries', 'country', true],
     ] as const) {
       const query = session
-        ? `SELECT ${column === 'country' ? getPostgresCountrySQL('s.liekan_country') : `e.${column}`} AS name,COUNT(DISTINCT s.session_id) AS visitors,COUNT(*) FILTER(WHERE event_type=1) AS views FROM selected s JOIN session e ON e.session_id=s.session_id AND e.website_id={{websiteId::uuid}} WHERE s.event_type=1 GROUP BY 1 ORDER BY visitors DESC,name`
+        ? `SELECT ${column === 'country' ? getPostgresCountrySQL('s.liekan_country') : `s.liekan_${column}`} AS name,COUNT(DISTINCT s.session_id) AS visitors,COUNT(*) FILTER(WHERE event_type=1) AS views FROM selected s WHERE s.event_type=1 GROUP BY 1 ORDER BY visitors DESC,name`
         : `SELECT ${column} AS name,COUNT(DISTINCT session_id) AS visitors,COUNT(*) AS views FROM selected WHERE event_type=1 GROUP BY 1 ORDER BY views DESC,name`;
       add(`${name}.csv`, await paged(query));
     }
@@ -325,7 +325,7 @@ async function prepareSnapshot(
     add(
       'sessions.csv',
       await paged(
-        `SELECT s.session_id AS id,MIN(s.created_at) AS "firstAt",MAX(s.created_at) AS "lastAt",COUNT(*) FILTER(WHERE event_type=1) AS views,COUNT(*) FILTER(WHERE event_type=2) AS events,COUNT(DISTINCT visit_id) AS visits,MAX(e.browser) AS browser,MAX(e.device) AS device,${getPostgresCountrySQL('(ARRAY_AGG(s.liekan_country ORDER BY s.created_at DESC,s.event_id DESC))[1]')} AS country FROM selected s JOIN session e ON e.session_id=s.session_id AND e.website_id={{websiteId::uuid}} GROUP BY s.session_id ORDER BY "lastAt",s.session_id`,
+        `SELECT s.session_id AS id,MIN(s.created_at) AS "firstAt",MAX(s.created_at) AS "lastAt",COUNT(*) FILTER(WHERE event_type=1) AS views,COUNT(*) FILTER(WHERE event_type=2) AS events,COUNT(DISTINCT visit_id) AS visits,(ARRAY_AGG(s.liekan_browser ORDER BY s.created_at DESC,s.event_id DESC))[1] AS browser,(ARRAY_AGG(s.liekan_device ORDER BY s.created_at DESC,s.event_id DESC))[1] AS device,${getPostgresCountrySQL('(ARRAY_AGG(s.liekan_country ORDER BY s.created_at DESC,s.event_id DESC))[1]')} AS country FROM selected s GROUP BY s.session_id ORDER BY "lastAt",s.session_id`,
         r => ({ ...r, id: mask(r.id) }),
       ),
     );

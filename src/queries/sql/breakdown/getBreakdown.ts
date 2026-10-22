@@ -1,3 +1,4 @@
+import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import { getClickHouseCountrySQL, getClickHouseRegionSQL } from '@/lib/country';
@@ -191,5 +192,5 @@ function getFieldColumn(name: string, database: 'postgres' | 'clickhouse') {
     return getClickHouseRegionSQL('website_event.country', 'website_event.region');
   }
 
-  return column;
+  return database === 'postgres' ? postgresEventEnvironmentColumn(column) : column;
 }

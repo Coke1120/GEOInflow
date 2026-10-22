@@ -1,3 +1,4 @@
+import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import { getClickHouseCountrySQL, getClickHouseRegionSQL } from '@/lib/country';
@@ -38,7 +39,7 @@ async function relationalQuery(
   filters: QueryFilters,
 ): Promise<SessionExpandedMetricsData[]> {
   const { type, limit = 500, offset = 0 } = parameters;
-  let column = FILTER_COLUMNS[type] || type;
+  let column = postgresEventEnvironmentColumn(FILTER_COLUMNS[type] || type);
   const { parseFilters, rawQuery, getTimestampDiffSQL } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
     parseFilters(
@@ -54,7 +55,7 @@ async function relationalQuery(
   const includeCountry = column === 'city' || column === 'region';
 
   if (type === 'language') {
-    column = `lower(left(${type}, 2))`;
+    column = `lower(left(${column}, 2))`;
   }
   const bounceQuery = needsBounceEvents
     ? `sum(case when t.c = 1 and coalesce(e.has_custom_event, 0) = 0 then 1 else 0 end) as "bounces",`

@@ -311,7 +311,7 @@ async function crawlerAnalysisSnapshot(
                     ? matching.reduce((n, row) => n + row.conversions, 0)
                     : null,
                 goalEvents:
-                  supported && browser.connected && goals.count
+                  supported && browser.connected && identityReady && goals.count
                     ? matching.reduce((n, row) => n + (row.goalEvents || 0), 0)
                     : null,
                 landingPages: [...landing.values()]
@@ -321,6 +321,7 @@ async function crawlerAnalysisSnapshot(
                     ...row,
                     visits: identityReady ? row.visits : null,
                     conversions: identityReady ? row.conversions : null,
+                    goalEvents: identityReady ? row.goalEvents : null,
                   })),
                 landingPagesTruncated: landing.size > 1000,
               };

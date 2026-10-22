@@ -128,14 +128,14 @@ describe('browser identity in crawler evidence', () => {
         visits: reliable === 2 ? 1 : null,
         observedVisits: reliable === 2 ? 1 : null,
         conversions: reliable === 2 ? 1 : null,
-        goalEvents: 2,
+        goalEvents: reliable === 2 ? 2 : null,
         ratioDenominator: reliable === 2 ? 1 : null,
       });
       expect(outcomes.totals.visits).toBe(reliable === 2 ? 1 : null);
       expect(outcomes.reasons[0]).toMatchObject({
         visits: reliable === 2 ? 1 : null,
         conversions: reliable === 2 ? 1 : null,
-        goalEvents: 2,
+        goalEvents: reliable === 2 ? 2 : null,
       });
       expect(outcomes.meta.browserPopulation).toEqual(reconciliation.meta.browserPopulation);
       expect(outcomes.meta.browserPopulation.range).toEqual({ ...range, endExclusive: true });

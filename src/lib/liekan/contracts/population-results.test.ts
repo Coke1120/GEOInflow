@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { applyFeaturePopulation, applyReportPopulation } from './population-results';
+import {
+  applyFeaturePopulation,
+  applyHumanFactsPopulation,
+  applyReportPopulation,
+} from './population-results';
 import { populationFromRow } from '../upstream/browser-population';
 const population = populationFromRow(
   {
@@ -13,6 +17,97 @@ const population = populationFromRow(
   { startAt: 0, endAt: 1000, timezone: 'UTC' },
 );
 describe('identity availability output contracts', () => {
+  it.each([0, 1, 2])('gates keyword visit counts with %s qualified events', qualified => {
+    const window = populationFromRow(
+      {
+        resourceKind: 'website',
+        eligibleEvents: 2,
+        qualifiedEvents: qualified,
+        eligiblePV: 2,
+        qualifiedPV: qualified,
+        qualifiedVisitors: qualified ? 1 : 0,
+      },
+      { startAt: 0, endAt: 1000, timezone: 'UTC' },
+    );
+    const complete = qualified === 2;
+    const result = applyReportPopulation(
+      {
+        meta: {},
+        cards: [],
+        charts: {},
+        tables: {
+          keywordBody: [
+            {
+              sessions: 1,
+              bounces: 1,
+              conversions: 1,
+              share: 100,
+              bounceRate: 100,
+              conversionRate: 100,
+            },
+          ],
+          goalBody: [{ count: 1, convertedSessions: 1 }],
+          pgBody: [{ path: '/', pv: 2, uv: 1 }],
+        },
+      } as any,
+      window,
+    );
+    expect(result.tables.keywordBody[0]).toEqual({
+      sessions: complete ? 1 : null,
+      bounces: complete ? 1 : null,
+      conversions: complete ? 1 : null,
+      share: complete ? 100 : null,
+      bounceRate: complete ? 100 : null,
+      conversionRate: complete ? 100 : null,
+    });
+    expect(result.tables.goalBody[0].count).toBe(1);
+    expect(result.tables.pgBody[0].pv).toBe(2);
+  });
+  it.each([0, 1, 2])('gates entry-attributed PV with %s qualified events', qualified => {
+    const window = populationFromRow(
+      {
+        resourceKind: 'website',
+        eligibleEvents: 2,
+        qualifiedEvents: qualified,
+        eligiblePV: 2,
+        qualifiedPV: qualified,
+        qualifiedVisitors: qualified ? 1 : 0,
+      },
+      { startAt: 0, endAt: 1000, timezone: 'UTC' },
+    );
+    const complete = qualified === 2;
+    const source = {
+      channel: 'AI 搜索引荐',
+      source: 'ChatGPT',
+      pv: 2,
+      sessions: 1,
+      bounces: 1,
+      conversions: 1,
+      count: 1,
+      duration: 10,
+    };
+    const facts = applyHumanFactsPopulation(
+      {
+        sources: [source],
+        sourceEvidence: [source],
+        dailySources: [{ channel: 'AI 搜索引荐', count: 1 }],
+        daily: [{ pv: 2, uv: 1 }],
+        pages: [{ path: '/', pv: 2, uv: 1 }],
+        goals: [{ count: 1, convertedSessions: 1 }],
+      },
+      window,
+    );
+    for (const key of ['sources', 'sourceEvidence'] as const)
+      expect(facts[key][0]).toMatchObject({
+        pv: complete ? 2 : null,
+        sessions: complete ? 1 : null,
+        conversions: complete ? 1 : null,
+      });
+    expect(facts.daily[0].pv).toBe(2);
+    expect(facts.pages[0].pv).toBe(2);
+    expect(facts.goals[0].count).toBe(1);
+    expect(facts.dailySources[0].count).toBe(complete ? 1 : null);
+  });
   it('preserves PV and goal event counts while clearing post-aggregation identity metrics', () => {
     const report: any = {
       meta: {},

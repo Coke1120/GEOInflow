@@ -1,3 +1,4 @@
+import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -36,7 +37,7 @@ async function relationalQuery(
   filters: QueryFilters,
 ) {
   const { type, limit = 500, offset = 0 } = parameters;
-  const column = FILTER_COLUMNS[type] || type;
+  const column = postgresEventEnvironmentColumn(FILTER_COLUMNS[type] || type);
   const { rawQuery, parseFilters, getTimestampDiffSQL } = prisma;
   const { filterQuery, cohortQuery, joinSessionQuery, queryParams } = parseFilters(
     {

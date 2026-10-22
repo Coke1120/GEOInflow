@@ -825,6 +825,10 @@ try {
       (e: any) => e.status === 409,
     );
   });
+  await test('environment dimensions stay within the selected event window across native reads and exports', async () => {
+    const { verifyEventEnvironmentReads } = await import('./environment-population-regression');
+    await verifyEventEnvironmentReads(db);
+  });
   console.log(`${passed} integration cases passed`);
 } finally {
   if (prisma) await prisma.client.$disconnect();

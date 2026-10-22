@@ -177,7 +177,7 @@ describe.skipIf(!enabled)(
         kind: 'robots_purpose',
       });
     });
-    it('withholds identity metrics on partial windows and keeps counted goal events', async () => {
+    it('withholds visit-attributed metrics on partial windows', async () => {
       const [event] = await q(
         'SELECT event_id FROM liekan_raw_website_event WHERE website_id=$1::uuid AND event_type=2 LIMIT 1',
         websiteId,
@@ -195,8 +195,8 @@ describe.skipIf(!enabled)(
           state: 'unknown',
           visits: null,
           conversions: null,
-          goalEvents: 2,
-          landingPages: [{ path: '/docs', visits: null, conversions: null, goalEvents: 2 }],
+          goalEvents: null,
+          landingPages: [{ path: '/docs', visits: null, conversions: null, goalEvents: null }],
         });
         const warm = await crawlerAnalysis(actor, websiteId, range);
         expect(warm.population).toEqual(result.population);

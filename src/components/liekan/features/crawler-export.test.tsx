@@ -297,8 +297,8 @@ it('explains unavailable platform identities without claiming goals are unconfig
         state: 'unknown',
         visits: null,
         conversions: null,
-        goalEvents: 2,
-        landingPages: [{ path: '/docs', visits: null, conversions: null, goalEvents: 2 }],
+        goalEvents: null,
+        landingPages: [{ path: '/docs', visits: null, conversions: null, goalEvents: null }],
       },
     ],
     previous: { bots: [], platforms: [] },
@@ -325,5 +325,5 @@ it('explains unavailable platform identities without claiming goals are unconfig
   expect(screen.queryByText('未配置目标')).not.toBeInTheDocument();
   expect(
     screen.getAllByText('转化会话 / 目标事件').find(el => el.tagName === 'DT')!.parentElement,
-  ).toHaveTextContent('— / 2');
+  ).toHaveTextContent('— / —');
 });

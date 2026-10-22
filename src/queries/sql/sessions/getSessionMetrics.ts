@@ -1,3 +1,4 @@
+import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import { getClickHouseCountrySQL, getClickHouseRegionSQL } from '@/lib/country';
@@ -29,7 +30,7 @@ async function relationalQuery(
   filters: QueryFilters,
 ) {
   const { type, limit = 500, offset = 0 } = parameters;
-  let column = FILTER_COLUMNS[type] || type;
+  let column = postgresEventEnvironmentColumn(FILTER_COLUMNS[type] || type);
   const { parseFilters, rawQuery } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
     parseFilters(
@@ -44,7 +45,7 @@ async function relationalQuery(
   const includeCountry = column === 'city' || column === 'region';
 
   if (type === 'language') {
-    column = `lower(left(${type}, 2))`;
+    column = `lower(left(${column}, 2))`;
   }
   const countryColumn = postgresVisitGeographyColumn('country');
 

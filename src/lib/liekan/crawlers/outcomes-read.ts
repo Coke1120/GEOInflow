@@ -178,7 +178,7 @@ export async function readOutcomes(
       observedVisits: identityReady && presence.connected ? row.visits : null,
       visits: identityReady && browserKnown ? row.visits : null,
       conversions: identityReady && browserKnown ? row.conversions : null,
-      goalEvents: browserKnown ? row.goalEvents : null,
+      goalEvents: identityReady && browserKnown ? row.goalEvents : null,
       conversionRate:
         identityReady && browserKnown && goals.configured && row.visits
           ? row.conversions / row.visits
@@ -206,7 +206,7 @@ export async function readOutcomes(
       catalogPaths: sum('catalogPaths'),
       visits,
       conversions,
-      goalEvents: browserKnown && goals.configured ? sum('goalEvents') : null,
+      goalEvents: identityReady && browserKnown && goals.configured ? sum('goalEvents') : null,
       conversionRate: visits && goals.configured ? conversions / visits : null,
     };
   });
