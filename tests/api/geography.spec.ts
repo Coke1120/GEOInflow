@@ -1,3 +1,4 @@
+import { browserPopulationSchema } from '../../src/lib/liekan/contracts/browser-population';
 import { expect, test } from './fixtures';
 import { UNKNOWN_UUID } from './helpers/constants';
 import { PERSONAS } from './seed/dataset';
@@ -50,6 +51,9 @@ test('collection persists the sanitized header city consistently without decodin
           headers: {
             'user-agent': PERSONAS[0].userAgent,
             'x-real-ip': '223.6.6.6',
+            ...(process.env.LIEKAN_API_FIXTURE_CONTAINER
+              ? { 'x-liekan-fixture-ip': '223.6.6.6' }
+              : {}),
             'cf-ipcountry': 'CN',
             'cf-region-code': 'GD',
             'cf-ipcity': encoded,
@@ -115,10 +119,14 @@ test('scopes geography diagnostics and preserves the complete visit population',
     'coverage',
     'evidence',
     'ingress',
+    'population',
     'range',
     'runtime',
     'versions',
   ]);
+  expect(browserPopulationSchema.safeParse(result.body.population).success).toBe(true);
+  expect(result.body.population).toEqual(report.body.meta.population);
+  expect(result.body.population.identity.status).toBe('complete');
   const coverage = result.body.coverage;
   expect(coverage).toEqual(report.body.meta.geographyCoverage);
   expect(coverage.totalVisits).toBe(Number(native.body.visits));

@@ -49,7 +49,13 @@ export function retimeBrowserFixtures(rows: BrowserFixtureTime[]) {
       JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id AND q.source='browser'
       JOIN liekan_event_environment env ON env.event_id=e.event_id AND env.website_id=e.website_id AND env.identity_available;
     DO $$ BEGIN IF (SELECT count(*) FROM fixture_clock) <> ${rows.length} THEN RAISE EXCEPTION 'Fixture intake or identity evidence incomplete'; END IF; END $$;
-    UPDATE website_event e SET created_at=f.at,visit_id=CASE WHEN f.split_visits AND f.at<date_trunc('day',now()) THEN md5('api-fixture:'||e.session_id::text||date_trunc('hour',f.at)::text)::uuid ELSE e.visit_id END FROM fixture_clock f WHERE e.event_id=f.event_id;
+    CREATE TEMP TABLE fixture_visits ON COMMIT DROP AS
+      SELECT session_id,date_trunc('hour',at) AS hour,gen_random_uuid() AS visit_id
+      FROM fixture_clock WHERE split_visits AND at<date_trunc('day',now())
+      GROUP BY session_id,date_trunc('hour',at);
+    UPDATE website_event e SET created_at=f.at,visit_id=coalesce(v.visit_id,e.visit_id)
+      FROM fixture_clock f LEFT JOIN fixture_visits v ON f.split_visits AND v.session_id=f.session_id AND v.hour=date_trunc('hour',f.at)
+      WHERE e.event_id=f.event_id;
     UPDATE event_data d SET created_at=f.at FROM fixture_clock f WHERE d.website_event_id=f.event_id;
     UPDATE revenue r SET created_at=f.at FROM fixture_clock f WHERE r.event_id=f.event_id;
     INSERT INTO liekan_analytics_revision(resource_type,resource_id,revision) SELECT DISTINCT 'website',website_id,1 FROM fixture_clock ON CONFLICT(resource_type,resource_id) DO UPDATE SET revision=liekan_analytics_revision.revision+1,updated_at=now();
