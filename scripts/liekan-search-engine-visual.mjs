@@ -23,6 +23,7 @@ async function api(method, path, body) {
       'content-type': 'application/json',
       ...(method === 'POST' && path === '/send'
         ? {
+            'x-liekan-fixture-ip': '192.0.2.1',
             'user-agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
           }
@@ -41,7 +42,7 @@ const report = {
   cleanup: false,
 };
 const now = Date.now();
-const range = { startAt: now - 600000, endAt: now + 60000, timezone: 'UTC' };
+const range = { startAt: now - 600000, endAt: now + 3600000, timezone: 'UTC' };
 try {
   token = (await api('POST', '/auth/login', seed.admin)).token;
   website = await api('POST', '/websites', {
@@ -77,7 +78,6 @@ try {
         url: '/',
         referrer: `https://${host}/`,
         id: `engine-visual-${index}`,
-        timestamp: Math.floor(now / 1000),
       },
     });
   for (const [id, url, referrer] of [
@@ -93,7 +93,6 @@ try {
         id: `engine-${id}`,
         url,
         referrer,
-        timestamp: Math.floor(now / 1000),
       },
     });
   const parameters = new URLSearchParams({ resource: 'human/search-engines', ...range });

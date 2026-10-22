@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as pause } from 'node:timers/promises';
 import type pg from 'pg';
-const browser =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
+import {
+  assertBenchmarkSites,
+  benchmarkBrowserHeaders,
+  benchmarkIdentityVersion,
+} from './liekan-benchmark-fixtures';
 const percentile = (values: number[], fraction: number) =>
   [...values].sort((a, b) => a - b)[
     Math.min(values.length - 1, Math.floor(values.length * fraction))
@@ -45,11 +48,13 @@ export async function measureTrafficQuality({
     await database.query('INSERT INTO liekan_setting(website_id,is_demo) VALUES($1,true)', [id]);
     return id;
   };
+  await assertBenchmarkSites(database, volumeSites);
+  // Move only this invocation's synthetic reception windows into the worker's measured backlog.
   await database.query(
-    `INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,hostname,created_at)
-  SELECT event_id,website_id,'browser','browser','{synthetic-benchmark}','traffic-quality-v1','untrusted',hostname,date_trunc('minute',now())-interval '3 minutes'
-  FROM website_event WHERE website_id=ANY($1::uuid[]) ON CONFLICT DO NOTHING`,
-    [volumeSites],
+    `UPDATE liekan_event_quality q SET created_at=date_trunc('minute',now())-interval '3 minutes'
+     FROM liekan_event_environment env WHERE q.website_id=ANY($1::uuid[]) AND env.event_id=q.event_id
+       AND env.website_id=q.website_id AND env.identity_version=$2 AND 'synthetic-benchmark'=ANY(q.reasons)`,
+    [volumeSites, benchmarkIdentityVersion],
   );
   await database.query(
     `INSERT INTO liekan_browser_risk_state(website_id,epoch,next_window,rule_version)
@@ -80,7 +85,7 @@ export async function measureTrafficQuality({
     const started = performance.now();
     const response = await fetch(`${target}/api/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': browser },
+      headers: benchmarkBrowserHeaders,
       body: JSON.stringify({
         type: 'event',
         payload: {
@@ -97,6 +102,22 @@ export async function measureTrafficQuality({
     const body: any = await response.json();
     assert(typeof body.sessionId === 'string' && body.sessionId.length > 0);
     assert(typeof body.visitId === 'string' && body.visitId.length > 0);
+    if (label === 'candidate') {
+      const proof = (
+        await database.query(
+          `SELECT q.source,env.scope,env.identity_available FROM website_event e
+         JOIN liekan_event_quality q ON q.event_id=e.event_id AND q.website_id=e.website_id
+         JOIN liekan_event_environment env ON env.event_id=e.event_id AND env.website_id=e.website_id
+         WHERE e.website_id=$1 AND e.url_path='/synthetic/preparation'`,
+          [site],
+        )
+      ).rows;
+      assert.deepEqual(
+        proof,
+        [{ source: 'browser', scope: 'browser', identity_available: true }],
+        'candidate collector must establish trusted browser identity',
+      );
+    }
     result.collectorPreparation.push({ label, elapsedMs: performance.now() - started });
   }
   const diagnosticAttempts = async () =>
@@ -181,7 +202,7 @@ export async function measureTrafficQuality({
         try {
           const response = await fetch(`${target}/api/send`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'User-Agent': browser },
+            headers: benchmarkBrowserHeaders,
             body: JSON.stringify(bodies[i]),
             signal: AbortSignal.timeout(40000),
           });

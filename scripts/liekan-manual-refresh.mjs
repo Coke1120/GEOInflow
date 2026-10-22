@@ -141,6 +141,8 @@ async function open(url, authenticated = true, cacheableDocument = false) {
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
     locale: 'zh-CN',
+    userAgent:
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
   });
   if (authenticated)
     await context.addInitScript(
@@ -624,7 +626,7 @@ try {
         screen: '1440x1000',
       },
     },
-    { 'user-agent': userAgent },
+    { 'user-agent': userAgent, 'x-liekan-fixture-ip': '192.0.2.1' },
   );
   // Respect the existing five-second forced-read limit.
   while (Date.now() - realStarted < 600000 || Date.now() - beforeReadAt < 5100)
@@ -659,6 +661,11 @@ try {
     'Overview did not render the new tracker data after manual refresh',
   );
   const after = await api('GET', statsPath);
+  assert.equal(
+    after.population.identity.status,
+    'complete',
+    'Browser fixture identity is incomplete',
+  );
   assert(
     Number(after.pageviews?.value ?? after.pageviews) >
       Number(before.pageviews?.value ?? before.pageviews),

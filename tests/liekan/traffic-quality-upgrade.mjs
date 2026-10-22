@@ -96,7 +96,7 @@ export async function runTrafficQualityUpgradeChecks({
   const native = `/api/websites/${riskSite}`;
   const riskRange = new URLSearchParams({
     startAt: String(Date.now() - 3600000),
-    endAt: String(Date.now() + 60000),
+    endAt: String(Date.now() + 3600000),
     timezone: 'UTC',
   }).toString();
   try {
