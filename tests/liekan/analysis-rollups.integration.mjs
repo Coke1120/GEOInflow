@@ -312,6 +312,7 @@ try {
       ? ['src/lib/liekan/upstream/analysis-rollups.benchmark.test.ts']
       : [
           'src/lib/liekan/upstream/analysis-ingestion.integration.test.ts',
+          'src/lib/liekan/upstream/analysis-revenue.integration.test.ts',
           'src/lib/liekan/upstream/analysis-rollups.integration.test.ts',
           'src/lib/liekan/upstream/analysis-queries.integration.test.ts',
         ];
