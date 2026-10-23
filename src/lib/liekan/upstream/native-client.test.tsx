@@ -290,7 +290,7 @@ it('rechecks expired mounted cache using monotonic time after the wall clock mov
   expect(fetch).toHaveBeenCalledTimes(2);
 });
 
-it('reads a product report on entry even when a fresh cache entry exists', async () => {
+it('reuses a fresh product report and preserves explicit reads', async () => {
   const report = { websiteId: 'site', resource: 'content', total: 7 };
   const fetch = vi.fn(async (_url: URL | string) => response(report));
   vi.stubGlobal('fetch', fetch);
@@ -301,7 +301,7 @@ it('reads a product report on entry even when a fresh cache entry exists', async
   const q = renderHook(() => useApi().useQuery(options), { wrapper });
   await advance(1);
   expect(q.result.current.data).toEqual(report);
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(1);
   expect(
     client
       .getQueryCache()
@@ -311,12 +311,12 @@ it('reads a product report on entry even when a fresh cache entry exists', async
   expect(client.getQueryData(options.queryKey)).toBe(q.result.current.data);
   // Product pages install their own lifecycle; this compatibility call keeps their policy intact.
   await advance(30000);
-  expect(fetch).toHaveBeenCalledTimes(2);
+  expect(fetch).toHaveBeenCalledTimes(1);
   await act(async () => {
     await q.result.current.refetch();
   });
-  expect(fetch).toHaveBeenCalledTimes(3);
-  const url = new URL(String(fetch.mock.calls[2][0]), window.location.origin);
+  expect(fetch).toHaveBeenCalledTimes(2);
+  const url = new URL(String(fetch.mock.calls[1][0]), window.location.origin);
   expect(url.searchParams.has('refresh')).toBe(false);
 });
 

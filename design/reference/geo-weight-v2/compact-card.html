@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GEO 权重指标卡 · 已批准增量参考</title>
+<style>.summary {
+  position: relative;
+  min-width: 0;
+  padding: 16px;
+  color: #16181d;
+}
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.summary .title {
+  color: #697386;
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.badge {
+  margin-left: 4px;
+  padding: 1px 3px;
+  background: #edf2ff;
+  color: #0f62fe;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 500;
+}
+.summary .evidenceButton,
+.summary .retryButton {
+  border: 1px solid #e9ecf1;
+  border-radius: 6px;
+  color: #0f62fe;
+  background: #fff;
+  font: inherit;
+  font-size: 10.5px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.summary .evidenceButton {
+  flex-shrink: 0;
+  min-height: 24px;
+  margin-block: -4px;
+  padding: 2px 5px;
+}
+.summary .evidenceButton:hover,
+.summary .retryButton:hover {
+  background: #edf2ff;
+}
+.summary .evidenceButton:disabled,
+.summary .retryButton:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.summary .evidenceButton:focus-visible,
+.summary .retryButton:focus-visible {
+  outline: 2px solid #0f62fe;
+  outline-offset: 2px;
+}
+.readout {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin-top: 6px;
+}
+.readout .score {
+  font-size: 24px;
+  line-height: 1.5;
+  font-weight: 700;
+  color: #0f62fe;
+  font-variant-numeric: tabular-nums;
+}
+.statusValue,
+.readout > p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #697386;
+}
+.summary .metadata {
+  margin-top: 4px;
+  color: #697386;
+  font-size: 10.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.metadata time {
+  display: inline-block;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+.summary .retryButton {
+  margin-top: 6px;
+  min-height: 32px;
+  padding: 3px 8px;
+}
+.summary .caption,
+.summary .retryTime,
+.details .caption {
+  color: #697386;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.summary .retryTime {
+  display: block;
+}
+
+*{box-sizing:border-box}body{margin:0;padding:32px;background:#f5f7fa;color:#16181d;font:13px Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:1136px;margin:auto}h1{font-size:20px}h2{font-size:14px;margin-top:24px}p{margin:0}button{font:inherit}.row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.card{min-width:0;border:1px solid #e9ecf1;border-radius:14px;background:#fff;padding:16px}.label{font-size:11.5px;color:#697386;line-height:1.5}.value{font-size:24px;line-height:36px;font-weight:700;color:#0f62fe;margin-top:6px}.up{color:#ff3b51}.down{color:#00a06f}.caption{font-size:10.5px;color:#697386;line-height:1.5;margin-top:4px}.note{font-size:12px;color:#697386;line-height:1.6;margin-top:24px}@media(max-width:1200px){.summary{display:grid;grid-template-columns:minmax(0,1fr);align-content:start}.heading{display:contents}.summary .title{grid-row:1}.readout{grid-row:2}.summary .metadata{grid-row:3}.metadata time{margin-left:0}.summary .evidenceButton{grid-row:4;justify-self:start;min-height:44px;margin:6px 0 0}}@media(max-width:1023px){.row{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:540px){.readout{min-height:33px}body{padding:20px 16px}.readout .score,.value{font-size:22px}}
+</style></head>
+<body><main><h1>GEO 权重指标卡</h1><p class="note">2026-10-23 批准的两处指标替换与原横栏移除。以下为明确标记的模拟数据；现有详情、图表、表格和导航沿用各自参考。</p>
+<h2>流量总览</h2><div class="row"><section class="card"><p class="label">今日总请求</p><p class="value ">0</p><p class="caption">今日已接入日志的内容请求，排除静态资源扩展名</p></section><section class="card"><p class="label">访客（UV）</p><p class="value down">9,701</p><p class="caption">按当前流量策略去重，可能含未识别自动化</p></section><section class="card"><p class="label">AI 蜘蛛请求</p><p class="value up">27,009</p><p class="caption">所选统计范围</p></section><section class="card summary" aria-label="GEO 权重"><div class="heading"><p class="title">GEO 权重 <span class="badge">Beta</span></p><button class="evidenceButton" aria-label="查看 GEO 权重计算依据" type="button">计算依据</button></div><div class="readout"><strong class="score">6</strong></div><p class="metadata"><span>参考等级 · 最高 10</span> <time datetime="2026-10-22" title="截至 2026-10-22 的 30 个完整自然日 · Asia/Shanghai">截至 10/22</time></p></section></div>
+<h2>抓取总览</h2><div class="row"><section class="card"><p class="label">AI 蜘蛛请求（30天）</p><p class="value up">27,009</p><p class="caption">所选范围请求量</p></section><section class="card"><p class="label">识别 AI 蜘蛛</p><p class="value ">25</p><p class="caption">所选统计范围</p></section><section class="card summary" aria-label="GEO 权重"><div class="heading"><p class="title">GEO 权重 <span class="badge">Beta</span></p><button class="evidenceButton" aria-label="查看 GEO 权重计算依据" type="button">计算依据</button></div><div class="readout"><strong class="score">6</strong></div><p class="metadata"><span>参考等级 · 最高 10</span> <time datetime="2026-10-22" title="截至 2026-10-22 的 30 个完整自然日 · Asia/Shanghai">截至 10/22</time></p></section><section class="card"><p class="label">单页日均最高抓取</p><p class="value ">16.8</p><p class="caption">所选统计范围</p></section></div>
+<p class="note">计算依据按钮打开现有 GEO 权重详情弹窗，保留公式、用途明细、五个滚动观察点、同一快照导出与权限控制。异常状态允许卡片增高以完整显示操作和状态；手机沿用两列布局。</p>
+</main></body></html>

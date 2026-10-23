@@ -36,6 +36,7 @@ export const operations = [
             },
           },
         },
+        '410': { description: 'Saved snapshot expired or evicted' },
         '413': { description: 'Request body too large' },
         '503': { description: 'Calculation unavailable' },
       },

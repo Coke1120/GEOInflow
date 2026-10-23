@@ -1,7 +1,10 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { GEO_ACTIVITY_FORMULA, GEO_LEVEL_MINIMUMS } from '@/lib/liekan/geo-weight/policy';
-import type { GeoWeightResponse } from '@/lib/liekan/contracts/geo-weight';
+import type {
+  GeoWeightResponse,
+  GeoWeightSnapshotResponse,
+} from '@/lib/liekan/contracts/geo-weight';
 import {
   geoPurposeLabels,
   geoPointStateLabel,
@@ -19,17 +22,31 @@ import { formLabels } from './crawlerRegistryUi';
 
 export function GeoWeightDetails({
   data,
+  snapshot,
   error,
   loading,
   stale,
+  newerSnapshot = false,
   onClose,
   onReload,
   onExportConflict,
+  canRecalculate = false,
+  recalculating = false,
+  cooldownUntil = 0,
+  recalculateError = '',
+  onRecalculate,
 }: {
   data?: GeoWeightResponse;
+  snapshot?: GeoWeightSnapshotResponse;
+  canRecalculate?: boolean;
+  recalculating?: boolean;
+  cooldownUntil?: number;
+  recalculateError?: string;
+  onRecalculate?: () => Promise<void>;
   error?: unknown;
   loading: boolean;
   stale: boolean;
+  newerSnapshot?: boolean;
   onClose: () => void;
   onReload: () => Promise<void>;
   onExportConflict: (status: number) => void;
@@ -41,7 +58,7 @@ export function GeoWeightDetails({
   useEffect(() => {
     setExporting(false);
     return () => controller.current?.abort();
-  }, [data?.snapshot]);
+  }, [data?.snapshotId]);
   const num = (v: number | null, digits = 0) =>
     v === null
       ? i18n.text('暂无权重')
@@ -50,7 +67,7 @@ export function GeoWeightDetails({
           maximumFractionDigits: digits,
         });
   async function exportCsv() {
-    if (!data || data.view !== 'detail' || loading || stale || error) return;
+    if (!data?.snapshotId || data.view !== 'detail' || loading || stale || error) return;
     const captured = data;
     const locale = i18n.locale;
     const owned = new AbortController();
@@ -69,7 +86,7 @@ export function GeoWeightDetails({
     } catch (e: any) {
       if (!owned.signal.aborted) {
         setMessage(e.message || '导出失败');
-        if ([401, 403, 404, 409].includes(e.status)) {
+        if ([401, 403, 404, 409, 410].includes(e.status)) {
           onExportConflict(e.status);
           await onReload();
         }
@@ -93,9 +110,37 @@ export function GeoWeightDetails({
       size="wide"
     >
       <div className={styles.details}>
-        {(loading || (!data && !error)) && (
+        {newerSnapshot && <Notice>{i18n.text('已有新日快照，重新读取可查看最新结果')}</Notice>}
+        {(loading || ['queued', 'running'].includes(snapshot?.taskStatus)) && (
           <Notice>
-            {i18n.text(data ? '正在读取历史与详细依据，当前权重已显示' : '正在计算 GEO 权重')}
+            {i18n.text(
+              loading && data
+                ? '正在读取历史与详细依据，当前权重已显示'
+                : snapshot?.stale
+                  ? '正在更新今日权重'
+                  : '正在计算 GEO 权重',
+            )}
+          </Notice>
+        )}
+        {!data && !loading && !error && !['queued', 'running'].includes(snapshot?.taskStatus) && (
+          <Notice>{i18n.text('暂无权重')}</Notice>
+        )}
+        {snapshot?.taskStatus === 'failed' && (
+          <Notice tone="amber">{i18n.text('GEO 权重更新失败，请重新读取')}</Notice>
+        )}
+        {snapshot?.taskStatus === 'capacity_blocked' && (
+          <Notice tone="amber">{i18n.text('快照存储已满，请稍后重新读取')}</Notice>
+        )}
+        {snapshot?.stale && data && (
+          <Notice tone="amber">{i18n.text('显示截至 {v0} 的上次权重', [data.current.asOf])}</Notice>
+        )}
+        {snapshot?.nextRetryAt && (
+          <Notice>
+            {i18n.text('下次可重试时间：{v0}', [
+              new Date(snapshot.nextRetryAt).toLocaleString(i18n.locale, {
+                timeZone: data?.timezone || 'UTC',
+              }),
+            ])}
           </Notice>
         )}
         {!!error && (
@@ -103,6 +148,7 @@ export function GeoWeightDetails({
             {i18n.system((error as Error).message || 'GEO 权重计算未完成，请重新读取')}
           </Notice>
         )}
+        {recalculateError && <Notice tone="amber">{i18n.system(recalculateError)}</Notice>}
         {message && <Notice tone="amber">{i18n.system(message)}</Notice>}
         {stale && data && (
           <Notice tone="amber">{i18n.text('当前读取未完成，保留上次计算结果')}</Notice>
@@ -112,12 +158,41 @@ export function GeoWeightDetails({
             {i18n.text('重新读取')}
           </Button>
           <Button
-            disabled={!data || data.view !== 'detail' || loading || stale || exporting || !!error}
+            disabled={
+              !data?.snapshotId ||
+              data.view !== 'detail' ||
+              loading ||
+              stale ||
+              exporting ||
+              !!error
+            }
             onClick={exportCsv}
           >
             {i18n.text(exporting ? '正在导出' : '导出计算依据')}
           </Button>
+          {canRecalculate && (
+            <Button
+              disabled={loading || recalculating || !!cooldownUntil || exporting}
+              onClick={onRecalculate}
+            >
+              {i18n.text(recalculating ? '正在重新计算' : '重新计算 GEO 权重')}
+            </Button>
+          )}
         </div>
+        {canRecalculate && (
+          <p className={styles.caption}>
+            {i18n.text('重新计算会更新此网站的日快照，5 分钟内可操作一次。')}
+          </p>
+        )}
+        {canRecalculate && cooldownUntil > 0 && (
+          <p className={styles.caption}>
+            {i18n.text('可于 {v0} 重新计算', [
+              new Date(cooldownUntil).toLocaleString(i18n.locale, {
+                timeZone: data?.timezone || 'UTC',
+              }),
+            ])}
+          </p>
+        )}
         {data && (
           <>
             <section className={styles.section}>
@@ -180,6 +255,7 @@ export function GeoWeightDetails({
                   </tbody>
                 </table>
               </div>
+              <p className={styles.caption}>{i18n.text('计分范围：固定 18 个已核验身份')}</p>
               <p className={styles.caption}>
                 {i18n.text(
                   '同一用途、运营方、内容路径和自然日只计一个有效单元。200 与 304 联合去重。',
@@ -190,6 +266,7 @@ export function GeoWeightDetails({
                   '加权活动量为各类有效单元乘以系数后的整数之和。路径、活跃日和运营方数量用于解释数据。',
                 )}
               </p>
+              <p>{i18n.text('总观察请求：{v0}', [num(current.requests)])}</p>
               <p>
                 {i18n.text('有效请求 {v0} · GET 200 {v1} · GET 304 {v2}', [
                   num(current.accepted),

@@ -1,6 +1,6 @@
 import type { GeoPurpose } from '../contracts/geo-weight';
 
-export const GEO_ALGORITHM = 'geo-weight-v2-bands-beta';
+export const GEO_ALGORITHM = 'geo-weight-v2.1-bands-evidence-beta';
 export const GEO_COEFFICIENTS = Object.freeze({ search: 10, user: 7, training: 3 });
 export const GEO_PURPOSES = ['search', 'user', 'training'] as const;
 // Inclusive lower bounds for levels 1–10; zero is reserved for observed zero activity.

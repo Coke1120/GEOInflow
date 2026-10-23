@@ -2,15 +2,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, ZenProvider } from '@umami/react-zen';
 import { NextIntlClientProvider } from 'next-intl';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useLocale } from '@/components/hooks';
 import { initializeLocale } from '@/components/hooks/useLocale';
-import { useState } from 'react';
-import { liekanMessages } from '@/lib/liekan/i18n/text';
-import { defaultLiekanLocale, type LiekanLocale } from '@/lib/liekan/i18n/locale';
-import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
+import { defaultLiekanLocale, type LiekanLocale } from '@/lib/liekan/i18n/locale';
+import { liekanMessages } from '@/lib/liekan/i18n/text';
+import { BrowserCacheProvider } from '@/lib/liekan/upstream/cache-client';
 import 'chartjs-adapter-date-fns';
 
 const client = new QueryClient({
@@ -74,9 +74,11 @@ export function Providers({
         <MessagesProvider initialLocale={initialLocale} storedLocale={storedLocale}>
           <QueryClientProvider client={client}>
             <Suspense>
-              <ManualRefreshProvider>
-                <ErrorBoundary>{children}</ErrorBoundary>
-              </ManualRefreshProvider>
+              <BrowserCacheProvider>
+                <ManualRefreshProvider>
+                  <ErrorBoundary>{children}</ErrorBoundary>
+                </ManualRefreshProvider>
+              </BrowserCacheProvider>
             </Suspense>
           </QueryClientProvider>
         </MessagesProvider>

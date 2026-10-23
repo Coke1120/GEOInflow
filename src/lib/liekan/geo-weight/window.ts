@@ -1,5 +1,15 @@
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 
+/** Equivalent IANA names share the same persisted calculation identity. */
+export function canonicalGeoTimezone(timezone: string) {
+  try {
+    return new Intl.DateTimeFormat('en-US', { timeZone: timezone }).resolvedOptions().timeZone;
+  } catch {
+    // The API reports invalid settings using its normal parameter error response.
+    return timezone;
+  }
+}
+
 export function geoDateOffset(date: string, days: number) {
   const value = new Date(date + 'T00:00:00Z');
   value.setUTCDate(value.getUTCDate() + days);

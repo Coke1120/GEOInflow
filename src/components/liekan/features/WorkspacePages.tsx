@@ -1663,6 +1663,7 @@ function AdminSecurity() {
 
 export function ResourceAnalytics({
   id,
+  boardId,
   kind = 'website',
   title = '访问趋势',
   metrics = true,
@@ -1677,6 +1678,7 @@ export function ResourceAnalytics({
   variant?: 'board' | 'public';
   allowGoals?: boolean;
   id: string;
+  boardId?: string;
   kind?: string;
   title?: string;
   metrics?: boolean;
@@ -1706,7 +1708,15 @@ export function ResourceAnalytics({
         metrics,
         variant,
         allowGoals,
+        boardId,
       ],
+      meta: !request ? {
+        cacheAggregate: true,
+        cacheResources: [
+          { type: kind, id },
+          ...(boardId ? [{ type: 'board', id: boardId }] : []),
+        ],
+      } : { cacheAggregate: false },
       queryFn: ({ signal }) =>
         (async () => {
           const [stats, trend, aiTrend] = await Promise.all([
@@ -2305,7 +2315,12 @@ function NativeWidget({
         id,
         component,
         params,
+        board.id,
       ],
+      meta: !request ? {
+        cacheAggregate: true,
+        cacheResources: [{ type: kind, id }, { type: 'board', id: board.id }],
+      } : { cacheAggregate: false },
       queryFn: ({ signal }) =>
         get(
           `/websites/${id}/${conversion ? `${component.type === 'Goal' ? 'goals' : 'funnels'}/${reportId}/stats` : eventMetrics ? 'events/stats' : events ? 'events/series' : component.type === 'UTM' ? 'utm/metrics' : 'metrics'}`,
@@ -2425,6 +2440,7 @@ function NativeWidget({
     return (
       <ResourceAnalytics
         id={id}
+        boardId={board.id}
         kind={kind}
         title=""
         chartEnabled={component.type !== 'WebsiteMetricsBar'}
@@ -2681,6 +2697,7 @@ function BoardCanvas({
       {!editing && entity.entityId && (
         <ResourceAnalytics
           id={entity.entityId}
+          boardId={board.id}
           kind={entity.entityType}
           variant="board"
           allowGoals={board._shareGoalsAllowed !== false}

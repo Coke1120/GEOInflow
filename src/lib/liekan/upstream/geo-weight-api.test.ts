@@ -3,16 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({
   auth: vi.fn(),
+  read: vi.fn(),
+  recalculate: vi.fn(),
+  export: vi.fn(),
   access: vi.fn(),
   query: vi.fn(),
-  aggregate: vi.fn(),
-  quality: vi.fn(),
-  cache: vi.fn(),
-  catalog: undefined as any,
-  revision: '1',
-  epoch: 1,
-  policyRevision: '1',
-  feature: true,
+  body: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({ checkAuth: h.auth }));
 vi.mock('@/lib/db', () => ({ isRelationalOnly: () => true }));
@@ -20,52 +16,74 @@ vi.mock('./ai-access', () => ({ authorizeAiWebsite: h.access }));
 vi.mock('./ai-db', () => ({
   aiTransaction: (work: any) => work({ query: h.query, execute: vi.fn() }),
 }));
-vi.mock('./geo-weight-sql', async importOriginal => ({
-  ...(await importOriginal<typeof import('./geo-weight-sql')>()),
-  geoWeightAggregate: h.aggregate,
-}));
-vi.mock('../crawlers/analysis', () => ({ crawlerWindowQuality: h.quality }));
-vi.mock('./crawler-registry-context', () => ({
-  withPublishedRegistry: (work: any) => work(h.catalog),
-}));
-vi.mock('./query-cancellation', () => ({
-  cancellableEvidence: (_tx: any, _signal: any, work: any) => work(),
-}));
-vi.mock('./evidence-cache', () => ({ evidenceCache: { read: h.cache } }));
-vi.mock('./analytics-budget', () => ({
-  analyticsGate: { run: (work: any) => work() },
-  AnalyticsUnavailable: class extends Error {
-    status = 503;
-  },
+vi.mock('./geo-weight-snapshots', () => ({
+  readGeoWeightSnapshot: h.read,
+  recalculateGeoWeight: h.recalculate,
+  readLegacyGeoWeight: h.read,
+  readGeoWeightForExport: h.export,
 }));
 vi.mock('@/lib/liekan/http', () => ({
-  requestApi: async (_request: Request, work: () => any) => {
+  readBody: (request: Request) => request.json(),
+  requestApi: async (_request: any, work: any) => {
     try {
       return Response.json(await work());
     } catch (error: any) {
       return Response.json({ error: error.message }, { status: error.status || 500 });
     }
   },
-  readBody: (request: Request) => request.json(),
 }));
-import { GET } from '@/app/api/liekan/websites/[websiteId]/geo-weight/route';
-import { POST } from '@/app/api/liekan/websites/[websiteId]/geo-weight/export/route';
-import { getBundledPublishedCatalog } from '../crawlers/catalog-seed';
-import { readGeoWeight, parseGeoWeightQuery } from './geo-weight';
-import { geoWeightCsv } from './geo-weight-export';
-import { geoWeightResponseSchema } from '../contracts/geo-weight';
+import { GET } from '@/app/api/liekan/websites/[websiteId]/geo-weight/snapshot/route';
+import { POST } from '@/app/api/liekan/websites/[websiteId]/geo-weight/recalculate/route';
+import { POST as EXPORT } from '@/app/api/liekan/websites/[websiteId]/geo-weight/export/route';
 import { LiekanError } from './errors';
-import { withQueryCacheHeaders } from './cache-context';
+import {
+  geoWeightExportSchema,
+  geoWeightSnapshotQuerySchema,
+  geoWeightRecalculateSchema,
+} from '../contracts/geo-weight';
 const actor = { id: randomUUID(), role: 'admin' },
-  site = randomUUID();
-const input = { asOf: '2026-10-19', timezone: 'Asia/Shanghai', view: 'detail' };
-const url = `https://liekan.test/api/liekan/websites/${site}/geo-weight`;
+  site = randomUUID(),
+  snapshotId = randomUUID();
+const base = `https://liekan.test/api/liekan/websites/${site}/geo-weight`;
 const context = { params: Promise.resolve({ websiteId: site }) };
-const get = (params: Record<string, string> = input) =>
-  GET(new Request(url + '?' + new URLSearchParams(params)), context);
-const post = (body: unknown, headers = {}) =>
+const envelope = () => ({
+  format: 'geo-snapshot-v1',
+  taskId: randomUUID(),
+  taskStatus: 'ready',
+  result: {
+    readCatalogVersion: randomUUID(),
+    timezone: 'UTC',
+    calculatedAt: new Date().toISOString(),
+    current: { state: 'missing', level: null },
+  },
+  snapshotId,
+  requestedAsOf: new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+  servedAsOf: '2026-10-20',
+  stale: false,
+  nextRetryAt: null,
+  errorCode: null,
+  canRecalculate: true,
+  strongVersion: 'strong',
+});
+const get = (params = {}, headers = {}) =>
+  GET(
+    new Request(base + '/snapshot?' + new URLSearchParams({ timezone: 'UTC', ...params }), {
+      headers,
+    }),
+    context,
+  );
+const post = (body: any, headers = {}) =>
   POST(
-    new Request(url + '/export', {
+    new Request(base + '/recalculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+    }),
+    context,
+  );
+const exp = (body: any, headers = {}) =>
+  EXPORT(
+    new Request(base + '/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify(body),
@@ -74,255 +92,124 @@ const post = (body: unknown, headers = {}) =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
-  h.revision = '1';
-  h.epoch = 1;
-  h.policyRevision = '1';
-  h.feature = true;
-  h.catalog = getBundledPublishedCatalog();
   h.auth.mockResolvedValue({ authType: 'session', user: actor });
-  h.access.mockResolvedValue({ domain: 'www.example.com', role: 'admin', canUse: true });
-  h.query.mockImplementation(async (sql: string) => {
-    if (sql.includes('ai_crawler_enabled')) return [{ ai_crawler_enabled: h.feature }];
-    if (sql.includes('data_revision'))
-      return [{ epoch: h.epoch, data_revision: h.revision, policy_revision: h.policyRevision }];
-    if (sql.includes('max(recorded_at)')) return [{ latest: null, count: 0 }];
-    if (sql.includes('AS valid')) return [{ valid: false }];
-    return [];
-  });
-  h.quality.mockResolvedValue({
-    state: 'unknown',
-    classificationVersion: 'class-1',
-    sourceVersion: 'manual',
-  });
-  h.aggregate.mockImplementation(async (_tx, _site, _host, _tz, windows) =>
-    windows.map(w => ({
-      asOf: w.asOf,
-      stats: {
-        requests: 1,
-        accepted: 1,
-        firstEvidenceDay: '2026-08-01',
-        classificationVersions: ['class-1'],
-        sources: ['manual'],
-      },
-      factors: [{ purpose: 'search', paths: 1, units: 1, days: 1, operators: 0 }],
-    })),
-  );
-  h.cache.mockImplementation((_key, _tags, compute, signal) => compute(signal));
+  h.read.mockResolvedValue(envelope());
+  h.recalculate.mockResolvedValue({ ...envelope(), taskStatus: 'queued' });
+  h.access.mockResolvedValue({ canUse: true });
+  h.query.mockResolvedValue([]);
+  h.export.mockResolvedValue(null);
 });
-describe('private GEO request and snapshot boundaries', () => {
-  it('rejects a result when the final authorization read exhausts the shared deadline', async () => {
-    let now = Date.now();
-    const started = now;
-    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
-    const query = h.query.getMockImplementation();
-    try {
-      h.cache.mockImplementation(async (_key, _tags, compute, signal) => {
-        const result = await compute(signal);
-        now = started + 59999;
-        h.query.mockImplementation(async (...args) => {
-          now += 5000;
-          return query(...args);
-        });
-        return result;
-      });
-      expect((await get()).status).toBe(503);
-    } finally {
-      clock.mockRestore();
-    }
-  });
-  it('shares the export deadline with the final session check', async () => {
-    let now = Date.now();
-    const started = now;
-    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
-    try {
-      const result = await readGeoWeight(actor, site, input);
-      h.auth
-        .mockResolvedValueOnce({ authType: 'session', user: actor })
-        .mockImplementation(async () => {
-          now = started + 60001;
-          return { authType: 'session', user: actor };
-        });
-      expect(
-        (
-          await post({
-            asOf: input.asOf,
-            timezone: input.timezone,
-            locale: 'en-US',
-            catalogVersion: result.readCatalogVersion,
-            snapshot: result.snapshot,
-          })
-        ).status,
-      ).toBe(503);
-    } finally {
-      clock.mockRestore();
-    }
-  });
-  it.each([false, true])(
-    'rechecks a revoked session before export or conflict data (conflict=%s)',
-    async conflict => {
-      const result = await readGeoWeight(actor, site, input);
-      h.auth.mockResolvedValueOnce({ authType: 'session', user: actor }).mockResolvedValue(null);
-      const response = await post({
-        asOf: input.asOf,
-        timezone: input.timezone,
-        locale: 'en-US',
-        catalogVersion: result.readCatalogVersion,
-        snapshot: conflict ? '0'.repeat(64) : result.snapshot,
-      });
-      expect(response.status).toBe(401);
-      expect(h.auth).toHaveBeenCalledTimes(2);
-      expect(await response.json()).not.toHaveProperty('updated');
-    },
-  );
-  it('supplies the freshness headers required by the shared manual-reading client', async () => {
-    const response = await withQueryCacheHeaders(async () =>
-      Response.json(await readGeoWeight(actor, site, input)),
-    );
-    const generated = Number(response.headers.get('X-Liekan-Generated-At'));
-    const expires = Number(response.headers.get('X-Liekan-Expires-At'));
-    expect(generated).toBeGreaterThan(0);
-    expect(expires - generated).toBe(5000);
-    expect(response.headers.get('cache-control')).toBe('private, no-store');
-  });
+describe('private durable GEO snapshot API', () => {
   it.each(['partial', 'api-key', 'share', undefined])(
-    'rejects %s identities before aggregation',
+    'rejects %s authentication before reading private snapshots',
     async authType => {
       h.auth.mockResolvedValue({ authType, user: actor });
       expect((await get()).status).toBe(401);
-      expect(h.aggregate).not.toHaveBeenCalled();
+      expect((await post({})).status).toBe(401);
+      expect((await exp({})).status).toBe(401);
+      expect(h.read).not.toHaveBeenCalled();
+      expect(h.recalculate).not.toHaveBeenCalled();
     },
   );
-  it('rejects share context, disabled features and unauthorized websites', async () => {
+  it('rejects share context and revoked sessions without exposing result fields', async () => {
     h.auth.mockResolvedValueOnce({ authType: 'session', user: actor, shareToken: {} });
     expect((await get()).status).toBe(401);
-    h.feature = false;
-    expect((await get()).status).toBe(403);
-    h.feature = true;
-    h.access.mockRejectedValue(new LiekanError('Forbidden', 403));
-    expect((await get()).status).toBe(403);
-    expect(h.aggregate).not.toHaveBeenCalled();
+    h.auth.mockResolvedValueOnce({ authType: 'session', user: actor }).mockResolvedValueOnce(null);
+    const response = await get();
+    expect(response.status).toBe(401);
+    expect(await response.json()).not.toHaveProperty('result');
   });
-  it('validates dates, timezone and rejects unsupported filters', async () => {
-    for (const fields of [
-      { asOf: '2026-02-30' },
-      { asOf: '2099-01-01' },
-      { timezone: 'bad' },
-      { purpose: 'search' },
-    ])
-      expect((await get({ ...input, ...fields })).status).toBe(400);
-    expect(() =>
-      parseGeoWeightQuery({ ...input, asOf: '2026-10-20' }, Date.parse('2026-10-20T09:00:00Z')),
-    ).toThrow();
-  });
-  it('returns all detail points in one aggregate, schema-valid states and a deterministic snapshot', async () => {
-    const a = await readGeoWeight(actor, site, input),
-      b = await readGeoWeight(actor, site, input);
-    expect(a.snapshot).toBe(b.snapshot);
-    expect(a.observations).toHaveLength(5);
-    expect(h.aggregate.mock.calls[0][4]).toHaveLength(6);
-    expect(geoWeightResponseSchema.safeParse(a).success).toBe(true);
-    expect(a.current.state).toBe('reference');
-    expect(a.comparison.delta).toBeNull();
-    await readGeoWeight(actor, site, { ...input, view: 'summary' });
-    expect(h.aggregate.mock.lastCall[4]).toHaveLength(1);
-  });
-  it('checks permission after a cache hit and rejects reset or policy changes during computation', async () => {
-    const cached = await readGeoWeight(actor, site, input);
-    h.cache.mockImplementation(async () => {
-      h.access.mockRejectedValue(new LiekanError('revoked', 403));
-      return cached;
-    });
-    expect((await get()).status).toBe(403);
-    h.access.mockResolvedValue({ domain: 'www.example.com', role: 'admin', canUse: true });
-    h.cache.mockImplementation(async () => {
-      h.epoch = 2;
-      return cached;
-    });
-    expect((await get()).status).toBe(409);
-    h.epoch = 1;
-    h.cache.mockImplementation(async () => {
-      h.policyRevision = '2';
-      return cached;
-    });
-    expect((await get()).status).toBe(409);
-  });
-  it('keeps historical snapshots exportable when ingestion revisions advance outside their window', async () => {
-    const before = await readGeoWeight(actor, site, input);
-    h.revision = '2';
-    const after = await readGeoWeight(actor, site, input, { fresh: true });
-    expect(after.dataRevision).toBe('2');
-    expect(after.snapshot).toBe(before.snapshot);
-    const response = await post({
-      asOf: input.asOf,
-      timezone: input.timezone,
-      locale: 'en-US',
-      catalogVersion: before.readCatalogVersion,
-      snapshot: before.snapshot,
-    });
-    expect(response.status).toBe(200);
-    h.cache.mockImplementation(async () => {
-      h.revision = '3';
-      return after;
-    });
-    expect((await get()).status).toBe(200);
-  });
-  it('rejects export when the selected window evidence actually changes', async () => {
-    const before = await readGeoWeight(actor, site, input);
-    h.aggregate.mockResolvedValue([]);
-    expect(
-      (
-        await post({
-          asOf: input.asOf,
-          timezone: input.timezone,
-          locale: 'en-US',
-          catalogVersion: before.readCatalogVersion,
-          snapshot: before.snapshot,
-        })
-      ).status,
-    ).toBe(409);
-  });
-  it('exports the displayed snapshot in the submitted locale and returns updated data on mismatch', async () => {
-    const result = await readGeoWeight(actor, site, input);
-    const body = {
-      asOf: input.asOf,
-      timezone: input.timezone,
-      locale: 'en-US',
-      catalogVersion: result.readCatalogVersion,
-      snapshot: result.snapshot,
-    };
-    let response = await post(body);
+  it('delegates current and exact historical reads without current-catalog middleware overriding archived metadata', async () => {
+    const response = await get(
+      { mode: 'historical', asOf: '2026-10-20', snapshotId, refresh: '1' },
+      { 'X-Liekan-Catalog-Version': randomUUID() },
+    );
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('private, no-store');
-    expect(await response.text()).toContain('GEO weight calculation evidence');
-    response = await post({ ...body, snapshot: '0'.repeat(64) });
-    expect(response.status).toBe(409);
-    expect((await response.json()).updated.current).toEqual(result.current);
-    expect((await post(body, { 'X-Liekan-Catalog-Version': randomUUID() })).status).toBe(409);
+    expect(response.headers.get('x-liekan-catalog-version')).toBe(
+      (await response.clone().json()).result.readCatalogVersion,
+    );
+    expect(h.read).toHaveBeenCalledWith(
+      actor,
+      site,
+      { mode: 'historical', asOf: '2026-10-20', timezone: 'UTC', snapshotId },
+      { signal: expect.any(AbortSignal) },
+    );
   });
-  it('rejects cross-origin exports and an expired session after recomputation', async () => {
-    const result = await readGeoWeight(actor, site, input);
-    const body = {
-      asOf: input.asOf,
-      timezone: input.timezone,
-      locale: 'zh-CN',
-      catalogVersion: result.readCatalogVersion,
-      snapshot: result.snapshot,
-    };
+  it('returns server-clock freshness through the next local day for saved results', async () => {
+    const response = await get();
+    expect(response.status).toBe(200);
+    const serverTime = Number(response.headers.get('X-Liekan-Server-Time'));
+    const generatedAt = Number(response.headers.get('X-Liekan-Generated-At'));
+    const expiresAt = Number(response.headers.get('X-Liekan-Expires-At'));
+    expect(serverTime).toBeGreaterThan(0);
+    expect(generatedAt).toBeGreaterThan(0);
+    expect(expiresAt).toBe(
+      new Date(new Date(serverTime).toISOString().slice(0, 10) + 'T00:00:00Z').getTime() + 86400000,
+    );
+    h.read.mockResolvedValueOnce({
+      ...envelope(),
+      result: null,
+      snapshotId: null,
+      taskStatus: 'queued',
+    });
+    const pending = await get();
+    expect(pending.headers.get('X-Liekan-Generated-At')).toBeNull();
+    expect(pending.headers.get('X-Liekan-Expires-At')).toBeNull();
+  });
+  it('delegates a pinned current-mode task status read with its original date', async () => {
+    const taskId = randomUUID();
+    const response = await get({ mode: 'current', asOf: '2026-10-20', taskId });
+    expect(response.status).toBe(200);
+    expect(h.read).toHaveBeenCalledWith(
+      actor,
+      site,
+      { mode: 'current', asOf: '2026-10-20', timezone: 'UTC', taskId },
+      { signal: expect.any(AbortSignal) },
+    );
+    expect(
+      geoWeightSnapshotQuerySchema.safeParse({ timezone: 'UTC', taskId, snapshotId }).success,
+    ).toBe(false);
+  });
+  it('accepts a durable explicit recalculation and enforces request origin', async () => {
+    const body = { mode: 'current', timezone: 'UTC', requestId: randomUUID() };
+    expect((await post(body)).status).toBe(202);
+    expect(h.recalculate).toHaveBeenCalledWith(actor, site, body);
     expect((await post(body, { Origin: 'https://other.test' })).status).toBe(403);
-    h.auth.mockResolvedValueOnce({ authType: 'session', user: actor }).mockResolvedValueOnce(null);
-    expect((await post(body)).status).toBe(401);
   });
-  it('cancels aborted reads and protects CSV metadata against row injection', async () => {
-    const controller = new AbortController();
-    controller.abort();
-    await expect(
-      readGeoWeight(actor, site, input, { fresh: true, signal: controller.signal }),
-    ).rejects.toMatchObject({ status: 499 });
-    const result = await readGeoWeight(actor, site, input);
-    result.hostname = '=HYPERLINK("https://example.org")\r\n@evil';
-    const csv = geoWeightCsv(result, 'en-US');
-    expect(csv.startsWith('\ufeff')).toBe(true);
-    expect(csv).not.toContain('\r\n@evil');
-    expect(csv).not.toMatch(/ip_masked|user_agent/);
+  it('returns readable bounded retry information for cooldown, queue failure and storage capacity', async () => {
+    h.recalculate.mockRejectedValueOnce(new LiekanError('GEO 权重重算间隔为 5 分钟', 429));
+    let response = await post({});
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('300');
+    h.read.mockRejectedValueOnce(new LiekanError('GEO 后台队列未就绪，请稍后重新读取', 503));
+    response = await get();
+    expect(response.status).toBe(503);
+    expect(response.headers.get('retry-after')).toBe('60');
+    h.read.mockResolvedValueOnce({ ...envelope(), taskStatus: 'capacity_blocked' });
+    expect((await get()).status).toBe(200);
+    h.recalculate.mockResolvedValueOnce({ ...envelope(), taskStatus: 'capacity_blocked' });
+    response = await post({});
+    expect(response.status).toBe(429);
+    expect((await response.json()).error.code).toBe('geo-capacity');
+  });
+  it('distinguishes evicted snapshots and strong-boundary conflicts', async () => {
+    h.read.mockRejectedValueOnce(new LiekanError('gone', 410));
+    expect((await get({ snapshotId })).status).toBe(410);
+    h.read.mockRejectedValueOnce(new LiekanError('changed', 409));
+    expect((await get({ snapshotId })).status).toBe(409);
+  });
+  it('rejects invalid input shapes at the shared schema boundary', () => {
+    expect(
+      geoWeightSnapshotQuerySchema.safeParse({ mode: 'historical', timezone: 'UTC' }).success,
+    ).toBe(false);
+    expect(
+      geoWeightRecalculateSchema.safeParse({ mode: 'current', timezone: 'UTC', requestId: 'bad' })
+        .success,
+    ).toBe(false);
+    expect(geoWeightExportSchema.safeParse({ snapshotId, locale: 'en-US' }).success).toBe(true);
+    expect(
+      geoWeightExportSchema.safeParse({ snapshotId, locale: 'en-US', timezone: 'UTC' }).success,
+    ).toBe(false);
   });
 });

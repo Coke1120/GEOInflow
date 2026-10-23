@@ -36,7 +36,7 @@ export function geoPoint(
   );
   add(quality.state === 'complete' && !coveredEvidence, 'coverage_missing');
   add((!coveredEvidence && !(observedRequests > 0)) || s.samplingUnknown > 0, 'sampling_unknown');
-  add(s.inferredHost > 0 || !(observedRequests > 0), 'host_inferred');
+  add(s.inferredHost > 0 || (!(observedRequests > 0) && !coveredEvidence), 'host_inferred');
   add(s.historyMissing > 0, 'history_incomplete');
   add(s.identityMissing > 0, 'identity_incomplete');
   add((s.classificationVersions?.length || 0) > 1, 'classification_changed');
@@ -56,11 +56,7 @@ export function geoPoint(
         )
       : 0;
   const zero =
-    !(s.accepted > 0) &&
-    quality.state === 'complete' &&
-    coveredEvidence &&
-    !s.identityMissing &&
-    !s.historyMissing;
+    !(s.accepted > 0) && quality.state === 'complete' && coveredEvidence && !reasons.length;
   const state =
     !(observedRequests > 0) && !coveredEvidence
       ? 'missing'
@@ -79,8 +75,8 @@ export function geoPoint(
       ? JSON.stringify([
           quality.classificationVersion,
           quality.sourceVersion,
-          s.classificationVersions,
-          s.sources,
+          s.classificationVersions || [],
+          s.sources || [],
           s.pathInferred ? 'path' : 'mime',
         ])
       : null;
@@ -103,7 +99,15 @@ export function geoPoint(
     identities: row.identities || [],
     forms: row.forms || [],
     catalogVersions: s.catalogVersions || [],
-    classificationVersions: s.classificationVersions || [],
+    classificationVersions: [
+      ...new Set([
+        ...(s.classificationVersions || []),
+        ...(coveredEvidence && quality.classificationVersion
+          ? [quality.classificationVersion]
+          : []),
+      ]),
+    ],
+    verificationVersions: s.verificationVersions || [],
     sources: s.sources || [],
     comparableKey,
   };

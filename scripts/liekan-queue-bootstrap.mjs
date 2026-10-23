@@ -42,6 +42,14 @@ try {
   } catch {
     console.error('Analytics preheat unavailable; foreground reads remain enabled');
   }
+  const geoOptions = {
+    retryLimit: 0,
+    expireInSeconds: 120,
+    retentionSeconds: 86400,
+    deleteAfterSeconds: 86400,
+  };
+  await boss.createQueue('liekan-geo-weight-snapshot', geoOptions);
+  await boss.updateQueue('liekan-geo-weight-snapshot', geoOptions);
   for (const name of ['liekan-log-ingest', 'liekan-provider-maintenance', 'liekan-range-refresh']) {
     await boss.createQueue(name, {
       retryLimit: 12,

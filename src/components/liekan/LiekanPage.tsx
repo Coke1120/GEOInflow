@@ -42,7 +42,7 @@ import { AnalysisLoading, reportViews } from './AnalysisLoading';
 import { AnalysisTabs } from './AnalysisTabs';
 import { ManualRefreshControl } from './ManualRefreshControl';
 import { useManualRefresh } from '@/lib/liekan/contracts/manual-refresh';
-import { useDataLoading } from './DataLoading';
+import { DataLoading, useDataLoading } from './DataLoading';
 import { activeQuickDateRange, QuickRangeButtons } from './date-quick-range';
 import {
   cardLabels,
@@ -59,7 +59,7 @@ import { featureNavigationHref } from './features/routes';
 import { useLiekanShell } from './LiekanShell';
 import { ManagementDrawer } from './ManagementDrawer';
 import { CrawlerDialog } from './features/CrawlerDialog';
-import { GeoWeightSummary } from './features/GeoWeightSummary';
+import { GeoWeightPlaceholder, GeoWeightSummary } from './features/GeoWeightSummary';
 import { ReportContext } from './ReportContext';
 import type { LiekanReport, Resource } from './types';
 import {
@@ -400,6 +400,26 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       : undefined;
   const crawlerHidden =
     displayQuery.data?.aiCrawlerEnabled === false || query.data?.meta.aiCrawlerEnabled === false;
+  // GEO reads use website authority and settings, so a full aggregate report can load independently.
+  const geoWeight =
+    !metadataLoading &&
+    !restricted &&
+    !crawlerHidden &&
+    userId &&
+    websiteMatchesHandle(website, websiteId) &&
+    ['overview', 'ai/overview'].includes(resource) ? (
+      displayQuery.error ? (
+        <GeoWeightPlaceholder failed onReload={() => void displayQuery.refetch()} />
+      ) : displayQuery.isSuccess ? (
+        <GeoWeightSummary
+          userId={userId}
+          websiteId={website.id}
+          endAt={endAt}
+          readAt={now}
+          timezone={timezone}
+        />
+      ) : undefined
+    ) : undefined;
   const refresh = () => {
     if (reading)
       return reading.refresh().then(
@@ -1131,35 +1151,23 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             {i18n.text('所选期间包含旧版或混合分类数据，历史记录保留采集时口径。')}
           </div>
         )}
-      {report ? (
-        <View
-          report={report}
-          geoWeight={
-            !crawlerHidden &&
-            !!userId &&
-            report.range &&
-            ['overview', 'ai/overview'].includes(resource) ? (
-              <GeoWeightSummary
-                userId={userId}
-                websiteId={report.website.id}
-                endAt={report.range.endAt}
-                readAt={now}
-                timezone={report.range.timezone}
-                expanded={resource === 'ai/overview'}
-              />
-            ) : undefined
-          }
-          aiCrawlerEnabled={!crawlerHidden}
-          rangeLabel={i18n.system(rangeLabel)}
-          live={liveLogs}
-          trendLabel={
-            chartPeriod === '24h'
-              ? i18n.text('近 24 小时')
-              : chartPeriod === '7d'
-                ? i18n.text('近 7 天')
-                : i18n.text('近 30 天')
-          }
-        />
+      {report || geoWeight ? (
+        <DataLoading loading={!report}>
+          <View
+            report={report}
+            geoWeight={geoWeight}
+            aiCrawlerEnabled={!crawlerHidden}
+            rangeLabel={i18n.system(rangeLabel)}
+            live={liveLogs}
+            trendLabel={
+              chartPeriod === '24h'
+                ? i18n.text('近 24 小时')
+                : chartPeriod === '7d'
+                  ? i18n.text('近 7 天')
+                  : i18n.text('近 30 天')
+            }
+          />
+        </DataLoading>
       ) : metadataLoading ||
         query.isPending ||
         displayMismatch ||
@@ -1170,6 +1178,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           resource !== 'human/keywords') ? (
         <AnalysisLoading
           resource={resource}
+          geoWeight={geoWeight}
           aiCrawlerEnabled={!crawlerHidden}
           rangeLabel={i18n.system(rangeLabel)}
           trendLabel={

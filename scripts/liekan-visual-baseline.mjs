@@ -9,6 +9,54 @@ export function referenceColumns(columns) {
   );
 }
 
+// Runs on the live card before restoring its approved reference slot. The original
+// pixel oracle separately validates the native metric card used for comparison.
+export function assertGeoWeightCardAppearance(element) {
+  const peer = [...element.parentElement.children].find(
+    card => card !== element && card.matches('.card') && card.querySelector('.num.text-brand'),
+  );
+  if (!peer) throw new Error('GEO card native blue metric reference is missing');
+  const compare = (actual, expected, properties, label) => {
+    const actualStyle = getComputedStyle(actual);
+    const expectedStyle = getComputedStyle(expected);
+    for (const property of properties) {
+      const value = actualStyle.getPropertyValue(property);
+      const reference = expectedStyle.getPropertyValue(property);
+      if (!value || !reference || value !== reference)
+        throw new Error(`GEO ${label} ${property}: ${value} differs from ${reference}`);
+    }
+  };
+  compare(
+    element,
+    peer,
+    [
+      'background-color',
+      ...['top', 'right', 'bottom', 'left'].flatMap(side => [
+        `border-${side}-color`,
+        `border-${side}-width`,
+        `border-${side}-style`,
+        `padding-${side}`,
+      ]),
+      ...['top-left', 'top-right', 'bottom-right', 'bottom-left'].map(
+        corner => `border-${corner}-radius`,
+      ),
+    ],
+    'container',
+  );
+  const score = element.querySelector('strong.num');
+  if (score) {
+    // The approved compact reference fixes brand blue independently of peer text.
+    if (getComputedStyle(score).color !== 'rgb(15, 98, 254)')
+      throw new Error('GEO score color differs from the approved brand blue');
+    compare(
+      score,
+      peer.querySelector('.num.text-brand'),
+      ['color', 'font-size', 'font-weight', 'font-family', 'line-height'],
+      'score',
+    );
+  }
+}
+
 // Runs in the reference browser only; never derives expected markup from the app.
 // Mirrors the bounded crawler-page additions from the already merged 947897979.
 export function approveCrawlerPagesReference(approval) {

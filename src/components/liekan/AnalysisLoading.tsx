@@ -36,11 +36,17 @@ export function AnalysisLoading({
   rangeLabel = '',
   trendLabel,
   aiCrawlerEnabled,
+  geoWeight,
 }: Partial<ReportViewProps> & { resource?: Resource }) {
   const View = reportViews[resource];
   return (
     <DataLoading loading>
-      <View rangeLabel={rangeLabel} trendLabel={trendLabel} aiCrawlerEnabled={aiCrawlerEnabled} />
+      <View
+        rangeLabel={rangeLabel}
+        trendLabel={trendLabel}
+        aiCrawlerEnabled={aiCrawlerEnabled}
+        geoWeight={geoWeight}
+      />
     </DataLoading>
   );
 }

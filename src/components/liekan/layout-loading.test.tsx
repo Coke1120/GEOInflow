@@ -27,7 +27,7 @@ describe('fixed report layouts', () => {
       const headings = Array.from(view.container.querySelectorAll('h2'), el => el.textContent);
       const columns = Array.from(view.container.querySelectorAll('th'), el => el.textContent);
       const labels = Array.from(
-        view.container.querySelectorAll('main > section:first-child > div > p:first-child'),
+        view.container.querySelectorAll('main > section:first-child [data-liekan-metric-label]'),
         el => el.textContent,
       );
       const charts = Array.from(
@@ -47,7 +47,13 @@ describe('fixed report layouts', () => {
         /数据待接入|暂无数据|转化漏斗待配置|引荐数据待接入|会话未识别/,
       );
       const View = reportViews[resource];
-      view.rerender(<View report={emptyReport} rangeLabel="当前范围" />);
+      // GEO resolves independently of the aggregate report.
+      const geoWeight = ['overview', 'ai/overview'].includes(resource) ? (
+        <section className="card">
+          <p data-liekan-metric-label>GEO 权重</p>
+        </section>
+      ) : undefined;
+      view.rerender(<View report={emptyReport} geoWeight={geoWeight} rangeLabel="当前范围" />);
       expect(Array.from(view.container.querySelectorAll('h2'), el => el.textContent)).toEqual(
         headings,
       );
@@ -56,7 +62,7 @@ describe('fixed report layouts', () => {
       );
       expect(
         Array.from(
-          view.container.querySelectorAll('main > section:first-child > div > p:first-child'),
+          view.container.querySelectorAll('main > section:first-child [data-liekan-metric-label]'),
           el => el.textContent,
         ),
       ).toEqual(labels);

@@ -35,6 +35,19 @@ it('preserves metric units and interpolation values that resemble product copy',
   expect(fillMessage('Name: {v0}', ['页面访问 $&'])).toBe('Name: 页面访问 $&');
   expect(translateSystemText('visitor-entered text', 'en-US')).toBe('visitor-entered text');
 });
+it('localizes GEO snapshot boundary, expiry, cooldown and cache authorization errors', () => {
+  for (const message of [
+    'GEO 快照基准已变化，请重新读取',
+    'GEO 快照已淘汰，请重新读取',
+    'GEO 权重重算间隔为 5 分钟',
+    'GEO 权重需要有效的命名时区',
+    'GEO 后台暂不可用，请重新读取',
+    '请完成登录后读取统计缓存',
+  ]) {
+    expect(translateSystemText(message, 'en-US')).not.toMatch(/[\u3400-\u9fff]/);
+    expect(translateSystemText(message, 'zh-CN')).toBe(message);
+  }
+});
 it('finds English help bodies and purposes while retaining article/crawler identities and code', () => {
   const display = (source: string) => helpTranslator.system(source, 'en-US');
   const articles = searchArticles('official range', undefined, display);

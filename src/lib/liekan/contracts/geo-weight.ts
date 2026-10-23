@@ -4,13 +4,17 @@ export const geoWeightQuerySchema = z.strictObject({
   timezone: z.string().min(1).max(100),
   view: z.enum(['summary', 'detail']).default('summary'),
 });
-export const geoWeightExportSchema = z.strictObject({
+const legacyGeoWeightExportSchema = z.strictObject({
   asOf: z.string(),
   timezone: z.string(),
   locale: z.enum(['zh-CN', 'en-US']),
   catalogVersion: z.uuid(),
   snapshot: z.string().regex(/^[a-f0-9]{64}$/),
 });
+export const geoWeightExportSchema = z.union([
+  z.strictObject({ snapshotId: z.uuid(), locale: z.enum(['zh-CN', 'en-US']) }),
+  legacyGeoWeightExportSchema,
+]);
 export type GeoPurpose = 'search' | 'user' | 'training';
 export type GeoWeightState =
   | 'missing'
@@ -77,10 +81,12 @@ export type GeoWeightPoint = {
   forms: Array<{ form: string; requests: number }>;
   catalogVersions: string[];
   classificationVersions: string[];
+  verificationVersions?: string[];
   sources: string[];
   comparableKey: string | null;
 };
 export type GeoWeightResponse = {
+  snapshotId?: string;
   websiteId: string;
   hostname: string;
   timezone: string;
@@ -174,10 +180,12 @@ const geoPointSchema = z.object({
   forms: z.array(z.object({ form: z.string(), requests: count })),
   catalogVersions: z.array(z.string()),
   classificationVersions: z.array(z.string()),
+  verificationVersions: z.array(z.string()).optional(),
   sources: z.array(z.string()),
   comparableKey: z.string().nullable(),
 });
 export const geoWeightResponseSchema = z.object({
+  snapshotId: z.uuid().optional(),
   websiteId: z.uuid(),
   hostname: z.string(),
   timezone: z.string(),
@@ -216,3 +224,59 @@ export const geoWeightResponseSchema = z.object({
     })
     .optional(),
 });
+
+export const GEO_SNAPSHOT_FORMAT = 'geo-snapshot-v1';
+export const geoWeightSnapshotQuerySchema = z
+  .strictObject({
+    mode: z.enum(['current', 'historical']).default('current'),
+    asOf: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    timezone: z.string().min(1).max(100),
+    view: z.enum(['summary', 'detail']).default('summary'),
+    snapshotId: z.uuid().optional(),
+    taskId: z.uuid().optional(),
+  })
+  .refine(p => p.mode !== 'historical' || !!p.asOf, { message: 'Historical date required' })
+  .refine(p => !(p.taskId && p.snapshotId), { message: 'Use one pinned identity' });
+export const geoWeightRecalculateSchema = z
+  .strictObject({
+    mode: z.enum(['current', 'historical']).default('current'),
+    asOf: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .optional(),
+    timezone: z.string().min(1).max(100),
+    requestId: z.uuid(),
+  })
+  .refine(p => p.mode !== 'historical' || !!p.asOf, { message: 'Historical date required' });
+export const geoWeightSnapshotResponseSchema = z.object({
+  format: z.literal(GEO_SNAPSHOT_FORMAT),
+  taskId: z.uuid().nullable(),
+  taskStatus: z.enum(['queued', 'running', 'ready', 'failed', 'capacity_blocked']),
+  result: geoWeightResponseSchema.nullable(),
+  snapshotId: z.uuid().nullable(),
+  requestedAsOf: z.string(),
+  servedAsOf: z.string().nullable(),
+  stale: z.boolean(),
+  nextRetryAt: z.string().nullable(),
+  errorCode: z.string().nullable(),
+  canRecalculate: z.boolean(),
+  strongVersion: z.string(),
+});
+export type GeoWeightSnapshotResponse = {
+  format: typeof GEO_SNAPSHOT_FORMAT;
+  taskId: string | null;
+  taskStatus: 'queued' | 'running' | 'ready' | 'failed' | 'capacity_blocked';
+  result: GeoWeightResponse | null;
+  snapshotId: string | null;
+  requestedAsOf: string;
+  servedAsOf: string | null;
+  stale: boolean;
+  nextRetryAt: string | null;
+  errorCode: string | null;
+  canRecalculate: boolean;
+  strongVersion: string;
+};
+export type GeoWeightSnapshotQuery = z.infer<typeof geoWeightSnapshotQuerySchema>;

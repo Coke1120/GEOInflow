@@ -22,6 +22,7 @@ it.each(['', '/private-api'])(
     for (const endpoint of [
       '/liekan/crawler-handoffs',
       '/liekan/history-repair',
+      '/liekan/cache-manifest',
       '/liekan/admin/crawler-sources',
       '/liekan/crawler-handoffs/reconcile',
       ...[

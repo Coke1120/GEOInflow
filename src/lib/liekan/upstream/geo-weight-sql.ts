@@ -49,7 +49,7 @@ export async function geoWeightAggregate(
       WHERE s.source->'crawlerIds' ? ids.id AND s.source->>'enabled' IS DISTINCT FROM 'false'
     ), evaluated AS MATERIALIZED (
       SELECT r.created_at,r.path,r.status,r.source_id,r.ai_eligible,r.recognition_state,
-        r.verification,r.self_check,r.crawler_id,r.catalog_version,r.classification_version,r.mime_state,
+        r.verification,r.verification_version,r.self_check,r.crawler_id,r.catalog_version,r.classification_version,r.mime_state,
         r.measurement->>'host'=$3 AS host_matches,
         r.measurement->>'hostBasis' IS DISTINCT FROM 'request_host' AS inferred_host,
         (r.measurement->>'samplingTimeBasis' IS DISTINCT FROM 'event_time'
@@ -137,6 +137,7 @@ export async function geoWeightAggregate(
         min(day) FILTER(WHERE history_available AND NOT self_check AND host_matches)::text AS "firstEvidenceDay",
         coalesce(array_agg(DISTINCT catalog_version::text ORDER BY catalog_version::text) FILTER(WHERE catalog_version IS NOT NULL AND NOT self_check),'{}') AS "catalogVersions",
         coalesce(array_agg(DISTINCT classification_version ORDER BY classification_version) FILTER(WHERE classification_version IS NOT NULL AND NOT self_check),'{}') AS "classificationVersions",
+        coalesce(array_agg(DISTINCT verification_version ORDER BY verification_version) FILTER(WHERE verification_version IS NOT NULL AND NOT self_check),'{}') AS "verificationVersions",
         coalesce(array_agg(DISTINCT coalesce(source_id::text,'manual') ORDER BY coalesce(source_id::text,'manual')) FILTER(WHERE NOT self_check),'{}') AS sources
       FROM scoped GROUP BY 1
     ) SELECT w."asOf",to_jsonb(s)-'asOf' AS stats,

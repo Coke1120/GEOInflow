@@ -1,3 +1,9 @@
+import {
+  GEO_SNAPSHOT_QUEUE,
+  processGeoSnapshotJob,
+  reconcileGeoSnapshots,
+  type GeoSnapshotJob,
+} from '../lib/liekan/upstream/geo-weight-snapshots';
 import { writeFile } from 'node:fs/promises';
 import { PgBoss } from 'pg-boss';
 import { QUEUE_SCHEMA } from '../lib/liekan/log-ingestion/queue';
@@ -33,6 +39,17 @@ async function pump() {
   }
 }
 await boss.start();
+await boss.work<GeoSnapshotJob>(
+  GEO_SNAPSHOT_QUEUE,
+  { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 1 },
+  async jobs => {
+    for (const job of jobs) if (!stopped) await processGeoSnapshotJob(job.data, boss);
+  },
+);
+const geoMaintenance = setInterval(() => {
+  if (!stopped) void reconcileGeoSnapshots(boss).catch(() => {});
+}, 60000);
+void reconcileGeoSnapshots(boss).catch(() => {});
 await boss.work<AnalyticsRefreshJob>(
   ANALYTICS_QUEUE,
   { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 1 },
@@ -52,6 +69,7 @@ for (const signal of ['SIGINT', 'SIGTERM'])
   process.on(signal, async () => {
     stopped = true;
     clearInterval(maintenance);
+    clearInterval(geoMaintenance);
     clearInterval(heartbeat);
     await boss.stop({ graceful: true });
     analyticsRedis.close();
