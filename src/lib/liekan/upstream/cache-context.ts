@@ -9,6 +9,7 @@ import { processSingleton } from './process-singleton';
 
 interface CacheContext {
   bypass?: boolean;
+  probeOnly?: boolean;
   results: Array<Omit<CachedResult<unknown>, 'value'>>;
   deadline?: number;
   refresh?: boolean;
@@ -20,6 +21,7 @@ interface CacheContext {
   reauthorize?: () => Promise<boolean>;
   prepared?: boolean;
   background?: boolean;
+  workKind?: 'interactive' | 'preheat';
   refreshRound?: string;
   redisSpentMs?: number;
   redisWaiting?: { count: number; startedAt: number };
@@ -82,28 +84,58 @@ export function noteCacheResult({ generatedAt, expiresAt, status, tier }: Cached
 }
 export const withoutQueryCache = <T>(work: () => Promise<T>) =>
   contexts.run({ bypass: true, results: [] }, work);
+export const CacheProbeMiss = processSingleton(
+  'analytics-cache-probe-miss',
+  () => class CacheProbeMiss extends Error {},
+);
+export async function probeCacheOnly<T>(work: () => Promise<T>) {
+  const parent = currentCacheContext();
+  if (!parent || parent.refresh) return undefined;
+  const child: CacheContext = { ...parent, probeOnly: true, results: [] };
+  try {
+    const value = await contexts.run(child, work);
+    if (!child.results.length) return undefined;
+    parent.results.push(...child.results);
+    return value;
+  } catch (error) {
+    if (error instanceof CacheProbeMiss) return undefined;
+    throw error;
+  }
+}
 export function analyticsWorkerContext<T>(
   actor: string,
   scope: unknown,
   work: () => Promise<T>,
-  options?: { deadline?: number; reauthorize?: () => Promise<boolean> },
+  options?: {
+    deadline?: number;
+    reauthorize?: () => Promise<boolean>;
+    kind?: 'interactive' | 'preheat';
+    refresh?: boolean;
+  },
 ) {
   return contexts.run(
     {
       results: [],
-      deadline: Math.min(Date.now() + 30000, options?.deadline || Infinity),
-      refresh: true,
+      deadline: Math.min(
+        Date.now() + (options?.kind === 'interactive' ? 60000 : 30000),
+        options?.deadline || Infinity,
+      ),
+      refresh: options?.refresh ?? true,
       actor,
       scope,
       versions: new Map(),
       background: true,
+      workKind: options?.kind || 'preheat',
       refreshRound: randomUUID(),
       reauthorize: options?.reauthorize,
     },
     work,
   );
 }
-export async function withQueryCacheHeaders(work: () => Promise<Response>, request?: Request): Promise<Response> {
+export async function withQueryCacheHeaders(
+  work: () => Promise<Response>,
+  request?: Request,
+): Promise<Response> {
   if (request && !process.env.CLICKHOUSE_URL) {
     const version = request.headers.get('x-liekan-catalog-version');
     if (version && !z.uuid().safeParse(version).success)

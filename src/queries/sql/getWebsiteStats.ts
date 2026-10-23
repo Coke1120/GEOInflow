@@ -1,7 +1,9 @@
+import { currentCacheContext } from '@/lib/liekan/upstream/cache-context';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, EVENT_TYPE } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
+import { readAnalysisVisitTotals } from '@/lib/liekan/upstream/analysis-rollups';
 import type { QueryFilters } from '@/lib/types';
 
 const FUNCTION_NAME = 'getWebsiteStats';
@@ -27,6 +29,11 @@ async function relationalQuery(
   websiteId: string,
   filters: QueryFilters,
 ): Promise<WebsiteStatsData[]> {
+  if (!currentCacheContext()?.probeOnly && /^[a-f0-9-]{36}$/i.test(websiteId) && filters.startDate && filters.endDate) {
+    const { startDate, endDate, timezone, unit, compare, ...conditions } = filters;
+    const accelerated = await readAnalysisVisitTotals({websiteId,startDate,endDate,filters:conditions});
+    if (accelerated) return accelerated as any;
+  }
   const { getTimestampDiffSQL, parseFilters, rawQuery } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
     parseFilters({

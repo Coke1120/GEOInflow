@@ -278,17 +278,31 @@ it('discards a computation crossed by a strong write and retries on the new revi
   expect((await cache.read('a', 30000, tags, load)).value).toEqual({ version: 1 });
   expect(load).toHaveBeenCalledTimes(2);
 });
-it('returns a log snapshot with no freshness when ingestion advances during computation', async () => {
+it('keeps a bounded snapshot reusable while log ingestion continues', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(1000);
   const cache = new QueryCache();
   installAnalyticsRuntime(cache, primary, disabled());
-  const result = await cache.read('a', 30000, tags, async () => {
+  const load = vi.fn(async () => {
     data++;
-    return { count: 1 };
+    vi.setSystemTime(Date.now() + 13000);
+    return { count: data };
   });
-  expect(result.expiresAt).toBe(result.generatedAt);
+  const result = await cache.read('a', 30000, tags, load);
+  expect(result.expiresAt).toBe(44000);
+  data++;
+  vi.setSystemTime(43999);
+  const warm = await cache.read('a', 30000, tags, load);
+  expect(warm.status).toBe('hit');
+  expect(warm.value).toEqual({ count: 1 });
+  expect(warm.expiresAt).toBe(44000);
+  expect(load).toHaveBeenCalledOnce();
+  vi.setSystemTime(44000);
+  expect((await cache.read('a', 30000, tags, load)).value).toEqual({ count: 3 });
+  expect(load).toHaveBeenCalledTimes(2);
 });
 it.each([false, true])(
-  'returns an uncached log snapshot when ingestion advances before snapshot acquisition (prepared=%s)',
+  'shares a snapshot across instances when ingestion advances before acquisition (prepared=%s)',
   async prepared => {
     const cache = new QueryCache();
     const putLocal = vi.spyOn(cache, 'putLocal');
@@ -310,7 +324,7 @@ it.each([false, true])(
       )) as { data: string }[];
       return { revision: row.data };
     });
-    for (const revision of ['1', '2']) {
+    for (const revision of ['1', '1']) {
       let result: CachedResult<{ revision: string }>;
       const read = async () => {
         result = await cache.read('ingestion-before-snapshot', 30000, tags, load);
@@ -324,15 +338,30 @@ it.each([false, true])(
         : await read();
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ revision });
-      expect(result.expiresAt).toBe(result.generatedAt);
+      expect(result.expiresAt).toBeGreaterThan(Date.now());
+      // Use another process-local cache for the second read, exercising Redis reuse.
+      cache.clear();
     }
-    expect(load).toHaveBeenCalledTimes(2);
+    expect(load).toHaveBeenCalledOnce();
     expect(strong).toBe(0);
-    expect(data).toBe(2);
-    expect(putLocal).not.toHaveBeenCalled();
-    expect(redis.publishes.mock.calls).toEqual([['unshareable'], ['unshareable']]);
+    expect(data).toBe(1);
+    expect(putLocal).toHaveBeenCalledTimes(2);
+    expect(redis.publishes).toHaveBeenCalledOnce();
   },
 );
+
+it('refreshes a bounded snapshot on demand and fences strong mutations immediately', async () => {
+  const cache = new QueryCache();
+  installAnalyticsRuntime(cache, primary, disabled());
+  const load = vi.fn(async () => ({ data, strong }));
+  await cache.read('bounded-refresh', 30000, tags, load);
+  data++;
+  expect((await cache.read('bounded-refresh', 30000, tags, load)).status).toBe('hit');
+  expect((await cache.read('bounded-refresh', 30000, tags, load, true)).value).toEqual({ data: 1, strong: 0 });
+  strong++;
+  expect((await cache.read('bounded-refresh', 30000, tags, load)).value).toEqual({ data: 1, strong: 1 });
+  expect(load).toHaveBeenCalledTimes(3);
+});
 it('restarts the whole request when a definition changed after resolving filters', async () => {
   const cache = new QueryCache();
   installAnalyticsRuntime(cache, primary, disabled());

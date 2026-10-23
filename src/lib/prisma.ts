@@ -1,3 +1,4 @@
+import { CacheProbeMiss } from './liekan/upstream/cache-context';
 import {
   cityNameSQL,
   cityFilterValues,
@@ -939,6 +940,7 @@ async function rawQuery(sql: string, data: Record<string, any>, name?: string): 
     noteCacheResult(result);
     return result.value;
   }
+  if (currentCacheContext()?.probeOnly) throw new CacheProbeMiss();
   return executeRawQuery(sql, data, name);
 }
 

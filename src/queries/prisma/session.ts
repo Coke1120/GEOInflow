@@ -1,5 +1,8 @@
 import { invalidateWebsiteAnalytics } from '@/lib/liekan/upstream/query-cache';
-import { bumpAnalyticsRevision } from '@/lib/liekan/upstream/analytics-revision';
+import {
+  bumpAnalyticsRevision,
+  setAnalyticsSchema,
+} from '@/lib/liekan/upstream/analytics-revision';
 import prisma from '@/lib/prisma';
 
 export async function deleteSession(
@@ -9,6 +12,12 @@ export async function deleteSession(
   const transaction = prisma.transaction as <T>(input: (tx: any) => Promise<T>) => Promise<T>;
 
   const result = await transaction(async tx => {
+    // Match lifecycle lock order before child deletion invokes analysis capture.
+    await setAnalyticsSchema(tx);
+    await tx.$queryRawUnsafe(
+      'SELECT website_id FROM website WHERE website_id=$1::uuid FOR UPDATE',
+      websiteId,
+    );
     const session = await tx.session.findFirst({
       where: {
         id: sessionId,

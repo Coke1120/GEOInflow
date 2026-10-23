@@ -19,6 +19,23 @@ const rule = {
   extension: 'retained',
 };
 const settings = { robots: 'User-agent: *\nAllow: /', allowlist: [], rules: [rule] };
+it.each(['half_open', 'legacy_inclusive'] as const)('preserves selected dates when reopening a %s range', timeBoundary => {
+  const onRange = vi.fn();
+  const startAt = Date.parse('2026-09-30T16:00:00Z');
+  const endAt = Date.parse('2026-10-23T16:00:00Z');
+  render(<ManagementDrawer action="统计范围" websiteId="site-a" canManage={true}
+    onClose={() => {}} onSaved={() => {}} onSearch={() => {}} onRange={onRange}
+    report={{ contractVersion: 2, website: { id: 'site-a', name: 'Fixture', domain: 'example.test' },
+      range: { startAt, endAt, timezone: 'Asia/Shanghai' },
+      states: { human: 'empty', logs: 'empty', catalog: 'empty', goals: 'empty' }, cards: [], charts: {}, tables: {}, insights: [],
+      meta: { demo: false, canManage: true, latestImportAt: null, ruleCount: 0,
+        crawlerMetrics: { scope: 'all', version: 1, population: 'ai_qualified', timeBoundary } },
+    }} />);
+  expect(screen.getByLabelText('开始日期')).toHaveValue('2026-10-01');
+  expect(screen.getByLabelText('结束日期')).toHaveValue(timeBoundary === 'half_open' ? '2026-10-23' : '2026-10-24');
+  fireEvent.click(screen.getByRole('button', { name: '应用日期范围' }));
+  expect(onRange).toHaveBeenCalledWith(startAt, timeBoundary === 'half_open' ? endAt - 1 : endAt + 86400000 - 1);
+});
 it('localizes the submit control of a canonical range dialog', () => {
   render(
     <LiekanLocaleContext.Provider value="en-US">

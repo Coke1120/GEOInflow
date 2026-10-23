@@ -1,4 +1,9 @@
 'use client';
+import {
+  analysisAsyncPath,
+  followAnalysisJob,
+  waitForAnalysisAdmission,
+} from './analysis-query-client';
 import type { QueryClient } from '@tanstack/react-query';
 import { getApiUrl } from '@/lib/api-url';
 import { getClientAuthToken, removeClientAuthToken, setClientAuthToken } from '@/lib/client';
@@ -20,7 +25,9 @@ import {
   rememberRequestFreshness,
   rememberResponseFreshness,
 } from './client-freshness';
-import { browserReads as reads } from './request-pool';
+import { RequestPool, browserReads as reads } from './request-pool';
+// Keep initial task submissions within the server's per-consumer active quota.
+const analysisReads = new RequestPool(2);
 export async function streamFeatureExport(
   websiteId: string,
   body: ExportRequest,
@@ -43,7 +50,7 @@ export async function streamFeatureExport(
     },
   );
   if (!response.ok) {
-    const data = await response.json().catch(() => null);
+    let data = await response.json().catch(() => null);
     throw new FeatureApiError(
       data?.error?.message || `导出失败 (${response.status})`,
       response.status,
@@ -106,7 +113,7 @@ export async function featureRequest<T = any>(
   signal?: AbortSignal,
   shareToken?: string,
   tokenOverride?: string,
-  options?: { priority?: 'foreground' | 'prefetch' },
+  options?: { priority?: 'foreground' | 'prefetch'; onPrevious?: (value: unknown) => void },
 ): Promise<T> {
   const url = new URL(getApiUrl(path), window.location.origin);
   const aggregate = method === 'GET' && isAggregateRequest(path, params);
@@ -123,6 +130,7 @@ export async function featureRequest<T = any>(
     }
   if (aggregate && context?.refresh) url.searchParams.set('refresh', '1');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!shareToken && aggregate && analysisAsyncPath(path, params)) headers.Prefer = 'respond-async';
   if (shareToken) {
     headers['x-umami-share-token'] = shareToken;
     headers['x-umami-share-context'] = '1';
@@ -142,15 +150,28 @@ export async function featureRequest<T = any>(
     signal?.throwIfAborted();
   }
   const load = async (requestSignal?: AbortSignal) => {
-    const startedAt = monotonicNow();
-    const response = await fetch(url, {
-      method,
-      headers,
-      signal: requestSignal,
-      cache: 'no-store',
-      ...(method !== 'GET' && params && { body: JSON.stringify(params) }),
-    });
-    const data = await response.json().catch(() => null);
+    let startedAt = monotonicNow();
+    const send = () => {
+      startedAt = monotonicNow();
+      return fetch(url, {
+        method,
+        headers,
+        signal: requestSignal,
+        cache: 'no-store',
+        ...(method !== 'GET' && params && { body: JSON.stringify(params) }),
+      });
+    };
+    let response = await send();
+    let data = await response.json().catch(() => null);
+    if (
+      headers.Prefer === 'respond-async' &&
+      response.status === 429 &&
+      data?.error?.code === 'analysis-concurrency-limited'
+    ) {
+      const websiteId = /\/websites\/([^/]+)\//.exec(path)?.[1];
+      response = await waitForAnalysisAdmission(websiteId, send, requestSignal);
+      data = await response.json().catch(() => null);
+    }
     if (!response.ok)
       throw new FeatureApiError(
         data?.error?.message || data?.message || `请求失败 (${response.status})`,
@@ -159,6 +180,33 @@ export async function featureRequest<T = any>(
         data?.error,
         retryAfter(response),
       );
+    if (response.status === 202 && headers.Prefer === 'respond-async') {
+      const result = await followAnalysisJob(data, {
+        signal: requestSignal,
+        onPrevious: value => {
+          if (requestSignal?.aborted) return;
+          rememberResponseFreshness(
+            value,
+            response.headers,
+            startedAt,
+            monotonicNow(),
+            aggregateRequestResources(path, params),
+          );
+          options?.onPrevious?.(value);
+        },
+        fetchJob: taskPath =>
+          fetch(new URL(getApiUrl(taskPath), window.location.origin), {
+            headers: Object.fromEntries(
+              Object.entries(headers).filter(([key]) => key !== 'Prefer'),
+            ),
+            signal: requestSignal,
+            cache: 'no-store',
+          }),
+      });
+      response = result.response;
+      data = result.data;
+      startedAt = result.startedAt;
+    }
     if (aggregate || (geoSnapshot && data?.taskStatus === 'ready' && data?.result))
       rememberResponseFreshness(
         data,
@@ -171,7 +219,7 @@ export async function featureRequest<T = any>(
   };
   try {
     const data = await (method === 'GET'
-      ? reads.read(
+      ? (headers.Prefer === 'respond-async' ? analysisReads : reads).read(
           JSON.stringify([url.href, headers]),
           load,
           signal,
@@ -191,7 +239,7 @@ export const featureApi = {
     path: string,
     params?: Record<string, any>,
     signal?: AbortSignal,
-    options?: { priority?: 'foreground' | 'prefetch' },
+    options?: { priority?: 'foreground' | 'prefetch'; onPrevious?: (value: unknown) => void },
   ) => featureRequest<T>('GET', path, params, signal, undefined, undefined, options),
   post: <T = any>(path: string, body?: Record<string, any>, signal?: AbortSignal) =>
     featureRequest<T>('POST', path, body, signal),

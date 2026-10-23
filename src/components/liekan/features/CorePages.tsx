@@ -974,6 +974,7 @@ function WebsiteSettings() {
               subtitle={i18n.text('本次升级专项：扫描、预览并确认旧数据的爬虫识别修正。')}
             >
               <Body>
+                <LinkButton page="analytics-acceleration" params={{ websiteId: site.id }}>{i18n.text('统计加速')}</LinkButton>
                 <LinkButton page="history-repair" params={{ websiteId: site.id }}>
                   {i18n.text('查看历史数据修复')}
                 </LinkButton>

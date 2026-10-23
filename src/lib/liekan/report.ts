@@ -1,6 +1,7 @@
 import { getPublishedCatalog } from './crawlers/published';
 import { crawlerAiRequests, isUnknownCrawler } from './rules/population';
-import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { differenceInCalendarDays, endOfDay } from 'date-fns';
+import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { isbot } from 'isbot';
 import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
 import { parseReportQuery, pagableTables, tablePageSize } from './contracts/query';
@@ -99,19 +100,29 @@ export async function buildReport(
     pageOnly === 'share'
       ? resources.includes('human/overview')
       : !pageOnly || resources.includes(p.resource);
-  if (
-    p.endAt < p.startAt ||
-    p.endAt - p.startAt > 1096 * 86400000 ||
-    p.endAt > Date.now() + 86400000
-  )
-    throw new LiekanError('日期范围无效，上限 3 年');
+  const now = Date.now();
+  let latestEnd: number;
   try {
     new Intl.DateTimeFormat('en', { timeZone: p.timezone }).format();
+    latestEnd = Math.max(
+      now + 86400000,
+      +fromZonedTime(endOfDay(toZonedTime(now, p.timezone)), p.timezone) + 1,
+    );
   } catch {
     throw new LiekanError('时区无效');
   }
+  const readEndAt =
+    p.crawlerMetricsVersion === 1 && p.resource.startsWith('ai/')
+      ? Math.min(p.endAt, now)
+      : p.endAt;
+  if (
+    readEndAt < p.startAt ||
+    p.endAt - p.startAt > 1096 * 86400000 ||
+    p.endAt > latestEnd
+  )
+    throw new LiekanError('日期范围无效，上限 3 年');
   const start = new Date(p.startAt),
-    end = new Date(p.endAt);
+    end = new Date(readEndAt);
   const todayStart = fromZonedTime(
     `${formatInTimeZone(new Date(), p.timezone, 'yyyy-MM-dd')}T00:00:00`,
     p.timezone,
@@ -119,7 +130,7 @@ export async function buildReport(
   const plotStart = new Date(
     Math.max(
       pageOnly === 'share' ? p.startAt : 0,
-      p.endAt - { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000,
+      readEndAt - { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000,
     ),
   );
   const [
@@ -166,8 +177,20 @@ export async function buildReport(
       : Promise.resolve([]),
   ]);
   const h = stringifySafe(rawHuman),
-    l = stringifySafe(rawLogs),
-    days = Math.max(1, Math.ceil((p.endAt - p.startAt + 1) / 86400000));
+    l = stringifySafe(rawLogs);
+  const halfOpen = p.crawlerMetricsVersion === 1;
+  const calendarStart =
+    halfOpen &&
+    formatInTimeZone(start, p.timezone, 'HH:mm:ss.SSS') === '00:00:00.000';
+  const days = Math.max(
+    1,
+    calendarStart
+      ? differenceInCalendarDays(
+          toZonedTime(Math.max(p.startAt, readEndAt - 1), p.timezone),
+          toZonedTime(start, p.timezone),
+        ) + 1
+      : Math.ceil((readEndAt - p.startAt + (halfOpen ? 0 : 1)) / 86400000),
+  );
   h.geo = mergeGeography(h.geo);
   const t = h.totals;
   const humanState: DataState = t.visits ? 'available' : 'empty',
@@ -182,7 +205,7 @@ export async function buildReport(
   const r: LiekanReport = {
     contractVersion: 2,
     website,
-    range: { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
+    range: { startAt: p.startAt, endAt: readEndAt, timezone: p.timezone },
     states: { human: humanState, logs: logState, catalog: catalogState, goals: goalState },
     cards: [],
     charts: {},
@@ -277,7 +300,7 @@ export async function buildReport(
       const type = catalog.get(row.path)?.type;
       if (type) totals.set(type, (totals.get(type) ?? 0) + row.requests);
     }
-    const top = [...totals].sort((a, b) => b[1] - a[1])[0];
+    const top = [...totals].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0];
     const total = l.bots
       .filter(b => b.name === bot && (botId === undefined || (b.botId ?? null) === botId))
       .reduce((sum, b) => sum + Number(b.requests), 0);
@@ -311,7 +334,9 @@ export async function buildReport(
     if (row.lastCrawled > old.lastCrawled) old.lastCrawled = row.lastCrawled;
     paths.set(row.path, old);
   }
-  const aiPages = Array.from(paths.values()).sort((a, b) => b.requests - a.requests);
+  const aiPages = Array.from(paths.values()).sort(
+    (a, b) => b.requests - a.requests || String(a.path).localeCompare(String(b.path)),
+  );
   const humanAiPages = new Map<
     string,
     { requests: number; bot: string; botId?: string | null; main: number }
@@ -451,7 +476,7 @@ export async function buildReport(
     ...(page.leaders[1]?.botId !== undefined && { bot2Id: page.leaders[1].botId }),
     lastCrawled: page.lastCrawled,
     freshness: catalog.get(page.path)?.updatedAt
-      ? `${Math.max(0, Math.floor((p.endAt - new Date(catalog.get(page.path).updatedAt).getTime()) / 86400000))} 天`
+      ? `${Math.max(0, Math.floor((readEndAt - new Date(catalog.get(page.path).updatedAt).getTime()) / 86400000))} 天`
       : null,
   }));
   const cityTable = geographyTableDisplay(
@@ -501,6 +526,9 @@ export async function buildReport(
   }));
   r.tables.logBody = l.recent.map(row => ({
     ...row,
+    ...(row.identityEvidence != null && typeof row.identityEvidence === 'object'
+      ? { identityEvidence: JSON.stringify(row.identityEvidence) }
+      : {}),
     time: row.time,
     classification: isUnknownCrawler(row)
       ? isbot(row.userAgent || '')
@@ -1001,12 +1029,9 @@ export async function buildReport(
     '已接入日志中状态码 ≥400 的请求',
   );
   if (!parts || parts.insights) {
-    const insightDate = (time: number) =>
-      pageOnly === 'share'
-        ? formatInTimeZone(time, p.timezone, 'yyyy-MM-dd')
-        : new Date(time).toISOString().slice(0, 10);
+    const insightDate = (time: number) => formatInTimeZone(time, p.timezone, 'yyyy-MM-dd');
     r.insights = [
-      `${insightDate(p.startAt)} 至 ${insightDate(p.endAt)}：${t.pageviews} 次浏览、${t.visits} 次访问。`,
+      `${insightDate(p.startAt)} 至 ${insightDate(Math.max(p.startAt, readEndAt - (halfOpen ? 1 : 0)))}：${t.pageviews} 次浏览、${t.visits} 次访问。`,
       l.latest
         ? `已导入日志识别 ${l.summary.ai} 次 AI 请求；按 UA 分类，官方 IP 范围匹配结果见访问流。`
         : '接入服务器日志后可计算 AI 抓取统计。',

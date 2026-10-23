@@ -161,13 +161,14 @@
     },
     {
       "path": "next.config.ts",
-      "purpose": "Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy; preserve private no-store headers for crawler recognition, candidates, administrator source health, crawler context and private traffic evidence; preserve private no-store headers for browser cache authorization manifests",
+      "purpose": "Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy; preserve private no-store headers for crawler recognition, candidates, administrator source health, crawler context and private traffic evidence; preserve private no-store headers for browser cache authorization manifests; preserve private no-store responses for durable analysis tasks, acceleration management and opted-in native aggregates",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance",
         "tests/liekan/ai/http.integration.ts",
         "src/proxy.test.ts",
-        "src/lib/liekan/upstream/crawler-private-headers.test.ts"
+        "src/lib/liekan/upstream/crawler-private-headers.test.ts",
+        "src/lib/liekan/upstream/analysis-private-headers.test.ts"
       ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy",
@@ -3247,10 +3248,11 @@
     },
     {
       "path": "src/queries/prisma/session.ts",
-      "purpose": "Derived-statistics cache invalidation, original export bypass and shared metadata compatibility",
+      "purpose": "Derived-statistics cache invalidation, original export bypass and shared metadata compatibility; serialize visitor deletion with website lifecycle before child mutation",
       "tests": [
         "pnpm liekan:verify --working-tree",
-        "Liekan statistics cache and metadata regressions"
+        "Liekan statistics cache and metadata regressions",
+        "src/lib/liekan/upstream/session-invalidation.test.ts"
       ],
       "owner": "Liekan statistics maintenance",
       "constraint": "Preserve original SQL, live permission checks, source statistics and public-share compatibility",
@@ -4746,6 +4748,193 @@
       "owner": "Liekan analytics cache maintenance",
       "constraint": "Keep private restoration limited to current full sessions and authorized resources",
       "removalCondition": "Remove when upstream provides equivalent browser snapshot authorization"
+    },
+    {
+      "path": "src/queries/sql/getWebsiteStats.ts",
+      "purpose": "Exact PostgreSQL rollup reads and opt-in durable private analytics tasks",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve synchronous, ClickHouse, link, pixel and public-share contracts. Unsupported predicates use exact queries.",
+      "removalCondition": "Remove when upstream exposes equivalent exact derived statistics and durable private query execution."
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/attribution/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/breakdown/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/funnels/stats/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/goals/stats/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/heatmaps/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/journeys/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/metrics/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/pageviews/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/performance/chart/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/performance/metrics/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/performance/stats/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/retention/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/stats/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/utm/metrics/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/(main)/settings/analytics-acceleration/page.tsx",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/test/analysis-capture-statistics.mjs",
+      "purpose": "Pure test statistics for complete and right-censored closed-bucket lag samples, included in the Docker type-check context",
+      "tests": [
+        "node --test tests/liekan/analysis-capture-statistics.test.mjs",
+        "pnpm test:analytics-rollups -- --capture-benchmark --candidate-image <candidate>"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Test-only helper; keep production worker and API entrypoints independent and retain all unfinished samples in percentile gates",
+      "removalCondition": "Remove when the capture benchmark no longer needs shared Node and TypeScript percentile calculations"
     }
   ]
 }

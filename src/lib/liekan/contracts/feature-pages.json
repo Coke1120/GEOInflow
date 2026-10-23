@@ -559,6 +559,14 @@
       "summary": "预览并确认本次升级的历史流量重新识别，查看后台进度与修复记录。",
       "route": "/settings/data-repair",
       "kind": "增补管理页"
+    },
+    {
+      "id": "analytics-acceleration",
+      "title": "统计加速",
+      "group": "sites",
+      "summary": "管理新增输入维护与历史统计构建。",
+      "route": "/settings/analytics-acceleration",
+      "kind": "增补流程"
     }
   ],
   "routes": [
@@ -920,6 +928,12 @@
       "source": "src/app/(main)/settings/data-repair/page.tsx",
       "route": "/settings/data-repair",
       "target": "history-repair.html",
+      "entry": "页面"
+    },
+    {
+      "source": "src/app/(main)/settings/analytics-acceleration/page.tsx",
+      "route": "/settings/analytics-acceleration",
+      "target": "analytics-acceleration.html",
       "entry": "页面"
     }
   ]

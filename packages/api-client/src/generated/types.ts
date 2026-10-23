@@ -805,6 +805,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/analytics-acceleration': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Private statistics acceleration (complete session and current website authority required) */
+    get: operations['listLiekanAnalysisWebsites'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/liekan/cache-manifest': {
     parameters: {
       query?: never;
@@ -1061,6 +1078,91 @@ export interface paths {
     };
     /** 查询 Liekan 明细统计 */
     get: operations['getLiekanFeatureAnalytics'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/analytics-acceleration': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Private statistics acceleration (complete session and current website authority required) */
+    get: operations['getLiekanAnalysisStatus'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/analytics-acceleration/action': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Private statistics acceleration (complete session and current website authority required) */
+    post: operations['actionLiekanAnalysisBuild'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/analytics-acceleration/build': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Private statistics acceleration (complete session and current website authority required) */
+    post: operations['buildLiekanAnalysisHistory'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/analytics-jobs/{jobId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Private statistics acceleration (complete session and current website authority required) */
+    get: operations['getLiekanAnalysisJob'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/liekan/websites/{websiteId}/analytics-jobs/{jobId}/result': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Private statistics acceleration (complete session and current website authority required) */
+    get: operations['getLiekanAnalysisJobResult'];
     put?: never;
     post?: never;
     delete?: never;
@@ -12379,6 +12481,150 @@ export interface operations {
       };
     };
   };
+  listLiekanAnalysisWebsites: {
+    parameters: {
+      query?: {
+        cursor?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized acceleration state or the original registered query DTO */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            nextCursor: string | null;
+            supported: boolean;
+            websites: {
+              /** @description Domain name associated with the resource. */
+              domain: string | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              mode: string | null;
+              /** @description Display name of the resource. */
+              name: string;
+            }[];
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Revision or scope changed; reload current state */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The task or its result is expired or invalidated */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Per consumer, website, global admission or refresh limit reached */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description PostgreSQL support required */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded work failed or background capacity is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getLiekanCacheManifest: {
     parameters: {
       query: {
@@ -15342,6 +15588,41 @@ export interface operations {
               };
         };
       };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
       /** @description Bad request. */
       400: {
         headers: {
@@ -15413,6 +15694,848 @@ export interface operations {
         content: {
           'application/json': components['schemas']['ApiError'];
         };
+      };
+    };
+  };
+  getLiekanAnalysisStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized acceleration state or the original registered query DTO */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            builds: {
+              completedUnits: string;
+              errorCode: string | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              /** @enum {string} */
+              locale: 'zh-CN' | 'en-US';
+              progress: number;
+              rangeEnd: string;
+              rangeStart: string;
+              revision: number;
+              /** @enum {string} */
+              status:
+                | 'queued'
+                | 'running'
+                | 'paused'
+                | 'completed'
+                | 'failed'
+                | 'invalidated'
+                | 'capacity_limited';
+              /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+              timezone: string;
+              totalUnits: string;
+              /** @description Date and time the record was last updated. */
+              updatedAt: string;
+            }[];
+            capacity: {
+              globalBytes: string;
+              globalLimit: number;
+              siteBytes: string;
+              siteLimit: number;
+            };
+            captureFrom: string;
+            coverage: {
+              current: boolean;
+              /** @enum {string} */
+              family: 'log' | 'visit';
+              rangeEnd: string;
+              rangeStart: string;
+              rowCount: string;
+            }[];
+            epoch: string;
+            expansion: {
+              path: boolean;
+              visit: boolean;
+            };
+            /** @enum {string} */
+            mode: 'live' | 'disabled';
+            revision: number;
+            supported: boolean;
+            /**
+             * Format: uuid
+             * @description ID of the website.
+             */
+            websiteId: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Revision or scope changed; reload current state */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The task or its result is expired or invalidated */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Per consumer, website, global admission or refresh limit reached */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description PostgreSQL support required */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded work failed or background capacity is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  actionLiekanAnalysisBuild: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          action: 'pause' | 'resume' | 'retry' | 'disable' | 'enable';
+          /** Format: uuid */
+          buildId?: string;
+          expectedRevision: number;
+          /** Format: uuid */
+          requestId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authorized acceleration state or the original registered query DTO */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            mode: string;
+            revision: number;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Revision or scope changed; reload current state */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The task or its result is expired or invalidated */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Per consumer, website, global admission or refresh limit reached */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description PostgreSQL support required */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded work failed or background capacity is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  buildLiekanAnalysisHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description End of the date range as a Unix timestamp in milliseconds. */
+          endAt?: number;
+          expectedRevision: number;
+          /**
+           * @default zh-CN
+           * @enum {string}
+           */
+          locale?: 'zh-CN' | 'en-US';
+          /**
+           * @default common
+           * @enum {string}
+           */
+          preset?: 'common' | 'custom' | 'retained';
+          /** Format: uuid */
+          requestId: string;
+          /** @description Start of the date range as a Unix timestamp in milliseconds. */
+          startAt?: number;
+          /**
+           * @description IANA time zone used to interpret dates and group results, for example America/New_York.
+           * @default Asia/Shanghai
+           */
+          timezone?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Authorized acceleration state or the original registered query DTO */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            completedUnits: string;
+            errorCode: string | null;
+            /**
+             * Format: uuid
+             * @description Unique identifier of the resource.
+             */
+            id: string;
+            /** @enum {string} */
+            locale: 'zh-CN' | 'en-US';
+            progress: number;
+            rangeEnd: string;
+            rangeStart: string;
+            revision: number;
+            /** @enum {string} */
+            status:
+              | 'queued'
+              | 'running'
+              | 'paused'
+              | 'completed'
+              | 'failed'
+              | 'invalidated'
+              | 'capacity_limited';
+            /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+            timezone: string;
+            totalUnits: string;
+            /** @description Date and time the record was last updated. */
+            updatedAt: string;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Revision or scope changed; reload current state */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The task or its result is expired or invalidated */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Per consumer, website, global admission or refresh limit reached */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description PostgreSQL support required */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded work failed or background capacity is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanAnalysisJob: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        jobId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized acceleration state or the original registered query DTO */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Revision or scope changed; reload current state */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The task or its result is expired or invalidated */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Per consumer, website, global admission or refresh limit reached */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description PostgreSQL support required */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded work failed or background capacity is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getLiekanAnalysisJobResult: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        jobId: string;
+        /** @description ID of the website. */
+        websiteId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Authorized acceleration state or the original registered query DTO */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': unknown;
+        };
+      };
+      /** @description The task remains queued or running; retry after three seconds */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
+      /** @description Bad request. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "bad-request",
+           *         "message": "Bad request.",
+           *         "status": 400
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Unauthorized. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "unauthorized",
+           *         "message": "Unauthorized.",
+           *         "status": 401
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Forbidden. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "forbidden",
+           *         "message": "Forbidden.",
+           *         "status": 403
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "not-found",
+           *         "message": "Not found.",
+           *         "status": 404
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Revision or scope changed; reload current state */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The task or its result is expired or invalidated */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Per consumer, website, global admission or refresh limit reached */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description PostgreSQL support required */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Bounded work failed or background capacity is unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };
@@ -26311,6 +27434,41 @@ export interface operations {
           };
         };
       };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
       /** @description Bad request. */
       400: {
         headers: {
@@ -27761,6 +28919,41 @@ export interface operations {
               name: string;
               siteNumber?: number | null;
             };
+          };
+        };
+      };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
           };
         };
       };
@@ -37261,6 +38454,41 @@ export interface operations {
           };
         };
       };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
       /** @description Bad request. */
       400: {
         headers: {
@@ -37410,6 +38638,41 @@ export interface operations {
           } & {
             [key: string]: string | number;
           })[];
+        };
+      };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
         };
       };
       /** @description Bad request. */
@@ -40409,6 +41672,41 @@ export interface operations {
           }[];
         };
       };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
       /** @description Bad request. */
       400: {
         headers: {
@@ -41207,6 +42505,41 @@ export interface operations {
           };
         };
       };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
       /** @description Bad request. */
       400: {
         headers: {
@@ -41413,6 +42746,41 @@ export interface operations {
           };
         };
       };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
       /** @description Bad request. */
       400: {
         headers: {
@@ -41555,6 +42923,41 @@ export interface operations {
             count: number;
             items: string[];
           }[];
+        };
+      };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
         };
       };
       /** @description Bad request. */
@@ -41706,6 +43109,41 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['MetricRows'];
+        };
+      };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
         };
       };
       /** @description Bad request. */
@@ -41978,6 +43416,41 @@ export interface operations {
           'application/json': components['schemas']['WebsitePageviews'];
         };
       };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
       /** @description Bad request. */
       400: {
         headers: {
@@ -42103,6 +43576,41 @@ export interface operations {
               p95: number;
               t: string;
             }[];
+          };
+        };
+      };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
           };
         };
       };
@@ -42255,6 +43763,41 @@ export interface operations {
             p75: number;
             p95: number;
           }[];
+        };
+      };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
         };
       };
       /** @description Bad request. */
@@ -42419,6 +43962,41 @@ export interface operations {
               p75: number;
               p95: number;
             };
+          };
+        };
+      };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
           };
         };
       };
@@ -43117,6 +44695,41 @@ export interface operations {
             /** @description Unique visitor counts for the selected period. */
             visitors: number;
           }[];
+        };
+      };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
         };
       };
       /** @description Bad request. */
@@ -46611,6 +48224,41 @@ export interface operations {
           'application/json': components['schemas']['WebsiteStats'];
         };
       };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
+        };
+      };
       /** @description Bad request. */
       400: {
         headers: {
@@ -46863,6 +48511,41 @@ export interface operations {
             /** @description Pageview counts for the selected period. */
             views: number;
           }[];
+        };
+      };
+      /** @description Opt-in Prefer: respond-async accepted a durable private task */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            analysisJob: {
+              completedAt: string | null;
+              errorCode: string | null;
+              /** @description Date and time the credential expires. */
+              expiresAt: number | null;
+              generatedAt: number | null;
+              /**
+               * Format: uuid
+               * @description Unique identifier of the resource.
+               */
+              id: string;
+              queuedAt: string;
+              resultUrl: string;
+              retryAfterMs: number;
+              /** @description Date and time the recording started. */
+              startedAt: string | null;
+              /** @enum {string} */
+              status: 'queued' | 'running' | 'ready' | 'failed' | 'invalidated' | 'expired';
+              /**
+               * Format: uuid
+               * @description ID of the website.
+               */
+              websiteId: string;
+            };
+            previousResult?: unknown;
+          };
         };
       };
       /** @description Bad request. */

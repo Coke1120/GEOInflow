@@ -8,11 +8,19 @@ import assert from 'node:assert/strict';
 import pg from 'pg';
 import { formatInTimeZone } from 'date-fns-tz';
 type ResultValidator = (body: any, response?: Response) => boolean | Promise<boolean>;
-import { analyticsCacheKey, decodeAnalyticsResult } from '../src/lib/liekan/upstream/query-cache';
+import {
+  analyticsCacheKey,
+  analyticsInfrastructureKey,
+  decodeAnalyticsResult,
+} from '../src/lib/liekan/upstream/query-cache';
+import { installPublishedCatalogResolver } from '../src/lib/liekan/crawlers/published';
+import { publishedCatalogSchema } from '../src/lib/liekan/contracts/crawler-registry';
 import { AnalyticsRedis } from '../src/lib/liekan/upstream/analytics-redis';
 import { timedAnalyticsClient } from '../src/lib/liekan/upstream/analytics-deadline';
 import { readAnalyticsVersions } from '../src/lib/liekan/upstream/analytics-revision';
 import { pageReportSchema } from '../src/lib/liekan/contracts/page-report';
+import { analysisAcceptedSchema } from '../src/lib/liekan/contracts/analysis-acceleration';
+import { analysisQueryParameters } from '../src/lib/liekan/upstream/analysis-query-model';
 import { sharedDateRange, sharedReportSchema } from '../src/lib/liekan/contracts/shared-report';
 import { Decimal } from '@prisma/client/runtime/client';
 import { platform, arch, cpus, totalmem } from 'node:os';
@@ -911,12 +919,26 @@ async function preheat(
   shareId?: string,
   scope?: any,
 ) {
+  const registry = (
+    await database.query(`SELECT v.* FROM liekan_crawler_registry_current c
+    JOIN liekan_crawler_registry_version v ON v.version=c.version AND v.revision=c.revision WHERE c.id=1`)
+  ).rows[0];
+  assert(registry, 'preheat requires the actual published registry');
+  const catalog = publishedCatalogSchema.parse({
+    version: registry.version,
+    revision: String(registry.revision),
+    contentHash: registry.content_hash,
+    publishedAt: registry.published_at.toISOString(),
+    payload: registry.payload,
+    state: 'published',
+  });
+  installPublishedCatalogResolver(() => catalog);
   const tx = {
     $queryRawUnsafe: async (sql: string, ...args: any[]) => (await database.query(sql, args)).rows,
   };
   const version = await readAnalyticsVersions(tx, [`website:${websiteId}`]);
-  const namespace = `liekan:analytics:hot:${analyticsCacheKey('database-v1', ['postgresql:', `${dbName}:5432`, '/bench', 'public'])}`;
-  const scopeHash = analyticsCacheKey('scope-v1', scope || { private: true });
+  const namespace = `liekan:analytics:hot:${analyticsInfrastructureKey('database-v1', ['postgresql:', `${dbName}:5432`, '/bench', 'public'])}`;
+  const scopeHash = analyticsInfrastructureKey('scope-v1', scope || { private: true });
   const fingerprint = analyticsCacheKey('hot-query-v1', [target, websiteId, parameters, scopeHash]);
   stage = `preheat:${target}`;
   const qualificationDeadline = Date.now() + 65000;
@@ -970,6 +992,25 @@ async function preheat(
     }
     await pause(500);
   }
+  report.preheatFailure = {
+    target,
+    queues: (
+      await database.query(
+        'SELECT name,state,count(*)::int AS jobs FROM liekan_jobs.job GROUP BY name,state ORDER BY name,state',
+      )
+    ).rows,
+    permit: (
+      await database.query(
+        'SELECT epoch,lease_until,last_incremental_at,incremental_waiting_at,history_waiting_at,interactive_turns FROM liekan_analysis_background_lease',
+      )
+    ).rows,
+    builds: (
+      await database.query(
+        'SELECT status,actor_id IS NULL AS incremental,count(*)::int AS builds FROM liekan_analysis_build GROUP BY status,actor_id IS NULL',
+      )
+    ).rows,
+  };
+  save();
   throw new Error('preheat did not complete');
 }
 
@@ -1143,7 +1184,17 @@ try {
       [id, `缓存基准合成站点 ${i + 1}`, 'analytics-benchmark.invalid', authentication.user.id],
     );
     await database.query('INSERT INTO liekan_setting(website_id,is_demo) VALUES($1,true)', [id]);
+    // Isolate the existing result-cache matrix from historical maintenance; rollup scale has its own exact benchmark.
+    await database.query(
+      "UPDATE liekan_analysis_site SET mode='disabled' WHERE website_id=$1::uuid",
+      [id],
+    );
   }
+  report.rollupMaintenance = {
+    mode: 'disabled-for-result-cache-matrix',
+    websites: sites,
+    scaleSuite: 'pnpm test:analytics-rollups -- --benchmark --rows <1000000|10000000>',
+  };
   console.log(
     `Seeding ${rows} synthetic events and ${rows} synthetic logs across 10 isolated sites`,
   );
@@ -1191,9 +1242,17 @@ try {
     sites,
     authentication.user.id,
   );
+  // These isolated generated events model browser collection; the source-aware policy requires its explicit evidence.
+  await database.query(
+    `INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,hostname,created_at)
+     SELECT event_id,website_id,'browser','browser','{synthetic-benchmark}','synthetic-cache-fixture-v1','untrusted',hostname,created_at
+     FROM website_event WHERE website_id=ANY($1::uuid[]) ON CONFLICT DO NOTHING`,
+    [sites],
+  );
   report.sourceCounts = (
     await database.query(`SELECT
     (SELECT count(*)::int FROM website_event) events,(SELECT count(*)::int FROM liekan_log) logs,
+    (SELECT count(*)::int FROM liekan_effective_website_event) eligibleEvents,
     (SELECT count(*)::int FROM revenue) revenue,(SELECT count(*)::int FROM heatmap_event) heatmaps,
     (SELECT count(*)::int FROM liekan_effective_log) effectiveLogs,(SELECT count(*)::int FROM liekan_catalog) catalog`)
   ).rows[0];
@@ -1251,6 +1310,13 @@ try {
     );
     const body = await response.json();
     assert(response.ok && pageReportSchema.safeParse(body).success);
+    (report.initialGeoSources ||= []).push({
+      resource,
+      range: body.range,
+      states: body.states,
+      cards: body.cards,
+    });
+    save();
     assertInitialGeoTodaySources(body);
   }
   report.checks.push({
@@ -1938,6 +2004,124 @@ try {
   assert.equal(new Set(spike.map(r => r.generatedAt)).size, 1);
   assert(afterSpike.aggregateStatements - beforeSpike.aggregateStatements <= 2);
 
+  stage = 'durable-async-control';
+  const asyncParameters = {
+    resource: p.resource,
+    chartPeriod: p.chartPeriod,
+    timezone: p.timezone,
+    startAt: p.startAt + 112345,
+    endAt: p.endAt - 123456,
+  };
+  analysisQueryParameters('feature:page-report', asyncParameters);
+  const asyncPath = `/api/liekan/websites/${sites[3]}/page-report?${new URLSearchParams(
+    Object.fromEntries(Object.entries(asyncParameters).map(([key, value]) => [key, String(value)])),
+  )}`;
+  const beforeAsyncControl = await dbCounters();
+  const asyncOutcomes: Array<{ status: number; ms: number; jobId: string }> = [];
+  for (let index = 0; index < samples; index++) {
+    const began = performance.now();
+    const response = await fetch(`${index % 2 ? first : second}${asyncPath}`, {
+      headers: { ...headers, Prefer: 'respond-async' },
+      signal: AbortSignal.timeout(10000),
+    });
+    const body = await response.json();
+    asyncOutcomes.push({
+      status: response.status,
+      ms: performance.now() - began,
+      jobId: body.analysisJob?.id,
+    });
+    report.asyncControl = { samples, outcomes: asyncOutcomes, workerPaused: true, passed: false };
+    save();
+    assert.equal(response.status, 202, 'a cold asynchronous report must return a control response');
+    const accepted = analysisAcceptedSchema.parse(body);
+    assert.equal(accepted.analysisJob.status, 'queued');
+    assert.equal(response.headers.get('retry-after'), '3');
+    assert.equal(response.headers.get('cache-control'), 'private, no-store');
+  }
+  const afterAsyncControl = await dbCounters();
+  assert.equal(new Set(asyncOutcomes.map(outcome => outcome.jobId)).size, 1);
+  assert.equal(afterAsyncControl.aggregateStatements - beforeAsyncControl.aggregateStatements, 0);
+  const asyncJob = asyncOutcomes[0].jobId;
+  const queued = (
+    await database.query(
+      'SELECT status,attempts FROM liekan_analysis_query WHERE website_id=$1::uuid AND id=$2::uuid',
+      [sites[3], asyncJob],
+    )
+  ).rows;
+  assert.deepEqual(queued, [{ status: 'queued', attempts: 0 }]);
+  const controlP95 = percentile(
+    asyncOutcomes.map(outcome => outcome.ms),
+    0.95,
+  );
+  assert(
+    controlP95 !== null && controlP95 <= 500,
+    'asynchronous control p95 must stay within 500ms',
+  );
+  const completionBegan = performance.now();
+  docker('start', workerName);
+  let asyncResult: any;
+  for (;;) {
+    const response = await fetch(
+      `${first}/api/liekan/websites/${sites[3]}/analytics-jobs/${asyncJob}/result`,
+      { headers, signal: AbortSignal.timeout(10000) },
+    );
+    const body = await response.json();
+    if (response.status === 200) {
+      asyncResult = pageReportSchema.parse(body);
+      break;
+    }
+    assert.equal(response.status, 202, 'durable report must complete without an error response');
+    assert.equal(analysisAcceptedSchema.parse(body).analysisJob.id, asyncJob);
+    assert(performance.now() - completionBegan < 120000, 'durable report did not complete in time');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  const completionMs = performance.now() - completionBegan;
+  assert(requestRangeMatches(asyncResult, asyncPath));
+  const exactResponse = await fetch(`${first}${asyncPath}&refresh=1`, {
+    headers,
+    signal: AbortSignal.timeout(65000),
+  });
+  assert.equal(exactResponse.status, 200);
+  const exactResult = pageReportSchema.parse(await exactResponse.json());
+  writeFileSync(
+    resolve(directory, 'async-control-result.json'),
+    JSON.stringify(asyncResult, null, 2),
+    { mode: 0o600 },
+  );
+  writeFileSync(
+    resolve(directory, 'async-control-exact.json'),
+    JSON.stringify(exactResult, null, 2),
+    { mode: 0o600 },
+  );
+  assert(
+    sameRangeStatistics(asyncResult, exactResult),
+    'asynchronous DTO must match the precise report',
+  );
+  assert(
+    asyncResult.cards.some(
+      card => card.label === '浏览量 PV' && Number(String(card.value).replace(/[^0-9.-]/g, '')) > 0,
+    ),
+  );
+  const completed = (
+    await database.query('SELECT status,attempts FROM liekan_analysis_query WHERE id=$1::uuid', [
+      asyncJob,
+    ])
+  ).rows;
+  assert.deepEqual(completed, [{ status: 'ready', attempts: 1 }]);
+  docker('stop', '--time', '40', workerName);
+  report.asyncControl = {
+    ...report.asyncControl,
+    p95Ms: controlP95,
+    aggregateStatements:
+      afterAsyncControl.aggregateStatements - beforeAsyncControl.aggregateStatements,
+    durableComputations: completed.length,
+    attempts: completed[0].attempts,
+    completionMs,
+    exactDtoEqual: true,
+    passed: true,
+  };
+  save();
+
   stage = 'manual-refresh-publishes-normal-result';
   const manualRange = {
     startAt: end - 86400000,
@@ -2016,10 +2200,13 @@ try {
         .then(result => result.rows);
     const priorVersions = await versions();
     const inserted = await database.query(
-      `INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name,hostname)
+      `WITH inserted AS (INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name,hostname)
        SELECT gen_random_uuid(),website_id,session_id,gen_random_uuid(),to_timestamp($2/1000.0)-interval '2 seconds',
          '/synthetic/manual-refresh',$3,CASE WHEN $3=2 THEN 'synthetic-manual-refresh' END,'analytics-benchmark.invalid'
-       FROM session WHERE website_id=$1 ORDER BY session_id LIMIT 1`,
+       FROM session WHERE website_id=$1 ORDER BY session_id LIMIT 1
+       RETURNING event_id,website_id,hostname,created_at)
+       INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,hostname,created_at)
+       SELECT event_id,website_id,'browser','browser','{synthetic-benchmark}','synthetic-cache-fixture-v1','untrusted',hostname,created_at FROM inserted`,
       [entry.site, end, entry.name === 'feature-events' ? 2 : 1],
     );
     assert.equal(inserted.rowCount, 1);
@@ -2441,6 +2628,7 @@ try {
     report.trafficQuality.passed &&
     report.faultsPassed &&
     report.browser.passed &&
+    report.asyncControl.passed &&
     report.performance.every((entry: any) => entry.passed) &&
     report.improvement.every((entry: any) => entry.passed);
   if (report.baseline)

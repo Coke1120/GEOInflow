@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import { AiPages } from './pages/AiPages';
 import { ReportContext } from './ReportContext';
@@ -6,6 +7,26 @@ import type { LiekanReport } from './types';
 import { parseReportQuery } from '@/lib/liekan/contracts/query';
 import { pageReportQuery } from '@/lib/liekan/upstream/page-report-client';
 import { selectRows, tableCsv } from './data';
+
+it('keeps saved crawler averages from the previous calendar contract out of current reads', () => {
+  const client = new QueryClient();
+  const options = pageReportQuery('owner', 'site', {
+    resource: 'ai/overview', startAt: 0, endAt: 30 * 86400000, timezone: 'UTC',
+    crawlerIdentityScope: 'all', crawlerMetricsVersion: 1,
+  });
+  const previous = [...options.queryKey];
+  previous[15] = JSON.stringify(['all', 1]);
+  try {
+    client.setQueryData(previous, { dailyAverage: 9.68 });
+    expect(client.getQueryData(previous)).toEqual({ dailyAverage: 9.68 });
+    expect(client.getQueryData(options.queryKey)).toBeUndefined();
+    client.setQueryData(options.queryKey, { dailyAverage: 10 });
+    expect(client.getQueryData(options.queryKey)).toEqual({ dailyAverage: 10 });
+    expect(options.queryKey[14]).toBe('owner');
+  } finally {
+    client.clear();
+  }
+});
 
 const report: LiekanReport = {
   contractVersion: 2,

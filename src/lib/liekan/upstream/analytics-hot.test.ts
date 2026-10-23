@@ -111,6 +111,29 @@ describe.skipIf(!redisAvailable)('hot scheduler with isolated Redis', () => {
     return JSON.parse(Object.values(await client.hGetAll(taskKey))[0]) as AnalyticsRefreshJob;
   }
 
+  test('registers the crawler aggregate scope used by every AI page for preheating', async () => {
+    const parameters = {
+      ...range, resource: 'ai/overview', chartPeriod: '30d', page: 1,
+      crawlerIdentityScope: 'all', crawlerMetricsVersion: 1,
+    };
+    mocks.context.request = new Request(`http://localhost/api/liekan/websites/${site}/page-report`);
+    mocks.context.parameters = parameters;
+    for (let index = 0; index < 3; index++) {
+      now = base + index * 30000;
+      await rememberAnalyticsHot(
+        { value: [], generatedAt: now, expiresAt: now + 30000, status: 'hit' },
+        { strong: 'v1', data: `d${index}` },
+      );
+    }
+    const keys = await client.keys('*:tasks');
+    expect(keys).toHaveLength(1);
+    const job = JSON.parse(Object.values(await client.hGetAll(keys[0]))[0]) as AnalyticsRefreshJob;
+    expect(job.parameters).toMatchObject({ crawlerIdentityScope: 'all', crawlerMetricsVersion: 1 });
+    expect(job.target).toBe('feature:page-report');
+    expect(job.scheduledAt).toBe(now + 25000);
+    expect((await readAnalyticsHot(job)).priority).toBe(3);
+  });
+
   test('schedules slow current-day computations using the remaining cache lifetime', async () => {
     for (let i = 0; i < 3; i++) {
       now = base + i * 30000;

@@ -1493,6 +1493,7 @@ function AdminWebsites() {
                 setPage(1);
               }}
             />
+            <LinkButton page="analytics-acceleration">{i18n.text('统计加速')}</LinkButton>
             <LinkButton page="history-repair">{i18n.text('历史数据修复')}</LinkButton>
             <Button onClick={() => setFilter(true)}>{i18n.text('按空间筛选')}</Button>
           </>

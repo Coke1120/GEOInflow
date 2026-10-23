@@ -25,8 +25,11 @@ export async function measureCacheBrowser({
   const outcomes = [];
   const publicOutcomes = [];
   const received = [];
+  const jobEvents = [],
+    jobOrigins = new Map();
   const issued = [];
   const errors = [];
+  const apiResponses = [];
   const faultOutcomes = [];
   let faultProbe = false;
   const quantile = (values, q) =>
@@ -46,7 +49,10 @@ export async function measureCacheBrowser({
         errors.push({ kind: `${name}-page-error`, message: error.message.slice(0, 2000) }),
       );
       page.on('response', response => {
-        if (new URL(response.url()).pathname.startsWith('/api/') && response.status() >= 400)
+        const path = new URL(response.url()).pathname;
+        if (path.startsWith('/api/'))
+          apiResponses.push({ page: name, path, status: response.status() });
+        if (path.startsWith('/api/') && response.status() >= 400)
           (faultProbe ? faultOutcomes : errors).push(`${name}-http-${response.status()}`);
       });
       page.on('requestfailed', request => {
@@ -60,19 +66,41 @@ export async function measureCacheBrowser({
     const suffix = `?date=range:${privateRange.startAt}:${privateRange.endAt}&dateMode=custom`;
     const observed = new Map();
     const capture = response => {
-      const url = new URL(response.url());
-      if (!/\/(?:page-report|shared-report|stats)$/.test(url.pathname)) return;
-      const headers = response.headers();
-      const record = {
-        path: url.pathname,
-        parameters: Object.fromEntries(url.searchParams),
-        status: response.status(),
-        tier: headers['x-liekan-cache-tier'],
-        generatedAt: Number(headers['x-liekan-generated-at']),
-        expiresAt: Number(headers['x-liekan-expires-at']),
-      };
-      observed.set(url.pathname, record);
-      received.push(record);
+      void (async () => {
+        const url = new URL(response.url());
+        const task = /\/analytics-jobs\/([^/]+)\/result$/.exec(url.pathname);
+        if (!task && !/\/(?:page-report|shared-report|stats)$/.test(url.pathname)) return;
+        if (response.status() === 202) {
+          const body = await response.json();
+          assert(body.analysisJob?.id, 'accepted analytics response must identify a durable task');
+          jobOrigins.set(body.analysisJob.id, {
+            path: url.pathname,
+            parameters: Object.fromEntries(url.searchParams),
+          });
+          jobEvents.push({
+            id: body.analysisJob.id,
+            phase: 'accepted',
+            path: url.pathname,
+            status: 202,
+          });
+          return;
+        }
+        const origin = task && jobOrigins.get(task[1]);
+        if (task && !origin) return;
+        const headers = response.headers();
+        const record = {
+          path: origin?.path || url.pathname,
+          parameters: origin?.parameters || Object.fromEntries(url.searchParams),
+          status: response.status(),
+          tier: headers['x-liekan-cache-tier'],
+          generatedAt: Number(headers['x-liekan-generated-at']),
+          expiresAt: Number(headers['x-liekan-expires-at']),
+          ...(task ? { jobId: task[1] } : {}),
+        };
+        if (task) jobEvents.push({ id: task[1], phase: 'result', status: response.status() });
+        observed.set(record.path, record);
+        received.push(record);
+      })().catch(error => errors.push({ kind: 'capture', message: error.message }));
     };
     page.on('response', capture);
     page.on('request', request => {
@@ -83,7 +111,8 @@ export async function measureCacheBrowser({
     const chartReady = async (page, selector) => {
       await page.waitForFunction(selector => {
         const root = document.querySelector(selector);
-        if (!root?.getClientRects().length || root.getAttribute('aria-busy') === 'true') return false;
+        if (!root?.getClientRects().length || root.getAttribute('aria-busy') === 'true')
+          return false;
         const canvas = root.matches('canvas') ? root : root.querySelector('canvas');
         if (canvas?.width && canvas?.height) {
           const pixels = canvas
@@ -136,7 +165,7 @@ export async function measureCacheBrowser({
       requests: received.slice(),
     };
     validateRanges(firstPrivate.requests, privateRange);
-    const click = async (path, heading, metric) => {
+    const click = async (path, heading, metric, expectedReads = 0) => {
       await page.locator(`[data-navigation-primary] a[href^="${path}?"]`).waitFor();
       const responseStart = received.length;
       const requestStart = issued.length;
@@ -178,14 +207,20 @@ export async function measureCacheBrowser({
       const initiated = issued.slice(requestStart);
       validateRanges(requests, privateRange);
       initiated.forEach(record => validateRange(record.parameters, privateRange));
-      assert.equal(initiated.length, 1, 'page reentry must issue exactly one report request');
       assert.equal(
-        initiated[0].parameters.resource,
-        path === sourcePath ? 'human/sources' : 'human/overview',
+        initiated.length,
+        expectedReads,
+        'fresh page reentry must reuse its authorized report; a first visit reads once',
+      );
+      initiated.forEach(record =>
+        assert.equal(
+          record.parameters.resource,
+          path === sourcePath ? 'human/sources' : 'human/overview',
+        ),
       );
       return { ...result, requests, initiated };
     };
-    await click(sourcePath, '渠道趋势（AI 搜索引荐单列）', 'AI 搜索引荐');
+    await click(sourcePath, '渠道趋势（AI 搜索引荐单列）', 'AI 搜索引荐', 1);
     await click(humanPath, '访客趋势（UV / PV / 跳出率）', '浏览量 PV');
     for (let index = 0; index < samples; index++) {
       const result =
@@ -195,27 +230,27 @@ export async function measureCacheBrowser({
       outcomes.push({ index, ...result });
     }
     await page.screenshot({ path: `${directory}/private-historical-cache.png`, fullPage: true });
-    const legacyResponse = page.waitForResponse(
-      response =>
-        new URL(response.url()).pathname === `/api/websites/${site}/stats` &&
-        response.status() === 200,
-    );
-    const legacyChartResponse = page.waitForResponse(
-      response =>
-        new URL(response.url()).pathname === `/api/websites/${site}/pageviews` &&
-        response.status() === 200,
-    );
-    await page.goto(
-      `${base}/websites/${site}?legacy=1&date=range:${privateRange.startAt}:${privateRange.endAt}`,
-    );
-    const nativeResponse = await legacyResponse;
+    const [nativeResponse, nativeChartResponse] = await Promise.all([
+      page.waitForResponse(
+        response =>
+          new URL(response.url()).pathname === `/api/websites/${site}/stats` &&
+          response.status() === 200,
+      ),
+      page.waitForResponse(
+        response =>
+          new URL(response.url()).pathname === `/api/websites/${site}/pageviews` &&
+          response.status() === 200,
+      ),
+      page.goto(
+        `${base}/websites/${site}?legacy=1&date=range:${privateRange.startAt}:${privateRange.endAt}`,
+      ),
+    ]);
     const nativeParameters = Object.fromEntries(new URL(nativeResponse.url()).searchParams);
     validateRanges(
       [{ status: nativeResponse.status(), parameters: nativeParameters }],
       privateRange,
     );
     assert(Number((await nativeResponse.json()).pageviews) > 0);
-    const nativeChartResponse = await legacyChartResponse;
     validateRanges(
       [
         {
@@ -308,7 +343,9 @@ export async function measureCacheBrowser({
     const offlineBegan = performance.now();
     await shared.waitForFunction(
       () =>
-        [...document.querySelectorAll('.metric-value')].every(node => !node.getClientRects().length),
+        [...document.querySelectorAll('.metric-value')].every(
+          node => !node.getClientRects().length,
+        ),
       undefined,
       { timeout: 40000 },
     );
@@ -325,20 +362,76 @@ export async function measureCacheBrowser({
     });
     await shareReady();
     faultProbe = false;
-    const legacyShareResponse = shared.waitForResponse(
-      response => new URL(response.url()).pathname.endsWith('/stats') && response.status() === 200,
-    );
-    const legacyShareChartResponse = shared.waitForResponse(
-      response =>
-        new URL(response.url()).pathname.endsWith('/pageviews') && response.status() === 200,
-    );
-    await shared.goto(`${shareUrl}?legacy=1`);
-    assert(Number((await (await legacyShareResponse).json()).pageviews) > 0);
-    assert(
-      (await (await legacyShareChartResponse).json()).pageviews.some(point => Number(point.y) > 0),
-    );
+    const [legacyShareResponse, legacyShareChartResponse] = await Promise.all([
+      shared.waitForResponse(
+        response =>
+          new URL(response.url()).pathname.endsWith('/stats') && response.status() === 200,
+      ),
+      shared.waitForResponse(
+        response =>
+          new URL(response.url()).pathname.endsWith('/pageviews') && response.status() === 200,
+      ),
+      shared.goto(`${shareUrl}?legacy=1`),
+    ]);
+    assert(Number((await legacyShareResponse.json()).pageviews) > 0);
+    assert((await legacyShareChartResponse.json()).pageviews.some(point => Number(point.y) > 0));
     await chartReady(shared, 'canvas');
     await shared.screenshot({ path: `${directory}/legacy-share-statistics.png`, fullPage: true });
+    const accelerationViews = [];
+    for (const layout of [
+      {
+        name: 'desktop-zh',
+        locale: 'zh-CN',
+        width: 1440,
+        height: 1000,
+        title: '统计加速',
+        button: '开始构建',
+      },
+      {
+        name: 'mobile-en',
+        locale: 'en-US',
+        width: 390,
+        height: 844,
+        title: 'Analytics acceleration',
+        button: 'Start build',
+      },
+    ]) {
+      const isolated = await browser.newContext({
+        viewport: { width: layout.width, height: layout.height },
+        locale: layout.locale,
+        timezoneId: 'Asia/Shanghai',
+        reducedMotion: 'reduce',
+      });
+      try {
+        await isolated.addCookies([{ name: 'liekan.locale', value: layout.locale, url: base }]);
+        await isolated.addInitScript(
+          ({ token, locale }) => {
+            localStorage.setItem('umami.auth', JSON.stringify(token));
+            localStorage.setItem('umami.locale', JSON.stringify(locale));
+            localStorage.setItem('umami.timezone', JSON.stringify('Asia/Shanghai'));
+          },
+          { token, locale: layout.locale },
+        );
+        const management = await isolated.newPage();
+        monitor(management, layout.name);
+        await management.goto(`${base}/settings/analytics-acceleration?websiteId=${site}`);
+        await management.getByRole('heading', { name: layout.title, exact: true }).last().waitFor();
+        await management.getByRole('button', { name: layout.button, exact: true }).waitFor();
+        const bounds = await management.evaluate(() => ({
+          width: innerWidth,
+          body: document.documentElement.scrollWidth,
+          loading: document.body.textContent.includes('正在读取加速状态'),
+        }));
+        assert(bounds.body <= bounds.width + 1, 'management page must fit the isolated viewport');
+        await management.screenshot({
+          path: `${directory}/analytics-acceleration-${layout.name}.png`,
+          fullPage: true,
+        });
+        accelerationViews.push({ ...layout, ...bounds, controlsRendered: true });
+      } finally {
+        await isolated.close();
+      }
+    }
     const privateP95 = quantile(
       outcomes.map(o => o.core),
       0.95,
@@ -368,6 +461,8 @@ export async function measureCacheBrowser({
         faultOutcomes,
       },
       lastKnownResponses: [...observed.values()],
+      jobEvents,
+      accelerationViews,
       errors,
       structureP95,
       privateP95,
@@ -378,10 +473,8 @@ export async function measureCacheBrowser({
         errors.length === 0 &&
         structureP95 <= 100 &&
         privateP95 <= 200 &&
-        // Reentry begins a new manual reading; each page reads its cached report once.
-        outcomes.every(
-          o => o.initiated.length === 1 && o.requests.length === 1 && o.requests[0].path.endsWith('/page-report'),
-        ) &&
+        // Both pages were read above; valid browser results require no repeated report request.
+        outcomes.every(o => o.initiated.length === 0 && o.requests.length === 0) &&
         shareP95 <= 1000 &&
         publicOutcomes.every(o => o.coreTransferredBytes <= 512 * 1024),
     };
@@ -393,8 +486,10 @@ export async function measureCacheBrowser({
           privateOutcomes: outcomes,
           publicOutcomes,
           received,
+          jobEvents,
           issued,
           errors,
+          apiResponses,
           faultOutcomes,
           reason: error instanceof Error ? error.message : 'Error',
         },

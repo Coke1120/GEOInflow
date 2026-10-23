@@ -1,6 +1,5 @@
-import { getAttribution } from '../queries/sql/attribution/getAttribution';
-import { ENTITY_TYPE, EVENT_COLUMNS, SESSION_COLUMNS } from '../lib/constants';
-import { getCompareDate } from '../lib/date';
+import { executeNativeAnalysis } from '../lib/liekan/upstream/analysis-native-execution';
+import { ENTITY_TYPE } from '../lib/constants';
 import {
   type AnalyticsRefreshJob,
   forgetAnalyticsHot,
@@ -31,97 +30,10 @@ import {
   analyticsRemaining,
   timedAnalyticsClient,
 } from '../lib/liekan/upstream/analytics-deadline';
-import { getQueryFilters } from '../lib/request';
 import { canViewWebsiteSection } from '../permissions/share';
 import { getShare } from '../queries/prisma/share';
-import * as queries from '../queries/sql';
-import { getBreakdown } from '../queries/sql/breakdown/getBreakdown';
-import { getWebsiteEventStats } from '../queries/sql/events/getWebsiteEventStats';
-import { getFunnel } from '../queries/sql/funnels/getFunnel';
-import { getGoal } from '../queries/sql/goals/getGoal';
-import { getHeatmap } from '../queries/sql/heatmap/getHeatmap';
-import { getJourney } from '../queries/sql/journeys/getJourney';
-import { getPerformanceChart } from '../queries/sql/performance/getPerformanceChart';
-import { getPerformanceMetrics } from '../queries/sql/performance/getPerformanceMetrics';
-import { getPerformanceStats } from '../queries/sql/performance/getPerformanceStats';
-import { getRetention } from '../queries/sql/retention/getRetention';
-import { getRevenueChart } from '../queries/sql/revenue/getRevenueChart';
-import { getRevenueMetrics } from '../queries/sql/revenue/getRevenueMetrics';
-import { getRevenueStats } from '../queries/sql/revenue/getRevenueStats';
-import { getUTM } from '../queries/sql/utm/getUTM';
 
 const primary = (): any => getRawQueryClient(prisma.client, { write: true });
-async function warmNative(id: string, target: string, input: Record<string, any>) {
-  const p: any = parseAnalyticsHotParameters(`native:${target}`, input);
-  const filters = await getQueryFilters(p, id);
-  const parameters: any = { ...p, ...filters };
-  const { startDate: comparisonStart, endDate: comparisonEnd } = getCompareDate(
-    filters.compare || 'prev',
-    filters.startDate,
-    filters.endDate,
-  );
-  const comparison = { ...filters, startDate: comparisonStart, endDate: comparisonEnd };
-  // One worker computation slot serves the entire job; finish each query before starting the next.
-  if (target === 'stats')
-    return [
-      await queries.getWebsiteStats(id, filters),
-      await queries.getWebsiteStats(id, comparison),
-    ];
-  if (target === 'pageviews')
-    return [
-      await queries.getPageviewStats(id, filters),
-      await queries.getSessionStats(id, filters),
-      ...(filters.compare
-        ? [
-            await queries.getPageviewStats(id, comparison),
-            await queries.getSessionStats(id, comparison),
-          ]
-        : []),
-    ];
-  if (target === 'events/stats')
-    return [await getWebsiteEventStats(id, filters), await getWebsiteEventStats(id, comparison)];
-  if (target === 'events/series') return queries.getEventStats(id, { limit: p.limit }, filters);
-  if (target === 'metrics') {
-    if (SESSION_COLUMNS.includes(p.type))
-      return queries.getSessionMetrics(id, { type: p.type, limit: p.limit }, filters);
-    if (p.type === 'channel') return queries.getChannelMetrics(id, filters);
-    if (EVENT_COLUMNS.includes(p.type))
-      return p.type === 'event'
-        ? queries.getEventMetrics(
-            id,
-            { type: p.type, limit: p.limit },
-            { ...filters, eventType: 2 },
-          )
-        : queries.getPageviewMetrics(id, { type: p.type, limit: p.limit }, filters);
-    return;
-  }
-  if (target === 'goals/stats') return getGoal(id, parameters, filters);
-  if (target === 'funnels/stats') return getFunnel(id, parameters, filters);
-  if (target === 'retention') return getRetention(id, parameters, filters);
-  if (target === 'journeys') return getJourney(id, parameters, filters);
-  if (target === 'breakdown') return getBreakdown(id, parameters, filters);
-  if (target === 'attribution')
-    return getAttribution(id, { ...parameters, ...filters } as any, filters);
-  if (target === 'heatmap' || target === 'heatmaps') return getHeatmap(id, parameters);
-  if (target === 'performance/stats') return getPerformanceStats(id, parameters, filters);
-  if (target === 'performance/chart') return getPerformanceChart(id, parameters, filters);
-  if (target === 'performance/metrics')
-    return getPerformanceMetrics(
-      id,
-      parameters,
-      filters,
-      { path: 'url_path', title: 'page_title', device: 'device', browser: 'browser' }[p.type],
-      p.limit ?? (p.type === 'device' ? undefined : 500),
-    );
-  if (target === 'revenue/stats')
-    return [
-      await getRevenueStats(id, parameters, filters),
-      await getRevenueStats(id, { ...parameters, ...comparison }, filters),
-    ];
-  if (target === 'revenue/chart') return getRevenueChart(id, parameters, filters);
-  if (target === 'revenue/metrics') return getRevenueMetrics(id, parameters, filters, p.type);
-  if (target === 'utm/metrics') return getUTM(id, { ...parameters, column: p.type }, filters);
-}
 
 async function readStrongVersion(websiteId: string) {
   const deadline = Math.min(currentCacheContext()?.deadline || Infinity, Date.now() + 5000);
@@ -303,7 +215,7 @@ async function processAnalyticsRefreshSnapshot(job: AnalyticsRefreshJob) {
               auth,
             );
           else if (job.target.startsWith('native:'))
-            await warmNative(job.websiteId, target, parameters);
+            await executeNativeAnalysis(job.websiteId, target, parameters);
           return [...currentCacheContext().results];
         },
         { deadline: job.scheduledAt + 30000, reauthorize: async () => !!(await authorize(job)) },

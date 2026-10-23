@@ -40,5 +40,13 @@
   "033_crawler_rule_configuration.sql": "22a86f14fafbf7a4618cb7f60e39c0afb0a0e85301597d29cfa8fdae7c5409e6",
   "034_history_repair.sql": "439c4d59ed4df16d4b2c1ddd50c14545591566823c5000ca79fb6eb04718c8b3",
   "035_history_repair_property_reads.sql": "60cd6654282c928cb443aea0e8689d28eb5a7ea53c5f925089888630e3d5fa55",
-  "036_geo_weight_snapshots.sql": "4f2d45c20c446a1c3f29babe064c7899f8510b5aa5a284a44515509f46e59e08"
+  "036_geo_weight_snapshots.sql": "4f2d45c20c446a1c3f29babe064c7899f8510b5aa5a284a44515509f46e59e08",
+  "037_analytics_rollups.sql": "074471182669aef37082a546fda98936f00ecdc1bba5653643110c3f1f92673f",
+  "038_analytics_visits.sql": "092b03fc3c4936f83a59c410d4abf868338d80ae786a6b14d0b1428ff3fe30a2",
+  "039_analytics_query_jobs.sql": "fc7c18f7759c3230f01f4d0d5344602c76cfb7864dff1db922fb4bfe0094bd08",
+  "040_analytics_expansion_probes.sql": "77de6ef203f4c1bb2774b17550f59cb4980b413bdb05ffa998682d2980c58429",
+  "041_analytics_capture_cost.sql": "b88a73066556334944d04b48b6d35f8af670cb95a25374715421b894a041c945",
+  "042_analytics_epoch_fence.sql": "9d6cbf07ce352a09a4a4f87101b6bbe91a23c1ac1147940069ec42bd623bb99f",
+  "043_analytics_capture_plans.sql": "095761c8ef0602b0f91ee6b88529b2e4fa9638f6ff6f67b6c9111d2508d5cb0f",
+  "044_analytics_discovery_rotation.sql": "a74e50a5f2ee2a5e98a8d4ff986f9c11eed2a7719255f9d4016500ef780f9750"
 }

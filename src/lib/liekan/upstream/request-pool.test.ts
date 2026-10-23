@@ -2,6 +2,19 @@ import { describe, expect, it, vi } from 'vitest';
 import { RequestPool } from './request-pool';
 
 describe('overlapping browser reads', () => {
+  it('leaves a completed response signal intact for downstream consumers', async () => {
+    const pool = new RequestPool();
+    let shared!: AbortSignal;
+    const onAbort = vi.fn();
+    const response = await pool.read('completed-response', async signal => {
+      shared = signal;
+      signal.addEventListener('abort', onAbort);
+      return new Response('analytics');
+    });
+    expect(await response.text()).toBe('analytics');
+    expect(shared.aborted).toBe(false);
+    expect(onAbort).not.toHaveBeenCalled();
+  });
   it('shares a request and keeps it alive when one consumer leaves', async () => {
     const pool = new RequestPool(2);
     let finish!: (value: number) => void;

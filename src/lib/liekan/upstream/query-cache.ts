@@ -1,3 +1,4 @@
+import { currentCacheContext, CacheProbeMiss } from './cache-context';
 import { getPublishedCatalog } from '../crawlers/published';
 import { geographyVersion } from '../contracts/geography';
 import { GEOGRAPHY_ANCHOR_VERSION } from '../geography/evidence';
@@ -53,6 +54,13 @@ export class QueryCache {
     load: () => Promise<T>,
     refresh: boolean,
   ) => Promise<CachedResult<T>>;
+  private probe?: <T>(key: string, tags: string[]) => Promise<CachedResult<T> | undefined>;
+  configureProbe(probe: QueryCache['probe']) {
+    this.probe = probe;
+  }
+  peek<T>(key: string, tags: string[]): Promise<CachedResult<T> | undefined> {
+    return this.probe ? this.probe<T>(key, tags) : Promise.resolve(this.getLocal<T>(key));
+  }
   private entries = new Map<string, Entry>();
   private flights = new Map<string, Flight>();
   private bytes = 0;
@@ -133,6 +141,11 @@ export class QueryCache {
     load: () => Promise<T>,
     refresh = false,
   ): Promise<CachedResult<T>> {
+    if (currentCacheContext()?.probeOnly) {
+      const cached = await this.peek<T>(key, tags);
+      if (!cached) throw new CacheProbeMiss();
+      return cached;
+    }
     if (this.runtime) return this.runtime(key, ttl, tags, load, refresh);
     if (refresh) this.remove(key);
     const entry = this.entries.get(key);

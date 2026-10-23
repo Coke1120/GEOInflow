@@ -38,6 +38,10 @@ vi.mock('./AnalysisLoading', async () => {
       );
     },
     reportViews: {
+      'ai/overview': ({ report }: any) => <span>{report?.value}</span>,
+      'ai/bots': ({ report }: any) => <span>{report?.value}</span>,
+      'ai/pages': ({ report }: any) => <span>{report?.value}</span>,
+      'ai/preference': ({ report }: any) => <span>{report?.value}</span>,
       'human/overview': ({ report }: any) => <span>{report?.value}</span>,
       'human/geo': ({ report }: any) => <span>{report?.value}</span>,
       logs: ({ report }: any) => <span>{report?.value}</span>,
@@ -129,6 +133,35 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => client.clear());
+
+it.each(['ai/overview', 'ai/bots', 'ai/pages', 'ai/preference'] as const)(
+  'reuses the current-day crawler aggregate when reentering %s later', async resource => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-23T05:00:00Z'));
+  state.dateMode = 'default';
+  state.get.mockResolvedValue(report('crawler-aggregate'));
+  const tree = () => (
+    <QueryClientProvider client={client}>
+      <ManualRefreshProvider>
+        <LiekanPage resource={resource} />
+      </ManualRefreshProvider>
+    </QueryClientProvider>
+  );
+  try {
+    const first = render(tree());
+    await waitFor(() => expect(state.get.mock.calls.filter(call => call[1]?.resource === resource)).toHaveLength(1));
+    await waitFor(() => expect(client.isFetching()).toBe(0));
+    first.unmount();
+    vi.setSystemTime(new Date('2026-10-23T05:00:01Z'));
+    render(tree());
+    await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
+    expect(state.get.mock.calls.filter(call => call[1]?.resource === resource)).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+    await waitFor(() => expect(state.get.mock.calls.filter(call => call[1]?.resource === resource)).toHaveLength(2));
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 it('resets a rolling log cursor before reading the refreshed window and fetches only the first batch', async () => {
   state.dateMode = 'default';

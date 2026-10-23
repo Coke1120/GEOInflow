@@ -4,7 +4,10 @@ import { getApiUrl } from '@/lib/api-url';
 const versions = new Map<string, Promise<string | undefined>>();
 /** A manual page read shares one immutable catalog, including concurrent and cursor reads. */
 export function clientCatalogVersion(scope: string, auth: Record<string, string>) {
-  const identity = [...new Headers(auth).entries()]
+  const headers = new Headers(auth);
+  if (headers.get('x-umami-share-token') && headers.get('x-umami-share-context'))
+    headers.delete('authorization');
+  const identity = [...headers.entries()]
     .filter(([name]) =>
       ['authorization', 'x-umami-share-token', 'x-umami-share-context'].includes(name),
     )
@@ -16,7 +19,7 @@ export function clientCatalogVersion(scope: string, auth: Record<string, string>
       const response = await fetch(
         new URL(getApiUrl('/liekan/catalog-version'), window.location.origin),
         {
-          headers: auth,
+          headers,
           cache: 'no-store',
           signal: AbortSignal.timeout(15000),
         },

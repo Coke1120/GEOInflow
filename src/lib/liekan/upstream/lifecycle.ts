@@ -22,6 +22,10 @@ export async function resetLiekanStatistics(tx: any, websiteId: string, identity
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new Error('Invalid database schema');
   await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
   await lockWritableWebsite(tx, websiteId, identity);
+  await tx.$queryRawUnsafe(
+    'SELECT website_id FROM liekan_analysis_site WHERE website_id=$1::uuid FOR UPDATE',
+    websiteId,
+  );
   await clearAiWebsiteInTransaction(tx, websiteId);
   await clearHistoryRepair(tx, websiteId);
   await clearGeoSnapshots(tx, websiteId);
@@ -88,6 +92,10 @@ export async function stopWebsiteSources(tx: any, websiteId: string, deleted = f
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new Error('Invalid database schema');
   await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
   await lockWritableWebsite(tx, websiteId);
+  await tx.$queryRawUnsafe(
+    'SELECT website_id FROM liekan_analysis_site WHERE website_id=$1::uuid FOR UPDATE',
+    websiteId,
+  );
   if (deleted) {
     await clearHistoryRepair(tx, websiteId, true);
     await clearGeoSnapshots(tx, websiteId);

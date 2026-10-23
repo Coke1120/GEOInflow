@@ -28,6 +28,7 @@ it('invalidates derived website statistics after a committed session deletion', 
     ]),
   );
   mocks.tx.$executeRawUnsafe = vi.fn();
+  mocks.tx.$queryRawUnsafe = vi.fn().mockResolvedValue([{ website_id: 'website' }]);
   const load = vi
     .fn()
     .mockResolvedValueOnce({ pageviews: 4 })
@@ -39,6 +40,20 @@ it('invalidates derived website statistics after a committed session deletion', 
     load,
   );
   await deleteSession('website', 'session');
+  expect(mocks.tx.$executeRawUnsafe.mock.calls[0][0]).toBe('SET LOCAL search_path TO "public"');
+  expect(mocks.tx.$executeRawUnsafe.mock.invocationCallOrder[0]).toBeLessThan(
+    mocks.tx.$queryRawUnsafe.mock.invocationCallOrder[0],
+  );
+  expect(mocks.tx.$queryRawUnsafe).toHaveBeenCalledWith(
+    expect.stringMatching(/FROM website WHERE website_id=\$1::uuid FOR UPDATE/),
+    'website',
+  );
+  expect(mocks.tx.$queryRawUnsafe.mock.invocationCallOrder[0]).toBeLessThan(
+    mocks.tx.session.findFirst.mock.invocationCallOrder[0],
+  );
+  expect(mocks.tx.$queryRawUnsafe.mock.invocationCallOrder[0]).toBeLessThan(
+    mocks.tx.websiteEvent.deleteMany.mock.invocationCallOrder[0],
+  );
   expect(
     (
       await analyticsCache.read<{ pageviews: number }>(

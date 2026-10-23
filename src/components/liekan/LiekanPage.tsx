@@ -1,4 +1,5 @@
 'use client';
+import { AnalysisPendingNotice } from './AnalysisPendingNotice';
 import { downloadTrafficEvidence } from '@/lib/liekan/upstream/features-client';
 import { reportEvidenceViewPayload } from '@/lib/liekan/contracts/report-evidence-view';
 import { sha256 } from '@noble/hashes/sha2.js';
@@ -233,7 +234,14 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                 ? ('verified_range' as const)
                 : ('all' as const),
           crawlerMetricsVersion: 1 as const,
-          endAt: Math.min(endAt % 1000 === 999 ? endAt + 1 : endAt, now),
+          // Crawler aggregates retain the selected boundary across page visits.
+          // Log cursors still capture the current instant for their live window.
+          endAt:
+            resource === 'logs'
+              ? Math.min(endAt % 1000 === 999 ? endAt + 1 : endAt, now)
+              : endAt % 1000 === 999
+                ? endAt + 1
+                : endAt,
         }
       : {}),
     ...(Object.keys(tablePages).length ? { tablePages } : {}),
@@ -1095,6 +1103,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           )}
         </div>
       )}
+      <AnalysisPendingNotice websiteId={reportWebsiteId} websiteHandle={websiteId} />
       {report && query.isFetching && (
         <div className={styles.notice} role="status">
           {i18n.text('正在更新统计数据')}

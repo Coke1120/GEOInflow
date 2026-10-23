@@ -219,6 +219,7 @@ const crawlerPrivatePaths = [
   '/liekan/crawler-handoffs/:path*',
   '/liekan/history-repair/:path*',
   '/liekan/cache-manifest/:path*',
+  '/liekan/analytics-acceleration/:path*',
   '/liekan/admin/crawler-sources/:path*',
   '/liekan/admin/crawler-registry/:path*',
   '/liekan/crawler-registry/:path*',
@@ -240,6 +241,11 @@ const crawlerPrivatePaths = [
     'crawler-policies',
     'history-repair',
     'geo-weight',
+    'analytics-acceleration',
+    'analytics-jobs',
+    'page-report',
+    'analytics',
+    'journeys',
   ].map(resource => `/liekan/websites/:websiteId/${resource}/:path*`),
 ];
 // Next keeps preconfigured response headers, so private crawler reads need explicit rules.
@@ -267,6 +273,39 @@ for (const prefix of crawlerApiPrefixes)
         { key: 'Access-Control-Allow-Methods', value: 'GET, DELETE, POST, PATCH' },
       ],
     });
+
+// Opted-in native analysis responses can contain private durable task handles.
+const asyncAnalysisHeaders = crawlerApiPrefixes.flatMap(prefix =>
+  [
+    'stats',
+    'pageviews',
+    'metrics',
+    'events/stats',
+    'events/series',
+    'goals/stats',
+    'funnels/stats',
+    'retention',
+    'journeys',
+    'breakdown',
+    'attribution',
+    'heatmap',
+    'heatmaps',
+    'performance/stats',
+    'performance/chart',
+    'performance/metrics',
+    'revenue/stats',
+    'revenue/chart',
+    'revenue/metrics',
+    'utm/metrics',
+  ].map(resource => ({
+    source: `${prefix}/websites/:websiteId/${resource}`,
+    has: [{ type: 'header' as const, key: 'prefer' }],
+    headers: [
+      { key: 'Cache-Control', value: 'private, no-store' },
+      { key: 'Vary', value: 'Authorization, Prefer' },
+    ],
+  })),
+);
 
 export default withNextIntl({
   reactStrictMode: false,
@@ -296,7 +335,7 @@ export default withNextIntl({
     cpus: 2,
   },
   async headers() {
-    return headers;
+    return [...headers, ...asyncAnalysisHeaders];
   },
   async rewrites() {
     return [

@@ -21,3 +21,7 @@ it.each(['partial','api-key',undefined])('rejects incomplete or non-session iden
 it('keeps non-PostgreSQL native requests independent of the PostgreSQL registry', async () => {
  h.relational.mockReturnValue(false);const response=await GET(request());expect(await response.json()).toEqual({version:null});expect(h.bind).not.toHaveBeenCalled();
 });
+it('rejects mixed private and public identities at the server boundary', async () => {
+ h.auth.mockResolvedValue({authType:'session',user:{id:'owner'},shareToken:{shareType:ENTITY_TYPE.website,websiteId:'site'}});
+ expect((await GET(request())).status).toBe(403);expect(h.allowed).not.toHaveBeenCalled();expect(h.bind).not.toHaveBeenCalled();
+});

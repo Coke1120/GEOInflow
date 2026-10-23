@@ -40,6 +40,9 @@ export function createDataAdapters(query, { sourceRef } = {}) {
       },
     }).outputText;
     const dependencies = id => {
+      // This harness compares original source queries; rollup equivalence has its own database suite.
+      if (id === './analysis-rollups')
+        return { readAnalysisLogRollup: async () => null, readAnalysisLogSeries: async () => null };
       if (id === './server')
         return {
           query,

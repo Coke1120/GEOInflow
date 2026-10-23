@@ -1,3 +1,15 @@
+import { probeAnalysisExpansion } from '../lib/liekan/upstream/analysis-expansion';
+import {
+  ANALYSIS_QUERY_QUEUE,
+  ANALYSIS_BUILD_QUEUE,
+} from '../lib/liekan/upstream/analysis-query-model';
+import { pumpAnalysisQueries, processAnalysisQuery } from '../lib/liekan/upstream/analysis-queries';
+import {
+  pumpAnalysisBuilds,
+  processAnalysisBuild,
+} from '../lib/liekan/upstream/analysis-build-queue';
+import { reconcileAnalysisRollups } from '../lib/liekan/upstream/analysis-rollups-worker';
+import { withAnalysisPermit } from '../lib/liekan/upstream/analysis-background';
 import {
   GEO_SNAPSHOT_QUEUE,
   processGeoSnapshotJob,
@@ -31,6 +43,9 @@ async function pump() {
   if (stopped || pumping) return;
   pumping = true;
   try {
+    await reconcileAnalysisRollups();
+    await pumpAnalysisQueries(boss);
+    await pumpAnalysisBuilds(boss);
     await pumpAnalyticsHot(boss, readAnalyticsHotStrongVersion);
   } catch {
     /* A maintenance failure leaves persistent hot demand for the next pass. */
@@ -43,18 +58,40 @@ await boss.work<GeoSnapshotJob>(
   GEO_SNAPSHOT_QUEUE,
   { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 1 },
   async jobs => {
-    for (const job of jobs) if (!stopped) await processGeoSnapshotJob(job.data, boss);
+    for (const job of jobs)
+      if (!stopped)
+        await withAnalysisPermit('interactive', () => processGeoSnapshotJob(job.data, boss));
   },
 );
 const geoMaintenance = setInterval(() => {
-  if (!stopped) void reconcileGeoSnapshots(boss).catch(() => {});
+  if (!stopped) {
+    void reconcileGeoSnapshots(boss).catch(() => {});
+    void probeAnalysisExpansion().catch(() => {});
+  }
 }, 60000);
 void reconcileGeoSnapshots(boss).catch(() => {});
 await boss.work<AnalyticsRefreshJob>(
   ANALYTICS_QUEUE,
   { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 1 },
   async jobs => {
-    for (const job of jobs) if (!stopped) await processAnalyticsRefresh(job.data);
+    for (const job of jobs)
+      if (!stopped) await withAnalysisPermit('preheat', () => processAnalyticsRefresh(job.data));
+  },
+);
+await boss.work<{ id: string }>(
+  ANALYSIS_QUERY_QUEUE,
+  { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 1 },
+  async jobs => {
+    for (const job of jobs) if (!stopped) await processAnalysisQuery(job.data.id);
+  },
+);
+await boss.work<{ id: string; kind: 'history' | 'incremental' }>(
+  ANALYSIS_BUILD_QUEUE,
+  { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 1 },
+  async jobs => {
+    for (const job of jobs)
+      if (!stopped)
+        await processAnalysisBuild(job.data.id, job.data.kind, { shouldStop: () => stopped });
   },
 );
 const maintenance = setInterval(() => {

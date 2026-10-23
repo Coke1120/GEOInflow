@@ -1,0 +1,510 @@
+import { randomUUID } from 'node:crypto';
+import { hasPermission } from '@/lib/auth';
+import { PERMISSIONS, ROLES } from '@/lib/constants';
+import type { PgBoss } from 'pg-boss';
+import type { AnalysisJob } from '../contracts/analysis-acceleration';
+import { getPublishedCatalog } from '../crawlers/published';
+import { withPublishedRegistry } from './crawler-registry-context';
+import { analysisCapacity, analysisTransaction } from './analysis-rollups-db';
+import { aiExecutor } from './ai-db';
+import { authorizeCrawler, type CrawlerActor } from './crawler-access';
+import { readAnalyticsVersions } from './analytics-revision';
+import { websiteCacheTag } from './query-cache';
+import { analyticsWorkerContext, currentCacheContext } from './cache-context';
+import { withAnalysisPermit } from './analysis-background';
+import {
+  analysisDigest,
+  encodeAnalysisResult,
+  analysisQueryParameters,
+  analysisResultFresh,
+  analysisQueryLimits,
+  ANALYSIS_QUERY_QUEUE,
+} from './analysis-query-model';
+import { statisticsCacheTtl } from './cache-policy';
+import { pageReportParts } from '../contracts/page-report';
+import { LiekanError } from './errors';
+
+type Row = {
+  id: string;
+  website_id: string;
+  actor_id: string;
+  target: string;
+  parameters: Record<string, unknown>;
+  query_key: string;
+  strong_version: string;
+  catalog_version: string | null;
+  epoch: bigint;
+  status: AnalysisJob['status'];
+  forced: boolean;
+  locale: 'zh-CN' | 'en-US';
+  result: any;
+  queued_at: Date;
+  started_at: Date | null;
+  completed_at: Date | null;
+  generated_at: Date | null;
+  expires_at: Date | null;
+  retention_until: Date;
+  error_code: string | null;
+  lease_token: string | null;
+  attempts: number;
+};
+const date = (value: Date | null) => (value == null ? null : new Date(value).toISOString());
+export function analysisJobDto(row: Row): AnalysisJob {
+  return {
+    id: row.id,
+    websiteId: row.website_id,
+    status: row.status,
+    queuedAt: date(row.queued_at),
+    startedAt: date(row.started_at),
+    completedAt: date(row.completed_at),
+    generatedAt: row.generated_at ? +new Date(row.generated_at) : null,
+    expiresAt: row.expires_at ? +new Date(row.expires_at) : null,
+    errorCode: row.error_code,
+    retryAfterMs: 3000,
+    resultUrl: `/liekan/websites/${row.website_id}/analytics-jobs/${row.id}/result`,
+  };
+}
+async function state(tx: any, websiteId: string, actor: CrawlerActor) {
+  const website = await authorizeCrawler(aiExecutor(tx), actor, websiteId);
+  const [site] = await tx.$queryRawUnsafe(
+    'SELECT s.epoch,w.site_number AS "siteNumber" FROM liekan_analysis_site s JOIN website w USING(website_id) WHERE s.website_id=$1::uuid',
+    websiteId,
+  );
+  if (!site) throw new LiekanError('统计加速迁移未完成', 503);
+  const { strong } = await readAnalyticsVersions(tx, [websiteCacheTag(websiteId)]);
+  const canManage = Boolean(
+    website.role === ROLES.admin ||
+      website.ownerUserId === actor.id ||
+      (website.teamRole && (await hasPermission(website.teamRole, PERMISSIONS.websiteUpdate))),
+  );
+  return {
+    website: { ...website, siteNumber: site.siteNumber, canManage },
+    epoch: site.epoch,
+    strong,
+  };
+}
+function projected(row: Row, website: any) {
+  const value = structuredClone(row.result);
+  if (row.target === 'feature:page-report' && value) {
+    value.website = {
+      id: website.id,
+      name: website.name,
+      domain: website.domain,
+      siteNumber: website.siteNumber,
+    };
+    value.meta = {
+      ...value.meta,
+      canManage: website.canManage,
+      generatedAt: +new Date(row.generated_at),
+      expiresAt: +new Date(row.expires_at),
+    };
+  }
+  return value;
+}
+/** Transactional outbox: queued business rows remain discoverable until a worker owns them. */
+async function requestAnalysisQueryOnce(
+  websiteId: string,
+  actor: CrawlerActor,
+  target: string,
+  input: Record<string, unknown>,
+  locale: 'zh-CN' | 'en-US' = 'zh-CN',
+) {
+  const parameters = analysisQueryParameters(target, input),
+    forced = input.refresh === '1';
+  if (Buffer.byteLength(JSON.stringify(parameters)) > 16384)
+    throw new LiekanError('统计条件超出上限', 413);
+  return analysisTransaction(async tx => {
+    const snapshot = await state(tx, websiteId, actor);
+    const key = analysisDigest([
+      websiteId,
+      target,
+      parameters,
+      locale,
+      snapshot.strong,
+      String(snapshot.epoch),
+    ]);
+    const rows = await tx.$queryRawUnsafe<Row[]>(
+      'SELECT * FROM liekan_analysis_query WHERE website_id=$1::uuid AND query_key=$2 AND retention_until>clock_timestamp() ORDER BY sequence DESC LIMIT 20',
+      websiteId,
+      key,
+    );
+    let existing = rows.find(
+      row =>
+        ['queued', 'running'].includes(row.status) &&
+        (!forced ||
+          (row.forced &&
+            row.actor_id === actor.id &&
+            +new Date(row.queued_at) > Date.now() - 5000)),
+    );
+    const ready = !forced && rows.find(row => analysisResultFresh(row));
+    if (ready) {
+      if (
+        (await readAnalyticsVersions(tx, [websiteCacheTag(websiteId)])).strong !== snapshot.strong
+      )
+        throw new LiekanError('统计条件已变化，请重新读取', 409);
+      return {
+        ready: true as const,
+        value: projected(ready, snapshot.website),
+        generatedAt: +new Date(ready.generated_at),
+        expiresAt: +new Date(ready.expires_at),
+      };
+    }
+    if (existing) {
+      const consumer = await tx.$queryRawUnsafe<any[]>(
+        'SELECT 1 FROM liekan_analysis_query_consumer WHERE job_id=$1::uuid AND actor_id=$2::uuid',
+        existing.id,
+        actor.id,
+      );
+      if (consumer.length) {
+        const previous = rows.find(row => row.status === 'ready');
+        return {
+          ready: false as const,
+          analysisJob: analysisJobDto(existing),
+          ...(previous ? { previousResult: projected(previous, snapshot.website) } : {}),
+        };
+      }
+    }
+    const [lock] = await tx.$queryRawUnsafe<{ locked: boolean }[]>(
+      'SELECT pg_try_advisory_xact_lock(1277339412) AS locked',
+    );
+    if (!lock.locked)
+      throw new LiekanError('统计任务登记繁忙，请稍后重试', 503, 'analysis-admission-busy');
+    // Recheck after the global admission lock: another process may have registered the same input.
+    const [concurrent] = await tx.$queryRawUnsafe<Row[]>(
+      `SELECT * FROM liekan_analysis_query WHERE website_id=$1::uuid AND query_key=$2 AND status IN('queued','running') AND retention_until>clock_timestamp() AND ($3=false OR (forced AND actor_id=$4::uuid AND queued_at>clock_timestamp()-interval '5 seconds')) ORDER BY sequence DESC LIMIT 1`,
+      websiteId,
+      key,
+      forced,
+      actor.id,
+    );
+    existing = concurrent;
+    if (
+      forced &&
+      rows.some(
+        row =>
+          row.actor_id === actor.id && row.forced && +new Date(row.queued_at) > Date.now() - 5000,
+      ) &&
+      !existing
+    )
+      throw new LiekanError('刷新过于频繁，请稍后重试', 429);
+    const capacity = await analysisCapacity(tx, websiteId);
+    if (
+      BigInt(capacity.globalBytes) >= BigInt(capacity.globalLimit) ||
+      BigInt(capacity.siteBytes) >= BigInt(capacity.siteLimit)
+    )
+      throw new LiekanError('统计结果空间已达上限', 503);
+    const [counts] = await tx.$queryRawUnsafe<{ global: number; site: number; actor: number }[]>(
+      `SELECT count(*)::int AS global,count(*) FILTER(WHERE q.website_id=$1::uuid)::int AS site,
+       count(*) FILTER(WHERE EXISTS(SELECT 1 FROM liekan_analysis_query_consumer c WHERE c.job_id=q.id AND c.actor_id=$2::uuid))::int AS actor
+       FROM liekan_analysis_query q WHERE q.status IN('queued','running') AND q.retention_until>clock_timestamp()`,
+      websiteId,
+      actor.id,
+    );
+    const joined =
+      existing &&
+      (await tx.$queryRawUnsafe<any[]>(
+        'SELECT 1 FROM liekan_analysis_query_consumer WHERE job_id=$1::uuid AND actor_id=$2::uuid',
+        existing.id,
+        actor.id,
+      ));
+    if (
+      (!existing &&
+        (counts.global >= analysisQueryLimits.global || counts.site >= analysisQueryLimits.site)) ||
+      (!joined?.length && counts.actor >= analysisQueryLimits.actor)
+    )
+      throw new LiekanError(
+        '后台统计任务已达上限，请等待当前任务完成',
+        429,
+        'analysis-concurrency-limited',
+      );
+    let job = existing;
+    if (!job) {
+      [job] = await tx.$queryRawUnsafe<Row[]>(
+        `INSERT INTO liekan_analysis_query(id,website_id,actor_id,target,parameters,query_key,strong_version,catalog_version,epoch,forced,status,locale)
+       VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5::jsonb,$6,$7,$8::uuid,$9::bigint,$10,'queued',$11) RETURNING *`,
+        randomUUID(),
+        websiteId,
+        actor.id,
+        target,
+        JSON.stringify(parameters),
+        key,
+        snapshot.strong,
+        getPublishedCatalog()?.version || null,
+        snapshot.epoch,
+        forced,
+        locale,
+      );
+    }
+    await tx.$executeRawUnsafe(
+      'INSERT INTO liekan_analysis_query_consumer(job_id,actor_id) VALUES($1::uuid,$2::uuid) ON CONFLICT DO NOTHING',
+      job.id,
+      actor.id,
+    );
+    const previous = rows.find(row => row.status === 'ready');
+    return {
+      ready: false as const,
+      analysisJob: analysisJobDto(job),
+      ...(previous ? { previousResult: projected(previous, snapshot.website) } : {}),
+    };
+  });
+}
+const registrations = new Map<string, Promise<unknown>>();
+export async function requestAnalysisQuery(
+  websiteId: string,
+  actor: CrawlerActor,
+  target: string,
+  input: Record<string, unknown>,
+  locale: 'zh-CN' | 'en-US' = 'zh-CN',
+) {
+  const key = analysisDigest([
+    websiteId,
+    actor.id,
+    target,
+    input,
+    locale,
+    getPublishedCatalog()?.version,
+  ]);
+  const pending = registrations.get(key);
+  if (pending) await pending.catch(() => {});
+  const deadline = Date.now() + 500;
+  const run = async () => {
+    for (;;) {
+      try {
+        return await requestAnalysisQueryOnce(websiteId, actor, target, input, locale);
+      } catch (error) {
+        if (
+          !(error instanceof LiekanError) ||
+          error.code !== 'analysis-admission-busy' ||
+          Date.now() >= deadline
+        )
+          throw error;
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+    }
+  };
+  const promise = run();
+  if (!pending && registrations.size < 128) registrations.set(key, promise);
+  try {
+    return await promise;
+  } finally {
+    if (registrations.get(key) === promise) registrations.delete(key);
+  }
+}
+export async function readAnalysisQuery(
+  websiteId: string,
+  actor: CrawlerActor,
+  jobId: string,
+  result = false,
+) {
+  return analysisTransaction(async tx => {
+    const snapshot = await state(tx, websiteId, actor);
+    const [row] = await tx.$queryRawUnsafe<Row[]>(
+      `SELECT q.* FROM liekan_analysis_query q JOIN liekan_analysis_query_consumer c ON c.job_id=q.id AND c.actor_id=$3::uuid
+     WHERE q.id=$1::uuid AND q.website_id=$2::uuid`,
+      jobId,
+      websiteId,
+      actor.id,
+    );
+    if (!row) throw new LiekanError('统计任务不存在或已过期，请重新读取', 410, 'analysis-expired');
+    if (row.strong_version !== snapshot.strong || String(row.epoch) !== String(snapshot.epoch))
+      throw new LiekanError('统计条件已变化，请重新读取', 410, 'analysis-invalidated');
+    if (
+      +new Date(row.retention_until) <= Date.now() ||
+      ['invalidated', 'expired'].includes(row.status)
+    )
+      throw new LiekanError('统计任务已过期，请重新读取', 410, 'analysis-expired');
+    if (result && row.status === 'failed')
+      throw new LiekanError(
+        '后台统计计算失败，请缩小范围或重新读取',
+        503,
+        row.error_code || 'analysis-failed',
+      );
+    if (result && row.status === 'ready' && !analysisResultFresh(row))
+      throw new LiekanError('统计结果已过期，请重新读取', 410, 'analysis-expired');
+    if (
+      result &&
+      row.status === 'ready' &&
+      (await readAnalyticsVersions(tx, [websiteCacheTag(websiteId)])).strong !== snapshot.strong
+    )
+      throw new LiekanError('统计条件已变化，请重新读取', 410);
+    if (result && row.status === 'ready')
+      return {
+        ready: true as const,
+        value: projected(row, snapshot.website),
+        generatedAt: +new Date(row.generated_at),
+        expiresAt: +new Date(row.expires_at),
+      };
+    return { ready: false as const, analysisJob: analysisJobDto(row) };
+  });
+}
+export async function pumpAnalysisQueries(boss: Pick<PgBoss, 'send'>) {
+  const rows = await analysisTransaction(async tx => {
+    await tx.$executeRawUnsafe(`UPDATE liekan_analysis_query SET status=CASE WHEN attempts>=4 THEN 'failed' ELSE 'queued' END,error_code='analysis-lease-expired',lease_token=NULL,lease_until=NULL
+     WHERE status='running' AND lease_until<=clock_timestamp()`);
+    await tx.$executeRawUnsafe(
+      `DELETE FROM liekan_analysis_query WHERE retention_until<=clock_timestamp()`,
+    );
+    // Preserve every active request; evict only older completed responses.
+    await tx.$executeRawUnsafe(
+      `DELETE FROM liekan_analysis_query WHERE id IN(SELECT id FROM(SELECT id,row_number() OVER(PARTITION BY website_id ORDER BY sequence DESC) AS rank FROM liekan_analysis_query WHERE status='ready') r WHERE rank>20)`,
+    );
+    return tx.$queryRawUnsafe<Row[]>(
+      `SELECT * FROM liekan_analysis_query WHERE status='queued' AND next_attempt_at<=clock_timestamp() ORDER BY queued_at LIMIT 32`,
+    );
+  });
+  for (const row of rows)
+    await boss.send(
+      ANALYSIS_QUERY_QUEUE,
+      { id: row.id },
+      {
+        singletonKey: row.id,
+        retryLimit: 0,
+        expireInSeconds: 120,
+        retentionSeconds: 60,
+        deleteAfterSeconds: 3600,
+      },
+    );
+}
+export async function processAnalysisQuery(id: string) {
+  return withAnalysisPermit('interactive', async (owned, lease) => {
+    const row = await analysisTransaction(async tx => {
+      const [row] = await tx.$queryRawUnsafe<Row[]>(
+        `UPDATE liekan_analysis_query SET status='running',started_at=clock_timestamp(),lease_token=$2::uuid,
+       lease_until=clock_timestamp()+interval '90 seconds',attempts=attempts+1,updated_at=clock_timestamp()
+       WHERE id=$1::uuid AND status='queued' AND next_attempt_at<=clock_timestamp() RETURNING *`,
+        id,
+        randomUUID(),
+      );
+      return row;
+    });
+    if (!row) return;
+    try {
+      return await withPublishedRegistry(async () => {
+        const actor = { id: row.actor_id, role: '' };
+        const allowed = () =>
+          analysisTransaction(async tx => {
+            const s = await state(tx, row.website_id, actor);
+            return s.strong === row.strong_version && String(s.epoch) === String(row.epoch);
+          });
+        if (!(await allowed())) throw new LiekanError('统计条件已变化', 410);
+        const started = Date.now();
+        const compute = (refresh: boolean) =>
+          analyticsWorkerContext(
+            row.actor_id,
+            { private: true },
+            async () => {
+              const { executeAnalysisQuery } = await import('./analysis-query-execution');
+              const value = await executeAnalysisQuery(
+                row.website_id,
+                actor,
+                row.target,
+                row.parameters,
+              );
+              return { value, freshness: [...currentCacheContext().results] };
+            },
+            {
+              kind: 'interactive',
+              refresh,
+              deadline: started + 60000,
+              reauthorize: allowed,
+            },
+          );
+        let result = await compute(row.forced);
+        // A short-lived input cache can expire while a later query finishes. Recompute once within the same deadline.
+        if (result.freshness.some(item => item.expiresAt <= Date.now() + 5000))
+          result = await compute(true);
+        if (result.freshness.some(item => item.expiresAt <= Date.now()))
+          throw new LiekanError('统计来源结果已过期，请重新计算', 503, 'analysis-source-expired');
+        // Native responses are projected through their existing JSON representation.
+        const encoded = encodeAnalysisResult(result.value);
+        if (Buffer.byteLength(encoded) > analysisQueryLimits.bytes)
+          throw new LiekanError(
+            '结果超过保存上限，请缩小范围或使用导出',
+            413,
+            'analysis-result-too-large',
+          );
+        if (!owned()) throw new LiekanError('后台计算租约失效', 410);
+        await analysisTransaction(async tx => {
+          const [permit] = await tx.$queryRawUnsafe(
+            `SELECT id FROM liekan_analysis_background_lease WHERE id AND token=$1::uuid AND epoch=$2::bigint AND lease_until>clock_timestamp() FOR SHARE`,
+            lease.token,
+            lease.epoch,
+          );
+          if (!permit) throw new LiekanError('后台计算租约失效', 410);
+          const snapshot = await state(tx, row.website_id, actor);
+          if (
+            snapshot.strong !== row.strong_version ||
+            String(snapshot.epoch) !== String(row.epoch)
+          )
+            throw new LiekanError('统计条件已变化', 410);
+          const endAt = Number(row.parameters.endAt ?? +new Date(row.parameters.endDate as string));
+          // Page-report may include today's dedicated counters even for a historical selection.
+          const ttl =
+            row.target === 'feature:page-report' &&
+            pageReportParts[String(row.parameters.resource)]?.today
+              ? 30000
+              : statisticsCacheTtl(endAt, String(row.parameters.timezone || 'UTC'));
+          const generatedAt = result.freshness.length
+            ? Math.min(...result.freshness.map(item => item.generatedAt))
+            : started;
+          const expiresAt = result.freshness.length
+            ? Math.min(...result.freshness.map(item => item.expiresAt))
+            : Date.now() + ttl;
+          if (expiresAt <= Date.now())
+            throw new LiekanError('统计来源结果已过期，请重新计算', 503, 'analysis-source-expired');
+          // Capacity can change while a task runs. Charge the prospective result before publishing it.
+          const capacity = await analysisCapacity(tx, row.website_id);
+          if (
+            BigInt(capacity.globalBytes) + BigInt(Buffer.byteLength(encoded) * 2) >=
+              BigInt(capacity.globalLimit) ||
+            BigInt(capacity.siteBytes) + BigInt(Buffer.byteLength(encoded) * 2) >=
+              BigInt(capacity.siteLimit)
+          )
+            throw new LiekanError('统计结果空间已达上限', 413, 'analysis-capacity-limited');
+          const published = await tx.$executeRawUnsafe(
+            `UPDATE liekan_analysis_query SET status='ready',result=$3::jsonb,result_bytes=$4,generated_at=$5::timestamptz,
+           completed_at=clock_timestamp(),expires_at=$6::timestamptz,retention_until=clock_timestamp()+interval '24 hours',
+           lease_token=NULL,lease_until=NULL,error_code=NULL,updated_at=clock_timestamp()
+           WHERE id=$1::uuid AND lease_token=$2::uuid AND status='running' AND lease_until>clock_timestamp() AND $6::timestamptz>clock_timestamp()`,
+            row.id,
+            row.lease_token,
+            encoded,
+            Buffer.byteLength(encoded),
+            new Date(generatedAt),
+            new Date(expiresAt),
+          );
+          if (published !== 1) {
+            if (expiresAt <= Date.now())
+              throw new LiekanError(
+                '统计来源结果已过期，请重新计算',
+                503,
+                'analysis-source-expired',
+              );
+            throw new LiekanError('后台计算租约失效', 410);
+          }
+          await tx.$executeRawUnsafe(
+            `DELETE FROM liekan_analysis_query WHERE website_id=$1::uuid AND id IN(
+            SELECT id FROM liekan_analysis_query WHERE website_id=$1::uuid AND status='ready' ORDER BY sequence DESC OFFSET 20)`,
+            row.website_id,
+          );
+        });
+      }, row.catalog_version || undefined);
+    } catch (error) {
+      const status = error instanceof LiekanError ? error.status : 500;
+      const code = error instanceof LiekanError ? error.code : 'analysis-compute-failed';
+      await analysisTransaction(tx =>
+        tx.$executeRawUnsafe(
+          `UPDATE liekan_analysis_query SET status=CASE WHEN $3=410 OR $3 IN(401,403,404) THEN 'invalidated'
+       WHEN attempts>=4 OR $3 IN(400,413) THEN 'failed' ELSE 'queued' END,error_code=$4,
+       next_attempt_at=clock_timestamp()+(CASE attempts WHEN 1 THEN 5 WHEN 2 THEN 30 ELSE 120 END)*interval '1 second',
+       lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE id=$1::uuid AND lease_token=$2::uuid`,
+          row.id,
+          row.lease_token,
+          status,
+          code,
+        ),
+      );
+      return error instanceof Error ? error : new Error('analysis-compute-failed');
+    }
+  });
+}

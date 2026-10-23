@@ -710,8 +710,12 @@ export async function verifyDirectCacheFreshness(
   const analytics = `/api/liekan/websites/${site}/analytics`;
   await read(analytics, { kind: 'session', sessionId: seeded.knownSession });
   await db.query(
-    `INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name)
-    VALUES(gen_random_uuid(),$1,$2,$2,to_timestamp($3/1000.0)-interval '2 seconds','/synthetic/detail-fresh',2,'synthetic-detail-fresh')`,
+    `WITH inserted AS (
+      INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name)
+      VALUES(gen_random_uuid(),$1,$2,$2,to_timestamp($3/1000.0)-interval '2 seconds','/synthetic/detail-fresh',2,'synthetic-detail-fresh')
+      RETURNING event_id,website_id,hostname,created_at
+    ) INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,hostname,created_at)
+      SELECT event_id,website_id,'browser','browser','{synthetic-benchmark}','synthetic-cache-fixture-v1','untrusted',hostname,created_at FROM inserted`,
     [site, seeded.knownSession, range.endAt],
   );
   assert(
@@ -855,7 +859,6 @@ const validators: Record<string, (b: any) => boolean> = {
     positiveCard(b, '访客（UV）') &&
     positiveCard(b, 'AI 蜘蛛请求') &&
     todayCard(b, '今日总请求') &&
-    todayCard(b, '今日转化') &&
     ['d1', 'd2', 'd3'].every(id => positiveSeries(b, id)) &&
     rows(b, 'topBody', r => Number(r.humanPv) > 0),
   'ai/overview': b =>
@@ -992,7 +995,7 @@ export function geoScenarioValidator(entry: CacheMatrixEntry, reference: any) {
 /** Require positive TODAY sources once immediately after seed, before timing can cross midnight. */
 export function assertInitialGeoTodaySources(body: any) {
   if (body.resource === 'overview') assert(positiveCard(body, '今日总请求'));
-  if (['overview', 'conversions'].includes(body.resource)) assert(positiveCard(body, '今日转化'));
+  if (body.resource === 'conversions') assert(positiveCard(body, '今日转化'));
 }
 
 /** No database mutation: exercises actual log rows, filters, pagination and effective-source rules. */

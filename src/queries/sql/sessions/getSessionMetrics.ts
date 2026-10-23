@@ -1,3 +1,5 @@
+import { currentCacheContext } from '@/lib/liekan/upstream/cache-context';
+import { readAnalysisVisitMetrics } from '@/lib/liekan/upstream/analysis-rollups';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import { getClickHouseCountrySQL, getClickHouseRegionSQL } from '@/lib/country';
@@ -29,6 +31,11 @@ async function relationalQuery(
   filters: QueryFilters,
 ) {
   const { type, limit = 500, offset = 0 } = parameters;
+  if (!currentCacheContext()?.probeOnly && /^[a-f0-9-]{36}$/i.test(websiteId) && filters.startDate && filters.endDate) {
+    const { startDate, endDate, timezone, unit, compare, ...conditions } = filters;
+    const accelerated = await readAnalysisVisitMetrics({websiteId,startDate,endDate,filters:conditions,type,limit:Number(limit),offset:Number(offset)});
+    if (accelerated) return accelerated;
+  }
   let column = FILTER_COLUMNS[type] || type;
   const { parseFilters, rawQuery } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =

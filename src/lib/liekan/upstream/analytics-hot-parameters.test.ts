@@ -1,13 +1,39 @@
-import { describe, expect, test } from 'vitest';
-import { analyticsHotCatalogVersion, analyticsRefreshJobSchema, parseAnalyticsHotParameters } from './analytics-hot-parameters';
+import { describe, expect, test, vi } from 'vitest';
+import {
+  analyticsHotCatalogVersion,
+  analyticsRefreshJobSchema,
+  parseAnalyticsHotParameters,
+} from './analytics-hot-parameters';
+import { readAnalyticsVersions } from './analytics-revision';
+
+vi.mock('../crawlers/published', () => ({
+  getPublishedCatalog: () => ({ version: '11111111-1111-4111-8111-111111111111' }),
+}));
 
 const range = { startAt: 1727740800000, endAt: 1727827199999, timezone: 'UTC' };
 
 describe('normalized preheating parameters', () => {
+  test('restores the accepted catalog from the actual current revision reader', async () => {
+    const { strong } = await readAnalyticsVersions({ $queryRawUnsafe: async () => [] }, [
+      'website:22222222-2222-4222-8222-222222222222',
+    ]);
+    expect(analyticsHotCatalogVersion(strong)).toBe('11111111-1111-4111-8111-111111111111');
+    const stored = JSON.parse(strong);
+    expect(analyticsHotCatalogVersion(JSON.stringify([...stored, 'extra']))).toBeUndefined();
+    stored[1] = 'unrecognized-repair-version';
+    expect(analyticsHotCatalogVersion(JSON.stringify(stored))).toBeUndefined();
+  });
   test('restores the accepted catalog from the stored strong version and handles legacy jobs', () => {
     const version = '11111111-1111-4111-8111-111111111111';
-    expect(analyticsHotCatalogVersion(JSON.stringify(['policy-v1', version, [], [], []]))).toBe(version);
-    for (const value of ['v1', '[]', JSON.stringify(['policy-v1', 'bundled', [], [], []]), JSON.stringify([version])])
+    expect(analyticsHotCatalogVersion(JSON.stringify(['policy-v1', version, [], [], []]))).toBe(
+      version,
+    );
+    for (const value of [
+      'v1',
+      '[]',
+      JSON.stringify(['policy-v1', 'bundled', [], [], []]),
+      JSON.stringify([version]),
+    ])
       expect(analyticsHotCatalogVersion(value)).toBeUndefined();
   });
   test('accepts parsed ordered breakdown fields and funnel steps with their window', () => {

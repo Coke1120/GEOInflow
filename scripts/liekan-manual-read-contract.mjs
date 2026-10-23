@@ -119,6 +119,7 @@ export function manualPageReads(id, values) {
         ]
       : [endpoint('/api/liekan/crawler-registry')],
     'history-repair': [endpoint('/api/liekan/history-repair')],
+    'analytics-acceleration': [endpoint('/api/liekan/analytics-acceleration')],
     websites: [endpoint('/api/me/websites'), endpoint('/api/liekan/websites/summary')],
     dashboard: [endpoint('/api/liekan/websites/summary')],
     'dashboard-edit': [endpoint('/api/liekan/websites/summary')],

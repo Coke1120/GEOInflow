@@ -3,11 +3,15 @@ export type AnalyticsResource = 'website' | 'link' | 'pixel';
 export const resourceCacheTag = (type: AnalyticsResource, id: string) =>
   `${type}:${id.toLowerCase()}`;
 
-/** Call in the same primary transaction as the mutation. Missing resources begin at version zero. */
-export async function bumpAnalyticsRevision(tx: any, type: AnalyticsResource, ...ids: string[]) {
+export async function setAnalyticsSchema(tx: any) {
   const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new Error('Invalid database schema');
   await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+}
+
+/** Call in the same primary transaction as the mutation. Missing resources begin at version zero. */
+export async function bumpAnalyticsRevision(tx: any, type: AnalyticsResource, ...ids: string[]) {
+  await setAnalyticsSchema(tx);
   for (const id of [...new Set(ids.filter(Boolean))].sort()) {
     await tx.$executeRawUnsafe(
       `INSERT INTO liekan_analytics_revision(resource_type,resource_id,revision)
