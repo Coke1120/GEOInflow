@@ -1,10 +1,10 @@
 'use client';
 import {
   hashKey,
+  type QueryClient,
   useInfiniteQuery,
   useQuery,
   useQueryClient,
-  type QueryClient,
 } from '@tanstack/react-query';
 import { usePathname, useSearchParams } from 'next/navigation';
 import {
@@ -21,8 +21,16 @@ import {
 import { getClientAuthToken } from '@/lib/client';
 import { AUTH_TOKEN } from '@/lib/constants';
 import { setUser } from '@/store/app';
-import { reportSnapshotOwner } from '../contracts/query';
-import { aggregateReadFailure, withClientFreshness } from './client-freshness';
+import { useBrowserCacheClock, useBrowserCacheQuery } from './cache-client';
+import { browserQueryPolicy } from './cache-policy';
+import {
+  aggregateReadFailure,
+  hasClientFreshness,
+  remainingFreshness,
+  serializeClientFreshness,
+  shareWithFreshness,
+  withClientFreshness,
+} from './client-freshness';
 
 export const ordinaryReadOptions = {
   retry: false,
@@ -36,6 +44,31 @@ export const ordinaryReadOptions = {
 } as const;
 
 let nextPage = 0;
+const visitReads = new Map<string, string>();
+const completedReads = new Map<string, string>();
+const clockAnchors = new Map<string, { now: number; deadline: number }>();
+function markVisitRead(key: readonly unknown[], epoch: string) {
+  if (visitReads.size > 1000) visitReads.delete(visitReads.keys().next().value);
+  visitReads.set(hashKey(key), epoch);
+}
+async function readOnceForVisit(
+  client: QueryClient,
+  query: any,
+  epoch: string,
+  result: any,
+  force: boolean,
+) {
+  const id = hashKey(query.queryKey);
+  if (visitReads.get(id) === epoch) return;
+  markVisitRead(query.queryKey, epoch);
+  if (force && query.state.data?.pages?.length > 1)
+    client.setQueryData(query.queryKey, {
+      ...query.state.data,
+      pages: query.state.data.pages.slice(0, 1),
+      pageParams: query.state.data.pageParams.slice(0, 1),
+    });
+  await result.refetch({ cancelRefetch: false }).catch(() => {});
+}
 interface ReadObservation {
   status: string;
   fetchStatus: string;
@@ -48,6 +81,8 @@ interface PageRead {
   round: number;
   force: boolean;
   now: number;
+  clockReady?: boolean;
+  clockConditions?: string;
   queries: Map<string, { key: readonly unknown[]; observations: Map<symbol, ReadObservation> }>;
 }
 interface ManualReading {
@@ -152,6 +187,8 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
   const clockConditions = ['date', 'unit', 'offset', 'timezone']
     .map(name => conditions.get(name))
     .join('|');
+  const cachedClock = useBrowserCacheClock(scope, clockConditions);
+  const anchorKey = `${getClientAuthToken() || ''}:${scope}:${clockConditions}`;
   const lastClock = useRef(clockConditions);
   const current = useRef<PageRead>(null);
   const retiredPage = useRef<number>(null);
@@ -171,15 +208,36 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
       token: ++nextPage,
       round: 0,
       force: false,
-      now: Date.now(),
+      now:
+        clockAnchors.get(anchorKey)?.deadline > performance.now()
+          ? clockAnchors.get(anchorKey).now
+          : Date.now(),
+      clockReady: cachedClock.ready,
+      clockConditions,
       queries: new Map(),
     };
     lastClock.current = clockConditions;
   } else if (lastClock.current !== clockConditions) {
     lastClock.current = clockConditions;
-    const next = { ...current.current, now: Date.now() };
+    const next = {
+      ...current.current,
+      now:
+        cachedClock.now ??
+        (clockAnchors.get(anchorKey)?.deadline > performance.now()
+          ? clockAnchors.get(anchorKey).now
+          : Date.now()),
+      clockConditions,
+      clockReady: cachedClock.ready,
+    };
     if (pending.current?.page === current.current) pending.current.page = next;
     current.current = next;
+  }
+  if (!current.current.clockReady && cachedClock.ready) {
+    current.current = {
+      ...current.current,
+      clockReady: true,
+      now: cachedClock.now ?? current.current.now,
+    };
   }
   current.current.scope = scope;
   const page = current.current;
@@ -224,6 +282,7 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
         round: previous.round + 1,
         force,
         now: Date.now(),
+        clockReady: true,
         queries: new Map(),
       };
       current.current = next;
@@ -255,6 +314,13 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
         if (active !== page) return;
         const entries = [...active.queries.values()];
         const states = entries.map(({ key }) => client.getQueryState(key));
+        if (
+          entries.some(
+            ({ key }) =>
+              client.getQueryCache().find({ queryKey: key, exact: true })?.meta?.cachePending,
+          )
+        )
+          return;
         if (states.some(state => !state || state.fetchStatus !== 'idle')) return;
         if (
           entries.some((entry, index) =>
@@ -272,6 +338,34 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
             [...entries[index].observations.values()].some(snapshot => snapshot.status === 'error'),
         );
         const latest = Math.max(0, ...states.map(state => state?.dataUpdatedAt || 0));
+        const ordinary = states.filter((state, index) => {
+          const key = entries[index].key;
+          const metadata = client.getQueryCache().find({ queryKey: key, exact: true })?.meta;
+          return (
+            !metadata?.geoSnapshot &&
+            (metadata?.cacheAggregate === true ||
+              serializeClientFreshness(state?.data) ||
+              browserQueryPolicy(key, metadata) ||
+              (key[0] === 'liekan' && key.length >= 15 && key[3] !== 'logs'))
+          );
+        });
+        const fresh = ordinary.filter(
+          state =>
+            hasClientFreshness(state?.data) &&
+            !aggregateReadFailure(state?.data) &&
+            state.status !== 'error',
+        );
+        const remaining = Math.min(
+          ...fresh.map(state => remainingFreshness(state.data, state.dataUpdatedAt)),
+        );
+        if (
+          fresh.length &&
+          remaining > 0 &&
+          !ordinary.some(state => state.status === 'error' || aggregateReadFailure(state.data))
+        ) {
+          if (clockAnchors.size > 200) clockAnchors.delete(clockAnchors.keys().next().value);
+          clockAnchors.set(anchorKey, { now: active.now, deadline: performance.now() + remaining });
+        }
         if (latest && !failures.length)
           setReadState(state =>
             state.token === active.token && state.at === latest && !state.error
@@ -346,7 +440,8 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
     [client],
   );
   const retirePage = useCallback((expectedPage: number) => {
-    if (expectedPage !== current.current?.token || retiredPage.current === expectedPage) return false;
+    if (expectedPage !== current.current?.token || retiredPage.current === expectedPage)
+      return false;
     retiredPage.current = expectedPage;
     pending.current?.resolve();
     pending.current = null;
@@ -412,7 +507,11 @@ export function useManualQueryOptions(options: any) {
   const epoch = `${reading?.page.token}:${reading?.page.round}`;
   const selectionKey = hashKey(options.queryKey);
   const ready =
-    authorized && dependenciesReady && reading?.authorized !== false && options.enabled !== false;
+    authorized &&
+    dependenciesReady &&
+    reading?.authorized !== false &&
+    reading?.page.clockReady !== false &&
+    options.enabled !== false;
   const previous = selection.current;
   const normalSelection =
     previous?.epoch === epoch &&
@@ -420,13 +519,13 @@ export function useManualQueryOptions(options: any) {
   selection.current = { epoch, key: selectionKey, ready, normal: normalSelection };
   const ordinary =
     options.meta?.readPurpose !== 'authorization' && typeof options.queryFn === 'function';
-  const key =
-    reading && ordinary
-      ? [...options.queryKey, { manualPage: reading.page.token, manualRound: reading.page.round }]
-      : options.queryKey;
+  const cached = useBrowserCacheQuery(options, epoch, ready && ordinary);
+  const key = ordinary ? cached.key : options.queryKey;
   if (!ordinary) return options;
   const canRead = (query: any) =>
     authorized &&
+    cached.ready &&
+    reading?.page.clockReady !== false &&
     reading?.authorized !== false &&
     dependenciesReady &&
     (typeof options.enabled === 'function'
@@ -435,40 +534,81 @@ export function useManualQueryOptions(options: any) {
   return {
     ...options,
     ...ordinaryReadOptions,
-    ...(!reading ? { refetchOnMount: 'always' as const } : {}),
+    refetchOnMount: (query: any) =>
+      reading && visitReads.get(hashKey(key)) === epoch
+        ? false
+        : !hasClientFreshness(query.state.data) ||
+            remainingFreshness(query.state.data, query.state.dataUpdatedAt) <= 0
+          ? ('always' as const)
+          : false,
     queryKey: key,
     // A failed attempt waits for an explicit read, including after authorization resumes.
     enabled: (query: any) => canRead(query) && query.state.status !== 'error',
     canRead,
-    meta: { ...options.meta, readPurpose: 'ordinary' },
+    meta: {
+      ...cached.meta,
+      readPurpose: 'ordinary',
+      manualAuthorized: authorized && reading?.authorized !== false,
+      manualPage: reading?.page.token,
+      manualRound: reading?.page.round,
+      manualEpoch: epoch,
+      manualForce: reading?.page.force && !normalSelection,
+      manualClock: reading
+        ? {
+            scope: reading.page.scope,
+            conditions: reading.page.clockConditions,
+            now: reading.page.now,
+          }
+        : undefined,
+    },
+    structuralSharing:
+      options.structuralSharing === false
+        ? false
+        : typeof options.structuralSharing === 'function'
+          ? options.structuralSharing
+          : shareWithFreshness,
     queryFn:
       typeof options.queryFn === 'function'
-        ? (context: any) => {
+        ? async (context: any) => {
             if (typeof navigator !== 'undefined' && navigator.onLine === false)
               throw Object.assign(new Error('网络连接已断开，请恢复连接后主动重试。'), {
                 offline: true,
               });
-            return withClientFreshness(
+            cached.assertCurrent();
+            markVisitRead(key, epoch);
+            const value = await withClientFreshness(
               context.signal,
               () => options.queryFn({ ...context, queryKey: options.queryKey }),
-              { refresh: !!reading?.busy && reading.page.force && !normalSelection, queryKey: key, catalogScope: reading ? `${reading.page.token}:${reading.page.round}` : undefined },
+              {
+                refresh: !!reading?.busy && reading.page.force && !normalSelection,
+                queryKey: key,
+                catalogScope: reading ? `${reading.page.token}:${reading.page.round}` : undefined,
+              },
             );
+            context.signal.throwIfAborted();
+            cached.assertCurrent();
+            if (completedReads.size > 1000)
+              completedReads.delete(completedReads.keys().next().value);
+            completedReads.set(hashKey(key), epoch);
+            return value;
           }
         : options.queryFn,
   };
 }
-function ownerScope(key: readonly any[]) {
-  if (!(key.at(-1) as any)?.manualPage) return hashKey(key);
+function ownerScope(key: readonly any[], options: any) {
+  const clock = options?.meta?.manualClock;
+  const relative = clock && !String(clock.conditions || '').split('|')[0];
+  if (!relative) return hashKey(key);
   return hashKey(
-    reportSnapshotOwner(key).map(value =>
-      typeof value === 'string'
-        ? value
-        : value && typeof value === 'object'
-          ? Object.fromEntries(
-              Object.entries(value).filter(
-                ([name]) => !['manualRound', 'manualCondition', 'startAt', 'endAt'].includes(name),
-              ),
-            )
+    key.map((value, index) =>
+      key[0] === 'liekan' && key.length >= 15 && [4, 5].includes(index)
+        ? undefined
+        : value &&
+            typeof value === 'object' &&
+            !Array.isArray(value) &&
+            Number.isFinite(value.startAt) &&
+            Number.isFinite(value.endAt)
+          ? { ...value, startAt: undefined, endAt: undefined }
           : value,
     ),
   );
@@ -485,8 +625,13 @@ export function useRetainedRead(
   const readable = options?.canRead ? options.canRead(query) : result.isEnabled !== false;
   const id = hashKey(key);
   const registered =
-    !!reading && (key.at(-1) as any)?.manualPage === reading.page.token && readable;
+    !!reading &&
+    options?.meta?.manualPage === reading.page.token &&
+    (readable || !!options?.meta?.cachePending);
   const observation = observationOf(result);
+  const publicProjection =
+    /^(?:liekan-public|liekan-shared)/.test(String(key[0])) ||
+    options?.meta?.cacheAggregate === false;
   useEffect(() => {
     if (registered) return reading.register(key, observation);
   }, [
@@ -498,29 +643,50 @@ export function useRetainedRead(
     observation.errorUpdatedAt,
     reading?.register,
   ]);
-  const previousSelection = useRef<{ epoch: string; id: string }>(null);
+  const previousSelection = useRef<{ epoch: string; id: string; ready: boolean }>(null);
   const epoch = `${reading?.page.token}:${reading?.page.round}`;
   useEffect(() => {
     const previous = previousSelection.current;
-    previousSelection.current = { epoch, id };
+    previousSelection.current = { epoch, id, ready: registered };
     if (
       registered &&
-      previous?.epoch === epoch &&
-      previous.id !== id &&
+      (previous?.epoch !== epoch || previous.id !== id || previous.ready === false) &&
       query?.isFetched() &&
-      query.state.fetchStatus === 'idle'
-    )
-      void result.refetch({ cancelRefetch: false }).catch(() => {});
+      query.state.fetchStatus === 'idle' &&
+      (publicProjection ||
+        reading?.page.force ||
+        query.state.isInvalidated ||
+        !hasClientFreshness(query.state.data) ||
+        remainingFreshness(query.state.data, query.state.dataUpdatedAt) <= 0)
+    ) {
+      if (previous?.epoch === epoch && previous.id !== id) visitReads.delete(hashKey(key));
+      void readOnceForVisit(client, query, epoch, result, !!reading?.page.force);
+    }
   }, [id, epoch, registered]);
-  const owner = ownerScope(key);
+  const owner = ownerScope(key, options);
   const previous = useRef<{ owner: string; id: string; epoch: string; data: any }>(null);
   const partialFailure = aggregateReadFailure(result.data);
   if (result.data !== undefined && !result.isPlaceholderData && !partialFailure)
     previous.current = { owner, id, epoch, data: result.data };
-  const restricted = [401, 403, 404].includes(result.error?.status);
+  const restricted = [401, 403, 404, 409, 410].includes(result.error?.status);
   const principalPaused =
-    reading?.authorized === false && options?.meta?.readPurpose === 'ordinary';
-  if (restricted || principalPaused) previous.current = null;
+    options?.meta?.readPurpose === 'ordinary' &&
+    (reading?.authorized === false || options.meta.manualAuthorized === false);
+  const invalidatedDefinition = useRef<string>(null);
+  const definitionSelection = useRef<{ id: string; epoch: string }>(null);
+  if (definitionSelection.current?.id !== id || definitionSelection.current?.epoch !== epoch) {
+    definitionSelection.current = { id, epoch };
+    invalidatedDefinition.current =
+      query?.state.isInvalidated &&
+      query.state.status !== 'error' &&
+      !hasClientFreshness(result.data) &&
+      !reading?.busy
+        ? id
+        : null;
+  }
+  if (!query?.state.isInvalidated) invalidatedDefinition.current = null;
+  const invalidatedConfiguration = invalidatedDefinition.current === id && !reading?.busy;
+  if (restricted || principalPaused || invalidatedConfiguration) previous.current = null;
   const retained =
     previous.current?.owner === owner &&
     (previous.current.id === id || previous.current.epoch !== epoch)
@@ -532,7 +698,10 @@ export function useRetainedRead(
     partialFailure && Array.isArray(result.data) && Array.isArray(retained)
       ? result.data.map(row => {
           const old = retained.find(previous => previous.id === row.id);
-          return row.error && ![401, 403, 404].includes(row.error.status) && old && !old.error
+          return row.error &&
+            ![401, 403, 404, 409, 410].includes(row.error.status) &&
+            old &&
+            !old.error
             ? old
             : row;
         })
@@ -543,7 +712,7 @@ export function useRetainedRead(
     ...(partialFailure
       ? { error: partialFailure, isError: true, isSuccess: false, status: 'error' }
       : {}),
-    data: restricted || principalPaused ? undefined : data,
+    data: restricted || principalPaused || invalidatedConfiguration ? undefined : data,
     ...(result.data === undefined && !restricted && retained !== undefined
       ? {
           isPending: false,
@@ -553,6 +722,11 @@ export function useRetainedRead(
         }
       : {}),
     resolvedQueryKey: key,
+    ...(reading?.busy && completedReads.get(id) !== epoch && data !== undefined
+      ? { isPlaceholderData: true }
+      : {}),
+    isStaleAggregate:
+      hasClientFreshness(data) && remainingFreshness(data, result.dataUpdatedAt) <= 0,
     manualCanRead: readable,
     refetch: (settings?: any) => (readable ? result.refetch(settings) : Promise.resolve(result)),
   };

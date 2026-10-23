@@ -164,12 +164,17 @@ it('sends refresh=1 for a manual read and shares repeated clicks', async () => {
   await advance(1);
   expect(screen.getByText('8')).toBeVisible();
 });
-it('shows pending state for new conditions and reads again on real reentry', async () => {
+it('reuses fresh conditions on reentry and updates an expired entry once', async () => {
   const fetch = vi.fn(async () => response(7));
   vi.stubGlobal('fetch', fetch);
   const view = mount();
   await advance(1);
   view.unmount();
+  const fresh = mount();
+  await advance(1);
+  expect(fetch).toHaveBeenCalledTimes(1);
+  fresh.unmount();
+  await advance(30000);
   mount();
   await advance(1);
   expect(fetch).toHaveBeenCalledTimes(2);

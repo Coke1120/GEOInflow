@@ -161,12 +161,13 @@
     },
     {
       "path": "next.config.ts",
-      "purpose": "Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy; preserve private no-store headers for crawler recognition, candidates, administrator source health, crawler context and private traffic evidence",
+      "purpose": "Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy; preserve private no-store headers for crawler recognition, candidates, administrator source health, crawler context and private traffic evidence; preserve private no-store headers for browser cache authorization manifests",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance",
         "tests/liekan/ai/http.integration.ts",
-        "src/proxy.test.ts"
+        "src/proxy.test.ts",
+        "src/lib/liekan/upstream/crawler-private-headers.test.ts"
       ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy",
@@ -4735,6 +4736,16 @@
       "owner": "Liekan API compatibility",
       "constraint": "Preserve private full-session access and original archived GEO evidence",
       "removalCondition": "Remove when equivalent upstream operation coverage is provided"
+    },
+    {
+      "path": "tests/api/liekan-cache-manifest.spec.ts",
+      "purpose": "Verify authorized browser cache restoration and persistent deployment namespaces",
+      "tests": [
+        "pnpm test:api"
+      ],
+      "owner": "Liekan analytics cache maintenance",
+      "constraint": "Keep private restoration limited to current full sessions and authorized resources",
+      "removalCondition": "Remove when upstream provides equivalent browser snapshot authorization"
     }
   ]
 }

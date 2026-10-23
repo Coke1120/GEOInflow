@@ -76,24 +76,21 @@ async function readAccess(tx: AiTx, actor: CrawlerActor, websiteId: string) {
     'SELECT epoch,data_revision::text,policy_revision::text FROM liekan_log_state WHERE website_id=$1::uuid',
     websiteId,
   );
-  const [quality] = await tx.query(
-    'SELECT max(recorded_at)::text AS latest,count(*)::int AS count FROM liekan_crawler_quality WHERE website_id=$1::uuid',
-    websiteId,
-  );
   return {
     hostname: hostname(website.domain),
     epoch: state?.epoch || 1,
     dataRevision: state?.data_revision || '0',
     policyRevision: state?.policy_revision || '0',
-    quality,
     resetAt: website.resetAt?.toISOString() || null,
+    owner: website.ownerUserId,
+    team: website.teamId,
     canManageCatalog: website.role === 'admin',
   };
 }
 // New ingestion can advance revisions outside the selected historical window. A repeatable
 // transaction preserves its own input revision; only access and scope changes invalidate it.
 function accessBoundary(value: Awaited<ReturnType<typeof readAccess>>) {
-  const { dataRevision: _revision, quality: _quality, ...boundary } = value;
+  const { dataRevision: _revision, canManageCatalog: _capability, ...boundary } = value;
   return boundary;
 }
 export function geoWeightRemaining(deadline: number, signal?: AbortSignal) {
@@ -138,11 +135,11 @@ export function geoWeightTransaction<T>(
     throw error;
   });
 }
-export async function readGeoWeight(
+export async function calculateGeoWeight(
   actor: CrawlerActor,
   websiteId: string,
   input: unknown,
-  options: { signal?: AbortSignal; fresh?: boolean; deadline?: number } = {},
+  options: { signal?: AbortSignal; fresh?: boolean; deadline?: number; globalLock?: boolean } = {},
 ): Promise<GeoWeightResponse> {
   const deadline = Math.min(Date.now() + 60000, options.deadline ?? Infinity);
   const p = parseGeoWeightQuery(input);
@@ -168,6 +165,12 @@ export async function readGeoWeight(
             deadline,
             signal,
             async tx => {
+              if (options.globalLock) {
+                const [lock] = await tx.query(
+                  'SELECT pg_try_advisory_xact_lock(12800031) AS acquired',
+                );
+                if (!lock?.acquired) throw new GeoWeightLockBusy();
+              }
               computedHere = true;
               const currentAccess = await readAccess(tx, actor, websiteId);
               if (hash(accessBoundary(access)) !== hash(accessBoundary(currentAccess)))
@@ -345,4 +348,16 @@ export async function readGeoWeight(
       throw error;
     }
   });
+}
+
+export class GeoWeightLockBusy extends Error {}
+/** Compatibility callers share the durable daily publication path. */
+export async function readGeoWeight(
+  actor: CrawlerActor,
+  websiteId: string,
+  input: unknown,
+  options: { signal?: AbortSignal; fresh?: boolean; deadline?: number } = {},
+): Promise<GeoWeightResponse> {
+  const { readLegacyGeoWeight } = await import('./geo-weight-snapshots');
+  return readLegacyGeoWeight(actor, websiteId, input, options);
 }

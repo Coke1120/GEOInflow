@@ -166,3 +166,31 @@ describe('GEO evidence states and comparisons', () => {
     ).toBe(false);
   });
 });
+
+describe('proved zero evidence guard', () => {
+  it.each(['samplingUnknown', 'inferredHost', 'identityMissing', 'historyMissing'])(
+    'keeps zero unknown with %s',
+    flag => {
+      expect(
+        geoPoint(window, { stats: { requests: 1, [flag]: 1 } }, quality(), false, true).level,
+      ).toBeNull();
+    },
+  );
+  it('keeps a fallback catalog zero unknown', () => {
+    expect(geoPoint(window, {}, quality(), true, true).level).toBeNull();
+  });
+  it('uses complete coverage as domain evidence for a genuinely empty window', () => {
+    expect(geoPoint(window, {}, quality(), false, true)).toMatchObject({ level: 0, reasons: [] });
+  });
+  it('allows the minimum training unit to reach level one', () => {
+    expect(
+      geoPoint(
+        window,
+        { ...row(), factors: [{ purpose: 'training', paths: 1, units: 1, days: 1, operators: 1 }] },
+        quality(),
+        false,
+        true,
+      ),
+    ).toMatchObject({ level: 1, weightedUnits: 3 });
+  });
+});

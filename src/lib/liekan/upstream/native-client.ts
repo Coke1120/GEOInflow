@@ -7,7 +7,7 @@ import { getClientAuthToken } from '@/lib/client';
 import { SHARE_CONTEXT_HEADER, SHARE_TOKEN_HEADER } from '@/lib/constants';
 import { buildPath } from '@/lib/url';
 import { useApp } from '@/store/app';
-import { isAggregateRequest } from './cache-policy';
+import { aggregateRequestResources, isAggregateRequest } from './cache-policy';
 import {
   clientRequestOptions,
   projectClientFreshness,
@@ -126,7 +126,16 @@ export async function nativeGet<T = any>(
             code: value?.error?.code,
             retryAfterMs: retryAfter(response),
           });
-        if (aggregate) rememberResponseFreshness(value, response.headers, startedAt);
+        if (aggregate)
+          rememberResponseFreshness(
+            value,
+            response.headers,
+            startedAt,
+            monotonicNow(),
+            requestHeaders.has(SHARE_TOKEN_HEADER)
+              ? undefined
+              : aggregateRequestResources(path, params),
+          );
         return value;
       },
       signal,

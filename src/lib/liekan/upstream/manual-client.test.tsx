@@ -893,3 +893,66 @@ it('renders controlled refresh failures in the current language while keeping it
     '部分数据读取失败，仍显示上次读取结果，请主动重试。',
   );
 });
+
+it('records changed date and timezone conditions on the new page clock', async () => {
+  navigation.path = '/clock-conditions';
+  navigation.search = 'date=7day&timezone=UTC';
+  const hook = renderHook(
+    () => {
+      const reading = useManualRefresh();
+      useManualQuery({
+        queryKey: ['clock-metadata', reading.page.now],
+        queryFn: async () => ({ value: 1 }),
+      });
+      return reading;
+    },
+    { wrapper },
+  );
+  await advance();
+  navigation.search = 'date=30day&timezone=Asia%2FShanghai';
+  hook.rerender();
+  await advance();
+  expect(hook.result.current.page.clockConditions).toBe('30day|||Asia/Shanghai');
+  const current = client
+    .getQueryCache()
+    .find({ queryKey: ['clock-metadata', hook.result.current.page.now], exact: true });
+  expect((current.meta.manualClock as any).conditions).toBe('30day|||Asia/Shanghai');
+  expect(hook.result.current.page.clockReady).toBe(true);
+});
+
+it('keeps a successful GEO day result out of the ordinary relative-time anchor after report failure', async () => {
+  const { rememberFreshness } = await import('./client-freshness');
+  navigation.path = '/ordinary-anchor-failure';
+  const hook = renderHook(
+    () => {
+      const reading = useManualRefresh();
+      useManualQuery({
+        queryKey: ['anchor-ordinary-failed'],
+        queryFn: async () => {
+          throw new Error('temporary');
+        },
+      });
+      useManualQuery({
+        queryKey: ['anchor-geo-success'],
+        meta: { geoSnapshot: true },
+        queryFn: async () => {
+          const value = { saved: true };
+          rememberFreshness(value, Date.now() + 86400000);
+          return value;
+        },
+      });
+      return reading;
+    },
+    { wrapper },
+  );
+  await advance();
+  const first = hook.result.current.page.now;
+  await advance(60000);
+  navigation.path = '/ordinary-anchor-other';
+  hook.rerender();
+  await advance();
+  navigation.path = '/ordinary-anchor-failure';
+  hook.rerender();
+  await advance();
+  expect(hook.result.current.page.now).toBeGreaterThan(first + 60000);
+});

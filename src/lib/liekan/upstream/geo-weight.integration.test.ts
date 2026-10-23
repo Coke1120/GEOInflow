@@ -72,7 +72,13 @@ const aggregate = async () =>
 describe.skipIf(!enabled)('GEO full-population PostgreSQL aggregate', () => {
   beforeAll(async () => {
     const url = new URL(process.env.LIEKAN_GEO_TEST_URL);
-    if (url.hostname !== '127.0.0.1' || url.port !== '15450' || url.pathname !== '/liekan_geo_test')
+    if (
+      url.hostname !== '127.0.0.1' ||
+      !(
+        (url.port === '15450' && url.pathname === '/liekan_geo_test') ||
+        (url.port === '15461' && url.pathname === '/liekan_geo_snapshot_test')
+      )
+    )
       throw new Error('Only owned GEO acceptance database is allowed');
     pool = new Pool({ connectionString: url.toString() });
   });

@@ -5,6 +5,7 @@ import { JSDOM } from 'jsdom';
 import {
   referenceColumns,
   approveCrawlerPagesReference,
+  assertGeoWeightCardAppearance,
 } from '../../scripts/liekan-visual-baseline.mjs';
 
 test('crawler prototype fields retain their original positions after adding the title column', () => {
@@ -46,6 +47,60 @@ test('crawler prototype fields retain their original positions after adding the 
     referenceColumns(current).apBody.some(([key]) => key === 'title'),
     false,
   );
+});
+
+test('live GEO appearance matches the native metric and rejects styling drift before restoration', () => {
+  const dom = new JSDOM(
+    `
+    <style>
+      .card { background-color:white; border:1px solid #e9ecf1; border-radius:14px; padding:16px; }
+      .num { color:#0f62fe; font-weight:700; font-size:24px; line-height:36px; font-family:Arial; }
+    </style>
+    <section>
+      <div class="card"><p class="num text-brand">25</p></div>
+      <section class="card" data-geo-weight><strong class="num">6</strong></section>
+    </section>`,
+    { runScripts: 'outside-only' },
+  );
+  try {
+    const { document } = dom.window;
+    const card = document.querySelector('[data-geo-weight]');
+    const score = card.querySelector('strong');
+    const check = () =>
+      dom.window.eval(
+        `(${assertGeoWeightCardAppearance.toString()})(document.querySelector('[data-geo-weight]'))`,
+      );
+    assert.doesNotThrow(check);
+    for (const [element, property, value, message] of [
+      [card, 'background-color', 'magenta', /GEO container background-color/],
+      [card, 'padding-left', '0px', /GEO container padding-left/],
+      [card, 'border-bottom-color', 'red', /GEO container border-bottom-color/],
+      [card, 'border-top-left-radius', '0px', /GEO container border-top-left-radius/],
+      [score, 'color', 'red', /GEO score color/],
+      [score, 'font-size', '12px', /GEO score font-size/],
+    ]) {
+      element.style.setProperty(property, value);
+      assert.throws(check, message);
+      element.removeAttribute('style');
+      assert.doesNotThrow(check);
+    }
+    const peerScore = document.querySelector('.text-brand');
+    peerScore.style.color = score.style.color = 'red';
+    assert.throws(check, /GEO score color differs from the approved brand blue/);
+    peerScore.removeAttribute('style');
+    score.removeAttribute('style');
+    assert.doesNotThrow(check);
+    // Pending cards still validate their container without requiring a score.
+    score.remove();
+    assert.doesNotThrow(check);
+    card.style.backgroundColor = 'magenta';
+    assert.throws(check, /GEO container background-color/);
+    card.removeAttribute('style');
+    document.querySelector('.text-brand').parentElement.remove();
+    assert.throws(check, /native blue metric reference is missing/);
+  } finally {
+    dom.window.close();
+  }
 });
 
 test('the supplemental reference preserves original panels and charts while adding bounded crawler controls', () => {

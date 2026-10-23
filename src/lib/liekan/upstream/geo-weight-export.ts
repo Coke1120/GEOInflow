@@ -10,13 +10,8 @@ import {
 import { translateText } from '../i18n/text';
 import type { LiekanLocale } from '../i18n/locale';
 import { authenticateCrawler, authorizeCrawler, type CrawlerActor } from './crawler-access';
-import { withPublishedRegistry } from './crawler-registry-context';
-import {
-  geoWeightRemaining,
-  geoWeightTransaction,
-  parseGeoWeightQuery,
-  readGeoWeight,
-} from './geo-weight';
+import { readGeoWeightForExport } from './geo-weight-snapshots';
+import { geoWeightRemaining, geoWeightTransaction } from './geo-weight';
 import { LiekanError } from './errors';
 
 export function geoWeightCsv(result: GeoWeightResponse, locale: LiekanLocale) {
@@ -38,6 +33,7 @@ export function geoWeightCsv(result: GeoWeightResponse, locale: LiekanLocale) {
         epoch: result.epoch,
         dataRevision: result.dataRevision,
         snapshot: result.snapshot,
+        snapshotId: result.snapshotId,
         calculatedAt: result.calculatedAt,
         locale,
         scope: result.scope,
@@ -93,40 +89,25 @@ export async function exportGeoWeight(
   const parsed = geoWeightExportSchema.safeParse(body);
   if (!parsed.success) throw new LiekanError('GEO 权重导出参数无效', 400);
   const p = parsed.data;
-  const header = request.headers.get('x-liekan-catalog-version');
-  if (header && header !== p.catalogVersion)
-    throw new LiekanError('目录版本不一致，请重新读取', 409);
-  return withPublishedRegistry(async () => {
-    const result = await readGeoWeight(
-      actor,
-      websiteId,
-      parseGeoWeightQuery({ asOf: p.asOf, timezone: p.timezone, view: 'detail' }),
-      { fresh: true, signal: request.signal, deadline },
-    );
-    geoWeightRemaining(deadline, request.signal);
-    const current = await authenticateCrawler(request);
-    geoWeightRemaining(deadline, request.signal);
-    if (current.id !== actor.id) throw new LiekanError('当前登录已失效', 401);
-    await geoWeightTransaction(deadline, request.signal, tx =>
-      authorizeCrawler(tx, current, websiteId),
-    );
-    if (request.signal.aborted) throw new LiekanError('导出已取消', 499);
-    if (result.snapshot !== p.snapshot)
-      return Response.json(
-        {
-          error: { message: 'GEO 权重数据已更新，请重新读取后导出', status: 409 },
-          updated: result,
-        },
-        { status: 409, headers: { 'Cache-Control': 'private, no-store' } },
-      );
-    return new Response(geoWeightCsv(result, p.locale), {
-      headers: {
-        'Content-Type': 'text/csv; charset=utf-8',
-        'Content-Disposition': `attachment; filename="liekan-geo-weight-${p.asOf}.csv"`,
-        'Cache-Control': 'private, no-store',
-        'X-Liekan-Catalog-Version': result.readCatalogVersion,
-        'X-Liekan-Export-Read-At': result.calculatedAt,
-      },
-    });
-  }, p.catalogVersion);
+  const result = await readGeoWeightForExport(actor, websiteId, p);
+  geoWeightRemaining(deadline, request.signal);
+  const current = await authenticateCrawler(request);
+  geoWeightRemaining(deadline, request.signal);
+  if (current.id !== actor.id) throw new LiekanError('当前登录已失效', 401);
+  await geoWeightTransaction(deadline, request.signal, tx =>
+    authorizeCrawler(tx, current, websiteId),
+  );
+  // Recheck the strong boundary after authorization; export never recomputes analytics.
+  await readGeoWeightForExport(current, websiteId, { snapshotId: result.snapshotId });
+  geoWeightRemaining(deadline, request.signal);
+  if (request.signal.aborted) throw new LiekanError('导出已取消', 499);
+  return new Response(geoWeightCsv(result, p.locale), {
+    headers: {
+      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Disposition': `attachment; filename="liekan-geo-weight-${result.current.asOf}.csv"`,
+      'Cache-Control': 'private, no-store',
+      'X-Liekan-Catalog-Version': result.readCatalogVersion,
+      'X-Liekan-Export-Read-At': result.calculatedAt,
+    },
+  });
 }

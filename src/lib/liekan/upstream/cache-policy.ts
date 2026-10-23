@@ -1,4 +1,159 @@
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import type { CacheResource } from '../contracts/cache-manifest';
+
+export const browserCacheLimits = Object.freeze({
+  format: 'liekan-browser-v1',
+  maxAge: 7 * 86400000,
+  entries: 200,
+  bytes: 10 * 1024 * 1024,
+  resultBytes: 256 * 1024,
+});
+
+const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+export function uniqueCacheResources(resources: CacheResource[]): CacheResource[] {
+  return [
+    ...new Map(
+      resources
+        .filter(
+          value =>
+            value &&
+            uuid.test(value.id) &&
+            ['website', 'link', 'pixel', 'board'].includes(value.type),
+        )
+        .map(value => [`${value.type}:${value.id}`, { ...value, id: value.id.toLowerCase() }]),
+    ).values(),
+  ].sort((a, b) => `${a.type}:${a.id}`.localeCompare(`${b.type}:${b.id}`));
+}
+
+/** Only agreed transport objects leave the business identity. Nested filters stay exact. */
+export function stableBusinessKey(key: readonly unknown[], persistent = false) {
+  const values = [...key];
+  while (values.length) {
+    const last = values.at(-1);
+    if (!last || typeof last !== 'object' || Array.isArray(last)) break;
+    const names = Object.keys(last);
+    const nativeProtocol = persistent && names.length === 1 && names[0] === 'nativeIdentity';
+    const cacheProtocol =
+      (last as any).cacheFormat === browserCacheLimits.format &&
+      ['cacheNamespace', 'cacheUser', 'cacheScope', 'cacheLocale'].every(name => name in last);
+    if (!nativeProtocol && !cacheProtocol) break;
+    if (
+      !names.length ||
+      !names.every(name =>
+        [
+          'manualPage',
+          'manualRound',
+          'nativeIdentity',
+          'cacheNamespace',
+          'cacheFormat',
+          'cacheUser',
+          'cacheScope',
+          'cacheLocale',
+        ].includes(name),
+      )
+    )
+      break;
+    values.pop();
+  }
+  return values;
+}
+
+/** Request proof is required in addition to this query allowlist before writing a projection. */
+export function browserQueryPolicy(key: readonly unknown[], meta: Record<string, any> = {}) {
+  const base = stableBusinessKey(key) as any[];
+  if (
+    meta.cacheDirect ||
+    meta.readPurpose === 'authorization' ||
+    /^(?:liekan-public|liekan-shared)/.test(String(base[0]))
+  )
+    return null;
+  if (meta.cacheAggregate === false) return null;
+  let resources: CacheResource[] = [];
+  if (base[0] === 'liekan' && base.length >= 15 && base[3] !== 'logs')
+    resources = [{ type: 'website', id: base[1] }];
+  else if (base[0] === 'liekan-feature') {
+    if (base[2] === 'geo-weight-snapshot' && meta.cacheAggregate === true) {
+      resources = [{ type: 'website', id: base[3] }];
+    } else if (['resource-analytics', 'board-widget'].includes(base[1])) {
+      const type = base[1] === 'resource-analytics' ? base[4] : undefined;
+      const component = base[1] === 'board-widget' ? base[4] : undefined;
+      resources = [{ type: type || component?.entityType || 'website', id: base[3] }];
+    } else {
+      const labels = base.filter(value => typeof value === 'string');
+      if (
+        labels.some(value =>
+          /^(?:api-keys|2fa-status|account-profile|session|sessions|session-detail|session-record|session-props|session-timeline|replay|replays|event-detail|event-data|revenue-records|logs|history-repair|ai-run)/.test(
+            value,
+          ),
+        )
+      )
+        return null;
+      const range = base.find(
+        value =>
+          value &&
+          typeof value === 'object' &&
+          Number.isFinite(value.startAt) &&
+          Number.isFinite(value.endAt),
+      );
+      if (!range && !meta.cacheAggregate) return null;
+      if (uuid.test(String(base[2]))) resources.push({ type: 'website', id: base[2] });
+      if (labels.some(value => /^website-management-(?:stats|today)$/.test(value)))
+        for (const ids of base.filter(Array.isArray))
+          resources.push(...ids.map(id => ({ type: 'website' as const, id })));
+      for (const type of ['link', 'pixel'] as const) {
+        const list = base.indexOf(`${type}s-list-stats`);
+        if (list >= 0 && Array.isArray(base[list + 1]))
+          resources.push(...base[list + 1].map(id => ({ type, id })));
+      }
+      const detail = base.indexOf('resource-detail-stats');
+      if (detail >= 0 && ['link', 'pixel'].includes(base[detail + 1]))
+        resources.push({ type: base[detail + 1], id: base[detail + 2] });
+      const sources = base.indexOf('link-joint-sources');
+      if (sources >= 0) resources.push({ type: 'link', id: base[sources + 1] });
+    }
+  } else {
+    const label = String(base[0]);
+    const parameters =
+      base.find(value => value && typeof value === 'object' && !Array.isArray(value)) || {};
+    const path = label.endsWith(':list:charts')
+      ? `/${label.split(':')[0]}/charts`
+      : label.startsWith('websites:')
+        ? `/websites/${parameters.websiteId}/${label.slice(9).replaceAll(':', '/')}`
+        : '';
+    if (!isAggregateRequest(path, parameters)) return null;
+    resources = aggregateRequestResources(path, parameters);
+  }
+  resources = uniqueCacheResources(meta.cacheResources?.length ? meta.cacheResources : resources);
+  return resources.length ? { resources } : null;
+}
+
+export function aggregateRequestResources(
+  path: string,
+  parameters: Record<string, any> = {},
+): CacheResource[] {
+  const match = path.match(/^\/(?:liekan\/)?(websites|links|pixels)\/([^/]+)/);
+  const type =
+    match?.[1] === 'links'
+      ? 'link'
+      : match?.[1] === 'pixels'
+        ? 'pixel'
+        : parameters.eventType === 3
+          ? 'link'
+          : parameters.eventType === 4
+            ? 'pixel'
+            : 'website';
+  if (match && match[2] !== 'summary' && match[2] !== 'charts')
+    return uniqueCacheResources([{ type, id: match[2] }]);
+  const ids = Array.isArray(parameters.ids)
+    ? parameters.ids
+    : String(parameters.ids || '').split(',');
+  return uniqueCacheResources(
+    ids.map(id => ({
+      type: match?.[1] === 'links' ? 'link' : match?.[1] === 'pixels' ? 'pixel' : 'website',
+      id,
+    })),
+  );
+}
 
 export function statisticsCacheTtl(end: number | Date, timezone = 'UTC', now = Date.now()) {
   const today = +fromZonedTime(

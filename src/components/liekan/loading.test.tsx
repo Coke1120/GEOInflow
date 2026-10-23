@@ -1,18 +1,23 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LiekanPage } from './LiekanPage';
+import { DataLoading } from './DataLoading';
 import { freshAggregateFixture } from '@/test/liekan-freshness';
 import { LiekanShell } from './LiekanShell';
 import type { LiekanReport } from './types';
 import { WebsiteLayout } from '@/app/(main)/websites/[websiteId]/WebsiteLayout';
 import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 // This suite supplies report hooks without a QueryClient; GEO query behavior has its own suite.
-vi.mock('./features/GeoWeightSummary', () => ({
+vi.mock('./features/GeoWeightSummary', async importOriginal => ({
+  ...(await importOriginal<typeof import('./features/GeoWeightSummary')>()),
   GeoWeightSummary: () => <div data-test="geo-weight-summary" />,
 }));
 
 const mocks = vi.hoisted(() => ({
   display: {} as { aiCrawlerEnabled?: boolean },
+  displaySuccess: true,
+  displayError: null as { status: number } | null,
+  displayRefetch: vi.fn().mockResolvedValue({}),
   websiteId: 'site-a',
   setQueryData: vi.fn(),
   metadata: { data: undefined, isPending: true, isError: false, refetch: vi.fn() } as any,
@@ -60,7 +65,13 @@ vi.mock('@/lib/liekan/upstream/client', () => ({
   useApi: () => ({
     useQuery: (options: any) =>
       options.queryKey.includes('website-display-settings')
-        ? { data: mocks.display, refetch: vi.fn().mockResolvedValue({}), isFetching: false }
+        ? {
+            data: mocks.display,
+            refetch: mocks.displayRefetch,
+            error: mocks.displayError,
+            isFetching: !mocks.displaySuccess,
+            isSuccess: mocks.displaySuccess,
+          }
         : options.queryKey[4] < Date.parse('2026-08-31')
           ? mocks.previous
           : mocks.report,
@@ -89,6 +100,9 @@ function report(): LiekanReport {
 describe('analysis loading states', () => {
   beforeEach(() => {
     mocks.display = {};
+    mocks.displaySuccess = true;
+    mocks.displayError = null;
+    mocks.displayRefetch.mockClear();
     mocks.websiteId = 'site-a';
     mocks.setQueryData.mockClear();
     mocks.pathname = '/websites/site-a/geo/content';
@@ -97,6 +111,40 @@ describe('analysis loading states', () => {
     mocks.metadata = { data: undefined, isPending: true, isError: false, refetch: vi.fn() };
     mocks.report = { data: undefined, isPending: true, isError: false, refetch: vi.fn() };
   });
+  it.each([
+    ['overview', '/websites/site-a/geo', 3],
+    ['ai/overview', '/websites/site-a/geo/ai', 2],
+  ] as const)(
+    'starts %s GEO in its approved metric slot while the report remains pending',
+    (resource, pathname, index) => {
+      mocks.pathname = pathname;
+      mocks.displaySuccess = false;
+      const page = (loading: boolean) => (
+        <DataLoading loading={loading}>
+          <LiekanPage resource={resource} />
+        </DataLoading>
+      );
+      const view = render(page(true));
+      expect(screen.queryByTestId('geo-weight-summary')).not.toBeInTheDocument();
+      view.rerender(page(false));
+      expect(screen.queryByTestId('geo-weight-summary')).not.toBeInTheDocument();
+      mocks.displaySuccess = true;
+      view.rerender(page(false));
+      const summary = screen.getByTestId('geo-weight-summary');
+      expect(summary.parentElement.tagName).toBe('SECTION');
+      expect(summary.parentElement.children).toHaveLength(4);
+      expect([...summary.parentElement.children].indexOf(summary)).toBe(index);
+      expect(summary.parentElement.parentElement.tagName).toBe('MAIN');
+      expect(
+        screen.queryByText(resource === 'overview' ? '今日转化' : 'AI 抓取页面覆盖率'),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText('正在读取统计数据')).toBeInTheDocument();
+      expect(mocks.report.data).toBeUndefined();
+      mocks.report = { ...mocks.report, data: report(), isPending: false };
+      view.rerender(page(false));
+      expect(screen.getByTestId('geo-weight-summary')).toBe(summary);
+    },
+  );
   it('shares report-confirmed crawler display by current website and user without copying partial settings', () => {
     const data = report();
     data.meta.aiCrawlerEnabled = false;
@@ -174,6 +222,40 @@ describe('analysis loading states', () => {
     expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
     expect(screen.queryByText('123')).not.toBeInTheDocument();
   });
+  it.each([
+    ['overview', '/websites/site-a/geo'],
+    ['ai/overview', '/websites/site-a/geo/ai'],
+  ] as const)(
+    'reserves four metric slots while %s display settings are pending',
+    (resource, pathname) => {
+      mocks.pathname = pathname;
+      mocks.metadata = { ...mocks.metadata, data: mocks.website, isPending: false };
+      mocks.displaySuccess = false;
+      const { container } = render(<LiekanPage resource={resource} />);
+      expect(container.querySelector('main > section.grid')?.children).toHaveLength(4);
+      expect(screen.queryByTestId('geo-weight-summary')).not.toBeInTheDocument();
+    },
+  );
+  it.each([
+    ['overview', '/websites/site-a/geo'],
+    ['ai/overview', '/websites/site-a/geo/ai'],
+  ] as const)(
+    'shows a retryable GEO settings failure on %s without indefinite loading',
+    (resource, pathname) => {
+      mocks.pathname = pathname;
+      mocks.metadata = { ...mocks.metadata, data: mocks.website, isPending: false };
+      mocks.report = { ...mocks.report, data: report(), isPending: false };
+      mocks.displaySuccess = false;
+      mocks.displayError = { status: 503 };
+      const { container } = render(<LiekanPage resource={resource} />);
+      const failedCard = screen.getByText('无法读取数据展示设置').closest('section');
+      expect(failedCard).toHaveAttribute('aria-busy', 'false');
+      expect(container.querySelector('main > section.grid')?.children).toHaveLength(4);
+      expect(screen.queryByTestId('geo-weight-summary')).not.toBeInTheDocument();
+      fireEvent.click(failedCard.querySelector('button'));
+      expect(mocks.displayRefetch).toHaveBeenCalledTimes(1);
+    },
+  );
   it('distinguishes a pending report from missing data and request errors', () => {
     const view = render(<LiekanPage resource="content" />);
     expect(screen.getByRole('status')).toHaveTextContent('正在读取统计数据');

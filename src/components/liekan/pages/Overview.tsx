@@ -8,6 +8,7 @@ import {
   SortHeading,
 } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
+import { GeoWeightPlaceholder } from '../features/GeoWeightSummary';
 
 export function Overview({
   report,
@@ -27,7 +28,6 @@ export function Overview({
     );
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
-      {geoWeight}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label="今日总请求"
@@ -47,12 +47,7 @@ export function Overview({
           valueClass="num text-[24px] font-bold text-up mt-1.5"
           report={report}
         />
-        <MetricCard
-          label="今日转化"
-          className="card p-4 fade-in d1"
-          valueClass="num text-[24px] font-bold text-brand mt-1.5"
-          report={report}
-        />
+        {geoWeight ?? <GeoWeightPlaceholder />}
       </section>
       <section className="card fade-in d2">
         <div className="px-6 pt-5 pb-2 flex items-center justify-between">

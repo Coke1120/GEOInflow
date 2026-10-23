@@ -1,26 +1,26 @@
 'use client';
-import { clientCatalogVersion } from './catalog-client';
-import { isAggregateRequest } from './cache-policy';
-import { isReportOwnedBy } from '../contracts/query';
 import type { QueryClient } from '@tanstack/react-query';
-import { browserReads as reads } from './request-pool';
-import {
-  clientRequestOptions,
-  copyClientFreshness,
-  monotonicNow,
-  rememberResponseFreshness,
-  rememberRequestFreshness,
-  rememberAggregateFailure,
-} from './client-freshness';
-import type { WebsiteSummary } from '../contracts/website-summary';
 import { getApiUrl } from '@/lib/api-url';
 import { getClientAuthToken, removeClientAuthToken, setClientAuthToken } from '@/lib/client';
 import { DATE_RANGE_CONFIG, LOCALE_CONFIG, THEME_CONFIG, TIMEZONE_CONFIG } from '@/lib/constants';
 import { consumeReturnUrl } from '@/lib/return-url';
 import { getItem, setItem } from '@/lib/storage';
 import { setLocale, setTimezone, setUser, useApp } from '@/store/app';
-import { defaultLiekanLocale, isLiekanLocale, readLocaleCookie } from '../i18n/locale';
 import type { ExportFrame, ExportRequest } from '../contracts/exports';
+import { isReportOwnedBy } from '../contracts/query';
+import type { WebsiteSummary } from '../contracts/website-summary';
+import { defaultLiekanLocale, isLiekanLocale, readLocaleCookie } from '../i18n/locale';
+import { aggregateRequestResources, isAggregateRequest } from './cache-policy';
+import { clientCatalogVersion } from './catalog-client';
+import {
+  clientRequestOptions,
+  copyClientFreshness,
+  monotonicNow,
+  rememberAggregateFailure,
+  rememberRequestFreshness,
+  rememberResponseFreshness,
+} from './client-freshness';
+import { browserReads as reads } from './request-pool';
 export async function streamFeatureExport(
   websiteId: string,
   body: ExportRequest,
@@ -110,6 +110,8 @@ export async function featureRequest<T = any>(
 ): Promise<T> {
   const url = new URL(getApiUrl(path), window.location.origin);
   const aggregate = method === 'GET' && isAggregateRequest(path, params);
+  const geoSnapshot =
+    method === 'GET' && /^\/liekan\/websites\/[^/]+\/geo-weight\/snapshot$/.test(path);
   const context = clientRequestOptions(signal);
   if (method === 'GET' && params)
     for (const [key, value] of Object.entries(params)) {
@@ -157,7 +159,14 @@ export async function featureRequest<T = any>(
         data?.error,
         retryAfter(response),
       );
-    if (aggregate) rememberResponseFreshness(data, response.headers, startedAt);
+    if (aggregate || (geoSnapshot && data?.taskStatus === 'ready' && data?.result))
+      rememberResponseFreshness(
+        data,
+        response.headers,
+        startedAt,
+        monotonicNow(),
+        shareToken ? undefined : aggregateRequestResources(path, params),
+      );
     return data;
   };
   try {

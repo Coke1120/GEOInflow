@@ -64,6 +64,16 @@ services:
       db:
         condition: service_healthy
 
+  analytics-worker:
+    image: ${UMAMI_TEST_IMAGE:-umami-test:local}
+    profiles: [postgres]
+    environment: *umami-env
+    command: ["node", "dist/liekan-analytics-worker.mjs"]
+    init: true
+    depends_on:
+      umami:
+        condition: service_healthy
+
   clickhouse:
     # Pinned to an LTS release. 26.7+ rejects db/clickhouse/schema.sql because
     # website_event_stats_hourly has dimension columns outside the sorting key

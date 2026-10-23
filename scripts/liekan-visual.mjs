@@ -1,4 +1,8 @@
-import { referenceColumns, approveCrawlerPagesReference } from './liekan-visual-baseline.mjs';
+import {
+  referenceColumns,
+  approveCrawlerPagesReference,
+  assertGeoWeightCardAppearance,
+} from './liekan-visual-baseline.mjs';
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -498,8 +502,16 @@ try {
       const box = await geoSummary.boundingBox();
       assert(box.height >= 80 && box.height <= 220, `${name} GEO summary must remain compact`);
       assert(box.x >= 220 && box.x + box.width <= 1440, `${name} GEO summary must stay within the content`);
+      await geoSummary.evaluate(assertGeoWeightCardAppearance);
       await geoSummary.screenshot({ path: `${out}/${name}-geo-weight-summary.png` });
-      await geoSummary.evaluate(element => element.remove());
+      // Validate the approved replacement, then restore only that reference cell in
+      // this test browser to retain the original body, table and chart pixel oracle.
+      const position = name === 'index' ? 3 : 2;
+      assert.equal(await geoSummary.evaluate(el => [...el.parentElement.children].indexOf(el)), position);
+      assert.equal(await geoSummary.evaluate(el => el.parentElement.children.length), 4);
+      const originalMetric = await reference.locator('main > section.grid > .card').nth(position)
+        .evaluate(el => el.outerHTML);
+      await geoSummary.evaluate((element, html) => { element.outerHTML = html; }, originalMetric);
     }
     const measure = (page, surface) =>
       page.evaluate(

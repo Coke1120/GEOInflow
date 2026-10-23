@@ -1,12 +1,12 @@
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { MetricCard, ReferenceChart, ReportList } from '../ReportComponents';
 import type { ReportViewProps } from '../types';
+import { GeoWeightPlaceholder } from '../features/GeoWeightSummary';
 
 export function AiOverview({ report, rangeLabel, geoWeight }: ReportViewProps) {
   const i18n = useLiekanI18n();
   return (
     <main className="max-w-[1200px] mx-auto px-8 py-6 space-y-4">
-      {geoWeight}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label="AI 蜘蛛请求（30天）"
@@ -20,12 +20,7 @@ export function AiOverview({ report, rangeLabel, geoWeight }: ReportViewProps) {
           valueClass="num text-[24px] font-bold text-brand mt-1.5"
           report={report}
         />
-        <MetricCard
-          label="AI 抓取页面覆盖率"
-          className="card p-4 fade-in d1"
-          valueClass="num text-[24px] font-bold text-brand mt-1.5"
-          report={report}
-        />
+        {geoWeight ?? <GeoWeightPlaceholder />}
         <MetricCard
           label="单页日均最高抓取"
           className="card p-4 fade-in d1"

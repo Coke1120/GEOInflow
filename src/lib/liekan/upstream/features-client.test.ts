@@ -432,3 +432,31 @@ it('marks website AI content for later entry and retains other websites', async 
   expect(client.getQueryData(other)).toEqual({ private: 'other website' });
   client.clear();
 });
+
+it.each(['ready', 'queued', 'running', 'failed'])(
+  'only grants browser persistence proof to completed GEO snapshots: %s',
+  async taskStatus => {
+    const { serializeClientFreshness } = await import('./client-freshness');
+    const now = Date.now();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json(
+          { taskStatus, result: { current: { level: null } } },
+          {
+            headers: {
+              'X-Liekan-Generated-At': String(now),
+              'X-Liekan-Expires-At': String(now + 86400000),
+              'X-Liekan-Server-Time': String(now),
+            },
+          },
+        ),
+      ),
+    );
+    const path = '/liekan/websites/11111111-1111-4111-8111-111111111111/geo-weight/snapshot';
+    const result = await featureApi.get(path, { mode: 'current', timezone: 'UTC' });
+    expect(!!serializeClientFreshness(result)).toBe(taskStatus === 'ready');
+    if (taskStatus === 'ready')
+      expect(serializeClientFreshness(result).expiresAt).toBe(now + 86400000);
+  },
+);

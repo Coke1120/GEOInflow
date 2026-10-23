@@ -1,10 +1,5 @@
 'use client';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  useManualQuery as useQuery,
-  useManualRefresh,
-} from '@/lib/liekan/contracts/manual-refresh';
-import { isReportOwnedBy } from '@/lib/liekan/contracts/query';
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import type {
   FeatureEntity,
@@ -12,12 +7,17 @@ import type {
   FeatureRoute,
   FeatureUser,
 } from '@/lib/liekan/contracts/features';
-import { hasDateControl, needsWebsite } from '@/lib/liekan/contracts/navigation';
 import {
-  withClientFreshness,
-  shareWithFreshness,
+  useManualRefresh,
+  useManualQuery as useQuery,
+} from '@/lib/liekan/contracts/manual-refresh';
+import { hasDateControl, needsWebsite } from '@/lib/liekan/contracts/navigation';
+import { isReportOwnedBy } from '@/lib/liekan/contracts/query';
+import {
   hasClientFreshness,
+  shareWithFreshness,
   useFreshnessLifecycle,
+  withClientFreshness,
 } from '@/lib/liekan/upstream/client-freshness';
 import type { featureApi } from '@/lib/liekan/upstream/features-client';
 import { useDataLoading } from '../DataLoading';
@@ -94,6 +94,16 @@ export function useFreshQuery<T = any>(
       });
     },
     retry: false,
+    meta: {
+      ...options.meta,
+      cacheDirect: policy.direct || options.meta?.cacheDirect,
+      cacheAggregate:
+        options.meta?.cacheAggregate === false
+          ? false
+          : typeof policy.aggregate === 'boolean'
+            ? policy.aggregate
+            : options.meta?.cacheAggregate,
+    },
     structuralSharing: shareWithFreshness,
   });
   const visible = useFreshnessLifecycle(result, {

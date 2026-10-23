@@ -6,7 +6,10 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { LiekanPage } from './LiekanPage';
 // Report refresh is isolated from the independently tested GEO query panel.
-vi.mock('./features/GeoWeightSummary', () => ({ GeoWeightSummary: () => null }));
+vi.mock('./features/GeoWeightSummary', async importOriginal => ({
+  ...(await importOriginal<typeof import('./features/GeoWeightSummary')>()),
+  GeoWeightSummary: () => null,
+}));
 
 const mocks = vi.hoisted(() => ({
   live: false,
