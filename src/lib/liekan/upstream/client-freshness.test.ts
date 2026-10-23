@@ -12,6 +12,23 @@ import {
 } from './client-freshness';
 import { statisticsCacheTtl } from './cache-policy';
 afterEach(() => vi.useRealTimers());
+it('preserves the remaining lifetime of a slow response and subtracts only network time', () => {
+  vi.useFakeTimers();
+  const startedAt = monotonicNow();
+  vi.advanceTimersByTime(35100);
+  const data = {};
+  rememberResponseFreshness(
+    data,
+    new Headers({
+      'X-Liekan-Generated-At': '1000',
+      'X-Liekan-Expires-At': '66000',
+      'X-Liekan-Server-Time': '36000',
+      'Server-Timing': 'analytics;dur=35000.0,cache;desc="0/1"',
+    }),
+    startedAt,
+  );
+  expect(remainingFreshness(data, Date.now())).toBe(29900);
+});
 it('preserves the earliest server expiry through composed dashboard responses', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(10000);

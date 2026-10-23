@@ -8,6 +8,28 @@ import { waitForLogStatisticsReads } from './ai-log-read-priority';
 
 beforeEach(() => vi.resetAllMocks());
 
+it('resolves current-window report aggregates with one reporting-log scan', async () => {
+  vi.mocked(query).mockResolvedValue([]);
+  await getLogFacts(
+    'site',
+    new Date('2026-10-01'),
+    new Date('2026-10-03'),
+    'UTC',
+    1,
+    '',
+    '',
+    '',
+    'after',
+    ['summary', 'daily', 'bots', 'pages', 'statuses', 'hours'],
+    { crawlerMetricsVersion: 1, crawlerIdentityScope: 'all', resource: 'ai/overview' },
+  );
+  const scans = vi
+    .mocked(query)
+    .mock.calls.filter(([sql]) => sql.includes('FROM liekan_reporting_log'));
+  expect(scans).toHaveLength(1);
+  expect(scans[0][0]).toContain('AS MATERIALIZED');
+});
+
 describe('today request content boundary', () => {
   it('excludes static assets while preserving document and extension boundaries', () => {
     for (const path of [
@@ -105,7 +127,7 @@ describe('foreground log read priority', () => {
         events.push('ai');
       },
     );
-    release([{ requests: 0, ai: 0, pages: 0, abnormal: 0 }]);
+    release([{ summary: [{ requests: 0, ai: 0, pages: 0, abnormal: 0 }] }]);
     await Promise.all([report, waiting]);
     expect(events).toEqual(['foreground', 'ai']);
   });
@@ -145,16 +167,17 @@ describe('foreground log read priority', () => {
     const pending = new Promise<any[]>(resolve => {
       release = resolve;
     });
-    vi.mocked(query)
-      .mockResolvedValue([])
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([{ requests: 0, ai: 0, pages: 0, abnormal: 0 }]);
-    for (let i = 0; i < 8; i++) vi.mocked(query).mockResolvedValueOnce([]);
-    vi.mocked(query)
-      .mockResolvedValueOnce([{ count: 0 }])
-      .mockReturnValueOnce(pending);
+    vi.mocked(query).mockImplementation(async sql => {
+      if (sql.startsWith('SELECT bot AS name')) return pending;
+      if (sql.startsWith('SELECT count(*)::int AS count')) return [{ count: 0 }];
+      return [];
+    });
     const report = getLogFacts('site', new Date('2026-10-01'), new Date('2026-10-03'), 'UTC');
-    await vi.waitFor(() => expect(vi.mocked(query)).toHaveBeenCalledTimes(12));
+    await vi.waitFor(() =>
+      expect(
+        vi.mocked(query).mock.calls.some(([sql]) => sql.startsWith('SELECT bot AS name')),
+      ).toBe(true),
+    );
     let released = false;
     const waiting = waitForLogStatisticsReads(new AbortController().signal, Date.now() + 1000).then(
       () => {

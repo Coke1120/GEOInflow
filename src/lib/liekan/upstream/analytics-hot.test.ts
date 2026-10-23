@@ -111,6 +111,22 @@ describe.skipIf(!redisAvailable)('hot scheduler with isolated Redis', () => {
     return JSON.parse(Object.values(await client.hGetAll(taskKey))[0]) as AnalyticsRefreshJob;
   }
 
+  test('schedules slow current-day computations using the remaining cache lifetime', async () => {
+    for (let i = 0; i < 3; i++) {
+      now = base + i * 30000;
+      await rememberAnalyticsHot(
+        { value: [], generatedAt: now - 35000, expiresAt: now + 30000, status: 'miss' },
+        { strong: 'v1', data: 'd1' },
+      );
+    }
+    const key = (await client.keys('*:tasks'))[0];
+    const job = JSON.parse(Object.values(await client.hGetAll(key))[0]) as AnalyticsRefreshJob;
+    expect(job.scheduledAt).toBe(now + 25000);
+    now = job.scheduledAt + 35000;
+    await scheduleNextAnalyticsHot(job, now + 30000, now - 35000);
+    expect((await readAnalyticsHot(job)).job.scheduledAt).toBe(now + 25000);
+  });
+
   test.each(['actor', 'version', 'schedule'])(
     'preserves replacement hot demand when an old %s job is forgotten',
     async replacement => {
@@ -165,8 +181,11 @@ describe.skipIf(!redisAvailable)('hot scheduler with isolated Redis', () => {
       for (let index = 0; index < 20; index++)
         expect(await contexts.run(catalog, () => reserveWorkerComputation(now))).toBe(true);
       expect(await reserveWorkerComputation(now)).toBe(false);
-      expect(await contexts.run({ ...catalog, version: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' },
-        () => reserveWorkerComputation(now))).toBe(false);
+      expect(
+        await contexts.run({ ...catalog, version: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' }, () =>
+          reserveWorkerComputation(now),
+        ),
+      ).toBe(false);
     } finally {
       installPublishedCatalogResolver(() => undefined);
     }

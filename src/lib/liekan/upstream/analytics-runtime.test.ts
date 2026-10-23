@@ -124,6 +124,26 @@ it('coalesces fifty viewers, clones their results, and always computes on a prim
   expect((await cache.read('a', 30000, tags, load)).status).toBe('hit');
   expect(analyticsGate.state).toEqual({ active: 0, queued: 0 });
 });
+
+it.each([false, true])(
+  'caches a slow successful snapshot after computation (Redis %s)',
+  async shared => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(1000);
+    const cache = new QueryCache();
+    installAnalyticsRuntime(cache, primary, shared ? new MemoryRedis('') : disabled());
+    const load = vi.fn(async () => {
+      vi.setSystemTime(36000);
+      return { count: 7 };
+    });
+    const first = await cache.read('slow-success', 30000, tags, load);
+    expect(first.generatedAt).toBe(1000);
+    expect(first.expiresAt).toBe(66000);
+    vi.setSystemTime(65999);
+    expect((await cache.read('slow-success', 30000, tags, load)).status).toBe('hit');
+    expect(load).toHaveBeenCalledOnce();
+  },
+);
 it.each([true, false])(
   'reuses the bound primary transaction and enforces background authorization %s',
   async allowed => {
@@ -349,7 +369,7 @@ it('routes oversized and degraded results through the same bounded computation g
   await cache.read('a', 30000, tags, load);
   const next = await cache.read('a', 30000, tags, load);
   expect(load).toHaveBeenCalledTimes(2);
-  expect(next.expiresAt).toBe(next.generatedAt + 30000);
+  expect(next.expiresAt).toBeGreaterThanOrEqual(next.generatedAt + 30000);
   expect(redis.publishes).toHaveBeenCalledWith('unshareable');
 });
 it('waits for ordinary work before a forced refresh and coalesces duplicate forced calls', async () => {

@@ -68,7 +68,12 @@ export function installAnalyticsRuntime(
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema))
     throw new Error('Invalid analytics database schema');
   const url = new URL(process.env.DATABASE_URL);
-  const database = analyticsInfrastructureKey('database-v1', [url.protocol, url.host, url.pathname, schema]);
+  const database = analyticsInfrastructureKey('database-v1', [
+    url.protocol,
+    url.host,
+    url.pathname,
+    schema,
+  ]);
 
   async function readVersions(
     tags: string[],
@@ -210,7 +215,7 @@ export function installAnalyticsRuntime(
       return {
         value,
         generatedAt,
-        expiresAt: current.data === expected.data ? generatedAt + ttl : generatedAt,
+        expiresAt: current.data === expected.data ? Date.now() + ttl : generatedAt,
         status: 'miss',
         tier: 'computed',
       };

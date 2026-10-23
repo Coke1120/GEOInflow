@@ -1035,8 +1035,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               ? i18n.text('更新失败，当前显示上次读取的数据')
               : query.isStaleAggregate && !restricted
                 ? i18n.system(query.error?.message) || i18n.text('统计数据已过期，请重试读取。')
-                : resource === 'human/keywords'
-                  ? i18n.system(query.error?.message) || i18n.text('来源关键词读取失败')
+                : !restricted && query.error?.message
+                  ? i18n.system(query.error.message)
                   : i18n.text('无法读取此范围的数据')
             : i18n.system(message) || i18n.text('查询：{v0}', [search])}
           {query.isError && (
@@ -1151,7 +1151,21 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             {i18n.text('所选期间包含旧版或混合分类数据，历史记录保留采集时口径。')}
           </div>
         )}
-      {report || geoWeight ? (
+      {query.isError && !report ? (
+        geoWeight && !restricted ? (
+          <main className="max-w-[1200px] mx-auto px-8 py-6">
+            <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <div
+                className={
+                  resource === 'overview' ? 'col-start-2 lg:col-start-4' : 'lg:col-start-3'
+                }
+              >
+                {geoWeight}
+              </div>
+            </section>
+          </main>
+        ) : null
+      ) : report || geoWeight ? (
         <DataLoading loading={!report}>
           <View
             report={report}
@@ -1168,14 +1182,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             }
           />
         </DataLoading>
-      ) : metadataLoading ||
-        query.isPending ||
-        displayMismatch ||
-        // 过期聚合是连接问题而非加载中，保留纯提示态；其余无数据的错误中间态用占位避免空白。
-        (query.isError &&
-          !restricted &&
-          !query.isStaleAggregate &&
-          resource !== 'human/keywords') ? (
+      ) : metadataLoading || query.isPending || displayMismatch ? (
         <AnalysisLoading
           resource={resource}
           geoWeight={geoWeight}

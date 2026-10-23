@@ -178,7 +178,7 @@ export async function rememberAnalyticsHot(
       parameters,
       scopeHash,
     ]);
-    const lead = result.expiresAt - result.generatedAt > 30000 ? 30000 : 5000;
+    const lead = result.expiresAt - now > 30000 ? 30000 : 5000;
     const job: AnalyticsRefreshJob = {
       websiteId,
       target,
@@ -266,7 +266,7 @@ export async function scheduleNextAnalyticsHot(
   expectedStrongVersion = job.expectedStrongVersion,
   now = Date.now(),
 ) {
-  const lead = expiresAt - generatedAt > 30000 ? 30000 : 5000;
+  const lead = expiresAt - Math.max(generatedAt, now) > 30000 ? 30000 : 5000;
   const scheduledAt = Math.max(now + 5000, job.scheduledAt + 30000, expiresAt - lead);
   const k = keys(job.websiteId);
   await analyticsRedis.command([

@@ -2022,6 +2022,76 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
     );
     await expect(read(current.nextCursor)).rejects.toMatchObject({ status: 409 });
   });
+  it('keeps bundled log aggregates equal to the canonical reporting view across activation and rollback', async () => {
+    const { getLogFacts } = await import('./logs');
+    const first = await log();
+    await log('Mozilla/5.0');
+    await execute(
+      "UPDATE liekan_log SET bot='GPTBot',vendor='OpenAI',bot_type='训练',ai_eligible=true,recognition_state='recognized' WHERE website_id=$1::uuid AND id=$2",
+      site,
+      first,
+    );
+    const compare = async () => {
+      const result = await getLogFacts(
+        site,
+        new Date('2019-01-01'),
+        new Date('2021-01-01'),
+        'UTC',
+        1,
+        '',
+        '',
+        '',
+        'after',
+        ['summary', 'daily', 'bots', 'pages', 'statuses', 'hours'],
+        { crawlerMetricsVersion: 1, crawlerIdentityScope: 'all', resource: 'ai/overview' },
+      );
+      const [expected] = await q<any[]>(
+        `SELECT count(*)::int AS requests,
+        count(*) FILTER(WHERE coalesce(ai_eligible,bot_type IN('训练','搜索','用户触发')))::int AS ai,
+        count(DISTINCT path) FILTER(WHERE coalesce(ai_eligible,bot_type IN('训练','搜索','用户触发')))::int AS pages
+        FROM liekan_reporting_log WHERE website_id=$1::uuid
+          AND created_at>='2019-01-01' AND created_at<'2021-01-01'
+          AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'`,
+        site,
+      );
+      expect(result.summary).toMatchObject(expected);
+      expect(result.summary.requests).toBe(2);
+      expect(result.statuses.reduce((n, row) => n + row.count, 0)).toBe(expected.ai);
+      expect(result.hours.reduce((n, row) => n + row.count, 0)).toBe(expected.ai);
+      expect(new Set(result.pages.map(row => row.path)).size).toBe(expected.pages);
+      expect(result.bots.length).toBeGreaterThan(0);
+      expect(result.bots[0].lastVisit).toBeInstanceOf(Date);
+      expect(result.pages[0].lastCrawled).toBeInstanceOf(Date);
+    };
+    await compare();
+    const prepared = await finish(await scan());
+    const active = await finish(
+      await confirmHistoryRepair(
+        site,
+        {
+          runId: prepared.id,
+          actionId: randomUUID(),
+          expectedRevision: prepared.revision,
+          generation: prepared.generation,
+          previewDigest: prepared.preview.digest,
+          partialConfirmed: true,
+        },
+        actor,
+      ),
+    );
+    await compare();
+    await actHistoryRepair(
+      site,
+      {
+        runId: active.id,
+        action: 'rollback',
+        actionId: randomUUID(),
+        expectedRevision: active.revision,
+      },
+      actor,
+    );
+    await compare();
+  });
   it('stops an approved candidate when the browser policy changes before activation', async () => {
     await log();
     const prepared = await finish(await scan());
@@ -2394,7 +2464,28 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
   });
   it('activates a product-form-only correction using the exact catalog shown in the preview', async () => {
     const fixture = await productFormLogFixture();
+    const { getLogFacts } = await import('./logs');
+    const facts = (botProductForm: 'workbench' | 'personal_agent') =>
+      getLogFacts(
+        site,
+        new Date('2019-01-01'),
+        new Date('2021-01-01'),
+        'UTC',
+        1,
+        '',
+        '',
+        '',
+        'after',
+        ['bots', 'pages', 'previousBots'],
+        {
+          crawlerMetricsVersion: 1,
+          crawlerIdentityScope: 'all',
+          resource: 'ai/pages',
+          botProductForm,
+        },
+      );
     try {
+      expect((await facts('workbench')).bots).toHaveLength(0);
       const prepared = await finish(await scan());
       expect(prepared.status).toBe('ready');
       expect(prepared.counts.changedEvents).toBe('0');
@@ -2428,6 +2519,17 @@ describe.skipIf(!enabled)('history repair on an owned isolated PostgreSQL schema
         verification: 'verified_range',
         rawCatalog: fixture.oldVersion,
       });
+      const workbench = await facts('workbench');
+      expect(workbench.bots).toHaveLength(1);
+      expect(workbench.bots[0]).toMatchObject({
+        name: 'GPTBot',
+        productForm: 'workbench',
+        requests: 1,
+      });
+      expect(workbench.pages).toHaveLength(1);
+      expect(workbench.pages[0].lastCrawled).toBeInstanceOf(Date);
+      expect(workbench.previousBots).toHaveLength(0);
+      expect((await facts('personal_agent')).bots).toHaveLength(0);
     } finally {
       await fixture.restore();
     }
