@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from 'pg';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const enabled = process.env.LIEKAN_ANALYSIS_ROLLUPS_TEST === '1';
 const actor = { userId: randomUUID() };
@@ -275,6 +275,331 @@ describe.skipIf(!enabled)(
     afterAll(async () => {
       if (enabled && prisma) await prisma.client.$disconnect();
     });
+
+    it('keeps new-site batch and evidence lookups bounded under stale website statistics', async () => {
+      const oldSites = Array.from({ length: 5 }, () => randomUUID());
+      const oldImports = oldSites.map(() => randomUUID());
+      const targetImports = [randomUUID(), randomUUID()];
+      const statsLock = await connect();
+      const server = await import('./server');
+      const originalTransaction = server.transaction;
+      const plans: Record<string, any> = {};
+      const stats = async () =>
+        (
+          await q(`SELECT c.reltuples::text,c.relpages,s.last_analyze,s.last_autoanalyze,
+          s.analyze_count::text,s.autoanalyze_count::text,
+          (SELECT most_common_vals::text FROM pg_stats WHERE schemaname=current_schema()
+           AND tablename='liekan_log' AND attname='website_id') AS website_values
+          FROM pg_class c JOIN pg_stat_user_tables s ON s.relid=c.oid
+          WHERE c.oid='liekan_log'::regclass`)
+        )[0];
+      let spy: ReturnType<typeof vi.spyOn>;
+      try {
+        for (let n = 0; n < oldSites.length; n++) {
+          await sql(
+            "INSERT INTO website(website_id,name,domain,user_id) VALUES($1::uuid,'Synthetic stale statistics','example.test',$2::uuid)",
+            oldSites[n],
+            actor.userId,
+          );
+          await sql(
+            'INSERT INTO liekan_import(id,website_id,digest,accepted,rejected) VALUES($1::uuid,$2::uuid,$1::text,20000,0)',
+            oldImports[n],
+            oldSites[n],
+          );
+          await sql(
+            `INSERT INTO liekan_log(id,website_id,import_id,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification)
+            SELECT md5($1::text||n::text)||md5(n::text||$1::text),$1::uuid,$2::uuid,'2025-12-01Z','/synthetic','GET',200,0,'','','Synthetic','','其他','','其他','unverified'
+            FROM generate_series(1,20000)n`,
+            oldSites[n],
+            oldImports[n],
+          );
+        }
+        await sql('ANALYZE liekan_log');
+        await statsLock.query('BEGIN');
+        await statsLock.query("SET LOCAL lock_timeout='2s'");
+        // Freeze only statistics maintenance; the real processBatch DML remains concurrent.
+        await statsLock.query('LOCK TABLE liekan_log IN SHARE UPDATE EXCLUSIVE MODE');
+        const beforeStats = await stats();
+        for (let n = 0; n < targetImports.length; n++) {
+          await sql(
+            'INSERT INTO liekan_import(id,website_id,digest,accepted,rejected) VALUES($1::uuid,$2::uuid,$1::text,6000,0)',
+            targetImports[n],
+            website,
+          );
+          await sql(
+            `INSERT INTO liekan_log(id,website_id,import_id,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification)
+            SELECT md5($1::text||n::text)||md5(n::text||$1::text),$2::uuid,$1::uuid,'2025-12-01Z','/synthetic','GET',200,0,'','','Synthetic','','其他','','其他','unverified'
+            FROM generate_series(1,6000)n`,
+            targetImports[n],
+            website,
+          );
+        }
+        expect(beforeStats.website_values).not.toContain(website);
+        const input = await source();
+        const generation = randomUUID();
+        const received = await service.receiveBatch(
+          new Request('https://collector.invalid/upload', {
+            method: 'POST',
+            headers: { authorization: `Bearer ${input.token}`, 'content-type': 'application/json' },
+            body: JSON.stringify({
+              version: 1,
+              batchId: randomUUID(),
+              epoch: 1,
+              events: Array.from({ length: 1000 }, (_, offset) => ({
+                generation,
+                offset,
+                line: `192.0.2.20 - - [04/Oct/2026:10:00:00 +0800] "GET /point/${offset} HTTP/1.1" 200 25 "-" "Synthetic"`,
+              })),
+            }),
+          }),
+          input.id,
+        );
+        expect(received).toMatchObject({ valid: 1000, rejected: 0 });
+        const pending = (received as { batchId: string }).batchId;
+        const state = async () => ({
+          counts: await counts(),
+          batch: (
+            await q(
+              'SELECT to_jsonb(b) AS data FROM liekan_ingest_batch b WHERE id=$1::uuid',
+              pending,
+            )
+          )[0].data,
+          dirty: await q(
+            'SELECT epoch::text,family,bucket::text,shard,revision::text FROM liekan_analysis_dirty WHERE website_id=$1::uuid ORDER BY epoch,family,bucket,shard',
+            website,
+          ),
+        });
+        const baseline = await state();
+        const sentinel = new Error('owned-stale-statistics-rollback');
+        let writes = 0;
+        const explain = async (tx: any, name: string, statement: string, values: unknown[]) => {
+          const [row] = await tx.$queryRawUnsafe(
+            `EXPLAIN (ANALYZE,BUFFERS,FORMAT JSON) ${statement}`,
+            ...values,
+          );
+          plans[name] = row['QUERY PLAN'][0];
+        };
+        spy = vi.spyOn(server, 'transaction').mockImplementation(work =>
+          originalTransaction(async tx => {
+            let qualifies = false;
+            const wrapped = new Proxy(tx, {
+              get(object, key) {
+                if (key === '$queryRawUnsafe')
+                  return async (statement: string, ...values: unknown[]) => {
+                    if (
+                      statement.includes('FROM liekan_ingest_batch') &&
+                      statement.includes('FOR UPDATE') &&
+                      values[0] === pending
+                    ) {
+                      qualifies = true;
+                      writes++;
+                    }
+                    if (qualifies && statement.includes('event_digest IS DISTINCT FROM'))
+                      await explain(object, 'conflicting', statement, values);
+                    return object.$queryRawUnsafe(statement, ...values);
+                  };
+                if (key === '$executeRawUnsafe')
+                  return async (statement: string, ...values: unknown[]) => {
+                    const name = statement.startsWith('INSERT INTO liekan_crawler_evidence')
+                      ? 'crawler'
+                      : statement.startsWith('INSERT INTO liekan_log_geography')
+                        ? 'geography'
+                        : null;
+                    if (qualifies && name) {
+                      // EXPLAIN ANALYZE executes the actual insert. Both helpers ignore its row count.
+                      await explain(object, name, statement, values);
+                      return 0;
+                    }
+                    return object.$executeRawUnsafe(statement, ...values);
+                  };
+                const value = Reflect.get(object, key);
+                return typeof value === 'function' ? value.bind(object) : value;
+              },
+            });
+            const value = await work(wrapped);
+            if (!qualifies) return value;
+            const [inside] = await tx.$queryRawUnsafe(
+              `SELECT
+            (SELECT count(*)::int FROM liekan_log WHERE website_id=$1::uuid AND import_id=$2::uuid) AS raw,
+            (SELECT count(*)::int FROM liekan_crawler_evidence e JOIN liekan_log l ON l.website_id=e.website_id AND l.id=e.log_id WHERE l.website_id=$1::uuid AND l.import_id=$2::uuid) AS evidence,
+            (SELECT count(*)::int FROM liekan_log_geography e JOIN liekan_log l ON l.website_id=e.website_id AND l.id=e.log_id WHERE l.website_id=$1::uuid AND l.import_id=$2::uuid) AS geography,
+            (SELECT accepted FROM liekan_import WHERE id=$2::uuid) AS accepted,
+            (SELECT data_revision::int FROM liekan_log_state WHERE website_id=$1::uuid) AS revision,
+            (SELECT state FROM liekan_ingest_batch WHERE id=$2::uuid) AS state`,
+              website,
+              pending,
+            );
+            expect(inside).toEqual({
+              raw: 1000,
+              evidence: 1000,
+              geography: 1000,
+              accepted: 1000,
+              revision: 1,
+              state: 'processed',
+            });
+            const { persistCrawlerEvidence } = await import('../log-ingestion/crawler-evidence');
+            const { persistLogGeography } = await import('./log-geography');
+            const retained = await tx.$queryRawUnsafe(
+              `SELECT id,import_id FROM (
+            SELECT id,import_id,row_number() OVER(PARTITION BY import_id ORDER BY id) AS n
+            FROM liekan_log WHERE website_id=$1::uuid AND import_id=ANY($2::uuid[])) r
+            WHERE n<=8 ORDER BY import_id,id`,
+              website,
+              targetImports,
+            );
+            expect(retained).toHaveLength(16);
+            const sameImport = retained.filter(row => row.import_id === targetImports[0]);
+            expect(sameImport).toHaveLength(8);
+            const [foreign] = await tx.$queryRawUnsafe(
+              'SELECT id FROM liekan_log WHERE website_id=$1::uuid ORDER BY id LIMIT 1',
+              oldSites[0],
+            );
+            const known = {
+              location: { country: 'CN', region: 'CN-11', city: '北京市' },
+              source: 'synthetic',
+              trust: 'unverified',
+              ipFamily: 'missing',
+              precision: 'city',
+              reason: 'synthetic',
+              ruleVersion: 'fixture',
+              dataVersion: null,
+              cityId: null,
+              accuracyRadius: null,
+              countryBasis: 'missing',
+              processedAt: '2026-10-04T02:00:00.000Z',
+              shadow: null,
+            };
+            const unknown = {
+              ...known,
+              location: { country: null, region: null, city: null },
+              precision: 'missing',
+              reason: 'synthetic_missing',
+            };
+            await persistLogGeography(tx, website, [
+              { id: retained[0].id, geography: unknown },
+            ] as any);
+            const [unknownGeo] = await tx.$queryRawUnsafe(
+              'SELECT * FROM liekan_log_geography WHERE website_id=$1::uuid AND log_id=$2',
+              website,
+              retained[0].id,
+            );
+            await persistLogGeography(tx, website, [
+              ...retained.map(row => ({ id: row.id, geography: known })),
+              {
+                id: retained[1].id,
+                geography: { ...known, location: { country: 'US', region: null, city: null } },
+              },
+              { id: foreign.id, geography: known },
+            ] as any);
+            const geo = await tx.$queryRawUnsafe(
+              'SELECT * FROM liekan_log_geography WHERE website_id=$1::uuid AND log_id=ANY($2::text[]) ORDER BY log_id',
+              website,
+              [...retained.map(row => row.id), foreign.id],
+            );
+            expect(geo).toHaveLength(16);
+            expect(geo.find(row => row.log_id === retained[0].id)).toEqual(unknownGeo);
+            expect(
+              geo
+                .filter(row => row.log_id !== retained[0].id)
+                .every(
+                  row => row.country === 'CN' && row.region === 'CN-11' && row.city === '北京市',
+                ),
+            ).toBe(true);
+            await persistCrawlerEvidence(tx, website, targetImports[0], [{ id: sameImport[0].id }]);
+            const [unknownEvidence] = await tx.$queryRawUnsafe(
+              'SELECT * FROM liekan_crawler_evidence WHERE website_id=$1::uuid AND log_id=$2',
+              website,
+              sameImport[0].id,
+            );
+            const observation = {
+              securityAction: 'allow',
+              terminatingRuleId: null,
+              matchedRuleIds: null,
+              cacheStatus: null,
+              durationMs: null,
+            };
+            await persistCrawlerEvidence(tx, website, targetImports[0], [
+              ...retained.map(row => ({ id: row.id, crawlerEvidence: observation })),
+              {
+                id: sameImport[1].id,
+                crawlerEvidence: { ...observation, securityAction: 'challenge' },
+              },
+              { id: foreign.id, crawlerEvidence: observation },
+            ]);
+            const evidence = await tx.$queryRawUnsafe(
+              'SELECT * FROM liekan_crawler_evidence WHERE website_id=$1::uuid AND log_id=ANY($2::text[]) ORDER BY log_id',
+              website,
+              [...retained.map(row => row.id), foreign.id],
+            );
+            expect(evidence).toHaveLength(8);
+            expect(evidence.find(row => row.log_id === sameImport[0].id)).toEqual(unknownEvidence);
+            expect(
+              evidence
+                .filter(row => row.log_id !== sameImport[0].id)
+                .every(row => row.security_action === 'allow' && row.identity_evidence === null),
+            ).toBe(true);
+            throw sentinel;
+          }),
+        );
+        await expect(service.processBatch(pending)).rejects.toBe(sentinel);
+        spy.mockRestore();
+        spy = undefined;
+        expect(writes).toBe(1);
+        expect(await state()).toEqual(baseline);
+        const afterStats = await stats();
+        expect(afterStats).toEqual(beforeStats);
+        await writeFile(
+          `${process.env.LIEKAN_ANALYSIS_ROLLUPS_OUTPUT}/ingestion-lookup-plans.json`,
+          JSON.stringify({
+            beforeStats,
+            afterStats,
+            baselineSites: 5,
+            baselineRows: 100000,
+            newSiteRows: 12000,
+            batchRows: 1000,
+            plans,
+          }),
+          { mode: 0o600 },
+        );
+        expect(Object.keys(plans).sort()).toEqual(['conflicting', 'crawler', 'geography']);
+        const nodes = (node: any): any[] => [node, ...(node.Plans || []).flatMap(nodes)];
+        for (const plan of Object.values(plans)) {
+          const all = nodes(plan.Plan);
+          const lookups = all.filter(node => node['Relation Name'] === 'liekan_log');
+          expect(lookups).toHaveLength(1);
+          const lookup = lookups[0];
+          expect(lookup['Index Cond']).toContain('website_id');
+          expect(lookup['Index Cond']).toMatch(/\bid\)?(?:::text)?\s*=\s*r\.id/);
+          expect(lookup['Actual Loops']).toBe(1000);
+          expect(lookup['Actual Rows']).toBeLessThanOrEqual(1);
+          expect(lookup['Rows Removed by Filter'] || 0).toBeLessThanOrEqual(1);
+          expect(
+            (lookup['Shared Hit Blocks'] || 0) + (lookup['Shared Read Blocks'] || 0),
+          ).toBeLessThanOrEqual(17000);
+          const init = all.filter(node => node['Parent Relationship'] === 'InitPlan');
+          expect(init).toHaveLength(1);
+          expect(init[0]['Actual Loops']).toBe(1);
+        }
+      } finally {
+        spy?.mockRestore();
+        await statsLock.query('ROLLBACK');
+        await statsLock.end();
+        await db.analysisTransaction(async tx => {
+          await tx.$queryRawUnsafe(
+            'SELECT website_id FROM website WHERE website_id=ANY($1::uuid[]) ORDER BY website_id FOR UPDATE',
+            oldSites,
+          );
+          await tx.$queryRawUnsafe(
+            'SELECT website_id FROM liekan_analysis_site WHERE website_id=ANY($1::uuid[]) ORDER BY website_id FOR UPDATE',
+            oldSites,
+          );
+          await tx.$executeRawUnsafe(
+            'DELETE FROM website WHERE website_id=ANY($1::uuid[])',
+            oldSites,
+          );
+        });
+      }
+    }, 90000);
 
     it('allows atomic browser collection while a validated batch waits for its own ledger row', async () => {
       const input = await source(),

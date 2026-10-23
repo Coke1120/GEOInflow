@@ -189,6 +189,8 @@ it.skipIf(!enabled)(
       'src/lib/liekan/upstream/collection-write.ts',
       'src/queries/sql/events/saveEvent.ts',
       'src/lib/liekan/log-ingestion/service.ts',
+      'src/lib/liekan/log-ingestion/crawler-evidence.ts',
+      'src/lib/liekan/upstream/log-geography.ts',
       'src/lib/liekan/upstream/server.ts',
       'src/lib/liekan/upstream/analysis-rollups.ts',
       'src/lib/liekan/upstream/analysis-rollups-db.ts',

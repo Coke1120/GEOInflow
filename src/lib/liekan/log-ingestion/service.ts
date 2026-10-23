@@ -383,12 +383,12 @@ export async function processBatch(batchId: string) {
       const rows: AutomaticRecord[] = batch.payload || [];
       const resetAt = live.resetAt ? +new Date(live.resetAt) : 0;
       const valid = rows.filter(row => +new Date(row.time) >= resetAt);
-      // Keep each incoming event as the lookup driver while table statistics catch up.
-      // OFFSET 0 fences join reordering around the unique website/event lookup.
+      // Keep incoming records as the lookup driver. The runtime site value avoids
+      // stale new-site MCV estimates choosing a site-prefix scan for every record.
       const conflicting = await tx.$queryRawUnsafe(
         `SELECT 1 FROM jsonb_to_recordset($2::jsonb) AS r(id text,"eventDigest" text)
        JOIN LATERAL (SELECT event_digest FROM liekan_log l
-         WHERE l.website_id=$1::uuid AND l.id=r.id OFFSET 0) l ON true
+         WHERE l.website_id=(SELECT $1::uuid OFFSET 0) AND l.id=r.id OFFSET 0) l ON true
        WHERE l.event_digest IS DISTINCT FROM r."eventDigest" LIMIT 1`,
         first.website_id,
         JSON.stringify(valid),
