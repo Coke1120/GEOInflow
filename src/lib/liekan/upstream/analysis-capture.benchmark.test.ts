@@ -189,7 +189,9 @@ it.skipIf(!enabled)(
       'src/lib/liekan/upstream/collection-write.ts',
       'src/queries/sql/events/saveEvent.ts',
       'src/lib/liekan/log-ingestion/service.ts',
+      'src/lib/liekan/upstream/server.ts',
       'src/lib/liekan/upstream/analysis-rollups.ts',
+      'src/lib/liekan/upstream/analysis-rollups-db.ts',
       'src/lib/liekan/upstream/analysis-rollups-worker.ts',
       'src/lib/liekan/upstream/analysis-rollups-discovery.ts',
       'src/lib/liekan/upstream/analysis-background.ts',
@@ -222,8 +224,8 @@ it.skipIf(!enabled)(
     result.sourceScope = {
       fullWorktreeFrozen: false,
       measuredSurfaces: await sourceIdentity(),
-      unrelatedRootChanges:
-        'analytics-hot-parameters strong identity 5/7 compatibility and UI/cache harness changes are outside the measured capture surfaces.',
+      identityScope:
+        'Start/end hashes cover the listed capture, worker and harness surfaces. The pinned candidate image and revision identify the runtime; these hashes do not assert a full worktree freeze.',
     };
     result.runtime = (
       await q(

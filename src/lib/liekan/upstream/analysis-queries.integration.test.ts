@@ -57,6 +57,10 @@ describe.skipIf(!enabled)('durable private query lifecycle in PostgreSQL', () =>
     );
   });
   afterAll(async () => {
+    await sql('DELETE FROM liekan_analysis_query WHERE actor_id=ANY($1::uuid[])', [
+      actor.id,
+      other.id,
+    ]);
     for (const team of teams) await sql('DELETE FROM team WHERE team_id=$1::uuid', team);
     for (const user of [actor, other])
       await sql('DELETE FROM "user" WHERE user_id=$1::uuid', user.id);

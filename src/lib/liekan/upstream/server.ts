@@ -124,8 +124,13 @@ export async function query<T = any>(sql: string, ...params: unknown[]): Promise
     return runCacheAuthorization(() => primaryMetadataClient().$queryRawUnsafe(sql, ...params));
   return transaction(tx => tx.$queryRawUnsafe(sql, ...params));
 }
-export async function sourceWebsite(tx: any, id: string, identity: WriteIdentity) {
-  await lockWritableWebsite(tx, id, identity);
+export async function sourceWebsite(
+  tx: any,
+  id: string,
+  identity: WriteIdentity,
+  lock: 'update' | 'share' = 'update',
+) {
+  await lockWritableWebsite(tx, id, identity, lock);
   return (
     await tx.$queryRawUnsafe(
       'SELECT domain,user_id,team_id,reset_at FROM website WHERE website_id=$1::uuid',
