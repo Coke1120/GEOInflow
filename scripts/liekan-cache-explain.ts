@@ -7,6 +7,22 @@ import {
   type CacheMatrixEntry,
 } from './liekan-cache-matrix';
 
+import { ANALYSIS_ROLLUP_VERSION } from '../src/lib/liekan/upstream/analysis-rollups-model';
+import { TRAFFIC_POLICY_VERSION } from '../src/lib/liekan/upstream/traffic-query';
+import { CRAWLER_POPULATION_VERSION } from '../src/lib/liekan/rules/population';
+
+const rollupVersionsSql =
+  'SELECT liekan_analysis_versions($1::uuid,$2::text,$3::text,$4::text) AS versions';
+const metadataTags = new Set([
+  ANALYSIS_ROLLUP_VERSION,
+  TRAFFIC_POLICY_VERSION,
+  CRAWLER_POPULATION_VERSION,
+  'log',
+  'visit',
+  'all',
+  'UTC',
+]);
+
 /**
  * Actual execution plans for the disposable cache benchmark. Importing performs no SQL.
  * Call only after every timed scenario and browser/old-image measurement finishes,
@@ -428,6 +444,83 @@ function safeFailure(error: any): SafeFailure {
   };
 }
 
+function syntheticContentBindings(value: string): boolean {
+  try {
+    const items = JSON.parse(value);
+    return (
+      Array.isArray(items) &&
+      items.length > 0 &&
+      items.every(
+        item =>
+          item &&
+          Object.keys(item).every(key => ['path', 'humanPath', 'publishedAt'].includes(key)) &&
+          typeof item.path === 'string' &&
+          item.path.startsWith('/synthetic/') &&
+          typeof item.humanPath === 'string' &&
+          item.humanPath.startsWith('/synthetic/') &&
+          typeof item.publishedAt === 'string' &&
+          Number.isFinite(Date.parse(item.publishedAt)),
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function heavyExplainBindingAllowed(
+  value: unknown,
+  allowedStrings: ReadonlySet<string>,
+): boolean {
+  return (
+    value == null ||
+    typeof value === 'boolean' ||
+    (value instanceof Date && Number.isFinite(value.getTime())) ||
+    (typeof value === 'number' && Number.isFinite(value)) ||
+    (Array.isArray(value) &&
+      value.every(item => heavyExplainBindingAllowed(item, allowedStrings))) ||
+    (typeof value === 'string' &&
+      (allowedStrings.has(value) ||
+        metadataTags.has(value) ||
+        value.startsWith('/synthetic/') ||
+        value.startsWith('synthetic-') ||
+        syntheticContentBindings(value)))
+  );
+}
+
+/** Register only a successful owned metadata read, inside the actual read snapshot. */
+export function rememberHeavyExplainVersions(
+  sql: string,
+  bindings: readonly unknown[],
+  rows: unknown,
+  ownedSites: ReadonlySet<string>,
+  allowedStrings: Set<string>,
+): boolean {
+  if (
+    sql !== rollupVersionsSql ||
+    bindings.length !== 4 ||
+    typeof bindings[0] !== 'string' ||
+    !ownedSites.has(bindings[0]) ||
+    bindings[1] !== ANALYSIS_ROLLUP_VERSION ||
+    bindings[2] !== TRAFFIC_POLICY_VERSION ||
+    bindings[3] !== CRAWLER_POPULATION_VERSION ||
+    !Array.isArray(rows) ||
+    rows.length !== 1
+  )
+    return false;
+  const versions = rows[0]?.versions;
+  if (
+    !versions ||
+    typeof versions !== 'object' ||
+    Array.isArray(versions) ||
+    Object.getPrototypeOf(versions) !== Object.prototype ||
+    Object.keys(versions).length === 0
+  )
+    return false;
+  // Do not whitelist individual fields or unrelated JSON returned by other reads.
+  allowedStrings.add(JSON.stringify(versions));
+  return true;
+}
+
 function assertRead(sql: string) {
   assert(/^\s*(?:SELECT|WITH)\b/i.test(sql), 'Unexpected non-read analytics SQL');
   assert(
@@ -496,32 +589,11 @@ export async function collectHeavyExplains(options: HeavyExplainOptions) {
   process.env.DATABASE_URL = options.connectionString;
   for (const key of envKeys.slice(1)) delete process.env[key];
 
-  const syntheticContentBindings = (value: string) => {
-    try {
-      const items = JSON.parse(value);
-      return (
-        Array.isArray(items) &&
-        items.length > 0 &&
-        items.every(
-          item =>
-            item &&
-            Object.keys(item).every(key => ['path', 'humanPath', 'publishedAt'].includes(key)) &&
-            typeof item.path === 'string' &&
-            item.path.startsWith('/synthetic/') &&
-            typeof item.humanPath === 'string' &&
-            item.humanPath.startsWith('/synthetic/') &&
-            typeof item.publishedAt === 'string' &&
-            Number.isFinite(Date.parse(item.publishedAt)),
-        )
-      );
-    } catch {
-      return false;
-    }
-  };
   let primary: any;
   const functions: FunctionRead[] = [];
   const plans = new Map<string, ExplainRead>();
   const startedAt = new Date().toISOString();
+  const ownedSites = new Set(options.sites);
   const allowedStrings = new Set<string>([
     '',
     options.timezone,
@@ -538,17 +610,7 @@ export async function collectHeavyExplains(options: HeavyExplainOptions) {
     else if (value && typeof value === 'object') Object.values(value).forEach(allowMatrixValue);
   };
   matrix.forEach(entry => allowMatrixValue(entry.extra));
-  const syntheticBinding = (value: unknown): boolean =>
-    value == null ||
-    typeof value === 'boolean' ||
-    (value instanceof Date && Number.isFinite(value.getTime())) ||
-    (typeof value === 'number' && Number.isFinite(value)) ||
-    (Array.isArray(value) && value.every(syntheticBinding)) ||
-    (typeof value === 'string' &&
-      (allowedStrings.has(value) ||
-        value.startsWith('/synthetic/') ||
-        value.startsWith('synthetic-') ||
-        syntheticContentBindings(value)));
+  const syntheticBinding = (value: unknown) => heavyExplainBindingAllowed(value, allowedStrings);
   try {
     const [prismaModule, snapshots, metadata, contexts, human, logs, native, pages, shared] =
       await Promise.all([
@@ -599,6 +661,7 @@ export async function collectHeavyExplains(options: HeavyExplainOptions) {
                   const began = Date.now();
                   try {
                     const rows = await member.call(target, sql, ...bindings);
+                    rememberHeavyExplainVersions(sql, bindings, rows, ownedSites, allowedStrings);
                     statement.rows = Array.isArray(rows) ? rows.length : undefined;
                     return rows;
                   } catch (error) {
