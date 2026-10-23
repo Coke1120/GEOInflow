@@ -7,7 +7,7 @@ import {
   analysisTransaction,
   analysisVersions,
   analysisCapacity,
-  logDimensionsSql,
+  analysisLogDimensionsSql,
   visitDimensionsSql,
   ensureAnalysisPartitions,
   chargeAnalysisGeneration,
@@ -54,11 +54,32 @@ async function logChunk(tx: AnalysisTx, row: AnalysisBuildRow, state: AnalysisCh
   const [result] = await tx.$queryRawUnsafe<
     { rows: string; after_time: string | null; after_id: string | null; bytes: string }[]
   >(
-    `WITH chunk AS MATERIALIZED (
-     SELECT l.id,l.created_at,l.path,${logDimensionsSql} AS dimensions
-     FROM liekan_reporting_log l WHERE l.website_id=$1::uuid AND l.created_at>=$3::timestamptz AND l.created_at<$4::timestamptz
+    `WITH eligible_ids AS MATERIALIZED (
+     SELECT l.id,l.created_at FROM liekan_effective_log l
+     WHERE l.website_id=$1::uuid AND l.created_at>=$3::timestamptz AND l.created_at<$4::timestamptz
      AND ($5::timestamptz IS NULL OR (l.created_at,l.id)>($5::timestamptz,$6::text))
      ORDER BY l.created_at,l.id LIMIT $7
+    ), raw AS MATERIALIZED (
+     SELECT l.* FROM eligible_ids k CROSS JOIN LATERAL (
+      SELECT l.id,l.created_at,l.path,l.bot,l.vendor,l.bot_type,l.reporting_crawler_id,l.reporting_catalog_version,l.reporting_classification_version,
+       l.ai_eligible,l.recognition_state,l.verification,l.user_agent,l.status
+      FROM liekan_reporting_log l WHERE l.website_id=$1::uuid AND l.id=k.id OFFSET 0
+     ) l
+    ), wanted AS MATERIALIZED (
+     SELECT DISTINCT reporting_catalog_version,reporting_crawler_id FROM raw
+    ), selected_versions AS MATERIALIZED (
+     SELECT DISTINCT reporting_catalog_version FROM wanted WHERE reporting_catalog_version IS NOT NULL
+    ), expanded AS MATERIALIZED (
+     SELECT v.version AS catalog_version,item.identity->>'id' AS crawler_id,item.identity->>'productForm' AS product_form,item.ordinal
+     FROM selected_versions requested JOIN liekan_crawler_registry_version v ON v.version=requested.reporting_catalog_version
+     CROSS JOIN LATERAL jsonb_array_elements(v.payload->'identities') WITH ORDINALITY item(identity,ordinal)
+    ), forms AS MATERIALIZED (
+     SELECT DISTINCT ON(e.catalog_version,e.crawler_id) e.catalog_version,e.crawler_id,e.product_form FROM expanded e
+     JOIN wanted w ON w.reporting_catalog_version=e.catalog_version AND w.reporting_crawler_id=e.crawler_id
+     ORDER BY e.catalog_version,e.crawler_id,e.ordinal
+    ), chunk AS MATERIALIZED (
+     SELECT l.id,l.created_at,l.path,${analysisLogDimensionsSql('f.product_form')} AS dimensions FROM raw l
+     LEFT JOIN forms f ON f.catalog_version=l.reporting_catalog_version AND f.crawler_id=l.reporting_crawler_id
     ), counters AS (
      INSERT INTO liekan_analysis_log(website_id,generation,grain,bucket,dimensions,dimension_key,requests,first_at,last_at)
      SELECT $1::uuid,$2::uuid,g.grain,date_bin(g.span,c.created_at,timestamptz '2000-01-01Z'),c.dimensions,md5(c.dimensions::text),count(*),min(c.created_at),max(c.created_at)

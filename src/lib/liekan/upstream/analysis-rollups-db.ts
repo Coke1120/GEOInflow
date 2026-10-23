@@ -118,14 +118,18 @@ export async function chargeAnalysisGeneration(
   );
 }
 
-export const logDimensionsSql = `jsonb_build_object(
+const archivedProductFormSql = `(SELECT identity->>'productForm' FROM liekan_crawler_registry_version v
+   CROSS JOIN LATERAL jsonb_array_elements(v.payload->'identities') identity
+   WHERE v.version=l.reporting_catalog_version AND identity->>'id'=l.reporting_crawler_id LIMIT 1)`;
+export function analysisLogDimensionsSql(productFormSql = archivedProductFormSql) {
+  return `jsonb_build_object(
  'bot',l.bot,'vendor',l.vendor,'type',l.bot_type,'crawlerId',l.reporting_crawler_id,
  'catalogVersion',l.reporting_catalog_version,'classificationVersion',l.reporting_classification_version,
  'aiEligible',l.ai_eligible,'recognitionState',l.recognition_state,'verification',l.verification,
  'selfCheck',l.user_agent LIKE 'Liekan-Crawler-Check/%','status',l.status,
- 'productForm',(SELECT identity->>'productForm' FROM liekan_crawler_registry_version v
-   CROSS JOIN LATERAL jsonb_array_elements(v.payload->'identities') identity
-   WHERE v.version=l.reporting_catalog_version AND identity->>'id'=l.reporting_crawler_id LIMIT 1))`;
+ 'productForm',${productFormSql})`;
+}
+export const logDimensionsSql = analysisLogDimensionsSql();
 export const visitDimensionsSql = `jsonb_build_object(
  'sessionPresent',s.session_id IS NOT NULL,'browser',s.browser,'os',s.os,'device',s.device,'screen',s.screen,'language',s.language,
  'country',e.liekan_country,'region',e.liekan_region,'city',e.liekan_city)`;

@@ -617,6 +617,173 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
     expect(oldWindow.coverage.manifests).toBe(1);
     expect(oldWindow.coverage.rawFallback).toBe(false);
   });
+  it('bounds reporting joins and archived identity expansion after source eligibility without changing repaired facts', async () => {
+    try {
+      expect(createHash('sha256').update(db.logDimensionsSql).digest('hex')).toBe(
+        'fd88430e483bf16cdded464f0233a5ca30b1c500e456cc5105617ebd6602ca61',
+      );
+      const source = randomUUID(),
+        version = randomUUID(),
+        secondVersion = randomUUID(),
+        run = randomUUID(),
+        generation = randomUUID();
+      const base = await (await import('./crawler-registry-context')).loadPublishedRegistry();
+      const identity = base.payload.identities.find(value => value.id === 'gptbot');
+      const [revision] = await q<{ value: bigint }[]>(
+        'SELECT coalesce(max(revision),0) AS value FROM liekan_crawler_registry_version',
+      );
+      for (const [index, archived] of [version, secondVersion].entries()) {
+        const payload = {
+          ...base.payload,
+          identities: [
+            { ...identity, productForm: index ? 'general' : null },
+            { ...identity, productForm: 'workbench' },
+            { ...identity, id: 'alternate', productForm: 'workbench' },
+          ],
+        };
+        await execute(
+          "INSERT INTO liekan_crawler_registry_version(version,revision,content_hash,payload,action) VALUES($1::uuid,$2::bigint,$3,$4::jsonb,'publish')",
+          archived,
+          String(revision.value + BigInt(index + 1)),
+          createHash('sha256').update(JSON.stringify(payload)).digest('hex'),
+          JSON.stringify(payload),
+        );
+      }
+      await execute('INSERT INTO liekan_log_state(website_id) VALUES($1::uuid)', site);
+      await execute(
+        "INSERT INTO liekan_log_source(id,website_id,kind,domain,created_by,owner_id,state) VALUES($1::uuid,$2::uuid,'server','example.test',$3::uuid,$3::uuid,'active')",
+        source,
+        site,
+        actor.userId,
+      );
+      await execute(
+        "INSERT INTO liekan_log_interval(id,website_id,source_id,starts_at,ends_at) VALUES($1::uuid,$2::uuid,$3::uuid,'2026-01-01T00:01Z','2026-01-01T01:00Z')",
+        randomUUID(),
+        site,
+        source,
+      );
+      // Earlier automatic rows have no source interval; a raw LIMIT would stop before eligible rows.
+      await execute(
+        `INSERT INTO liekan_log(id,website_id,import_id,source_id,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification,ai_eligible,recognition_state)
+       SELECT gen_random_uuid()::text,$1::uuid,$2::uuid,$3::uuid,CASE WHEN n<4000 THEN timestamptz '2026-01-01T00:00:01Z' ELSE timestamptz '2026-01-01T00:02Z' END,
+       '/encoded%2F'||(n%4),CASE WHEN n%3=0 THEN 'HEAD' ELSE 'GET' END,200+n%2,0,'','','Synthetic','','GPTBot','OpenAI','训练','verified_range',true,'recognized' FROM generate_series(0,8000)n`,
+        site,
+        imported,
+        source,
+      );
+      await log('2026-01-01T00:00:30Z', { path: '/eligible-manual' });
+      await log('2026-01-01T00:03Z', { path: '/excluded-manual' });
+      await execute(
+        `INSERT INTO liekan_crawler_evidence(website_id,log_id,crawler_id,catalog_version,classification_version)
+       SELECT website_id,id,CASE path WHEN '/encoded%2F0' THEN 'gptbot' WHEN '/encoded%2F1' THEN 'alternate' WHEN '/encoded%2F2' THEN 'missing' ELSE NULL END,
+       CASE WHEN path='/encoded%2F3' THEN NULL WHEN method='HEAD' THEN $2::uuid ELSE $3::uuid END,'archived-fixture'
+       FROM liekan_log WHERE website_id=$1::uuid AND created_at='2026-01-01T00:02Z'`,
+        site,
+        version,
+        secondVersion,
+      );
+      const [repair] = await q<{ id: string }[]>(
+        "SELECT min(id) AS id FROM liekan_log WHERE website_id=$1::uuid AND created_at='2026-01-01T00:02Z' AND path='/encoded%2F0'",
+        site,
+      );
+      await execute(
+        `INSERT INTO liekan_history_repair_run(id,website_id,campaign_id,actor_id,status,generation,active_generation,active_revision,repair_scope_id,snapshot,locale)
+       VALUES($1::uuid,$2::uuid,'traffic-quality-repair-20261022-v1',$3::uuid,'completed',$4::uuid,$4::uuid,1,$5::uuid,'{}','en-US')`,
+        run,
+        site,
+        actor.userId,
+        generation,
+        randomUUID(),
+      );
+      await execute(
+        `INSERT INTO liekan_history_repair_result(run_id,website_id,generation,kind,record_id,before_value,after_value,proof)
+       VALUES($1::uuid,$2::uuid,$3::uuid,'log',$4,'{}',$5::jsonb,$6::jsonb)`,
+        run,
+        site,
+        generation,
+        repair.id,
+        JSON.stringify({ bot: 'Repaired identity', crawlerId: 'alternate', aiEligible: null }),
+        JSON.stringify({ catalogVersion: version, rulepack: 'repair-fixture' }),
+      );
+      const end = new Date('2026-01-01T01:00Z');
+      const oracle = await q(
+        `SELECT * FROM(SELECT ${db.logDimensionsSql} AS dimensions,count(*)::text AS requests,min(l.created_at) AS first_at,max(l.created_at) AS last_at
+       FROM liekan_reporting_log l WHERE l.website_id=$1::uuid AND l.created_at>=$2 AND l.created_at<$3 GROUP BY 1) oracle ORDER BY dimensions::text`,
+        site,
+        from,
+        end,
+      );
+      const raw = await api.readAnalysisLogRollup(input({ endDate: end }));
+      expect(raw.summary.requests).toBe(4002);
+      let savedPlan: any;
+      const original = db.analysisTransaction;
+      const spy = vi.spyOn(db, 'analysisTransaction').mockImplementation(((work: any, level: any) =>
+        original(
+          async tx =>
+            work({
+              $executeRawUnsafe: (statement: string, ...values: unknown[]) =>
+                tx.$executeRawUnsafe(statement, ...values),
+              $queryRawUnsafe: async (statement: string, ...values: unknown[]) => {
+                if (!savedPlan && statement.includes('INSERT INTO liekan_analysis_log')) {
+                  await tx.$executeRawUnsafe('SAVEPOINT bounded_log_plan');
+                  const [plan] = await tx.$queryRawUnsafe<any[]>(
+                    `EXPLAIN(ANALYZE,BUFFERS,VERBOSE,FORMAT JSON) ${statement}`,
+                    ...values,
+                  );
+                  await tx.$executeRawUnsafe('ROLLBACK TO SAVEPOINT bounded_log_plan');
+                  savedPlan = plan['QUERY PLAN'][0];
+                  await writeFile(
+                    `${process.env.LIEKAN_ANALYSIS_ROLLUPS_OUTPUT}/bounded-log-chunk-plan.json`,
+                    JSON.stringify(savedPlan),
+                    { mode: 0o600 },
+                  );
+                }
+                return tx.$queryRawUnsafe(statement, ...values);
+              },
+            }),
+          level,
+        )) as any);
+      try {
+        await finish(await build(from, end));
+      } finally {
+        spy.mockRestore();
+      }
+      const facts = await q(
+        `SELECT l.dimensions,l.requests::text,l.first_at,l.last_at FROM liekan_analysis_log l JOIN liekan_analysis_manifest m
+       ON m.website_id=l.website_id AND m.generation=l.generation AND m.family='log'
+       WHERE l.website_id=$1::uuid AND l.grain='hour' ORDER BY l.dimensions::text`,
+        site,
+      );
+      await writeFile(
+        `${process.env.LIEKAN_ANALYSIS_ROLLUPS_OUTPUT}/bounded-log-chunk-facts.json`,
+        JSON.stringify({ oracle, facts }),
+        { mode: 0o600 },
+      );
+      expect(facts).toEqual(oracle);
+      expect(facts.some(row => (row.dimensions as any).productForm === null)).toBe(true);
+      expect(facts.some(row => (row.dimensions as any).bot === 'Repaired identity')).toBe(true);
+      const covered = await api.readAnalysisLogRollup(input({ endDate: end }));
+      expect(withoutCoverage(covered)).toEqual(withoutCoverage(raw));
+      expect(covered.coverage.rawFallback).toBe(false);
+      const nodes: any[] = [];
+      const walk = (node: any) => {
+        nodes.push(node);
+        for (const child of node.Plans || []) walk(child);
+      };
+      expect(savedPlan).toBeDefined();
+      walk(savedPlan.Plan);
+      const evidence = nodes.filter(node => node['Relation Name'] === 'liekan_crawler_evidence');
+      expect(evidence.length).toBeGreaterThan(0);
+      expect
+        .soft(Math.max(...evidence.map(node => node['Actual Rows'] * node['Actual Loops'])))
+        .toBeLessThanOrEqual(2000);
+      const catalogs = nodes.filter(node => node['Function Name'] === 'jsonb_array_elements');
+      expect(catalogs.length).toBeGreaterThan(0);
+      expect.soft(Math.max(...catalogs.map(node => node['Actual Loops']))).toBeLessThanOrEqual(2);
+    } finally {
+      await api.actionAnalysisBuild(site, actor, { action: 'disable', requestId: randomUUID() });
+    }
+  }, 30000);
   it('publishes the recent complete-day canary first and keeps low logs exact after path expansion stops', async () => {
     const task = await build();
     const [start] = await q<{ checkpoint: { stage: string; hour: string; canaryUntil: string } }[]>(
