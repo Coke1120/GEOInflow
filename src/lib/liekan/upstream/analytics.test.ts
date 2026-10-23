@@ -102,6 +102,7 @@ describe('saved funnel isolation', () => {
     configure({ window: 30, steps: [{ type: 'path', value: '/a' }, { type: 'event' }] });
     vi.mocked(getFunnel).mockRejectedValue(new Error('private upstream configuration'));
     const facts = await getHumanFacts('site', start, end, 'Asia/Shanghai');
+    expect(humanTotals).toHaveBeenCalledWith('site', start, end, 'Asia/Shanghai');
     expect(facts.totals.pageviews).toBe(1);
     expect(facts).toMatchObject({
       funnel: [],

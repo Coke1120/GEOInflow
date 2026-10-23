@@ -1,4 +1,5 @@
 'use client';
+import { browserPopulationSchema } from '../contracts/browser-population';
 import {
   analysisAsyncPath,
   followAnalysisJob,
@@ -106,6 +107,31 @@ function retryAfter(response: Response) {
     Date.parse(response.headers.get('Date') || '');
   return Math.max(0, Date.parse(value) - (Number.isFinite(serverTime) ? serverTime : Date.now()));
 }
+function rememberPopulation(data: any, headers: Headers, params?: Record<string, any>) {
+  if (!data || typeof data !== 'object' || data.population) return;
+  try {
+    const values = JSON.parse(headers.get('X-Liekan-Population') || '{}').populations;
+    if (!Array.isArray(values)) return;
+    const hasRange = params?.startAt != null && params?.endAt != null;
+    const selected = hasRange
+      ? values.find(
+          entry =>
+            entry?.range?.startAt === Number(params.startAt) &&
+            entry.range.endAt === Number(params.endAt) &&
+            (!params.timezone || entry.range.timezone === params.timezone),
+        )
+      : values[0];
+    const population = browserPopulationSchema.safeParse(selected);
+    if (population.success)
+      Object.defineProperty(data, 'population', {
+        value: population.data,
+        enumerable: !Array.isArray(data),
+        configurable: true,
+      });
+  } catch {
+    /* Invalid optional metadata never changes a successful legacy response. */
+  }
+}
 export async function featureRequest<T = any>(
   method: string,
   path: string,
@@ -185,6 +211,7 @@ export async function featureRequest<T = any>(
         signal: requestSignal,
         onPrevious: value => {
           if (requestSignal?.aborted) return;
+          rememberPopulation(value, response.headers, params);
           rememberResponseFreshness(
             value,
             response.headers,
@@ -207,6 +234,7 @@ export async function featureRequest<T = any>(
       data = result.data;
       startedAt = result.startedAt;
     }
+    rememberPopulation(data, response.headers, params);
     if (aggregate || (geoSnapshot && data?.taskStatus === 'ready' && data?.result))
       rememberResponseFreshness(
         data,

@@ -3,6 +3,7 @@ import { withinQuerySnapshot } from './query-snapshot';
 import { createHash, randomUUID } from 'node:crypto';
 import { writeFile } from 'node:fs/promises';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { HISTORY_REPAIR_ENGINE } from '../contracts/history-repair';
 import type { AnalysisBuildDto, AnalysisLogInput } from './analysis-rollups-model';
 let api: typeof import('./analysis-rollups');
 let db: typeof import('./analysis-rollups-db');
@@ -128,6 +129,14 @@ async function event(
     options.classification || 'browser',
     options.source || 'browser',
     options.hostname || 'example.test',
+  );
+  await execute(
+    `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser,os,device,screen,language)
+     SELECT $1::uuid,$2::uuid,'browser','synthetic-fixture',true,s.browser,s.os,s.device,s.screen,s.language
+     FROM session s WHERE s.website_id=$2::uuid AND s.session_id=$3::uuid`,
+    id,
+    site,
+    session,
   );
   return id;
 }
@@ -372,7 +381,13 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       "INSERT INTO liekan_collection_policy(website_id,mode) VALUES($1::uuid,'raw')",
       site,
     );
-    expect((await readVisits(args)).pageviews).toBe(1);
+    const [population] = await q<{ raw: bigint; eligible: bigint }[]>(
+      `SELECT (SELECT count(*) FROM website_event WHERE website_id=$1::uuid) AS raw,
+       (SELECT count(*) FROM liekan_geographic_website_event WHERE website_id=$1::uuid) AS eligible`,
+      site,
+    );
+    expect(population).toEqual({ raw: 1n, eligible: 0n });
+    expect((await readVisits(args)).pageviews).toBe(Number(population.eligible));
   });
   it('keeps capture while paused, fences disabled generations and replays management receipts', async () => {
     const task = await build();
@@ -902,8 +917,17 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       orphan,
       site,
     );
-    const normalizeNative = (value: unknown) =>
-      JSON.parse(JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? Number(v) : v)));
+    const normalizeNative = (value: unknown) => {
+      const result = JSON.parse(
+        JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? Number(v) : v)),
+      );
+      if (result?.population) {
+        expect(['complete', 'empty']).toContain(result.population.identity.status);
+        const { population: _population, ...counts } = result;
+        return counts;
+      }
+      return result;
+    };
     const nativeStats = (filters: Record<string, unknown> = {}) =>
       import('@/queries/sql/getWebsiteStats').then(m =>
         m
@@ -927,7 +951,7 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
           .then(normalizeNative),
       );
     const expected = await nativeStats();
-    expect(expected).toMatchObject({ pageviews: 2, visitors: 2, visits: 2 });
+    expect(expected).toMatchObject({ pageviews: 1, visitors: 1, visits: 1 });
     for (const filters of [
       {},
       { city: 'eq.Beijing' },
@@ -955,6 +979,12 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
     await execute(
       "INSERT INTO session(session_id,website_id,browser,country) VALUES($1::uuid,$2::uuid,'Firefox','CN')",
       session,
+      site,
+    );
+    await execute(
+      `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser)
+      VALUES($1::uuid,$2::uuid,'browser','synthetic-fixture',true,'Firefox')`,
+      orphan,
       site,
     );
     expect(
@@ -1117,12 +1147,13 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       );
       await execute(
         `INSERT INTO liekan_history_repair_run(id,website_id,campaign_id,actor_id,status,generation,repair_scope_id,snapshot,locale)
-       VALUES($1::uuid,$2::uuid,'traffic-quality-repair-20261022-v1',$3::uuid,'scanning',$4::uuid,$5::uuid,'{}','en-US')`,
+       VALUES($1::uuid,$2::uuid,'traffic-quality-repair-20261022-v1',$3::uuid,'scanning',$4::uuid,$5::uuid,$6::jsonb,'en-US')`,
         run,
         site,
         actor.userId,
         generation,
         randomUUID(),
+        JSON.stringify({ rulepack: { engine: HISTORY_REPAIR_ENGINE } }),
       );
       await log('2026-01-01T00:01:00Z');
       await finish(await build(from, new Date('2026-01-02Z')));
@@ -1975,6 +2006,11 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
         eventId,
         site,
       );
+      await execute(
+        "INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser) VALUES($1::uuid,$2::uuid,'browser','fixture-event-environment',true,'Event browser')",
+        eventId,
+        site,
+      );
       control = api
         .actionAnalysisBuild(site, actor, { action: 'enable', requestId: randomUUID() })
         .then(v => {
@@ -1998,7 +2034,15 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       endDate: new Date(+from + 3600000),
       type: 'browser',
     });
-    expect(metrics).toEqual([{ x: 'LateBrowser', y: 1 }]);
+    const expected = await q<{ x: string; y: bigint }[]>(
+      `SELECT e.liekan_browser AS x,count(DISTINCT e.session_id) AS y
+       FROM liekan_geographic_website_event e JOIN session s ON s.website_id=e.website_id AND s.session_id=e.session_id
+       WHERE e.website_id=$1::uuid AND e.event_id=$2::uuid GROUP BY 1`,
+      site,
+      eventId,
+    );
+    expect(expected).toEqual([{ x: 'Event browser', y: 1n }]);
+    expect(metrics).toEqual(expected.map(row => ({ ...row, y: Number(row.y) })));
     expect(prebuilt).toBe(false);
   });
   it('continues closed five-minute maintenance inside a paused manual history range', async () => {
@@ -2566,20 +2610,22 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
     const suspended = await q<{ id: string; status: string }[]>(
       "SELECT id,status FROM liekan_analysis_build WHERE actor_id IS NULL AND status IN('queued','running')",
     );
-    await execute(
-      "UPDATE liekan_analysis_build SET status='paused' WHERE actor_id IS NULL AND status IN('queued','running')",
-    );
-    const task = await build(from, new Date(+from + 3600000));
-    await execute(
-      `INSERT INTO liekan_history_repair_run(id,website_id,campaign_id,actor_id,status,generation,repair_scope_id,snapshot,locale)
-      VALUES($1::uuid,$2::uuid,'traffic-quality-repair-20261022-v1',$3::uuid,'running',$4::uuid,$5::uuid,'{}','en-US')`,
-      randomUUID(),
-      site,
-      actor.userId,
-      randomUUID(),
-      randomUUID(),
-    );
+    let task: AnalysisBuildDto;
     try {
+      await execute(
+        "UPDATE liekan_analysis_build SET status='paused' WHERE actor_id IS NULL AND status IN('queued','running')",
+      );
+      task = await build(from, new Date(+from + 3600000));
+      await execute(
+        `INSERT INTO liekan_history_repair_run(id,website_id,campaign_id,actor_id,status,generation,repair_scope_id,snapshot,locale)
+      VALUES($1::uuid,$2::uuid,'traffic-quality-repair-20261022-v1',$3::uuid,'running',$4::uuid,$5::uuid,$6::jsonb,'en-US')`,
+        randomUUID(),
+        site,
+        actor.userId,
+        randomUUID(),
+        randomUUID(),
+        JSON.stringify({ rulepack: { engine: HISTORY_REPAIR_ENGINE } }),
+      );
       await execute(
         'UPDATE liekan_analysis_background_lease SET token=NULL,lease_until=NULL,interactive_turns=5 WHERE id',
       );
@@ -2600,7 +2646,11 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
         "UPDATE liekan_history_repair_run SET status='cancelled' WHERE website_id=$1::uuid",
         site,
       );
-      await execute("UPDATE liekan_analysis_build SET status='paused' WHERE id=$1::uuid", task.id);
+      if (task)
+        await execute(
+          "UPDATE liekan_analysis_build SET status='paused' WHERE id=$1::uuid",
+          task.id,
+        );
       for (const status of ['queued', 'running']) {
         const ids = suspended.filter(row => row.status === status).map(row => row.id);
         if (ids.length)

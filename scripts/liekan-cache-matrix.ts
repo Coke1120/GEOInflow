@@ -3,6 +3,12 @@ import { createHash, randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import { pageReportSchema, pageReportParts } from '../src/lib/liekan/contracts/page-report';
+import {
+  assertBenchmarkSites,
+  refreshBenchmarkPropertyEvidence,
+  seedBenchmarkBrowserEvidence,
+  updateBenchmarkBrowser,
+} from './liekan-benchmark-fixtures';
 
 export const geoDownloadEvent = 'synthetic-geo-download';
 export const geoContentPaths = [
@@ -699,6 +705,7 @@ export async function verifyDirectCacheFreshness(
   seeded: any,
 ) {
   const site = seeded.savedSite;
+  await assertBenchmarkSites(db, [site]);
   const read = async (path: string, extra: Record<string, unknown>) => {
     const response = await fetch(
       `${base}${path}?${new URLSearchParams(Object.fromEntries(Object.entries({ ...range, ...extra }).map(([k, v]) => [k, String(v)])))}`,
@@ -709,14 +716,15 @@ export async function verifyDirectCacheFreshness(
   };
   const analytics = `/api/liekan/websites/${site}/analytics`;
   await read(analytics, { kind: 'session', sessionId: seeded.knownSession });
-  await db.query(
-    `WITH inserted AS (
-      INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name)
-      VALUES(gen_random_uuid(),$1,$2,$2,to_timestamp($3/1000.0)-interval '2 seconds','/synthetic/detail-fresh',2,'synthetic-detail-fresh')
-      RETURNING event_id,website_id,hostname,created_at
-    ) INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,hostname,created_at)
-      SELECT event_id,website_id,'browser','browser','{synthetic-benchmark}','synthetic-cache-fixture-v1','untrusted',hostname,created_at FROM inserted`,
+  const inserted = await db.query(
+    `INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name)
+    VALUES(gen_random_uuid(),$1,$2,$2,to_timestamp($3/1000.0)-interval '2 seconds','/synthetic/detail-fresh',2,'synthetic-detail-fresh') RETURNING event_id`,
     [site, seeded.knownSession, range.endAt],
+  );
+  await seedBenchmarkBrowserEvidence(
+    db,
+    [site],
+    inserted.rows.map(row => row.event_id),
   );
   assert(
     (await read(analytics, { kind: 'session', sessionId: seeded.knownSession })).rows.some(
@@ -724,10 +732,9 @@ export async function verifyDirectCacheFreshness(
     ),
   );
   await read(analytics, { kind: 'sessions', page: 1 });
-  await db.query('UPDATE session SET browser=$1 WHERE session_id=$2', [
-    'synthetic-fresh',
-    seeded.knownSession,
-  ]);
+  const updateBrowser = (browser: string, session: string) =>
+    updateBenchmarkBrowser(db, site, session, browser);
+  await updateBrowser('synthetic-fresh', seeded.knownSession);
   assert(
     (await read(analytics, { kind: 'sessions', page: 1 })).rows.some(
       (r: any) => r.id === seeded.knownSession && r.browser === 'synthetic-fresh',
@@ -736,10 +743,7 @@ export async function verifyDirectCacheFreshness(
   const revenue = `/api/websites/${site}/revenue/sessions`;
   const revenueBefore = await read(revenue, { currency: 'CNY', page: 1, pageSize: 25 });
   const firstRevenue = revenueBefore.data[0].id;
-  await db.query('UPDATE session SET browser=$1 WHERE session_id=$2', [
-    'synthetic-revenue',
-    firstRevenue,
-  ]);
+  await updateBrowser('synthetic-revenue', firstRevenue);
   assert(
     (await read(revenue, { currency: 'CNY', page: 1, pageSize: 25 })).data.some(
       (r: any) => r.id === firstRevenue && r.browser === 'synthetic-revenue',
@@ -747,10 +751,7 @@ export async function verifyDirectCacheFreshness(
   );
   const secondRevenue = (await read(revenue, { currency: 'CNY', page: 2, pageSize: 25 })).data[0]
     .id;
-  await db.query('UPDATE session SET browser=$1 WHERE session_id=$2', [
-    'synthetic-page2',
-    secondRevenue,
-  ]);
+  await updateBrowser('synthetic-page2', secondRevenue);
   assert(
     (await read(revenue, { currency: 'CNY', page: 2, pageSize: 25 })).data.some(
       (r: any) => r.id === secondRevenue && r.browser === 'synthetic-page2',
@@ -762,6 +763,7 @@ export async function verifyDirectCacheFreshness(
     seeded.knownSession,
     'plan',
   ]);
+  await refreshBenchmarkPropertyEvidence(db, [site]);
   assert(
     (await read(analytics, { kind: 'session-properties' })).rows.some(
       (r: any) => r.value === 'synthetic-detail-fresh',

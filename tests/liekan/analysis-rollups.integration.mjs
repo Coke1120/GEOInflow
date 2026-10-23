@@ -5,6 +5,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
+import { verifyAnalysisUpgradeHistories } from './analysis-upgrade-history.mjs';
 
 const args = process.argv.slice(2);
 if (args[0] === '--') args.shift();
@@ -228,6 +229,18 @@ try {
   await run('pnpm', ['exec', 'prisma', 'migrate', 'deploy']);
   await run('node', ['scripts/liekan-migrate.mjs']);
   await run('node', ['scripts/liekan-migrate.mjs']);
+  if (!benchmark && !captureBenchmark) {
+    await verifyAnalysisUpgradeHistories({ run, env, folder });
+    const browser = await run(
+      'pnpm',
+      ['exec', 'tsx', 'tests/liekan/browser-population.integration.ts'],
+      { env: { ...env, LIEKAN_HUMAN_TEST_DATABASE_URL: env.DATABASE_URL } },
+    );
+    await writeFile(`${folder}/browser-population.log`, browser.output, { mode: 0o600 });
+    const cases = Number(browser.output.match(/(\d+) integration cases passed/)?.[1]);
+    if (!cases) throw new Error('Browser population integration did not run its cases');
+    console.log(`Browser population and environment integration passed: ${cases} cases`);
+  }
   await run('node', ['scripts/liekan-queue-bootstrap.mjs']);
   if (captureBenchmark) {
     const started = Date.now();
@@ -313,6 +326,7 @@ try {
       : [
           'src/lib/liekan/upstream/analysis-ingestion.integration.test.ts',
           'src/lib/liekan/upstream/analysis-revenue.integration.test.ts',
+          'src/lib/liekan/upstream/analysis-population.integration.test.ts',
           'src/lib/liekan/upstream/analysis-rollups.integration.test.ts',
           'src/lib/liekan/upstream/analysis-queries.integration.test.ts',
         ];

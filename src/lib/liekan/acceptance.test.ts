@@ -53,6 +53,7 @@ const head=${JSON.stringify(head)}, upstream=${JSON.stringify(upstream)}, lock=$
 const port=fault==='default-http-port'?80:fault==='custom-port'?3346:3302, baseUrl='http://127.0.0.1:'+port;
 let keepAlive, restoreStarted=false;
 const ledger=Object.entries(lock).map(([name,checksum])=>({name,checksum,appliedAt:'fixture'}));
+if(fault==='independent-migration')ledger.push({name:'036_independent_fixture.sql',checksum:'a'.repeat(64),appliedAt:'earlier'});
 if(fault==='installation-checksum')ledger.find(row=>row.name==='006_website_installation.sql').checksum='changed';
 const official=[{migration_name:'26_add_api_key',checksum:createHash('sha256').update('SELECT 1;\\n').digest('hex'),finished_at:'fixture',rolled_back_at:null}];
 if(fault==='official-checksum')official[0].checksum='modified';
@@ -84,7 +85,7 @@ cp.execFileSync=(command,args,options={})=>{
   if(sql.includes('_prisma_migrations'))return JSON.stringify(fault==='pending-upgrade'&&args.includes('liekan_restore')&&!restoreStarted?[]:official);
   if(sql==='SELECT count(*) FROM liekan_migration')return String(upstream.liekanMigration);
   if(sql.startsWith('SELECT json_build_object'))return JSON.stringify({user:2,website:1,session:3,website_event:5,report:1,liekan_log:1,liekan_import:1,liekan_catalog:1,liekan_setting:1,liekan_migration:upstream.liekanMigration});
-  if(sql.startsWith('SELECT json_agg'))return JSON.stringify(ledger.map(row=>sql.includes('appliedAt')?row:{name:row.name,checksum:row.checksum}));
+  if(sql.startsWith('SELECT json_agg')||sql.startsWith('SELECT coalesce(json_agg'))return JSON.stringify(ledger.map(row=>sql.includes('appliedAt')?row:{name:row.name,checksum:row.checksum}));
  }
  return 'ok';
 };
@@ -161,7 +162,7 @@ globalThis.fetch=async(_url,options={})=>{
 }
 
 describe('isolated acceptance CLI failure paths', () => {
-  it.each(['none', 'custom-port', 'default-http-port'])(
+  it.each(['none', 'custom-port', 'default-http-port', 'independent-migration'])(
     'accepts a complete isolated fixture with %s',
     fault => {
       const setup = fixture(fault);
@@ -179,6 +180,9 @@ describe('isolated acceptance CLI failure paths', () => {
         );
         expect(report.url).toBe(
           `http://127.0.0.1:${fault === 'default-http-port' ? 80 : fault === 'custom-port' ? 3346 : 3302}`,
+        );
+        expect(report.preservedIndependentMigrations).toEqual(
+          fault === 'independent-migration' ? ['036_independent_fixture.sql'] : [],
         );
         expect(report.dataRegression.readOnly).toBe(true);
         expect(report.dataRegression.checks).toHaveLength(8);

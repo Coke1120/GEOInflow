@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { z } from 'zod';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { json, unauthorized } from '@/lib/response';
@@ -5,7 +6,7 @@ import { filterParams } from '@/lib/schema';
 import { canViewWebsiteSection } from '@/permissions';
 import { getWebsiteSessionStats } from '@/queries/sql';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -31,12 +32,16 @@ export async function GET(
 
   const metrics = await getWebsiteSessionStats(websiteId, filters);
 
-  const data = Object.keys(metrics[0]).reduce((obj, key) => {
-    obj[key] = {
-      value: Number(metrics[0][key]) || 0,
-    };
-    return obj;
-  }, {});
+  const { population, ...values } = metrics[0];
+  const data = Object.fromEntries(
+    Object.entries(values).map(([key, value]) => [
+      key,
+      { value: value === null ? null : Number(value) || 0 },
+    ]),
+  );
+  return json({ ...data, ...(population ? { population } : {}) });
+}
 
-  return json(data);
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args), args[0]);
 }

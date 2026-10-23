@@ -1,3 +1,5 @@
+import { applyReportPopulation, identityUnavailableReason } from './contracts/population-results';
+import { identityUsable } from './contracts/browser-population';
 import { getPublishedCatalog } from './crawlers/published';
 import { crawlerAiRequests, isUnknownCrawler } from './rules/population';
 import { differenceInCalendarDays, endOfDay } from 'date-fns';
@@ -193,7 +195,8 @@ export async function buildReport(
   );
   h.geo = mergeGeography(h.geo);
   const t = h.totals;
-  const humanState: DataState = t.visits ? 'available' : 'empty',
+  const identityReady = identityUsable(t.population);
+  const humanState: DataState = t.pageviews ? 'available' : 'empty',
     logState: DataState =
       (l.connected ?? Boolean(l.latest))
         ? l.summary.requests
@@ -217,7 +220,12 @@ export async function buildReport(
         ? {
             crawlerPageBots: l.bots
               .filter(bot => crawlerAiRequests(bot) > 0)
-              .map(bot => ({ botId: bot.botId ?? null, name: bot.name, type: bot.type, productForm: bot.productForm })),
+              .map(bot => ({
+                botId: bot.botId ?? null,
+                name: bot.name,
+                type: bot.type,
+                productForm: bot.productForm,
+              })),
           }
         : {}),
       ...(!parts || parts.human?.includes('geo' as never)
@@ -617,13 +625,18 @@ export async function buildReport(
       },
       {
         name: 'UV',
-        values: plotLabels.map(day => Number(plotHuman.find(d => d.day === day)?.uv ?? 0)),
+        values: plotLabels.map(day => {
+          const value = plotHuman.find(d => d.day === day)?.uv;
+          return value === null ? null : Number(value ?? 0);
+        }),
       },
       {
         name: '跳出率',
         values: plotLabels.map(day => {
           const row = plotHuman.find(d => d.day === day);
-          return pct(Number(row?.bounces ?? 0), Number(row?.sessions ?? 0));
+          return row?.bounces === null || row?.sessions === null
+            ? null
+            : pct(Number(row?.bounces ?? 0), Number(row?.sessions ?? 0));
         }),
       },
     ],
@@ -1031,7 +1044,14 @@ export async function buildReport(
   if (!parts || parts.insights) {
     const insightDate = (time: number) => formatInTimeZone(time, p.timezone, 'yyyy-MM-dd');
     r.insights = [
-      `${insightDate(p.startAt)} 至 ${insightDate(Math.max(p.startAt, readEndAt - (halfOpen ? 1 : 0)))}：${t.pageviews} 次浏览、${t.visits} 次访问。`,
+      ...(identityReady
+        ? [
+            `${insightDate(p.startAt)} 至 ${insightDate(Math.max(p.startAt, readEndAt - (halfOpen ? 1 : 0)))}：${t.pageviews} 次浏览、${t.visits} 次访问。`,
+          ]
+        : [
+            `${insightDate(p.startAt)} 至 ${insightDate(Math.max(p.startAt, readEndAt - (halfOpen ? 1 : 0)))}：${t.pageviews} 次浏览。`,
+            identityUnavailableReason,
+          ]),
       l.latest
         ? `已导入日志识别 ${l.summary.ai} 次 AI 请求；按 UA 分类，官方 IP 范围匹配结果见访问流。`
         : '接入服务器日志后可计算 AI 抓取统计。',
@@ -1041,11 +1061,6 @@ export async function buildReport(
       '结构化评分来自导入元数据；抓取完成率仍需正文传输证据。',
     ];
     if (pageOnly !== 'share' && h.funnelError) r.insights.push(h.funnelError);
-    r.tables.recoList = r.insights.map((detail, i) => ({
-      name: `观察 ${i + 1}`,
-      detail,
-      state: '规则生成',
-    }));
   }
   for (const [id, data] of Object.entries(r.charts)) {
     if (['not_connected', 'unsupported'].includes(data.state ?? '')) {
@@ -1066,8 +1081,17 @@ export async function buildReport(
     r.charts.d2 = { labels: [], series: [], state: 'unsupported' };
     r.tables.visitorTopBody = h.pages.map(page => ({ path: page.path, pv: page.pv, uv: page.uv }));
     r.insights = [
-      `所选统计范围：${t.pageviews} 次浏览、${t.visitors} 位访客、${t.visits} 次访问。`,
+      ...(identityReady
+        ? [`所选统计范围：${t.pageviews} 次浏览、${t.visitors} 位访客、${t.visits} 次访问。`]
+        : [`所选统计范围：${t.pageviews} 次浏览。`, identityUnavailableReason]),
     ];
+  }
+  if (!parts || parts.insights || visitorOverview) {
+    r.tables.recoList = r.insights.map((detail, i) => ({
+      name: `观察 ${i + 1}`,
+      detail,
+      state: '规则生成',
+    }));
   }
   const displayParts =
     visitorOverview && parts && pageOnly !== 'share'
@@ -1129,5 +1153,5 @@ export async function buildReport(
   if (Object.values(geography).some(entries => Object.keys(entries).length))
     r.meta.geography = geography;
   if (!fullTableExport) capTablePages(r, p.tablePages, pageOnly === true);
-  return r;
+  return applyReportPopulation(r, t.population);
 }

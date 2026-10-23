@@ -1,3 +1,4 @@
+import { browserPopulationSchema } from '../contracts/browser-population';
 import { formatInTimeZone } from 'date-fns-tz';
 import { z } from 'zod';
 import { dataStateSchema } from '../contracts/report';
@@ -10,7 +11,7 @@ const ratio = z.number().finite().nullable();
 const text = z.string().max(200);
 const timestamp = z.iso.datetime({ offset: true });
 export const aiRangeSchema = z.object({ startAt: timestamp, endAt: timestamp });
-const totals = z.object({ pageviews: count, visitors: count, visits: count });
+const totals = z.object({ pageviews: count, visitors: count.nullable(), visits: count.nullable() });
 const logTotals = z.object({
   requests: count,
   aiRequests: count,
@@ -150,8 +151,8 @@ export const aiFactSchema = z.discriminatedUnion('id', [
             type: z.enum(['path', 'event']),
             count,
             previousCount: count,
-            convertedVisits: count,
-            previousConvertedVisits: count,
+            convertedVisits: count.nullable(),
+            previousConvertedVisits: count.nullable(),
             ratePercent: ratio,
             previousRatePercent: ratio,
             changePercent: ratio,
@@ -165,6 +166,8 @@ export const aiFactSchema = z.discriminatedUnion('id', [
   }),
 ]);
 export const aiFactsContextSchema = z.object({
+  population: browserPopulationSchema.optional(),
+  previousPopulation: browserPopulationSchema.optional(),
   protocolVersion: z.literal(1),
   id: aiUuidSchema,
   website: z.object({ id: aiUuidSchema, name: text, domain: z.string().max(253).nullable() }),
@@ -177,7 +180,9 @@ export const aiFactsContextSchema = z.object({
   metricVersion: z.literal('liekan-ai-facts-v1'),
   catalogVersion: aiUuidSchema.optional(),
   trafficPolicyVersion: z.string().min(1).max(128).optional(),
-  historyRepair: z.object({generation:aiUuidSchema.nullable(),revision:z.string().regex(/^\d+$/)}).optional(),
+  historyRepair: z
+    .object({ generation: aiUuidSchema.nullable(), revision: z.string().regex(/^\d+$/) })
+    .optional(),
   promptVersion: z.literal('liekan-ai-prompt-v1'),
   coverage: z.literal('unverified'),
   rangeNotes: z.object({

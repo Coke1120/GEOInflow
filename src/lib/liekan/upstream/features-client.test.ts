@@ -16,7 +16,109 @@ import {
   resumeFeatureLogin,
   refreshFeatureIdentity,
 } from './features-client';
-import { withClientFreshness } from './client-freshness';
+import { freshnessExpiry, withClientFreshness } from './client-freshness';
+
+it('keeps previous and final async populations with their own exact range and freshness headers', async () => {
+  vi.useFakeTimers();
+  const site = '11111111-1111-4111-8111-111111111111';
+  const jobId = '22222222-2222-4222-8222-222222222222';
+  const range = { startAt: 1000, endAt: 2000, timezone: 'UTC' };
+  const population = {
+    resourceId: site,
+    populationVersion: 'browser-population-v4',
+    resourceKind: 'website',
+    capability: 'supported',
+    scope: 'resource-window',
+    policyRevision: '1',
+    historyActiveGeneration: null,
+    historyRevision: null,
+    epoch: '3',
+    governanceRevision: '4',
+    governanceWatermark: null,
+    identity: {
+      status: 'partial',
+      eligibleEvents: 8,
+      eligiblePV: 5,
+      qualifiedPV: 2,
+      qualifiedVisitors: 1,
+      coverage: 0.4,
+      versions: ['identity-v1'],
+    },
+    ruleVersions: ['rule-v1'],
+    catalogVersions: ['catalog-v1'],
+    versionSetsTruncated: false,
+    range,
+  };
+  const finalPopulation = {
+    ...population,
+    policyRevision: '2',
+    identity: { ...population.identity, status: 'complete', coverage: 1 },
+  };
+  const job = {
+    id: jobId,
+    websiteId: site,
+    status: 'queued',
+    queuedAt: '2026-01-01T00:00:00.000Z',
+    startedAt: null,
+    completedAt: null,
+    generatedAt: null,
+    expiresAt: null,
+    errorCode: null,
+    retryAfterMs: 3000,
+    resultUrl: `/liekan/websites/${site}/analytics-jobs/${jobId}/result`,
+  };
+  const now = Date.now();
+  const headers = (p: unknown, lifetime: number) => ({
+    'X-Liekan-Population': JSON.stringify({ populations: [p] }),
+    'X-Liekan-Generated-At': String(now),
+    'X-Liekan-Server-Time': String(now),
+    'X-Liekan-Expires-At': String(now + lifetime),
+  });
+  const fetcher = vi
+    .fn()
+    .mockResolvedValueOnce(
+      Response.json(
+        { analysisJob: job, previousResult: [{ x: 'old', y: null }] },
+        { status: 202, headers: headers(population, 10000) },
+      ),
+    )
+    .mockResolvedValueOnce(Response.json({ analysisJob: { ...job, status: 'ready' } }))
+    .mockResolvedValueOnce(
+      Response.json([{ x: 'new', y: 2 }], { headers: headers(finalPopulation, 60000) }),
+    );
+  vi.stubGlobal('fetch', fetcher);
+  const previous = vi.fn();
+  try {
+    const pending = featureApi.get(
+      `/liekan/websites/${site}/analytics`,
+      { ...range, kind: 'visitors' },
+      undefined,
+      { onPrevious: previous },
+    );
+    await vi.advanceTimersByTimeAsync(3000);
+    const result = await pending;
+    expect(previous).toHaveBeenCalledTimes(1);
+    expect(previous.mock.calls[0][0].population).toEqual(population);
+    expect(freshnessExpiry(previous.mock.calls[0][0])).toBe(now + 10000);
+    expect(result.population).toEqual(finalPopulation);
+    expect(freshnessExpiry(result)).toBe(now + 60000);
+    expect(JSON.stringify(result)).toBe('[{"x":"new","y":2}]');
+    expect(fetcher).toHaveBeenCalledTimes(3);
+    for (const wrong of [
+      { ...population, range: { ...range, startAt: 0 } },
+      { ...population, range: { ...range, timezone: 'Asia/Shanghai' } },
+    ]) {
+      fetcher.mockResolvedValueOnce(Response.json([], { headers: headers(wrong, 60000) }));
+      const mismatch = await featureApi.get(`/liekan/websites/${site}/analytics`, {
+        ...range,
+        kind: 'visitors',
+      });
+      expect(mismatch.population).toBeUndefined();
+    }
+  } finally {
+    vi.useRealTimers();
+  }
+});
 
 it('pins help catalog, source health and website status to one read round while management reads stay current', async () => {
   const version = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';

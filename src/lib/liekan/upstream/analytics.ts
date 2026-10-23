@@ -1,3 +1,7 @@
+import { applyHumanFactsPopulation } from '../contracts/population-results';
+import { identityUsable, unavailableFields } from '../contracts/browser-population';
+import { readBrowserPopulation } from './browser-population';
+import { nativeSnapshot } from './native-snapshot';
 import { funnelParametersSchema } from '@/lib/analytics-schema';
 import { getPostgresCountrySQL, getPostgresRegionSQL } from '@/lib/country';
 import { getFunnel } from '@/queries/sql';
@@ -52,7 +56,7 @@ function sourceFacts(rows: any[]) {
 
 // All knowledge of upstream storage and metric semantics is confined here.
 export function humanVisitsSql(keywords = false) {
-  return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country AS country,s.region AS region,s.city AS city,s.browser,s.os,s.device FROM website_event e
+  return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country AS country,s.region AS region,s.city AS city,s.browser AS browser,s.os AS os,s.device AS device FROM website_event e
   LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
   WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz AND e.event_type != 5 AND $4::text IS NOT NULL),
 visit_geography AS (SELECT DISTINCT ON (visit_id,session_id) visit_id,session_id,country,region,city FROM events WHERE event_type NOT IN(2,5) ORDER BY visit_id,session_id,created_at,event_id),
@@ -194,7 +198,7 @@ export async function getHumanFacts(
     });
   if (geographyReadLimit) args.push(geographyReadLimit.rows, geographyReadLimit.bytes);
   const [totals, definitions, current, previousSources, previousGoals] = await Promise.all([
-    humanTotals(id, start, end),
+    humanTotals(id, start, end, timezone),
     query(
       "SELECT report_id AS id,name,type,parameters FROM report WHERE website_id=$1::uuid AND type IN('goal','funnel') ORDER BY created_at LIMIT 100",
       id,
@@ -269,28 +273,45 @@ export async function getHumanFacts(
       funnelState = funnel.length ? 'available' : 'empty';
     }
   }
-  return {
-    totals,
-    daily,
-    geo,
-    sources: sourceFacts(sources),
-    sourceEvidence: sources.map(row => ({ ...row, ...classifyEntrySourceForDisplay(row) })),
-    environment,
-    pages,
-    heatmap,
-    goals: allGoals,
-    converted: converted[0]?.count ?? 0,
-    conversionEvents: converted[0]?.events ?? 0,
-    dailyConversions,
-    funnel,
-    funnelState,
-    funnelError,
-    journeys,
-    exits,
-    dailySources: sourceFacts(dailySources),
-    newVisitors: newVisitors[0]?.count ?? 0,
-    previousSources: sourceFacts(previousSources),
-  };
+  const previousPopulation =
+    totals.population && needs('previousSources')
+      ? await readBrowserPopulation(
+          id,
+          new Date(Math.max(0, +start - (+end - +start + 1))),
+          new Date(+start - 1),
+          timezone,
+        )
+      : undefined;
+  return applyHumanFactsPopulation(
+    {
+      population: totals.population,
+      totals,
+      daily,
+      geo,
+      sources: sourceFacts(sources),
+      sourceEvidence: sources.map(row => ({ ...row, ...classifyEntrySourceForDisplay(row) })),
+      environment,
+      pages,
+      heatmap,
+      goals: allGoals,
+      converted: converted[0]?.count ?? 0,
+      conversionEvents: converted[0]?.events ?? 0,
+      dailyConversions,
+      funnel,
+      funnelState,
+      funnelError,
+      journeys,
+      exits,
+      dailySources: sourceFacts(dailySources),
+      newVisitors: newVisitors[0]?.count ?? 0,
+      previousSources: sourceFacts(previousSources).map(row =>
+        identityUsable(previousPopulation)
+          ? row
+          : unavailableFields(row, ['sessions', 'conversions']),
+      ),
+    },
+    totals.population,
+  );
 }
 export async function getHumanConversions(id: string, start: Date, end: Date, timezone: string) {
   return (
@@ -312,5 +333,13 @@ export async function getHumanDays(
   timezone: string,
   hour = false,
 ) {
-  return query(cte + humanBinsSql(hour), id, start, end, timezone);
+  return nativeSnapshot(async () => {
+    const rows = await query(cte + humanBinsSql(hour), id, start, end, timezone);
+    const population = await readBrowserPopulation(id, start, end, timezone);
+    return identityUsable(population)
+      ? rows
+      : rows.map(row =>
+          unavailableFields(row, ['uv', 'sessions', 'duration', 'bounces', 'conversions']),
+        );
+  });
 }

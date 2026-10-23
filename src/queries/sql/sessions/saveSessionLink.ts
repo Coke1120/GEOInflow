@@ -4,6 +4,7 @@ import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import { truncateString } from '@/lib/format';
 import kafka from '@/lib/kafka';
 import prisma from '@/lib/prisma';
+import { recordSessionLinkSource } from '@/lib/liekan/upstream/collection-write';
 
 const FUNCTION_NAME = 'saveSessionLink';
 
@@ -53,6 +54,7 @@ async function relationalQuery({
     },
     FUNCTION_NAME,
   );
+  await recordSessionLinkSource(websiteId, sessionId, truncateString(distinctId, FIELD_LENGTH.distinctId));
 }
 
 async function clickhouseQuery({

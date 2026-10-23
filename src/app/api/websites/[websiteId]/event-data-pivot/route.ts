@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { z } from 'zod';
 import { parseEventPropertyFilters } from '@/lib/params';
 import { getQueryFilters, parseRequest } from '@/lib/request';
@@ -6,7 +7,7 @@ import { filterParams, pagingParams, timezoneParam, unitParam } from '@/lib/sche
 import { canViewWebsiteSection } from '@/permissions';
 import { getEventDataPivot } from '@/queries/sql/events/getEventDataPivot';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -38,4 +39,8 @@ export async function GET(
   const result = await getEventDataPivot(websiteId, eventName, filters, eventFilters);
 
   return json(result);
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args), args[0]);
 }

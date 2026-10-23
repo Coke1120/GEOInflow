@@ -9,6 +9,7 @@ import {
   analysisCapacity,
   analysisLogDimensionsSql,
   visitDimensionsSql,
+  visitEvidenceJoinsSql,
   ensureAnalysisPartitions,
   chargeAnalysisGeneration,
 } from './analysis-rollups-db';
@@ -113,18 +114,19 @@ async function visitChunk(tx: AnalysisTx, row: AnalysisBuildRow, state: Analysis
   >(
     `WITH chunk AS MATERIALIZED (
      SELECT e.event_id,e.created_at,e.session_id,e.visit_id,coalesce(e.hostname,'') AS hostname,e.event_type,${visitDimensionsSql} AS dimensions
-     FROM liekan_geographic_website_event e LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
-     WHERE e.website_id=$1::uuid AND e.created_at>=$3::timestamptz AND e.created_at<$4::timestamptz AND e.event_type<>5
+     FROM liekan_geographic_website_event e ${visitEvidenceJoinsSql}
+     WHERE e.website_id=$1::uuid AND e.created_at>=$3::timestamptz AND e.created_at<$4::timestamptz
      AND ($5::timestamptz IS NULL OR (e.created_at,e.event_id)>($5::timestamptz,$6::uuid))
      ORDER BY e.created_at,e.event_id LIMIT $7
     ), facts AS (
-     INSERT INTO liekan_analysis_visit(website_id,generation,bucket,session_id,visit_id,hostname,dimensions,dimension_key,pageviews,has_custom,min_time,max_time)
+     INSERT INTO liekan_analysis_visit(website_id,generation,bucket,session_id,visit_id,hostname,dimensions,dimension_key,eligible_events,pageviews,has_custom,min_time,max_time)
      SELECT $1::uuid,$2::uuid,date_bin(interval '1 hour',c.created_at,timestamptz '2000-01-01Z'),c.session_id,c.visit_id,c.hostname,c.dimensions,md5(c.dimensions::text),
-       count(*) FILTER(WHERE c.event_type NOT IN(2,5)),bool_or(c.event_type=2),
+       count(*),count(*) FILTER(WHERE c.event_type NOT IN(2,5)),bool_or(c.event_type=2),
        min(c.created_at) FILTER(WHERE c.event_type NOT IN(2,5)),max(c.created_at) FILTER(WHERE c.event_type NOT IN(2,5))
      FROM chunk c GROUP BY 3,c.session_id,c.visit_id,c.hostname,c.dimensions
      ON CONFLICT(website_id,generation,bucket,session_id,visit_id,hostname,dimension_key) DO UPDATE SET
-       pageviews=liekan_analysis_merge_count(liekan_analysis_visit.dimensions,EXCLUDED.dimensions,liekan_analysis_visit.pageviews,EXCLUDED.pageviews),
+       eligible_events=liekan_analysis_merge_count(liekan_analysis_visit.dimensions,EXCLUDED.dimensions,liekan_analysis_visit.eligible_events,EXCLUDED.eligible_events),
+       pageviews=liekan_analysis_visit.pageviews+EXCLUDED.pageviews,
        has_custom=liekan_analysis_visit.has_custom OR EXCLUDED.has_custom,
        min_time=least(liekan_analysis_visit.min_time,EXCLUDED.min_time),max_time=greatest(liekan_analysis_visit.max_time,EXCLUDED.max_time),updated_at=clock_timestamp()
      RETURNING pg_column_size(liekan_analysis_visit)*2 AS bytes

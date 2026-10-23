@@ -1,3 +1,4 @@
+import { applyPopulationResponseContract } from './population-contract';
 import type { ZodOpenApiOperationObject } from 'zod-openapi';
 
 export const API_HTTP_METHODS = [
@@ -28,6 +29,7 @@ export interface LoadedApiOperationContract extends ApiOperationContract {
 }
 
 export function defineOperation<const T extends ApiOperationContract>(contract: T): T {
+  if (contract.method === 'get') applyPopulationResponseContract(contract.path, contract.operation);
   return contract;
 }
 

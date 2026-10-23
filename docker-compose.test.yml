@@ -37,6 +37,7 @@ x-umami-env: &umami-env
   TWO_FACTOR_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
   # Playwright/curl user agents are classified as bots; without this /api/send silently drops events.
   DISABLE_BOT_CHECK: "1"
+  CLIENT_IP_HEADER: x-liekan-fixture-ip
   DISABLE_TELEMETRY: "1"
   DISABLE_UPDATES: "1"
   MCP_ENABLED: "1"
@@ -44,6 +45,8 @@ x-umami-env: &umami-env
 services:
   db:
     image: postgres:15-alpine
+    labels:
+      io.liekan.api-fixture: disposable-api-test
     environment:
       POSTGRES_DB: umami
       POSTGRES_USER: umami

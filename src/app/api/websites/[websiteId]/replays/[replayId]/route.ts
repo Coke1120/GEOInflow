@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { restoreReplayEventFragments } from '@/lib/replay';
 import { parseRequest } from '@/lib/request';
 import { json, unauthorized } from '@/lib/response';
@@ -70,7 +71,7 @@ function mergeReplayEvents(
   return events;
 }
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string; replayId: string }> },
 ) {
@@ -107,4 +108,8 @@ export async function GET(
     eventCount: allEvents.length,
     chunkCount: chunks.length,
   });
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args), args[0]);
 }

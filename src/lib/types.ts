@@ -1,3 +1,4 @@
+import type { BrowserPopulation } from './liekan/contracts/browser-population';
 import type { UseQueryOptions } from '@tanstack/react-query';
 import type { Board as PrismaBoard } from '@/generated/prisma/client';
 import type { DATA_TYPE, OPERATORS, ROLES } from './constants';
@@ -200,8 +201,13 @@ export interface PageResult<T> {
   isCapped?: boolean;
 }
 
+export interface IdentityPageResult<T> extends Omit<PageResult<T>, 'count'> {
+  count: number | null;
+  population?: BrowserPopulation;
+}
+
 export interface ActiveVisitors {
-  visitors: number;
+  visitors: number | null;
 }
 
 export interface WebsiteDateRange {
@@ -319,6 +325,7 @@ export interface SessionDataValue {
 }
 
 export interface RealtimeData {
+  population?: BrowserPopulation;
   countries: Record<string, number>;
   events: RealtimeEvent[];
   referrers: Record<string, number>;
@@ -329,7 +336,7 @@ export interface RealtimeData {
   };
   totals: {
     views: number;
-    visitors: number;
+    visitors: number | null;
     events: number;
     countries: number;
   };

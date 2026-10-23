@@ -1,3 +1,4 @@
+import { browserPopulationSchema } from '@/lib/liekan/contracts/browser-population';
 import { z } from 'zod';
 import { filterParams, pagingParams, searchParams, withDateRange } from '@/lib/schema';
 
@@ -29,10 +30,11 @@ export const metricsQuerySchema = withDateRange({
 export const websiteStatsValuesSchema = z
   .object({
     pageviews: z.number(),
-    visitors: z.number(),
-    visits: z.number(),
-    bounces: z.number(),
-    totaltime: z.number(),
+    population: browserPopulationSchema.optional(),
+    visitors: z.number().nullable(),
+    visits: z.number().nullable(),
+    bounces: z.number().nullable(),
+    totaltime: z.number().nullable(),
   })
   .meta({ id: 'WebsiteStatsValues' });
 
@@ -47,12 +49,12 @@ export const websiteStatsSchema = websiteStatsValuesSchema
 export const timeSeriesPointSchema = z
   .object({
     x: z.string().meta({ description: 'Bucket start (ISO date/time).' }),
-    y: z.number().meta({ description: 'Value for the bucket.' }),
+    y: z.number().nullable().meta({ description: 'Value for the bucket.' }),
   })
   .meta({ id: 'TimeSeriesPoint' });
 
 const pageviewsSeriesSchema = z.object({
-  pageviews: z.array(timeSeriesPointSchema),
+  pageviews: z.array(timeSeriesPointSchema.extend({ y: z.number() })),
   sessions: z.array(timeSeriesPointSchema),
 });
 
@@ -73,7 +75,7 @@ export const websitePageviewsSchema = pageviewsSeriesSchema
 export const metricRowSchema = z
   .object({
     x: z.string().nullable().meta({ description: 'Dimension value (e.g. a path or country).' }),
-    y: z.number().meta({ description: 'Count of views/events or unique visitors.' }),
+    y: z.number().nullable().meta({ description: 'Count of views/events or unique visitors.' }),
     t: z.string().optional(),
   })
   .meta({ id: 'MetricRow' });
@@ -81,7 +83,7 @@ export const metricRowSchema = z
 export const metricRowsSchema = z.array(metricRowSchema).meta({ id: 'MetricRows' });
 
 export const activeVisitorsSchema = z
-  .object({ visitors: z.number().int().nonnegative() })
+  .object({ visitors: z.number().int().nonnegative().nullable() })
   .meta({ id: 'ActiveVisitors' });
 
 export const websiteSessionSchema = z
@@ -100,7 +102,7 @@ export const websiteSessionSchema = z
     distinctId: z.string().nullable().optional(),
     firstAt: z.iso.datetime(),
     lastAt: z.iso.datetime(),
-    visits: z.number(),
+    visits: z.number().nullable(),
     views: z.number(),
     events: z.number().optional(),
     createdAt: z.iso.datetime(),
@@ -110,7 +112,8 @@ export const websiteSessionSchema = z
 export const websiteSessionPageSchema = z
   .object({
     data: z.array(websiteSessionSchema),
-    count: z.number().int().nonnegative(),
+    count: z.number().int().nonnegative().nullable(),
+    population: browserPopulationSchema.optional(),
     page: z.number().int().positive(),
     pageSize: z.number().int().nonnegative(),
     isCapped: z.boolean().optional(),

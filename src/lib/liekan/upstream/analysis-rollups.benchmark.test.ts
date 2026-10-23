@@ -500,18 +500,31 @@ it.skipIf(!enabled)(
       // A separate exact visit oracle retains cross-day IDs, custom-event bounce suppression and duration.
       const visitSite = sites[1],
         session = randomUUID(),
-        visit = randomUUID();
+        visit = randomUUID(),
+        visitIdentityVersion = 'synthetic-rollup-visit-v1';
       await snapshot(async client => {
         await client.query(
           "INSERT INTO session(session_id,website_id,browser) VALUES($1,$2,'Synthetic')",
           [session, visitSite],
         );
         await client.query(
+          `INSERT INTO liekan_session_source(website_id,session_id,source,scope,identity_version,identity_available)
+           VALUES($1,$2,'browser','browser',$3,true)`,
+          [visitSite, session, visitIdentityVersion],
+        );
+        const inserted = await client.query<{ event_id: string }>(
           `WITH events AS (
        INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,hostname,url_path,event_type)
        SELECT gen_random_uuid(),$1::uuid,$2::uuid,$3::uuid,t.at,'benchmark.invalid','/visit',t.kind FROM (VALUES(timestamptz '2026-01-31T23:59:59.900Z',1),(timestamptz '2026-02-01T00:00:00.100Z',1),(timestamptz '2026-02-01T00:01:00Z',2)) t(at,kind) RETURNING event_id)
-       INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status) SELECT event_id,$1::uuid,'browser','browser','{}','synthetic','missing' FROM events`,
+       INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status) SELECT event_id,$1::uuid,'browser','browser','{}','synthetic','missing' FROM events RETURNING event_id`,
           [visitSite, session, visit],
+        );
+        expect(inserted.rows).toHaveLength(3);
+        await client.query(
+          `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser,os,device,screen,language)
+           SELECT event_id,website_id,'browser',$3,true,'Synthetic','Synthetic','Synthetic','1280x720','en-US'
+           FROM website_event WHERE website_id=$1 AND session_id=$2 AND event_id=ANY($4::uuid[])`,
+          [visitSite, session, visitIdentityVersion, inserted.rows.map(row => row.event_id)],
         );
       });
       const { getWebsiteStats } = await import('@/queries/sql/getWebsiteStats');
@@ -522,6 +535,15 @@ it.skipIf(!enabled)(
       const visitRaw = await snapshot(client =>
         withinQuerySnapshot(executor(client), () => getWebsiteStats(visitSite, visitWindow)),
       );
+      const { population: visitPopulation, ...visitCounts } = visitRaw.value;
+      expect(visitPopulation.identity).toMatchObject({
+        status: 'complete',
+        eligibleEvents: 3,
+        eligiblePV: 2,
+        qualifiedPV: 2,
+        qualifiedVisitors: 1,
+        versions: [visitIdentityVersion],
+      });
       const visitBuild = await api.createAnalysisBuild(visitSite, actor, {
         ...visitWindow,
         timezone: 'UTC',
@@ -545,7 +567,19 @@ it.skipIf(!enabled)(
         websiteId: visitSite,
         ...visitWindow,
       });
-      expect(canonical(visitCovered)).toEqual(canonical(visitRaw.value));
+      const coveredVisitPopulation = await api.readAnalysisVisitPopulation({
+        websiteId: visitSite,
+        ...visitWindow,
+        timezone: 'UTC',
+      });
+      await evidence('benchmark-visit-population.json', {
+        nativePopulation: canonical(visitPopulation),
+        coveredPopulation: canonical(coveredVisitPopulation),
+        nativeCounts: canonical(visitCounts),
+        coveredCounts: canonical(visitCovered),
+      });
+      expect(canonical(coveredVisitPopulation)).toEqual(canonical(visitPopulation));
+      expect(canonical(visitCovered)).toEqual(canonical(visitCounts));
       expect(visitCovered).toMatchObject({
         pageviews: 2,
         visitors: 1,
@@ -642,6 +676,7 @@ it.skipIf(!enabled)(
           allSamplesEqual: true,
           visitRaw: canonical(visitRaw.value),
           visitCovered,
+          coveredVisitPopulation,
           zeroExecutedRawScans: scans.every(node => node['Actual Loops'] === 0),
           rawPlanNodes: scans.length,
         },

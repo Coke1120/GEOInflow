@@ -7,6 +7,7 @@ import { truncateString } from '@/lib/format';
 import kafka from '@/lib/kafka';
 import prisma from '@/lib/prisma';
 import type { DynamicData } from '@/lib/types';
+import { recordSessionPropertySource } from '@/lib/liekan/upstream/collection-write';
 
 export interface SaveSessionDataArgs {
   websiteId: string;
@@ -112,6 +113,7 @@ export async function relationalQuery({
       },
       'saveSessionData',
     );
+    await recordSessionPropertySource(websiteId, sessionId, dataKey);
   }
 }
 

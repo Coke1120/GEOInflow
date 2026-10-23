@@ -489,3 +489,40 @@ test('tracker controls and domain restrictions preserve manual and auto tracking
   blocked.load({ domains: 'shop.example.com' });
   expect(blocked.requests()).toHaveLength(1);
 });
+
+test('prerendered pages wait for activation and send exactly one initial pageview', async () => {
+  const browser = createBrowser();
+  Object.defineProperty(browser.window.document, 'prerendering', {
+    configurable: true,
+    value: true,
+  });
+  browser.load();
+  expect(browser.requests()).toHaveLength(0);
+  await browser.window.umami.track('not-visible');
+  expect(browser.requests()).toHaveLength(0);
+  Object.defineProperty(browser.window.document, 'prerendering', {
+    configurable: true,
+    value: false,
+  });
+  browser.window.document.dispatchEvent(new browser.window.Event('prerenderingchange'));
+  browser.window.document.dispatchEvent(new browser.window.Event('readystatechange'));
+  expect(browser.requests()).toHaveLength(1);
+  expect(browser.requests()[0].payload.name).toBeUndefined();
+});
+
+test('activation records the final prerender route once', async () => {
+  const browser = createBrowser();
+  Object.defineProperty(browser.window.document, 'prerendering', {
+    configurable: true,
+    value: true,
+  });
+  browser.load();
+  browser.window.history.replaceState({}, '', '/activated-route');
+  Object.defineProperty(browser.window.document, 'prerendering', {
+    configurable: true,
+    value: false,
+  });
+  browser.window.document.dispatchEvent(new browser.window.Event('prerenderingchange'));
+  expect(browser.requests()).toHaveLength(1);
+  expect(browser.requests()[0].payload.url).toBe('https://shop.example.com/activated-route');
+});

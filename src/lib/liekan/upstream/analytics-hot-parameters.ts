@@ -53,7 +53,7 @@ export function analyticsHotCatalogVersion(strongVersion: string): string | unde
     if (!Array.isArray(version)) return undefined;
     if (
       version.length === 7 &&
-      version[1] === 'history-repair-v1.1' &&
+      ['history-repair-v1.1', 'history-repair-v1.2'].includes(version[1]) &&
       z.uuid().safeParse(version[3]).success
     )
       return version[3];

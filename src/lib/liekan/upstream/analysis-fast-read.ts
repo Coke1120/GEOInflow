@@ -1,6 +1,11 @@
 import { getCompareDate } from '@/lib/date';
 import { getQueryFilters } from '@/lib/request';
-import { analysisQueryParameters, encodeAnalysisResult } from './analysis-query-model';
+import {
+  ANALYSIS_RESULT_FORMAT,
+  analysisQueryParameters,
+  decodeAnalysisEnvelope,
+  encodeAnalysisResult,
+} from './analysis-query-model';
 import { analysisVersions } from './analysis-rollups-db';
 import { readAnalyticsVersions } from './analytics-revision';
 import { websiteCacheTag } from './query-cache';
@@ -9,7 +14,11 @@ import { reportSnapshot, query } from './server';
 import { getQuerySnapshot } from './query-snapshot';
 import { statisticsCacheTtl } from './cache-policy';
 import { analyticsGate, AnalyticsUnavailable } from './analytics-budget';
-import { withoutQueryCache } from './cache-context';
+import {
+  captureBrowserPopulations,
+  noteBrowserPopulation,
+  withoutQueryCache,
+} from './cache-context';
 
 /** Only completely covered, aligned native counts enter the short foreground transaction. */
 export async function tryFastAnalysis(
@@ -105,11 +114,16 @@ export async function tryFastAnalysis(
             if (!coverage.complete) return undefined;
           }
           const generatedAt = Date.now();
-          const value = await withoutQueryCache(() =>
-            executeNativeAnalysis(website.id, target.slice(7), p),
+          const captured = await withoutQueryCache(() =>
+            captureBrowserPopulations(() => executeNativeAnalysis(website.id, target.slice(7), p)),
+          );
+          const result = decodeAnalysisEnvelope(
+            { format: ANALYSIS_RESULT_FORMAT, ...JSON.parse(encodeAnalysisResult(captured)) },
+            website.id,
           );
           return {
-            value: JSON.parse(encodeAnalysisResult(value)),
+            value: result.value,
+            populations: result.populations,
             generatedAt,
             expiresAt:
               Date.now() + statisticsCacheTtl(Number(p.endAt), String(p.timezone || 'UTC')),
@@ -142,7 +156,9 @@ export async function tryFastAnalysis(
       JSON.stringify(current.versions) !== JSON.stringify(result.versions)
     )
       return undefined;
-    return result;
+    const { populations, ...value } = result;
+    for (const population of populations) noteBrowserPopulation(website.id, population);
+    return value;
   } catch (error) {
     if (
       error instanceof AnalyticsUnavailable ||

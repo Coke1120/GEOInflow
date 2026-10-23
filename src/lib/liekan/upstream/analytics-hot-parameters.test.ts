@@ -19,6 +19,16 @@ describe('normalized preheating parameters', () => {
     ]);
     expect(analyticsHotCatalogVersion(strong)).toBe('11111111-1111-4111-8111-111111111111');
     const stored = JSON.parse(strong);
+    expect(stored[1]).toBe('history-repair-v1.2');
+    expect(
+      analyticsHotCatalogVersion(
+        JSON.stringify(
+          stored.map((value: unknown, index: number) =>
+            index === 1 ? 'history-repair-v1.1' : value,
+          ),
+        ),
+      ),
+    ).toBe('11111111-1111-4111-8111-111111111111');
     expect(analyticsHotCatalogVersion(JSON.stringify([...stored, 'extra']))).toBeUndefined();
     stored[1] = 'unrecognized-repair-version';
     expect(analyticsHotCatalogVersion(JSON.stringify(stored))).toBeUndefined();

@@ -1,3 +1,4 @@
+import { assertMigrationUpgrade } from './liekan-migration-upgrade-check.mjs';
 import 'dotenv/config';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
@@ -218,6 +219,8 @@ const startApp = async database => {
     '-e',
     'DISABLE_BOT_CHECK=1',
     '-e',
+    'CLIENT_IP_HEADER=x-liekan-fixture-ip',
+    '-e',
     'DISABLE_TELEMETRY=1',
     '-e',
     'DISABLE_UPDATES=1',
@@ -347,6 +350,8 @@ try {
     'create',
     '--name',
     db,
+    '--label',
+    `io.liekan.api-fixture=${stamp}`,
     '--network',
     network,
     '-e',
@@ -397,6 +402,10 @@ try {
     ...process.env,
     PLAYWRIGHT_BASE_URL: baseUrl,
     API_COVERAGE: 'enforce',
+    LIEKAN_API_FIXTURE_CONTAINER: db,
+    LIEKAN_API_FIXTURE_OWNER: stamp,
+    LIEKAN_API_FIXTURE_DATABASE: 'liekan_empty',
+    LIEKAN_API_FIXTURE_USER: 'liekan_verify',
   };
   delete env.API_SKIP_SEED;
   await run(
@@ -611,6 +620,9 @@ try {
   // Count the restored snapshot before upgrade, so concurrent source traffic cannot change this baseline.
   report.restoredUpstreamBefore = await officialHistory('liekan_restore', true);
   report.before = JSON.parse(psql(countsSQL, 'liekan_restore'));
+  const migrationLedgerSql =
+    "SELECT coalesce(json_agg(json_build_object('name',name,'checksum',checksum,'appliedAt',applied_at) ORDER BY name),'[]'::json) FROM liekan_migration";
+  const beforeMigrations = JSON.parse(psql(migrationLedgerSql, 'liekan_restore'));
   report.installationBefore = installationSnapshot('liekan_restore');
   await startApp('liekan_restore');
   report.installationAfter = installationSnapshot('liekan_restore');
@@ -630,20 +642,13 @@ try {
     )
   )
     throw new Error('Restore changed data totals');
-  if (report.after.liekan_migration !== upstream.liekanMigration)
-    throw new Error('Restored candidate migration count differs');
-  const migrations = JSON.parse(
-    psql(
-      "SELECT json_agg(json_build_object('name',name,'checksum',checksum) ORDER BY name) FROM liekan_migration",
-      'liekan_restore',
-    ),
-  );
+  const migrations = JSON.parse(psql(migrationLedgerSql, 'liekan_restore'));
   const lock = JSON.parse(fs.readFileSync('config/liekan/migrations.json', 'utf8'));
-  if (
-    migrations.length !== Object.keys(lock).length ||
-    migrations.some(row => lock[row.name] !== row.checksum)
-  )
-    throw new Error('Restored candidate migration checksums differ');
+  report.preservedIndependentMigrations = assertMigrationUpgrade(
+    beforeMigrations,
+    migrations,
+    lock,
+  );
   report.migrations = migrations;
   await run('docker', ['exec', app, 'node', 'scripts/liekan-migrate.mjs'], 'migration-idempotency');
   const beforeLedger = psql(

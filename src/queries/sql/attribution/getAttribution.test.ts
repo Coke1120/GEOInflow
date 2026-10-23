@@ -1,14 +1,37 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { applyNativePopulation, populationFromRow } from '@/lib/liekan/upstream/browser-population';
 import { getAttribution } from './getAttribution';
 
 const { state, prismaRawQuery, prismaParseFilters, clickhouseRawQuery, clickhouseParseFilters } =
   vi.hoisted(() => ({
-    state: { mode: 'prisma' as 'prisma' | 'clickhouse' },
+    state: { mode: 'prisma' as 'prisma' | 'clickhouse', partial: false },
     prismaRawQuery: vi.fn(),
     prismaParseFilters: vi.fn(),
     clickhouseRawQuery: vi.fn(),
     clickhouseParseFilters: vi.fn(),
   }));
+
+vi.mock('@/lib/liekan/upstream/native-snapshot', () => ({
+  nativeSnapshot: (work: () => unknown) => work(),
+}));
+vi.mock('@/lib/liekan/upstream/browser-population', async importOriginal => {
+  const actual = await importOriginal<typeof import('@/lib/liekan/upstream/browser-population')>();
+  return {
+    ...actual,
+    readBrowserPopulation: async () =>
+      actual.populationFromRow(
+        {
+          resourceKind: 'website',
+          eligibleEvents: 10,
+          qualifiedEvents: state.partial ? 5 : 10,
+          eligiblePV: 10,
+          qualifiedPV: state.partial ? 5 : 10,
+          qualifiedVisitors: 4,
+        },
+        { startAt: +parameters.startDate, endAt: +parameters.endDate, timezone: 'UTC' },
+      ),
+  };
+});
 
 vi.mock('@/lib/db', () => ({
   CLICKHOUSE: 'clickhouse',
@@ -47,6 +70,7 @@ const parameters = {
 
 beforeEach(() => {
   state.mode = 'prisma';
+  state.partial = false;
   prismaRawQuery.mockReset();
   prismaParseFilters.mockReset();
   clickhouseRawQuery.mockReset();
@@ -73,6 +97,33 @@ describe('getAttribution postgres branch', () => {
     expect(queries.some(q => q.includes('we.utm_campaign'))).toBe(true);
     expect(queries.some(q => q.includes('we.utm_content'))).toBe(true);
     expect(queries.some(q => q.includes('we.utm_term'))).toBe(true);
+  });
+
+  test('withholds attribution visitor totals without losing countable pageviews in a partial window', async () => {
+    state.partial = true;
+    const population = populationFromRow(
+      {
+        resourceKind: 'website',
+        eligibleEvents: 10,
+        qualifiedEvents: 5,
+        eligiblePV: 10,
+        qualifiedPV: 5,
+        qualifiedVisitors: 4,
+      },
+      { startAt: +parameters.startDate, endAt: +parameters.endDate, timezone: 'UTC' },
+    );
+    prismaRawQuery.mockImplementation(async (sql: string, _params: unknown, name: string) =>
+      applyNativePopulation(
+        sql.includes('as "pageviews"')
+          ? [{ pageviews: 10, visitors: 8, visits: 9 }]
+          : [{ name: 'source', value: 4 }],
+        name,
+        population,
+      ),
+    );
+    const result = await getAttribution('website-1', parameters, {});
+    expect(result.total).toMatchObject({ pageviews: 10, visitors: null, visits: null });
+    expect(result.referrer).toEqual([{ name: 'source', value: null }]);
   });
 
   test('type=path selects url_path column and uses the step param', async () => {

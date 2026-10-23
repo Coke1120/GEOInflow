@@ -1,8 +1,11 @@
 import { createHash } from 'node:crypto';
+import { z } from 'zod';
+import { browserPopulationSchema, type BrowserPopulation } from '../contracts/browser-population';
 import { parseAnalyticsHotParameters, analyticsRefreshJobSchema } from './analytics-hot-parameters';
 import { LiekanError } from './errors';
 export const ANALYSIS_QUERY_QUEUE = 'liekan-analysis-query';
 export const ANALYSIS_BUILD_QUEUE = 'liekan-analysis-build';
+export const ANALYSIS_RESULT_FORMAT = 'liekan-analysis-result-v1';
 export const analysisQueryLimits = Object.freeze({
   global: 32,
   site: 8,
@@ -86,4 +89,44 @@ export function encodeAnalysisResult(value: unknown) {
     return item;
   };
   return JSON.stringify(safe(value));
+}
+
+const analysisResultEnvelope = z
+  .object({
+    format: z.literal(ANALYSIS_RESULT_FORMAT),
+    value: z.unknown(),
+    populations: z.array(browserPopulationSchema.extend({ resourceId: z.string() })),
+  })
+  .strict();
+
+/** Private storage envelope; public responses retain their original value and JSON shape. */
+export function decodeAnalysisEnvelope(input: unknown, websiteId: string) {
+  const result = analysisResultEnvelope.safeParse(input);
+  if (
+    !result.success ||
+    !Object.hasOwn(result.data, 'value') ||
+    result.data.value === undefined ||
+    result.data.populations.some(population => population.resourceId !== websiteId)
+  )
+    throw new LiekanError('统计结果已过期，请重新读取', 410, 'analysis-expired');
+  return result.data;
+}
+
+export function encodeAnalysisEnvelope(
+  value: unknown,
+  populations: BrowserPopulation[],
+  websiteId: string,
+) {
+  const envelope = decodeAnalysisEnvelope(
+    { format: ANALYSIS_RESULT_FORMAT, value, populations },
+    websiteId,
+  );
+  const encoded = encodeAnalysisResult(envelope);
+  if (Buffer.byteLength(encoded) > analysisQueryLimits.bytes)
+    throw new LiekanError(
+      '结果超过保存上限，请缩小范围或使用导出',
+      413,
+      'analysis-result-too-large',
+    );
+  return encoded;
 }

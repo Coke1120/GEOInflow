@@ -10,6 +10,18 @@ const mocks = vi.hoisted(() => ({
   authenticated: vi.fn(),
   token: vi.fn(),
 }));
+vi.mock('@/lib/liekan/upstream/collection-admission', () => ({
+  collectionAdmission: async () => ({ revision: '0', mode: 'standard', allowedHostnames: [] }),
+  normalizeCollectionOrigin: () => null,
+  conflictsWithCollectionHosts: () => false,
+}));
+vi.mock('@/lib/liekan/upstream/crawler-registry-context', () => ({
+  withPublishedRegistry: (work: () => unknown) => work(),
+}));
+vi.mock('@/queries/prisma', () => ({
+  getLink: async (id: string) => (id === '22222222-2222-4222-8222-222222222222' ? { id } : null),
+  getPixel: async (id: string) => (id === '33333333-3333-4333-8333-333333333333' ? { id } : null),
+}));
 vi.mock('@/lib/clickhouse', () => ({ default: { enabled: false } }));
 vi.mock('@/lib/crypto', () => ({
   getSalt: () => 'salt',
@@ -51,6 +63,7 @@ vi.mock('@/lib/liekan/upstream/collection-auth', () => ({
 }));
 vi.mock('@/lib/liekan/upstream/collection-write', () => ({
   CollectionConflictError: class extends Error {},
+  recordCollectionIdentity: vi.fn(),
   withCollectionWrite: mocks.write,
 }));
 import { POST } from './route';
@@ -82,10 +95,11 @@ describe('compatible collection quality intake', () => {
     expect(mocks.saveEvent).not.toHaveBeenCalled();
   });
 
-  it('verifies ranges against the actual accepted event time including legacy timestamp zero', async () => {
+  it('passes original timestamp zero separately from the trusted receipt time', async () => {
     const before = Date.now() / 1000;
     await call({ timestamp: 0 });
-    const accepted = mocks.classify.mock.calls[0][0].payload.timestamp;
+    expect(mocks.classify.mock.calls[0][0].payload.timestamp).toBe(0);
+    const accepted = +mocks.classify.mock.calls[0][0].receivedAt / 1000;
     expect(accepted).toBeGreaterThanOrEqual(before);
     expect(accepted).toBeLessThanOrEqual(Date.now() / 1000);
   });
@@ -129,7 +143,8 @@ describe('compatible collection quality intake', () => {
     );
     expect(response.status).toBe(200);
     expect(Object.keys(await response.json()).sort()).toEqual(['cache', 'sessionId', 'visitId']);
-    expect(mocks.write).not.toHaveBeenCalled();
+    expect(mocks.write).toHaveBeenCalledTimes(1);
+    expect(mocks.write.mock.calls[0][0].eventId).toBeUndefined();
     expect(mocks.saveEvent).not.toHaveBeenCalled();
   });
   it('carries one valid logical event ID and rejects malformed IDs', async () => {
@@ -159,7 +174,11 @@ describe('compatible collection quality intake', () => {
     expect(mocks.saveEvent).not.toHaveBeenCalled();
   });
   it('retains bot verdict evidence before the read policy excludes its event', async () => {
-    mocks.classify.mockReturnValue({ classification: 'automated' });
+    mocks.classify.mockReturnValue({
+      classification: 'automated',
+      source: 'browser',
+      hostname: 'example.com',
+    });
     expect((await call({ userAgent: 'GPTBot/1.0' })).status).toBe(200);
     expect(mocks.write.mock.calls[0][0].quality.classification).toBe('automated');
     expect(mocks.saveEvent).toHaveBeenCalledTimes(1);

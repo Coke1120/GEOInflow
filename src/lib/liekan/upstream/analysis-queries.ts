@@ -10,15 +10,22 @@ import { aiExecutor } from './ai-db';
 import { authorizeCrawler, type CrawlerActor } from './crawler-access';
 import { readAnalyticsVersions } from './analytics-revision';
 import { websiteCacheTag } from './query-cache';
-import { analyticsWorkerContext, currentCacheContext } from './cache-context';
+import {
+  analyticsWorkerContext,
+  captureBrowserPopulations,
+  currentCacheContext,
+  noteBrowserPopulation,
+} from './cache-context';
 import { withAnalysisPermit } from './analysis-background';
 import {
   analysisDigest,
-  encodeAnalysisResult,
+  decodeAnalysisEnvelope,
+  encodeAnalysisEnvelope,
   analysisQueryParameters,
   analysisResultFresh,
   analysisQueryLimits,
   ANALYSIS_QUERY_QUEUE,
+  ANALYSIS_RESULT_FORMAT,
 } from './analysis-query-model';
 import { statisticsCacheTtl } from './cache-policy';
 import { pageReportParts } from '../contracts/page-report';
@@ -84,7 +91,8 @@ async function state(tx: any, websiteId: string, actor: CrawlerActor) {
   };
 }
 function projected(row: Row, website: any) {
-  const value = structuredClone(row.result);
+  const result = decodeAnalysisEnvelope(row.result, row.website_id);
+  const value = structuredClone(result.value) as any;
   if (row.target === 'feature:page-report' && value) {
     value.website = {
       id: website.id,
@@ -99,6 +107,7 @@ function projected(row: Row, website: any) {
       expiresAt: +new Date(row.expires_at),
     };
   }
+  for (const population of result.populations) noteBrowserPopulation(row.website_id, population);
   return value;
 }
 /** Transactional outbox: queued business rows remain discoverable until a worker owns them. */
@@ -116,6 +125,7 @@ async function requestAnalysisQueryOnce(
   return analysisTransaction(async tx => {
     const snapshot = await state(tx, websiteId, actor);
     const key = analysisDigest([
+      ANALYSIS_RESULT_FORMAT,
       websiteId,
       target,
       parameters,
@@ -394,13 +404,10 @@ export async function processAnalysisQuery(id: string) {
             { private: true },
             async () => {
               const { executeAnalysisQuery } = await import('./analysis-query-execution');
-              const value = await executeAnalysisQuery(
-                row.website_id,
-                actor,
-                row.target,
-                row.parameters,
+              const result = await captureBrowserPopulations(() =>
+                executeAnalysisQuery(row.website_id, actor, row.target, row.parameters),
               );
-              return { value, freshness: [...currentCacheContext().results] };
+              return { ...result, freshness: [...currentCacheContext().results] };
             },
             {
               kind: 'interactive',
@@ -416,13 +423,7 @@ export async function processAnalysisQuery(id: string) {
         if (result.freshness.some(item => item.expiresAt <= Date.now()))
           throw new LiekanError('统计来源结果已过期，请重新计算', 503, 'analysis-source-expired');
         // Native responses are projected through their existing JSON representation.
-        const encoded = encodeAnalysisResult(result.value);
-        if (Buffer.byteLength(encoded) > analysisQueryLimits.bytes)
-          throw new LiekanError(
-            '结果超过保存上限，请缩小范围或使用导出',
-            413,
-            'analysis-result-too-large',
-          );
+        const encoded = encodeAnalysisEnvelope(result.value, result.populations, row.website_id);
         if (!owned()) throw new LiekanError('后台计算租约失效', 410);
         await analysisTransaction(async tx => {
           const [permit] = await tx.$queryRawUnsafe(

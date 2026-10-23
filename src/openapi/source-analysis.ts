@@ -748,7 +748,14 @@ function collectDeclarations(node: ts.Node, declarations: Map<string, ts.Express
     declarations.set(node.name.text, node.initializer);
   }
 
-  ts.forEachChild(node, child => collectDeclarations(child, declarations));
+  ts.forEachChild(node, child => {
+    if (
+      !ts.isFunctionDeclaration(child) &&
+      !ts.isFunctionExpression(child) &&
+      !ts.isArrowFunction(child)
+    )
+      collectDeclarations(child, declarations);
+  });
 }
 
 function findHandler(source: ts.SourceFile, method: ApiHttpMethod): ts.Node | undefined {
@@ -771,6 +778,40 @@ function findHandler(source: ts.SourceFile, method: ApiHttpMethod): ts.Node | un
   }
 
   return undefined;
+}
+
+/** Resolve a called function within its lexical file scope; imported and shadowed names stop here. */
+function findLocalCalledFunction(
+  call: ts.CallExpression,
+  source: ts.SourceFile,
+): ts.Node | undefined {
+  if (!ts.isIdentifier(call.expression)) return;
+  const name = call.expression.text;
+  for (let scope: ts.Node | undefined = call.parent; scope; scope = scope.parent) {
+    if (
+      ts.isFunctionLike(scope) &&
+      scope.parameters.some(
+        parameter => ts.isIdentifier(parameter.name) && parameter.name.text === name,
+      )
+    )
+      return;
+    if (!ts.isBlock(scope) && scope !== source) continue;
+    const statements = (scope as ts.Block | ts.SourceFile).statements;
+    for (const statement of statements) {
+      if (ts.isFunctionDeclaration(statement) && statement.name?.text === name) return statement;
+      if (ts.isVariableStatement(statement)) {
+        const declaration = statement.declarationList.declarations.find(
+          entry => ts.isIdentifier(entry.name) && entry.name.text === name,
+        );
+        if (declaration) {
+          const value = declaration.initializer;
+          return value && (ts.isArrowFunction(value) || ts.isFunctionExpression(value))
+            ? value
+            : undefined;
+        }
+      }
+    }
+  }
 }
 
 function getNumericStatus(options: ts.Expression | undefined, source: ts.SourceFile) {
@@ -844,8 +885,23 @@ export function analyzeSourceOperation(
     }
   };
 
+  const analyzed = new Set<ts.Node>();
   const visit = (node: ts.Node) => {
+    if (
+      ts.isFunctionDeclaration(node) ||
+      ts.isFunctionExpression(node) ||
+      ts.isArrowFunction(node)
+    ) {
+      if (
+        ts.isCallExpression(node.parent) &&
+        node.parent.arguments.some(argument => argument === node)
+      )
+        analyzeHandler(node);
+      return;
+    }
     if (ts.isCallExpression(node)) {
+      const local = findLocalCalledFunction(node, source);
+      if (local) analyzeHandler(local);
       const calleeText = node.expression.getText(source);
       const name = ts.isIdentifier(node.expression)
         ? node.expression.text
@@ -894,7 +950,19 @@ export function analyzeSourceOperation(
     ts.forEachChild(node, visit);
   };
 
-  visit(handler);
+  const analyzeHandler = (target: ts.Node) => {
+    if (analyzed.has(target)) return;
+    analyzed.add(target);
+    collectDeclarations(target, declarations);
+    if (
+      ts.isFunctionDeclaration(target) ||
+      ts.isFunctionExpression(target) ||
+      ts.isArrowFunction(target)
+    )
+      ts.forEachChild(target, visit);
+    else visit(target);
+  };
+  analyzeHandler(handler);
 
   const schemaArgument = parseRequestCall?.arguments[1];
   const hasRequestSchema = Boolean(

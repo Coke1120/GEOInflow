@@ -1,4 +1,5 @@
 import { measureTrafficQuality } from './liekan-traffic-benchmark';
+import { benchmarkIpHeader, seedBenchmarkBrowserEvidence } from './liekan-benchmark-fixtures';
 import { promisify } from 'node:util';
 import { execFile, execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -168,6 +169,8 @@ async function startApp(name: string, connection = internalDatabase, selectedIma
     `LIEKAN_ANALYTICS_REDIS_URL=redis://${redisName}:6379`,
     '-e',
     'DISABLE_TELEMETRY=1',
+    '-e',
+    `CLIENT_IP_HEADER=${benchmarkIpHeader}`,
     '-e',
     'DEFAULT_LOCALE=zh-CN',
     selectedImage,
@@ -1242,13 +1245,16 @@ try {
     sites,
     authentication.user.id,
   );
-  // These isolated generated events model browser collection; the source-aware policy requires its explicit evidence.
-  await database.query(
-    `INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,hostname,created_at)
-     SELECT event_id,website_id,'browser','browser','{synthetic-benchmark}','synthetic-cache-fixture-v1','untrusted',hostname,created_at
-     FROM website_event WHERE website_id=ANY($1::uuid[]) ON CONFLICT DO NOTHING`,
-    [sites],
-  );
+  await seedBenchmarkBrowserEvidence(database, sites);
+  for (const table of [
+    'liekan_event_quality',
+    'liekan_event_environment',
+    'liekan_session_source',
+    'liekan_session_data_source',
+  ])
+    await database.query(`ANALYZE ${table}`);
+  report.seed.identityEvidence =
+    "Explicit synthetic browser sidecars; restricted to this connection's benchmark registry and demo websites";
   report.sourceCounts = (
     await database.query(`SELECT
     (SELECT count(*)::int FROM website_event) events,(SELECT count(*)::int FROM liekan_log) logs,
@@ -2200,16 +2206,18 @@ try {
         .then(result => result.rows);
     const priorVersions = await versions();
     const inserted = await database.query(
-      `WITH inserted AS (INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name,hostname)
+      `INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,event_name,hostname)
        SELECT gen_random_uuid(),website_id,session_id,gen_random_uuid(),to_timestamp($2/1000.0)-interval '2 seconds',
          '/synthetic/manual-refresh',$3,CASE WHEN $3=2 THEN 'synthetic-manual-refresh' END,'analytics-benchmark.invalid'
-       FROM session WHERE website_id=$1 ORDER BY session_id LIMIT 1
-       RETURNING event_id,website_id,hostname,created_at)
-       INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,hostname,created_at)
-       SELECT event_id,website_id,'browser','browser','{synthetic-benchmark}','synthetic-cache-fixture-v1','untrusted',hostname,created_at FROM inserted`,
+       FROM session WHERE website_id=$1 ORDER BY session_id LIMIT 1 RETURNING event_id`,
       [entry.site, end, entry.name === 'feature-events' ? 2 : 1],
     );
     assert.equal(inserted.rowCount, 1);
+    await seedBenchmarkBrowserEvidence(
+      database,
+      [entry.site],
+      inserted.rows.map(row => row.event_id),
+    );
     assert.deepEqual(
       await versions(),
       priorVersions,

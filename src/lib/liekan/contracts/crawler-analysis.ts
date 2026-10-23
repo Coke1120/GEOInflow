@@ -1,3 +1,4 @@
+import type { BrowserPopulation } from './browser-population';
 import type {
   CrawlerBotId,
   CrawlerPlatformId,
@@ -31,14 +32,14 @@ export interface CrawlerAnalyzedPage extends CrawlerRequestCounts {
 }
 export interface CrawlerAnalyzedPlatform {
   platformId: CrawlerPlatformId;
-  state: 'available' | 'missing' | 'unsupported';
+  state: 'available' | 'missing' | 'unsupported' | 'unknown';
   visits: number | null;
   conversions: number | null;
   goalEvents: number | null;
   landingPagesTruncated: boolean;
   landingPages: {
     path: string;
-    visits: number;
+    visits: number | null;
     conversions: number | null;
     goalEvents: number | null;
   }[];
@@ -60,10 +61,12 @@ export interface CrawlerStoredFinding {
 }
 export interface CrawlerAnalysisResponse {
   range: { startAt: number; endAt: number; timezone: string };
+  population?: BrowserPopulation;
   quality: CrawlerObservationQuality;
   directory: readonly CrawlerDirectoryEntry[];
   previous: {
     range: CrawlerAnalysisResponse['range'];
+    population?: BrowserPopulation;
     quality: CrawlerObservationQuality;
     bots: (CrawlerRequestCounts & { botId: CrawlerBotId | null; name?: string; bytes: number })[];
     platforms: CrawlerAnalyzedPlatform[];

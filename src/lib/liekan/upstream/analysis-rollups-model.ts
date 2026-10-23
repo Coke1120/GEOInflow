@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export const ANALYSIS_ROLLUP_VERSION = 'analysis-rollups-v1';
+export const ANALYSIS_ROLLUP_VERSION = 'analysis-rollups-v2';
 export const ANALYSIS_CHUNK_SIZE = 2000;
 export const ANALYSIS_SITE_LIMIT = 1024 ** 3;
 export const ANALYSIS_GLOBAL_LIMIT = 8 * 1024 ** 3;
@@ -72,6 +72,13 @@ export interface AnalysisVisitInput {
   /** Internal exact raw comparison for isolated validation. Production callers leave false. */
   allowRawOnly?: boolean;
   filters?: Record<string, unknown>;
+}
+export interface AnalysisVisitPopulationInput {
+  websiteId: string;
+  startDate: Date;
+  endDate: Date;
+  timezone?: string;
+  halfOpen?: boolean;
 }
 export interface AnalysisLogResult {
   summary: {

@@ -249,7 +249,7 @@ describe('history repair evidence and population invariants', () => {
       expect(result.proof.catalogVersion).toBe(catalog.originalVersion);
     }
   });
-  it('applies browser source before all traffic policies and preserves link/pixel semantics', () => {
+  it('applies website source and type boundaries before every policy', () => {
     for (const mode of ['standard', 'strict', 'raw'] as const)
       expect(
         includedEvent(event({ source: null }), 1, null, {
@@ -264,10 +264,10 @@ describe('history repair evidence and population invariants', () => {
         allowedHostnames: [],
         revision: '0',
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       includedEvent(event({ classification: 'automated' }), 1, null, {
-        mode: 'standard',
+        mode: 'raw',
         allowedHostnames: [],
         revision: '0',
       }),
@@ -285,4 +285,13 @@ describe('history repair evidence and population invariants', () => {
     expect(fraction('0', '0')).toBeNull();
     expect(fraction('1', '2')).toBe(0.5);
   });
+});
+
+
+it('applies Origin and explicit exclusions to historical browser population', () => {
+  const verdict = { classification: 'browser' as const, source: 'browser', reasons: [], ruleVersion: 'traffic-quality-v4' };
+  const policy = { mode: 'raw' as const, allowedHostnames: ['example.test'], revision: '1' };
+  expect(includedEvent(verdict, 1, 'example.test', policy, { originHostname: 'other.test' })).toBe(false);
+  expect(includedEvent(verdict, 1, 'example.test', policy, { excluded: true })).toBe(false);
+  expect(includedEvent(verdict, 1, 'example.test', policy)).toBe(true);
 });

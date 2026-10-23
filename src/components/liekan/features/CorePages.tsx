@@ -827,6 +827,7 @@ function setupState(query: any, state?: DataState, available = '已收到数据'
     available,
     empty: '当前范围无数据',
     not_connected: absent,
+    unavailable: '身份指标不可用',
     unsupported: '当前实例不支持',
     estimated: '估算数据',
   }[state];
@@ -2872,12 +2873,14 @@ function Funnels() {
         items={[
           [
             i18n.text('进入漏斗'),
-            stats.isPending || stats.error ? '—' : numberLabel(first ?? 0),
+            stats.isPending || stats.error
+              ? '—'
+              : numberLabel(first === null ? null : (first ?? 0)),
             i18n.text('当前范围访客'),
           ],
           [
             i18n.text('完成路径'),
-            stats.isPending || stats.error ? '—' : numberLabel(last ?? 0),
+            stats.isPending || stats.error ? '—' : numberLabel(last === null ? null : (last ?? 0)),
             i18n.text('完成访客'),
             'blue',
           ],

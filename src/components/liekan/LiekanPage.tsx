@@ -1,5 +1,7 @@
 'use client';
 import { AnalysisPendingNotice } from './AnalysisPendingNotice';
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { downloadTrafficEvidence } from '@/lib/liekan/upstream/features-client';
 import { reportEvidenceViewPayload } from '@/lib/liekan/contracts/report-evidence-view';
 import { sha256 } from '@noble/hashes/sha2.js';
@@ -1104,6 +1106,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         </div>
       )}
       <AnalysisPendingNotice websiteId={reportWebsiteId} websiteHandle={websiteId} />
+      {report && !identityUsable(report.meta.population) && (
+        <div className={styles.notice} role="status">
+          {i18n.system(identityUnavailableReason)}
+        </div>
+      )}
       {report && query.isFetching && (
         <div className={styles.notice} role="status">
           {i18n.text('正在更新统计数据')}

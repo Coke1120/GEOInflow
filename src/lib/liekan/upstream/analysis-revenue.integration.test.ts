@@ -48,13 +48,25 @@ async function metrics(
   explain = false,
 ) {
   let captured: { sql: string; values: unknown[] };
+  let failed: { sql: string; values: unknown[]; code?: string };
   const executor = {
     async $executeRawUnsafe(sql: string, ...values: unknown[]) {
       return (await client.query(sql, values)).rowCount;
     },
     async $queryRawUnsafe(sql: string, ...values: unknown[]) {
-      captured = { sql, values };
-      return (await client.query(sql, values)).rows;
+      if (sql.includes('filtered_revenue') && sql.includes('revenue_event'))
+        captured = { sql, values };
+      try {
+        return (await client.query(sql, values)).rows;
+      } catch (error) {
+        failed = {
+          sql,
+          values,
+          code:
+            error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined,
+        };
+        throw error;
+      }
     },
   };
   await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
@@ -63,6 +75,7 @@ async function metrics(
     const value = await withinQuerySnapshot(executor, () =>
       getRevenueMetrics(site, input, filters, type),
     );
+    if (!captured) throw new Error('native-revenue-sql-not-captured');
     const plan: Plan = explain
       ? (
           await client.query(
@@ -72,6 +85,21 @@ async function metrics(
         ).rows[0]['QUERY PLAN'][0].Plan
       : undefined;
     return { value, captured, plan };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    if (failed) {
+      await client.query('BEGIN');
+      try {
+        await client.query("SET LOCAL statement_timeout='5s'");
+        const plan = (
+          await client.query('EXPLAIN(VERBOSE,FORMAT JSON)' + failed.sql, failed.values)
+        ).rows[0]['QUERY PLAN'];
+        await save(`revenue-failed-${type}`, { failed, captured, plan });
+      } finally {
+        await client.query('ROLLBACK');
+      }
+    }
+    throw error;
   } finally {
     await client.query('ROLLBACK');
   }
@@ -162,6 +190,22 @@ describe.skipIf(!enabled)('revenue event geography with actual PostgreSQL plans'
       [population],
     );
     await client.query('ANALYZE website_event');
+    await client.query(
+      `INSERT INTO liekan_session_source(website_id,session_id,source,scope,identity_version,identity_available)
+      SELECT DISTINCT e.website_id,e.session_id,'browser','browser','synthetic-benchmark-identity-v1',true FROM website_event e
+      WHERE e.website_id=ANY($1::uuid[]) ON CONFLICT DO NOTHING`,
+      [population],
+    );
+    await client.query(
+      `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser,os,device,screen,language)
+      SELECT e.event_id,e.website_id,'browser','synthetic-benchmark-identity-v1',true,s.browser,s.os,s.device,s.screen,s.language
+      FROM website_event e JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
+      WHERE e.website_id=ANY($1::uuid[]) ON CONFLICT DO NOTHING`,
+      [population],
+    );
+    await client.query('ANALYZE liekan_event_quality');
+    await client.query('ANALYZE liekan_event_environment');
+    await client.query('ANALYZE liekan_session_source');
     await client.query('ANALYZE session');
     const oracle = (
       await client.query(
@@ -197,11 +241,32 @@ describe.skipIf(!enabled)('revenue event geography with actual PostgreSQL plans'
     for (const result of results) {
       expect(result.geographyLoops).toBeLessThanOrEqual(oracle.n);
       expect(result.point.length).toBeGreaterThan(0);
+      const eligibility = nodes(result.plan).filter(
+        node =>
+          String(node['Subplan Name'] || '').startsWith('SubPlan') &&
+          nodes(node).some(
+            child =>
+              child['Index Name'] === 'website_event_pkey' &&
+              /event_id\s*=\s*\w+\.event_id/.test(child['Index Cond'] || ''),
+          ),
+      );
+      expect(eligibility).toHaveLength(1);
+      expect(eligibility[0]['Actual Loops']).toBe(oracle.n);
+      expect(
+        nodes(result.plan).filter(
+          node => node['Join Type'] === 'Semi' && /event_id/.test(node['Join Filter'] || ''),
+        ),
+      ).toHaveLength(0);
+      let candidates = 0;
       for (const point of result.point) {
         expect(point['Actual Rows']).toBeLessThanOrEqual(1);
         expect(point['Actual Loops']).toBeLessThanOrEqual(oracle.n);
-        expect(point['Rows Removed by Filter'] || 0).toBe(0);
+        // Main's browser/link/pixel branches each probe the unique event before type discrimination.
+        const rows = point['Actual Rows'] + (point['Rows Removed by Filter'] || 0);
+        expect(rows).toBeLessThanOrEqual(1);
+        candidates += rows * point['Actual Loops'];
       }
+      expect(candidates).toBeLessThanOrEqual(3 * oracle.n);
     }
   }, 60000);
 

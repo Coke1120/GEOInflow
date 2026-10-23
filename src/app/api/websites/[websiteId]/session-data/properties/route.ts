@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { z } from 'zod';
 import { parsePropertyFilters } from '@/lib/params';
 import { getQueryFilters, parseRequest } from '@/lib/request';
@@ -6,7 +7,7 @@ import { filterParams } from '@/lib/schema';
 import { canViewWebsiteSection } from '@/permissions';
 import { getSessionDataProperties } from '@/queries/sql';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -36,4 +37,8 @@ export async function GET(
   const data = await getSessionDataProperties(websiteId, filters, propertyFilters, propertyName);
 
   return json(data);
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args), args[0]);
 }

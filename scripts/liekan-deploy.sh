@@ -160,6 +160,7 @@ if [ -n "$cache_container" ]; then
 else
   docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 analytics-cache
 fi
+docker compose -f docker-compose.liekan.yml stop log-worker analytics-worker
 docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 app
 docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 log-worker analytics-worker
 printf '%s\n' 'GEOInflow部署完成：http://127.0.0.1:3002' '首次安装登录：admin / liekan。已有账号使用原密码。' '公网访问通过反向代理配置域名与 HTTPS。'

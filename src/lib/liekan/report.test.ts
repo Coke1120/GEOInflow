@@ -1,3 +1,6 @@
+import { populationFromRow } from './upstream/browser-population';
+import { identityUnavailableReason } from './contracts/population-results';
+import { translateSystemText } from './i18n/text';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -1049,3 +1052,46 @@ it('shows empty category charts and unavailable conversion rates without excludi
     series: [{ name: '会话', values: [] }],
   });
 });
+
+it.each([false, true])(
+  'keeps unavailable identities out of private/share insights when visitor-only=%s',
+  async visitorOnly => {
+    const human = await mocks.human();
+    const population = populationFromRow(
+      {
+        eligibleEvents: 3,
+        qualifiedEvents: 1,
+        eligiblePV: 3,
+        qualifiedPV: 1,
+        qualifiedVisitors: 1,
+      },
+      { startAt: params.startAt, endAt: params.endAt, timezone: params.timezone },
+    );
+    mocks.human.mockResolvedValue({
+      ...human,
+      totals: {
+        pageviews: 3,
+        visitors: null,
+        visits: null,
+        bounces: null,
+        totaltime: null,
+        population,
+      },
+    });
+    mocks.settings.mockResolvedValue({
+      ...(await mocks.settings()),
+      aiCrawlerEnabled: !visitorOnly,
+    });
+    for (const pageOnly of [undefined, 'share'] as const) {
+      const report = await buildReport(website, false, params, pageOnly);
+      expect(report.insights).toContain(identityUnavailableReason);
+      expect(report.insights[0]).toContain('3 次浏览');
+      expect(report.insights.join(' ')).not.toMatch(/null|undefined|NaN|0 次访问|0 位访客/);
+      const english = report.insights.map(line => translateSystemText(line, 'en-US'));
+      expect(english[0]).toContain('3 pageviews');
+      expect(english.join(' ')).not.toMatch(/[\u4e00-\u9fff]|null|undefined|NaN/);
+      if (report.tables.recoList)
+        expect(report.tables.recoList.map(row => row.detail)).toEqual(report.insights);
+    }
+  },
+);

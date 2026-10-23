@@ -25,8 +25,8 @@ export async function analysisTransaction<T>(
   ) as Promise<T>;
 }
 
-/** The same snapshot pins every semantic version and its current writer fingerprint. */
-export async function analysisVersions(tx: AnalysisTx, websiteId: string) {
+/** Optional readers retain native link/pixel handling when no website identity exists. */
+export async function findAnalysisVersions(tx: AnalysisTx, websiteId: string) {
   const [row] = await tx.$queryRawUnsafe<{ versions: Record<string, unknown> }[]>(
     'SELECT liekan_analysis_versions($1::uuid,$2::text,$3::text,$4::text) AS versions',
     websiteId,
@@ -34,8 +34,14 @@ export async function analysisVersions(tx: AnalysisTx, websiteId: string) {
     TRAFFIC_POLICY_VERSION,
     CRAWLER_POPULATION_VERSION,
   );
-  if (!row?.versions) throw new LiekanError('站点不存在', 404);
-  return row.versions;
+  return row?.versions || null;
+}
+
+/** Workers and management require a website identity in the same query snapshot. */
+export async function analysisVersions(tx: AnalysisTx, websiteId: string) {
+  const versions = await findAnalysisVersions(tx, websiteId);
+  if (!versions) throw new LiekanError('站点不存在', 404);
+  return versions;
 }
 
 export const analysisTables = [
@@ -133,5 +139,10 @@ export function analysisLogDimensionsSql(productFormSql = archivedProductFormSql
 }
 export const logDimensionsSql = analysisLogDimensionsSql();
 export const visitDimensionsSql = `jsonb_build_object(
- 'sessionPresent',s.session_id IS NOT NULL,'browser',s.browser,'os',s.os,'device',s.device,'screen',s.screen,'language',s.language,
- 'country',e.liekan_country,'region',e.liekan_region,'city',e.liekan_city)`;
+ 'sessionPresent',s.session_id IS NOT NULL,'browser',e.liekan_browser,'os',e.liekan_os,'device',e.liekan_device,'screen',e.liekan_screen,'language',e.liekan_language,
+ 'country',e.liekan_country,'region',e.liekan_region,'city',e.liekan_city,
+ 'identityAvailable',e.liekan_identity_available,'identityVersion',env.identity_version,
+ 'ruleVersion',q.rule_version,'catalogVersion',q.catalog_version::text)`;
+export const visitEvidenceJoinsSql = `LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
+ LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
+ LEFT JOIN liekan_reporting_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id`;

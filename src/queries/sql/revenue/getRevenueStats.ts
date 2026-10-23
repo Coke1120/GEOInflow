@@ -9,8 +9,8 @@ export interface RevenueStatsResult {
   sum: number;
   count: number;
   average: number;
-  unique_count: number;
-  arpu: number;
+  unique_count: number | null;
+  arpu: number | null;
 }
 
 export async function getRevenueStats(
@@ -69,11 +69,17 @@ async function relationalQuery(
       (select count(*) from filtered_sessions) as total_sessions
     from filtered_revenue
     `,
-    queryParams, 'getRevenueStats',
+    queryParams,
+    'getRevenueStats',
   ).then(result => result?.[0]);
 
   total.average = total.count > 0 ? Number(total.sum) / Number(total.count) : 0;
-  total.arpu = total.total_sessions > 0 ? Number(total.sum) / Number(total.total_sessions) : 0;
+  total.arpu =
+    total.total_sessions === null
+      ? null
+      : total.total_sessions > 0
+        ? Number(total.sum) / Number(total.total_sessions)
+        : 0;
 
   return total;
 }
@@ -96,7 +102,7 @@ async function clickhouseQuery(
   const total = await rawQuery<{
     sum: number;
     count: number;
-    unique_count: number;
+    unique_count: number | null;
     total_sessions: number;
   }>(
     `
@@ -129,7 +135,8 @@ async function clickhouseQuery(
       (select count() from filtered_sessions) as total_sessions
     from filtered_revenue
     `,
-    queryParams, 'getRevenueStats',
+    queryParams,
+    'getRevenueStats',
   ).then(result => result?.[0]);
 
   total.average = total.count > 0 ? total.sum / total.count : 0;

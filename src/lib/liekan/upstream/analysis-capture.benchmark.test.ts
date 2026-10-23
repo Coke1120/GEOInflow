@@ -7,6 +7,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { afterAll, expect, it } from 'vitest';
 import { Client } from 'pg';
 import { ANALYSIS_ROLLUP_VERSION } from './analysis-rollups-model';
+import { COLLECTION_IDENTITY_VERSION, type CollectionIdentity } from './collection-identity';
 import { summarizeClosedBucketLag } from '@/test/analysis-capture-statistics.mjs';
 
 const enabled = process.env.LIEKAN_ANALYSIS_CAPTURE_BENCHMARK === '1';
@@ -127,7 +128,7 @@ it.skipIf(!enabled)(
     ({ default: prisma } = await import('@/lib/prisma'));
     db = await import('./analysis-rollups-db');
     const { withPublishedRegistry } = await import('./crawler-registry-context');
-    const { withCollectionWrite } = await import('./collection-write');
+    const { withCollectionWrite, recordCollectionIdentity } = await import('./collection-write');
     const { saveEvent } = await import('@/queries/sql/events/saveEvent');
     const { observeCollection } = await import('./collection-observation');
     const { processBatch } = await import('../log-ingestion/service');
@@ -137,8 +138,10 @@ it.skipIf(!enabled)(
     >(`SELECT c.relname AS table_name,t.tgname AS trigger_name,t.tgenabled::text AS enabled
    FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_proc p ON p.oid=t.tgfoid
    WHERE n.nspname=current_schema() AND NOT t.tgisinternal AND p.proname LIKE 'liekan_analysis_%'
-   AND c.relname IN('liekan_log','liekan_crawler_evidence','website_event','session','liekan_event_quality','liekan_event_geography','liekan_log_state','liekan_log_source') ORDER BY 1,2`);
+   AND c.relname IN('liekan_log','liekan_crawler_evidence','website_event','session','liekan_event_quality','liekan_event_geography','liekan_event_environment','liekan_log_state','liekan_log_source') ORDER BY 1,2`);
     if (triggers.length < 12) throw new Error('capture-trigger-inventory-incomplete');
+    if (triggers.filter(t => t.table_name === 'liekan_event_environment').length !== 8)
+      throw new Error('capture-environment-trigger-inventory-incomplete');
     const switchCapture = async (on: boolean) => {
       for (const t of triggers) {
         if (!/^[a-z_]+$/.test(t.table_name) || !/^[a-z_]+$/.test(t.trigger_name))
@@ -187,12 +190,14 @@ it.skipIf(!enabled)(
     };
     const captureFiles = [
       'src/lib/liekan/upstream/collection-write.ts',
+      'src/lib/liekan/upstream/collection-identity.ts',
       'src/queries/sql/events/saveEvent.ts',
       'src/lib/liekan/log-ingestion/service.ts',
       'src/lib/liekan/log-ingestion/crawler-evidence.ts',
       'src/lib/liekan/upstream/log-geography.ts',
       'src/lib/liekan/upstream/server.ts',
       'src/lib/liekan/upstream/analysis-rollups.ts',
+      'src/lib/liekan/upstream/analysis-rollups-model.ts',
       'src/lib/liekan/upstream/analysis-rollups-db.ts',
       'src/lib/liekan/upstream/analysis-rollups-worker.ts',
       'src/lib/liekan/upstream/analysis-rollups-discovery.ts',
@@ -202,6 +207,7 @@ it.skipIf(!enabled)(
       'src/liekan-worker/analytics-main.ts',
       ...[
         '037_analytics_rollups.sql',
+        '037_browser_population.sql',
         '038_analytics_visits.sql',
         '039_analytics_query_jobs.sql',
         '040_analytics_expansion_probes.sql',
@@ -211,6 +217,8 @@ it.skipIf(!enabled)(
         '044_analytics_discovery_rotation.sql',
         '045_analytics_visit_guards.sql',
         '046_analytics_visit_guard_schema.sql',
+        '047_analytics_browser_population.sql',
+        '048_analytics_revenue_proof.sql',
       ].map(name => `db/liekan/migrations/${name}`),
       'src/lib/liekan/upstream/analysis-capture.benchmark.test.ts',
       'tests/liekan/analysis-rollups.integration.mjs',
@@ -305,10 +313,26 @@ it.skipIf(!enabled)(
         const online = async (website: string, at = new Date()) => {
           const sessionId = randomUUID(),
             eventId = randomUUID();
+          const identity: CollectionIdentity = {
+            scope: 'browser',
+            available: true,
+            version: COLLECTION_IDENTITY_VERSION,
+            sessionId,
+            browser: 'Synthetic',
+            os: 'Synthetic',
+            device: 'desktop',
+            screen: '1920x1080',
+            language: 'en-US',
+            originHostname: 'capture.invalid',
+            distinctId: null,
+            hostname: 'capture.invalid',
+            classification: 'browser',
+          };
           const input = {
             websiteId: website,
             eventId,
             fingerprint: eventId,
+            identity,
             quality: {
               classification: 'browser' as const,
               source: 'browser' as const,
@@ -343,6 +367,7 @@ it.skipIf(!enabled)(
               sessionId,
               website,
             );
+            await recordCollectionIdentity(website, identity);
             return saveEvent({
               websiteId: website,
               sessionId,
@@ -630,14 +655,25 @@ it.skipIf(!enabled)(
          (SELECT count(*)::int FROM liekan_event_quality WHERE website_id=$1::uuid) AS quality,
          (SELECT count(*)::int FROM liekan_event_geography WHERE website_id=$1::uuid) AS geography,
          (SELECT count(*)::int FROM liekan_collection_receipt WHERE website_id=$1::uuid AND event_id IS NOT NULL) AS receipts,
-         (SELECT count(*)::int FROM liekan_event_observation WHERE website_id=$1::uuid) AS observations`,
+         (SELECT count(*)::int FROM liekan_event_observation WHERE website_id=$1::uuid) AS observations,
+         (SELECT count(*)::int FROM liekan_event_environment WHERE website_id=$1::uuid AND scope='browser' AND identity_available) AS environments,
+         (SELECT count(*)::int FROM liekan_session_source WHERE website_id=$1::uuid AND source='browser' AND scope='browser' AND identity_available) AS sources,
+         (SELECT count(*)::int FROM liekan_geographic_website_event WHERE website_id=$1::uuid) AS eligible,
+         (SELECT count(*)::int FROM liekan_geographic_website_event WHERE website_id=$1::uuid AND liekan_identity_available) AS qualified`,
             fixture.website,
           );
           const atomicConsistent =
             atomic.events === timings.online.length + 20 &&
-            ['quality', 'geography', 'receipts', 'observations'].every(
-              field => atomic[field] === atomic.events,
-            );
+            [
+              'quality',
+              'geography',
+              'receipts',
+              'observations',
+              'environments',
+              'sources',
+              'eligible',
+              'qualified',
+            ].every(field => atomic[field] === atomic.events);
           const attempts = Object.fromEntries(
             ['online', 'batch'].map(type => [
               type,

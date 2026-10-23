@@ -18,6 +18,7 @@ import {
 } from '../contracts/history-repair';
 import {
   emptyCounts,
+  publicRepairCounts, publicRepairPreview,
   hash,
   progress,
   rulepack,
@@ -46,6 +47,7 @@ export interface RepairSnapshot {
   teamId: string | null;
   epoch: number;
   logPolicy: string;
+  governanceRevision: string;
   timezone: string;
   authorityHash: string;
   inputNotBefore?: string;
@@ -131,14 +133,14 @@ export function dto(row: RunRow): HistoryRepairRun {
     previousGeneration: row.previous_generation,
     progress: progress(row.status, counts),
     phase: row.phase,
-    counts,
+    counts: publicRepairCounts({ ...counts, beforeIdentityMissingPV: row.counts.beforeIdentityMissingPV, afterIdentityMissingPV: row.counts.afterIdentityMissingPV }),
     frozenAt: iso(row.frozen_at),
     scopeId: row.repair_scope_id,
     scopeChanged: row.scope_changed,
     errorCode: row.error_code,
     updatedAt: iso(row.updated_at),
     completedAt: iso(row.completed_at),
-    preview: row.preview,
+    preview: publicRepairPreview(row.preview),
   };
 }
 export async function repairTransaction<T>(work: (tx: RepairTx) => Promise<T>) {
@@ -198,9 +200,10 @@ export async function snapshot(
       team_id: string | null;
       epoch: number;
       policy_revision: string;
+      governance_revision: string;
     }[]
   >(
-    `SELECT w.domain,w.user_id,w.team_id,coalesce(s.epoch,1) AS epoch,coalesce(s.policy_revision,0)::text AS policy_revision FROM website w LEFT JOIN liekan_log_state s USING(website_id) WHERE w.website_id=$1::uuid AND w.deleted_at IS NULL`,
+    `SELECT w.domain,w.user_id,w.team_id,coalesce(s.epoch,1) AS epoch,coalesce(s.policy_revision,0)::text AS policy_revision,coalesce(g.revision,0)::text AS governance_revision FROM website w LEFT JOIN liekan_log_state s USING(website_id) LEFT JOIN liekan_traffic_governance g USING(website_id) WHERE w.website_id=$1::uuid AND w.deleted_at IS NULL`,
     id,
   );
   if (!site) throw new LiekanError('站点不存在', 404);
@@ -216,7 +219,7 @@ export async function snapshot(
     rulesRevision: settings.rulesRevision,
     rules: settings.rules,
     configuration: settings.crawlerRules,
-    botCheckDisabled: !!process.env.DISABLE_BOT_CHECK,
+    botCheckDisabled: ['1','true'].includes(process.env.DISABLE_BOT_CHECK || ''),
   });
   const authority = {
     policy: {
@@ -230,6 +233,7 @@ export async function snapshot(
     teamId: site.team_id,
     epoch: site.epoch,
     logPolicy: site.policy_revision,
+    governanceRevision: site.governance_revision,
     timezone,
     rulesRevision: settings.rulesRevision,
     configuration: settings.crawlerRules,

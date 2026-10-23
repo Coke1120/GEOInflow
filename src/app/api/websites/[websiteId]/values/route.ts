@@ -1,3 +1,4 @@
+import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { EVENT_COLUMNS, FILTER_COLUMNS, SEGMENT_TYPES, SESSION_COLUMNS } from '@/lib/constants';
 import { getQueryFilters, parseRequest } from '@/lib/request';
 import { badRequest, json, unauthorized } from '@/lib/response';
@@ -6,7 +7,7 @@ import { canViewWebsiteSection } from '@/permissions';
 import { getWebsiteSegments } from '@/queries/prisma';
 import { getValues } from '@/queries/sql';
 
-export async function GET(
+async function getResponse(
   request: Request,
   { params }: { params: Promise<{ websiteId: string }> },
 ) {
@@ -55,4 +56,8 @@ export async function GET(
   }
 
   return json(values.filter(n => n?.value != null).sort());
+}
+
+export async function GET(...args: Parameters<typeof getResponse>) {
+  return withQueryCacheHeaders(() => getResponse(...args), args[0]);
 }

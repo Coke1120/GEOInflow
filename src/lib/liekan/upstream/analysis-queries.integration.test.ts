@@ -320,6 +320,21 @@ describe.skipIf(!enabled)('durable private query lifecycle in PostgreSQL', () =>
       expect(row.raw_ms).toBeGreaterThan(0);
       expect(row.accelerated_ms).toBeGreaterThan(0);
     }
+    await sql(
+      `UPDATE liekan_analysis_probe SET versions=jsonb_set(versions,'{engine}','"older-engine"') WHERE website_id=$1`,
+      site,
+    );
+    for (let day = 0; day < 3; day++) await probeAnalysisExpansion(site);
+    const upgraded = await q(
+      'SELECT versions,compared,input_rows FROM liekan_analysis_probe WHERE website_id=$1',
+      site,
+    );
+    expect(upgraded).toHaveLength(3);
+    for (const row of upgraded) {
+      expect(row.versions.engine).toBe('analysis-rollups-v2');
+      expect(row.compared).toBe(true);
+      expect(row.input_rows).toBe(32n);
+    }
   });
   it('limits each consumer to two distinct pending tasks', async () => {
     await request();

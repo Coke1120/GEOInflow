@@ -64,7 +64,12 @@ export interface InstallationProgress {
   logCheckDeferred: boolean;
   completedAt: string | null;
 }
+export interface IdentityIngressDiagnostic {
+  configured: boolean;
+  state: 'missing_configuration' | 'needs_ingress_verification';
+}
 export interface InstallationStatus {
+  identityIngress?: IdentityIngressDiagnostic;
   progress: InstallationProgress;
   canManage: boolean;
   browser?: { pageviews: number; firstAt: string | null; lastAt: string | null };

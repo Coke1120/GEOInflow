@@ -1,3 +1,6 @@
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -8,9 +11,22 @@ const FUNCTION_NAME = 'getWeeklyTraffic';
 
 export async function getWeeklyTraffic(
   ...args: [websiteId: string, filters: QueryFilters]
-): Promise<number[][]> {
+): Promise<(number | null)[][]> {
   return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
+    [PRISMA]: () =>
+      nativeSnapshot(async () => {
+        const data = await relationalQuery(...args);
+        const [websiteId, filters] = args;
+        const population = await readBrowserPopulation(
+          websiteId,
+          filters.startDate,
+          filters.endDate,
+          filters.timezone,
+        );
+        return identityUsable(population)
+          ? data
+          : Array.from({ length: 7 }, () => Array(24).fill(null));
+      }),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
 }
@@ -90,7 +106,9 @@ async function clickhouseQuery(websiteId: string, filters: QueryFilters) {
   return rawQuery(sql, queryParams, FUNCTION_NAME).then(formatResults);
 }
 
-function formatResults(data: any): number[][] {
+function formatResults(data: any): (number | null)[][] {
+  if (data.some(row => row.value === null))
+    return Array.from({ length: 7 }, () => Array(24).fill(null));
   const days: number[][] = [];
 
   for (let i = 0; i < 7; i++) {

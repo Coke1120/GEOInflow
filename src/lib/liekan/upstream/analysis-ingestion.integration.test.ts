@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { spawn, type ChildProcess } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
-import { writeFile } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { readFile, writeFile } from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { Client } from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { HISTORY_REPAIR_ENGINE } from '../contracts/history-repair';
 
 const enabled = process.env.LIEKAN_ANALYSIS_ROLLUPS_TEST === '1';
 const actor = { userId: randomUUID() };
@@ -122,7 +123,7 @@ finally{await prisma.client.$disconnect();}})();`;
 async function waiting(client: Client, name: string, blocker: number) {
   for (let n = 0; n < 250; n++) {
     const { rows } = await client.query(
-      `SELECT pid,query,wait_event_type,wait_event,pg_blocking_pids(pid) AS blockers
+      `SELECT pid,query,query_start,clock_timestamp() AS observed_at,wait_event_type,wait_event,pg_blocking_pids(pid) AS blockers
        FROM pg_stat_activity WHERE application_name=$1 AND datname=current_database()`,
       [name],
     );
@@ -275,6 +276,183 @@ describe.skipIf(!enabled)(
     afterAll(async () => {
       if (enabled && prisma) await prisma.client.$disconnect();
     });
+
+    it('keeps standard migration DDL locks within two seconds and retries atomically', async () => {
+      const migration = '048_analytics_revenue_proof.sql';
+      const checksum = createHash('sha256')
+        .update(await readFile(`db/liekan/migrations/${migration}`))
+        .digest('hex');
+      const input = await source(),
+        batchId = await batch(input);
+      expect(await worker(batchId).done).toEqual({ ok: true });
+      expect(await counts()).toEqual({
+        logs: 1,
+        effective: 1,
+        geography: 1,
+        evidence: 1,
+        imports: 1,
+        revision: 1,
+      });
+      type Journal = { name: string; checksum: string; appliedAt: string };
+      const journal = () =>
+        q<Journal[]>(
+          'SELECT name,checksum,applied_at::text AS "appliedAt" FROM liekan_migration ORDER BY name',
+        );
+      const facts = async () =>
+        (
+          await q(
+            `SELECT count(*)::int AS rows,md5(string_agg(to_jsonb(l)::text,',' ORDER BY id)) AS digest
+             FROM liekan_log l WHERE website_id=$1::uuid`,
+            website,
+          )
+        )[0];
+      const view = async () =>
+        (
+          await q<{ definition: string }[]>(
+            "SELECT pg_get_viewdef('liekan_effective_revenue'::regclass,true) AS definition",
+          )
+        )[0].definition;
+      const before = { journal: await journal(), facts: await facts(), view: await view() };
+      const original = before.journal.find(row => row.name === migration);
+      expect(before.journal).toHaveLength(55);
+      expect(original.checksum).toBe(checksum);
+      expect(before.facts.rows).toBe(1);
+      const retained = before.journal.filter(row => row.name !== migration);
+      let holder: Client, observer: Client;
+      type MigrationProcess = {
+        child: ChildProcess;
+        done: Promise<{ code: number; signal: string; stdout: string; stderr: string }>;
+        name: string;
+      };
+      const children: MigrationProcess[] = [];
+      const start = (phase: string): MigrationProcess => {
+        const name = `analysis-migrate-${randomUUID()}`;
+        const url = new URL(process.env.DATABASE_URL);
+        url.searchParams.set('application_name', name);
+        const child = spawn(process.execPath, ['scripts/liekan-migrate.mjs'], {
+          cwd: process.cwd(),
+          env: { ...process.env, DATABASE_URL: url.toString() },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        let stdout = '',
+          stderr = '';
+        child.stdout.on('data', bytes => (stdout += bytes.toString()));
+        child.stderr.on('data', bytes => (stderr += bytes.toString()));
+        const done = new Promise<{
+          code: number;
+          signal: string;
+          stdout: string;
+          stderr: string;
+        }>((resolve, reject) => {
+          const deadline = setTimeout(() => child.kill('SIGKILL'), 15000);
+          child.once('error', error => {
+            clearTimeout(deadline);
+            reject(error);
+          });
+          child.once('close', async (code, signal) => {
+            clearTimeout(deadline);
+            try {
+              await writeFile(
+                `${process.env.LIEKAN_ANALYSIS_ROLLUPS_OUTPUT}/migration-lock-${phase}.log`,
+                `${stdout}\n${stderr}`,
+                { mode: 0o600 },
+              );
+              resolve({ code, signal, stdout, stderr });
+            } catch (error) {
+              reject(error);
+            }
+          });
+        });
+        const migrationProcess = { child, done, name };
+        children.push(migrationProcess);
+        return migrationProcess;
+      };
+      try {
+        holder = await connect();
+        observer = await connect();
+        await sql('DELETE FROM liekan_migration WHERE name=$1', migration);
+        await holder.query('BEGIN');
+        await holder.query('LOCK TABLE liekan_effective_revenue IN ACCESS SHARE MODE');
+        const {
+          rows: [{ pid }],
+        } = await holder.query('SELECT pg_backend_pid() AS pid');
+        const blocked = start('blocked');
+        const wait = await waiting(observer, blocked.name, pid);
+        const observed = performance.now();
+        expect(wait.query).toContain('CREATE OR REPLACE VIEW liekan_effective_revenue');
+        const locks = (
+          await observer.query(
+            `SELECT pid,mode,granted FROM pg_locks WHERE pid=ANY($1::int[])
+             AND relation='liekan_effective_revenue'::regclass ORDER BY pid,mode`,
+            [[pid, wait.pid]],
+          )
+        ).rows;
+        const failed = await blocked.done;
+        const lockWaitMs =
+          +new Date(wait.observed_at) - +new Date(wait.query_start) + performance.now() - observed;
+        const rolledBack = { journal: await journal(), facts: await facts(), view: await view() };
+        expect(failed.code).not.toBe(0);
+        expect(failed.signal).toBeNull();
+        expect(failed.stderr).toContain('55P03');
+        expect(locks).toContainEqual({ pid, mode: 'AccessShareLock', granted: true });
+        expect(locks).toContainEqual({
+          pid: wait.pid,
+          mode: 'AccessExclusiveLock',
+          granted: false,
+        });
+        expect(rolledBack).toEqual({ ...before, journal: retained });
+        await holder.query('ROLLBACK');
+        const resumed = await start('released').done;
+        expect(resumed.code).toBe(0);
+        expect(resumed.stdout).toContain(`Liekan migration applied: ${migration}`);
+        const applied = await journal();
+        expect(applied).toHaveLength(55);
+        expect(applied.filter(row => row.name !== migration)).toEqual(retained);
+        expect(applied.find(row => row.name === migration).checksum).toBe(checksum);
+        const repeated = await start('idempotent').done;
+        expect(repeated.code).toBe(0);
+        expect(repeated.stdout).not.toContain('Liekan migration applied:');
+        expect(await journal()).toEqual(applied);
+        expect(await facts()).toEqual(before.facts);
+        expect(await view()).toBe(before.view);
+        await writeFile(
+          `${process.env.LIEKAN_ANALYSIS_ROLLUPS_OUTPUT}/migration-lock-evidence.json`,
+          JSON.stringify({
+            migration,
+            checksum,
+            before,
+            wait,
+            locks,
+            lockWaitMs,
+            rolledBack,
+            applied,
+          }),
+          { mode: 0o600 },
+        );
+        expect(lockWaitMs).toBeGreaterThanOrEqual(1500);
+        expect(lockWaitMs).toBeLessThanOrEqual(3500);
+      } finally {
+        for (const child of children)
+          if (child.child.exitCode === null && child.child.signalCode === null)
+            child.child.kill('SIGTERM');
+        await Promise.allSettled(children.map(child => child.done));
+        try {
+          await holder?.query('ROLLBACK');
+          if (original) {
+            await sql(
+              `INSERT INTO liekan_migration(name,checksum,applied_at) VALUES($1,$2,$3::timestamptz)
+               ON CONFLICT(name) DO UPDATE SET checksum=EXCLUDED.checksum,applied_at=EXCLUDED.applied_at`,
+              original.name,
+              original.checksum,
+              original.appliedAt,
+            );
+            expect(await journal()).toEqual(before.journal);
+          }
+        } finally {
+          await Promise.allSettled([holder?.end(), observer?.end()]);
+        }
+      }
+    }, 30000);
 
     it('serializes same-visit collection before the marker snapshot while retaining atomic receipts and evidence', async () => {
       const { AsyncLocalStorage } = await import('node:async_hooks');
@@ -1625,8 +1803,15 @@ describe.skipIf(!enabled)(
         await managerBeforeBatch(id, tx =>
           tx.query(
             `INSERT INTO liekan_history_repair_run(id,website_id,campaign_id,actor_id,status,generation,repair_scope_id,snapshot,locale)
-        VALUES($1::uuid,$2::uuid,'traffic-quality-repair-20261022-v1',$3::uuid,'running',$4::uuid,$5::uuid,'{}','en-US')`,
-            [run, website, actor.userId, generation, scope],
+        VALUES($1::uuid,$2::uuid,'traffic-quality-repair-20261022-v1',$3::uuid,'running',$4::uuid,$5::uuid,$6::jsonb,'en-US')`,
+            [
+              run,
+              website,
+              actor.userId,
+              generation,
+              scope,
+              JSON.stringify({ rulepack: { engine: HISTORY_REPAIR_ENGINE } }),
+            ],
           ),
         ),
       ).toEqual({ ok: true });

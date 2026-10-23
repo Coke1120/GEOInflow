@@ -115,7 +115,10 @@ export function Chart({
                   type: 'pie',
                   radius: ['48%', '70%'],
                   label: { show: false },
-                  data: labels.map((name, i) => ({ name, value: series[0]?.values[i] ?? 0 })),
+                  data: labels.map((name, i) => ({
+                    name,
+                    value: series[0]?.values[i] === null ? null : (series[0]?.values[i] ?? 0),
+                  })),
                 },
               ]
             : series.map((s, i) => ({

@@ -1,3 +1,4 @@
+import { identityIngressDiagnostic } from './upstream/identity-diagnostic';
 import { crawlerAiSql } from './rules/population';
 import {
   type InstallationProgress,
@@ -45,6 +46,7 @@ export async function getInstallation(id: string, canManage: boolean): Promise<I
   const availability = await getLogCapabilities();
   const sources = await listSources(id);
   return {
+    identityIngress: identityIngressDiagnostic(),
     progress: progressFromRow(rows[0]),
     canManage,
     browser,

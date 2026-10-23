@@ -1,3 +1,5 @@
+import { readBrowserPopulation } from './browser-population';
+import { identityUsable } from '../contracts/browser-population';
 import { crawlerAiSql } from '../rules/population';
 import { randomUUID } from 'node:crypto';
 import { logInputConnectedSql } from './log-input';
@@ -159,13 +161,25 @@ export async function buildAiFactsContext(input: {
             live.team !== authorized.site.teamId
           )
             throw new AiError('resource_unavailable', '网站归属或数据已更新，请新建对话', 404);
-          const [repair]=await query<Row>('SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',live.id);
+          const [repair] = await query<Row>(
+            'SELECT active_generation::text AS generation,active_revision::text AS revision FROM liekan_history_repair_run WHERE website_id=$1::uuid',
+            live.id,
+          );
           const generatedAt = new Date();
           const range = normalizeAiRange(parsed.data, generatedAt);
           const start = new Date(range.currentRange.startAt),
             end = new Date(range.currentRange.endAt),
             previousStart = new Date(range.previousRange.startAt),
             previousEnd = new Date(range.previousRange.endAt);
+          const population = await readBrowserPopulation(live.id, start, end, parsed.data.timezone);
+          const previousPopulation = await readBrowserPopulation(
+            live.id,
+            previousStart,
+            previousEnd,
+            parsed.data.timezone,
+          );
+          const identityReady = identityUsable(population),
+            previousIdentityReady = identityUsable(previousPopulation);
           const args = [live.id, start, end, previousStart];
           const q = (sql: string) => query<Row>(sql, ...args.slice(0, sql.includes('$4') ? 4 : 3));
           // Sequential execution keeps each remaining statement_timeout tied to the statement that uses it.
@@ -192,8 +206,12 @@ export async function buildAiFactsContext(input: {
             const row = browserTotals.find(row => row.period === period);
             return {
               pageviews: safeAiCount(row?.pageviews ?? 0),
-              visitors: safeAiCount(row?.visitors ?? 0),
-              visits: safeAiCount(row?.visits ?? 0),
+              visitors: (period === 0 ? identityReady : previousIdentityReady)
+                ? safeAiCount(row?.visitors ?? 0)
+                : null,
+              visits: (period === 0 ? identityReady : previousIdentityReady)
+                ? safeAiCount(row?.visits ?? 0)
+                : null,
             };
           };
           const current = browserRow(0),
@@ -314,7 +332,7 @@ export async function buildAiFactsContext(input: {
             logPrevious = sources.connected ? logRow(1) : null;
           const humanState = !sources.browser
             ? 'not_connected'
-            : current.visits
+            : current.pageviews
               ? 'available'
               : 'empty';
           const logState = !sources.connected
@@ -333,11 +351,13 @@ export async function buildAiFactsContext(input: {
                 : goals.some(row => safeAiCount(row.count) > 0)
                   ? 'available'
                   : 'empty',
-            aiReferrals: !sources.browser
-              ? 'not_connected'
-              : referrals.some(row => row.period === 0 && safeAiCount(row.visits) > 0)
-                ? 'available'
-                : 'empty',
+            aiReferrals: !identityReady
+              ? 'unavailable'
+              : !sources.browser
+                ? 'not_connected'
+                : referrals.some(row => row.period === 0 && safeAiCount(row.visits) > 0)
+                  ? 'available'
+                  : 'empty',
           } as AiFactsContext['sourceStates'];
           const refRow = (n: number) =>
             referrals.find(row => row.period === n) ?? { visits: 0n, pv: 0n };
@@ -452,11 +472,16 @@ export async function buildAiFactsContext(input: {
               label: 'AI 来源引荐',
               state: sourceStates.aiReferrals,
               data: {
-                visits: sources.browser ? safeAiCount(rc.visits) : null,
-                pageviews: sources.browser ? safeAiCount(rc.pv) : null,
-                previousVisits: sources.browser ? safeAiCount(rp.visits) : null,
-                previousPageviews: sources.browser ? safeAiCount(rp.pv) : null,
-                changePercent: aiChangePercent(safeAiCount(rc.visits), safeAiCount(rp.visits)),
+                visits: sources.browser && identityReady ? safeAiCount(rc.visits) : null,
+                pageviews: sources.browser && identityReady ? safeAiCount(rc.pv) : null,
+                previousVisits:
+                  sources.browser && previousIdentityReady ? safeAiCount(rp.visits) : null,
+                previousPageviews:
+                  sources.browser && previousIdentityReady ? safeAiCount(rp.pv) : null,
+                changePercent: aiChangePercent(
+                  identityReady ? safeAiCount(rc.visits) : null,
+                  previousIdentityReady ? safeAiCount(rp.visits) : null,
+                ),
                 scope: 'first browser pageview attribution using the approved AI channel catalog',
               },
             },
@@ -495,15 +520,19 @@ export async function buildAiFactsContext(input: {
                   type: row.type,
                   count: safeAiCount(row.count),
                   previousCount: safeAiCount(row.previous),
-                  convertedVisits: safeAiCount(row.converted),
-                  previousConvertedVisits: safeAiCount(row.previousConverted),
-                  ratePercent: current.visits
-                    ? Math.round((safeAiCount(row.converted) / current.visits) * 10000) / 100
+                  convertedVisits: identityReady ? safeAiCount(row.converted) : null,
+                  previousConvertedVisits: previousIdentityReady
+                    ? safeAiCount(row.previousConverted)
                     : null,
-                  previousRatePercent: previous.visits
-                    ? Math.round((safeAiCount(row.previousConverted) / previous.visits) * 10000) /
-                      100
-                    : null,
+                  ratePercent:
+                    identityReady && current.visits > 0
+                      ? Math.round((safeAiCount(row.converted) / current.visits) * 10000) / 100
+                      : null,
+                  previousRatePercent:
+                    previousIdentityReady && previous.visits > 0
+                      ? Math.round((safeAiCount(row.previousConverted) / previous.visits) * 10000) /
+                        100
+                      : null,
                   changePercent: aiChangePercent(safeAiCount(row.count), safeAiCount(row.previous)),
                 })),
                 scope:
@@ -523,7 +552,9 @@ export async function buildAiFactsContext(input: {
             metricVersion: 'liekan-ai-facts-v1',
             catalogVersion,
             trafficPolicyVersion: TRAFFIC_POLICY_VERSION,
-            historyRepair:repair||{generation:null,revision:'0'},
+            population,
+            previousPopulation,
+            historyRepair: repair || { generation: null, revision: '0' },
             promptVersion: 'liekan-ai-prompt-v1',
             coverage: 'unverified',
             sourceStates,
@@ -533,7 +564,7 @@ export async function buildAiFactsContext(input: {
                 key,
                 label: { pageviews: '浏览量', visitors: '访客', visits: '访问次数' }[key],
                 value: sources.browser ? current[key] : null,
-                state: humanState,
+                state: key !== 'pageviews' && !identityReady ? 'unavailable' : humanState,
                 changePercent: aiChangePercent(current[key], previous[key]),
               })),
               {
@@ -549,9 +580,12 @@ export async function buildAiFactsContext(input: {
               {
                 key: 'aiReferrals',
                 label: 'AI 引荐访问',
-                value: sources.browser ? safeAiCount(rc.visits) : null,
+                value: sources.browser && identityReady ? safeAiCount(rc.visits) : null,
                 state: sourceStates.aiReferrals,
-                changePercent: aiChangePercent(safeAiCount(rc.visits), safeAiCount(rp.visits)),
+                changePercent: aiChangePercent(
+                  identityReady ? safeAiCount(rc.visits) : null,
+                  previousIdentityReady ? safeAiCount(rp.visits) : null,
+                ),
               },
             ],
             facts,

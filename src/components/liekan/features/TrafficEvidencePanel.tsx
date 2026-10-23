@@ -1,4 +1,6 @@
 'use client';
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { featureRequest, downloadTrafficEvidence } from '@/lib/liekan/upstream/features-client';
@@ -29,6 +31,7 @@ const responseLabel = (value: string) =>
 const reasons: Record<string, string> = {
   ambiguous_path: '路径存在编码歧义',
   browser_missing: '缺少浏览器输入',
+  browser_identity_unavailable: identityUnavailableReason,
   source_coverage: '日志连续性证据不足',
   host_evidence: '缺少逐条请求主机依据',
   sampling_unknown: '采样比例未知',
@@ -206,9 +209,15 @@ export function TrafficEvidencePanel({
       });
     return () => abort.abort();
   }, [conditions, endpoint, requestKey, page, needsSource, sourceId, revision, catalogScope]);
+  const identityUnavailable =
+    result &&
+    (!identityUsable(result.meta.browserPopulation) ||
+      ['partial', 'unavailable'].includes(result.meta.observationIdentity?.status));
   const number = (value: unknown) =>
     value == null
-      ? i18n.text('未提供')
+      ? identityUnavailable
+        ? '—'
+        : i18n.text('未提供')
       : typeof value === 'number'
         ? value.toLocaleString(i18n.locale)
         : String(value);
@@ -333,6 +342,9 @@ export function TrafficEvidencePanel({
         {exportMessage && <Notice>{exportMessage}</Notice>}
         {result && !loading && (
           <>
+            {identityUnavailable && (
+              <Notice tone="amber">{i18n.text(identityUnavailableReason)}</Notice>
+            )}
             <p className="muted">
               {new Intl.DateTimeFormat(i18n.locale, {
                 timeZone: fixed.timezone,
@@ -580,7 +592,7 @@ export function TrafficEvidencePanel({
                           .join(' · ')
                       : i18n.text('未采集观察行'),
                     row.pv,
-                    row.uv,
+                    number(row.uv),
                     i18n.text(row.smallSample ? '小样本' : '已观测'),
                   ])}
                   page={result.meta.page}
