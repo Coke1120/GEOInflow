@@ -35,6 +35,8 @@ import {
   verifyGeoLogsDirect,
   supplementalCacheMatrix,
   seedCacheMatrix,
+  requestRangeMatches,
+  sameRequestStatistics,
   statisticsEqual,
   verifyDirectCacheFreshness,
 } from './liekan-cache-matrix';
@@ -186,19 +188,6 @@ const percentile = (values: number[], q: number) =>
         Math.min(values.length - 1, Math.ceil(q * values.length) - 1)
       ]
     : null;
-const requestRangeMatches = (body: any, url: string) => {
-  if (!body?.range) return true;
-  const query = Object.fromEntries(new URL(url, 'http://analytics-benchmark.invalid').searchParams);
-  return (
-    ['startAt', 'endAt'].every(key => !(key in query) || body.range[key] === Number(query[key])) &&
-    (!('timezone' in query) || body.range.timezone === query.timezone)
-  );
-};
-const sameRangeStatistics = (body: any, reference: any) =>
-  statisticsEqual(
-    body?.range ? { ...body, range: { ...body.range, endAt: reference.range.endAt } } : body,
-    reference,
-  );
 const identifierPattern = String.raw`(?:"(?:[^"]|"")+"|[a-z_][a-z_0-9$]*)`;
 const qualifiedIdentifierPattern = String.raw`${identifierPattern}(?:\s*\.\s*${identifierPattern})?`;
 function tableReadPattern(names: string[]) {
@@ -1384,7 +1373,8 @@ try {
     const path = `/api/websites/${site}/stats?${suffix}`;
     const nativeReference = await (await fetch(`${first}${path}`, { headers })).json();
     assert.equal(Number(nativeReference.pageviews), views);
-    const validateNative = (body: any) => statisticsEqual(body, nativeReference);
+    const validateNative: ResultValidator = (body, response) =>
+      !!response && sameRequestStatistics(body, nativeReference, response.url, first + path);
     if (oldBase) {
       assert((await fetch(`${oldBase}${path}`, { headers })).ok);
       const old = await scenario(
@@ -1470,9 +1460,10 @@ try {
     p = { ...range, resource: 'human/overview', chartPeriod: '30d' };
   const page = `/api/liekan/websites/${sites[3]}/page-report?${new URLSearchParams(Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])))}`;
   const pageReference = await (await fetch(`${first}${page}`, { headers })).json();
-  const validatePage = (body: any) =>
+  const validatePage: ResultValidator = (body, response) =>
     pageReportSchema.safeParse(body).success &&
-    sameRangeStatistics(body, pageReference) &&
+    !!response &&
+    sameRequestStatistics(body, pageReference, response.url, first + page) &&
     body.resource === 'human/overview' &&
     body.cards.some(
       (c: any) => c.label === '浏览量 PV' && Number(String(c.value).replace(/[^0-9.-]/g, '')) > 0,
@@ -1538,9 +1529,10 @@ try {
   const publicReference = await (
     await fetch(`${first}${publicPath}`, { headers: publicHeaders })
   ).json();
-  const validatePublic = (body: any) =>
+  const validatePublic: ResultValidator = (body, response) =>
     sharedReportSchema.safeParse(body).success &&
-    sameRangeStatistics(body, publicReference) &&
+    !!response &&
+    sameRequestStatistics(body, publicReference, response.url, first + publicPath) &&
     body.cards.some(
       (card: any) =>
         card.label === 'AI 蜘蛛请求' && typeof card.value === 'number' && card.value > 0,
@@ -1670,7 +1662,9 @@ try {
       range.timezone,
       'yyyy-MM-dd',
     );
-    const references = new Map<string, any>([[oracleDay, baselineBody]]);
+    const references = new Map<string, { body: any; url: string }>([
+      [oracleDay, { body: baselineBody, url: baselineUrl }],
+    ]);
     const todayResource = ['overview', 'conversions'].includes(String(entry.extra.resource));
     const validate: ResultValidator = async (body, response) => {
       const serverTime = Number(response?.headers.get('x-liekan-server-time')) || Date.now();
@@ -1692,12 +1686,13 @@ try {
           ms: performance.now() - began,
           generatedAt: reference.meta.generatedAt,
         });
-        references.set(day, reference);
+        references.set(day, { body: reference, url: oracleUrl });
         oracleDay = day;
         save();
       }
-      if (!entry.validate(body)) return false;
-      if (!todayResource) return sameRangeStatistics(body, baselineBody);
+      if (!entry.validate(body) || !response) return false;
+      if (!todayResource)
+        return sameRequestStatistics(body, baselineBody, response.url, baselineUrl);
       const generatedAt = Number(body.meta.generatedAt);
       const expiresAt = Number(body.meta.expiresAt);
       const snapshotDay = formatInTimeZone(generatedAt, range.timezone, 'yyyy-MM-dd');
@@ -1711,7 +1706,7 @@ try {
       return (
         !!reference &&
         (snapshotDay === day || validOldSnapshot) &&
-        sameRangeStatistics(body, reference)
+        sameRequestStatistics(body, reference.body, response.url, reference.url)
       );
     };
     await comparePreviousRoute(entry.label, oldBase, path, headers, validate, first);
@@ -2100,7 +2095,7 @@ try {
     { mode: 0o600 },
   );
   assert(
-    sameRangeStatistics(asyncResult, exactResult),
+    sameRequestStatistics(asyncResult, exactResult, asyncPath, exactResponse.url),
     'asynchronous DTO must match the precise report',
   );
   assert(

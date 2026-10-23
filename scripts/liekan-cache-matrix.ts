@@ -2,6 +2,7 @@ import type pg from 'pg';
 import { createHash, randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { getCompareDate } from '../src/lib/date';
 import { pageReportSchema, pageReportParts } from '../src/lib/liekan/contracts/page-report';
 import {
   assertBenchmarkSites,
@@ -659,7 +660,7 @@ export function supplementalCacheMatrix(sites: string[], seeded: any): CacheMatr
     feature(
       'feature-sources',
       { kind: 'sources' },
-      b => array(b) && b.some((r: any) => Number(r.visitors) > 0),
+      b => array(b.rows) && b.rows.some((r: any) => Number(r.visitors) > 0),
       sites[8],
     ),
     feature(
@@ -968,30 +969,118 @@ export function geoCacheMatrix(seeded: GeoCacheSeed): CacheMatrixEntry[] {
   }));
 }
 
+const requestRangePaths = [
+  ['range'],
+  ['population', 'range'],
+  ['meta', 'population', 'range'],
+  ['comparison', 'population', 'range'],
+] as const;
+const atPath = (value: any, path: readonly string[]) =>
+  path.reduce((entry, key) => entry?.[key], value);
+const summaryPath = '/api/liekan/websites/summary';
+function requestMetadataRoots(body: any, requestUrl: string) {
+  const pathname = new URL(requestUrl, 'http://127.0.0.1').pathname;
+  if (pathname === summaryPath && Array.isArray(body)) return [body, ...body];
+  if (/^\/api\/websites\/[^/]+\/events\/stats$/.test(pathname)) return [body, body?.data];
+  return [body];
+}
+function requestWindows(requestUrl: string) {
+  // The final duplicate value matches parseRequest's Object.fromEntries behavior.
+  const url = new URL(requestUrl, 'http://127.0.0.1');
+  const parameters = Object.fromEntries(url.searchParams);
+  const startAt = Number(parameters.startAt),
+    endAt = Number(parameters.endAt),
+    timezone = parameters.timezone;
+  if (!Number.isFinite(startAt) || !Number.isFinite(endAt) || !timezone) return null;
+  const comparison = getCompareDate(
+    url.pathname === summaryPath ? 'prev' : (parameters.compare ?? 'prev'),
+    new Date(startAt),
+    new Date(endAt),
+  );
+  return {
+    current: { startAt, endAt, timezone },
+    comparison: comparison.startDate && {
+      startAt: +comparison.startDate,
+      endAt: +comparison.endDate,
+      timezone,
+    },
+  };
+}
+
+/** Validate every declared request window, including native stats' previous-period population. */
+export function requestRangeMatches(body: any, requestUrl: string) {
+  const windows = requestWindows(requestUrl);
+  for (const root of requestMetadataRoots(body, requestUrl)) {
+    for (const path of requestRangePaths) {
+      const parent = atPath(root, path.slice(0, -1));
+      if (path.length === 1 ? parent?.range === undefined : parent === undefined) continue;
+      const range = parent?.range;
+      const expected = path[0] === 'comparison' ? windows?.comparison : windows?.current;
+      if (
+        !range ||
+        !expected ||
+        range.startAt !== expected.startAt ||
+        range.endAt !== expected.endAt ||
+        range.timezone !== expected.timezone
+      )
+        return false;
+    }
+  }
+  return true;
+}
+
 export function returnedPageRangeMatches(body: any, requestUrl: string) {
-  const p = new URL(requestUrl, 'http://127.0.0.1').searchParams;
-  // Object.fromEntries keeps the final duplicate value, matching the actual route.
-  const parameters = Object.fromEntries(p);
-  return (
-    body.range?.startAt === Number(parameters.startAt) &&
-    body.range?.endAt === Number(parameters.endAt) &&
-    body.range?.timezone === (parameters.timezone || 'Asia/Shanghai')
-  );
+  return !!body?.range && requestRangeMatches(body, requestUrl);
 }
 
-/** Only declared request metadata changes; every statistical field is still compared. */
-export function sameGeoRangeStatistics(body: any, reference: any) {
-  return statisticsEqual(
-    { ...body, range: { ...body.range, endAt: reference.range.endAt } },
-    reference,
-  );
+/** Validate nonce windows first, then compare all data and population evidence unchanged. */
+export function sameRequestStatistics(
+  body: any,
+  reference: any,
+  requestUrl: string,
+  referenceUrl: string,
+) {
+  if (!requestRangeMatches(body, requestUrl) || !requestRangeMatches(reference, referenceUrl))
+    return false;
+  const actualWindow = requestWindows(requestUrl)?.current;
+  const referenceWindow = requestWindows(referenceUrl)?.current;
+  if (
+    !actualWindow ||
+    !referenceWindow ||
+    actualWindow.startAt !== referenceWindow.startAt ||
+    actualWindow.timezone !== referenceWindow.timezone
+  )
+    return false;
+  const normalized = structuredClone(body);
+  const roots = requestMetadataRoots(normalized, requestUrl);
+  const referenceRoots = requestMetadataRoots(reference, referenceUrl);
+  if (roots.length !== referenceRoots.length) return false;
+  for (const [index, root] of roots.entries()) {
+    for (const path of requestRangePaths) {
+      const range = atPath(root, path);
+      const referenceRange = atPath(referenceRoots[index], path);
+      if (range && referenceRange) {
+        const parent = atPath(root, path.slice(0, -1));
+        parent.range = {
+          ...range,
+          startAt: referenceRange.startAt,
+          endAt: referenceRange.endAt,
+        };
+      }
+    }
+  }
+  return statisticsEqual(normalized, reference);
 }
 
-export function geoScenarioValidator(entry: CacheMatrixEntry, reference: any) {
+export function geoScenarioValidator(
+  entry: CacheMatrixEntry,
+  reference: any,
+  referenceUrl: string,
+) {
   return (body: any, requestUrl: string) =>
     returnedPageRangeMatches(body, requestUrl) &&
     entry.validate(body) &&
-    sameGeoRangeStatistics(body, reference);
+    sameRequestStatistics(body, reference, requestUrl, referenceUrl);
 }
 
 /** Require positive TODAY sources once immediately after seed, before timing can cross midnight. */
