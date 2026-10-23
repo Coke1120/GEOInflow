@@ -40,6 +40,7 @@ export async function analysisVersions(tx: AnalysisTx, websiteId: string) {
 
 export const analysisTables = [
   'liekan_analysis_site',
+  'liekan_analysis_visit_guard',
   'liekan_analysis_log',
   'liekan_analysis_path',
   'liekan_analysis_visit',
@@ -70,7 +71,8 @@ export async function analysisCapacity(tx: AnalysisTx, websiteId: string) {
      FROM liekan_analysis_site s WHERE website_id=$1::uuid`,
     websiteId,
   );
-  // Reserve bounded control/marker/index overhead in addition to charged generation tuples.
+  // Reserve bounded control/marker/index overhead, including 32 visit guard rows per site,
+  // in addition to charged generation tuples.
   const reserve = 16 * 1024 ** 2;
   return {
     siteBytes: String((site?.bytes || 0n) + BigInt(reserve)),

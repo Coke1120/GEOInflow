@@ -209,6 +209,8 @@ it.skipIf(!enabled)(
         '042_analytics_epoch_fence.sql',
         '043_analytics_capture_plans.sql',
         '044_analytics_discovery_rotation.sql',
+        '045_analytics_visit_guards.sql',
+        '046_analytics_visit_guard_schema.sql',
       ].map(name => `db/liekan/migrations/${name}`),
       'src/lib/liekan/upstream/analysis-capture.benchmark.test.ts',
       'tests/liekan/analysis-rollups.integration.mjs',

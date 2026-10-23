@@ -48,5 +48,7 @@
   "041_analytics_capture_cost.sql": "b88a73066556334944d04b48b6d35f8af670cb95a25374715421b894a041c945",
   "042_analytics_epoch_fence.sql": "9d6cbf07ce352a09a4a4f87101b6bbe91a23c1ac1147940069ec42bd623bb99f",
   "043_analytics_capture_plans.sql": "095761c8ef0602b0f91ee6b88529b2e4fa9638f6ff6f67b6c9111d2508d5cb0f",
-  "044_analytics_discovery_rotation.sql": "a74e50a5f2ee2a5e98a8d4ff986f9c11eed2a7719255f9d4016500ef780f9750"
+  "044_analytics_discovery_rotation.sql": "a74e50a5f2ee2a5e98a8d4ff986f9c11eed2a7719255f9d4016500ef780f9750",
+  "045_analytics_visit_guards.sql": "4b65e2394cebca2505d959f5fdf942b3d738172e20f134a88e284008a3d2b514",
+  "046_analytics_visit_guard_schema.sql": "a286f9bc87ed8659c209e29a35dd0c5a6c6d6f720f70068423e872ea3511d3e6"
 }

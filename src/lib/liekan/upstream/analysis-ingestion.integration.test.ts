@@ -276,6 +276,588 @@ describe.skipIf(!enabled)(
       if (enabled && prisma) await prisma.client.$disconnect();
     });
 
+    it('serializes same-visit collection before the marker snapshot while retaining atomic receipts and evidence', async () => {
+      const { AsyncLocalStorage } = await import('node:async_hooks');
+      const { createHash } = await import('node:crypto');
+      const module = await import('@/lib/prisma');
+      const { withCollectionWrite, collectionWriteClient, recordEventQuality } = await import(
+        './collection-write'
+      );
+      const { observeCollection } = await import('./collection-observation');
+      const observer = await connect();
+      const session = randomUUID(),
+        visit = randomUUID();
+      const ids: Record<string, string> = {};
+      for (const [role, shard] of Object.entries({ P: 17, C: 3, H: 31, D: 5 })) {
+        do {
+          ids[role] = randomUUID();
+        } while (createHash('md5').update(ids[role]).digest()[0] % 32 !== shard);
+      }
+      const receipts = Object.fromEntries(Object.keys(ids).map(role => [role, randomUUID()]));
+      const pids: Record<string, number> = {},
+        frames: unknown[] = [],
+        seen: any[] = [];
+      const roles = new AsyncLocalStorage<string>();
+      const defer = () => {
+        let resolve!: () => void;
+        return {
+          promise: new Promise<void>(r => {
+            resolve = r;
+          }),
+          resolve: () => resolve(),
+        };
+      };
+      const cInserted = defer(),
+        releaseC = defer(),
+        hInserted = defer(),
+        releaseH = defer();
+      const primary: any = module.getRawQueryClient(prisma.client, { write: true });
+      const originalTransaction = primary.$transaction.bind(primary);
+      const spy = vi.spyOn(primary, '$transaction').mockImplementation(
+        (work: any, options: any) =>
+          originalTransaction(
+            async (tx: any) =>
+              work(
+                new Proxy(tx, {
+                  get(object, key) {
+                    if (key === '$queryRawUnsafe')
+                      return async (statement: string, ...values: unknown[]) => {
+                        const result = await object.$queryRawUnsafe(statement, ...values);
+                        const role = roles.getStore();
+                        if (
+                          role &&
+                          statement.includes('FROM website') &&
+                          statement.includes('FOR SHARE')
+                        )
+                          pids[role] = (
+                            await object.$queryRawUnsafe('SELECT pg_backend_pid() AS pid')
+                          )[0].pid;
+                        return result;
+                      };
+                    const value = Reflect.get(object, key);
+                    return typeof value === 'function' ? value.bind(object) : value;
+                  },
+                }),
+              ),
+            options,
+          ) as any,
+      );
+      const event = (role: string) =>
+        roles
+          .run(role, () =>
+            withCollectionWrite(
+              {
+                websiteId: website,
+                eventId: receipts[role],
+                fingerprint: role,
+                quality: {
+                  classification: 'browser',
+                  source: 'browser',
+                  reasons: ['synthetic'],
+                  ruleVersion: 'fixture',
+                  catalogVersion: null,
+                  rangeVersion: null,
+                  rangeStatus: 'missing',
+                  hostname: 'example.test',
+                },
+                geography: {
+                  location: { country: 'CN', region: 'CN-11', city: '北京市' },
+                  source: 'synthetic',
+                  trust: 'unverified',
+                  ipFamily: 'missing',
+                  precision: 'city',
+                  reason: 'synthetic',
+                  ruleVersion: 'fixture',
+                  dataVersion: null,
+                  cityId: null,
+                  accuracyRadius: null,
+                  countryBasis: 'missing',
+                  processedAt: new Date().toISOString(),
+                  shadow: null,
+                },
+                observation: observeCollection(new Request('https://example.test')),
+              },
+              async () => {
+                const tx = collectionWriteClient();
+                await tx.$executeRawUnsafe(
+                  `INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type,hostname)
+          VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,'2026-10-23T18:00:00Z',$5,1,'example.test')`,
+                  ids[role],
+                  website,
+                  session,
+                  visit,
+                  `/synthetic/${role}`,
+                );
+                if (role === 'C') {
+                  cInserted.resolve();
+                  await releaseC.promise;
+                }
+                if (role === 'H') {
+                  seen.push(
+                    await tx.$queryRawUnsafe(
+                      `SELECT shard,revision::text FROM liekan_analysis_dirty WHERE website_id=$1::uuid AND family='visit' AND isfinite(bucket) ORDER BY shard`,
+                      website,
+                    ),
+                  );
+                  hInserted.resolve();
+                  await releaseH.promise;
+                }
+                await recordEventQuality(tx, ids[role], website);
+                return { eventId: ids[role] };
+              },
+            ),
+          )
+          .then(
+            value => ({ ok: true, role, value, code: undefined }),
+            (error: any) => ({
+              ok: false,
+              role,
+              code: error.meta?.driverAdapterError?.cause?.originalCode ?? error.code,
+            }),
+          );
+      const wait = async (a: string, b: string) => {
+        for (let n = 0; n < 250; n++) {
+          const { rows } = await observer.query(
+            `SELECT pid,query,wait_event_type,wait_event,pg_blocking_pids(pid) AS blockers FROM pg_stat_activity WHERE pid=ANY($1::int[]) ORDER BY pid`,
+            [Object.values(pids)],
+          );
+          frames.push({ at: new Date().toISOString(), rows });
+          const row = rows.find(r => r.pid === pids[a] && r.blockers.includes(pids[b]));
+          if (row) return row;
+          await sleep(20);
+        }
+        throw new Error(`same-visit-${a}-not-waiting-${b}`);
+      };
+      let c: ReturnType<typeof event>, h: ReturnType<typeof event>, d: ReturnType<typeof event>;
+      try {
+        await sql(
+          'INSERT INTO session(session_id,website_id) VALUES($1::uuid,$2::uuid)',
+          session,
+          website,
+        );
+        expect((await event('P')).ok).toBe(true);
+        c = event('C');
+        await cInserted.promise;
+        h = event('H');
+        expect((await wait('H', 'C')).query).toContain('INSERT INTO website_event');
+        releaseC.resolve();
+        expect((await c).ok).toBe(true);
+        await hInserted.promise;
+        d = event('D');
+        expect((await wait('D', 'H')).query).toContain('INSERT INTO website_event');
+        releaseH.resolve();
+        const outcomes = await Promise.all([h, d]);
+        const facts = (
+          await q(
+            `SELECT
+          (SELECT array_agg(event_id::text ORDER BY event_id) FROM website_event WHERE website_id=$1::uuid) AS events,
+          (SELECT count(*)::int FROM liekan_event_geography WHERE website_id=$1::uuid) AS geography,
+          (SELECT count(*)::int FROM liekan_event_quality WHERE website_id=$1::uuid) AS quality,
+          (SELECT count(*)::int FROM liekan_event_observation WHERE website_id=$1::uuid) AS observations,
+          (SELECT count(*)::int FROM liekan_collection_receipt WHERE website_id=$1::uuid AND event_id IS NOT NULL) AS receipts,
+          (SELECT count(*)::int FROM liekan_collection_receipt WHERE website_id=$1::uuid AND event_id IS NULL) AS dangling`,
+            website,
+          )
+        )[0];
+        await writeFile(
+          `${process.env.LIEKAN_ANALYSIS_ROLLUPS_OUTPUT}/same-visit-collection.json`,
+          JSON.stringify({ website, visit, ids, pids, seen, frames, outcomes, facts }, null, 2),
+          { mode: 0o600 },
+        );
+        // Both winners retain every business fact; a failed transaction leaves no partial receipt.
+        expect(facts).toMatchObject({
+          geography: facts.events.length,
+          quality: facts.events.length,
+          observations: facts.events.length,
+          receipts: facts.events.length,
+          dangling: 0,
+        });
+        expect(outcomes.map(r => r.code)).not.toContain('40P01');
+        expect(outcomes.every(r => r.ok)).toBe(true);
+        expect(facts.events).toEqual(Object.values(ids).sort());
+        expect(seen[0].find(r => r.shard === 3)?.revision).toBe('4');
+      } finally {
+        releaseC.resolve();
+        releaseH.resolve();
+        await Promise.allSettled([c, h, d].filter(Boolean));
+        spy.mockRestore();
+        await observer.end();
+      }
+    }, 30000);
+
+    it('pins evidence to the current raw visit and time and atomically rejects a concurrent raw move', async () => {
+      const [moving, evidence, observer] = await Promise.all([connect(), connect(), connect()]);
+      const { createHash } = await import('node:crypto');
+      const slot = (id: string) => createHash('md5').update(id).digest()[0] % 32;
+      let afterVisit = randomUUID();
+      const event = randomUUID(),
+        session = randomUUID(),
+        beforeVisit = randomUUID(),
+        receipt = randomUUID();
+      while (slot(afterVisit) === slot(beforeVisit)) afterVisit = randomUUID();
+      const facts = async () =>
+        (
+          await observer.query(
+            `SELECT
+        (SELECT count(*)::int FROM liekan_event_geography WHERE website_id=$1) AS geography,
+        (SELECT count(*)::int FROM liekan_event_quality WHERE website_id=$1) AS quality,
+        (SELECT count(*)::int FROM liekan_collection_receipt WHERE website_id=$1) AS receipts,
+        (SELECT visit_id::text FROM website_event WHERE event_id=$2 AND website_id=$1) AS visit,
+        (SELECT created_at FROM website_event WHERE event_id=$2 AND website_id=$1) AS event_time`,
+            [website, event],
+          )
+        ).rows[0];
+      const insertGeography = () =>
+        evidence.query(
+          `INSERT INTO liekan_event_geography(event_id,website_id,country,source,trust,ip_family,precision,reason,rule_version,country_basis,processed_at)
+        VALUES($1,$2,'CN','synthetic','unverified','missing','country','synthetic','fixture','missing',now())`,
+          [event, website],
+        );
+      let attempt: Promise<any>;
+      const frames: unknown[] = [];
+      try {
+        await sql(
+          `INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type)
+          VALUES($1::uuid,$2::uuid,$3::uuid,$4::uuid,'2026-10-23T10:01:00Z','/synthetic/mapping',1)`,
+          event,
+          website,
+          session,
+          beforeVisit,
+        );
+        await moving.query('BEGIN');
+        await moving.query("SET LOCAL statement_timeout='5s'");
+        await moving.query(
+          `UPDATE website_event SET visit_id=$1,created_at='2026-10-23T11:01:00Z' WHERE website_id=$2 AND event_id=$3`,
+          [afterVisit, website, event],
+        );
+        // An unlocked mapping sees the old committed tuple while the move is in flight.
+        expect(
+          (
+            await observer.query(
+              'SELECT visit_id::text FROM website_event WHERE event_id=$1 AND website_id=$2',
+              [event, website],
+            )
+          ).rows[0].visit_id,
+        ).toBe(beforeVisit);
+        await evidence.query('BEGIN');
+        await evidence.query("SET LOCAL statement_timeout='5s'");
+        await evidence.query(
+          "INSERT INTO liekan_collection_receipt(website_id,client_event_id,payload_hash) VALUES($1,$2,'synthetic')",
+          [website, receipt],
+        );
+        let settled = false;
+        attempt = insertGeography()
+          .then(
+            () => ({ ok: true, code: undefined }),
+            error => ({ ok: false, code: error.code }),
+          )
+          .finally(() => {
+            settled = true;
+          });
+        for (let n = 0; n < 25 && !settled; n++) {
+          frames.push(
+            (
+              await observer.query(
+                `SELECT pid,query,wait_event_type,wait_event,pg_blocking_pids(pid) AS blockers FROM pg_stat_activity WHERE pid IN (SELECT pid FROM pg_stat_activity WHERE query LIKE '%liekan_event_geography%' AND datname=current_database())`,
+              )
+            ).rows,
+          );
+          await sleep(10);
+        }
+        await moving.query('COMMIT');
+        const outcome = await attempt;
+        await evidence.query('ROLLBACK');
+        const afterRejected = await facts();
+        await writeFile(
+          `${process.env.LIEKAN_ANALYSIS_ROLLUPS_OUTPUT}/visit-evidence-mapping.json`,
+          JSON.stringify(
+            { website, event, beforeVisit, afterVisit, outcome, frames, afterRejected },
+            null,
+            2,
+          ),
+          { mode: 0o600 },
+        );
+        // This assertion defines the new guard protocol, independent of the old dirty-lock deadlock.
+        expect(outcome).toEqual({ ok: false, code: '55P03' });
+        expect(afterRejected).toMatchObject({
+          geography: 0,
+          quality: 0,
+          receipts: 0,
+          visit: afterVisit,
+        });
+        expect(afterRejected.event_time.toISOString()).toBe('2026-10-23T11:01:00.000Z');
+        const beforeMarkers = (
+          await observer.query(
+            `SELECT bucket::text,shard,revision::text FROM liekan_analysis_dirty WHERE website_id=$1 AND family='visit' AND isfinite(bucket) ORDER BY bucket,shard`,
+            [website],
+          )
+        ).rows;
+        await evidence.query('BEGIN');
+        await insertGeography();
+        await evidence.query(
+          `INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status) VALUES($1,$2,'browser','browser','{synthetic}','fixture','missing')`,
+          [event, website],
+        );
+        // FOR SHARE also fences non-key visit/time updates after the mapping has been chosen.
+        await expect(
+          moving.query(
+            'SELECT event_id FROM website_event WHERE website_id=$1 AND event_id=$2 FOR UPDATE NOWAIT',
+            [website, event],
+          ),
+        ).rejects.toMatchObject({ code: '55P03' });
+        await expect(
+          moving.query('SELECT liekan_analysis_visit_guard_lock($1,$2::smallint,false)', [
+            website,
+            slot(afterVisit),
+          ]),
+        ).rejects.toMatchObject({ code: '55P03' });
+        // The original visit slot stays available; only the current mapping is protected.
+        await moving.query('SELECT liekan_analysis_visit_guard_lock($1,$2::smallint,false)', [
+          website,
+          slot(beforeVisit),
+        ]);
+        const afterMarkers = (
+          await evidence.query(
+            `SELECT bucket::text,shard,revision::text FROM liekan_analysis_dirty WHERE website_id=$1 AND family='visit' AND isfinite(bucket) ORDER BY bucket,shard`,
+            [website],
+          )
+        ).rows;
+        expect(afterMarkers.find(r => r.bucket.includes('10:00'))).toEqual(
+          beforeMarkers.find(r => r.bucket.includes('10:00')),
+        );
+        expect(
+          BigInt(afterMarkers.find(r => r.bucket.includes('11:00')).revision) -
+            BigInt(beforeMarkers.find(r => r.bucket.includes('11:00')).revision),
+        ).toBe(2n);
+        await evidence.query('COMMIT');
+        expect(await facts()).toMatchObject({
+          geography: 1,
+          quality: 1,
+          receipts: 0,
+          visit: afterVisit,
+        });
+      } finally {
+        await moving.query('ROLLBACK');
+        await evidence.query('ROLLBACK');
+        await Promise.allSettled([attempt].filter(Boolean));
+        await Promise.all([moving.end(), evidence.end(), observer.end()]);
+      }
+    }, 30000);
+
+    it('takes every visit guard before secondary invalidation or truncation touches either dirty family', async () => {
+      const holder = await connect(),
+        writer = await connect();
+      const session = randomUUID(),
+        event = randomUUID();
+      const state = () =>
+        q(
+          `SELECT family,bucket::text,shard,revision::text FROM liekan_analysis_dirty WHERE website_id=$1::uuid ORDER BY family,bucket,shard`,
+          website,
+        );
+      try {
+        await sql(
+          "INSERT INTO session(session_id,website_id,browser) VALUES($1::uuid,$2::uuid,'before')",
+          session,
+          website,
+        );
+        await sql(
+          `INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,url_path,event_type)
+          VALUES($1::uuid,$2::uuid,$3::uuid,$3::uuid,'2026-10-23T18:00Z','/synthetic',1)`,
+          event,
+          website,
+          session,
+        );
+        const baseline = await state();
+        await holder.query('BEGIN');
+        await holder.query('SELECT liekan_analysis_visit_guard_lock($1,31::smallint,true)', [
+          website,
+        ]);
+        // A full-family call must reject at the guard before waiting for this log marker/meter domain.
+        await holder.query(
+          "SELECT shard FROM liekan_analysis_dirty WHERE website_id=$1 AND family='log' AND bucket='-infinity' FOR UPDATE",
+          [website],
+        );
+        await writer.query("SET statement_timeout='5s'");
+        const outcomes: unknown[] = [];
+        for (const [statement, values] of [
+          ['SELECT liekan_analysis_invalidate($1,NULL)', [website]],
+          [
+            "UPDATE session SET browser='after' WHERE website_id=$1 AND session_id=$2",
+            [website, session],
+          ],
+          ['TRUNCATE website_event CASCADE', []],
+        ] as const) {
+          const outcome = await writer.query(statement, [...values]).then(
+            () => ({ ok: true, code: undefined }),
+            error => ({ ok: false, code: error.code }),
+          );
+          outcomes.push(outcome);
+          expect(outcome).toEqual({ ok: false, code: '55P03' });
+          expect(await state()).toEqual(baseline);
+        }
+        expect(
+          (await q('SELECT browser FROM session WHERE session_id=$1::uuid', session))[0].browser,
+        ).toBe('before');
+        expect(
+          (
+            await q(
+              'SELECT count(*)::int AS n FROM website_event WHERE website_id=$1::uuid',
+              website,
+            )
+          )[0].n,
+        ).toBe(1);
+        await writeFile(
+          `${process.env.LIEKAN_ANALYSIS_ROLLUPS_OUTPUT}/visit-invalidation-guards.json`,
+          JSON.stringify({ website, outcomes, baseline }, null, 2),
+          { mode: 0o600 },
+        );
+      } finally {
+        await holder.query('ROLLBACK');
+        await Promise.all([holder.end(), writer.end()]);
+      }
+    }, 30000);
+
+    it('initializes bounded guards atomically in the ORM schema and preserves disabled and parentless collection', async () => {
+      const fresh = randomUUID(),
+        holder = await connect();
+      const { saveEvent } = await import('@/queries/sql/events/saveEvent');
+      const noParents = [randomUUID(), randomUUID()];
+      try {
+        // A fresh Prisma connection uses its ordinary search_path; trigger schema pinning owns registration.
+        await prisma.client.$disconnect();
+        expect(await prisma.client.$queryRawUnsafe('SHOW search_path')).toEqual([
+          { search_path: '"$user", public' },
+        ]);
+        await prisma.client.website.create({
+          data: { id: fresh, name: 'Synthetic guard registration', userId: actor.userId },
+        });
+        expect(
+          (
+            await q(
+              'SELECT count(*)::int AS n,min(slot)::int AS first,max(slot)::int AS last FROM liekan_analysis_visit_guard WHERE website_id=$1::uuid',
+              fresh,
+            )
+          )[0],
+        ).toEqual({ n: 32, first: 0, last: 31 });
+        const row = await q<{ proconfig: string[] }[]>(
+          `SELECT p.proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname=current_schema() AND p.proname='liekan_analysis_visit_guard_init'`,
+        );
+        expect(row[0].proconfig.some(value => value.startsWith('search_path=analysis_'))).toBe(
+          true,
+        );
+        await sql(
+          "UPDATE liekan_analysis_site SET mode='disabled' WHERE website_id=$1::uuid",
+          fresh,
+        );
+        await holder.query('BEGIN');
+        await holder.query(
+          'SELECT slot FROM liekan_analysis_visit_guard WHERE website_id=$1 ORDER BY slot FOR NO KEY UPDATE',
+          [fresh],
+        );
+        await saveEvent({
+          websiteId: fresh,
+          sessionId: randomUUID(),
+          visitId: randomUUID(),
+          eventType: 1,
+          createdAt: new Date(),
+          urlPath: '/synthetic/disabled',
+        });
+        expect(
+          (
+            await q('SELECT count(*)::int AS n FROM website_event WHERE website_id=$1::uuid', fresh)
+          )[0].n,
+        ).toBe(1);
+        expect(
+          (
+            await q(
+              'SELECT count(*)::int AS n FROM liekan_analysis_dirty WHERE website_id=$1::uuid',
+              fresh,
+            )
+          )[0].n,
+        ).toBe(0);
+        await holder.query('ROLLBACK');
+        // Relational link/pixel collection has no website/analysis_site parent and no quality wrapper.
+        for (const [index, websiteId] of noParents.entries()) {
+          await saveEvent({
+            websiteId,
+            sessionId: randomUUID(),
+            visitId: randomUUID(),
+            eventType: index + 3,
+            createdAt: new Date(),
+            urlPath: '/synthetic/parentless',
+          });
+        }
+        expect(
+          (
+            await q(
+              'SELECT count(*)::int AS n FROM website_event WHERE website_id=ANY($1::uuid[])',
+              noParents,
+            )
+          )[0].n,
+        ).toBe(2);
+        expect(
+          (
+            await q(
+              'SELECT count(*)::int AS n FROM liekan_analysis_site WHERE website_id=ANY($1::uuid[])',
+              noParents,
+            )
+          )[0].n,
+        ).toBe(0);
+        expect(
+          (
+            await q(
+              'SELECT count(*)::int AS n FROM liekan_analysis_visit_guard WHERE website_id=ANY($1::uuid[])',
+              noParents,
+            )
+          )[0].n,
+        ).toBe(0);
+        // Known-site capture never repairs a missing guard while holding raw tuples.
+        await sql("UPDATE liekan_analysis_site SET mode='live' WHERE website_id=$1::uuid", fresh);
+        await sql('DELETE FROM liekan_analysis_visit_guard WHERE website_id=$1::uuid', fresh);
+        await expect(
+          saveEvent({
+            websiteId: fresh,
+            sessionId: randomUUID(),
+            visitId: randomUUID(),
+            eventType: 1,
+            createdAt: new Date(),
+            urlPath: '/synthetic/missing-guard',
+          }),
+        ).rejects.toMatchObject({
+          meta: { driverAdapterError: { cause: { originalCode: '23514' } } },
+        });
+        expect(
+          (
+            await q('SELECT count(*)::int AS n FROM website_event WHERE website_id=$1::uuid', fresh)
+          )[0].n,
+        ).toBe(1);
+        await sql(
+          'INSERT INTO liekan_analysis_visit_guard(website_id,slot) SELECT $1::uuid,n::smallint FROM generate_series(0,31)n',
+          fresh,
+        );
+      } finally {
+        await holder.query('ROLLBACK');
+        await holder.end();
+        await sql('DELETE FROM website_event WHERE website_id=ANY($1::uuid[])', noParents);
+        await db.analysisTransaction(async tx => {
+          await tx.$queryRawUnsafe(
+            'SELECT website_id FROM website WHERE website_id=$1::uuid FOR UPDATE',
+            fresh,
+          );
+          await tx.$queryRawUnsafe(
+            'SELECT website_id FROM liekan_analysis_site WHERE website_id=$1::uuid FOR UPDATE',
+            fresh,
+          );
+          await tx.$executeRawUnsafe(
+            'INSERT INTO liekan_analysis_visit_guard(website_id,slot) SELECT s.website_id,n::smallint FROM liekan_analysis_site s CROSS JOIN generate_series(0,31)n WHERE s.website_id=$1::uuid ON CONFLICT DO NOTHING',
+            fresh,
+          );
+          await tx.$executeRawUnsafe('DELETE FROM website_event WHERE website_id=$1::uuid', fresh);
+          await tx.$executeRawUnsafe('DELETE FROM website WHERE website_id=$1::uuid', fresh);
+        });
+      }
+    }, 30000);
+
     it('keeps new-site batch and evidence lookups bounded under stale website statistics', async () => {
       const oldSites = Array.from({ length: 5 }, () => randomUUID());
       const oldImports = oldSites.map(() => randomUUID());
