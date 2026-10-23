@@ -165,7 +165,7 @@ export class QueryCache {
     flight.promise = Promise.resolve()
       .then(load)
       .then(value => {
-        const expiresAt = generatedAt + ttl;
+        const expiresAt = this.now() + ttl;
         const bytes = encode(value);
         if (
           this.flights.get(key) === flight &&

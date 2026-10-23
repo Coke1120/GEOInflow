@@ -123,6 +123,15 @@ export function rememberResponseFreshness(
   const date = timestamp(headers.get('Date'));
   const serverTime = Number.isFinite(exactServerTime) ? exactServerTime : date;
   const precision = Number.isFinite(exactServerTime) ? 0 : 1000;
+  const elapsed = Math.max(0, receivedAt - startedAt);
+  const processing = Number(
+    headers
+      .get('Server-Timing')
+      ?.match(/(?:^|,)\s*analytics\s*;\s*dur=(\d+(?:\.\d+)?)(?=\s*(?:,|;|$))/)?.[1],
+  );
+  // The server measures this request through serialization and authorization.
+  // Deduct transport time without charging database computation a second time.
+  const transport = elapsed - (Number.isFinite(processing) ? Math.min(elapsed, processing) : 0);
   const valid =
     Number.isFinite(expiresAt) &&
     Number.isFinite(generatedAt) &&
@@ -134,9 +143,7 @@ export function rememberResponseFreshness(
     generatedAt: valid ? generatedAt : undefined,
     ttl: valid ? expiresAt - generatedAt : undefined,
     resources,
-    deadline: valid
-      ? receivedAt + (expiresAt - serverTime) - Math.max(0, receivedAt - startedAt) - precision
-      : -Infinity,
+    deadline: valid ? receivedAt + (expiresAt - serverTime) - transport - precision : -Infinity,
   });
 }
 export function copyClientFreshness(data: unknown, source: unknown) {

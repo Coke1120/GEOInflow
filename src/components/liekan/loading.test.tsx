@@ -98,6 +98,27 @@ function report(): LiekanReport {
   });
 }
 describe('analysis loading states', () => {
+  it.each(['overview', 'ai/overview', 'content'] as const)(
+    'stops loading and shows the actual timeout when %s fails without a report',
+    resource => {
+      mocks.metadata = { data: mocks.website, isPending: false, isError: false };
+      mocks.report = {
+        data: undefined,
+        isPending: false,
+        isError: true,
+        error: { status: 503, message: '统计查询超时，请缩小时间范围后重试' },
+        refetch: vi.fn(),
+      };
+      render(<LiekanPage resource={resource} />);
+      expect(screen.getByText('统计查询超时，请缩小时间范围后重试')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: '重试' })).toBeInTheDocument();
+      expect(screen.queryByText('正在读取统计数据')).not.toBeInTheDocument();
+      expect(document.querySelector('[aria-busy="true"]')).toBeNull();
+      expect(
+        document.querySelector('[data-liekan-metric-label]')?.nextElementSibling?.textContent,
+      ).not.toBe('0');
+    },
+  );
   beforeEach(() => {
     mocks.display = {};
     mocks.displaySuccess = true;

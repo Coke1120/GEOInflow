@@ -96,35 +96,40 @@ async function readLogFacts(
         )
       : [];
   const [cursorClassification] =
-    metrics.crawlerMetricsVersion === 1
+    metrics.crawlerMetricsVersion === 1 && (!fields || fields.includes('recent'))
       ? await q(
           `SELECT coalesce(string_agg(DISTINCT l.reporting_classification_version,','),'legacy') AS versions ${identityBase}${filterSql}`,
         )
       : [];
-  const [repair]=await read('SELECT active_generation::text,active_revision::text FROM liekan_history_repair_run WHERE website_id=$1::uuid',id);
-  const cursorScope =
-    createHash('sha256')
-          .update(
-            JSON.stringify({
-              id,
-              start,
-              end,
-              timezone,
-              filter,
-              search,
-              metrics: {
-                crawlerIdentityScope: metrics.crawlerIdentityScope,
-                crawlerMetricsVersion: metrics.crawlerMetricsVersion,
-              },
-              classification: CRAWLER_POPULATION_VERSION,
-              catalogVersion: getPublishedCatalog()?.version ?? null,
-              historyRepair: {generation:repair?.active_generation||null,revision:repair?.active_revision||'0'},
-              classificationVersions: cursorClassification?.versions ?? null,
-              epoch: cursorState?.epoch ?? 1,
-              policyRevision: cursorState?.policy_revision ?? '0',
-            }),
-          )
-          .digest('hex');
+  const [repair] = await read(
+    'SELECT active_generation::text,active_revision::text FROM liekan_history_repair_run WHERE website_id=$1::uuid',
+    id,
+  );
+  const cursorScope = createHash('sha256')
+    .update(
+      JSON.stringify({
+        id,
+        start,
+        end,
+        timezone,
+        filter,
+        search,
+        metrics: {
+          crawlerIdentityScope: metrics.crawlerIdentityScope,
+          crawlerMetricsVersion: metrics.crawlerMetricsVersion,
+        },
+        classification: CRAWLER_POPULATION_VERSION,
+        catalogVersion: getPublishedCatalog()?.version ?? null,
+        historyRepair: {
+          generation: repair?.active_generation || null,
+          revision: repair?.active_revision || '0',
+        },
+        classificationVersions: cursorClassification?.versions ?? null,
+        epoch: cursorState?.epoch ?? 1,
+        policyRevision: cursorState?.policy_revision ?? '0',
+      }),
+    )
+    .digest('hex');
   let boundary: [Date, string];
   if (cursor) {
     try {
@@ -132,7 +137,7 @@ async function readLogFacts(
       // Its original keyset boundary survives a late record introducing a classification version.
       boundary = comparisonBoundary ?? decodeCursor(cursor, cursorScope);
     } catch {
-      throw new LiekanError('日志游标已失效，请重新读取',409,'history-repair-cursor-conflict');
+      throw new LiekanError('日志游标已失效，请重新读取', 409, 'history-repair-cursor-conflict');
     }
   }
   const seekSql = cursor
@@ -141,83 +146,88 @@ async function readLogFacts(
   const paginationSql = cursor ? '' : ' OFFSET $6';
   const direction = cursor && seek === 'before' ? 'ASC' : 'DESC';
   const needs = (field: string) => !fields || fields.includes(field);
-  const [summary, daily, bots, pages, statuses, hours, catalog, latest, recent, count] =
-    await Promise.all([
-      needs('summary')
-        ? q(
-            `SELECT count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai,count(distinct path) FILTER(WHERE ${crawlerAiSql()})::int AS pages,count(*) FILTER(WHERE status>=400)::int AS abnormal,count(distinct coalesce(l.reporting_classification_version,'legacy'))::int AS "classificationVersions",count(*) FILTER(WHERE ai_eligible IS NULL)::int AS "legacyRequests",count(*) FILTER(WHERE ${unknown})::int AS "unclassifiedRequests" ${identityBase}`,
-          )
-        : Promise.resolve([{ requests: 0, ai: 0, pages: 0, abnormal: 0 }]),
-      needs('daily')
-        ? q(
-            `SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,bot,vendor,l.reporting_crawler_id AS "botId",count(*)::int AS count,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY 1`,
-          )
-        : Promise.resolve([]),
-      needs('bots')
-        ? withForms
-          ? read(formBots, ...args, metrics.botProductForm ?? null, metrics.botCategory ?? null)
-          : q(
-              `SELECT bot AS name,vendor,bot_type AS type,l.reporting_crawler_id AS "botId",count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests",count(distinct path)::int AS pages,max(created_at) AS "lastVisit" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY requests DESC,name,"botId"`,
-            )
-        : Promise.resolve([]),
-      needs('pages')
-        ? withForms
-          ? read(
-              `${formScope} SELECT path,bot,l."botId",count(*)::int AS requests,max(created_at) AS "lastCrawled"
-            ${formBase}${ai}
-            AND ($7::text IS NULL OR bot_type=$7) AND ($8::text IS NULL OR l."botId"=$8)
-            AND ($9::text IS NULL OR (l."botId" IS NULL AND bot=$9))
-            GROUP BY 1,2,3 ORDER BY requests DESC`,
-              ...args,
-              metrics.botProductForm ?? null,
-              metrics.botCategory ?? null,
-              metrics.resource === 'ai/pages' ? (metrics.botType ?? null) : null,
-              metrics.resource === 'ai/pages' ? (metrics.botId ?? null) : null,
-              metrics.resource === 'ai/pages' && !metrics.botId ? (metrics.botName ?? null) : null,
-            )
-          : read(
-              `SELECT path,bot,l.reporting_crawler_id AS "botId",count(*)::int AS requests,max(created_at) AS "lastCrawled" ${identityBase}${ai} GROUP BY 1,2,3 ORDER BY requests DESC`,
-              ...args,
-            )
-        : Promise.resolve([]),
-      needs('statuses')
-        ? q(
-            `SELECT (status/100)*100 AS status,count(*)::int AS count ${base}${ai} GROUP BY 1 ORDER BY 1`,
-          )
-        : Promise.resolve([]),
-      needs('hours')
-        ? q(
-            `SELECT extract(hour FROM created_at AT TIME ZONE $4)::int AS hour,count(*)::int AS count ${base}${ai} GROUP BY 1 ORDER BY 1`,
-          )
-        : Promise.resolve([]),
-      needs('catalog')
-        ? read(
-            'SELECT path,title,content_type AS type,word_count AS "wordCount",published_at AS "publishedAt",content_updated_at AS "updatedAt",link_depth AS "linkDepth",evidence_source AS source,structured,structure_score AS "structureScore" FROM liekan_catalog WHERE website_id=$1::uuid ORDER BY path',
-            id,
-          )
-        : Promise.resolve([]),
-      needs('latest')
-        ? read(
-            `SELECT (SELECT imported_at FROM liekan_import WHERE website_id=$1::uuid AND accepted>0 ORDER BY imported_at DESC LIMIT 1) AS time, ${logInputConnectedSql} AS connected`,
-            id,
-          )
-        : Promise.resolve([]),
-      needs('recent')
-        ? read(
-            `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,l.reporting_crawler_id AS "botId",l.reporting_catalog_version AS "catalogVersion",e.identity_evidence AS "identityEvidence",bot_type AS "botType",verification,${crawlerAiSql()} AS "aiEligible",recognition_state AS "recognitionState",verification_version AS "verificationVersion",verification_observed_at AS "verificationObservedAt",verification_reason AS "verificationReason" ${identityBase}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'verified_dns' THEN '官方 DNS 双向核验' WHEN 'verified_edge' THEN '可信边缘身份核验' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT ${fullExport ? 100001 : 100}${paginationSql}`,
-            ...args,
-            search,
-            ...(cursor ? boundary : [(page - 1) * 100]),
-          )
-        : Promise.resolve([]),
-      needs('count')
-        ? read(
-            `SELECT count(*)::int AS count ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'verified_dns' THEN '官方 DNS 双向核验' WHEN 'verified_edge' THEN '可信边缘身份核验' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0`,
-            ...args,
-            search,
-          )
-        : Promise.resolve([{ count: 0 }]),
-    ]);
+  // Materialize the filtered, repaired population once for all current-window aggregates.
+  // Only aggregate columns enter the spool; raw UA and visitor evidence stay in detail reads.
+  const aggregateQueries: Record<string, string> = {
+    summary: `SELECT count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai,count(distinct path) FILTER(WHERE ${crawlerAiSql()})::int AS pages,count(*) FILTER(WHERE status>=400)::int AS abnormal,count(distinct coalesce(l.reporting_classification_version,'legacy'))::int AS "classificationVersions",count(*) FILTER(WHERE ai_eligible IS NULL)::int AS "legacyRequests",count(*) FILTER(WHERE ${unknown})::int AS "unclassifiedRequests" ${identityBase}`,
+    daily: `SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,bot,vendor,l.reporting_crawler_id AS "botId",count(*)::int AS count,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY 1`,
+    bots: withForms
+      ? formBots
+      : `SELECT bot AS name,vendor,bot_type AS type,l.reporting_crawler_id AS "botId",count(*)::int AS requests,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests",count(distinct path)::int AS pages,max(created_at) AS "lastVisit" ${identityBase}${known} GROUP BY 1,2,3,4 ORDER BY requests DESC,name,"botId"`,
+    pages: withForms
+      ? `${formScope} SELECT path,bot,l."botId",count(*)::int AS requests,max(created_at) AS "lastCrawled"
+          ${formBase}${ai}
+          AND ($7::text IS NULL OR bot_type=$7) AND ($8::text IS NULL OR l."botId"=$8)
+          AND ($9::text IS NULL OR (l."botId" IS NULL AND bot=$9))
+          GROUP BY 1,2,3 ORDER BY requests DESC`
+      : `SELECT path,bot,l.reporting_crawler_id AS "botId",count(*)::int AS requests,max(created_at) AS "lastCrawled" ${identityBase}${ai} GROUP BY 1,2,3 ORDER BY requests DESC`,
+    statuses: `SELECT (status/100)*100 AS status,count(*)::int AS count ${base}${ai} GROUP BY 1 ORDER BY 1`,
+    hours: `SELECT extract(hour FROM created_at AT TIME ZONE $4)::int AS hour,count(*)::int AS count ${base}${ai} GROUP BY 1 ORDER BY 1`,
+  };
+  const selectedAggregates = Object.entries(aggregateQueries).filter(([field]) => needs(field));
+  const aggregatesRead = selectedAggregates.length
+    ? read(
+        `WITH statistics_scope AS MATERIALIZED (
+        SELECT created_at,path,status,bot,vendor,bot_type,ai_eligible,recognition_state,
+          reporting_crawler_id,reporting_catalog_version,reporting_classification_version
+        ${base}
+      ), filter_types AS (SELECT $5::text,$6::text,$7::text,$8::text,$9::text)
+      SELECT ${selectedAggregates
+        .map(([field, sql]) => {
+          const scoped = sql
+            .replaceAll(identityBase, 'FROM statistics_scope l WHERE true')
+            .replaceAll(base, 'FROM statistics_scope l WHERE true');
+          return `coalesce((SELECT jsonb_agg(rows) FROM (${scoped}) rows),'[]'::jsonb) AS "${field}"`;
+        })
+        .join(',')}`,
+        ...args,
+        metrics.botProductForm ?? null,
+        metrics.botCategory ?? null,
+        metrics.resource === 'ai/pages' ? (metrics.botType ?? null) : null,
+        metrics.resource === 'ai/pages' ? (metrics.botId ?? null) : null,
+        metrics.resource === 'ai/pages' && !metrics.botId ? (metrics.botName ?? null) : null,
+      )
+    : Promise.resolve([]);
+  const [aggregates, catalog, latest, recent, count] = await Promise.all([
+    aggregatesRead,
+    needs('catalog')
+      ? read(
+          'SELECT path,title,content_type AS type,word_count AS "wordCount",published_at AS "publishedAt",content_updated_at AS "updatedAt",link_depth AS "linkDepth",evidence_source AS source,structured,structure_score AS "structureScore" FROM liekan_catalog WHERE website_id=$1::uuid ORDER BY path',
+          id,
+        )
+      : Promise.resolve([]),
+    needs('latest')
+      ? read(
+          `SELECT (SELECT imported_at FROM liekan_import WHERE website_id=$1::uuid AND accepted>0 ORDER BY imported_at DESC LIMIT 1) AS time, ${logInputConnectedSql} AS connected`,
+          id,
+        )
+      : Promise.resolve([]),
+    needs('recent')
+      ? read(
+          `SELECT id AS "recordId",created_at AS time,ip_masked AS "ipMasked",location,method,path,status,user_agent AS "userAgent",bot,l.reporting_crawler_id AS "botId",l.reporting_catalog_version AS "catalogVersion",e.identity_evidence AS "identityEvidence",bot_type AS "botType",verification,${crawlerAiSql()} AS "aiEligible",recognition_state AS "recognitionState",verification_version AS "verificationVersion",verification_observed_at AS "verificationObservedAt",verification_reason AS "verificationReason" ${identityBase}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'verified_dns' THEN '官方 DNS 双向核验' WHEN 'verified_edge' THEN '可信边缘身份核验' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0 ${seekSql} ORDER BY created_at ${direction},id ${direction} LIMIT ${fullExport ? 100001 : 100}${paginationSql}`,
+          ...args,
+          search,
+          ...(cursor ? boundary : [(page - 1) * 100]),
+        )
+      : Promise.resolve([]),
+    needs('count')
+      ? read(
+          `SELECT count(*)::int AS count ${base}${filterSql} AND strpos(lower(concat_ws(' ',path,user_agent,method,status::text,ip_masked,location,bot,bot_type,CASE verification WHEN 'verified_range' THEN '官方 IP 范围匹配' WHEN 'verified_dns' THEN '官方 DNS 双向核验' WHEN 'verified_edge' THEN '可信边缘身份核验' WHEN 'range_mismatch' THEN '官方范围未匹配' ELSE '身份未核验' END)) ,lower($5))>0`,
+          ...args,
+          search,
+        )
+      : Promise.resolve([{ count: 0 }]),
+  ]);
+  const {
+    summary = [{ requests: 0, ai: 0, pages: 0, abnormal: 0 }],
+    daily = [],
+    bots = [],
+    pages = [],
+    statuses = [],
+    hours = [],
+  } = aggregates[0] ?? {};
+  for (const row of bots) if (row.lastVisit) row.lastVisit = new Date(row.lastVisit);
+  for (const row of pages) if (row.lastCrawled) row.lastCrawled = new Date(row.lastCrawled);
   return {
     summary: summary[0],
     daily,

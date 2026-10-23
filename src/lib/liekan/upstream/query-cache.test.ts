@@ -3,6 +3,23 @@ import { analyticsCacheKey, QueryCache } from './query-cache';
 import { Decimal } from '@prisma/client/runtime/client';
 
 describe('derived statistics cache', () => {
+  it('retains a slow successful result for its full TTL after computation', async () => {
+    let now = 1000;
+    const cache = new QueryCache(2, 1000, () => now);
+    const load = vi.fn(async () => {
+      now += 35000;
+      return { count: 7 };
+    });
+    const first = await cache.read('slow', 30000, [], load);
+    expect(first.generatedAt).toBe(1000);
+    expect(first.expiresAt).toBe(66000);
+    now = 65999;
+    expect((await cache.read('slow', 30000, [], load)).status).toBe('hit');
+    expect(load).toHaveBeenCalledOnce();
+    now = 66000;
+    expect((await cache.read('slow', 30000, [], load)).status).toBe('miss');
+    expect(load).toHaveBeenCalledTimes(2);
+  });
   it('round-trips exact PostgreSQL numeric aggregates and arbitrary object fields', async () => {
     const cache = new QueryCache();
     const load = vi.fn(async () => ({
@@ -32,7 +49,7 @@ describe('derived statistics cache', () => {
       at: new Date(1234),
     });
   });
-  it('expires from the start of computation and enforces count/byte limits', async () => {
+  it('expires completed results and enforces count/byte limits', async () => {
     let now = 0;
     const cache = new QueryCache(2, 100, () => now);
     const load = vi.fn(async () => 'small');
