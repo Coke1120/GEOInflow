@@ -57,7 +57,7 @@ export async function checkMobileExperience({ base, seed, board, share, partial,
   const save = () => fs.writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 2));
   const value = {
     websiteId: seed.website.id,
-    date: `range:${seed.range.startAt}:${Date.now()}:day`,
+    date: `range:${seed.range.startAt}:${seed.range.endAt}:day`,
     unit: 'day',
   };
   function target(p) {

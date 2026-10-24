@@ -326,7 +326,7 @@ async function ready(page, requireCanvas = false) {
 function params(id) {
   const value = {
     websiteId: seed.website.id,
-    date: `range:${seed.range.startAt}:${Date.now()}:day`,
+    date: `range:${seed.range.startAt}:${seed.range.endAt}:day`,
     unit: 'day',
   };
   const ids = {
