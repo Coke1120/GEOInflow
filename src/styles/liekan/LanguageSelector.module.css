@@ -127,3 +127,15 @@
     padding: 8px 8px 0;
   }
 }
+@media (max-width: 540px) {
+  .toolbar select {
+    width: 104px;
+    padding-left: 30px;
+    padding-right: 24px;
+    background-position: right 6px center;
+    font-size: 12px;
+  }
+  .toolbar .globe {
+    left: 8px;
+  }
+}

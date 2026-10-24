@@ -22,6 +22,8 @@ test('requires a visible, unique upper-right language entry with space for touch
     height: 44,
     width: 390,
     groupRight: 374,
+    pickerNameWidth: 50,
+    pickerNameScroll: 50,
   };
   assert.doesNotThrow(() => assertLanguageHeader(valid));
   assert.doesNotThrow(() =>
@@ -47,6 +49,8 @@ test('requires a visible, unique upper-right language entry with space for touch
     { pickerWidth: 22, width: 1024, left: 884, right: 1008, groupRight: 1008 },
     { overlappingControls: ['Refresh'] },
     { clippedControls: ['Export'] },
+    { pickerNameWidth: 0, pickerNameScroll: 48 },
+    { pickerNameWidth: 3, pickerNameScroll: 48 },
     { clippedModalContent: ['CODE'] },
   ])
     assert.throws(() => assertLanguageHeader({ ...valid, ...invalid }));

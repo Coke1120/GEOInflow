@@ -76,5 +76,6 @@
 @media (max-width: 540px) {
   .toolbar {
     padding: 0 16px 8px;
+    column-gap: 12px;
   }
 }

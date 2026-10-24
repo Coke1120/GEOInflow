@@ -728,3 +728,29 @@
     scroll-padding-inline: 8px;
   }
 }
+@media (max-width: 540px) {
+  .headerContext .siteSwitch {
+    padding: 7px 8px;
+  }
+  .headerContext .siteSwitch:has(.demoBadge) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 6px;
+    padding: 3px 8px;
+    text-align: left;
+  }
+  .siteSwitch:has(.demoBadge) .siteName {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .siteSwitch .demoBadge {
+    grid-column: 1;
+    grid-row: 2;
+    max-width: 100%;
+    justify-self: start;
+  }
+  .siteSwitch:has(.demoBadge) > svg:last-child {
+    grid-column: 2;
+    grid-row: 1 / 3;
+  }
+}

@@ -34,6 +34,7 @@ export function languageHeaderGeometry() {
   const groupRect = group?.getBoundingClientRect();
   const websiteToolbar = entry?.closest('[data-website-toolbar]');
   const picker = websiteToolbar?.querySelector('.site-switch')?.getBoundingClientRect();
+  const pickerName = websiteToolbar?.querySelector('.site-switch strong');
   const controls = websiteToolbar
     ? [...websiteToolbar.querySelectorAll('[data-website-toolbar-actions] button')]
         .map(element => ({
@@ -54,6 +55,8 @@ export function languageHeaderGeometry() {
     height: rect?.height,
     width: innerWidth,
     pickerWidth: picker?.width,
+    pickerNameWidth: pickerName?.clientWidth,
+    pickerNameScroll: pickerName?.scrollWidth,
     overlappingControls: picker
       ? controls
           .filter(
@@ -100,6 +103,11 @@ export function assertLanguageHeader(state, locale = 'en-US') {
   assert.deepEqual(state.clippedModalContent || [], [], 'Modal content fits inside the dialog');
   if (state.width > 900 && state.pickerWidth !== undefined)
     assert(state.pickerWidth >= 80, 'Website picker retains usable space');
+  if (state.pickerNameScroll > 0)
+    assert(
+      state.pickerNameWidth >= Math.min(48, state.pickerNameScroll) - 1,
+      'Website name retains readable space beside its demo badge',
+    );
   assert.equal(state.language, locale, 'Header follows the selected language');
   assert(state.left >= 0 && state.right <= state.width + 1, 'Language selector fits the viewport');
   assert(
