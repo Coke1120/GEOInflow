@@ -179,7 +179,11 @@ export function assertRenderedEnglishState(state, analytics = false) {
   if (analytics === 'table')
     assert(state.analyticsTables > 0, 'Rendered analytics table is required');
   else if (analytics) assert(state.analyticsCards > 0, 'Rendered analytics cards are required');
-  assert.deepEqual(state.untranslatedOwned, [], 'Owned interface text must be English');
+  const untranslatedOwned = state.untranslatedOwned.filter(text => {
+    const source = normalize(text);
+    return !english.has(source) || english.get(source) !== source;
+  });
+  assert.deepEqual(untranslatedOwned, [], 'Owned interface text must be English');
   assert.deepEqual(state.clippedNavigation || [], [], 'Navigation labels fit without clipping');
   assert(
     !state.readFailureHeads.some(text => [label('读取失败'), label('加载失败')].includes(text)),
@@ -415,11 +419,6 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
           // User-defined labels remain original; known application labels must localize.
           const leftovers = state.untranslated.filter(
             text => english.has(normalize(text)) && label(text) !== text,
-          );
-          assert.deepEqual(
-            state.untranslatedOwned,
-            [],
-            `${route.id}: untranslated owned interface text`,
           );
           assert.deepEqual(leftovers, [], `${route.id}: untranslated interface text`);
           assert.deepEqual(

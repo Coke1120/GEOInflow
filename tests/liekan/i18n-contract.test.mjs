@@ -269,6 +269,31 @@ test('English browser guards inspect real GEO labels, chart states, owned auth c
   }
 });
 
+test('English browser guards preserve approved footer names and reject untranslated links', async () => {
+  const { JSDOM } = await import('jsdom');
+  const { englishPageGeometry, assertRenderedEnglishState } = await import(
+    '../../scripts/liekan-i18n-visual.mjs'
+  );
+  const previousDocument = globalThis.document,
+    previousWidth = globalThis.innerWidth;
+  const dom = new JSDOM(
+    '<main>Fixture content</main><footer data-liekan-product-footer><nav><a>姚金刚</a><a>向阳乔木</a></nav></footer>',
+  );
+  try {
+    globalThis.document = dom.window.document;
+    globalThis.innerWidth = 1440;
+    assert.doesNotThrow(() => assertRenderedEnglishState(englishPageGeometry()));
+    document.querySelector('nav a').textContent = '刷新';
+    assert.throws(() => assertRenderedEnglishState(englishPageGeometry()), /Owned interface text/);
+    document.querySelector('nav a').textContent = '未审核的署名';
+    assert.throws(() => assertRenderedEnglishState(englishPageGeometry()), /Owned interface text/);
+  } finally {
+    globalThis.document = previousDocument;
+    globalThis.innerWidth = previousWidth;
+    dom.window.close();
+  }
+});
+
 test('English route, snapshot and request guards refuse wrong views and empty statistics', async () => {
   const { assertEnglishRouteIdentity, assertNumericSnapshot, isStatisticsRequest } = await import(
     '../../scripts/liekan-i18n-visual.mjs'
