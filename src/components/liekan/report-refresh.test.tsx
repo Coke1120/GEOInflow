@@ -5,6 +5,7 @@ import { LiekanPage } from './LiekanPage';
 import { freshAggregateFixture } from '@/test/liekan-freshness';
 import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
 import { setTestUrl } from '@/test/navigation';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const state = vi.hoisted(() => ({
   get: vi.fn(),
@@ -133,6 +134,50 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => client.clear());
+
+it.each([
+  [
+    'zh-CN',
+    '日期参数无效，当前使用默认日期范围。',
+    '重置日期',
+    '已清除当前页面不支持的筛选，统计采用页面显示的条件。',
+  ],
+  [
+    'en-US',
+    'Invalid date parameters. The default date range is in use.',
+    'Reset dates',
+    'Unsupported filters have been cleared. Analytics use the conditions shown on this page.',
+  ],
+] as const)(
+  'retains GEO range recovery and cleared-filter notices in %s',
+  async (locale, warning, reset, notice) => {
+    state.invalidDate = true;
+    state.extraQuery = { tp_cityBody: '2', clearedFilters: '1' };
+    state.get.mockResolvedValue(report('geography'));
+    render(
+      <LiekanLocaleContext.Provider value={locale}>
+        <QueryClientProvider client={client}>
+          <LiekanPage resource="human/geo" />
+        </QueryClientProvider>
+      </LiekanLocaleContext.Provider>,
+    );
+    expect(await screen.findByText(warning)).toBeVisible();
+    expect(screen.getByText(notice)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: reset, exact: true }));
+    expect(state.updateParams).toHaveBeenCalledWith({
+      tp_cityBody: undefined,
+      date: '30day',
+      unit: undefined,
+      offset: undefined,
+      dateMode: undefined,
+      live: undefined,
+      page: undefined,
+      cursor: undefined,
+      seek: undefined,
+    });
+    expect(state.replace).toHaveBeenCalledWith('/next-range', { scroll: false });
+  },
+);
 
 it.each(['ai/overview', 'ai/bots', 'ai/pages', 'ai/preference'] as const)(
   'reuses the current-day crawler aggregate when reentering %s later', async resource => {

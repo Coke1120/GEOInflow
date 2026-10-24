@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FeatureApp } from './FeatureApp';
+import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 
 const mocks = vi.hoisted(() => ({
   navigation: {} as any,
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   post: vi.fn(),
   sites: vi.fn(),
   all: vi.fn(),
+  invalidDate: false,
 }));
 vi.mock('next/link', () => ({
   useLinkStatus: () => ({ pending: false }),
@@ -23,6 +25,7 @@ vi.mock('next/link', () => ({
 vi.mock('@/lib/liekan/upstream/client', () => ({
   useNavigation: () => mocks.navigation,
   useFeatureDateRange: () => ({
+    invalidDate: mocks.invalidDate,
     dateRange: {
       value: 'range:1000000000000:1000086400000:day',
       startDate: new Date(1000000000000),
@@ -68,16 +71,19 @@ const teamSite = {
   domain: 'team.example',
   teamId,
 };
-function mount(route: any, identity: any = user) {
+function mount(route: any, identity: any = user, locale: 'zh-CN' | 'en-US' = 'zh-CN') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <FeatureApp user={identity} route={route} />
+      <LiekanLocaleContext.Provider value={locale}>
+        <FeatureApp user={identity} route={route} />
+      </LiekanLocaleContext.Provider>
     </QueryClientProvider>,
   );
 }
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.invalidDate = false;
   mocks.navigation = {
     pathname: '/websites',
     query: {},
@@ -96,6 +102,57 @@ beforeEach(() => {
   mocks.post.mockResolvedValue({});
 });
 describe('feature navigation scope', () => {
+  it.each([
+    ['zh-CN', '日期参数无效，当前使用默认日期范围。', '重置日期'],
+    ['en-US', 'Invalid date parameters. The default date range is in use.', 'Reset dates'],
+  ] as const)(
+    'retains the invalid-date warning and reset in %s',
+    async (locale, warning, reset) => {
+      mocks.invalidDate = true;
+      mocks.navigation.query = { date: 'range:bad:bad' };
+      mocks.navigation.updateParams.mockReturnValue('/websites?date=30day');
+      mount({ page: 'websites' }, user, locale);
+      expect(await screen.findByText(warning)).toBeVisible();
+      await userEvent.click(screen.getByRole('button', { name: reset, exact: true }));
+      await waitFor(() =>
+        expect(mocks.navigation.updateParams).toHaveBeenCalledWith({
+          date: '30day',
+          unit: undefined,
+          offset: undefined,
+          dateMode: undefined,
+          live: undefined,
+        }),
+      );
+      expect(mocks.navigation.router.replace).toHaveBeenCalledWith('/websites?date=30day', {
+        scroll: false,
+      });
+    },
+  );
+
+  it.each([
+    ['zh-CN', '已清除当前页面不支持的筛选，统计采用页面显示的条件。'],
+    [
+      'en-US',
+      'Unsupported filters have been cleared. Analytics use the conditions shown on this page.',
+    ],
+  ] as const)('explains cleared website filters in %s', async (locale, notice) => {
+    mocks.navigation.query = { clearedFilters: '1' };
+    mount({ page: 'sessions', websiteId: personal.id }, user, locale);
+    expect(await screen.findByText(notice)).toBeVisible();
+  });
+
+  it.each([
+    ['zh-CN', '日期参数无效，当前使用默认日期范围。', '重置日期'],
+    ['en-US', 'Invalid date parameters. The default date range is in use.', 'Reset dates'],
+  ] as const)(
+    'keeps valid date navigation free of fallback warnings in %s',
+    (locale, warning, reset) => {
+      mount({ page: 'websites' }, user, locale);
+      expect(screen.queryByText(warning)).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: reset, exact: true })).not.toBeInTheDocument();
+    },
+  );
+
   it.each([
     { page: 'websites' },
     { page: 'account' },

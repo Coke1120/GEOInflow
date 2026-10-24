@@ -82,7 +82,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const { websiteId, teamId, pathname, query: params, router, updateParams } = useNavigation();
   const website = useWebsite();
   const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
-  const { dateRange } = useFeatureDateRange(timezone);
+  const { dateRange, invalidDate } = useFeatureDateRange(timezone);
   const actualRange = featureDateRange(dateRange, timezone);
   const route = { page: geoPageFromPath(pathname), websiteId };
   const href = (page: string, values: Record<string, any> = {}) =>
@@ -1002,6 +1002,36 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           </button>
         )}
       </div>
+      {invalidDate && (
+        <div className={styles.tools} role="status">
+          {i18n.fragment('日期参数无效，当前使用默认日期范围。', false, true)}
+          <button
+            onClick={() =>
+              router.replace(
+                updateParams({
+                  ...(resource === 'human/geo' ? clearTablePages(tablePages) : {}),
+                  date: '30day',
+                  unit: undefined,
+                  offset: undefined,
+                  dateMode: undefined,
+                  live: undefined,
+                  page: undefined,
+                  cursor: undefined,
+                  seek: undefined,
+                }),
+                { scroll: false },
+              )
+            }
+          >
+            {i18n.text('重置日期')}
+          </button>
+        </div>
+      )}
+      {params.clearedFilters === '1' && (
+        <div className={styles.notice}>
+          {i18n.text('已清除当前页面不支持的筛选，统计采用页面显示的条件。')}
+        </div>
+      )}
       {(query.isError || actionError) && (
         <div className={styles.notice} role="alert">
           {query.isError
