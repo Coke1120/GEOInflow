@@ -8,6 +8,7 @@ import {
   manualPageReads,
   manualRouteFeature,
   assertManualPageReads,
+  manualReadKind,
 } from './liekan-manual-read-contract.mjs';
 
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
@@ -96,6 +97,7 @@ const report = {
   realIdle: [],
   errors: [],
   httpReads: [],
+  metadataReads: [],
 };
 const save = () => fs.writeFileSync(`${out}/report.json`, JSON.stringify(report, null, 2));
 const describeRead = request => {
@@ -109,22 +111,7 @@ const describeRead = request => {
     ),
   };
 };
-const ordinary = request => {
-  const path = new URL(request.url()).pathname;
-  return (
-    path.startsWith('/api/') &&
-    request.method() === 'GET' &&
-    ![
-      '/api/auth/verify',
-      '/api/2fa/status',
-      '/api/auth/subscription',
-      // Upgrade notices read task metadata on focus; analytics remain manual.
-      '/api/liekan/history-repair',
-    ].includes(path) &&
-    !/^\/api\/admin\/users\/[^/]+\/2fa$/.test(path) &&
-    !/^\/api\/share\/[^/]+$/.test(path)
-  );
-};
+const readKind = request => manualReadKind(request.method(), new URL(request.url()).pathname);
 let lastForcedRead = 0;
 const forcedInFlight = new Set();
 async function waitForForcedReadCooldown() {
@@ -178,16 +165,17 @@ async function open(url, authenticated = true, cacheableDocument = false) {
   const requestDetails = new WeakMap();
   const successfulResponses = new WeakSet();
   page.on('request', request => {
-    if (ordinary(request)) {
+    const kind = readKind(request);
+    if (kind !== 'ignored') {
       const url = new URL(request.url());
-      reads.push(url.pathname);
+      if (kind === 'ordinary') reads.push(url.pathname);
       const detail = {
         ...describeRead(request),
         refresh: url.searchParams.get('refresh') === '1',
         startedAt: Date.now(),
       };
       requestDetails.set(request, detail);
-      report.httpReads.push(detail);
+      (kind === 'ordinary' ? report.httpReads : report.metadataReads).push(detail);
       if (detail.refresh) forcedInFlight.add(request);
     }
   });

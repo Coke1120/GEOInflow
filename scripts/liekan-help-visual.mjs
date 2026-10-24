@@ -281,7 +281,7 @@ try {
       await footer.waitFor();
       await page.waitForLoadState('networkidle');
       assert.equal(await footer.count(), 1, path);
-      assert.equal(await footer.getByRole('link').count(), 8 + attribution.links.length, path);
+      assert.equal(await footer.getByRole('link').count(), 9 + attribution.links.length, path);
       for (const [label, href] of [
         ...attribution.links.map(link => [link.label, link.href]),
         ['地名数据：GeoNames（已整理）', 'https://www.geonames.org/'],
@@ -292,6 +292,15 @@ try {
         assert.equal(await attribution.getAttribute('href'), href, path);
         assert.equal(await attribution.getAttribute('target'), '_blank', path);
         assert.equal(await attribution.getAttribute('rel'), 'noopener noreferrer', path);
+      }
+      for (const [name, href] of [
+        ['姚金刚', 'https://x.com/yaojingang'],
+        ['向阳乔木', 'https://x.com/vista8'],
+      ]) {
+        const author = footer.getByRole('link', { name, exact: true });
+        assert.equal(await author.count(), 1, path);
+        assert.equal(await author.getAttribute('href'), href, path);
+        assert.equal(await author.getAttribute('rel'), 'noopener noreferrer', path);
       }
       const placement = await footer.evaluate(node => ({
         position: getComputedStyle(node).position,

@@ -2,6 +2,23 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+export function manualReadKind(method, path) {
+  if (method !== 'GET' || !path.startsWith('/api/')) return 'ignored';
+  // Public licensing links reload when a share authorization boundary remounts.
+  if (path === '/api/liekan/geography/attribution') return 'metadata';
+  if (
+    [
+      '/api/auth/verify',
+      '/api/2fa/status',
+      '/api/auth/subscription',
+      '/api/liekan/history-repair',
+    ].includes(path) ||
+    /^\/api\/admin\/users\/[^/]+\/2fa$/.test(path) ||
+    /^\/api\/share\/[^/]+$/.test(path)
+  ) return 'ignored';
+  return 'ordinary';
+}
+
 export function manualReadInventory() {
   const contract = JSON.parse(readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'));
   const visit = directory =>
