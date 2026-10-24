@@ -10,7 +10,7 @@ import {
 } from '@/lib/liekan/upstream/cache-context';
 import { analyticsCache, websiteCacheTag } from '@/lib/liekan/upstream/query-cache';
 import { getQuerySnapshot, withinQuerySnapshot } from '@/lib/liekan/upstream/query-snapshot';
-import { getHeatmap, type HeatmapParameters } from './getHeatmap';
+import { getHeatmap, getRelationalHeatmapFilterContext, type HeatmapParameters } from './getHeatmap';
 
 const mocks = vi.hoisted(() => ({
   mode: 'prisma',
@@ -126,6 +126,32 @@ beforeEach(() => {
 });
 const request = (input = parameters, site = 'synthetic-site') =>
   withQueryCacheHeaders(async () => Response.json(await getHeatmap(site, input)));
+
+it('binds environment filters to events and keeps the qualified heatmap scan bounded', () => {
+  mocks.parseFilters.mockReturnValue({
+    filterQuery: 'and session.device={{device}}',
+    joinSessionQuery: 'inner join session on session.session_id=website_event.session_id',
+    cohortQuery: '', excludeBounceQuery: '', queryParams: { device: 'desktop' },
+  });
+  const context = getRelationalHeatmapFilterContext('synthetic-site', { device: 'eq.desktop' });
+  expect(context.joinQuery).toContain('website_event.liekan_device={{device}}');
+  expect(context.joinQuery).not.toContain('inner join session');
+  expect(context.sourceQuery).toContain('qualified_heatmap_events as materialized');
+  expect(context.sourceQuery).toContain('website_id={{websiteId::uuid}}');
+  expect(context.sourceQuery).toContain('created_at between {{startDate}} and {{endDate}}');
+});
+
+it('retains profile proof when a distinct identity filter requires it', () => {
+  mocks.parseFilters.mockReturnValue({
+    filterQuery: 'and session.distinct_id={{distinctId}} and session.device={{device}}',
+    joinSessionQuery: 'inner join session on session.session_id=website_event.session_id',
+    cohortQuery: '', excludeBounceQuery: '', queryParams: {},
+  });
+  const context = getRelationalHeatmapFilterContext('synthetic-site', {});
+  expect(context.joinQuery).toContain('inner join session');
+  expect(context.joinQuery).toContain('session.distinct_id={{distinctId}}');
+  expect(context.joinQuery).toContain('website_event.liekan_device={{device}}');
+});
 
 it.each(['click', 'scroll'] as const)(
   'caches the complete %s snapshot and population envelope',

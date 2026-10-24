@@ -3,7 +3,7 @@ import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population'
 import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
 import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
-import { HEATMAP_EVENT_TYPE, OPERATORS } from '@/lib/constants';
+import { HEATMAP_EVENT_TYPE, OPERATORS, SESSION_COLUMNS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import { filtersObjectToArray } from '@/lib/params';
 import prisma from '@/lib/prisma';
@@ -111,6 +111,7 @@ export async function getHeatmap(
 }
 
 interface HeatmapFilterContext {
+  sourceQuery?: string;
   joinQuery: string;
   filterQuery: string;
   queryParams: Record<string, any>;
@@ -150,7 +151,7 @@ async function relationalQuery(
       h.url_path as "urlPath",
       count(*)::int as count,
       count(distinct h.visit_id)::int as sessions
-    from heatmap_event h
+    from ${filterContext.sourceQuery || 'heatmap_event'} h
     ${filterContext.joinQuery}
     where h.website_id = {{websiteId::uuid}}
       and h.event_type = {{eventType}}
@@ -195,7 +196,7 @@ async function relationalQuery(
           (mode() within group (order by h.page_h))::int as page_h,
           (mode() within group (order by h.viewport_w))::int as viewport_w,
           (mode() within group (order by h.viewport_h))::int as viewport_h
-        from heatmap_event h
+        from ${filterContext.sourceQuery || 'heatmap_event'} h
         ${filterContext.joinQuery}
         where h.website_id = {{websiteId::uuid}}
           and h.event_type = {{eventType}}
@@ -265,7 +266,7 @@ async function relationalQuery(
       h.viewport_w as "viewportW",
       h.viewport_h as "viewportH",
       count(*)::int as count
-    from heatmap_event h
+    from ${filterContext.sourceQuery || 'heatmap_event'} h
     ${filterContext.joinQuery}
     where h.website_id = {{websiteId::uuid}}
       and h.event_type = {{eventType}}
@@ -916,17 +917,28 @@ export function getRelationalHeatmapFilterContext(
     };
   }
 
+  const environmentColumns = SESSION_COLUMNS.filter(column => column !== 'distinctId');
+  const eventFilterQuery = filterQuery.replace(
+    new RegExp(`\\bsession\\.(${environmentColumns.join('|')})\\b`, 'g'),
+    (_match, column) => `website_event.liekan_${column}`,
+  );
+  const profileJoin = /\bsession\./.test(eventFilterQuery) ? joinSessionQuery : '';
+
   return {
+    sourceQuery: `(with qualified_heatmap_events as materialized (
+      select * from heatmap_event where website_id={{websiteId::uuid}}
+      and created_at between {{startDate}} and {{endDate}}
+    ) select * from qualified_heatmap_events)`,
     joinQuery: `
     inner join (
       select distinct website_event.website_id, website_event.session_id, website_event.visit_id
       from website_event
-      ${joinSessionQuery}
+      ${profileJoin}
       ${cohortQuery}
       ${excludeBounceQuery}
       where website_event.website_id = {{websiteId::uuid}}
         and website_event.created_at between {{startDate}} and {{endDate}}
-        ${filterQuery}
+        ${eventFilterQuery}
     ) filtered_visits
       on filtered_visits.website_id = h.website_id
       and filtered_visits.session_id = h.session_id

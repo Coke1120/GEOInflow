@@ -16,6 +16,7 @@ import { getPerformanceMetrics } from '../../src/queries/sql/performance/getPerf
 import { getBreakdown } from '../../src/queries/sql/breakdown/getBreakdown';
 import { getValues } from '../../src/queries/sql/getValues';
 import { getSessionReplays } from '../../src/queries/sql/replays/getSessionReplays';
+import { getHeatmap } from '../../src/queries/sql/heatmap/getHeatmap';
 import { featureAnalytics, featureJourney } from '../../src/lib/liekan/upstream/feature-analytics';
 import { prepareFeatureExport } from '../../src/lib/liekan/upstream/feature-exports';
 
@@ -202,6 +203,22 @@ export async function verifyEventEnvironmentReads(db: pg.Client) {
   assert.equal((await exported('browsers.csv'))[0].name, 'Firefox');
   assert.equal((await exported('devices.csv'))[0].name, 'desktop');
   assert.equal((await exported('sessions.csv'))[0].browser, 'Firefox');
+  for (const at of ['2020-01-02T01:00Z', '2020-01-03T01:00Z'])
+    await db.query(
+      `INSERT INTO heatmap_event(heatmap_event_id,website_id,session_id,visit_id,created_at,url_path,event_type,x,y,page_x,page_y,page_w,page_h,viewport_w,viewport_h)
+      VALUES(gen_random_uuid(),$1,$2,$3,$4,'/one',1,10,20,10,20,1000,2000,1000,800)`,
+      [site, session, visit, at],
+    );
+  const heatmap = await read(() =>
+    getHeatmap(site, { ...filters, urlPath: '/one', device: 'eq.desktop' }),
+  );
+  assert.equal(heatmap.points.length, 1);
+  assert.equal(heatmap.pages[0].sessions, 1);
+  const unmatchedHeatmap = await read(() =>
+    getHeatmap(site, { ...filters, urlPath: '/one', device: 'eq.mobile' }),
+  );
+  assert.deepEqual(unmatchedHeatmap.pages, []);
+  assert.deepEqual(unmatchedHeatmap.points, []);
   const laterJourney = {
     ...featureRange,
     type: 'all',

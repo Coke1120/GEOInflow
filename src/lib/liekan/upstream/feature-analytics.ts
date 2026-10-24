@@ -165,7 +165,7 @@ async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) 
     if (!p.urlPath) throw new LiekanError('请选择已采集页面');
     const ctx = getRelationalHeatmapFilterContext(websiteId, filters);
     const result = await prisma.rawQuery(
-      `${cte}, depths AS(SELECT h.visit_id,MAX(h.scroll_pct) AS depth FROM heatmap_event h ${ctx.joinQuery} WHERE h.website_id={{websiteId::uuid}} AND h.event_type=2 AND h.url_path={{urlPath}} AND h.created_at BETWEEN {{startDate}} AND {{endDate}} AND h.scroll_pct IS NOT NULL AND h.page_w IS NOT NULL AND h.page_h IS NOT NULL AND h.viewport_w IS NOT NULL AND h.viewport_h IS NOT NULL ${p.retentionDate || p.attributionStep ? 'AND h.session_id IN(SELECT session_id FROM selected)' : ''} ${ctx.filterQuery} GROUP BY h.visit_id) SELECT COUNT(*) AS total,${[25, 50, 75, 100].map(depth => `COUNT(*) FILTER(WHERE depth>=${depth}) AS "reach${depth}"`).join(',')} FROM depths`,
+      `${cte}, depths AS(SELECT h.visit_id,MAX(h.scroll_pct) AS depth FROM ${ctx.sourceQuery || 'heatmap_event'} h ${ctx.joinQuery} WHERE h.website_id={{websiteId::uuid}} AND h.event_type=2 AND h.url_path={{urlPath}} AND h.created_at BETWEEN {{startDate}} AND {{endDate}} AND h.scroll_pct IS NOT NULL AND h.page_w IS NOT NULL AND h.page_h IS NOT NULL AND h.viewport_w IS NOT NULL AND h.viewport_h IS NOT NULL ${p.retentionDate || p.attributionStep ? 'AND h.session_id IN(SELECT session_id FROM selected)' : ''} ${ctx.filterQuery} GROUP BY h.visit_id) SELECT COUNT(*) AS total,${[25, 50, 75, 100].map(depth => `COUNT(*) FILTER(WHERE depth>=${depth}) AS "reach${depth}"`).join(',')} FROM depths`,
       { ...params, ...ctx.queryParams, urlPath: p.urlPath },
       'liekanExactScrollDepth',
     );
