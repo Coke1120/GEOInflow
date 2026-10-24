@@ -301,7 +301,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 56px;
+  min-height: var(--lk-toolbar-control-height, 56px);
   min-width: 0;
   font:
     13px / 1.5 var(--font-inter, Inter),
@@ -311,7 +311,7 @@
 }
 .headerContext .back {
   width: 40px;
-  height: 40px;
+  height: var(--lk-toolbar-control-height, 40px);
   padding: 0;
   display: flex;
   align-items: center;
