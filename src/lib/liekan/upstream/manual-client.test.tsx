@@ -112,6 +112,57 @@ it('uses a normal server read for repeated condition selections and forces an ex
   expect(forced).toEqual([false, false, false, false, true]);
 });
 
+it.each([1, 2])(
+  'resumes a canceled first read when an explicit refresh starts on page %s',
+  async pendingPage => {
+    const initialSignals: AbortSignal[] = [];
+    const load = vi.fn((page: number, signal: AbortSignal) => {
+      if (page === pendingPage && !initialSignals.length) {
+        initialSignals.push(signal);
+        return new Promise<{ page: number; members: string[] }>((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => reject(new DOMException('Fixture read canceled', 'AbortError')),
+            { once: true },
+          );
+        });
+      }
+      return Promise.resolve({ page, members: ['created-member'] });
+    });
+    const hook = renderHook(
+      ({ page }) => ({
+        reading: useManualRefresh(),
+        query: useManualQuery({
+          queryKey: ['team-members', page],
+          queryFn: ({ signal }) => load(page, signal),
+        }),
+      }),
+      { initialProps: { page: 1 }, wrapper },
+    );
+    await advance();
+    if (pendingPage === 2) {
+      expect(hook.result.current.query.data?.page).toBe(1);
+      hook.rerender({ page: 2 });
+      await advance();
+    }
+    expect(hook.result.current.query.isPending).toBe(true);
+    expect(initialSignals).toHaveLength(1);
+    let refreshed: Promise<void>;
+    act(() => {
+      refreshed = hook.result.current.reading.refresh();
+    });
+    await advance(100);
+    expect(initialSignals[0].aborted).toBe(true);
+    expect(load.mock.calls.map(([page]) => page)).toEqual(pendingPage === 1 ? [1, 1] : [1, 2, 2]);
+    expect(hook.result.current.query.data).toEqual({
+      page: pendingPage,
+      members: ['created-member'],
+    });
+    await refreshed!;
+    expect(hook.result.current.reading.busy).toBe(false);
+  },
+);
+
 it.each(definitions.pages.map(page => page.id))(
   'applies the ordinary read contract to the %s page',
   async page => {

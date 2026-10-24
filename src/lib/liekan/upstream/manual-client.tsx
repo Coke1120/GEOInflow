@@ -650,8 +650,10 @@ export function useRetainedRead(
     previousSelection.current = { epoch, id, ready: registered };
     if (
       registered &&
+      readable &&
       (previous?.epoch !== epoch || previous.id !== id || previous.ready === false) &&
-      query?.isFetched() &&
+      query &&
+      (query.isFetched() || query.state.status === 'pending') &&
       query.state.fetchStatus === 'idle' &&
       (publicProjection ||
         reading?.page.force ||
@@ -662,7 +664,7 @@ export function useRetainedRead(
       if (previous?.epoch === epoch && previous.id !== id) visitReads.delete(hashKey(key));
       void readOnceForVisit(client, query, epoch, result, !!reading?.page.force);
     }
-  }, [id, epoch, registered]);
+  }, [id, epoch, registered, readable]);
   const owner = ownerScope(key, options);
   const previous = useRef<{ owner: string; id: string; epoch: string; data: any }>(null);
   const partialFailure = aggregateReadFailure(result.data);
