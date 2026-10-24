@@ -982,6 +982,12 @@ function requestMetadataRoots(body: any, requestUrl: string) {
   const pathname = new URL(requestUrl, 'http://127.0.0.1').pathname;
   if (pathname === summaryPath && Array.isArray(body)) return [body, ...body];
   if (/^\/api\/websites\/[^/]+\/events\/stats$/.test(pathname)) return [body, body?.data];
+  if (
+    /^\/api\/(?:websites|links|pixels)\/charts$/.test(pathname) &&
+    body?.data &&
+    !Array.isArray(body.data)
+  )
+    return [body, ...Object.values(body.data)];
   return [body];
 }
 function requestWindows(requestUrl: string) {

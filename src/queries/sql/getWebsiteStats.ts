@@ -7,6 +7,7 @@ import {
 } from '@/lib/liekan/upstream/browser-population';
 import { noteBrowserPopulation } from '@/lib/liekan/upstream/cache-context';
 import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, EVENT_TYPE } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -29,7 +30,8 @@ export async function getWebsiteStats(
   ...args: [websiteId: string, filters: QueryFilters]
 ): Promise<WebsiteStatsData> {
   return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
+    [PRISMA]: () =>
+      nativeAggregate(FUNCTION_NAME, args[0], args[1], args[1], () => relationalQuery(...args)),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
 }

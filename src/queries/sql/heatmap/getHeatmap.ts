@@ -1,6 +1,7 @@
 import { identityUsable, type BrowserPopulation } from '@/lib/liekan/contracts/browser-population';
 import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
 import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
 import { HEATMAP_EVENT_TYPE, OPERATORS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -83,26 +84,28 @@ export async function getHeatmap(
 ): Promise<HeatmapResult> {
   return runQuery({
     [PRISMA]: () =>
-      nativeSnapshot(async () => {
-        const result = await relationalQuery(websiteId, parameters);
-        const population = await readBrowserPopulation(
-          websiteId,
-          parameters.startDate,
-          parameters.endDate,
-          parameters.timezone,
-        );
-        result.population = population;
-        if (!identityUsable(population)) {
-          result.pages.forEach(page => {
-            page.sessions = null;
-          });
-          result.scroll.buckets.forEach(bucket => {
-            bucket.sessions = null;
-          });
-          result.scroll.totalSessions = null;
-        }
-        return result;
-      }),
+      nativeAggregate(FUNCTION_NAME, websiteId, parameters, parameters, () =>
+        nativeSnapshot(async () => {
+          const result = await relationalQuery(websiteId, parameters);
+          const population = await readBrowserPopulation(
+            websiteId,
+            parameters.startDate,
+            parameters.endDate,
+            parameters.timezone,
+          );
+          result.population = population;
+          if (!identityUsable(population)) {
+            result.pages.forEach(page => {
+              page.sessions = null;
+            });
+            result.scroll.buckets.forEach(bucket => {
+              bucket.sessions = null;
+            });
+            result.scroll.totalSessions = null;
+          }
+          return result;
+        }),
+      ),
     [CLICKHOUSE]: () => clickhouseQuery(websiteId, parameters),
   });
 }

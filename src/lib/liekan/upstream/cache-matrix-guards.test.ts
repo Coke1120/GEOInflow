@@ -380,3 +380,41 @@ it('validates nested event windows only for the registered event-stats route', (
   expect(sameRequestStatistics(body, reference, url(range), url())).toBe(false);
   expect(sameRequestStatistics(summaryRows(range), summaryRows(), url(range), url())).toBe(false);
 });
+
+it.each(['websites', 'links', 'pixels'])(
+  'validates every registered %s chart resource window',
+  kind => {
+    const range = { ...window, endAt: window.endAt + 60001 };
+    const path = (range = window) =>
+      url(range).replace('/api/liekan/websites/synthetic-site/page-report', `/api/${kind}/charts`);
+    const chart = (range = window) => ({
+      data: {
+        first: {
+          total: 1,
+          values: [1, 0],
+          population: { ...population(range), resourceId: 'first' },
+        },
+        second: {
+          total: 2,
+          values: [1, 1],
+          population: { ...population(range), resourceId: 'second' },
+        },
+      },
+    });
+    expect(sameRequestStatistics(chart(range), chart(), path(range), path())).toBe(true);
+    const stale = chart(range);
+    stale.data.second.population.range = { ...window };
+    expect(requestRangeMatches(stale, path(range))).toBe(false);
+    expect(sameRequestStatistics(stale, chart(), path(range), path())).toBe(false);
+    const changed = chart(range);
+    changed.data.second.population.identity.coverage = 0.5;
+    expect(sameRequestStatistics(changed, chart(), path(range), path())).toBe(false);
+    const wrongId = chart(range);
+    wrongId.data.second.population.resourceId = 'another';
+    expect(sameRequestStatistics(wrongId, chart(), path(range), path())).toBe(false);
+    const wrongCount = chart(range);
+    wrongCount.data.second.total++;
+    expect(sameRequestStatistics(wrongCount, chart(), path(range), path())).toBe(false);
+    expect(sameRequestStatistics(chart(range), chart(), url(range), url())).toBe(false);
+  },
+);

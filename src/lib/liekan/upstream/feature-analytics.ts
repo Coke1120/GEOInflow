@@ -1,6 +1,7 @@
 import { applyFeaturePopulation } from '../contracts/population-results';
 import { readBrowserPopulation } from './browser-population';
 import { nativeSnapshot } from './native-snapshot';
+import { nativeAggregate } from './native-aggregate';
 import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { geographyVersion } from '../contracts/geography';
 import { getPostgresCountrySQL } from '@/lib/country';
@@ -490,22 +491,33 @@ async function computeFeatureJourney(
 
 export async function featureGoal(websiteId: string, goalId: string, input: unknown, auth: Auth) {
   const p = analysisQuery.parse(input);
-  return featurePopulation(websiteId, { ...p, kind: 'goal' }, () =>
-    computeFeatureGoal(websiteId, goalId, input, auth),
-  );
-}
-async function computeFeatureGoal(websiteId: string, goalId: string, input: unknown, auth: Auth) {
-  const parsed = analysisQuery.safeParse(input);
-  if (!parsed.success) throw new LiekanError('统计参数无效');
   const report = await getReport(goalId);
   if (!report || report.websiteId !== websiteId || report.type !== 'goal')
     throw new LiekanError('目标不存在', 404);
   if (!(await canViewReport(auth, report))) throw new LiekanError('无权查看此目标', 403);
   const goal = goalParametersSchema.safeParse(report.parameters);
   if (!goal.success) throw new LiekanError('目标条件无效');
-  const { type, value } = goal.data;
-  let { cte, params } = selectEvents(websiteId, await filtersFor(websiteId, parsed.data));
-  if (parsed.data.requireUtm === '1')
+  const filters = await filtersFor(websiteId, p);
+  return nativeAggregate(
+    'liekanFeatureGoal',
+    websiteId,
+    { ...p, goalId, goal: goal.data, endDate: filters.endDate },
+    filters,
+    () =>
+      featurePopulation(websiteId, { ...p, kind: 'goal' }, () =>
+        computeFeatureGoal(websiteId, goal.data, p, filters),
+      ),
+  );
+}
+async function computeFeatureGoal(
+  websiteId: string,
+  goal: ReturnType<typeof goalParametersSchema.parse>,
+  p: ReturnType<typeof analysisQuery.parse>,
+  filters: Awaited<ReturnType<typeof filtersFor>>,
+) {
+  const { type, value } = goal;
+  let { cte, params } = selectEvents(websiteId, filters);
+  if (p.requireUtm === '1')
     cte = cte.replace(
       'AND website_event.event_type IN (1,2)',
       "AND website_event.event_type IN (1,2) AND (COALESCE(utm_source,'')<>'' OR COALESCE(utm_medium,'')<>'' OR COALESCE(utm_campaign,'')<>'' OR COALESCE(utm_content,'')<>'' OR COALESCE(utm_term,'')<>'')",
@@ -515,15 +527,8 @@ async function computeFeatureGoal(websiteId: string, goalId: string, input: unkn
   const target = value.replace(/^\*|\*$/g, '%');
   const matching = `event_type=${type === 'path' ? 1 : 2} AND ${column} ${operator} {{target}}`;
   const dateSQL = prisma
-    .getDateSQL(
-      'created_at',
-      parsed.data.unit === 'week' ? 'day' : parsed.data.unit,
-      parsed.data.timezone,
-    )
-    .replace(
-      parsed.data.unit === 'week' ? "date_trunc('day'," : '__unused__',
-      "date_trunc('week',",
-    );
+    .getDateSQL('created_at', p.unit === 'week' ? 'day' : p.unit, p.timezone)
+    .replace(p.unit === 'week' ? "date_trunc('day'," : '__unused__', "date_trunc('week',");
   const run = (sql: string) =>
     prisma.rawQuery(`${cte} ${sql}`, { ...params, target }, 'liekanFeatureGoal').then(clean);
   const [totals, series] = await Promise.all([
@@ -561,13 +566,13 @@ async function computeFeatureGoal(websiteId: string, goalId: string, input: unkn
   const byDate = new Map(series.map((r: any) => [r.x, Number(r.y)]));
   const filled: any[] = [];
   for (
-    let point = starts[parsed.data.unit](toZonedTime(parsed.data.startAt, parsed.data.timezone)),
-      end = toZonedTime(parsed.data.endAt, parsed.data.timezone);
+    let point = starts[p.unit](toZonedTime(p.startAt, p.timezone)),
+      end = toZonedTime(p.endAt, p.timezone);
     point <= end;
-    point = adds[parsed.data.unit](point, 1)
+    point = adds[p.unit](point, 1)
   ) {
     if (filled.length >= 10000) throw new LiekanError('图表时间桶过多，请改用更大的时间单位', 413);
-    const x = format(point, bucketFormat[parsed.data.unit]);
+    const x = format(point, bucketFormat[p.unit]);
     filled.push({ x, y: byDate.get(x) || 0 });
   }
   return { ...totals[0], series: filled };

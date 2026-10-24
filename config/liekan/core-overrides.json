@@ -5735,6 +5735,49 @@
       "owner": "Liekan analytics maintenance",
       "constraint": "Preserve ClickHouse, link and pixel semantics; keep missing historical environments unknown",
       "removalCondition": "Remove when upstream supplies event-scoped environment dimensions with equivalent regression coverage"
+    },
+    {
+      "path": "src/queries/sql/heatmap/getHeatmap.test.ts",
+      "purpose": "Regression coverage for complete native snapshot caching, population replay and resource invalidation",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm exec vitest run src/queries/sql/heatmap/getHeatmap.test.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve snapshot consistency, unavailable identity states, resource boundaries and ClickHouse compatibility",
+      "removalCondition": "Remove when equivalent upstream cache and population regression coverage is available"
+    },
+    {
+      "path": "src/queries/sql/native-derived-cache.test.ts",
+      "purpose": "Regression coverage for complete native snapshot caching, population replay and resource invalidation",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm exec vitest run src/queries/sql/native-derived-cache.test.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve snapshot consistency, unavailable identity states, resource boundaries and ClickHouse compatibility",
+      "removalCondition": "Remove when equivalent upstream cache and population regression coverage is available"
+    },
+    {
+      "path": "src/queries/sql/getWebsiteListCharts.cache.test.ts",
+      "purpose": "Regression coverage for complete native snapshot caching, population replay and resource invalidation",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm exec vitest run src/queries/sql/getWebsiteListCharts.cache.test.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve snapshot consistency, unavailable identity states, resource boundaries and ClickHouse compatibility",
+      "removalCondition": "Remove when equivalent upstream cache and population regression coverage is available"
+    },
+    {
+      "path": "src/lib/liekan/upstream/feature-goal-cache.test.ts",
+      "purpose": "Regression coverage for saved-goal cache reuse with fresh report permission and configuration checks",
+      "tests": [
+        "pnpm exec vitest run src/lib/liekan/upstream/feature-goal-cache.test.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Check current report, website, permission and configuration before every cached result; preserve population masking and query snapshot consistency",
+      "removalCondition": "Remove when upstream provides equivalent saved-goal caching and permission regression coverage"
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
 } from '@/lib/liekan/upstream/browser-population';
 import { noteBrowserPopulation } from '@/lib/liekan/upstream/cache-context';
 import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
@@ -27,7 +28,10 @@ export async function getSessionMetrics(
   ...args: [websiteId: string, parameters: SessionMetricsParameters, filters: QueryFilters]
 ) {
   return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
+    [PRISMA]: () =>
+      nativeAggregate(FUNCTION_NAME, args[0], { ...args[1], ...args[2] }, args[2], () =>
+        relationalQuery(...args),
+      ),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
 }

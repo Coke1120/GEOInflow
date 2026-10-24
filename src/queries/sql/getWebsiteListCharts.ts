@@ -1,6 +1,7 @@
 import { identityUsable, type BrowserPopulation } from '@/lib/liekan/contracts/browser-population';
 import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
 import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import { addHours } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import clickhouse from '@/lib/clickhouse';
@@ -44,22 +45,35 @@ export async function getWebsiteListCharts(
 
   return runQuery({
     [PRISMA]: () =>
-      nativeSnapshot(async () => {
-        const points = await relationalQuery(websiteIds, startDate, endDate, timezone, eventType);
+      nativeAggregate(
+        FUNCTION_NAME,
+        websiteIds,
+        { startDate, endDate, timezone, eventType },
+        {},
+        () =>
+          nativeSnapshot(async () => {
+            const points = await relationalQuery(
+              websiteIds,
+              startDate,
+              endDate,
+              timezone,
+              eventType,
+            );
 
-        const result = formatResults({ points, websiteIds, startDate, endDate, timezone });
-        await Promise.all(
-          websiteIds.map(async id => {
-            const population = await readBrowserPopulation(id, startDate, endDate, timezone);
-            result[id].population = population;
-            if (!identityUsable(population)) {
-              result[id].total = null;
-              result[id].values.fill(null);
-            }
+            const result = formatResults({ points, websiteIds, startDate, endDate, timezone });
+            await Promise.all(
+              websiteIds.map(async id => {
+                const population = await readBrowserPopulation(id, startDate, endDate, timezone);
+                result[id].population = population;
+                if (!identityUsable(population)) {
+                  result[id].total = null;
+                  result[id].values.fill(null);
+                }
+              }),
+            );
+            return result;
           }),
-        );
-        return result;
-      }),
+      ),
     [CLICKHOUSE]: async () => {
       const points = await clickhouseQuery(websiteIds, startDate, endDate, timezone, eventType);
 
