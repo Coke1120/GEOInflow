@@ -33,17 +33,13 @@ export async function verifyDialogChecker(browser, checker = checkDialog) {
         </div>
       </div>
       <script>
-        window.finishRead = () => document.querySelector('[role=status]')?.remove();
+        window.finishRead = () => {
+          clearTimeout(window.pendingRead);
+          document.querySelector('[role=status]')?.remove();
+        };
       </script>
     `);
     await page.getByRole('button', { name: 'Close' }).focus();
-    const firstHeight = await page.locator('.liekan-dialog').evaluate(el => el.offsetHeight);
-    assert.equal(
-      await page.getByRole('status').count(),
-      1,
-      'Fixture must start with a pending read',
-    );
-    await page.evaluate(() => setTimeout(window.finishRead, 1500));
     const getByRole = page.getByRole.bind(page);
     page.getByRole = (...args) => {
       const locator = getByRole(...args);
@@ -60,9 +56,29 @@ export async function verifyDialogChecker(browser, checker = checkDialog) {
       }
       return locator;
     };
-    const geometry = await checker(page);
-    assert.equal(geometry.height, firstHeight - 38, 'Measure the completed comparison layout');
-    assert.equal(await page.getByRole('status').count(), 0, 'Comparison read must finish');
+    for (const label of [
+      '正在读取上周数据…',
+      '正在读取数据',
+      '正在读取统计数据',
+      'Loading data',
+      'Loading analytics',
+    ]) {
+      await page.evaluate(label => {
+        window.finishRead();
+        const status = document.createElement('p');
+        status.setAttribute('role', 'status');
+        status.textContent = label;
+        document.querySelector('.dialog-body').appendChild(status);
+      }, label);
+      const firstHeight = await page.locator('.liekan-dialog').evaluate(el => el.offsetHeight);
+      assert.equal(await page.getByRole('status').count(), 1, 'Fixture starts with a pending read');
+      await page.evaluate(() => {
+        window.pendingRead = setTimeout(window.finishRead, 1500);
+      });
+      const geometry = await checker(page);
+      assert.equal(geometry.height, firstHeight - 38, `Measure completed layout: ${label}`);
+      assert.equal(await page.getByRole('status').count(), 0, `Read must finish: ${label}`);
+    }
     page.getByRole = getByRole;
     await page.locator('.content').evaluate(el => (el.style.height = '1800px'));
     const getLocator = page.locator.bind(page);
@@ -82,7 +98,12 @@ export async function verifyDialogChecker(browser, checker = checkDialog) {
       return locator;
     };
     await assert.rejects(checker(page), /Header or footer moved with body scrolling/);
-    return { pendingComparison: 'passed', movingHeaderRejected: 'passed' };
+    return {
+      pendingComparison: 'passed',
+      pendingGeneric: 'passed',
+      pendingEnglish: 'passed',
+      movingHeaderRejected: 'passed',
+    };
   } finally {
     await context.close();
   }

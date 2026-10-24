@@ -1,4 +1,8 @@
-import { checkEnglishExperience } from './liekan-i18n-visual.mjs';
+import {
+  assertLanguageHeader,
+  checkEnglishExperience,
+  languageHeaderGeometry,
+} from './liekan-i18n-visual.mjs';
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 import { checkMobileExperience } from './liekan-mobile-visual.mjs';
 import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
@@ -237,6 +241,7 @@ const report = {
   errors,
 };
 async function navigationAcceptance(page, expected, width) {
+  assertLanguageHeader(await page.evaluate(languageHeaderGeometry), 'zh-CN');
   return checkNavigation(page, expected, width, navigationBaseline);
 }
 
@@ -246,18 +251,20 @@ async function geometry(page) {
     const style = getComputedStyle(scope),
       main = document.querySelector('#main-content') || document.querySelector('main');
     const rect = main?.getBoundingClientRect();
-    const select = [...scope.querySelectorAll('select')].map(el => {
-      const s = getComputedStyle(el);
-      const wrap = el.closest('.select-wrap,.context-select'),
-        arrow = wrap?.querySelector('svg');
-      return {
-        right: s.backgroundPosition,
-        padding: parseFloat(s.paddingRight),
-        inset: arrow
-          ? wrap.getBoundingClientRect().right - arrow.getBoundingClientRect().right
-          : null,
-      };
-    });
+    const select = [...scope.querySelectorAll('select')]
+      .filter(el => !el.closest('[data-language-placement="header"]'))
+      .map(el => {
+        const s = getComputedStyle(el);
+        const wrap = el.closest('.select-wrap,.context-select'),
+          arrow = wrap?.querySelector('svg');
+        return {
+          right: s.backgroundPosition,
+          padding: parseFloat(s.paddingRight),
+          inset: arrow
+            ? wrap.getBoundingClientRect().right - arrow.getBoundingClientRect().right
+            : null,
+        };
+      });
     const panels = [...scope.querySelectorAll('.panel,[data-liekan-report-panel]')]
       .slice(0, 4)
       .map(el => {
