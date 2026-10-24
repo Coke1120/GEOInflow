@@ -96,6 +96,7 @@ export function useFreshQuery<T = any>(
     retry: false,
     meta: {
       ...options.meta,
+      localeInvariant: true,
       cacheDirect: policy.direct || options.meta?.cacheDirect,
       cacheAggregate:
         options.meta?.cacheAggregate === false

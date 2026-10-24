@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { JSDOM } from 'jsdom';
+import QRCode from 'qrcode';
 import { execFileSync } from 'node:child_process';
 import { isolatedAcceptanceTarget } from './liekan-acceptance-target.mjs';
 import { checkDialog } from './liekan-dialog-contract.mjs';
@@ -24,6 +25,7 @@ export function languageHeaderGeometry() {
       const rect = element.getBoundingClientRect();
       return !element.closest('[aria-hidden="true"]') && rect.width > 0 && rect.height > 0;
     }) || document;
+  const surfaceRect = surface === document ? null : surface.getBoundingClientRect();
   const entries = [...surface.querySelectorAll('[data-language-placement="header"]')];
   const entry = entries[0];
   const control = entry?.querySelector('select');
@@ -68,6 +70,18 @@ export function languageHeaderGeometry() {
           .filter(({ rect }) => rect.left < groupRect.left - 1 || rect.right > groupRect.right + 1)
           .map(control => control.label)
       : [],
+    clippedModalContent: surfaceRect
+      ? [...surface.querySelectorAll('code,input,select,button,img')]
+          .filter(element => {
+            const box = element.getBoundingClientRect();
+            return (
+              box.width > 0 &&
+              box.height > 0 &&
+              (box.left < surfaceRect.left - 1 || box.right > surfaceRect.right + 1)
+            );
+          })
+          .map(element => element.tagName)
+      : [],
     groupRight: groupRect
       ? groupRect.right - parseFloat(getComputedStyle(group).paddingRight || '0')
       : undefined,
@@ -83,6 +97,7 @@ export function assertLanguageHeader(state, locale = 'en-US') {
     'Toolbar actions do not overlap the website picker',
   );
   assert.deepEqual(state.clippedControls || [], [], 'Toolbar actions stay inside their frame');
+  assert.deepEqual(state.clippedModalContent || [], [], 'Modal content fits inside the dialog');
   if (state.width > 900 && state.pickerWidth !== undefined)
     assert(state.pickerWidth >= 80, 'Website picker retains usable space');
   assert.equal(state.language, locale, 'Header follows the selected language');
@@ -193,6 +208,7 @@ export function assertNumericSnapshot(values) {
 /** Uses new Playwright contexts; it never resizes a user's browser window. */
 export async function checkEnglishExperience({ browser, base, seed, token, partial, routes }) {
   isolatedAcceptanceTarget(base);
+  const fixtureQrCode = await QRCode.toDataURL('LOCAL_BROWSER_LAYOUT_FIXTURE');
   const featureIds = JSON.parse(
     fs.readFileSync('src/lib/liekan/contracts/feature-pages.json', 'utf8'),
   ).pages.map(page => page.id);
@@ -525,7 +541,12 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       );
       await forced.route(base + '/api/2fa/setup/initiate', route => {
         setupRequests++;
-        return route.fulfill({ json: { manualKey: 'LOCAL_BROWSER_FIXTURE_KEY' } });
+        return route.fulfill({
+          json: {
+            manualKey: 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP',
+            qrCodeDataUrl: fixtureQrCode,
+          },
+        });
       });
       await forced.route(base + '/api/2fa/setup/confirm', route =>
         route.fulfill({ json: { backupCodes: ['LOCAL-BROWSER-FIXTURE-CODE'] } }),
@@ -535,6 +556,8 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       const setup = requiredPage.getByRole('dialog');
       const setupLanguage = setup.getByRole('combobox', { name: 'Language / 语言' });
       await setupLanguage.waitFor();
+      await setup.getByAltText('QR code').evaluate(image => image.decode());
+      assertLanguageHeader(await requiredPage.evaluate(languageHeaderGeometry));
       await setup.getByRole('textbox', { name: 'Digit 1', exact: true }).fill('1');
       await setupLanguage.selectOption('zh-CN');
       await requiredPage.waitForFunction(() => document.documentElement.lang === 'zh-CN');

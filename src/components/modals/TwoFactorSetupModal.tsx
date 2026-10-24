@@ -144,7 +144,7 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
                 details={t(messages.twoFactorStep1Description)}
               >
                 <Box padding="2" shadow="lg" borderRadius="lg" border width="fit">
-                  <Row alignItems="center" gap="2">
+                  <div className={styles.scanInstructions}>
                     {qrCodeDataUrl && (
                       <Image
                         src={qrCodeDataUrl}
@@ -153,11 +153,11 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
                         borderRadius="lg"
                       />
                     )}
-                    <Column>
+                    <Column className={styles.manualInstructions}>
                       <Text weight="bold">{t(labels.twoFactorCantScan)}</Text>
                       <Column gap="2">
                         <Text size="sm">{t(labels.twoFactorManualEntry)}</Text>
-                        <Code>{manualKey}</Code>
+                        <Code className={styles.manualKey}>{manualKey}</Code>
                         <div>
                           <Button variant="outline" onPress={handleCopy}>
                             <Icon size="sm">
@@ -168,7 +168,7 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
                         </div>
                       </Column>
                     </Column>
-                  </Row>
+                  </div>
                 </Box>
               </Step>
 

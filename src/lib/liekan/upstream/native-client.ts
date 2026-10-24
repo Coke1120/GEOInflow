@@ -205,9 +205,11 @@ export const useNativeQuery: typeof useQuery = ((input: any, queryClient?: any) 
     share,
   );
   const product = typeof input.queryKey[0] === 'string' && input.queryKey[0].startsWith('liekan');
-  const options = product
-    ? input
-    : { ...input, queryKey: [...input.queryKey, { nativeIdentity: identity }] };
+  const options = {
+    ...input,
+    ...(!product ? { queryKey: [...input.queryKey, { nativeIdentity: identity }] } : {}),
+    meta: { ...input.meta, localeInvariant: true },
+  };
   const client = useQueryClient(queryClient);
   const policy = nativeQueryPolicy(options.queryKey);
   const key = JSON.stringify(options.queryKey);

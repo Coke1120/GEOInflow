@@ -648,7 +648,8 @@ export function BrowserCacheProvider({
 export function useBrowserCacheQuery(options: any, visit: string, enabled: boolean) {
   const cache = useContext(CacheContext);
   const locale = useApp(state => state.locale);
-  const projectionLocale = options.meta?.geoSnapshot ? 'raw' : locale;
+  const projectionLocale =
+    options.meta?.geoSnapshot || options.meta?.localeInvariant ? 'raw' : locale;
   const share = useApp(state => state.shareToken?.token);
   const eligible = !share && browserQueryPolicy(options.queryKey, options.meta);
   const selection = hashKey([

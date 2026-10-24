@@ -6,4 +6,23 @@
 .qrCodeImage {
   width: 33%;
   aspect-ratio: 1;
+  flex-shrink: 0;
+}
+
+.scanInstructions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.manualInstructions {
+  flex: 1;
+  min-width: 0;
+}
+
+.twoFactorSetupModal .manualKey {
+  white-space: normal;
+  overflow-wrap: anywhere;
 }

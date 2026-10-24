@@ -47,6 +47,7 @@ test('requires a visible, unique upper-right language entry with space for touch
     { pickerWidth: 22, width: 1024, left: 884, right: 1008, groupRight: 1008 },
     { overlappingControls: ['Refresh'] },
     { clippedControls: ['Export'] },
+    { clippedModalContent: ['CODE'] },
   ])
     assert.throws(() => assertLanguageHeader({ ...valid, ...invalid }));
 });
@@ -66,11 +67,12 @@ test('measures the active BaseUI modal without counting its hidden background la
     </div>
     <div role="dialog" data-slot="modal" id="active">
       <div data-language-placement="header"><select><option value="en-US">English</option></select></div>
+      <code id="manual-key">JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP</code>
     </div>
   `);
-  for (const element of dom.window.document.querySelectorAll('[role="dialog"],select'))
+  for (const element of dom.window.document.querySelectorAll('[role="dialog"],select,code'))
     element.getBoundingClientRect = () =>
-      element.tagName === 'SELECT'
+      element.tagName !== 'DIV'
         ? { left: 220, right: 374, top: 96, bottom: 140, width: 154, height: 44 }
         : { left: 16, right: 374, top: 80, bottom: 380, width: 358, height: 300 };
   try {
@@ -84,6 +86,15 @@ test('measures the active BaseUI modal without counting its hidden background la
     document.querySelector('#active').removeAttribute('data-slot');
     document.querySelector('#active').setAttribute('aria-modal', 'true');
     assert.doesNotThrow(() => assertLanguageHeader(languageHeaderGeometry()));
+    document.querySelector('#manual-key').getBoundingClientRect = () => ({
+      left: 220,
+      right: 420,
+      top: 150,
+      bottom: 180,
+      width: 200,
+      height: 30,
+    });
+    assert.throws(() => assertLanguageHeader(languageHeaderGeometry()), /Modal content fits/);
   } finally {
     globalThis.document = previousDocument;
     globalThis.innerWidth = previousWidth;

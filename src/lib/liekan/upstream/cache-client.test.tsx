@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { getClientAuthToken, removeClientAuthToken, setClientAuthToken } from '@/lib/client';
 import { AUTH_TOKEN } from '@/lib/constants';
-import { setUser, useApp } from '@/store/app';
+import { setLocale, setUser, useApp } from '@/store/app';
 import { BrowserCacheProvider, BrowserSnapshotCache, pruneBrowserClient } from './cache-client';
 import {
   aggregateRequestResources,
@@ -713,6 +713,70 @@ it('keeps a verified aggregate key while the same resource metadata temporarily 
     vi.unstubAllGlobals();
   }
 });
+
+it.each([false, true])(
+  'preserves a declared raw statistics snapshot through language changes (locale invariant: %s)',
+  async localeInvariant => {
+    const f = fixture();
+    const previousUser = useApp.getState().user;
+    const previousLocale = useApp.getState().locale;
+    const load = vi.fn(async () => {
+      const value = { visitors: 7 };
+      rememberResponseFreshness(
+        value,
+        new Headers({
+          'X-Liekan-Generated-At': String(serverTime),
+          'X-Liekan-Expires-At': String(serverTime + 30000),
+          'X-Liekan-Server-Time': String(serverTime),
+        }),
+        monotonicNow(),
+        monotonicNow(),
+        [resource],
+      );
+      return value;
+    });
+    vi.stubGlobal('fetch', f.request);
+    setClientAuthToken('locale-fixture-session');
+    setUser({ id: userId });
+    setLocale('en-US');
+    try {
+      const hook = renderHook(
+        () =>
+          useManualQuery({
+            queryKey: key,
+            queryFn: load,
+            meta: { localeInvariant },
+          }),
+        {
+          wrapper: ({ children }) => (
+            <QueryClientProvider client={f.client}>
+              <BrowserCacheProvider storage={f.storage}>
+                <ManualRefreshProvider>{children}</ManualRefreshProvider>
+              </BrowserCacheProvider>
+            </QueryClientProvider>
+          ),
+        },
+      );
+      await waitFor(() => expect(hook.result.current.data?.visitors).toBe(7));
+      expect(load).toHaveBeenCalledTimes(1);
+      const before = (hook.result.current as any).resolvedQueryKey;
+      await act(async () => {
+        setLocale('zh-CN');
+        await new Promise(resolve => setTimeout(resolve, 50));
+      });
+      await waitFor(() => expect(hook.result.current.data?.visitors).toBe(7));
+      expect(load).toHaveBeenCalledTimes(localeInvariant ? 1 : 2);
+      if (localeInvariant) expect((hook.result.current as any).resolvedQueryKey).toEqual(before);
+      else expect((hook.result.current as any).resolvedQueryKey).not.toEqual(before);
+    } finally {
+      cleanup();
+      removeClientAuthToken();
+      setUser(previousUser);
+      setLocale(previousLocale);
+      vi.unstubAllGlobals();
+    }
+  },
+);
 
 it('keeps mounted drafts and pauses cross-tab credential changes until an explicit refresh', async () => {
   const f = fixture();
