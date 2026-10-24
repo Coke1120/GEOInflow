@@ -52,7 +52,7 @@ export async function checkNavigation(page, expected, width, baseline) {
         ),
         primaryButtons: side.querySelectorAll('[data-navigation-primary] button').length,
         footerHeight: side.querySelector('footer').getBoundingClientRect().height,
-        footerColors: [...side.querySelectorAll('footer > div > a')].map(a => ({
+        footerColors: [...side.querySelectorAll('footer > div > a, footer > div > button[aria-haspopup="dialog"]')].map(a => ({
           selected: a.getAttribute('aria-current') === 'page',
           color: getComputedStyle(a).color,
         })),
@@ -121,7 +121,7 @@ export async function checkNavigation(page, expected, width, baseline) {
       .getByRole('button', { name: '个人账户', exact: true })
       .count()
       .then(n => assert.equal(n, 1));
-    assert.equal(await sidebar.getByRole('link', { name: '网站列表', exact: true }).count(), 1);
+    assert.equal(await sidebar.getByRole('button', { name: '关于 GEOInflow', exact: true }).count(), 1);
     assert.equal(
       await sidebar
         .getByRole('link', { name: kind === 'website' ? '网站设置' : '系统管理', exact: true })

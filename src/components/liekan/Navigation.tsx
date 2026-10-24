@@ -38,6 +38,7 @@ import { featureHref, featureWebsiteSwitchHref, safeReturnHref } from './feature
 import { DialogActions, LiekanDialog, Icon, Notice, QueryState } from './features/ui';
 import { defaultDateRange } from './viewState';
 import { NavigationFeedback } from './NavigationFeedback';
+import { ProductAboutDialog } from './ProductAboutDialog';
 
 export function useSidebarWidth() {
   const [width, setWidth] = useState(228);
@@ -84,6 +85,9 @@ export function Navigation({
     meta.scope === 'admin' ? adminNavigation : website ? websiteNavigation : globalNavigation;
   const [mobile, setMobile] = useState(false);
   const [account, setAccount] = useState(meta.scope === 'account');
+  const [about, setAbout] = useState(false);
+  const aboutOpen = useRef(false);
+  aboutOpen.current = about;
   const [switching, setSwitching] = useState(false);
   const [siteSearch, setSiteSearch] = useState('');
   const context = useRef<HTMLDivElement>(null);
@@ -153,6 +157,7 @@ export function Navigation({
       'a[href]:not([tabindex="-1"]),button:not(:disabled):not([tabindex="-1"]),input:not(:disabled):not([type="hidden"]):not([tabindex="-1"]),select:not(:disabled):not([tabindex="-1"]),textarea:not(:disabled):not([tabindex="-1"])';
     sidebar.current?.querySelector<HTMLElement>(focusable)?.focus();
     const onKey = (event: KeyboardEvent) => {
+      if (aboutOpen.current) return;
       if (event.key === 'Escape' && !sidebar.current?.querySelector('#account-navigation'))
         setMobile(false);
       if (event.key !== 'Tab') return;
@@ -387,6 +392,7 @@ export function Navigation({
   return (
     <>
       {websiteContextTarget ? createPortal(websiteContext, websiteContextTarget) : websiteContext}
+      {about && <ProductAboutDialog onClose={() => setAbout(false)} />}
       <button
         ref={toggle}
         type="button"
@@ -484,17 +490,21 @@ export function Navigation({
                 <strong title={user.username}>{user.username}</strong>
               </span>
             </button>
-            <Link
-              prefetch={false}
+            <button
+              type="button"
               className={styles.footerIcon}
-              href={featureHref('websites', {
-                teamId: website ? currentSite?.teamId : route.teamId,
-              })}
-              aria-label={i18n.text('网站列表')}
-              title={i18n.text('网站列表')}
+              aria-label={i18n.text('关于 GEOInflow')}
+              title={i18n.text('关于 GEOInflow')}
+              aria-haspopup="dialog"
+              aria-expanded={about}
+              onClick={event => {
+                event.currentTarget.focus();
+                setAccount(false);
+                setAbout(true);
+              }}
             >
               <Icon name="grid" />
-            </Link>
+            </button>
             {website ? (
               <Link
                 prefetch={false}

@@ -87,19 +87,19 @@ export class RequestPool {
     current.consumers++;
     const result = new Promise<T>((resolve, reject) => {
       let finished = false;
-      const release = () => {
+      const release = (cancelled = false) => {
         if (finished) return false;
         finished = true;
         signal?.removeEventListener('abort', cancel);
         if (signal) promotions.get(signal)?.delete(promote);
         if (--current.consumers === 0) {
           if (this.flights.get(key) === current) this.flights.delete(key);
-          current.controller.abort();
+          if (cancelled) current.controller.abort();
         }
         return true;
       };
       const cancel = () => {
-        if (release()) reject(aborted());
+        if (release(true)) reject(aborted());
       };
       signal?.addEventListener('abort', cancel, { once: true });
       current.promise.then(

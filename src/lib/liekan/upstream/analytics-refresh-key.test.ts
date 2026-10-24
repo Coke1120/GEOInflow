@@ -196,6 +196,31 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+it.each([
+  ['ai/overview', 1, 0, 300000],
+  ['ai/bots', 1, 0, 300000],
+  ['ai/pages', 1, 0, 300000],
+  ['ai/preference', 1, 0, 300000],
+  ['ai/overview', undefined, 0, 30000],
+  ['ai/overview', 1, 1, 30000],
+  ['overview', 1, 0, 30000],
+  ['conversions', 1, 0, 30000],
+  ['logs', 1, 0, 0],
+])('keeps %s cache lifetime correct at the local midnight boundary', async (resource, version, offset, ttl) => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-23T06:00:00Z'));
+  const today = Date.parse('2026-10-22T16:00:00Z');
+  try {
+    const result = await readPageReport(website, {
+      resource, crawlerMetricsVersion: version, startAt: today - 86400000,
+      endAt: today + Number(offset), timezone: 'Asia/Shanghai',
+    });
+    expect(result.expiresAt - result.generatedAt).toBe(ttl);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 const entries = [
   {
     name: 'page-report',
@@ -326,7 +351,7 @@ it.each(reportEntries)('$name fallback keys still include both log revisions', a
 
 it.each(
   reportEntries.flatMap(entry => ['data', 'policy'].map(revision => ({ ...entry, revision }))),
-)('$name configured caches invalidate across instances when $revision changes', async entry => {
+)('$name applies bounded data freshness and immediate policy invalidation across instances ($revision)', async entry => {
   const first = cache;
   expect(await (await request(entry)).json()).toEqual({ value: 1 });
   const second = new QueryCache();
@@ -336,16 +361,17 @@ it.each(
   expect((await vi.mocked(analyticsCache.read).mock.results.at(-1).value).tier).toBe('redis');
   if (entry.revision === 'data') dataRevision++;
   else policyRevision++;
-  expect(await (await request(entry)).json()).toEqual({ value: 2 });
+  const expected = entry.revision === 'data' ? 1 : 2;
+  expect(await (await request(entry)).json()).toEqual({ value: expected });
   vi.mocked(analyticsCache.read).mockImplementation(first.read.bind(first));
-  expect(await (await request(entry)).json()).toEqual({ value: 2 });
-  expect(computations).toBe(2);
-  expect(redis.entries.size).toBe(2);
+  expect(await (await request(entry)).json()).toEqual({ value: expected });
+  expect(computations).toBe(expected);
+  expect(redis.entries.size).toBe(expected);
   expect(mocks.query).not.toHaveBeenCalled();
 });
 
 it.each(reportEntries)(
-  '$name ingestion during computation returns its snapshot without a fresh cache lifetime',
+  '$name ingestion during computation retains a reusable snapshot with bounded freshness',
   async entry => {
     const build = mocks.build.getMockImplementation();
     mocks.build.mockImplementationOnce(async () => {
@@ -354,10 +380,10 @@ it.each(reportEntries)(
     });
     expect(await (await request(entry)).json()).toEqual({ value: 1 });
     const result = await vi.mocked(analyticsCache.read).mock.results[0].value;
-    expect(result.expiresAt).toBe(result.generatedAt);
-    expect(redis.entries.size).toBe(0);
-    expect(await (await request(entry)).json()).toEqual({ value: 2 });
-    expect(computations).toBe(2);
+    expect(result.expiresAt).toBeGreaterThan(Date.now());
+    expect(redis.entries.size).toBe(1);
+    expect(await (await request(entry)).json()).toEqual({ value: 1 });
+    expect(computations).toBe(1);
     expect(mocks.query).not.toHaveBeenCalled();
   },
 );

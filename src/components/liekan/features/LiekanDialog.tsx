@@ -43,7 +43,7 @@ export function LiekanDialog({
   className = '',
   protectUnsaved = true,
 }: {
-  title: string;
+  title: ReactNode;
   subtitle?: ReactNode;
   children: ReactNode;
   onClose: () => void;

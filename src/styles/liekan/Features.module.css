@@ -694,6 +694,9 @@
   color: var(--sub);
   margin: 10px 24px 0;
 }
+:global([data-liekan-features] .panel > .metric-note) {
+  margin-bottom: 16px;
+}
 :global([data-liekan-features] .table-footer) {
   padding: 10px 24px;
   border-top: 1px solid var(--line);

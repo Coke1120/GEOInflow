@@ -124,7 +124,11 @@ function ManagementDrawerContent({
   const initialDate = (value?: number) =>
     value ? new Intl.DateTimeFormat('sv-SE', { timeZone: timezone }).format(value) : '';
   const [start, setStart] = useState(initialDate(report?.range.startAt));
-  const [end, setEnd] = useState(initialDate(report?.range.endAt));
+  const [end, setEnd] = useState(initialDate(
+    report?.meta.crawlerMetrics?.timeBoundary === 'half_open'
+      ? Math.max(report.range.startAt, report.range.endAt - 1)
+      : report?.range.endAt,
+  ));
   const settingsAction = ['robots.txt 编辑', '蜘蛛白名单', '特征库管理', '解析规则'].includes(
     action,
   );

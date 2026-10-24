@@ -105,6 +105,12 @@ test('accepts complete, stable bilingual messages and preserved executable liter
   assert.doesNotThrow(() => assertLanguagePair(...pair('已读取 {v0} 条记录', 'Read {v0} records')));
   assert.doesNotThrow(() => assertLanguagePair(...pair('eq.AI 搜索引荐', 'eq.AI 搜索引荐')));
 });
+test('preserves the approved footer personal names across locales', () => {
+  for (const name of ['姚金刚', '向阳乔木']) {
+    assert.doesNotThrow(() => assertLanguagePair(...pair(name, name)));
+    assert.throws(() => assertLanguagePair(...pair(name, 'Author')), /Personal name changed/);
+  }
+});
 test('refuses missing or empty translations and changed stable identities', () => {
   const [zh, en] = pair('已保存', 'Saved');
   assert.throws(() => assertLanguagePair(zh, {}), /key\/order mismatch/);

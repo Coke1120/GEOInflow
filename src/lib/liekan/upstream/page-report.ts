@@ -35,10 +35,13 @@ async function readPageReportSnapshot(
   } catch {
     throw new LiekanError('时区无效');
   }
+  const historical =
+    p.endAt < today ||
+    (p.crawlerMetricsVersion === 1 && p.resource.startsWith('ai/') && p.endAt === today);
   const ttl =
     p.resource === 'logs'
       ? 0
-      : p.endAt < today && !pageReportParts[p.resource].today
+      : historical && !pageReportParts[p.resource].today
         ? 300000
         : 30000;
   if (p.resource === 'human/keywords') {

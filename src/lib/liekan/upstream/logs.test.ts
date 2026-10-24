@@ -76,6 +76,19 @@ describe('content impact path boundary', () => {
   });
 });
 describe('monthly AI share calendar', () => {
+  it('anchors a half-open month-end window to its last included month', async () => {
+    vi.mocked(query).mockResolvedValue([]);
+    const end = new Date('2026-10-31T16:00:00Z');
+    const rows = await getMonthlyAiShare('site', end, 'Asia/Shanghai', {
+      crawlerIdentityScope: 'all', crawlerMetricsVersion: 1,
+    });
+    expect(rows.map(row => row.month)).toEqual(['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10']);
+    const [sql, , upperBound, , monthAnchor] = vi.mocked(query).mock.calls[0];
+    expect(sql).toContain('created_at<$2');
+    expect(sql).toContain("date_trunc('month',$4::timestamptz");
+    expect(upperBound).toEqual(end);
+    expect(monthAnchor).toEqual(new Date(+end - 1));
+  });
   it('returns six consecutive months across the year with unobserved gaps', async () => {
     vi.mocked(query).mockResolvedValueOnce([
       { month: '2025-09', total: 5, ai: 0 },

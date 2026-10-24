@@ -367,7 +367,7 @@ describe('website navigation transitions', () => {
     expect(picker).toHaveFocus();
     expect(mocks.push).not.toHaveBeenCalled();
   });
-  it('uses resolved website ownership for the footer list, including personal sites with a stale team parameter', () => {
+  it('uses resolved website ownership for the return link, including personal sites with a stale team parameter', () => {
     const props = { user: { id: 'user', username: 'admin' } as any, width: 228, onWidth: vi.fn() };
     const view = render(
       <Navigation
@@ -376,7 +376,7 @@ describe('website navigation transitions', () => {
         site={{ id: 'site-a', name: '个人网站', teamId: null }}
       />,
     );
-    expect(screen.getByRole('link', { name: '网站列表' })).toHaveAttribute('href', '/websites');
+    expect(screen.getByRole('link', { name: '返回网站列表' })).toHaveAttribute('href', '/websites');
     view.rerender(
       <Navigation
         {...props}
@@ -384,11 +384,36 @@ describe('website navigation transitions', () => {
         site={{ id: 'site-a', name: '团队网站', teamId: 'owner-team' }}
       />,
     );
-    expect(screen.getByRole('link', { name: '网站列表' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '返回网站列表' })).toHaveAttribute(
       'href',
       '/websites?teamId=owner-team',
     );
   });
+  it.each(['websites', 'events', 'admin-users'])(
+    'opens project information from the footer in %s without navigating away',
+    async page => {
+      render(
+        <Navigation
+          user={{ id: 'user', username: 'admin', isAdmin: true } as any}
+          route={{ page, ...(page === 'events' ? { websiteId: 'site-a' } : {}) }}
+          site={{ id: 'site-a', name: '当前网站' }}
+          width={228}
+          onWidth={vi.fn()}
+        />,
+      );
+      const trigger = screen.getByRole('button', { name: '关于 GEOInflow' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+      fireEvent.click(trigger);
+      const dialog = await screen.findByRole('dialog');
+      expect(within(dialog).getByText('GitHub 仓库待接入')).toBeVisible();
+      expect(dialog.querySelector('[data-dialog-size="wide"]')).toBeInTheDocument();
+      expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      expect(mocks.push).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole('button', { name: '关闭弹窗' }));
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+      expect(trigger).toHaveFocus();
+    },
+  );
   it('restores account focus and dismisses nested mobile menus one layer at a time', () => {
     render(
       <Navigation

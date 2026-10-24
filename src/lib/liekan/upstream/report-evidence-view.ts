@@ -36,7 +36,7 @@ export async function attachReportEvidenceView(report: LiekanReport, p: ReportQu
   });
   const { refresh: _refresh, ...conditions } = p;
   report.meta.crawlerEvidenceView = {
-    query: conditions,
+    query: { ...conditions, ...report.range },
     policySnapshot,
     snapshot: '',
   };

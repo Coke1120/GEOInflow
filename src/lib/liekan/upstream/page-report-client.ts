@@ -63,7 +63,7 @@ export function pageReportQuery(
   ];
   if (p.crawlerIdentityScope || p.crawlerMetricsVersion)
     queryKey.push(
-      JSON.stringify([p.crawlerIdentityScope || 'all', p.crawlerMetricsVersion ?? null]),
+      JSON.stringify([p.crawlerIdentityScope || 'all', p.crawlerMetricsVersion ?? null, 'calendar-v2']),
     );
   if (p.resource === 'human/geo')
     queryKey.push(JSON.stringify([p.geoSort || 'sessions', p.direction || 'desc']));
