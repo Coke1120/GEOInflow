@@ -30,7 +30,8 @@ const stamp = `${head.slice(0, 12)}-${Date.now()}`;
 const image = `liekan:candidate-${head.slice(0, 12)}`;
 const network = `liekan-verify-${stamp}`,
   db = `${network}-db`,
-  app = `${network}-app`;
+  app = `${network}-app`,
+  analyticsWorker = `${network}-analytics-worker`;
 const password = randomBytes(32).toString('hex');
 const aiPreviewKey = randomBytes(32).toString('hex');
 const sourceUser = process.env.POSTGRES_USER || 'liekan';
@@ -230,10 +231,46 @@ const startApp = async database => {
   appCreated = true;
   docker('start', app);
   await healthy();
+  dockerEnv(
+    { DATABASE_URL: `postgresql://liekan_verify:${password}@${db}:5432/${database}` },
+    'create',
+    '--name',
+    analyticsWorker,
+    '--network',
+    network,
+    '-e',
+    'DATABASE_URL',
+    '-e',
+    'APP_SECRET',
+    '-e',
+    'DISABLE_TELEMETRY=1',
+    image,
+    'node',
+    'dist/liekan-analytics-worker.mjs',
+  );
+  analyticsWorkerCreated = true;
+  docker('start', analyticsWorker);
+  for (let attempt = 0; attempt < 30; attempt++) {
+    try {
+      docker(
+        'exec',
+        analyticsWorker,
+        'node',
+        '-e',
+        "const fs=require('node:fs');process.exit(Date.now()-fs.statSync('/tmp/liekan-analytics-worker-heartbeat').mtimeMs<120000?0:1)",
+      );
+      break;
+    } catch {
+      if (attempt === 29) throw new Error('Isolated analytics worker did not become ready');
+      await pause(1000);
+    }
+  }
+  (report.analyticsWorkers ||= []).push({ database, ready: true });
 };
 let networkCreated = false,
   dbCreated = false,
-  appCreated = false;
+  appCreated = false,
+  analyticsWorkerCreated = false;
 save();
 try {
   await new Promise((resolve, reject) => {
@@ -581,6 +618,8 @@ try {
     report.helpVisual.errors.length
   )
     throw new Error('Help center acceptance incomplete');
+  docker('rm', '-f', analyticsWorker);
+  analyticsWorkerCreated = false;
   docker('rm', '-f', app);
   appCreated = false;
   psql('CREATE DATABASE liekan_restore');
@@ -689,6 +728,13 @@ try {
   cleaning = true;
   // Names are invocation-unique and flags are set only after successful creation.
   const cleanupErrors = [];
+  if (analyticsWorkerCreated) {
+    try {
+      docker('rm', '-f', analyticsWorker);
+    } catch {
+      cleanupErrors.push(analyticsWorker);
+    }
+  }
   if (appCreated) {
     try {
       docker('rm', '-f', app);
