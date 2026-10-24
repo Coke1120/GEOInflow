@@ -113,7 +113,7 @@ describe('feature navigation scope', () => {
       mocks.navigation.updateParams.mockReturnValue('/websites?date=30day');
       mount({ page: 'websites' }, user, locale);
       expect(await screen.findByText(warning)).toBeVisible();
-      await userEvent.click(screen.getByRole('button', { name: reset, exact: true }));
+      await userEvent.click(screen.getByRole('button', { name: reset }));
       await waitFor(() =>
         expect(mocks.navigation.updateParams).toHaveBeenCalledWith({
           date: '30day',
@@ -149,7 +149,7 @@ describe('feature navigation scope', () => {
     (locale, warning, reset) => {
       mount({ page: 'websites' }, user, locale);
       expect(screen.queryByText(warning)).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: reset, exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: reset })).not.toBeInTheDocument();
     },
   );
 

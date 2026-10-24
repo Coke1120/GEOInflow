@@ -163,7 +163,7 @@ it.each([
     );
     expect(await screen.findByText(warning)).toBeVisible();
     expect(screen.getByText(notice)).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: reset, exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: reset }));
     expect(state.updateParams).toHaveBeenCalledWith({
       tp_cityBody: undefined,
       date: '30day',
