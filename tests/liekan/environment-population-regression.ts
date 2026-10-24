@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import Papa from 'papaparse';
 import type pg from 'pg';
 import { withinQuerySnapshot } from '../../src/lib/liekan/upstream/query-snapshot';
+import { withoutQueryCache } from '../../src/lib/liekan/upstream/cache-context';
 import { getSessionMetrics } from '../../src/queries/sql/sessions/getSessionMetrics';
 import { getSessionExpandedMetrics } from '../../src/queries/sql/sessions/getSessionExpandedMetrics';
 import { getPageviewMetrics } from '../../src/queries/sql/pageviews/getPageviewMetrics';
@@ -201,6 +202,50 @@ export async function verifyEventEnvironmentReads(db: pg.Client) {
   assert.equal((await exported('browsers.csv'))[0].name, 'Firefox');
   assert.equal((await exported('devices.csv'))[0].name, 'desktop');
   assert.equal((await exported('sessions.csv'))[0].browser, 'Firefox');
+  const laterJourney = {
+    ...featureRange,
+    type: 'all',
+    steps: 2,
+    startStep: '/two',
+    endStep: 'custom',
+  };
+  const noSource = await read(() => withoutQueryCache(() => featureJourney(site, laterJourney)));
+  assert.equal(noSource.rows[0].source, null);
+  await db.query(
+    "UPDATE website_event SET referrer_domain=CASE WHEN url_path='/one' THEN 'google.com' ELSE 'baidu.com' END WHERE website_id=$1",
+    [site],
+  );
+  const entrySource = await read(() =>
+    withoutQueryCache(() => featureJourney(site, laterJourney)),
+  );
+  assert.equal(entrySource.rows[0].source, 'google.com');
+  await db.query('UPDATE website_event SET referrer_domain=NULL WHERE website_id=$1', [site]);
+  await db.query(
+    `INSERT INTO session_data(session_data_id,website_id,session_id,data_key,string_value,data_type)
+    VALUES(gen_random_uuid(),$1,$2,'plan','team',1),(gen_random_uuid(),$1,$2,'unproven','hidden',1)`,
+    [site, session],
+  );
+  await db.query(
+    `INSERT INTO liekan_session_data_source(website_id,session_id,data_key,scope,hostname,classification,row_digest)
+    SELECT website_id,session_id,data_key,'browser','example.test','browser',liekan_session_data_digest(d)
+    FROM session_data d WHERE website_id=$1 AND data_key='plan'`,
+    [site],
+  );
+  const properties = await read(() =>
+    featureAnalytics(site, { ...featureRange, kind: 'session-properties' }),
+  );
+  assert.deepEqual(
+    properties.rows.map(row => ({ ...row, sessions: Number(row.sessions) })),
+    [{ name: 'plan', value: 'team', dataType: 1, sessions: 1 }],
+  );
+  const unmatchedProperties = await read(() =>
+    featureAnalytics(site, {
+      ...featureRange,
+      kind: 'session-properties',
+      drill_path: 'eq./not-collected',
+    }),
+  );
+  assert.deepEqual(unmatchedProperties.rows, []);
   await db.query('DELETE FROM liekan_event_environment WHERE event_id=ANY($1::uuid[])', [oldIds]);
   assert.deepEqual(await read(() => getSessionMetrics(site, { type: 'browser' }, filters)), []);
   const unknown = await read(() => getValues(site, 'browser', filters));

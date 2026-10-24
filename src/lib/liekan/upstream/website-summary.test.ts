@@ -93,6 +93,13 @@ it('rejects share and incomplete identities without reading statistics', async (
   }
   expect(mocks.query).not.toHaveBeenCalled();
 });
+it('calculates AI visits within the same qualified visit scan as summary totals', async () => {
+  await readWebsiteSummary(new Request('http://localhost'), p);
+  const sql = mocks.query.mock.calls[0][0];
+  expect(sql.match(/FROM website_event e JOIN windows/g)).toHaveLength(1);
+  expect(sql).toContain('COUNT(DISTINCT v.visit_id) FILTER(WHERE v.ai=1)');
+  expect(sql).toContain("e.event_type NOT IN (2,5) AND");
+});
 it('preserves native reset filtering in compatibility fallback', async () => {
   vi.stubEnv('CLICKHOUSE_URL', 'configured');
   const reset = new Date(p.startAt + 50000);
