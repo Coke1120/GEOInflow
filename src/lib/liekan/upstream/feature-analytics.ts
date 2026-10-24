@@ -209,7 +209,7 @@ async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) 
   }
   if (p.kind === 'revenue') {
     if (!p.currency) throw new LiekanError('请选择币种');
-    const revenueCte = `${cte}, transactions AS(SELECT r.event_id AS id,r.session_id AS "sessionId",r.event_name AS event,r.revenue AS amount,r.currency,r.created_at AS "createdAt" FROM revenue r WHERE r.website_id={{websiteId::uuid}} AND r.created_at BETWEEN {{startDate}} AND {{endDate}} AND UPPER(r.currency)={{currency}} AND EXISTS(SELECT 1 FROM selected s WHERE s.session_id=r.session_id))`;
+    const revenueCte = `${cte},revenue_visitors AS MATERIALIZED(SELECT DISTINCT session_id FROM selected), transactions AS(SELECT r.event_id AS id,r.session_id AS "sessionId",r.event_name AS event,r.revenue AS amount,r.currency,r.created_at AS "createdAt" FROM revenue r WHERE r.website_id={{websiteId::uuid}} AND r.created_at BETWEEN {{startDate}} AND {{endDate}} AND UPPER(r.currency)={{currency}} AND r.session_id IN(SELECT session_id FROM revenue_visitors))`;
     const [count, rows] = await Promise.all([
       prisma.rawQuery(
         `${revenueCte} SELECT COUNT(*) AS count FROM transactions`,

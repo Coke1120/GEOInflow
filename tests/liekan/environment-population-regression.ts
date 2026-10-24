@@ -221,6 +221,27 @@ export async function verifyEventEnvironmentReads(db: pg.Client) {
   assert.equal(entrySource.rows[0].source, 'google.com');
   await db.query('UPDATE website_event SET referrer_domain=NULL WHERE website_id=$1', [site]);
   await db.query(
+    `INSERT INTO revenue(revenue_id,website_id,session_id,event_id,event_name,currency,revenue,created_at)
+    VALUES(gen_random_uuid(),$1,$2,$3,'custom','CNY',123.45,'2020-01-02T01:02Z')`,
+    [site, session, oldIds[2]],
+  );
+  const revenue = await read(() =>
+    featureAnalytics(site, { ...featureRange, kind: 'revenue', currency: 'CNY' }),
+  );
+  assert.equal(Number(revenue.count), 1);
+  assert.equal(revenue.rows.length, 1);
+  assert.equal(Number(revenue.rows[0].amount), 123.45);
+  const unmatchedRevenue = await read(() =>
+    featureAnalytics(site, {
+      ...featureRange,
+      kind: 'revenue',
+      currency: 'CNY',
+      drill_path: 'eq./not-collected',
+    }),
+  );
+  assert.equal(Number(unmatchedRevenue.count), 0);
+  assert.deepEqual(unmatchedRevenue.rows, []);
+  await db.query(
     `INSERT INTO session_data(session_data_id,website_id,session_id,data_key,string_value,data_type)
     VALUES(gen_random_uuid(),$1,$2,'plan','team',1),(gen_random_uuid(),$1,$2,'unproven','hidden',1)`,
     [site, session],
