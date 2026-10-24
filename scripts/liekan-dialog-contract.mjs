@@ -3,6 +3,15 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const dialogBaseline = JSON.parse(readFileSync('config/liekan/dialog-ui.json', 'utf8'));
+const chineseMessages = JSON.parse(readFileSync('src/lib/liekan/i18n/messages/zh-CN.json', 'utf8'));
+const englishMessages = JSON.parse(readFileSync('src/lib/liekan/i18n/messages/en-US.json', 'utf8'));
+const loadingLabels = ['正在读取网站设置…', '正在生成二维码', '正在读取上周数据…'].flatMap(
+  source => {
+    const key = Object.keys(chineseMessages).find(key => chineseMessages[key] === source);
+    assert(key && englishMessages[key], `Missing bilingual dialog loading label: ${source}`);
+    return [source, englishMessages[key]];
+  },
+);
 export function assertDialogContract() {
   assert.equal(dialogBaseline.baselineVersion, 'liekan-dialog-v0.2.4');
   assert.deepEqual(
@@ -41,9 +50,8 @@ export async function checkDialog(page, size = 'standard') {
   await page.waitForFunction(() =>
     document.querySelector('[role="dialog"]')?.contains(document.activeElement),
   );
-  await dialog.getByText('正在读取网站设置…', { exact: true }).waitFor({ state: 'hidden' });
-  await dialog.getByText('正在生成二维码', { exact: true }).waitFor({ state: 'hidden' });
-  await dialog.getByText('正在读取上周数据…', { exact: true }).waitFor({ state: 'hidden' });
+  for (const label of loadingLabels)
+    await dialog.getByText(label, { exact: true }).waitFor({ state: 'hidden' });
   await page.waitForFunction(() => {
     const panel = document.querySelector('[role="dialog"] .liekan-dialog');
     const actions = panel?.querySelector('.dialog-footer .dialog-actions');

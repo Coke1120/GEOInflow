@@ -24,7 +24,7 @@ describe('website analysis families', () => {
         />
       </LiekanLocaleContext.Provider>,
     );
-    expect(screen.getByRole('tablist', { name: 'Page event view' })).toBeVisible();
+    expect(screen.getByRole('tablist', { name: 'Page events view' })).toBeVisible();
     expect(document.querySelector('[role="tab"][aria-selected="true"]')).toHaveAttribute(
       'href',
       '/websites/site-a/events',
