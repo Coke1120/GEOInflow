@@ -5821,6 +5821,17 @@
       "owner": "Liekan UI maintenance",
       "constraint": "Add only the language entry; preserve required setup, OTP state, recovery codes and acknowledgement rules",
       "removalCondition": "Remove when the upstream required identity flow provides the shared locale control"
+    },
+    {
+      "path": "tests/api/liekan-analytics-acceleration.spec.ts",
+      "purpose": "Exercise deployed analytics acceleration and asynchronous query API contracts through isolated owned resources",
+      "tests": [
+        "pnpm exec playwright test -c playwright.api.config.ts tests/api/liekan-analytics-acceleration.spec.ts",
+        "Liekan API coverage enforcement"
+      ],
+      "owner": "Liekan analytics API maintenance",
+      "constraint": "Keep production datasets untouched; require full sessions and preserve website and job consumer isolation and PostgreSQL support boundaries",
+      "removalCondition": "Remove when equivalent upstream API coverage protects these contracts"
     }
   ]
 }
