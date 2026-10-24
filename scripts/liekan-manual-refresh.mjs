@@ -360,6 +360,39 @@ try {
   );
   const realStarted = Date.now();
   const realBaselines = realSessions.map(session => session.reads.length);
+  // Submit after the initial snapshot so the real idle interval covers batch publication.
+  const session = realSessions[1];
+  const metric = session.page.locator('[class*="metricValue"]');
+  assert((await metric.count()) > 0, 'Real overview has no rendered metrics');
+  const renderedBefore = await metric.allTextContents();
+  const statsPath =
+    `/websites/${seed.website.id}/stats?` +
+    new URLSearchParams({
+      ...seed.range,
+      endAt: Date.now() + 60000,
+      timezone: 'UTC',
+      refresh: '1',
+    });
+  const before = await api('GET', statsPath);
+  const beforeReadAt = Date.now();
+  const userAgent = await session.page.evaluate(() => navigator.userAgent);
+  await api(
+    'POST',
+    '/send',
+    {
+      type: 'event',
+      payload: {
+        website: seed.website.id,
+        hostname: seed.website.domain,
+        url: '/manual-refresh-acceptance',
+        title: 'Manual read acceptance',
+        id: `manual-refresh-${Date.now()}`,
+        language: 'zh-CN',
+        screen: '1440x1000',
+      },
+    },
+    { 'user-agent': userAgent, 'x-liekan-fixture-ip': '192.0.2.1' },
+  );
   // Verify production privacy eviction and a genuine cacheable-document BFCache return.
   async function verifyHistory(cacheableDocument) {
     const history = await open(`/share/${share.slug}`, false, cacheableDocument);
@@ -586,38 +619,6 @@ try {
       await context.close();
     }
   }
-  // A valid tracker record proves recomputation, with no production data mutation.
-  const session = realSessions[1];
-  const metric = session.page.locator('[class*="metricValue"]');
-  assert((await metric.count()) > 0, 'Real overview has no rendered metrics');
-  const renderedBefore = await metric.allTextContents();
-  const statsPath =
-    `/websites/${seed.website.id}/stats?` +
-    new URLSearchParams({
-      ...seed.range,
-      endAt: Date.now() + 60000,
-      timezone: 'UTC',
-      refresh: '1',
-    });
-  const before = await api('GET', statsPath);
-  const beforeReadAt = Date.now();
-  const userAgent = await session.page.evaluate(() => navigator.userAgent);
-  await api(
-    'POST',
-    '/send',
-    {
-      type: 'event',
-      payload: {
-        website: seed.website.id,
-        hostname: seed.website.domain,
-        url: '/manual-refresh-acceptance',
-        title: 'Manual read acceptance',
-        language: 'zh-CN',
-        screen: '1440x1000',
-      },
-    },
-    { 'user-agent': userAgent, 'x-liekan-fixture-ip': '192.0.2.1' },
-  );
   // Respect the existing five-second forced-read limit.
   while (Date.now() - realStarted < 600000 || Date.now() - beforeReadAt < 5100)
     await new Promise(resolve =>
