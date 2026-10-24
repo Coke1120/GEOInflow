@@ -30,6 +30,22 @@ export function languageHeaderGeometry() {
   const entry = entries[0];
   const control = entry?.querySelector('select');
   const rect = control?.getBoundingClientRect();
+  const controlStyle = control ? getComputedStyle(control) : null;
+  let languageTextWidth = 0;
+  if (control) {
+    const selectedText = document.createElement('span');
+    selectedText.setAttribute('aria-hidden', 'true');
+    selectedText.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;padding:0;margin:0';
+    selectedText.style.font = controlStyle.font;
+    selectedText.style.letterSpacing = controlStyle.letterSpacing;
+    selectedText.textContent = control.options[control.selectedIndex]?.text || '';
+    document.body.appendChild(selectedText);
+    try {
+      languageTextWidth = selectedText.getBoundingClientRect().width;
+    } finally {
+      selectedText.remove();
+    }
+  }
   const group = entry?.closest('[data-website-toolbar],.header-inner,[data-public-language]');
   const groupRect = group?.getBoundingClientRect();
   const websiteToolbar = entry?.closest('[data-website-toolbar]');
@@ -47,6 +63,10 @@ export function languageHeaderGeometry() {
     count: entries.length,
     visible: !!rect && rect.width > 0 && rect.height > 0,
     language: control?.value,
+    languageTextWidth,
+    languageTextSpace: control
+      ? control.clientWidth - parseFloat(controlStyle.paddingLeft) - parseFloat(controlStyle.paddingRight)
+      : undefined,
     left: rect?.left,
     right: rect?.right,
     top: rect
@@ -107,6 +127,11 @@ export function assertLanguageHeader(state, locale = 'en-US') {
     assert(
       state.pickerNameWidth >= Math.min(48, state.pickerNameScroll) - 1,
       'Website name retains readable space beside its demo badge',
+    );
+  if (state.languageTextWidth > 0)
+    assert(
+      state.languageTextWidth <= state.languageTextSpace + 1,
+      'Selected language text fits beside the select arrow',
     );
   assert.equal(state.language, locale, 'Header follows the selected language');
   assert(state.left >= 0 && state.right <= state.width + 1, 'Language selector fits the viewport');
