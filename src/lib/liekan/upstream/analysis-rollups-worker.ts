@@ -1,4 +1,5 @@
 import { discoverAnalysisRollups } from './analysis-rollups-discovery';
+import { buildBrowserDetailChunk } from './browser-detail-facts';
 import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { CRAWLER_POPULATION_VERSION } from '../rules/population';
 import { randomUUID } from 'node:crypto';
@@ -251,7 +252,7 @@ async function queueRecovery(
     `INSERT INTO liekan_analysis_build(id,website_id,actor_id,epoch,family,unit_seconds,range_start,range_end,timezone,locale,request_id,request_hash,status,work_total,origin_build_id)
   SELECT $1::uuid,$2::uuid,$3::uuid,$4::bigint,$5,$6,$7,$8,'UTC','zh-CN',$9::uuid,$10,'queued',$11::bigint,$12::uuid
   WHERE NOT EXISTS(SELECT 1 FROM liekan_analysis_build b WHERE b.website_id=$2::uuid AND b.epoch=$4::bigint AND (b.family='both' OR b.family=$5)
-   AND b.actor_id IS NULL AND b.unit_seconds=$6 AND b.status IN('queued','running','paused') AND b.range_start<$8::timestamptz AND b.range_end>$7::timestamptz AND b.id IS DISTINCT FROM $13::uuid)
+   AND b.actor_id IS NULL AND NOT b.automatic_history AND b.unit_seconds=$6 AND b.status IN('queued','running','paused') AND b.range_start<$8::timestamptz AND b.range_end>$7::timestamptz AND b.id IS DISTINCT FROM $13::uuid)
   ON CONFLICT(website_id,request_id) DO NOTHING`,
     randomUUID(),
     site,
@@ -364,6 +365,10 @@ export async function runOneAnalysisWorkUnit(
       await ensureAnalysisPartitions(tx, state.hour);
       const chunk =
         state.family === 'log' ? await logChunk(tx, row, state) : await visitChunk(tx, row, state);
+      if (state.family === 'visit') {
+        const detail = await buildBrowserDetailChunk(tx, row, state);
+        chunk.bytes = String(BigInt(chunk.bytes) + BigInt(detail.bytes));
+      }
       await chargeAnalysisGeneration(tx, row.website_id, state.generation, chunk.bytes);
       const chunkCapacity = await analysisCapacity(tx, row.website_id);
       if (
@@ -590,6 +595,109 @@ export async function runOneAnalysisWorkUnit(
     // Error details may contain SQL values. Only the stable public code is persisted.
   }
   return { worked: true, buildId: row.id };
+}
+
+/** A durable retained-history cursor waits for open hours and resumes failed deliveries. */
+export async function bootstrapAnalysisHistory(now = Date.now(), websiteId?: string) {
+  return analysisTransaction(async tx => {
+    const sites = await tx.$queryRawUnsafe<any[]>(
+      `SELECT s.* FROM liekan_analysis_site s JOIN website w USING(website_id)
+       WHERE w.deleted_at IS NULL AND s.mode='live' AND (s.archive_epoch IS DISTINCT FROM s.epoch OR NOT s.archive_complete)
+       AND ($1::uuid IS NULL OR s.website_id=$1::uuid)
+       ORDER BY s.archive_checked_at NULLS FIRST,s.website_id LIMIT 8 FOR UPDATE OF s SKIP LOCKED`,
+      websiteId || null,
+    );
+    for (const site of sites) {
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_analysis_site SET archive_checked_at=clock_timestamp() WHERE website_id=$1::uuid',
+        site.website_id,
+      );
+      if (String(site.archive_epoch) !== String(site.epoch)) {
+        const [boundary] = await tx.$queryRawUnsafe<{ starts: Date | null; ends: Date | null }[]>(
+          `SELECT min(at) AS starts,max(at) AS ends FROM (
+           (SELECT created_at AS at FROM website_event WHERE website_id=$1::uuid ORDER BY created_at LIMIT 1)
+           UNION ALL (SELECT created_at FROM website_event WHERE website_id=$1::uuid ORDER BY created_at DESC LIMIT 1)
+           UNION ALL (SELECT created_at FROM liekan_log WHERE website_id=$1::uuid ORDER BY created_at LIMIT 1)
+           UNION ALL (SELECT created_at FROM liekan_log WHERE website_id=$1::uuid ORDER BY created_at DESC LIMIT 1)) inputs`,
+          site.website_id,
+        );
+        site.archive_next = boundary.starts
+          ? new Date(Math.floor(+boundary.starts / 3600000) * 3600000)
+          : null;
+        site.archive_until = boundary.ends
+          ? new Date((Math.floor(+boundary.ends / 3600000) + 1) * 3600000)
+          : null;
+        site.archive_build_id = null;
+        await tx.$executeRawUnsafe(
+          `UPDATE liekan_analysis_site SET archive_epoch=epoch,archive_next=$2,archive_until=$3,archive_build_id=NULL,archive_complete=$4 WHERE website_id=$1::uuid`,
+          site.website_id,
+          site.archive_next,
+          site.archive_until,
+          !boundary.starts,
+        );
+      }
+      if (!site.archive_next || !site.archive_until) continue;
+      if (site.archive_build_id) {
+        const [build] = await tx.$queryRawUnsafe<any[]>(
+          'SELECT * FROM liekan_analysis_build WHERE id=$1::uuid',
+          site.archive_build_id,
+        );
+        if (build && build.status !== 'completed') {
+          if (
+            ['failed', 'capacity_limited'].includes(build.status) &&
+            +new Date(build.next_attempt_at) <= now
+          )
+            await tx.$executeRawUnsafe(
+              `UPDATE liekan_analysis_build SET status='queued',attempts=0,next_attempt_at=clock_timestamp()+interval '5 minutes',error_code=NULL WHERE id=$1::uuid`,
+              build.id,
+            );
+          continue;
+        }
+        if (build) site.archive_next = build.range_end;
+        await tx.$executeRawUnsafe(
+          'UPDATE liekan_analysis_site SET archive_next=$2,archive_build_id=NULL WHERE website_id=$1::uuid',
+          site.website_id,
+          site.archive_next,
+        );
+      }
+      if (+site.archive_next >= +site.archive_until) {
+        await tx.$executeRawUnsafe(
+          'UPDATE liekan_analysis_site SET archive_complete=true WHERE website_id=$1::uuid',
+          site.website_id,
+        );
+        continue;
+      }
+      const closed = new Date(Math.floor((now - 60000) / 3600000) * 3600000);
+      const end = new Date(
+        Math.min(+site.archive_until, +closed, +site.archive_next + 24 * 3600000),
+      );
+      if (+end <= +site.archive_next) continue;
+      const id = randomUUID();
+      await tx.$executeRawUnsafe(
+        `INSERT INTO liekan_analysis_build(id,website_id,epoch,range_start,range_end,timezone,locale,request_id,request_hash,status,work_total,automatic_history)
+       VALUES($1::uuid,$2::uuid,$3::bigint,$4,$5,'UTC','zh-CN',$1::uuid,$6,'queued',$7::bigint,true)`,
+        id,
+        site.website_id,
+        String(site.epoch),
+        site.archive_next,
+        end,
+        analysisHash([
+          'automatic-retained-history',
+          site.website_id,
+          String(site.epoch),
+          site.archive_next.toISOString(),
+          end.toISOString(),
+        ]),
+        Math.round((+end - +site.archive_next) / 3600000) * 2,
+      );
+      await tx.$executeRawUnsafe(
+        'UPDATE liekan_analysis_site SET archive_build_id=$2::uuid WHERE website_id=$1::uuid',
+        site.website_id,
+        id,
+      );
+    }
+    return sites.length;
+  });
 }
 
 export async function reconcileAnalysisRollups(): Promise<{ queued: number }> {

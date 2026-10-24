@@ -329,6 +329,8 @@ try {
           'src/lib/liekan/upstream/analysis-population.integration.test.ts',
           'src/lib/liekan/upstream/analysis-rollups.integration.test.ts',
           'src/lib/liekan/upstream/analysis-queries.integration.test.ts',
+          'src/lib/liekan/upstream/dashboard-snapshots.integration.test.ts',
+          'src/lib/liekan/upstream/browser-detail-facts.integration.test.ts',
         ];
   await run(
     'pnpm',

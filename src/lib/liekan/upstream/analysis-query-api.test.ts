@@ -14,6 +14,7 @@ vi.mock('./analysis-queries', () => ({
   requestAnalysisQuery: m.request,
   readAnalysisQuery: m.read,
 }));
+vi.mock('./dashboard-snapshots', () => ({ requestDashboardSnapshot: m.request }));
 vi.mock('./page-report', () => ({ peekPageReport: m.peek }));
 vi.mock('./analysis-fast-read', () => ({ tryFastAnalysis: m.fast }));
 import {
@@ -56,17 +57,21 @@ it('returns immediate 202 only after full private authentication and current sit
   );
   expect(m.request).toHaveBeenCalledTimes(1);
 });
-it('projects current permissions on the fast cached report without enqueuing', async () => {
-  m.peek.mockResolvedValue({
-    value: { website: { id: site }, meta: { canManage: true } },
+it('returns a published snapshot without running foreground aggregation', async () => {
+  m.request.mockResolvedValue({
+    ready: true,
+    value: { meta: { canManage: false } },
     generatedAt: 1,
     expiresAt: 2,
-    status: 'hit',
+    dataThrough: 1,
+    snapshotState: 'ready',
   });
   const response = await asyncAnalysisResponse(request(), site, 'feature:page-report');
   expect(response.status).toBe(200);
   expect((await response.json()).meta.canManage).toBe(false);
-  expect(m.request).not.toHaveBeenCalled();
+  expect(response.headers.get('X-Liekan-Snapshot-State')).toBe('ready');
+  expect(m.peek).not.toHaveBeenCalled();
+  expect(m.fast).not.toHaveBeenCalled();
 });
 it('keeps a ready status separate from fetching the result and rejects malformed job IDs', async () => {
   m.read.mockResolvedValue({ ready: false, analysisJob: { id, status: 'ready' } });
@@ -112,15 +117,9 @@ it('falls back to the original handler when conditions are outside the registere
   ).toBe(false);
 });
 
-it('returns the existing DTO immediately for a bounded covered read', async () => {
-  m.fast.mockResolvedValue({
-    value: { resource: 'ai/overview', covered: true },
-    generatedAt: 100,
-    expiresAt: 1000,
-    status: 'miss',
-  });
+it('registers cold work without executing the covered foreground reader', async () => {
   const response = await asyncAnalysisResponse(request(), site, 'feature:page-report');
-  expect(response.status).toBe(200);
-  expect(await response.json()).toMatchObject({ resource: 'ai/overview', covered: true });
-  expect(m.request).not.toHaveBeenCalled();
+  expect(response.status).toBe(202);
+  expect(m.request).toHaveBeenCalledTimes(1);
+  expect(m.fast).not.toHaveBeenCalled();
 });

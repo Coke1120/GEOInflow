@@ -1,5 +1,6 @@
 import { applyReportPopulation, identityUnavailableReason } from './contracts/population-results';
 import { identityUsable } from './contracts/browser-population';
+import { dashboardClock } from './upstream/dashboard-clock';
 import { getPublishedCatalog } from './crawlers/published';
 import { crawlerAiRequests, isUnknownCrawler } from './rules/population';
 import { differenceInCalendarDays, endOfDay } from 'date-fns';
@@ -102,7 +103,8 @@ export async function buildReport(
     pageOnly === 'share'
       ? resources.includes('human/overview')
       : !pageOnly || resources.includes(p.resource);
-  const now = Date.now();
+  const clock = dashboardClock();
+  const now = clock?.cutoff ?? Date.now();
   let latestEnd: number;
   try {
     new Intl.DateTimeFormat('en', { timeZone: p.timezone }).format();
@@ -114,19 +116,15 @@ export async function buildReport(
     throw new LiekanError('时区无效');
   }
   const readEndAt =
-    p.crawlerMetricsVersion === 1 && p.resource.startsWith('ai/')
+    clock || (p.crawlerMetricsVersion === 1 && p.resource.startsWith('ai/'))
       ? Math.min(p.endAt, now)
       : p.endAt;
-  if (
-    readEndAt < p.startAt ||
-    p.endAt - p.startAt > 1096 * 86400000 ||
-    p.endAt > latestEnd
-  )
+  if (readEndAt < p.startAt || p.endAt - p.startAt > 1096 * 86400000 || p.endAt > latestEnd)
     throw new LiekanError('日期范围无效，上限 3 年');
   const start = new Date(p.startAt),
     end = new Date(readEndAt);
   const todayStart = fromZonedTime(
-    `${formatInTimeZone(new Date(), p.timezone, 'yyyy-MM-dd')}T00:00:00`,
+    `${formatInTimeZone(clock?.dayAt ?? now, p.timezone, 'yyyy-MM-dd')}T00:00:00`,
     p.timezone,
   );
   const plotStart = new Date(
@@ -163,11 +161,16 @@ export async function buildReport(
       comparisonBoundary,
     ),
     getSettings(website.id),
-    needed('overview', 'logs')
-      ? getLogToday(website.id, todayStart, new Date())
+    needed('overview', 'logs') && (!clock || now > +todayStart)
+      ? getLogToday(website.id, todayStart, new Date(Math.max(+todayStart, now)))
       : Promise.resolve({ requests: 0, accepted: 0, abnormal: 0 }),
-    needed('overview', 'conversions')
-      ? getHumanConversions(website.id, todayStart, new Date(), p.timezone)
+    needed('overview', 'conversions') && (!clock || now > +todayStart)
+      ? getHumanConversions(
+          website.id,
+          todayStart,
+          new Date(Math.max(+todayStart, now)),
+          p.timezone,
+        )
       : Promise.resolve(0),
     needed('content') ? getContentImpact(website.id, start, end, p) : Promise.resolve([]),
     needed('ai/overview') ? getMonthlyAiShare(website.id, end, p.timezone, p) : Promise.resolve([]),
@@ -182,8 +185,7 @@ export async function buildReport(
     l = stringifySafe(rawLogs);
   const halfOpen = p.crawlerMetricsVersion === 1;
   const calendarStart =
-    halfOpen &&
-    formatInTimeZone(start, p.timezone, 'HH:mm:ss.SSS') === '00:00:00.000';
+    halfOpen && formatInTimeZone(start, p.timezone, 'HH:mm:ss.SSS') === '00:00:00.000';
   const days = Math.max(
     1,
     calendarStart

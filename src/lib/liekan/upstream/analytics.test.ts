@@ -153,3 +153,4 @@ describe('saved funnel isolation', () => {
     expect(getFunnel).not.toHaveBeenCalled();
   });
 });
+vi.mock('./browser-detail-facts', () => ({ readBrowserDetailFacts: async () => null }));

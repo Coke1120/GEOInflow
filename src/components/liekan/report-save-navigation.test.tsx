@@ -75,7 +75,7 @@ beforeEach(() => {
   client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 });
 afterEach(() => client.clear());
-it('keeps a new page read intact when the display setting save finishes after leaving', async () => {
+it('shows overview data without the disconnected-log prompt or its settings write', async () => {
   state.get.mockResolvedValue(
     freshAggregateFixture({
       value: 'initial',
@@ -86,40 +86,15 @@ it('keeps a new page read intact when the display setting save finishes after le
       meta: { canManage: true, demo: false, logsConfigured: false },
     }),
   );
-  const write = deferred<any>();
-  state.put.mockReturnValue(write.promise);
-  const view = render(
+  render(
     <QueryClientProvider client={client}>
       <LiekanPage resource="overview" />
     </QueryClientProvider>,
   );
-  fireEvent.click(await screen.findByRole('button', { name: '仅展示访客统计' }));
-  const read = deferred<string>();
-  const signals: AbortSignal[] = [];
-  function NextPage() {
-    useQuery({
-      queryKey: ['liekan-feature', 'current-user', 'site-b', 'next-page'],
-      initialData: 'retained',
-      queryFn: ({ signal }) => {
-        signals.push(signal);
-        return read.promise;
-      },
-    });
-    return <span>next</span>;
-  }
-  view.rerender(
-    <QueryClientProvider client={client}>
-      <NextPage />
-    </QueryClientProvider>,
-  );
-  await waitFor(() => expect(signals).toHaveLength(1));
-  await act(async () => {
-    write.resolve({ aiCrawlerEnabled: false });
-    await new Promise(resolve => setTimeout(resolve, 20));
-  });
-  expect(signals[0].aborted).toBe(false);
-  expect(signals).toHaveLength(1);
-  await act(async () => read.resolve('complete'));
+  await screen.findByText('initial');
+  expect(screen.queryByText(/尚未接入 AI 蜘蛛日志/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: '仅展示访客统计' })).not.toBeInTheDocument();
+  expect(state.put).not.toHaveBeenCalled();
 });
 
 it.each(['feature', 'report'])(

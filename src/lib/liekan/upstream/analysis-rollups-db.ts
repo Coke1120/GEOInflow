@@ -60,6 +60,11 @@ export const analysisTables = [
   'liekan_analysis_query_consumer',
   'liekan_analysis_background_lease',
   'liekan_analysis_probe',
+  'liekan_dashboard_snapshot',
+  'liekan_dashboard_dirty',
+  'liekan_analysis_browser_detail',
+  'liekan_analysis_browser_visit',
+  'liekan_analysis_browser_path',
 ] as const;
 export async function analysisCapacity(tx: AnalysisTx, websiteId: string) {
   // Partition parents have no storage. Include every descendant exactly once.
@@ -73,7 +78,8 @@ export async function analysisCapacity(tx: AnalysisTx, websiteId: string) {
   );
   const [site] = await tx.$queryRawUnsafe<{ bytes: bigint }[]>(
     `SELECT (derived_bytes+pg_column_size(s)*2+coalesce((SELECT sum(bytes) FROM liekan_analysis_meter m WHERE m.website_id=s.website_id),0)
-       +coalesce((SELECT sum(result_bytes) FROM liekan_analysis_query q WHERE q.website_id=s.website_id),0)*2)::bigint AS bytes
+       +coalesce((SELECT sum(result_bytes) FROM liekan_analysis_query q WHERE q.website_id=s.website_id),0)*2
+       +coalesce((SELECT sum(result_bytes) FROM liekan_dashboard_snapshot d WHERE d.website_id=s.website_id),0)*2)::bigint AS bytes
      FROM liekan_analysis_site s WHERE website_id=$1::uuid`,
     websiteId,
   );
@@ -93,7 +99,13 @@ export async function ensureAnalysisPartitions(tx: AnalysisTx, hour: string) {
   const starts = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
   const ends = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1));
   const suffix = `${starts.getUTCFullYear()}_${String(starts.getUTCMonth() + 1).padStart(2, '0')}`;
-  for (const table of ['liekan_analysis_log', 'liekan_analysis_path', 'liekan_analysis_visit']) {
+  for (const table of [
+    'liekan_analysis_log',
+    'liekan_analysis_path',
+    'liekan_analysis_visit',
+    'liekan_analysis_browser_visit',
+    'liekan_analysis_browser_path',
+  ]) {
     const child = `${table}_${suffix}`;
     const [existing] = await tx.$queryRawUnsafe<{ found: boolean }[]>(
       'SELECT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname=current_schema() AND c.relname=$1) AS found',

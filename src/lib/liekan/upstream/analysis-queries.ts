@@ -45,6 +45,7 @@ type Row = {
   forced: boolean;
   locale: 'zh-CN' | 'en-US';
   result: any;
+  result_bytes: number;
   queued_at: Date;
   started_at: Date | null;
   completed_at: Date | null;
@@ -55,6 +56,7 @@ type Row = {
   lease_token: string | null;
   attempts: number;
 };
+export type AnalysisRegistration = (tx: any, row: Row) => Promise<void>;
 const date = (value: Date | null) => (value == null ? null : new Date(value).toISOString());
 export function analysisJobDto(row: Row): AnalysisJob {
   return {
@@ -71,10 +73,10 @@ export function analysisJobDto(row: Row): AnalysisJob {
     resultUrl: `/liekan/websites/${row.website_id}/analytics-jobs/${row.id}/result`,
   };
 }
-async function state(tx: any, websiteId: string, actor: CrawlerActor) {
+export async function analysisQueryState(tx: any, websiteId: string, actor: CrawlerActor) {
   const website = await authorizeCrawler(aiExecutor(tx), actor, websiteId);
   const [site] = await tx.$queryRawUnsafe(
-    'SELECT s.epoch,w.site_number AS "siteNumber" FROM liekan_analysis_site s JOIN website w USING(website_id) WHERE s.website_id=$1::uuid',
+    'SELECT s.epoch,s.mode,w.site_number AS "siteNumber" FROM liekan_analysis_site s JOIN website w USING(website_id) WHERE s.website_id=$1::uuid',
     websiteId,
   );
   if (!site) throw new LiekanError('统计加速迁移未完成', 503);
@@ -87,9 +89,11 @@ async function state(tx: any, websiteId: string, actor: CrawlerActor) {
   return {
     website: { ...website, siteNumber: site.siteNumber, canManage },
     epoch: site.epoch,
+    mode: site.mode,
     strong,
   };
 }
+const state = analysisQueryState;
 function projected(row: Row, website: any) {
   const result = decodeAnalysisEnvelope(row.result, row.website_id);
   const value = structuredClone(result.value) as any;
@@ -117,6 +121,7 @@ async function requestAnalysisQueryOnce(
   target: string,
   input: Record<string, unknown>,
   locale: 'zh-CN' | 'en-US' = 'zh-CN',
+  registered?: AnalysisRegistration,
 ) {
   const parameters = analysisQueryParameters(target, input),
     forced = input.refresh === '1';
@@ -152,6 +157,7 @@ async function requestAnalysisQueryOnce(
         (await readAnalyticsVersions(tx, [websiteCacheTag(websiteId)])).strong !== snapshot.strong
       )
         throw new LiekanError('统计条件已变化，请重新读取', 409);
+      await registered?.(tx, ready);
       return {
         ready: true as const,
         value: projected(ready, snapshot.website),
@@ -166,6 +172,7 @@ async function requestAnalysisQueryOnce(
         actor.id,
       );
       if (consumer.length) {
+        await registered?.(tx, existing);
         const previous = rows.find(row => row.status === 'ready');
         return {
           ready: false as const,
@@ -250,6 +257,7 @@ async function requestAnalysisQueryOnce(
       job.id,
       actor.id,
     );
+    await registered?.(tx, job);
     const previous = rows.find(row => row.status === 'ready');
     return {
       ready: false as const,
@@ -265,6 +273,7 @@ export async function requestAnalysisQuery(
   target: string,
   input: Record<string, unknown>,
   locale: 'zh-CN' | 'en-US' = 'zh-CN',
+  registered?: AnalysisRegistration,
 ) {
   const key = analysisDigest([
     websiteId,
@@ -280,7 +289,7 @@ export async function requestAnalysisQuery(
   const run = async () => {
     for (;;) {
       try {
-        return await requestAnalysisQueryOnce(websiteId, actor, target, input, locale);
+        return await requestAnalysisQueryOnce(websiteId, actor, target, input, locale, registered);
       } catch (error) {
         if (
           !(error instanceof LiekanError) ||
@@ -397,6 +406,11 @@ export async function processAnalysisQuery(id: string) {
             return s.strong === row.strong_version && String(s.epoch) === String(row.epoch);
           });
         if (!(await allowed())) throw new LiekanError('统计条件已变化', 410);
+        const { dashboardJobClock, publishDashboardSnapshot } = await import(
+          './dashboard-snapshots'
+        );
+        const { withDashboardClock } = await import('./dashboard-clock');
+        const cutoff = await analysisTransaction(tx => dashboardJobClock(tx, row.id));
         const started = Date.now();
         const compute = (refresh: boolean) =>
           analyticsWorkerContext(
@@ -404,9 +418,13 @@ export async function processAnalysisQuery(id: string) {
             { private: true },
             async () => {
               const { executeAnalysisQuery } = await import('./analysis-query-execution');
-              const result = await captureBrowserPopulations(() =>
-                executeAnalysisQuery(row.website_id, actor, row.target, row.parameters),
-              );
+              const execute = () =>
+                captureBrowserPopulations(() =>
+                  executeAnalysisQuery(row.website_id, actor, row.target, row.parameters),
+                );
+              const result = await (cutoff === undefined
+                ? execute()
+                : withDashboardClock(cutoff, execute));
               return { ...result, freshness: [...currentCacheContext().results] };
             },
             {
@@ -483,6 +501,12 @@ export async function processAnalysisQuery(id: string) {
               );
             throw new LiekanError('后台计算租约失效', 410);
           }
+          await publishDashboardSnapshot(tx, {
+            id: row.id,
+            result: JSON.parse(encoded),
+            result_bytes: Buffer.byteLength(encoded),
+            generated_at: new Date(generatedAt),
+          });
           await tx.$executeRawUnsafe(
             `DELETE FROM liekan_analysis_query WHERE website_id=$1::uuid AND id IN(
             SELECT id FROM liekan_analysis_query WHERE website_id=$1::uuid AND status='ready' ORDER BY sequence DESC OFFSET 20)`,

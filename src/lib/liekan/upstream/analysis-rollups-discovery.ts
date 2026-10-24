@@ -34,8 +34,8 @@ const active = (
   start: string,
   end: string,
   unit: string,
-) => `EXISTS(SELECT 1 FROM liekan_analysis_build b WHERE b.website_id=p.site AND b.epoch=p.epoch AND b.actor_id IS NULL
- AND b.status IN('queued','running','paused') AND (b.family=p.family OR b.family='both') ${unit ? `AND b.unit_seconds=${unit}` : ''} AND b.range_start<${end} AND b.range_end>${start})`;
+) => `EXISTS(SELECT 1 FROM liekan_analysis_build b WHERE b.website_id=p.site AND b.epoch=p.epoch AND b.actor_id IS NULL AND NOT b.automatic_history
+ AND b.status IN('queued','running','paused') AND (b.family=p.family OR b.family='both') ${unit ? `AND (b.family='both' OR b.unit_seconds=${unit})` : ''} AND b.range_start<${end} AND b.range_end>${start})`;
 // Published manifests are mutually exclusive. Seek the nearest predecessor before
 // evaluating coverage, then prove each referenced generation once for all dirty leaves.
 const coveringCtes = (
@@ -56,19 +56,19 @@ const eligibleSite = `(
   AND (d.family<>'visit' OR s.visit_expansion)
   AND d.bucket+(CASE d.family WHEN 'log' THEN interval '5 minutes' ELSE interval '1 hour' END)<=clock_timestamp()-interval '30 seconds' GROUP BY d.family,d.bucket`)}
   SELECT 1 FROM leaf_status d,args p WHERE NOT d.covered
-   AND NOT EXISTS(SELECT 1 FROM liekan_analysis_build b WHERE b.website_id=p.site AND b.epoch=p.epoch AND b.actor_id IS NULL
-    AND b.status IN('queued','running','paused') AND (b.family=d.family OR b.family='both') AND b.unit_seconds=CASE d.family WHEN 'log' THEN 300 ELSE 3600 END
+   AND NOT EXISTS(SELECT 1 FROM liekan_analysis_build b WHERE b.website_id=p.site AND b.epoch=p.epoch AND b.actor_id IS NULL AND NOT b.automatic_history
+    AND b.status IN('queued','running','paused') AND (b.family=d.family OR b.family='both') AND (b.family='both' OR b.unit_seconds=CASE d.family WHEN 'log' THEN 300 ELSE 3600 END)
     AND b.range_start<=d.bucket AND b.range_end>d.bucket))
  OR EXISTS(SELECT 1 FROM liekan_analysis_manifest m WHERE m.website_id=s.website_id AND m.epoch=s.epoch AND isfinite(m.bucket) AND isfinite(m.bucket_end)
   AND (m.family<>'visit' OR s.visit_expansion)
   AND (m.versions IS DISTINCT FROM v.versions OR m.fingerprint<>liekan_analysis_fingerprint(m.website_id,m.epoch,m.family,m.bucket,m.bucket_end))
-  AND NOT EXISTS(SELECT 1 FROM liekan_analysis_build b WHERE b.website_id=s.website_id AND b.epoch=s.epoch AND b.actor_id IS NULL
-   AND b.status IN('queued','running','paused') AND (b.family=m.family OR b.family='both') AND b.unit_seconds=CASE m.family WHEN 'log' THEN 300 ELSE 3600 END
+  AND NOT EXISTS(SELECT 1 FROM liekan_analysis_build b WHERE b.website_id=s.website_id AND b.epoch=s.epoch AND b.actor_id IS NULL AND NOT b.automatic_history
+   AND b.status IN('queued','running','paused') AND (b.family=m.family OR b.family='both') AND (b.family='both' OR b.unit_seconds=CASE m.family WHEN 'log' THEN 300 ELSE 3600 END)
    AND b.range_start<m.bucket_end AND b.range_end>m.bucket))
  OR (s.path_expansion AND EXISTS(SELECT 1 FROM liekan_analysis_manifest m WHERE m.website_id=s.website_id AND m.epoch=s.epoch AND m.family='log' AND m.row_count>0
   AND isfinite(m.bucket) AND NOT ${analysisPathCoverageSql('m')}
   AND date_bin(interval '1 hour',m.bucket,timestamptz '2000-01-01Z')+interval '1 hour'<=clock_timestamp()-interval '30 seconds'
-  AND NOT EXISTS(SELECT 1 FROM liekan_analysis_build b WHERE b.website_id=s.website_id AND b.epoch=s.epoch AND b.actor_id IS NULL AND b.family IN('log','both')
+  AND NOT EXISTS(SELECT 1 FROM liekan_analysis_build b WHERE b.website_id=s.website_id AND b.epoch=s.epoch AND b.actor_id IS NULL AND NOT b.automatic_history AND b.family IN('log','both')
    AND b.status IN('queued','running','paused') AND b.range_start<date_bin(interval '1 hour',m.bucket,timestamptz '2000-01-01Z')+interval '1 hour'
    AND b.range_end>date_bin(interval '1 hour',m.bucket,timestamptz '2000-01-01Z'))))
 )`;

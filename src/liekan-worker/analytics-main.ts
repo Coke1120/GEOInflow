@@ -1,5 +1,9 @@
 import { probeAnalysisExpansion } from '../lib/liekan/upstream/analysis-expansion';
 import {
+  pumpDashboardSnapshots,
+  seedDashboardSnapshots,
+} from '../lib/liekan/upstream/dashboard-snapshots';
+import {
   ANALYSIS_QUERY_QUEUE,
   ANALYSIS_BUILD_QUEUE,
 } from '../lib/liekan/upstream/analysis-query-model';
@@ -8,7 +12,10 @@ import {
   pumpAnalysisBuilds,
   processAnalysisBuild,
 } from '../lib/liekan/upstream/analysis-build-queue';
-import { reconcileAnalysisRollups } from '../lib/liekan/upstream/analysis-rollups-worker';
+import {
+  reconcileAnalysisRollups,
+  bootstrapAnalysisHistory,
+} from '../lib/liekan/upstream/analysis-rollups-worker';
 import { withAnalysisPermit } from '../lib/liekan/upstream/analysis-background';
 import {
   GEO_SNAPSHOT_QUEUE,
@@ -43,7 +50,9 @@ async function pump() {
   if (stopped || pumping) return;
   pumping = true;
   try {
+    await bootstrapAnalysisHistory();
     await reconcileAnalysisRollups();
+    await pumpDashboardSnapshots();
     await pumpAnalysisQueries(boss);
     await pumpAnalysisBuilds(boss);
     await pumpAnalyticsHot(boss, readAnalyticsHotStrongVersion);
@@ -67,9 +76,11 @@ const geoMaintenance = setInterval(() => {
   if (!stopped) {
     void reconcileGeoSnapshots(boss).catch(() => {});
     void probeAnalysisExpansion().catch(() => {});
+    void seedDashboardSnapshots().catch(() => {});
   }
 }, 60000);
 void reconcileGeoSnapshots(boss).catch(() => {});
+void seedDashboardSnapshots().catch(() => {});
 await boss.work<AnalyticsRefreshJob>(
   ANALYTICS_QUEUE,
   { localConcurrency: 1, batchSize: 1, pollingIntervalSeconds: 1 },

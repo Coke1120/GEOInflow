@@ -30500,6 +30500,12 @@ export interface operations {
               };
               previousCursor?: string;
               ruleCount: number;
+              snapshot?: {
+                dataThrough: number;
+                intervalMs: number;
+                /** @enum {string} */
+                state: 'ready' | 'updating';
+              };
               tablePages?: {
                 [key: string]: {
                   /** @description Page number, starting at 1. */
@@ -31392,6 +31398,12 @@ export interface operations {
               };
               previousCursor?: string;
               ruleCount: number;
+              snapshot?: {
+                dataThrough: number;
+                intervalMs: number;
+                /** @enum {string} */
+                state: 'ready' | 'updating';
+              };
               tablePages?: {
                 [key: string]: {
                   /** @description Page number, starting at 1. */
@@ -32102,6 +32114,12 @@ export interface operations {
               };
               previousCursor?: string;
               ruleCount: number;
+              snapshot?: {
+                dataThrough: number;
+                intervalMs: number;
+                /** @enum {string} */
+                state: 'ready' | 'updating';
+              };
               tablePages?: {
                 [key: string]: {
                   /** @description Page number, starting at 1. */

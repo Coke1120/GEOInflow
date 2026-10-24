@@ -4817,5 +4817,7 @@
   "m_d47cc5b84f86": "Load more exclusion records",
   "m_13e4faa86e1d": "Invalid governance pagination parameters",
   "m_1ea48cd83df1": "{v0} to {v1}: {v2} pageviews.",
-  "m_c449eaf22cc8": "Selected range: {v0} pageviews."
+  "m_c449eaf22cc8": "Selected range: {v0} pageviews.",
+  "m_7bfcbb6fe544": "Data through {v0}. Updated in the background every 5 minutes.",
+  "m_5cc10bc359fb": "Updating in the background. Showing the last completed result."
 }

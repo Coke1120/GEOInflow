@@ -28,6 +28,10 @@ vi.mock('./analysis-background', () => ({
     work(() => true, { token: 'permit', epoch: 1n }),
 }));
 vi.mock('./analysis-query-execution', () => ({ executeAnalysisQuery: m.execute }));
+vi.mock('./dashboard-snapshots', () => ({
+  dashboardJobClock: async () => undefined,
+  publishDashboardSnapshot: async () => {},
+}));
 vi.mock('./crawler-registry-context', () => ({
   withPublishedRegistry: (work: () => unknown) => work(),
 }));

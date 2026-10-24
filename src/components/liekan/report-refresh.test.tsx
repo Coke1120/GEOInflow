@@ -397,13 +397,13 @@ it.each([false, true])(
     expect(state.get.mock.calls.at(-1)[1]).toMatchObject({ refresh: '1' });
     await act(async () => latestRead.resolve(report('manual-fresh')));
     await screen.findByText('manual-fresh');
-    await screen.findByText('已根据当前数据重新生成内容建议');
+    expect(screen.queryByText('已根据当前数据重新生成内容建议')).not.toBeInTheDocument();
     await act(async () => oldRead.resolve(report('old-read')));
     expect(screen.getByTestId('report-value')).toHaveTextContent('manual-fresh');
   },
 );
 
-it('shares repeated manual refreshes and confirms only after fresh data arrives', async () => {
+it('shares repeated manual refreshes and renders fresh data without a success banner', async () => {
   const fresh = deferred<any>();
   const signals: AbortSignal[] = [];
   state.get.mockImplementation((_path, _params, signal) => {
@@ -428,7 +428,7 @@ it('shares repeated manual refreshes and confirms only after fresh data arrives'
   expect(screen.queryByText('已根据当前数据重新生成内容建议')).not.toBeInTheDocument();
   await act(async () => fresh.resolve(report('manual-fresh')));
   await screen.findByText('manual-fresh');
-  await screen.findByText('已根据当前数据重新生成内容建议');
+  expect(screen.queryByText('已根据当前数据重新生成内容建议')).not.toBeInTheDocument();
 });
 
 it('suppresses manual confirmation when a write replaces the pending read', async () => {
@@ -575,7 +575,7 @@ it('clears dateMode, live and log pagination when an empty-state range shortcut 
 
 it.each([
   ['7 天', false, '7day'],
-  ['重置日期', true, '30day'],
+  ['30 天', true, '30day'],
 ] as const)('returns geography to the first page through %s', async (button, invalid, date) => {
   state.invalidDate = invalid;
   state.extraQuery = { tp_cityBody: '2' };
@@ -589,7 +589,7 @@ it.each([
   expect(state.updateParams).toHaveBeenCalledWith(
     expect.objectContaining({ date, tp_cityBody: undefined }),
   );
-  expect(invalid ? state.replace : state.push).toHaveBeenCalledWith('/next-range', {
+  expect(state.push).toHaveBeenCalledWith('/next-range', {
     scroll: false,
   });
 });

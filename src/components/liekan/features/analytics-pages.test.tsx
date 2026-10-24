@@ -532,7 +532,7 @@ it('keeps partial-identity session association details unavailable without false
   mocks.query['session-props'] = [];
   mocks.query['session-replays'] = { data: [], count: null, population };
   render(<AnalyticsPages page="session-detail" />);
-  expect(screen.getAllByText(identityUnavailableReason).length).toBeGreaterThan(0);
+  expect(screen.queryByText(identityUnavailableReason)).not.toBeInTheDocument();
   expect(screen.queryByText('直接访问')).not.toBeInTheDocument();
   expect(screen.queryByText('当前范围没有访问行为。')).not.toBeInTheDocument();
   expect(screen.queryByText('当前会话未提供属性。')).not.toBeInTheDocument();

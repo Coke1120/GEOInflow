@@ -17,6 +17,7 @@ import {
 } from './query-cache';
 import { query, reportSnapshot } from './server';
 import { attachReportEvidenceView } from './report-evidence-view';
+import { dashboardClock } from './dashboard-clock';
 
 async function readPageReportSnapshot(
   website: { id: string; name: string; domain: string },
@@ -71,7 +72,20 @@ async function readPageReportSnapshot(
     return pageReportSchema.parse({
       ...report,
       resource: p.resource,
-      meta: { ...report.meta, generatedAt, expiresAt: generatedAt + ttl },
+      meta: {
+        ...report.meta,
+        generatedAt,
+        expiresAt: generatedAt + ttl,
+        ...(dashboardClock()
+          ? {
+              snapshot: {
+                dataThrough: dashboardClock().cutoff,
+                state: 'ready',
+                intervalMs: 300000,
+              },
+            }
+          : {}),
+      },
     }) as LiekanPageReport;
   };
   if (!ttl) {

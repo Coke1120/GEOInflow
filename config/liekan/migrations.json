@@ -53,5 +53,7 @@
   "045_analytics_visit_guards.sql": "4b65e2394cebca2505d959f5fdf942b3d738172e20f134a88e284008a3d2b514",
   "046_analytics_visit_guard_schema.sql": "a286f9bc87ed8659c209e29a35dd0c5a6c6d6f720f70068423e872ea3511d3e6",
   "047_analytics_browser_population.sql": "07ce9cbc7305ae4aca4a55d6818a158694829ba0efa65c26a6fe1cb069605724",
-  "048_analytics_revenue_proof.sql": "2f526093a9ed0f6d8d2abe1a7d9e748bb859234da4545d10418e64b0aca67f33"
+  "048_analytics_revenue_proof.sql": "2f526093a9ed0f6d8d2abe1a7d9e748bb859234da4545d10418e64b0aca67f33",
+  "049_dashboard_snapshots.sql": "78b5d0795943d958a15a9507c30fd6e3bf5122475b32c5b3c0af58254fc1fd77",
+  "050_browser_detail_facts.sql": "829c7f2787a20d267ba7b89fdc4b64a26561b5ec5d7ed87f2f35c443f035e124"
 }

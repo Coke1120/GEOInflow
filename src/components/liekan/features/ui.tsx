@@ -1,9 +1,6 @@
 'use client';
-import { identityUsable } from '@/lib/liekan/contracts/browser-population';
-import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
-import { hasClientFreshness } from '@/lib/liekan/upstream/client-freshness';
 import { useListState } from './listState';
 import { observeActiveTab } from '../tabVisibility';
 import Link from '@/components/liekan/Link';
@@ -821,12 +818,6 @@ export function QueryState({
   const i18n = useLiekanI18n();
   const inherited = useDataLoading();
   const restricted = [401, 403, 404].includes(query.error?.status);
-  const candidate =
-    query.data?.population || query.data?.meta?.browserPopulation || query.data?.meta?.population;
-  const population = candidate?.identity ? candidate : undefined;
-  const identityNotice = !identityUsable(population) ? (
-    <Notice tone="amber">{i18n.system(identityUnavailableReason)}</Notice>
-  ) : null;
   if (readOnly && !restricted && (!query.error || query.data != null)) {
     return (
       <div
@@ -834,7 +825,6 @@ export function QueryState({
         data-liekan-read-region
         aria-busy={inherited || query.isPending || query.isFetching || undefined}
       >
-        {identityNotice}
         <DataLoading loading={inherited || !!query.isPending} label={i18n.text('正在读取数据')}>
           {children}
         </DataLoading>
@@ -879,13 +869,6 @@ export function QueryState({
     );
   return (
     <>
-      {identityNotice}
-      {query.isFetching && query.data != null && hasClientFreshness(query.data) && (
-        <Notice>{i18n.text('正在更新统计数据')}</Notice>
-      )}
-      {query.isStaleAggregate && query.data != null && !query.isFetching && !cachedError && (
-        <Notice>{i18n.text('统计待更新')}</Notice>
-      )}
       {cachedError && (
         <Notice tone="red">
           {i18n.fragment('更新失败，当前显示上次读取的数据。', false, true)}

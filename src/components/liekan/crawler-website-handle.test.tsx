@@ -200,7 +200,7 @@ it.each([
     );
     expect(content).toContain('full snapshot');
     expect(state.evidence).not.toHaveBeenCalled();
-    expect(screen.getByRole('status')).toHaveTextContent('2026-10-17T00:00:00.000Z');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   },
 );
 it.each([
@@ -211,7 +211,7 @@ it.each([
   'ai/preference',
   'content',
 ] as Resource[])(
-  'shows mixed classification definitions on the shared %s analytics surface',
+  'keeps mixed classification metadata without a top notice on %s',
   async resource => {
     state.resource = resource;
     state.get.mockResolvedValue(
@@ -237,9 +237,10 @@ it.each([
         <LiekanPage resource={resource} />
       </QueryClientProvider>,
     );
+    await screen.findByRole('button', { name: '查看蜘蛛' });
     expect(
-      await screen.findByText('所选期间包含旧版或混合分类数据，历史记录保留采集时口径。'),
-    ).toHaveAttribute('role', 'status');
+      screen.queryByText('所选期间包含旧版或混合分类数据，历史记录保留采集时口径。'),
+    ).not.toBeInTheDocument();
   },
 );
 it('keeps the mixed-definition notice absent for one current classification version', async () => {

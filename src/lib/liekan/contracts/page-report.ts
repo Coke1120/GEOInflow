@@ -124,12 +124,25 @@ export const pageReportParts = {
   },
 } as const;
 
+const dashboardSnapshotSchema = z.object({
+  dataThrough: z.number(),
+  state: z.enum(['ready', 'updating']),
+  intervalMs: z.number(),
+});
 export const pageReportSchema = liekanReportSchema.extend({
   resource: reportQuery.shape.resource,
   charts: z.record(z.string(), liekanReportSchema.shape.charts.shape.d1),
-  meta: liekanReportSchema.shape.meta.extend({ generatedAt: z.number(), expiresAt: z.number() }),
+  meta: liekanReportSchema.shape.meta.extend({
+    generatedAt: z.number(),
+    expiresAt: z.number(),
+    snapshot: dashboardSnapshotSchema.optional(),
+  }),
 });
 export type LiekanPageReport = LiekanReport & {
   resource: ReportResource;
-  meta: LiekanReport['meta'] & { generatedAt: number; expiresAt: number };
+  meta: LiekanReport['meta'] & {
+    generatedAt: number;
+    expiresAt: number;
+    snapshot?: z.infer<typeof dashboardSnapshotSchema>;
+  };
 };

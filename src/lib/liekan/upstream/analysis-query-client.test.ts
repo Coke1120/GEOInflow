@@ -1,4 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { createElement } from 'react';
+import { AnalysisPendingNotice } from '@/components/liekan/AnalysisPendingNotice';
 import {
   analysisAsyncPath,
   analysisPendingStore,
@@ -55,6 +58,28 @@ it('pauses hidden tabs and aborts the consumer without deleting server work', as
   expect(fetchJob).not.toHaveBeenCalled();
   controller.abort();
   await assertion;
+  expect(analysisPendingStore.snapshot()).toBe('[]');
+});
+it('keeps queued work silent and lets the user resume a paused read after timeout', async () => {
+  let elapsed = 0;
+  vi.spyOn(performance, 'now').mockImplementation(() => elapsed);
+  const fetchJob = vi
+    .fn()
+    .mockResolvedValueOnce(Response.json({ analysisJob: { ...job, status: 'ready' } }))
+    .mockResolvedValueOnce(Response.json({ pageviews: 12 }));
+  const pending = followAnalysisJob({ analysisJob: job }, { fetchJob });
+  render(createElement(AnalysisPendingNotice, { websiteId: site }));
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.queryByText(/统计任务已排队|后台正在计算/)).not.toBeInTheDocument();
+  elapsed = 15 * 60000;
+  await act(async () => vi.advanceTimersByTimeAsync(3000));
+  expect(screen.getByRole('alert')).toHaveTextContent('本轮处理超时');
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: '重试' }));
+  });
+  await act(async () => vi.advanceTimersByTimeAsync(3000));
+  expect((await pending).data).toEqual({ pageviews: 12 });
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   expect(analysisPendingStore.snapshot()).toBe('[]');
 });
 it('refuses external task result URLs and never treats failure as a result', async () => {
