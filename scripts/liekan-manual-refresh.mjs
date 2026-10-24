@@ -205,7 +205,9 @@ async function open(url, authenticated = true, cacheableDocument = false) {
     // Only completed response bodies satisfy the endpoint contract. Superseded
     // requests remain in diagnostics; their successful replacements must finish.
     if (successfulResponses.has(request)) successes.push(describeRead(request));
-    if (forcedInFlight.delete(request)) lastForcedRead = Date.now();
+    // A cold dashboard read also registers a forced producer for its closed batch.
+    // Browser clock emulation does not advance the server's admission cooldown.
+    if (forcedInFlight.delete(request) || detail?.status === 202) lastForcedRead = Date.now();
   });
   page.on('requestfailed', request => {
     const detail = requestDetails.get(request);
