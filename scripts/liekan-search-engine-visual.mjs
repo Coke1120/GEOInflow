@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { chromium } from '@playwright/test';
+import { retimeBrowserFixtures } from '../tests/api/seed/retime.ts';
 import { isolatedAcceptanceTarget, acceptanceSeedFile } from './liekan-acceptance-target.mjs';
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 
@@ -16,7 +17,9 @@ assert.equal(createHash('sha256').update(html).digest('hex'), reference.files['e
 const out = 'test-results/liekan-search-engines';
 fs.mkdirSync(out, { recursive: true });
 let token, website, browser;
+const browserFixtures = [];
 async function api(method, path, body) {
+  if (method === 'POST' && path === '/send') body.payload.eventId = randomUUID();
   const response = await fetch(base + '/api' + path, {
     method,
     headers: {
@@ -33,6 +36,13 @@ async function api(method, path, body) {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   assert.equal(response.status, 200, `${method} ${path}: ${response.status}`);
+  if (method === 'POST' && path === '/send')
+    browserFixtures.push({
+      websiteId: body.payload.website,
+      eventId: body.payload.eventId,
+      at: Math.floor((now - 7 * 60000) / 1000),
+      splitVisits: false,
+    });
   return response.json();
 }
 const report = {
@@ -95,6 +105,8 @@ try {
         referrer,
       },
     });
+  // Dashboard projections publish closed batches after the ingestion buffer.
+  retimeBrowserFixtures(browserFixtures);
   const parameters = new URLSearchParams({ resource: 'human/search-engines', ...range });
   const data = await api('GET', `/liekan/websites/${website.id}/page-report?${parameters}`);
   assert.deepEqual(
