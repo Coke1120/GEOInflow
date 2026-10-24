@@ -50,6 +50,46 @@ test('requires a visible, unique upper-right language entry with space for touch
   ])
     assert.throws(() => assertLanguageHeader({ ...valid, ...invalid }));
 });
+test('measures the active BaseUI modal without counting its hidden background language entry', async () => {
+  const { JSDOM } = await import('jsdom');
+  const { languageHeaderGeometry, assertLanguageHeader } = await import(
+    '../../scripts/liekan-i18n-visual.mjs'
+  );
+  const previousDocument = globalThis.document,
+    previousWidth = globalThis.innerWidth;
+  const dom = new JSDOM(`
+    <div aria-hidden="true">
+      <div data-language-placement="header"><select><option value="zh-CN">简体中文</option></select></div>
+      <div role="dialog" data-slot="modal">
+        <div data-language-placement="header"><select><option value="zh-CN">简体中文</option></select></div>
+      </div>
+    </div>
+    <div role="dialog" data-slot="modal" id="active">
+      <div data-language-placement="header"><select><option value="en-US">English</option></select></div>
+    </div>
+  `);
+  for (const element of dom.window.document.querySelectorAll('[role="dialog"],select'))
+    element.getBoundingClientRect = () =>
+      element.tagName === 'SELECT'
+        ? { left: 220, right: 374, top: 96, bottom: 140, width: 154, height: 44 }
+        : { left: 16, right: 374, top: 80, bottom: 380, width: 358, height: 300 };
+  try {
+    globalThis.document = dom.window.document;
+    globalThis.innerWidth = 390;
+    const state = languageHeaderGeometry();
+    assert.equal(state.count, 1);
+    assert.equal(state.language, 'en-US');
+    assert.equal(state.top, 16);
+    assert.doesNotThrow(() => assertLanguageHeader(state));
+    document.querySelector('#active').removeAttribute('data-slot');
+    document.querySelector('#active').setAttribute('aria-modal', 'true');
+    assert.doesNotThrow(() => assertLanguageHeader(languageHeaderGeometry()));
+  } finally {
+    globalThis.document = previousDocument;
+    globalThis.innerWidth = previousWidth;
+    dom.window.close();
+  }
+});
 test('accepts complete, stable bilingual messages and preserved executable literals', () => {
   assert.doesNotThrow(() => assertLanguagePair(...pair('已读取 {v0} 条记录', 'Read {v0} records')));
   assert.doesNotThrow(() => assertLanguagePair(...pair('eq.AI 搜索引荐', 'eq.AI 搜索引荐')));

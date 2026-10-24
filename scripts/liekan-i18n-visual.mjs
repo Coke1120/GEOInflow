@@ -15,7 +15,15 @@ for (const directory of ['messages', 'help-messages']) {
 const label = source => english.get(normalize(source)) || source;
 
 export function languageHeaderGeometry() {
-  const surface = document.querySelector('[role="dialog"][aria-modal="true"]') || document;
+  const surface =
+    [
+      ...document.querySelectorAll(
+        '[role="dialog"][data-slot="modal"],[role="dialog"][aria-modal="true"]',
+      ),
+    ].find(element => {
+      const rect = element.getBoundingClientRect();
+      return !element.closest('[aria-hidden="true"]') && rect.width > 0 && rect.height > 0;
+    }) || document;
   const entries = [...surface.querySelectorAll('[data-language-placement="header"]')];
   const entry = entries[0];
   const control = entry?.querySelector('select');
