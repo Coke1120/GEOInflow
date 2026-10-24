@@ -11,9 +11,9 @@
   },
   "scripts": {
     "dev": "dotenv next dev --turbo",
-    "build": "npm-run-all check:env build:db build:ai:maintenance check:db build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker build:app",
+    "build": "npm-run-all check:env build:db build:ai:maintenance check:db build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker liekan:check-demo build:app",
     "start": "next start",
-    "build:docker": "npm-run-all build:db build:ai:maintenance build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker build:app",
+    "build:docker": "npm-run-all build:db build:ai:maintenance build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker liekan:check-demo build:app",
     "start:docker": "npm-run-all check:db update:tracker start:server",
     "start:env": "node scripts/start-env.js",
     "start:server": "node server.js",
@@ -72,6 +72,8 @@
     "liekan:upstream:report": "node scripts/liekan-upstream.mjs report",
     "liekan:upstream:prepare": "node scripts/liekan-upstream.mjs prepare",
     "liekan:verify": "node scripts/liekan-verify.mjs",
+    "liekan:check-demo": "node scripts/liekan-check-demo.mjs",
+    "liekan:export-demo": "node scripts/liekan-export-demo.mjs",
     "liekan:seed-demo": "node scripts/liekan-seed-demo.mjs",
     "liekan:crawlers:check-sources": "tsx scripts/liekan-crawlers-check-sources.ts",
     "liekan:queue-bootstrap": "node scripts/liekan-queue-bootstrap.mjs",
@@ -86,6 +88,7 @@
     "liekan:ai:maintenance": "node generated/ai-maintenance.mjs",
     "test:crawler-evidence": "node tests/liekan/crawler-evidence.integration.mjs",
     "test:history-repair": "node tests/liekan/history-repair.integration.mjs",
+    "test:default-demo": "node tests/liekan/default-demo.integration.mjs",
     "test:analytics-rollups": "node tests/liekan/analysis-rollups.integration.mjs"
   },
   "cacheDirectories": [

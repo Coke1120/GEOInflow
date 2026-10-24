@@ -62,7 +62,7 @@ async function installation(t, options = {}) {
       '    if [ "${DEPLOY_TEST_START_STATUS:-0}" != 0 ]; then exit "$DEPLOY_TEST_START_STATUS"; fi',
       '    touch "$DEPLOY_TEST_CALLS.started.$2" ;;',
       '  \'compose -f docker-compose.liekan.yml build app\') if [ "${DEPLOY_TEST_KILL_DEPLOY:-0}" = 1 ]; then kill -KILL "$PPID"; fi; if [ "${DEPLOY_TEST_BLOCK_BUILD:-0}" = 1 ]; then touch "$DEPLOY_TEST_CALLS.building"; sleep 2; fi; exit "${DEPLOY_TEST_BUILD_STATUS:-0}" ;;',
-      "  'compose -f docker-compose.liekan.yml stop log-worker analytics-worker') exit \"${DEPLOY_TEST_WORKER_STOP_STATUS:-0}\" ;;",
+      '  \'compose -f docker-compose.liekan.yml stop log-worker analytics-worker\') exit "${DEPLOY_TEST_WORKER_STOP_STATUS:-0}" ;;',
       "  'compose -f docker-compose.liekan.yml up -d --no-build --wait --wait-timeout 300') exit 0 ;;",
       "  'compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 '*)",
       '    shift 10',
@@ -361,7 +361,6 @@ test('a build failure leaves stopped database and cache containers untouched', a
   assert.doesNotMatch(commands, /^start | up -d /m);
 });
 
-
 test('worker drain finishes before application migration during an existing upgrade', async t => {
   const { calls, run } = await existingInstallation(t, {
     DEPLOY_TEST_DB_CONTAINER: 'running-postgres-15',
@@ -370,15 +369,21 @@ test('worker drain finishes before application migration during an existing upgr
   const result = run();
   assert.equal(result.status, 0, result.stderr);
   const commands = (await readFile(calls, 'utf8')).split('\n');
-  const stopped = commands.indexOf('compose -f docker-compose.liekan.yml stop log-worker analytics-worker');
+  const stopped = commands.indexOf(
+    'compose -f docker-compose.liekan.yml stop log-worker analytics-worker',
+  );
   assert.ok(stopped >= 0, 'old workers must stop before the app applies a new schema');
   assert.ok(commands.indexOf('compose -f docker-compose.liekan.yml build app') < stopped);
   assert.ok(stopped < commands.indexOf(`${safeUp} app`));
-  assert.ok(commands.indexOf(`${safeUp} app`) < commands.indexOf(`${safeUp} log-worker analytics-worker`));
+  assert.ok(
+    commands.indexOf(`${safeUp} app`) < commands.indexOf(`${safeUp} log-worker analytics-worker`),
+  );
   assert.equal(commands.filter(command => command.includes(' stop ')).length, 1);
 });
 test('worker stop failure preserves existing configuration and prevents application migration', async t => {
-  const { root, calls, run } = await existingInstallation(t, { DEPLOY_TEST_WORKER_STOP_STATUS: '7' });
+  const { root, calls, run } = await existingInstallation(t, {
+    DEPLOY_TEST_WORKER_STOP_STATUS: '7',
+  });
   const original = await readFile(path.join(root, '.env'));
   assert.equal(run().status, 7);
   const commands = await readFile(calls, 'utf8');
@@ -393,4 +398,41 @@ test('build failure leaves workers running before an upgrade begins', async t =>
   const commands = await readFile(calls, 'utf8');
   assert.match(commands, /build app/);
   assert.doesNotMatch(commands, / stop | up -d /);
+});
+
+test('Docker startup seeds the bundled official demo after migrations and before serving', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'liekan-demo-start-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, 'bin'));
+  await mkdir(path.join(root, 'scripts'));
+  await copyFile('scripts/liekan-start.sh', path.join(root, 'scripts/liekan-start.sh'));
+  const calls = path.join(root, 'calls');
+  await writeFile(
+    path.join(root, 'bin/node'),
+    '#!/bin/sh\nprintf "%s\\n" "$*" >> "$DEMO_START_CALLS"\nif [ "$1" = scripts/liekan-seed-demo.mjs ]; then exit "${DEMO_START_FAIL:-0}"; fi\n',
+    { mode: 0o755 },
+  );
+  const run = failure =>
+    spawnSync('sh', ['scripts/liekan-start.sh'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: path.join(root, 'bin') + ':' + process.env.PATH,
+        DEMO_START_CALLS: calls,
+        DEMO_START_FAIL: String(failure),
+      },
+    });
+  assert.equal(run(0).status, 0);
+  const trace = (await readFile(calls, 'utf8')).trim().split('\n');
+  const seed = trace.indexOf('scripts/liekan-seed-demo.mjs --automatic');
+  assert(seed > trace.indexOf('scripts/liekan-migrate.mjs'));
+  assert(seed < trace.indexOf('server.js'));
+  await writeFile(calls, '');
+  assert.equal(run(1).status, 1);
+  assert(!(await readFile(calls, 'utf8')).includes('server.js'));
+  const dockerfile = await readFile('Dockerfile.liekan', 'utf8');
+  assert.match(dockerfile, /COPY --from=builder[^\n]+scripts/);
+  const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+  assert(packageJson.scripts['build:docker'].includes('liekan:check-demo'));
 });
