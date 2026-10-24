@@ -41,6 +41,7 @@ import {
   websiteDayWindow,
 } from '@/lib/liekan/upstream/website-day-metrics';
 import { TrafficQuality } from './TrafficQuality';
+import { Skeleton } from '../DataLoading';
 import { ManagementDrawer } from '../ManagementDrawer';
 import { CrawlerHandoffs } from './CrawlerHandoffs';
 import { CrawlerDialog } from './CrawlerDialog';
@@ -207,6 +208,7 @@ function MetricRows({
   kind,
   labels = true,
   readAt,
+  loading = false,
 }: {
   today: number | null;
   yesterday: number | null;
@@ -214,12 +216,13 @@ function MetricRows({
   kind: 'count' | 'percent';
   labels?: boolean;
   readAt: number;
+  loading?: boolean;
 }) {
   const i18n = useLiekanI18n();
   const estimate = kind === 'count' ? projectToday(today, timezone, readAt) : null;
   const trend = projectTrend(estimate, yesterday);
   return (
-    <div className="site-metrics">
+    <div className="site-metrics" aria-busy={loading || undefined}>
       <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
         {labels && (
           <span
@@ -230,13 +233,19 @@ function MetricRows({
           </span>
         )}
         <span className="site-metric-value">
-          {kind === 'percent' ? percentLabel(today) : today == null ? '—' : numberLabel(today)}
+          {loading ? (
+            <Skeleton width="3em" />
+          ) : kind === 'percent' ? (
+            percentLabel(today)
+          ) : today == null ? '—' : numberLabel(today)}
         </span>
       </div>
       <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
         {labels && <span className="site-metric-label">{i18n.text('昨日')}</span>}
         <span className="site-metric-value">
-          {kind === 'percent'
+          {loading ? (
+            <Skeleton width="3em" />
+          ) : kind === 'percent'
             ? percentLabel(yesterday)
             : yesterday == null
               ? '—'
@@ -246,7 +255,9 @@ function MetricRows({
       <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
         {labels && <span className="site-metric-label">{i18n.text('预计今日')}</span>}
         <span className="site-metric-value">
-          {estimate == null ? '—' : numberLabel(estimate)}
+          {loading && kind === 'count' ? (
+            <Skeleton width="3em" />
+          ) : estimate == null ? '—' : numberLabel(estimate)}
           {trend === 1 && (
             <span className="metric-arrow metric-up" aria-label={i18n.text('预计高于昨日')}>
               ▲
@@ -423,156 +434,164 @@ function Websites() {
           )
         }
       >
-        <QueryState query={query}>
-          <Table
-            mobile
-            rowKeys={c.sites.map(site => site.id)}
-            columns={[
-              '网站',
-              '所属空间',
-              '浏览采集状态',
-              '访问次数',
-              '访客数',
-              '跳出率',
-              'AI访问次数',
-              '操作',
-            ]}
-            numeric={[3, 4, 5, 6]}
-            static={[3, 4, 5, 6]}
-            search
-            onRowClick={(_, index) =>
-              c.navigate('overview', { websiteId: websiteHandle(c.sites[index]) })
-            }
-            rows={c.sites.map(site => {
-              const stat = stats.find(row => row.id === site.id);
-              const day = todayStats.find(row => row.id === site.id);
-              const dayRead = day && !day.error ? day : null;
-              const yesterday = dayRead ? dayRead.comparison : null;
-              return [
-                <>
-                  <Link
-                    className="table-title"
-                    href={c.href('overview', { websiteId: websiteHandle(site) })}
-                  >
-                    {site.name}
-                  </Link>
-                  <span className="table-meta">{site.domain}</span>
-                </>,
-                <TableCell
-                  sortValue={
-                    c.teams.find(team => team.id === site.teamId)?.name ||
-                    (site.teamId ? i18n.source('团队空间') : i18n.source('个人空间'))
-                  }
-                  searchValue={
-                    c.teams.find(team => team.id === site.teamId)?.name ||
-                    (site.teamId ? i18n.english.text('团队空间') : i18n.english.text('个人空间'))
-                  }
-                >
-                  {c.teams.find(team => team.id === site.teamId)?.name ||
-                    (site.teamId ? i18n.text('团队空间') : i18n.text('个人空间'))}
-                </TableCell>,
-                <TableCell
-                  sortValue={
-                    stat?.error
-                      ? errorLabel(stat.error)
-                      : stat?.received
-                        ? i18n.source('已收到浏览数据')
-                        : stat
-                          ? i18n.source('待验证')
-                          : i18n.source('等待查询')
-                  }
-                  searchValue={i18n.english.system(
-                    stat?.error
-                      ? errorLabel(stat.error)
-                      : stat?.received
-                        ? i18n.english.text('已收到浏览数据')
-                        : stat
-                          ? i18n.english.text('待验证')
-                          : i18n.english.text('等待查询'),
-                  )}
-                >
-                  <Badge
-                    key="badge"
-                    tone={
-                      stat?.error
-                        ? [401, 403].includes(stat.error.status)
-                          ? 'gray'
-                          : 'red'
-                        : stat?.received
-                          ? 'green'
-                          : 'amber'
-                    }
-                  >
-                    {stat?.error
-                      ? errorLabel(stat.error)
-                      : stat?.received
-                        ? i18n.text('已收到浏览数据')
-                        : stat
-                          ? i18n.text('待验证')
-                          : i18n.text('等待查询')}
-                  </Badge>
-                </TableCell>,
-                <MetricRows
-                  key="views"
-                  kind="count"
-                  timezone={c.range.timezone}
-                  readAt={readAt}
-                  today={dayRead ? dayRead.views : null}
-                  yesterday={yesterday ? yesterday.pageviews : null}
-                />,
-                <MetricRows
-                  key="visitors"
-                  kind="count"
-                  labels={false}
-                  timezone={c.range.timezone}
-                  readAt={readAt}
-                  today={dayRead ? dayRead.visitors : null}
-                  yesterday={yesterday ? yesterday.visitors : null}
-                />,
-                <MetricRows
-                  key="bounce"
-                  kind="percent"
-                  labels={false}
-                  timezone={c.range.timezone}
-                  readAt={readAt}
-                  today={dayRead ? bounceRateLabel(dayRead) : null}
-                  yesterday={yesterday ? bounceRateLabel(yesterday) : null}
-                />,
-                <MetricRows
-                  key="ai"
-                  kind="count"
-                  labels={false}
-                  timezone={c.range.timezone}
-                  readAt={readAt}
-                  today={dayRead ? dayRead.aiVisits : null}
-                  yesterday={yesterday ? yesterday.aiVisits : null}
-                />,
-                <TableCell
-                  sortValue={[i18n.source('网站设置'), i18n.source('查看统计')]}
-                  searchValue={[i18n.english.text('网站设置'), i18n.english.text('查看统计')]}
-                >
-                  <div className="actions" key="actions" onClick={event => event.stopPropagation()}>
-                    <LinkButton page="website-settings" params={{ websiteId: websiteHandle(site) }}>
-                      {i18n.text('网站设置')}
-                    </LinkButton>
-                    <LinkButton page="overview" params={{ websiteId: websiteHandle(site) }}>
-                      {i18n.text('查看统计')}
-                    </LinkButton>
-                  </div>
-                </TableCell>,
-              ];
-            })}
-            empty={i18n.text('还没有网站。添加网站后安装专用跟踪代码。')}
-          />
-          <p className="metric-note">
-            {i18n.fragment(
-              '口径：访问次数为页面浏览 PV；访客数与跳出率按会话统计；AI访问次数为 AI 搜索引荐会话；预计今日按当天已流逝进度折算，跳出率不提供预计值。 今日与预计今日对应',
-              false,
-              true,
-            )}{' '}
-            {formatInTimeZone(readAt, c.range.timezone, 'yyyy-MM-dd')}。
-          </p>
+        {/* Statistics report their own loading and failures; website metadata stays usable. */}
+        <QueryState query={query} readOnly>
+          {null}
         </QueryState>
+        <Table
+          mobile
+          rowKeys={c.sites.map(site => site.id)}
+          columns={[
+            '网站',
+            '所属空间',
+            '浏览采集状态',
+            '访问次数',
+            '访客数',
+            '跳出率',
+            'AI访问次数',
+            '操作',
+          ]}
+          numeric={[3, 4, 5, 6]}
+          static={[3, 4, 5, 6]}
+          search
+          onRowClick={(_, index) =>
+            c.navigate('overview', { websiteId: websiteHandle(c.sites[index]) })
+          }
+          rows={c.sites.map(site => {
+            const stat =
+              stats.find(row => row.id === site.id) ||
+              (query.error ? { error: query.error } : undefined);
+            const day = todayStats.find(row => row.id === site.id);
+            const dayRead = day && !day.error ? day : null;
+            const yesterday = dayRead ? dayRead.comparison : null;
+            return [
+              <>
+                <Link
+                  className="table-title"
+                  href={c.href('overview', { websiteId: websiteHandle(site) })}
+                >
+                  {site.name}
+                </Link>
+                <span className="table-meta">{site.domain}</span>
+              </>,
+              <TableCell
+                sortValue={
+                  c.teams.find(team => team.id === site.teamId)?.name ||
+                  (site.teamId ? i18n.source('团队空间') : i18n.source('个人空间'))
+                }
+                searchValue={
+                  c.teams.find(team => team.id === site.teamId)?.name ||
+                  (site.teamId ? i18n.english.text('团队空间') : i18n.english.text('个人空间'))
+                }
+              >
+                {c.teams.find(team => team.id === site.teamId)?.name ||
+                  (site.teamId ? i18n.text('团队空间') : i18n.text('个人空间'))}
+              </TableCell>,
+              <TableCell
+                sortValue={
+                  stat?.error
+                    ? errorLabel(stat.error)
+                    : stat?.received
+                      ? i18n.source('已收到浏览数据')
+                      : stat
+                        ? i18n.source('待验证')
+                        : i18n.source('等待查询')
+                }
+                searchValue={i18n.english.system(
+                  stat?.error
+                    ? errorLabel(stat.error)
+                    : stat?.received
+                      ? i18n.english.text('已收到浏览数据')
+                      : stat
+                        ? i18n.english.text('待验证')
+                        : i18n.english.text('等待查询'),
+                )}
+              >
+                <Badge
+                  key="badge"
+                  tone={
+                    stat?.error
+                      ? [401, 403].includes(stat.error.status)
+                        ? 'gray'
+                        : 'red'
+                      : stat?.received
+                        ? 'green'
+                        : 'amber'
+                  }
+                >
+                  {stat?.error
+                    ? errorLabel(stat.error)
+                    : stat?.received
+                      ? i18n.text('已收到浏览数据')
+                      : stat
+                        ? i18n.text('待验证')
+                        : i18n.text('等待查询')}
+                </Badge>
+              </TableCell>,
+              <MetricRows
+                key="views"
+                loading={todayQuery.isPending}
+                kind="count"
+                timezone={c.range.timezone}
+                readAt={readAt}
+                today={dayRead ? dayRead.views : null}
+                yesterday={yesterday ? yesterday.pageviews : null}
+              />,
+              <MetricRows
+                key="visitors"
+                loading={todayQuery.isPending}
+                kind="count"
+                labels={false}
+                timezone={c.range.timezone}
+                readAt={readAt}
+                today={dayRead ? dayRead.visitors : null}
+                yesterday={yesterday ? yesterday.visitors : null}
+              />,
+              <MetricRows
+                key="bounce"
+                loading={todayQuery.isPending}
+                kind="percent"
+                labels={false}
+                timezone={c.range.timezone}
+                readAt={readAt}
+                today={dayRead ? bounceRateLabel(dayRead) : null}
+                yesterday={yesterday ? bounceRateLabel(yesterday) : null}
+              />,
+              <MetricRows
+                key="ai"
+                loading={todayQuery.isPending}
+                kind="count"
+                labels={false}
+                timezone={c.range.timezone}
+                readAt={readAt}
+                today={dayRead ? dayRead.aiVisits : null}
+                yesterday={yesterday ? yesterday.aiVisits : null}
+              />,
+              <TableCell
+                sortValue={[i18n.source('网站设置'), i18n.source('查看统计')]}
+                searchValue={[i18n.english.text('网站设置'), i18n.english.text('查看统计')]}
+              >
+                <div className="actions" key="actions" onClick={event => event.stopPropagation()}>
+                  <LinkButton page="website-settings" params={{ websiteId: websiteHandle(site) }}>
+                    {i18n.text('网站设置')}
+                  </LinkButton>
+                  <LinkButton page="overview" params={{ websiteId: websiteHandle(site) }}>
+                    {i18n.text('查看统计')}
+                  </LinkButton>
+                </div>
+              </TableCell>,
+            ];
+          })}
+          empty={i18n.text('还没有网站。添加网站后安装专用跟踪代码。')}
+        />
+        <p className="metric-note">
+          {i18n.fragment(
+            '口径：访问次数为页面浏览 PV；访客数与跳出率按会话统计；AI访问次数为 AI 搜索引荐会话；预计今日按当天已流逝进度折算，跳出率不提供预计值。 今日与预计今日对应',
+            false,
+            true,
+          )}{' '}
+          {formatInTimeZone(readAt, c.range.timezone, 'yyyy-MM-dd')}。
+        </p>
       </Panel>
       {partial && (
         <Notice tone="amber">
