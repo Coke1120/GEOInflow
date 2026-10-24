@@ -32,6 +32,7 @@ vi.mock('@/queries/sql', () => ({ getFunnel: vi.fn() }));
 import { liekanReportSchema } from './contracts/report';
 import { pageReportParts, type ReportResource } from './contracts/page-report';
 import { buildReport } from './report';
+import { withDashboardClock } from './upstream/dashboard-clock';
 import { sharedReportParts } from './contracts/shared-report';
 import { geographyLabel, regionName } from './contracts/geography';
 
@@ -1095,3 +1096,28 @@ it.each([false, true])(
     }
   },
 );
+
+it('keeps the selected trend start while a dashboard batch clips its data end', async () => {
+  const selectedEnd = +new Date('2026-10-24T23:59:59.999+08:00');
+  const cutoff = +new Date('2026-10-24T10:05:00+08:00');
+  await withDashboardClock(
+    cutoff,
+    () =>
+      buildReport(
+        website,
+        false,
+        {
+          ...params,
+          resource: 'overview',
+          startAt: +new Date('2026-09-25T00:00:00+08:00'),
+          endAt: selectedEnd,
+          timezone: 'Asia/Shanghai',
+          chartPeriod: '30d',
+        },
+        true,
+      ),
+  );
+  expect(mocks.humanDays.mock.calls[0][1]).toEqual(new Date(selectedEnd - 30 * 86400000));
+  expect(mocks.plotLogs.mock.calls[0][1]).toEqual(new Date(selectedEnd - 30 * 86400000));
+  expect(mocks.humanDays.mock.calls[0][2]).toEqual(new Date(cutoff - 1));
+});

@@ -117,7 +117,7 @@ export async function buildReport(
   }
   const readEndAt =
     clock || (p.crawlerMetricsVersion === 1 && p.resource.startsWith('ai/'))
-      ? Math.min(p.endAt, now)
+      ? Math.min(p.endAt, now - (clock && p.crawlerMetricsVersion !== 1 ? 1 : 0))
       : p.endAt;
   if (readEndAt < p.startAt || p.endAt - p.startAt > 1096 * 86400000 || p.endAt > latestEnd)
     throw new LiekanError('日期范围无效，上限 3 年');
@@ -130,7 +130,7 @@ export async function buildReport(
   const plotStart = new Date(
     Math.max(
       pageOnly === 'share' ? p.startAt : 0,
-      readEndAt - { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000,
+      (clock ? p.endAt : readEndAt) - { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000,
     ),
   );
   const [

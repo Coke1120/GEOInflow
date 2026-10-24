@@ -5,7 +5,7 @@ import { LiekanError } from './errors';
 
 export const DASHBOARD_INTERVAL = 5 * 60000;
 export const DASHBOARD_SETTLE = 60000;
-export const DASHBOARD_FORMAT = 'dashboard-snapshot-v1';
+export const DASHBOARD_FORMAT = 'dashboard-snapshot-v2';
 
 /** Closed five-minute buckets have a one-minute ingestion buffer. */
 export function dashboardCutoff(now = Date.now()) {
@@ -30,9 +30,7 @@ export function dashboardWindow(target: string, parameters: Record<string, any>,
   const closed = dashboardCutoff(now);
   const hasClosed = closed - (halfOpen ? 0 : 1) >= start;
   const cutoff =
-    hot && !hasClosed
-      ? (Math.floor(start / DASHBOARD_INTERVAL) + 1) * DASHBOARD_INTERVAL
-      : closed;
+    hot && !hasClosed ? (Math.floor(start / DASHBOARD_INTERVAL) + 1) * DASHBOARD_INTERVAL : closed;
   const through = hot ? cutoff : end + (halfOpen ? 0 : 1);
   const effectiveEnd = Math.min(end, cutoff - (halfOpen ? 0 : 1));
   return {
@@ -43,7 +41,8 @@ export function dashboardWindow(target: string, parameters: Record<string, any>,
     computable: !hot || hasClosed,
     availableAt: cutoff + DASHBOARD_SETTLE,
     nextRefresh: (Math.floor(now / DASHBOARD_INTERVAL) + 1) * DASHBOARD_INTERVAL + DASHBOARD_SETTLE,
-    parameters: hot ? { ...parameters, endAt: effectiveEnd } : parameters,
+    parameters:
+      hot && target !== 'feature:page-report' ? { ...parameters, endAt: effectiveEnd } : parameters,
     // Entry attribution, comparison periods and six-month trends can depend on earlier facts.
     dependencyEnd: hot
       ? Math.max(effectiveEnd + (halfOpen ? 0 : 1), dedicatedToday ? cutoff : 0)
