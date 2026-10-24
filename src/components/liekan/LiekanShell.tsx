@@ -15,6 +15,8 @@ import { featureSiteQuery } from '@/lib/liekan/upstream/features-client';
 import { websiteMatchesHandle } from '@/lib/liekan/website-handle';
 import reference from '@/styles/liekan/Reference.module.css';
 import styles from '@/styles/liekan/Shell.module.css';
+import localeStyles from '@/styles/liekan/LanguageSelector.module.css';
+import { LanguageSelector } from './LanguageSelector';
 import { AnalysisTabs } from './AnalysisTabs';
 import { DataLoading } from './DataLoading';
 import { featureNavigationHref, matchFeatureRoute } from './features/routes';
@@ -78,11 +80,15 @@ export function LiekanShell({ children, user }: { children: ReactNode; user: Fea
         />
         <div className={styles.content} id="main-content">
           <div className={`${styles.pageBody} ${isGeo ? reference.root : styles.coreFrame}`}>
-            {navigationFor(route).scope === 'website' && (
+            {navigationFor(route).scope === 'website' ? (
               <WebsiteToolbar
                 contextRef={setWebsiteContextTarget}
                 actionsRef={setWebsiteActionsTarget}
               />
+            ) : (
+              <div className={localeStyles.standalone}>
+                <LanguageSelector toolbar />
+              </div>
             )}
             {isGeo && !currentMetadata && metadata.isError ? (
               <>

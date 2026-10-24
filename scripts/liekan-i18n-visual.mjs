@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { JSDOM } from 'jsdom';
 import { execFileSync } from 'node:child_process';
 import { isolatedAcceptanceTarget } from './liekan-acceptance-target.mjs';
+import { checkDialog } from './liekan-dialog-contract.mjs';
 
 const normalize = text => text.trim().replace(/\s+/g, ' ');
 const english = new Map();
@@ -12,6 +13,50 @@ for (const directory of ['messages', 'help-messages']) {
   for (const [key, source] of Object.entries(zh)) english.set(normalize(source), en[key]);
 }
 const label = source => english.get(normalize(source)) || source;
+
+export function languageHeaderGeometry() {
+  const surface = document.querySelector('[role="dialog"][aria-modal="true"]') || document;
+  const entries = [...surface.querySelectorAll('[data-language-placement="header"]')];
+  const entry = entries[0];
+  const control = entry?.querySelector('select');
+  const rect = control?.getBoundingClientRect();
+  const group = entry?.closest(
+    '[data-website-toolbar-actions],.header-actions,[data-public-language]',
+  );
+  const groupRect = group?.getBoundingClientRect();
+  return {
+    count: entries.length,
+    visible: !!rect && rect.width > 0 && rect.height > 0,
+    language: control?.value,
+    left: rect?.left,
+    right: rect?.right,
+    top: rect
+      ? rect.top - (surface === document ? 0 : surface.getBoundingClientRect().top)
+      : undefined,
+    height: rect?.height,
+    width: innerWidth,
+    groupRight: groupRect
+      ? groupRect.right - parseFloat(getComputedStyle(group).paddingRight || '0')
+      : undefined,
+  };
+}
+
+export function assertLanguageHeader(state, locale = 'en-US') {
+  assert.equal(state.count, 1, 'Every page has one upper-right language entry');
+  assert(state.visible, 'Header language selector must be visible');
+  assert.equal(state.language, locale, 'Header follows the selected language');
+  assert(state.left >= 0 && state.right <= state.width + 1, 'Language selector fits the viewport');
+  assert(
+    state.right > state.width / 2 && state.top < 230,
+    'Language selector stays at the upper right',
+  );
+  assert(
+    state.height >= (state.width <= 640 ? 44 : 36),
+    'Language selector retains its touch target',
+  );
+  if (state.groupRight !== undefined)
+    assert(Math.abs(state.groupRight - state.right) <= 2, 'Language is the last header control');
+}
 
 export function englishPageGeometry() {
   return {
@@ -236,6 +281,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
           await page.goto(base + route.path);
           await settled(page);
           assertEnglishRouteIdentity(route, page.url(), await page.title());
+          assertLanguageHeader(await page.evaluate(languageHeaderGeometry));
           if (route.id === 'share-preview') {
             await assertShareLayout(page);
             assert(
@@ -345,6 +391,135 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       );
       await assertShareLayout(actual);
       report.checks.push({ name: 'management-share-preview-no-overlap', width, passed: true });
+      await shared.goto(base + '/unknown-language-acceptance-page');
+      await shared.waitForLoadState('networkidle');
+      assertLanguageHeader(await shared.evaluate(languageHeaderGeometry));
+      assert(
+        !/[\u3400-\u9fff]/.test(await shared.locator('h1').innerText()),
+        'Unknown-route heading is English',
+      );
+      report.checks.push({ name: 'unknown-route-language-entry', width, passed: true });
+      const dialogs = [
+        ['teams', '创建团队', '创建团队'],
+        ['admin-users', '创建用户', '创建系统用户'],
+        ['admin-websites', '按空间筛选', '按所属空间筛选'],
+        ['sharing', '创建分享链接', '创建分享链接'],
+        ['account', '修改用户名', '修改用户名'],
+        ['account', '修改密码', '修改密码'],
+        ['api-keys', '创建密钥', '创建 API 密钥'],
+        ['website-settings', '导入网站日志', '导入访问日志', { section: 'collection' }, 'wide'],
+        ['website-settings', '管理内容目录', '管理内容目录', { section: 'collection' }, 'wide'],
+        [
+          'website-settings',
+          '编辑 robots.txt',
+          '编辑 robots.txt',
+          { section: 'collection' },
+          'wide',
+        ],
+        ['website-settings', '管理蜘蛛白名单', '管理蜘蛛白名单', { section: 'collection' }],
+        ['website-settings', '浏览流量质量', '浏览流量质量', { section: 'collection' }, 'wide'],
+        ['website-settings', '转移网站', '转移网站所属空间', { section: 'danger' }],
+        ['website-settings', '清空访问数据', '清空访问数据', { section: 'danger' }],
+        ['website-settings', '删除网站', '删除网站', { section: 'danger' }],
+      ];
+      for (const [id, trigger, title, params, size = 'standard'] of dialogs) {
+        const route = routes.find(route => route.id === id);
+        const url = new URL(base + route.path);
+        for (const [key, value] of Object.entries(params || {})) url.searchParams.set(key, value);
+        await actual.goto(url.toString());
+        await settled(actual);
+        await actual.getByRole('button', { name: label(trigger), exact: true }).click();
+        const dialog = actual.getByRole('dialog', { name: label(title), exact: true });
+        await dialog.waitFor();
+        await actual.waitForLoadState('networkidle');
+        const geometry = await checkDialog(actual, size);
+        const texts = await dialog.evaluate(element => {
+          const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+          const values = [];
+          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+            if (!node.parentElement.closest('pre,code,textarea,script'))
+              values.push(node.textContent);
+          }
+          for (const control of element.querySelectorAll('[aria-label],[placeholder]'))
+            values.push(
+              control.getAttribute('aria-label') || '',
+              control.getAttribute('placeholder') || '',
+            );
+          return values;
+        });
+        assert.deepEqual(
+          texts.map(normalize).filter(text => english.has(text) && label(text) !== text),
+          [],
+          `${title}: English dialog copy`,
+        );
+        await actual.screenshot({
+          path: `${out}/dialog-${id}-${normalize(trigger)}-${width}.png`,
+          animations: 'disabled',
+        });
+        await actual.keyboard.press('Escape');
+        await dialog.waitFor({ state: 'hidden' });
+        report.checks.push({ name: 'english-dialog', id, title, width, geometry, passed: true });
+      }
+      const forced = await context(width, token);
+      let setupRequests = 0;
+      await forced.route(base + '/api/2fa/status*', route =>
+        route.fulfill({
+          json: {
+            isEnabled: false,
+            isRequired: true,
+            isConfigured: true,
+            globalRequired: true,
+            requiredReason: 'global',
+          },
+        }),
+      );
+      await forced.route(base + '/api/2fa/setup/initiate', route => {
+        setupRequests++;
+        return route.fulfill({ json: { manualKey: 'LOCAL_BROWSER_FIXTURE_KEY' } });
+      });
+      await forced.route(base + '/api/2fa/setup/confirm', route =>
+        route.fulfill({ json: { backupCodes: ['LOCAL-BROWSER-FIXTURE-CODE'] } }),
+      );
+      const requiredPage = await forced.newPage();
+      await requiredPage.goto(base + routes.find(route => route.id === 'geo-0').path);
+      const setup = requiredPage.getByRole('dialog');
+      const setupLanguage = setup.getByRole('combobox', { name: 'Language / 语言' });
+      await setupLanguage.waitFor();
+      await setup.getByRole('textbox', { name: 'Digit 1', exact: true }).fill('1');
+      await setupLanguage.selectOption('zh-CN');
+      await requiredPage.waitForFunction(() => document.documentElement.lang === 'zh-CN');
+      await setupLanguage.selectOption('en-US');
+      await requiredPage.waitForFunction(() => document.documentElement.lang === 'en-US');
+      assert.equal(
+        await setup.getByRole('textbox', { name: 'Digit 1', exact: true }).inputValue(),
+        '1',
+      );
+      assert.equal(setupRequests, 1, 'Changing language does not restart required setup');
+      for (let digit = 2; digit <= 6; digit++)
+        await setup
+          .getByRole('textbox', { name: `Digit ${digit}`, exact: true })
+          .fill(String(digit));
+      await setup.getByText('LOCAL-BROWSER-FIXTURE-CODE', { exact: true }).waitFor();
+      const saved = setup.getByRole('checkbox');
+      await saved.check();
+      await setupLanguage.selectOption('zh-CN');
+      await requiredPage.waitForFunction(() => document.documentElement.lang === 'zh-CN');
+      await setupLanguage.selectOption('en-US');
+      await requiredPage.waitForFunction(() => document.documentElement.lang === 'en-US');
+      assert(await saved.isChecked(), 'Recovery-code acknowledgement survives language switching');
+      assert(await setup.getByText('LOCAL-BROWSER-FIXTURE-CODE', { exact: true }).isVisible());
+      assertLanguageHeader(await requiredPage.evaluate(languageHeaderGeometry));
+      await requiredPage.screenshot({
+        path: `${out}/required-two-factor-${width}.png`,
+        animations: 'disabled',
+      });
+      report.checks.push({
+        name: 'required-two-factor-and-recovery-language',
+        width,
+        fixture: 'browser-only-two-factor-responses',
+        passed: true,
+      });
+      await forced.close();
       await authenticated.close();
       await auth.close();
     }
@@ -362,9 +537,10 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     await page.goto(base + '/liekan/preferences');
     await settled(page);
     const range = page.locator('select[name="range"]');
-    const language = page
+    const preferenceLanguage = page
       .locator('#main-content')
       .getByRole('combobox', { name: 'Language / 语言' });
+    const language = page.locator('[data-language-placement="header"] select');
     const menuLanguage = page
       .locator('#account-navigation')
       .getByRole('combobox', { name: 'Language / 语言' });
@@ -381,6 +557,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       'zh-CN',
       'Account selector follows preferences selector',
     );
+    assert.equal(await preferenceLanguage.inputValue(), 'zh-CN', 'Preferences follow the header');
     await menuLanguage.selectOption('en-US');
     await page.waitForFunction(() => document.documentElement.lang === 'en-US');
     assert.equal(
@@ -458,9 +635,9 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     await page
       .locator('#liekan-navigation footer button[aria-controls="account-navigation"]')
       .click();
-    await page.getByRole('combobox', { name: 'Language / 语言' }).selectOption('zh-CN');
+    await page.locator('[data-language-placement="header"] select').selectOption('zh-CN');
     await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
-    await page.getByRole('combobox', { name: 'Language / 语言' }).selectOption('en-US');
+    await page.locator('[data-language-placement="header"] select').selectOption('en-US');
     await page.waitForFunction(() => document.documentElement.lang === 'en-US');
     await page.waitForLoadState('networkidle');
     assert.equal(page.url(), before.url, 'Language switch preserves resource and date/filter URL');
@@ -528,7 +705,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
     await page
       .locator('#liekan-navigation footer button[aria-controls="account-navigation"]')
       .click();
-    await page.getByRole('combobox', { name: 'Language / 语言' }).selectOption('zh-CN');
+    await page.locator('[data-language-placement="header"] select').selectOption('zh-CN');
     await page.waitForFunction(() => document.documentElement.lang === 'zh-CN');
     assert.equal(
       await page.getByRole('combobox', { name: '用途', exact: true }).inputValue(),
@@ -543,7 +720,7 @@ export async function checkEnglishExperience({ browser, base, seed, token, parti
       filteredIds,
       'Language switch retains purpose selection and results',
     );
-    await page.getByRole('combobox', { name: 'Language / 语言' }).selectOption('en-US');
+    await page.locator('[data-language-placement="header"] select').selectOption('en-US');
     await settled(page);
     report.checks.push({ name: 'english-help-search-and-purpose-filter', passed: true });
 

@@ -9,7 +9,7 @@ export function FeatureAuthEntry({ page }: { page: 'login' | 'login-2fa' | 'sso'
   useLiekanPageTitle({ login: '登录', 'login-2fa': '登录验证', sso: '单点登录' }[page]);
   return (
     <div data-liekan-features lang={locale}>
-      <LanguageSelector compact />
+      <LanguageSelector compact toolbar />
       <FeatureAuthPage page={page} />
     </div>
   );

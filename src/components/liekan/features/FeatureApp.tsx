@@ -376,7 +376,7 @@ export function FeatureApp({
       <FeatureProvider value={value}>
         <div data-liekan-features lang={i18n.locale} style={{ minHeight: '100dvh' }}>
           <div className={localeStyles.share} data-public-language>
-            <LanguageSelector />
+            <LanguageSelector toolbar />
           </div>
           <WorkspacePages page="share-preview" />
         </div>
@@ -495,6 +495,9 @@ export function FeatureApp({
     return (
       <FeatureProvider value={value}>
         <div data-liekan-features lang={i18n.locale} className="identity-flow">
+          <div className={localeStyles.standalone}>
+            <LanguageSelector toolbar />
+          </div>
           <main className="content" id="main-content" ref={mainContent} tabIndex={-1}>
             <h1 data-liekan-page-title>{i18n.system(currentTitle)}</h1>
             <AnalysisTabs
@@ -611,6 +614,7 @@ export function FeatureApp({
                     <Icon name="down" />
                   </label>
                 )}
+                {!websiteLayout && <LanguageSelector toolbar />}
               </div>
             </div>
           </header>

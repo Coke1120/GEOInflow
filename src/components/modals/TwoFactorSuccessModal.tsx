@@ -3,6 +3,7 @@ import { Button, Column, Dialog, Modal, Row, Text } from '@umami/react-zen';
 import { useState } from 'react';
 import { ControlledDialog } from '@/components/common/ControlledDialog';
 import { useMessages } from '@/components/hooks';
+import { LanguageSelector } from '@/components/liekan/LanguageSelector';
 import styles from './TwoFactorSuccessModal.module.css';
 
 interface TwoFactorSuccessModalProps {
@@ -36,6 +37,9 @@ export function TwoFactorSuccessModal({ backupCodes, onClose }: TwoFactorSuccess
         <Dialog title={t(labels.twoFactorSuccessTitle)} className={styles.dialog}>
           {() => (
             <Column gap="5">
+              <Row justifyContent="flex-end">
+                <LanguageSelector toolbar />
+              </Row>
               <Text>{t(messages.twoFactorEnabledDescription)}</Text>
 
               <Column gap="2">

@@ -49,6 +49,30 @@ function LiveLanguage({ children }: { children: React.ReactNode }) {
     </LiekanLocaleContext.Provider>
   );
 }
+it('synchronizes the header and preference entries while preserving a form draft and saved choice', async () => {
+  initializeLocale('zh-CN');
+  const view = render(
+    <LiveLanguage>
+      <LanguageSelector toolbar />
+      <Form onSubmit={vi.fn()}>
+        <Field label="Name" defaultValue="original" />
+        <LanguageSelector field />
+      </Form>
+    </LiveLanguage>,
+  );
+  const [header, preference] = screen.getAllByRole('combobox', { name: 'Language / 语言' });
+  expect(header).toHaveValue('zh-CN');
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'unsaved draft' } });
+  fireEvent.change(header, { target: { value: 'en-US' } });
+  await waitFor(() => expect(preference).toHaveValue('en-US'));
+  expect(screen.getByRole('textbox')).toHaveValue('unsaved draft');
+  expect(view.container.querySelector('form')).toHaveAttribute('data-unsaved', 'true');
+  clearFeatureLogin();
+  act(() => initializeLocale('zh-CN'));
+  expect(header).toHaveValue('en-US');
+  fireEvent.change(preference, { target: { value: 'zh-CN' } });
+  await waitFor(() => expect(header).toHaveValue('zh-CN'));
+});
 it('migrates a legacy preference and keeps it after logout, reinitialization and URL hints', async () => {
   localStorage.setItem(LOCALE_CONFIG, JSON.stringify('en-US'));
   history.replaceState({}, '', '/?locale=zh-CN');

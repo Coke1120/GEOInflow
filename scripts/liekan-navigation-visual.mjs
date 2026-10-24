@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { assertLanguageHeader, languageHeaderGeometry } from './liekan-i18n-visual.mjs';
 
 export async function checkNavigation(page, expected, width, baseline) {
+  assertLanguageHeader(await page.evaluate(languageHeaderGeometry), 'zh-CN');
   const sidebar = page.locator('#liekan-navigation');
   if (['auth', 'public'].includes(expected.scope)) {
     assert.equal(await sidebar.count(), 0, `${expected.scope} exposes private navigation`);

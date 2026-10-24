@@ -4746,6 +4746,39 @@
       "owner": "Liekan analytics cache maintenance",
       "constraint": "Keep private restoration limited to current full sessions and authorized resources",
       "removalCondition": "Remove when upstream provides equivalent browser snapshot authorization"
+    },
+    {
+      "path": "src/app/not-found.tsx",
+      "purpose": "Expose the shared persistent language selector on unknown-route pages",
+      "tests": [
+        "pnpm exec vitest run src/components/liekan/language.test.tsx",
+        "Liekan bilingual browser acceptance includes the unknown-route page"
+      ],
+      "owner": "Liekan UI maintenance",
+      "constraint": "Preserve the upstream translated not-found heading and route status; add only the shared language entry",
+      "removalCondition": "Remove when the upstream error-page shell exposes the shared language selector"
+    },
+    {
+      "path": "src/components/modals/TwoFactorSetupModal.tsx",
+      "purpose": "Keep locale controls reachable during required two-factor setup and render existing API errors in the selected language",
+      "tests": [
+        "pnpm exec vitest run src/components/liekan/two-factor-language.test.tsx",
+        "Liekan isolated browser acceptance of required two-factor language switching"
+      ],
+      "owner": "Liekan UI maintenance",
+      "constraint": "Preserve required setup, OTP state, recovery codes and acknowledgement rules; store raw API errors and localize their display",
+      "removalCondition": "Remove when the upstream required identity flow provides the shared locale control"
+    },
+    {
+      "path": "src/components/modals/TwoFactorSuccessModal.tsx",
+      "purpose": "Keep the shared language selector reachable inside the enforced two-factor setup and recovery-code dialogs",
+      "tests": [
+        "pnpm exec vitest run src/components/liekan/two-factor-language.test.tsx",
+        "Liekan isolated browser acceptance of required two-factor language switching"
+      ],
+      "owner": "Liekan UI maintenance",
+      "constraint": "Add only the language entry; preserve required setup, OTP state, recovery codes and acknowledgement rules",
+      "removalCondition": "Remove when the upstream required identity flow provides the shared locale control"
     }
   ]
 }

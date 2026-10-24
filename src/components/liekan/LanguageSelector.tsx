@@ -7,9 +7,11 @@ import styles from '@/styles/liekan/LanguageSelector.module.css';
 export function LanguageSelector({
   compact = false,
   field = false,
+  toolbar = false,
 }: {
   compact?: boolean;
   field?: boolean;
+  toolbar?: boolean;
 }) {
   const { saveLocale } = useFeatureLocale();
   const { locale } = useLiekanI18n();
@@ -17,10 +19,24 @@ export function LanguageSelector({
   return (
     <div
       data-language-selector
-      className={`${styles.root} ${compact ? styles.compact : ''} ${field ? styles.field : ''}`}
+      data-language-placement={toolbar || compact ? 'header' : undefined}
+      className={`${styles.root} ${compact ? styles.compact : ''} ${field ? styles.field : ''} ${toolbar ? styles.toolbar : ''}`}
     >
       <label>
-        <span>Language / 语言</span>
+        <span className={toolbar ? styles.srOnly : undefined}>Language / 语言</span>
+        {toolbar && (
+          <svg
+            className={styles.globe}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18Z" />
+          </svg>
+        )}
         <select
           aria-label="Language / 语言"
           value={locale}

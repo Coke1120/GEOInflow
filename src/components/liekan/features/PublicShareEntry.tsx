@@ -47,7 +47,7 @@ export function PublicShareEntry({ slug, children }: { slug: string; children: R
   return (
     <div data-liekan-features lang={i18n.locale} style={{ minHeight: '100dvh' }}>
       <div className={localeStyles.share} data-public-language>
-        <LanguageSelector />
+        <LanguageSelector toolbar />
       </div>
       {search.get('legacy') === '1' ? (
         <LegacyGate slug={slug} page={page}>

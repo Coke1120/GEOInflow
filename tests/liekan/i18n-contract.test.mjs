@@ -10,6 +10,32 @@ const pair = (source, english) => {
   const key = `m_${createHash('sha256').update(source).digest('hex').slice(0, 12)}`;
   return [{ [key]: source }, { [key]: english }];
 };
+test('requires a visible, unique upper-right language entry with space for touch and the selected locale', async () => {
+  const { assertLanguageHeader } = await import('../../scripts/liekan-i18n-visual.mjs');
+  const valid = {
+    count: 1,
+    visible: true,
+    language: 'en-US',
+    left: 220,
+    right: 374,
+    top: 60,
+    height: 44,
+    width: 390,
+    groupRight: 374,
+  };
+  assert.doesNotThrow(() => assertLanguageHeader(valid));
+  for (const invalid of [
+    { count: 0 },
+    { count: 2 },
+    { visible: false },
+    { language: 'zh-CN' },
+    { right: 410 },
+    { height: 32 },
+    { top: 400 },
+    { groupRight: 350 },
+  ])
+    assert.throws(() => assertLanguageHeader({ ...valid, ...invalid }));
+});
 test('accepts complete, stable bilingual messages and preserved executable literals', () => {
   assert.doesNotThrow(() => assertLanguagePair(...pair('已读取 {v0} 条记录', 'Read {v0} records')));
   assert.doesNotThrow(() => assertLanguagePair(...pair('eq.AI 搜索引荐', 'eq.AI 搜索引荐')));

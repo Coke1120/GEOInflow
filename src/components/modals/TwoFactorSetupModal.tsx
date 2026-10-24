@@ -21,6 +21,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 import { ControlledDialog } from '@/components/common/ControlledDialog';
 import { OtpInput } from '@/components/common/OtpInput';
 import { useMessages, useUpdateQuery } from '@/components/hooks';
+import { LanguageSelector } from '@/components/liekan/LanguageSelector';
 import styles from './TwoFactorSetupModal.module.css';
 import { TwoFactorSuccessModal } from './TwoFactorSuccessModal';
 
@@ -62,7 +63,7 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
   const [manualKey, setManualKey] = useState<string | null>(null);
   const [otpValue, setOtpValue] = useState('');
   const [copied, setCopied] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | Error | null>(null);
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
 
   const queryClient = useQueryClient();
@@ -78,7 +79,7 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
           setQrCodeDataUrl(data.qrCodeDataUrl);
           setManualKey(data.manualKey);
         },
-        onError: (err: any) => setError(getErrorMessage(err) || t(messages.error)),
+        onError: (err: any) => setError(err ?? new Error()),
       },
     );
   }, []);
@@ -91,7 +92,7 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
       const data: any = await confirm({ token });
       setBackupCodes(data.backupCodes);
     } catch (err: any) {
-      setError(getErrorMessage(err) || t(messages.error));
+      setError(err ?? new Error());
     }
   };
 
@@ -128,6 +129,9 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
         <Dialog title={t(labels.twoFactorSetupTitle)} className={styles.twoFactorSetupModal}>
           {() => (
             <Column gap="9">
+              <Row justifyContent="flex-end">
+                <LanguageSelector toolbar />
+              </Row>
               <Text>
                 {required && `${t(messages.twoFactorSetupRequiredDescription)} `}
                 {t(messages.twoFactorSetupDescription)}
@@ -192,7 +196,7 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
 
               {error && (
                 <Alert variant="danger">
-                  <AlertTitle>{error}</AlertTitle>
+                  <AlertTitle>{getErrorMessage(error) || t(messages.error)}</AlertTitle>
                 </Alert>
               )}
 

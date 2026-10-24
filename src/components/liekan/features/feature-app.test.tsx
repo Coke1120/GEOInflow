@@ -41,7 +41,7 @@ vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
   clearFeatureLogin: vi.fn(),
   featureRequest: vi.fn(),
 }));
-vi.mock('./HistoryRepairNotice',()=>({HistoryRepairNotice:()=>null}));
+vi.mock('./HistoryRepairNotice', () => ({ HistoryRepairNotice: () => null }));
 vi.mock('./Chart', () => ({ Chart: () => <div>统计图表</div> }));
 vi.mock('./CorePages', () => ({ CorePages: () => null }));
 vi.mock('./AnalyticsPages', () => ({
@@ -96,6 +96,24 @@ beforeEach(() => {
   mocks.post.mockResolvedValue({});
 });
 describe('feature navigation scope', () => {
+  it.each([
+    { page: 'websites' },
+    { page: 'account' },
+    { page: 'admin-users' },
+    { page: 'sessions', websiteId: personal.id },
+    { page: 'sessions' },
+    { page: 'two-factor' },
+    { page: 'backup-codes' },
+    { page: 'access-denied' },
+  ])('offers language switching outside the account menu on $page', async route => {
+    const view = mount(route);
+    const entry = view.container.querySelector('[data-language-placement="header"]');
+    expect(entry).toBeVisible();
+    expect(entry.closest('#liekan-navigation')).toBeNull();
+    expect(entry.querySelector('select')).toHaveValue('zh-CN');
+    expect(view.container.querySelectorAll('[data-language-placement="header"]')).toHaveLength(1);
+  });
+
   it('reads global help without website or team queries and strips foreign identifiers', async () => {
     mount({ page: 'help', websiteId: personal.id, teamId, id: 'old-record' });
     expect(await screen.findByRole('heading', { name: '使用指南与参考资料' })).toBeInTheDocument();

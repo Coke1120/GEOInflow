@@ -35,8 +35,15 @@
   justify-content: flex-end;
   gap: 8px;
 }
-.actions:empty {
+.actionControls:empty {
   display: none;
+}
+.actionControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 .actions > div {
   justify-content: flex-end;

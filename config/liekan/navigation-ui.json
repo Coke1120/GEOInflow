@@ -1712,5 +1712,24 @@
     ],
     "route": "/settings/data-repair",
     "preserveOriginalBody": true
+  },
+  "languageSwitchApproval": {
+    "date": "2026-10-24",
+    "placement": "upper-right",
+    "locales": [
+      "zh-CN",
+      "en-US"
+    ],
+    "defaultLocale": "zh-CN",
+    "persist": "browser-cookie-and-storage",
+    "shells": [
+      "management",
+      "website",
+      "authentication",
+      "identity-setup",
+      "public-share",
+      "fallback"
+    ],
+    "preserveOriginalBody": true
   }
 }

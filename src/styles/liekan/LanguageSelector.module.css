@@ -32,6 +32,53 @@
   padding: 0 12px 8px;
   color: #b7791f;
 }
+.toolbar {
+  position: relative;
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+.toolbar label {
+  position: relative;
+  padding: 0;
+  flex-wrap: nowrap;
+}
+.toolbar select {
+  min-height: var(--lk-toolbar-control-height, 36px);
+  padding-left: 34px;
+  white-space: nowrap;
+}
+.globe {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.toolbar small {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(280px, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid #e5e9f0;
+  border-radius: 8px;
+  background: #fff;
+  line-height: 1.5;
+  z-index: 1;
+}
 .compact {
   position: absolute;
   top: 16px;
@@ -44,6 +91,11 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 8px 20px 0;
+}
+.standalone {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16px 24px 0;
 }
 .field label {
   flex-direction: column;
@@ -63,7 +115,7 @@
 }
 @media (max-width: 640px) {
   .root select {
-    min-height: 40px;
+    min-height: 44px;
   }
   .compact {
     position: static;
