@@ -1730,6 +1730,9 @@
       "public-share",
       "fallback"
     ],
-    "preserveOriginalBody": true
+    "preserveOriginalBody": true,
+    "headerRows": "title-or-website-and-language-first-actions-wrap-below",
+    "desktopToolbarMaxRows": 3,
+    "maxAdditionalHeaderHeight": 88
   }
 }

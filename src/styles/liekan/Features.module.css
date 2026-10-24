@@ -296,6 +296,32 @@
   margin-left: auto;
   min-width: 0;
 }
+:global([data-liekan-features] .header-inner:has(> [data-language-selector])) {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(0, auto) auto;
+}
+:global([data-liekan-features] .header-inner > [data-language-selector]) {
+  grid-column: 3;
+  grid-row: 1;
+}
+:global([data-liekan-features] .header-actions:empty) {
+  display: none;
+}
+@media (max-width: 1200px) {
+  :global([data-liekan-features] .header-inner:has(> [data-language-selector])) {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  :global([data-liekan-features] .header-inner:has(> [data-language-selector]) > .header-actions) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-left: 0;
+  }
+  :global([data-liekan-features] .header-inner > [data-language-selector]) {
+    grid-column: 2;
+  }
+}
 :global([data-liekan-features] .content) {
   max-width: 1200px;
   width: 100%;

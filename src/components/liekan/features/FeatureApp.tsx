@@ -614,8 +614,8 @@ export function FeatureApp({
                     <Icon name="down" />
                   </label>
                 )}
-                {!websiteLayout && <LanguageSelector toolbar />}
               </div>
+              {!websiteLayout && <LanguageSelector toolbar />}
             </div>
           </header>
           {showAnalysisTools && (

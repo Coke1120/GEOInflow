@@ -113,10 +113,12 @@
     background-image: none;
   }
 }
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .root select {
     min-height: 44px;
   }
+}
+@media (max-width: 640px) {
   .compact {
     position: static;
     display: flex;

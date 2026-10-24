@@ -24,6 +24,16 @@ test('requires a visible, unique upper-right language entry with space for touch
     groupRight: 374,
   };
   assert.doesNotThrow(() => assertLanguageHeader(valid));
+  assert.doesNotThrow(() =>
+    assertLanguageHeader({
+      ...valid,
+      width: 1024,
+      left: 884,
+      right: 1008,
+      groupRight: 1008,
+      pickerWidth: 160,
+    }),
+  );
   for (const invalid of [
     { count: 0 },
     { count: 2 },
@@ -31,8 +41,12 @@ test('requires a visible, unique upper-right language entry with space for touch
     { language: 'zh-CN' },
     { right: 410 },
     { height: 32 },
+    { width: 768, left: 628, right: 752, groupRight: 752, height: 36 },
     { top: 400 },
     { groupRight: 350 },
+    { pickerWidth: 22, width: 1024, left: 884, right: 1008, groupRight: 1008 },
+    { overlappingControls: ['Refresh'] },
+    { clippedControls: ['Export'] },
   ])
     assert.throws(() => assertLanguageHeader({ ...valid, ...invalid }));
 });
@@ -155,6 +169,14 @@ test('English browser guards inspect real GEO labels, chart states, owned auth c
       .appendChild(document.createElement('canvas'));
     assert.equal(englishChartsReady(), true);
     assert.doesNotThrow(() => assertRenderedEnglishState(englishPageGeometry(), true));
+    assert.throws(
+      () =>
+        assertRenderedEnglishState(
+          { ...englishPageGeometry(), clippedNavigation: ['Geography'] },
+          true,
+        ),
+      /Navigation labels fit/,
+    );
     document
       .querySelector('[data-liekan-chart-state]')
       .setAttribute('data-liekan-chart-state', 'failed');

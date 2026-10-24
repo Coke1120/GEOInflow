@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { assertLanguageHeader, languageHeaderGeometry } from './liekan-i18n-visual.mjs';
 
 export async function checkNavigation(page, expected, width, baseline) {
+  assert.equal(
+    baseline.languageSwitchApproval.maxAdditionalHeaderHeight,
+    (baseline.languageSwitchApproval.desktopToolbarMaxRows - 1) *
+      (baseline.websiteLayout.toolbar.desktopControlHeight + 8),
+    'Header allowance follows the approved wrapped rows',
+  );
   assertLanguageHeader(await page.evaluate(languageHeaderGeometry), 'zh-CN');
   const sidebar = page.locator('#liekan-navigation');
   if (['auth', 'public'].includes(expected.scope)) {
@@ -324,11 +330,22 @@ export async function checkNavigation(page, expected, width, baseline) {
       };
     });
     if (!mobile) {
-      assert.equal(topLayout.frame.height, baseline.websiteLayout.toolbar.desktopHeight);
+      const controlHeight = baseline.websiteLayout.toolbar.desktopControlHeight;
+      const maxRows = baseline.languageSwitchApproval.desktopToolbarMaxRows;
+      assert(topLayout.frame.height >= baseline.websiteLayout.toolbar.desktopHeight);
+      assert(
+        topLayout.frame.height <=
+          baseline.websiteLayout.toolbar.desktopHeight + (maxRows - 1) * (controlHeight + 8) + 1,
+        'Toolbar wraps within its approved header rows',
+      );
       for (const action of topLayout.actions) {
         assert.equal(action.height, baseline.websiteLayout.toolbar.desktopControlHeight);
-        assert(Math.abs(action.y - topLayout.picker.y) < 1, 'Top controls align horizontally');
-        assert(action.x >= topLayout.picker.x + topLayout.picker.width + 16);
+        assert(action.y >= topLayout.picker.y - 1, 'Toolbar actions stay below the first row');
+        assert(
+          action.x >= topLayout.picker.x + topLayout.picker.width + 16 ||
+            action.y >= topLayout.picker.y + topLayout.picker.height + 7,
+          'Wrapped actions stay clear of the website picker',
+        );
       }
     }
     if (await page.locator('[data-liekan-ui]').count()) {

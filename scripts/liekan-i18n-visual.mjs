@@ -20,10 +20,18 @@ export function languageHeaderGeometry() {
   const entry = entries[0];
   const control = entry?.querySelector('select');
   const rect = control?.getBoundingClientRect();
-  const group = entry?.closest(
-    '[data-website-toolbar-actions],.header-actions,[data-public-language]',
-  );
+  const group = entry?.closest('[data-website-toolbar],.header-inner,[data-public-language]');
   const groupRect = group?.getBoundingClientRect();
+  const websiteToolbar = entry?.closest('[data-website-toolbar]');
+  const picker = websiteToolbar?.querySelector('.site-switch')?.getBoundingClientRect();
+  const controls = websiteToolbar
+    ? [...websiteToolbar.querySelectorAll('[data-website-toolbar-actions] button')]
+        .map(element => ({
+          label: element.textContent.trim(),
+          rect: element.getBoundingClientRect(),
+        }))
+        .filter(control => control.rect.width > 0 && control.rect.height > 0)
+    : [];
   return {
     count: entries.length,
     visible: !!rect && rect.width > 0 && rect.height > 0,
@@ -35,6 +43,23 @@ export function languageHeaderGeometry() {
       : undefined,
     height: rect?.height,
     width: innerWidth,
+    pickerWidth: picker?.width,
+    overlappingControls: picker
+      ? controls
+          .filter(
+            ({ rect }) =>
+              rect.left < picker.right &&
+              rect.right > picker.left &&
+              rect.top < picker.bottom &&
+              rect.bottom > picker.top,
+          )
+          .map(control => control.label)
+      : [],
+    clippedControls: groupRect
+      ? controls
+          .filter(({ rect }) => rect.left < groupRect.left - 1 || rect.right > groupRect.right + 1)
+          .map(control => control.label)
+      : [],
     groupRight: groupRect
       ? groupRect.right - parseFloat(getComputedStyle(group).paddingRight || '0')
       : undefined,
@@ -44,6 +69,14 @@ export function languageHeaderGeometry() {
 export function assertLanguageHeader(state, locale = 'en-US') {
   assert.equal(state.count, 1, 'Every page has one upper-right language entry');
   assert(state.visible, 'Header language selector must be visible');
+  assert.deepEqual(
+    state.overlappingControls || [],
+    [],
+    'Toolbar actions do not overlap the website picker',
+  );
+  assert.deepEqual(state.clippedControls || [], [], 'Toolbar actions stay inside their frame');
+  if (state.width > 900 && state.pickerWidth !== undefined)
+    assert(state.pickerWidth >= 80, 'Website picker retains usable space');
   assert.equal(state.language, locale, 'Header follows the selected language');
   assert(state.left >= 0 && state.right <= state.width + 1, 'Language selector fits the viewport');
   assert(
@@ -51,7 +84,7 @@ export function assertLanguageHeader(state, locale = 'en-US') {
     'Language selector stays at the upper right',
   );
   assert(
-    state.height >= (state.width <= 640 ? 44 : 36),
+    state.height >= (state.width <= 900 ? 44 : 36),
     'Language selector retains its touch target',
   );
   if (state.groupRight !== undefined)
@@ -63,6 +96,14 @@ export function englishPageGeometry() {
     overflow: Math.max(0, document.documentElement.scrollWidth - innerWidth),
     width: innerWidth,
     title: document.title,
+    clippedNavigation: [...document.querySelectorAll('[data-navigation-primary] a > span')]
+      .filter(
+        element =>
+          element.textContent.trim() &&
+          element.clientWidth > 0 &&
+          element.scrollWidth > element.clientWidth + 1,
+      )
+      .map(element => element.textContent.trim()),
     empty: !document.body.textContent.trim(),
     contentLength: (
       document.querySelector('#main-content,main,article,.identity-flow')?.textContent || ''
@@ -116,6 +157,7 @@ export function assertRenderedEnglishState(state, analytics = false) {
     assert(state.analyticsTables > 0, 'Rendered analytics table is required');
   else if (analytics) assert(state.analyticsCards > 0, 'Rendered analytics cards are required');
   assert.deepEqual(state.untranslatedOwned, [], 'Owned interface text must be English');
+  assert.deepEqual(state.clippedNavigation || [], [], 'Navigation labels fit without clipping');
   assert(
     !state.readFailureHeads.some(text => [label('读取失败'), label('加载失败')].includes(text)),
     'Fixture data read must succeed',

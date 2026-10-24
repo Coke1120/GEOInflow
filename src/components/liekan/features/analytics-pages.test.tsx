@@ -226,7 +226,7 @@ it.each(['未提供', 'Not provided'])(
         <AnalyticsPages page="breakdown" />
       </LiekanLocaleContext.Provider>,
     );
-    expect(screen.getByRole('searchbox', { name: 'Search records on this page' })).toHaveValue(
+    expect(screen.getByRole('searchbox', { name: 'Search this page' })).toHaveValue(
       term,
     );
     expect(screen.getAllByRole('cell').map(cell => cell.textContent)).toContain('/missing');

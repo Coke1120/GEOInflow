@@ -501,17 +501,27 @@ try {
     if (await geoSummary.count()) {
       const box = await geoSummary.boundingBox();
       assert(box.height >= 80 && box.height <= 220, `${name} GEO summary must remain compact`);
-      assert(box.x >= 220 && box.x + box.width <= 1440, `${name} GEO summary must stay within the content`);
+      assert(
+        box.x >= 220 && box.x + box.width <= 1440,
+        `${name} GEO summary must stay within the content`,
+      );
       await geoSummary.evaluate(assertGeoWeightCardAppearance);
       await geoSummary.screenshot({ path: `${out}/${name}-geo-weight-summary.png` });
       // Validate the approved replacement, then restore only that reference cell in
       // this test browser to retain the original body, table and chart pixel oracle.
       const position = name === 'index' ? 3 : 2;
-      assert.equal(await geoSummary.evaluate(el => [...el.parentElement.children].indexOf(el)), position);
+      assert.equal(
+        await geoSummary.evaluate(el => [...el.parentElement.children].indexOf(el)),
+        position,
+      );
       assert.equal(await geoSummary.evaluate(el => el.parentElement.children.length), 4);
-      const originalMetric = await reference.locator('main > section.grid > .card').nth(position)
+      const originalMetric = await reference
+        .locator('main > section.grid > .card')
+        .nth(position)
         .evaluate(el => el.outerHTML);
-      await geoSummary.evaluate((element, html) => { element.outerHTML = html; }, originalMetric);
+      await geoSummary.evaluate((element, html) => {
+        element.outerHTML = html;
+      }, originalMetric);
     }
     const measure = (page, surface) =>
       page.evaluate(
@@ -552,13 +562,16 @@ try {
       measure(actual, 'actual'),
     ]);
     const approval = navigationBaseline.geoPixelApproval;
+    const languageHeaderAllowance =
+      navigationBaseline.languageSwitchApproval.maxAdditionalHeaderHeight;
     const verticalOffset = geometry.body.y - refGeometry.body.y;
     assert(
-      Math.abs(verticalOffset) <= approval.maxVerticalOffset,
+      Math.abs(verticalOffset) <= approval.maxVerticalOffset + languageHeaderAllowance,
       `${name} header offset exceeds approved bounds`,
     );
     assert(
-      refGeometry.body.y <= approval.maxHeaderHeight && geometry.body.y <= approval.maxHeaderHeight,
+      refGeometry.body.y <= approval.maxHeaderHeight &&
+        geometry.body.y <= approval.maxHeaderHeight + languageHeaderAllowance,
       `${name} approved header extends into content body`,
     );
     for (const key of ['x', 'width'])
@@ -674,9 +687,9 @@ try {
         id: r.id,
         max: Math.max(
           ...(name === 'ai-pages' || crawlerUiApproval?.wrapFilters
-            ? ['x', 'width', 'height'] : ['x', 'y', 'width', 'height']).map(
-            key => Math.abs(r[key] - (key === 'y' ? verticalOffset : 0) - ref[key]),
-          ),
+            ? ['x', 'width', 'height']
+            : ['x', 'y', 'width', 'height']
+          ).map(key => Math.abs(r[key] - (key === 'y' ? verticalOffset : 0) - ref[key])),
         ),
       };
     });
@@ -849,7 +862,10 @@ try {
           if (!approval.filters) return;
           const original = [...document.querySelectorAll('main .chip')];
           if (approval.wrapFilters) {
-            for (const container of [original[0].parentElement, original[0].parentElement.parentElement]) {
+            for (const container of [
+              original[0].parentElement,
+              original[0].parentElement.parentElement,
+            ]) {
               container.style.flexWrap = 'wrap';
               container.style.maxWidth = '100%';
             }
@@ -867,15 +883,24 @@ try {
     if (crawlerUiApproval?.wrapFilters) {
       const approvedGeometry = await measure(reference, 'approved-reference');
       for (const [index, panel] of approvedGeometry.cards.entries()) {
-        assert(['x', 'y', 'width', 'height'].every(key =>
-          Math.abs(geometry.cards[index][key] - (key === 'y' ? verticalOffset : 0) - panel[key]) <= 2),
-        `${name} approved filter layout changed panel ${index}`);
+        assert(
+          ['x', 'y', 'width', 'height'].every(
+            key =>
+              Math.abs(
+                geometry.cards[index][key] - (key === 'y' ? verticalOffset : 0) - panel[key],
+              ) <= 2,
+          ),
+          `${name} approved filter layout changed panel ${index}`,
+        );
       }
       for (const expected of approvedGeometry.charts) {
         const chart = geometry.charts.find(chart => chart.id === expected.id);
-        assert(['x', 'y', 'width', 'height'].every(key =>
-          Math.abs(chart[key] - (key === 'y' ? verticalOffset : 0) - expected[key]) <= 2),
-        `${name} chart geometry after approved filter wrapping`);
+        assert(
+          ['x', 'y', 'width', 'height'].every(
+            key => Math.abs(chart[key] - (key === 'y' ? verticalOffset : 0) - expected[key]) <= 2,
+          ),
+          `${name} chart geometry after approved filter wrapping`,
+        );
       }
     }
     let crawlerPagesChecks = null;
