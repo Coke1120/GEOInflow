@@ -90,42 +90,38 @@ it('keeps the saved-code acknowledgement and original recovery codes through a l
   await waitFor(() => expect(dialog).toHaveTextContent('Two-factor authentication enabled'));
   expect(within(dialog).getByRole('checkbox')).toBeChecked();
   expect(dialog).toHaveTextContent('LOCAL-TEST-CODE');
-  expect(within(dialog).getByRole('button', { name: 'Close', exact: true })).toBeEnabled();
+  expect(within(dialog).getByRole('button', { name: 'Close' })).toBeEnabled();
 });
 
-it.each(['initiate', 'confirm'])(
-  'updates an existing %s error in the selected language',
-  async phase => {
-    const issue = Object.assign(new Error(), { code: 'two-factor-error-invalid-code' });
-    if (phase === 'initiate')
-      mocks.initiate.mockImplementation((_data, callbacks) => callbacks.onError(issue));
-    else mocks.confirm.mockRejectedValue(issue);
-    const client = new QueryClient();
-    render(
-      <QueryClientProvider client={client}>
-        <Languages>
-          <TwoFactorSetupModal required />
-        </Languages>
-      </QueryClientProvider>,
-    );
-    const dialog = await screen.findByRole('dialog');
-    if (phase === 'confirm') {
-      fireEvent.change(within(dialog).getByRole('textbox', { name: 'Verification code' }), {
-        target: { value: '123456' },
-      });
-      fireEvent.click(
-        within(dialog).getByRole('button', { name: chinese.label.confirm, exact: true }),
-      );
-    }
-    await waitFor(() =>
-      expect(dialog).toHaveTextContent(chinese.message['two-factor-error-invalid-code']),
-    );
-    fireEvent.change(within(dialog).getByRole('combobox', { name: 'Language / 语言' }), {
-      target: { value: 'en-US' },
+it.each([
+  ['initiate', 'two-factor-error-invalid-code'],
+  ['confirm', 'two-factor-error-invalid-code'],
+  ['initiate', 'error'],
+  ['confirm', 'error'],
+])('updates an existing %s %s error in the selected language', async (phase, code) => {
+  const issue = code === 'error' ? undefined : Object.assign(new Error(), { code });
+  if (phase === 'initiate')
+    mocks.initiate.mockImplementation((_data, callbacks) => callbacks.onError(issue));
+  else mocks.confirm.mockRejectedValue(issue);
+  const client = new QueryClient();
+  render(
+    <QueryClientProvider client={client}>
+      <Languages>
+        <TwoFactorSetupModal required />
+      </Languages>
+    </QueryClientProvider>,
+  );
+  const dialog = await screen.findByRole('dialog');
+  if (phase === 'confirm') {
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Verification code' }), {
+      target: { value: '123456' },
     });
-    await waitFor(() =>
-      expect(dialog).toHaveTextContent(english.message['two-factor-error-invalid-code']),
-    );
-    client.clear();
-  },
-);
+    fireEvent.click(within(dialog).getByRole('button', { name: chinese.label.confirm }));
+  }
+  await waitFor(() => expect(dialog).toHaveTextContent(chinese.message[code]));
+  fireEvent.change(within(dialog).getByRole('combobox', { name: 'Language / 语言' }), {
+    target: { value: 'en-US' },
+  });
+  await waitFor(() => expect(dialog).toHaveTextContent(english.message[code]));
+  client.clear();
+});

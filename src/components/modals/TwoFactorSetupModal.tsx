@@ -79,7 +79,7 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
           setQrCodeDataUrl(data.qrCodeDataUrl);
           setManualKey(data.manualKey);
         },
-        onError: (err: any) => setError(err ?? new Error()),
+        onError: (err: any) => setError(err ?? Object.assign(new Error(), { code: 'error' })),
       },
     );
   }, []);
@@ -92,7 +92,7 @@ export function TwoFactorSetupModal({ required, onClose }: TwoFactorSetupModalPr
       const data: any = await confirm({ token });
       setBackupCodes(data.backupCodes);
     } catch (err: any) {
-      setError(err ?? new Error());
+      setError(err ?? Object.assign(new Error(), { code: 'error' }));
     }
   };
 
