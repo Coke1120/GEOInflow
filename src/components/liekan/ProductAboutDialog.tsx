@@ -1,0 +1,161 @@
+'use client';
+
+import Link from '@/components/liekan/Link';
+import {
+  liekanProduct,
+  liekanProjectInitiators,
+  liekanPublisherLinks,
+} from '@/lib/liekan/contracts/product';
+import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import styles from '@/styles/liekan/ProductAboutDialog.module.css';
+import { DialogActions, LiekanDialog } from './features/LiekanDialog';
+
+function GitHubIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 .8a11.4 11.4 0 0 0-3.6 22.2c.57.1.78-.25.78-.55v-2.12c-3.18.69-3.85-1.35-3.85-1.35-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.7.08-.7 1.15.08 1.75 1.18 1.75 1.18 1.02 1.75 2.68 1.24 3.33.95.1-.74.4-1.24.73-1.53-2.54-.29-5.21-1.27-5.21-5.66 0-1.25.44-2.27 1.18-3.07-.12-.29-.51-1.45.11-3.02 0 0 .96-.31 3.13 1.17a10.9 10.9 0 0 1 5.7 0c2.17-1.48 3.12-1.17 3.12-1.17.63 1.57.24 2.73.12 3.02.73.8 1.18 1.82 1.18 3.07 0 4.4-2.68 5.37-5.23 5.65.41.36.78 1.05.78 2.12v3.14c0 .3.2.66.79.55A11.4 11.4 0 0 0 12 .8Z" />
+    </svg>
+  );
+}
+
+function ExternalIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <path d="M7 17 17 7M7 7h10v10" />
+    </svg>
+  );
+}
+
+export function ProductAboutDialog({ onClose }: { onClose: () => void }) {
+  const i18n = useLiekanI18n();
+  return (
+    <LiekanDialog
+      size="wide"
+      className={styles.root}
+      protectUnsaved={false}
+      onClose={onClose}
+      title={
+        <span className={styles.heading}>
+          <img src={`${process.env.basePath || ''}/liekan/features/logo.svg`} alt="" />
+          <span>
+            <span className={styles.titleLine}>
+              <span>{liekanProduct.name}</span>
+              <span className={styles.version}>v{liekanProduct.displayVersion}</span>
+            </span>
+            <span className={styles.caption}>
+              {liekanProduct.caption} · {i18n.text('AI 与搜索流量分析')}
+            </span>
+          </span>
+        </span>
+      }
+    >
+      <div className={styles.columns} data-product-about>
+        <div>
+          <section>
+            <h3 className={styles.sectionTitle}>{i18n.text('联合开源')}</h3>
+            <div className={styles.publishers}>
+              <div className={styles.publisherNames}>
+                {liekanPublisherLinks.map(({ label, href }, index) => (
+                  <span className={styles.publisher} key={href}>
+                    {index > 0 && (
+                      <span className={styles.times} aria-hidden="true">
+                        ×
+                      </span>
+                    )}
+                    <a
+                      className={styles.publisherLink}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {label}
+                    </a>
+                  </span>
+                ))}
+              </div>
+              <p className={styles.publisherNote}>
+                {i18n.text('共同推动 GEO 分析工具的开放与共建')}
+              </p>
+            </div>
+          </section>
+          <section className={styles.initiators}>
+            <h3 className={styles.sectionTitle}>{i18n.text('项目发起人')}</h3>
+            {liekanProjectInitiators.map(({ name, initial, href, handle }, index) => (
+              <div className={styles.person} key={href}>
+                <span
+                  className={`${styles.avatar} ${index === 1 ? styles.neutralAvatar : ''}`}
+                  aria-hidden="true"
+                >
+                  {initial}
+                </span>
+                <div className={styles.personText}>
+                  <span className={styles.personName}>{name}</span>
+                  <span className={styles.personRole}>{i18n.text('项目发起人')}</span>
+                </div>
+                <a
+                  className={styles.profile}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={i18n.text('{v0}的 X 主页', [name])}
+                >
+                  {handle}
+                  <ExternalIcon />
+                </a>
+              </div>
+            ))}
+          </section>
+        </div>
+        <section className={styles.contributors} aria-label={i18n.text('开源贡献者')}>
+          <div className={styles.contributorHead}>
+            <h3>{i18n.text('开源贡献者')}</h3>
+            <span className={styles.source}>
+              <GitHubIcon />
+              GitHub
+            </span>
+          </div>
+          <p className={styles.thanks}>{i18n.text('感谢每一位参与 GEOInflow 建设的朋友。')}</p>
+          <div className={styles.pending}>
+            <GitHubIcon className={styles.pendingIcon} />
+            <h4>{i18n.text('GitHub 仓库待接入')}</h4>
+            <p>
+              {i18n.text('公开仓库接入后，将在这里自动展示贡献者头像、GitHub 用户名和个人主页。')}
+            </p>
+            <span className={styles.waiting}>
+              <span aria-hidden="true" />
+              {i18n.text('等待公开仓库接入')}
+            </span>
+          </div>
+        </section>
+      </div>
+      <DialogActions>
+        <div className={styles.credits}>
+          <a href={liekanProduct.links.license} target="_blank" rel="noopener noreferrer">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <path d="M12 3v17M4 6h16M7 6l-4 8h8L7 6Zm10 0-4 8h8l-4-8ZM7 21h10" />
+            </svg>
+            {i18n.text('MIT 开源许可')}
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href={liekanProduct.links.upstream} target="_blank" rel="noopener noreferrer">
+            {i18n.text('基于 Umami，感谢上游社区')}
+          </a>
+        </div>
+        <nav className={styles.actions} aria-label={i18n.text('项目相关链接')}>
+          <Link prefetch={false} href={liekanProduct.links.changelog} onClick={onClose}>
+            {i18n.text('更新日志')}
+          </Link>
+          <Link className="btn" prefetch={false} href={liekanProduct.links.about} onClick={onClose}>
+            {i18n.text('项目说明')}
+          </Link>
+        </nav>
+      </DialogActions>
+    </LiekanDialog>
+  );
+}

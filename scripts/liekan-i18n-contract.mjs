@@ -93,6 +93,7 @@ const protectedLiterals = new Set([
   'textarea[aria-label="分析问题"]',
 ]);
 const matcherHelp = '按目标匹配次数排序，或选取名称匹配白皮书/download 的已配置目标。';
+const preservedNames = new Set(['姚金刚', '向阳乔木']);
 export function assertDisplayMetadata(metadata, sources, file = 'metadata') {
   const normalize = text => text.trim().replace(/\s+/g, ' ');
   const messages = new Set([...sources].map(normalize));
@@ -134,11 +135,14 @@ export function assertLanguagePair(chinese, english, directory = 'catalog') {
       throw new Error(`Message placeholders differ: ${key}`);
     if (protectedLiterals.has(source) && value !== source)
       throw new Error(`Executable/query literal changed: ${key}`);
-    const display = protectedLiterals.has(source)
-      ? ''
-      : source === matcherHelp
-        ? value.replace('白皮书', '')
-        : value;
+    if (preservedNames.has(source) && value !== source)
+      throw new Error(`Personal name changed: ${key}`);
+    const display =
+      protectedLiterals.has(source) || preservedNames.has(source)
+        ? ''
+        : source === matcherHelp
+          ? value.replace('白皮书', '')
+          : value;
     if (/[\u3400-\u9fff]/.test(display))
       throw new Error(`Unreviewed Chinese in English message: ${key}`);
   }

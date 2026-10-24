@@ -14,14 +14,27 @@ export const liekanProduct = {
     about: '/liekan/help?article=project-about',
     changelog: '/liekan/help?article=project-changelog',
     license: 'https://opensource.org/license/mit',
+    upstream: 'https://github.com/umami-software/umami',
     help: '/liekan/help',
     author: 'https://x.com/yaojingang',
+    coauthor: 'https://x.com/vista8',
   },
 } as const;
 
+export const liekanPublisherLinks = [
+  { label: liekanProduct.publishers[0], href: 'https://www.liekan.com/?GEOInflow' },
+  { label: liekanProduct.publishers[1], href: 'https://geo.takefoto.cn/?GEOInflow' },
+] as const;
+
+export const liekanProjectInitiators = [
+  { name: '姚金刚', initial: '姚', handle: '@yaojingang', href: liekanProduct.links.author },
+  { name: '向阳乔木', initial: '木', handle: '@vista8', href: 'https://x.com/vista8' },
+] as const;
+
 export const liekanFooterLinks = [
   { label: '更新日志', href: liekanProduct.links.changelog },
-  { label: '作者 X', href: liekanProduct.links.author },
+  { label: '姚金刚', href: liekanProduct.links.author },
+  { label: '向阳乔木', href: liekanProduct.links.coauthor },
   { label: '帮助文档', href: liekanProduct.links.help },
   { label: '项目说明', href: liekanProduct.links.about },
   { label: 'IP Geolocation by DB-IP', href: 'https://db-ip.com' },

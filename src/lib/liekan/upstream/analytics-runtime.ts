@@ -211,11 +211,12 @@ export function installAnalyticsRuntime(
       );
       const current = await versions(tags, true, computeDeadline, false);
       if (current.strong !== expected.strong) throw new RevisionChanged();
-      // A legal log snapshot may return while ingestion continues; it receives no fresh cache lifetime.
+      // Ingestion advances independently of this immutable snapshot. Its TTL starts at completion;
+      // policy, reset, repair and resource mutations remain fenced by the strong version.
       return {
         value,
         generatedAt,
-        expiresAt: current.data === expected.data ? Date.now() + ttl : generatedAt,
+        expiresAt: Date.now() + ttl,
         status: 'miss',
         tier: 'computed',
       };
@@ -243,8 +244,6 @@ export function installAnalyticsRuntime(
             const current = await versions(tags, true, deadline);
             if (current.strong !== revision.strong)
               throw context?.prepared ? new AnalyticsRestart() : new RevisionChanged();
-            if (current.data !== revision.data)
-              result = { ...result, expiresAt: result.generatedAt };
             if (
               context?.background &&
               context.reauthorize &&
@@ -257,7 +256,7 @@ export function installAnalyticsRuntime(
               value: decodeAnalyticsResult(encodeAnalyticsResult(result.value)),
             } as CachedResult<T>;
           };
-          const key = `liekan:analytics:v1:${database}:${analyticsCacheKey('result-contract-v3', [inputKey, revision, context?.scope])}`;
+          const key = `liekan:analytics:v1:${database}:${analyticsCacheKey('result-contract-v4', [inputKey, revision.strong, context?.scope])}`;
           if (!forced) {
             const local = cache.getLocal<T>(key);
             if (local) return await finish(local);

@@ -34,6 +34,8 @@ const ALLOWED_PARAMS = new Set([
   'refresh',
   'resource',
   'chartPeriod',
+  'crawlerIdentityScope',
+  'crawlerMetricsVersion',
   'kind',
   'type',
   'metric',

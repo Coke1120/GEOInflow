@@ -35,6 +35,33 @@ import { geographyLabel, regionName } from './contracts/geography';
 const params = { resource: 'overview', startAt: 0, endAt: 86400000, timezone: 'UTC' };
 const website = { id: '5b4c0de0-6c47-5b51-8f53-11e5e8c79001', name: 'Test', domain: 'example.com' };
 
+it.each([
+  { method: 'edge', status: 'verified_edge', subjectId: 'gptbot', evidenceHash: 'a'.repeat(64) },
+  null,
+  'legacy-proof',
+])('preserves crawler identity proof in scalar report rows: %s', async identityEvidence => {
+  const logs = await mocks.logs();
+  mocks.logs.mockResolvedValue({
+    ...logs,
+    recent: [{
+      time: '1970-01-01T01:00:00Z', path: '/a', status: 200, bot: 'GPTBot', botId: 'gptbot',
+      verification: 'verified_edge', identityEvidence,
+    }],
+  });
+  const report = await buildReport(website, false, { ...params, resource: 'logs' });
+  const row = report.tables.logBody[0];
+  expect(row.identityEvidence).toBe(
+    identityEvidence && typeof identityEvidence === 'object'
+      ? JSON.stringify(identityEvidence)
+      : identityEvidence,
+  );
+  expect(row.verification).toBe('verified_edge');
+  expect(row.botId).toBe('gptbot');
+  if (identityEvidence && typeof identityEvidence === 'object')
+    expect(JSON.parse(String(row.identityEvidence))).toEqual(identityEvidence);
+  expect(liekanReportSchema.safeParse(report).success).toBe(true);
+});
+
 it('shows automation evidence for an unregistered spider without granting an official identity', async () => {
   const logs = await mocks.logs();
   const unknown = {
@@ -117,6 +144,27 @@ it.each(['gptbot', null])(
     expect(report.tables.topBody[0]).toMatchObject({ bot: 'GPTBot', botId, aiRequests: 10 });
   },
 );
+
+it('keeps equal-count pages and content preferences stable across SQL row order', async () => {
+  const logs = await mocks.logs();
+  const rows = ['/b', '/a'].map(path => ({
+    path, bot: 'GPTBot', botId: 'gptbot', requests: 5,
+    lastCrawled: '1970-01-01T01:00:00Z',
+  }));
+  const reports = [];
+  for (const pages of [rows, [...rows].reverse()]) {
+    mocks.logs.mockResolvedValue({
+      ...logs, pages,
+      bots: [{ name: 'GPTBot', botId: 'gptbot', vendor: 'OpenAI', type: '训练', requests: 10, pages: 2, lastVisit: rows[0].lastCrawled }],
+      catalog: [{ path: '/a', type: 'article' }, { path: '/b', type: 'docs' }],
+    });
+    reports.push(await buildReport(website, false, { ...params, resource: 'ai/pages', crawlerMetricsVersion: 1 }));
+  }
+  expect(reports[0].tables.apBody.map(row => row.path)).toEqual(['/a', '/b']);
+  expect(reports[1].tables.apBody).toEqual(reports[0].tables.apBody);
+  expect(reports[0].tables.botBody[0].preference).toBe('article（50% 抓取集中）');
+  expect(reports[1].tables.botBody).toEqual(reports[0].tables.botBody);
+});
 
 it('uses catalog titles and ranks two crawler identities per page without changing totals', async () => {
   const logs = await mocks.logs();
@@ -274,6 +322,79 @@ beforeEach(() => {
   mocks.humanDays.mockResolvedValue([]);
   mocks.months.mockResolvedValue([]);
 });
+
+it.each([
+  ['2026-01-01T00:00:00Z', '2026-01-31T00:00:00Z', 'UTC', 30],
+  ['2026-01-01T00:00:00Z', '2026-01-08T00:00:00Z', 'UTC', 7],
+  ['2025-11-02T07:00:00Z', '2025-11-03T08:00:00Z', 'America/Los_Angeles', 1],
+  ['2026-03-08T08:00:00Z', '2026-03-09T07:00:00Z', 'America/Los_Angeles', 1],
+  ['2026-03-07T21:00:00Z', '2026-03-08T21:00:00Z', 'America/Los_Angeles', 1],
+] as const)('uses the selected day count for half-open crawler averages (%s to %s)', async (start, end, timezone, days) => {
+  const logs = await mocks.logs();
+  mocks.logs.mockResolvedValue({
+    ...logs, latest: start, summary: { requests: 300, ai: 300 },
+    bots: [{ name: 'GPTBot', vendor: 'OpenAI', type: '训练', requests: 300, pages: 1, lastVisit: start }],
+    pages: [{ path: '/a', bot: 'GPTBot', type: '训练', requests: 300, lastCrawled: start }],
+  });
+  const r = await buildReport(website, false, {
+    ...params, resource: 'ai/overview', startAt: Date.parse(start), endAt: Date.parse(end),
+    timezone, crawlerMetricsVersion: 1,
+  });
+  const average = Math.round(300 / days * 100) / 100;
+  expect(r.tables.botBody[0].dailyAverage).toBe(average);
+  expect(r.cards.find(card => card.key === '单页日均最高抓取').value).toBe(average);
+});
+
+it('describes a half-open crawler interval using its included local dates', async () => {
+  const r = await buildReport(website, false, {
+    ...params, resource: 'ai/preference', startAt: Date.parse('2026-01-01T00:00:00Z'),
+    endAt: Date.parse('2026-01-31T00:00:00Z'), timezone: 'UTC', crawlerMetricsVersion: 1,
+  }, true);
+  expect(r.insights[0]).toContain('2026-01-01 至 2026-01-30');
+});
+
+it('keeps a stable current-day selection while reporting its actual read cutoff', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  const now = Date.parse('2026-10-23T06:00:00Z');
+  vi.setSystemTime(now);
+  try {
+    const r = await buildReport(website, false, {
+      ...params, resource: 'ai/bots', startAt: Date.parse('2026-09-23T16:00:00Z'),
+      endAt: Date.parse('2026-10-23T16:00:00Z'), timezone: 'Asia/Shanghai', crawlerMetricsVersion: 1,
+    }, true);
+    expect(r.range.endAt).toBe(now);
+    expect(mocks.logs.mock.calls[0][2]).toEqual(new Date(now));
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('rebuilds the same DST-day metrics and freshness from the actual export cutoff', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  const now = Date.parse('2026-11-02T07:30:00Z');
+  vi.setSystemTime(now);
+  const logs = await mocks.logs();
+  mocks.logs.mockResolvedValue({
+    ...logs, latest: new Date(now).toISOString(), summary: { requests: 300, ai: 300 },
+    bots: [{ name: 'GPTBot', vendor: 'OpenAI', type: '训练', requests: 300, pages: 1, lastVisit: new Date(now).toISOString() }],
+    pages: [{ path: '/a', bot: 'GPTBot', type: '训练', requests: 300, lastCrawled: new Date(now).toISOString() }],
+    catalog: [{ path: '/a', updatedAt: new Date(now - 23.75 * 3600000).toISOString() }],
+  });
+  const input = { ...params, resource: 'ai/bots', timezone: 'America/Los_Angeles',
+    startAt: Date.parse('2026-10-03T07:00:00Z'), endAt: Date.parse('2026-11-02T08:00:00Z'), crawlerMetricsVersion: 1 };
+  try {
+    const shown = await buildReport(website, false, input);
+    const exported = await buildReport(website, false, { ...input, ...shown.range });
+    expect(shown.tables.botBody[0].dailyAverage).toBe(10);
+    expect(shown.tables.apBody[0].freshness).toBe('0 天');
+    expect(exported.tables.botBody).toEqual(shown.tables.botBody);
+    expect(exported.tables.apBody).toEqual(shown.tables.apBody);
+    expect(exported.range).toEqual(shown.range);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 describe('report evidence states', () => {
   it('keeps published metric keys while clarifying visitor display labels', async () => {
     const report = await buildReport(website, false, params);
@@ -722,6 +843,25 @@ describe('report evidence states', () => {
       buildReport(website, false, { ...params, timezone: 'invalid/timezone' }),
     ).rejects.toThrow();
     expect(mocks.human).not.toHaveBeenCalled();
+  });
+  it('accepts the selected current day boundary during a 25-hour DST day', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-01T07:05:00Z'));
+    const endAt = Date.parse('2026-11-02T08:00:00Z');
+    try {
+      await buildReport(website, false, {
+        ...params, resource: 'ai/overview', timezone: 'America/Los_Angeles', crawlerMetricsVersion: 1,
+        startAt: Date.parse('2026-10-04T07:00:00Z'), endAt,
+      }, true);
+      expect(mocks.logs.mock.calls[0][2]).toEqual(new Date(Date.now()));
+      const reads = mocks.logs.mock.calls.length;
+      await expect(buildReport(website, false, {
+        ...params, endAt: endAt + 86400000, timezone: 'America/Los_Angeles',
+      }, true)).rejects.toThrow('日期范围无效');
+      expect(mocks.logs).toHaveBeenCalledTimes(reads);
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it('rejects an upstream response with a missing chart contract', async () => {
     const report = await buildReport(website, false, params);

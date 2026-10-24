@@ -215,10 +215,15 @@ try {
       await footer.getByRole('link', { name: 'MIT', exact: true }).getAttribute('href'),
       'https://opensource.org/license/mit',
     );
-    assert.equal(
-      await footer.getByRole('link', { name: '作者 X' }).getAttribute('rel'),
-      'noopener noreferrer',
-    );
+    for (const [name, href] of [
+      ['姚金刚', 'https://x.com/yaojingang'],
+      ['向阳乔木', 'https://x.com/vista8'],
+    ]) {
+      const link = footer.getByRole('link', { name, exact: true });
+      assert.equal(await link.getAttribute('href'), href);
+      assert.equal(await link.getAttribute('target'), '_blank');
+      assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
+    }
     assert(!(await footer.getByRole('link', { name: 'Umami', exact: true }).count()));
     assert.equal(
       await footer.getByRole('link', { name: 'MIT', exact: true }).getAttribute('target'),

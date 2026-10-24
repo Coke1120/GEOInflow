@@ -42,6 +42,16 @@ it.each(['zh-CN', 'en-US'] as const)(
     ]);
     expect(screen.getByRole('link', { name: 'MIT' })).toBeInTheDocument();
     expect(screen.getByText('IP Geolocation by DB-IP')).toBeInTheDocument();
+    for (const [name, href] of [
+      ['姚金刚', 'https://x.com/yaojingang'],
+      ['向阳乔木', 'https://x.com/vista8'],
+    ]) {
+      const link = screen.getByRole('link', { name });
+      expect(link).toHaveAttribute('href', href);
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    }
+    expect(screen.queryByRole('link', { name: /作者 X|Author on X/ })).toBeNull();
   },
 );
 

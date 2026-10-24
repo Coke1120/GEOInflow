@@ -312,13 +312,15 @@ export async function getMonthlyAiShare(
   timezone: string,
   metrics: CrawlerMetricOptions = { crawlerIdentityScope: 'all' },
 ) {
+  const monthEnd = metrics.crawlerMetricsVersion === 1 ? new Date(+end - 1) : end;
   const rows = await query<{ month: string; total: number; ai: number }>(
-    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai FROM liekan_reporting_log WHERE website_id=$1::uuid ${crawlerIdentitySql(metrics.crawlerIdentityScope)}${metrics.crawlerMetricsVersion === 1 ? " AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : ''} AND created_at${metrics.crawlerMetricsVersion === 1 ? '<' : '<='}$2 AND created_at>=((date_trunc('month',$2::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
+    `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai FROM liekan_reporting_log WHERE website_id=$1::uuid ${crawlerIdentitySql(metrics.crawlerIdentityScope)}${metrics.crawlerMetricsVersion === 1 ? " AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : ''} AND created_at${metrics.crawlerMetricsVersion === 1 ? '<' : '<='}$2 AND created_at>=((date_trunc('month',$4::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
     id,
     end,
     timezone,
+    monthEnd,
   );
-  const [year, month] = formatInTimeZone(end, timezone, 'yyyy-MM').split('-').map(Number);
+  const [year, month] = formatInTimeZone(monthEnd, timezone, 'yyyy-MM').split('-').map(Number);
   return Array.from({ length: 6 }, (_, index) => {
     const label = new Date(Date.UTC(year, month - 6 + index, 1)).toISOString().slice(0, 7);
     return rows.find(row => row.month === label) ?? { month: label, total: 0, ai: 0 };
