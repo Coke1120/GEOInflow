@@ -30,7 +30,7 @@ export function languageHeaderGeometry() {
   const entry = entries[0];
   const control = entry?.querySelector('select');
   const rect = control?.getBoundingClientRect();
-  const controlStyle = control ? getComputedStyle(control) : null;
+  const controlStyle = control ? document.defaultView.getComputedStyle(control) : null;
   let languageTextWidth = 0;
   if (control) {
     const selectedText = document.createElement('span');
