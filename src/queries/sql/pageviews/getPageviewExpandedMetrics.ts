@@ -1,9 +1,6 @@
+import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import clickhouse from '@/lib/clickhouse';
-import {
-  FILTER_COLUMNS,
-  GROUPED_DOMAINS,
-  SESSION_COLUMNS,
-} from '@/lib/constants';
+import { FILTER_COLUMNS, GROUPED_DOMAINS, SESSION_COLUMNS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
@@ -19,10 +16,10 @@ export interface PageviewExpandedMetricsParameters {
 export interface PageviewExpandedMetricsData {
   name: string;
   pageviews: number;
-  visitors: number;
-  visits: number;
-  bounces: number;
-  totaltime: number;
+  visitors: number | null;
+  visits: number | null;
+  bounces: number | null;
+  totaltime: number | null;
 }
 
 export async function getPageviewExpandedMetrics(
@@ -40,7 +37,7 @@ async function relationalQuery(
   filters: QueryFilters,
 ): Promise<PageviewExpandedMetricsData[]> {
   const { type, limit = 500, offset = 0 } = parameters;
-  let column = getPageviewColumn(type);
+  let column = postgresEventEnvironmentColumn(getPageviewColumn(type));
   const { rawQuery, parseFilters } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
     parseFilters(

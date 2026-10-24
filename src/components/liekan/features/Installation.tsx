@@ -116,6 +116,15 @@ export function InstallationEntry({ site, browser }: { site: FeatureEntity; brow
           )}
         </QueryState>
         {status?.logs.demo && <Notice tone="amber">{i18n.system(demoCopy)}</Notice>}
+        {status?.identityIngress && (
+          <Notice tone="amber">
+            {status.identityIngress.configured
+              ? i18n.text('已配置客户端 IP 请求头，仍需核对可信代理是否清除并重写入口请求头。')
+              : i18n.text(
+                  '尚未配置可信入口的客户端 IP 请求头。浏览量可记录，访客与会话指标需要可靠身份信息。',
+                )}
+          </Notice>
+        )}
         <div className="form-actions">
           <LinkButton page="website-settings" params={installationParams(site.id, 'js')}>
             {i18n.text('获取 JS 代码')}
@@ -322,6 +331,15 @@ export function Installation({
         )}
       </p>
       {demoNotice}
+      {status?.identityIngress && (
+        <Notice tone="amber">
+          {status.identityIngress.configured
+            ? i18n.text('已配置客户端 IP 请求头，仍需核对可信代理是否清除并重写入口请求头。')
+            : i18n.text(
+                '尚未配置可信入口的客户端 IP 请求头。浏览量可记录，访客与会话指标需要可靠身份信息。',
+              )}
+        </Notice>
+      )}
     </div>
   );
 

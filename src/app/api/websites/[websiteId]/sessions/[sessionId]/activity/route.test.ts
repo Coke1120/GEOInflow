@@ -1,3 +1,14 @@
+const snapshot = vi.hoisted(() => ({ active: false }));
+vi.mock('@/lib/liekan/upstream/native-snapshot', () => ({
+  nativeSnapshot: async (work: () => unknown) => {
+    snapshot.active = true;
+    try {
+      return await work();
+    } finally {
+      snapshot.active = false;
+    }
+  },
+}));
 import { endOfMonth, startOfMonth } from 'date-fns';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { getQueryFilters, parseRequest } from '@/lib/request';
@@ -109,4 +120,32 @@ test('keeps activity scoped to the raw session when multiple identities are link
 
   expect(getLinkedSessionIdsMock).not.toHaveBeenCalled();
   expect(getSessionActivityMock).toHaveBeenCalledWith('website-1', ['session-1'], filters);
+});
+
+test('selects linked identities and their activity inside the same reporting snapshot', async () => {
+  parseRequestMock.mockResolvedValue({
+    auth: {},
+    query: { startAt: 1000, endAt: 2000 },
+    error: undefined,
+  });
+  canViewWebsiteSectionMock.mockResolvedValue(true);
+  getQueryFiltersMock.mockResolvedValue({ startDate: new Date(1000), endDate: new Date(2000) });
+  getLinkedDistinctIdsMock.mockImplementation(async () => {
+    expect(snapshot.active).toBe(true);
+    return ['trusted'];
+  });
+  getLinkedSessionIdsMock.mockImplementation(async () => {
+    expect(snapshot.active).toBe(true);
+    return [];
+  });
+  getSessionActivityMock.mockImplementation(async () => {
+    expect(snapshot.active).toBe(true);
+    return [{ eventId: 'event-1' }];
+  });
+  const result = await GET(
+    new Request('https://synthetic.test/api/websites/site/sessions/session-1/activity'),
+    { params: Promise.resolve({ websiteId: 'site', sessionId: 'session-1' }) },
+  );
+  expect(await result.json()).toEqual([{ eventId: 'event-1' }]);
+  expect(snapshot.active).toBe(false);
 });

@@ -34,33 +34,64 @@ export async function api(
   request?: Request,
 ) {
   return withQueryCacheHeaders(async () => {
-  try {
-    const requested = request?.headers.get('x-liekan-catalog-version');
-    if (requested && !z.uuid().safeParse(requested).success) throw new LiekanError('目录版本无效', 400);
-    const pinned = request && (request.method === 'GET' || /\/(?:exports|export)$/.test(new URL(request.url).pathname)) ? requested || undefined : undefined;
-    return await withPublishedRegistry(async () => {
-      const value = await work();
-      return Response.json(value, {
-        headers: { 'Cache-Control': 'private, no-store', 'X-Liekan-Catalog-Version': getPublishedCatalog()?.version || '', ...headers() },
-      });
-    }, pinned);
-  } catch (error) {
-    if (error instanceof AnalyticsRestart) throw error;
-    const status = error instanceof LiekanError ? error.status : 500;
-    return Response.json(
-      {
-        error: {
-          message: error instanceof LiekanError ? error.message : '数据查询失败，请检查服务状态',
-          status,
-          code: error instanceof LiekanError ? error.code : 'liekan-error',
+    try {
+      const requested = request?.headers.get('x-liekan-catalog-version');
+      if (requested && !z.uuid().safeParse(requested).success)
+        throw new LiekanError('目录版本无效', 400);
+      const pinned =
+        request &&
+        (request.method === 'GET' || /\/(?:exports|export)$/.test(new URL(request.url).pathname))
+          ? requested || undefined
+          : undefined;
+      return await withPublishedRegistry(async () => {
+        const value = await work();
+        if (value instanceof Response) {
+          value.headers.set('Cache-Control', 'private, no-store');
+          value.headers.set('X-Liekan-Catalog-Version', getPublishedCatalog()?.version || '');
+          for (const [name, content] of Object.entries(headers())) value.headers.set(name, content);
+          return value;
+        }
+        return Response.json(value, {
+          headers: {
+            'Cache-Control': 'private, no-store',
+            'X-Liekan-Catalog-Version': getPublishedCatalog()?.version || '',
+            ...headers(),
+          },
+        });
+      }, pinned);
+    } catch (error) {
+      if (error instanceof AnalyticsRestart) throw error;
+      const status = error instanceof LiekanError ? error.status : 500;
+      return Response.json(
+        {
+          error: {
+            message: error instanceof LiekanError ? error.message : '数据查询失败，请检查服务状态',
+            status,
+            code: error instanceof LiekanError ? error.code : 'liekan-error',
+          },
         },
-      },
-      { status, headers: {'Cache-Control':'private, no-store', ...([429,503].includes(status)?{'Retry-After':String(error instanceof AnalyticsUnavailable ? error.retryAfter : 60)}:{}) } },
-    );
-  }
+        {
+          status,
+          headers: {
+            'Cache-Control': 'private, no-store',
+            ...([429, 503].includes(status)
+              ? {
+                  'Retry-After': String(
+                    error instanceof AnalyticsUnavailable ? error.retryAfter : 60,
+                  ),
+                }
+              : {}),
+          },
+        },
+      );
+    }
   });
 }
 
-export function requestApi(request: Request, work: () => Promise<unknown>, headers?: () => Record<string, string>) {
+export function requestApi(
+  request: Request,
+  work: () => Promise<unknown>,
+  headers?: () => Record<string, string>,
+) {
   return api(work, headers, request);
 }

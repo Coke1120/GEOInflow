@@ -1,12 +1,19 @@
 // @vitest-environment node
 import { createHash } from 'node:crypto';
+import { isbot } from 'isbot';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { bundledVerificationSnapshots, type VerificationSnapshots } from '../rules/verify';
+import { type VerificationSnapshots } from '../rules/verify';
 import { getIpAddress } from '@/lib/ip';
 import { ALL_BOT_RULES } from '../rules/bots';
+import { getBundledPublishedCatalog } from '../crawlers/catalog-seed';
+import { installPublishedCatalogResolver } from '../crawlers/published';
+import { rangeSources } from '../crawlers/range-sources';
+const authority = vi.hoisted(() => vi.fn(() => true));
+vi.mock('./crawler-registry-context', () => ({ collectionRegistryIsCurrent: authority }));
 import {
   COLLECTION_RULE_VERSION,
   classifyCollection,
+  collectionSource,
   normalizeCollectionHostname,
 } from './collection-quality';
 
@@ -39,6 +46,7 @@ const ranges = (changes: Record<string, unknown> = {}): VerificationSnapshots =>
     prefixes: ['192.0.2.0/24'],
     retrievedAt: now.toISOString(),
     version: 'fixture-v1',
+    source: 'https://openai.com/gptbot.json',
     ...changes,
   },
 });
@@ -54,8 +62,12 @@ const input = (changes: Partial<Parameters<typeof classifyCollection>[0]> = {}) 
   now,
   ...changes,
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  installPublishedCatalogResolver(() => undefined);
+});
 beforeEach(() => {
+  authority.mockReturnValue(true);
   vi.stubEnv('CLIENT_IP_HEADER', '');
   vi.stubEnv('CLOUD_MODE', '');
   vi.stubEnv('DISABLE_BOT_CHECK', '');
@@ -106,7 +118,7 @@ describe('collection quality evidence', () => {
     ).toBe('browser');
   });
 
-  it('preserves opt-out and ambiguous identity semantics for registered tokens', () => {
+  it('preserves automation evidence from conflicting tokens when checks are disabled', () => {
     const userAgent = `${browser} Claude-User/1.0 ChatGPT-User/1.0`;
     expect(classifyCollection(input({ userAgent }))).toMatchObject({
       classification: 'automated',
@@ -114,8 +126,8 @@ describe('collection quality evidence', () => {
     });
     vi.stubEnv('DISABLE_BOT_CHECK', '1');
     expect(classifyCollection(input({ userAgent }))).toMatchObject({
-      classification: 'unknown',
-      reasons: ['bot_check_disabled'],
+      classification: 'automated',
+      reasons: ['crawler_ua_token'],
     });
   });
   it('excludes an automation-controlled browser even when its UA is ordinary Chrome', () => {
@@ -151,11 +163,11 @@ describe('collection quality evidence', () => {
     },
   );
 
-  it('preserves the explicit bot-check opt-out for browser automation evidence', () => {
+  it('preserves webdriver evidence when bot checks are disabled', () => {
     vi.stubEnv('DISABLE_BOT_CHECK', '1');
     expect(classifyCollection(input({ payload: { webdriver: true } }))).toMatchObject({
-      classification: 'unknown',
-      reasons: ['bot_check_disabled'],
+      classification: 'automated',
+      reasons: ['browser_webdriver'],
     });
   });
 
@@ -184,7 +196,7 @@ describe('collection quality evidence', () => {
     });
   });
 
-  it.each(['userAgent', 'ip', 'browser', 'os', 'device'])(
+  it.each(['userAgent', 'ip', 'browser', 'os', 'device', 'timestamp'])(
     'treats public %s overrides as legacy evidence',
     field => {
       const quality = classifyCollection(input({ payload: { [field]: browser } }));
@@ -273,21 +285,28 @@ describe('collection quality evidence', () => {
     ).toBe('automated');
   });
 
-  it('keeps historic imports outside the snapshot observation period from hard exclusion', () => {
+  it('uses current receipt time for public historical timestamp overrides', () => {
     vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
     const quality = classifyCollection(
       input({ payload: { timestamp: +new Date('2026-09-01T12:00:00Z') / 1000 } }),
     );
-    expect(quality).toMatchObject({ classification: 'browser', rangeStatus: 'stale' });
+    expect(quality).toMatchObject({
+      classification: 'automated',
+      source: 'legacy_override',
+      rangeStatus: 'fresh',
+    });
     expect(classifyCollection(input({ payload: { timestamp: +now / 1000 } })).classification).toBe(
       'automated',
     );
   });
 
-  it('keeps invalid event time from trusted range classification', () => {
+  it('keeps invalid authenticated historic event time from trusted range classification', () => {
     vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
-    expect(classifyCollection(input({ payload: { timestamp: Infinity } }))).toMatchObject({
+    expect(
+      classifyCollection(input({ authenticated: true, payload: { timestamp: Infinity } })),
+    ).toMatchObject({
       classification: 'browser',
+      source: 'authenticated_server',
       rangeStatus: 'invalid',
     });
   });
@@ -307,7 +326,13 @@ describe('collection quality evidence', () => {
     vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
     const quality = classifyCollection(
       input({
-        snapshots: { ...ranges(), 'OAI-SearchBot': ranges({ prefixes: ['invalid'] }).GPTBot },
+        snapshots: {
+          ...ranges(),
+          'OAI-SearchBot': ranges({
+            prefixes: ['invalid'],
+            source: 'https://openai.com/searchbot.json',
+          }).GPTBot,
+        },
       }),
     );
     expect(quality).toMatchObject({ classification: 'automated', rangeStatus: 'fresh' });
@@ -315,7 +340,13 @@ describe('collection quality evidence', () => {
 
   it('hashes sorted matching versions and does not name an overlapping provider', () => {
     vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
-    const snapshots = { ...ranges(), 'OAI-SearchBot': ranges({ version: 'fixture-v2' }).GPTBot };
+    const snapshots = {
+      ...ranges(),
+      'OAI-SearchBot': ranges({
+        version: 'fixture-v2',
+        source: 'https://openai.com/searchbot.json',
+      }).GPTBot,
+    };
     const quality = classifyCollection(input({ snapshots }));
     const reordered = classifyCollection(
       input({ snapshots: Object.fromEntries(Object.entries(snapshots).reverse()) }),
@@ -331,14 +362,17 @@ describe('collection quality evidence', () => {
     expect(JSON.stringify(quality)).not.toContain('OAI-SearchBot');
   });
 
-  it.each([false, true])('preserves disabled bot filtering, trusted range = %s', trusted => {
-    vi.stubEnv('DISABLE_BOT_CHECK', '1');
-    vi.stubEnv('CLIENT_IP_HEADER', trusted ? 'x-forwarded-for' : '');
-    const quality = classifyCollection(input({ userAgent: trusted ? browser : 'GPTBot/1.0' }));
-    expect(quality.classification).toBe('unknown');
-    expect(quality.reasons).toContain('bot_check_disabled');
-    if (trusted) expect(quality.rangeStatus).toBe('fresh');
-  });
+  it.each([false, true])(
+    'preserves strong evidence with disabled checks, trusted range = %s',
+    trusted => {
+      vi.stubEnv('DISABLE_BOT_CHECK', '1');
+      vi.stubEnv('CLIENT_IP_HEADER', trusted ? 'x-forwarded-for' : '');
+      const quality = classifyCollection(input({ userAgent: trusted ? browser : 'GPTBot/1.0' }));
+      expect(quality.classification).toBe('automated');
+      expect(quality.reasons).toContain(trusted ? 'official_range_match' : 'ua_bot');
+      if (trusted) expect(quality.rangeStatus).toBe('fresh');
+    },
+  );
 
   it('keeps unrecognized UA input unknown', () => {
     expect(classifyCollection(input({ userAgent: '' })).classification).toBe('unknown');
@@ -409,30 +443,198 @@ it('configured ingress supplies independent range evidence when a public overrid
   ).toBe('untrusted');
 });
 
-it('keeps crawler-only feeds outside the browser trust policy and its health diagnostics', () => {
-  const current = new Date('2026-10-15T02:00:00Z');
-  const original = Object.fromEntries(
-    Object.entries(bundledVerificationSnapshots).filter(([name]) =>
-      [
-        'GPTBot',
-        'OAI-SearchBot',
-        'ChatGPT-User',
-        'PerplexityBot',
-        'Perplexity-User',
-        'Googlebot',
-      ].includes(name),
-    ),
+describe('published browser range bindings', () => {
+  it.each(rangeSources.flatMap(source => source.names))(
+    'excludes a normal browser within the reviewed %s feed',
+    name => {
+      vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
+      const source = rangeSources.find(source => source.names.includes(name))!;
+      expect(
+        classifyCollection(
+          input({
+            snapshots: { [name]: { ...ranges().GPTBot, source: source.url } },
+          }),
+        ),
+      ).toMatchObject({ classification: 'automated', rangeStatus: 'fresh' });
+    },
   );
-  const selected = input({ authenticated: true, ip: '8.8.8.8', now: current, snapshots: original });
-  const result = classifyCollection(selected);
-  expect(result.rangeStatus).toBe('fresh');
-  expect(classifyCollection({ ...selected, snapshots: bundledVerificationSnapshots })).toEqual(
-    result,
-  );
+
+  it('uses a newly published dedicated source and ignores revoked approval', () => {
+    vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
+    const catalog = structuredClone(getBundledPublishedCatalog());
+    const source = catalog.payload.rangeSources.find(source => source.id === 'kimi-bot')!;
+    source.url = 'https://www.kimi.ai/policies/reviewed-v2.json';
+    Object.assign(source, { browserExclusion: 'dedicated_crawler' });
+    installPublishedCatalogResolver(() => catalog);
+    const snapshots = { KimiBot: { ...ranges().GPTBot, source: source.url } };
+    expect(classifyCollection(input({ snapshots })).classification).toBe('automated');
+    Object.assign(source, { browserExclusion: 'unsupported' });
+    expect(classifyCollection(input({ snapshots })).classification).toBe('browser');
+  });
+
+  it('does not treat AI referrers, short visits or missing tracker metadata as automation', () => {
+    for (const payload of [
+      {},
+      { referrer: 'https://kimi.com/chat/1' },
+      { duration: 0 },
+      { webdriver: false },
+    ]) {
+      expect(classifyCollection(input({ payload, snapshots: {} })).classification).toBe('browser');
+    }
+  });
+});
+
+it('uses the original timestamp declaration only to label legacy input', () => {
+  expect(collectionSource({}, false)).toBe('browser');
+  expect(collectionSource({ timestamp: 0 }, false)).toBe('legacy_override');
+  expect(collectionSource({ timestamp: 0 }, true)).toBe('authenticated_server');
+});
+
+it('uses independent receivedAt for ordinary browser ranges and preserves historic server event time', () => {
+  vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
+  const receivedAt = now;
+  expect(classifyCollection(input({ receivedAt, now: new Date('2000-01-01') }))).toMatchObject({
+    classification: 'automated',
+    source: 'browser',
+    rangeStatus: 'fresh',
+  });
   expect(
-    classifyCollection({
-      ...selected,
-      snapshots: { ClaudeBot: bundledVerificationSnapshots.ClaudeBot },
-    }),
-  ).toMatchObject({ classification: 'browser', rangeStatus: 'missing' });
+    classifyCollection(
+      input({
+        authenticated: true,
+        receivedAt,
+        payload: { timestamp: +new Date('2020-01-01') / 1000 },
+      }),
+    ),
+  ).toMatchObject({
+    classification: 'browser',
+    source: 'authenticated_server',
+    rangeStatus: 'stale',
+  });
+});
+
+it('keeps strong automation evidence when a legacy event time is stale', () => {
+  expect(
+    classifyCollection(
+      input({
+        userAgent: 'YisouSpider',
+        payload: { timestamp: 0 },
+      }),
+    ),
+  ).toMatchObject({ classification: 'automated', source: 'legacy_override' });
+});
+
+it('requires current authority for registered tokens while retaining independent generic bot evidence', () => {
+  vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
+  const tokenUa = `${browser} Kimi-User/1.0`;
+  expect(isbot(tokenUa)).toBe(false);
+  expect(classifyCollection(input({ userAgent: tokenUa, snapshots: {} }))).toMatchObject({
+    classification: 'automated',
+    reasons: ['crawler_ua_token'],
+  });
+  const tokenRequest = new Request('https://collector.test/api/send', {
+    headers: { 'user-agent': tokenUa },
+  });
+  expect(classifyCollection(input({ request: tokenRequest, snapshots: {} }))).toMatchObject({
+    classification: 'automated',
+    reasons: ['request_crawler_ua_token'],
+  });
+  authority.mockReturnValue(false);
+  expect(classifyCollection(input())).toMatchObject({
+    classification: 'browser',
+    rangeStatus: 'untrusted',
+  });
+  expect(classifyCollection(input({ userAgent: tokenUa }))).toMatchObject({
+    classification: 'browser',
+    reasons: ['browser_compatible'],
+  });
+  expect(classifyCollection(input({ request: tokenRequest }))).toMatchObject({
+    classification: 'browser',
+    reasons: ['browser_compatible'],
+  });
+  expect(classifyCollection(input({ userAgent: 'YisouSpider' }))).toMatchObject({
+    classification: 'automated',
+    reasons: ['ua_bot'],
+  });
+  expect(
+    classifyCollection(
+      input({
+        request: new Request('https://collector.test/api/send', {
+          headers: { 'user-agent': 'YisouSpider' },
+        }),
+      }),
+    ),
+  ).toMatchObject({ classification: 'automated', reasons: ['request_ua_bot'] });
+});
+
+it.each([0, +new Date('2020-01-01') / 1000, +new Date('2030-01-01') / 1000])(
+  'keeps public timestamp=%s separate from current CIDR evidence',
+  timestamp => {
+    vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
+    const receivedAt = now;
+    expect(classifyCollection(input({ receivedAt, payload: { timestamp } }))).toMatchObject({
+      classification: 'automated',
+      source: 'legacy_override',
+      rangeStatus: 'fresh',
+      reasons: ['official_range_match'],
+    });
+    expect(
+      classifyCollection(
+        input({
+          receivedAt,
+          payload: { timestamp },
+          snapshots: ranges({
+            retrievedAt: '2026-10-06T11:59:59Z',
+          }),
+        }),
+      ),
+    ).toMatchObject({
+      classification: 'suspected',
+      source: 'legacy_override',
+      rangeStatus: 'stale',
+    });
+  },
+);
+
+it.each(['missing', 'unsupported', 'disabled', 'observed', 'robots', 'inactive'])(
+  'denies browser range exclusion for %s authority',
+  change => {
+    vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
+    const catalog = structuredClone(getBundledPublishedCatalog());
+    const source = catalog.payload.rangeSources.find(source => source.id === 'openai-gpt')!;
+    const identity = catalog.payload.identities.find(identity => identity.id === 'gptbot')!;
+    if (change === 'missing') delete source.browserExclusion;
+    if (change === 'unsupported') source.browserExclusion = 'unsupported';
+    if (change === 'disabled') source.enabled = false;
+    if (change === 'observed') identity.metadata.evidence = 'observed';
+    if (change === 'robots') identity.kind = 'robots_purpose';
+    if (change === 'inactive') identity.status = 'inactive';
+    installPublishedCatalogResolver(() => catalog);
+    expect(classifyCollection(input())).toMatchObject({
+      classification: 'browser',
+      rangeStatus: 'untrusted',
+    });
+  },
+);
+
+it('requires the current exact source URL for anonymous browser ranges', () => {
+  vi.stubEnv('CLIENT_IP_HEADER', 'x-forwarded-for');
+  const snapshot = { ...ranges().GPTBot };
+  delete snapshot.source;
+  expect(classifyCollection(input({ snapshots: { GPTBot: snapshot } }))).toMatchObject({
+    classification: 'browser',
+    rangeStatus: 'untrusted',
+  });
+  expect(
+    classifyCollection(
+      input({
+        snapshots: {
+          Googlebot: {
+            ...ranges().GPTBot,
+            source: 'https://developers.google.com/static/search/apis/ipranges/googlebot.json',
+          },
+        },
+      }),
+    ),
+  ).toMatchObject({ classification: 'browser', rangeStatus: 'untrusted' });
 });

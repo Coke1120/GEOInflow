@@ -1,7 +1,12 @@
 'use client';
 import { keywordStatusVersion, type KeywordConditions } from '../contracts/keywords';
-import type { LiekanPageReport, ReportResource } from '../contracts/page-report';
 import {
+  pageReportSchema,
+  type LiekanPageReport,
+  type ReportResource,
+} from '../contracts/page-report';
+import {
+  copyClientFreshness,
   freshnessStaleTime,
   hasClientFreshness,
   remainingFreshness,
@@ -63,7 +68,11 @@ export function pageReportQuery(
   ];
   if (p.crawlerIdentityScope || p.crawlerMetricsVersion)
     queryKey.push(
-      JSON.stringify([p.crawlerIdentityScope || 'all', p.crawlerMetricsVersion ?? null, 'calendar-v2']),
+      JSON.stringify([
+        p.crawlerIdentityScope || 'all',
+        p.crawlerMetricsVersion ?? null,
+        'calendar-v2',
+      ]),
     );
   if (p.resource === 'human/geo')
     queryKey.push(JSON.stringify([p.geoSort || 'sessions', p.direction || 'desc']));
@@ -91,7 +100,15 @@ export function pageReportQuery(
     );
   return {
     queryKey,
-    queryFn: ({ signal }: { signal: AbortSignal }) =>
+    queryFn: ({
+      signal,
+      client,
+      cacheQueryKey,
+    }: {
+      signal: AbortSignal;
+      client?: import('@tanstack/react-query').QueryClient;
+      cacheQueryKey?: readonly unknown[];
+    }) =>
       withClientFreshness(
         signal,
         () =>
@@ -105,7 +122,17 @@ export function pageReportQuery(
               ...(fresh?.() ? { refresh: '1' } : {}),
             },
             signal,
-            { priority },
+            {
+              priority,
+              onPrevious: previous => {
+                if (signal.aborted || !client) return;
+                const parsed = pageReportSchema.safeParse(previous);
+                if (parsed.success) {
+                  copyClientFreshness(parsed.data, previous);
+                  client.setQueryData(cacheQueryKey || queryKey, parsed.data);
+                }
+              },
+            },
           ),
         { priority, queryKey },
       ),

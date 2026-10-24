@@ -42,6 +42,16 @@ try {
   } catch {
     console.error('Analytics preheat unavailable; foreground reads remain enabled');
   }
+  for (const name of ['liekan-analysis-query', 'liekan-analysis-build']) {
+    const options = {
+      retryLimit: 0,
+      expireInSeconds: 120,
+      retentionSeconds: 60,
+      deleteAfterSeconds: 3600,
+    };
+    await boss.createQueue(name, { ...options, policy: 'exclusive' });
+    await boss.updateQueue(name, options);
+  }
   const geoOptions = {
     retryLimit: 0,
     expireInSeconds: 120,

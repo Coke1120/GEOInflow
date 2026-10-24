@@ -132,32 +132,39 @@ describe('analytics worker current authorization and completion', () => {
     state.canShare.mockResolvedValue(true);
   });
 
-  test('pins authorization, strong checks and native warming to the accepted catalog', async () => {
-    const accepted = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
-    const strong = JSON.stringify(['policy-v1', accepted, [site], [], []]);
-    const observed: Array<string | undefined> = [];
-    state.job.target = 'native:stats';
-    state.job.expectedStrongVersion = strong;
-    state.user.mockImplementation(async () => {
-      expect(getPublishedCatalog()?.version).toBe(accepted);
-      return { id: actor, role: 'user' };
-    });
-    state.strong.mockImplementation(async () => {
-      observed.push(getPublishedCatalog()?.version);
-      return { strong, data: 'd1' };
-    });
-    state.stats.mockImplementation(async () => {
-      observed.push(getPublishedCatalog()?.version);
-      return [];
-    });
-    expect(getPublishedCatalog()).toBeUndefined();
-    expect(await readAnalyticsHotStrongVersion(site, strong)).toBe(strong);
-    await processAnalyticsRefresh(state.job);
-    expect(observed).toHaveLength(5);
-    expect(new Set(observed)).toEqual(new Set([accepted]));
-    expect(state.schedule).toHaveBeenCalled();
-    expect(getPublishedCatalog()).toBeUndefined();
-  });
+  test.each(['legacy', 'current'])(
+    'pins authorization, strong checks and native warming to the accepted catalog (%s)',
+    async format => {
+      const accepted = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+      const strong = JSON.stringify(
+        format === 'current'
+          ? ['policy-v1', 'history-repair-v1.1', [], accepted, [site], [], []]
+          : ['policy-v1', accepted, [site], [], []],
+      );
+      const observed: Array<string | undefined> = [];
+      state.job.target = 'native:stats';
+      state.job.expectedStrongVersion = strong;
+      state.user.mockImplementation(async () => {
+        expect(getPublishedCatalog()?.version).toBe(accepted);
+        return { id: actor, role: 'user' };
+      });
+      state.strong.mockImplementation(async () => {
+        observed.push(getPublishedCatalog()?.version);
+        return { strong, data: 'd1' };
+      });
+      state.stats.mockImplementation(async () => {
+        observed.push(getPublishedCatalog()?.version);
+        return [];
+      });
+      expect(getPublishedCatalog()).toBeUndefined();
+      expect(await readAnalyticsHotStrongVersion(site, strong)).toBe(strong);
+      await processAnalyticsRefresh(state.job);
+      expect(observed).toHaveLength(5);
+      expect(new Set(observed)).toEqual(new Set([accepted]));
+      expect(state.schedule).toHaveBeenCalled();
+      expect(getPublishedCatalog()).toBeUndefined();
+    },
+  );
 
   test('warms normalized breakdown and renews from recorded result using original planned deadline', async () => {
     await processAnalyticsRefresh(state.job);

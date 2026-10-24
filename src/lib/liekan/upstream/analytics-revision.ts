@@ -1,13 +1,18 @@
+import { HISTORY_REPAIR_CAMPAIGN, HISTORY_REPAIR_ENGINE } from '../contracts/history-repair';
 import { getPublishedCatalog } from '../crawlers/published';
 export type AnalyticsResource = 'website' | 'link' | 'pixel';
 export const resourceCacheTag = (type: AnalyticsResource, id: string) =>
   `${type}:${id.toLowerCase()}`;
 
-/** Call in the same primary transaction as the mutation. Missing resources begin at version zero. */
-export async function bumpAnalyticsRevision(tx: any, type: AnalyticsResource, ...ids: string[]) {
+export async function setAnalyticsSchema(tx: any) {
   const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) throw new Error('Invalid database schema');
   await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+}
+
+/** Call in the same primary transaction as the mutation. Missing resources begin at version zero. */
+export async function bumpAnalyticsRevision(tx: any, type: AnalyticsResource, ...ids: string[]) {
+  await setAnalyticsSchema(tx);
   for (const id of [...new Set(ids.filter(Boolean))].sort()) {
     await tx.$executeRawUnsafe(
       `INSERT INTO liekan_analytics_revision(resource_type,resource_id,revision)
@@ -39,11 +44,11 @@ export async function readAnalyticsVersions(tx: any, tags: string[]): Promise<An
   );
   const repairs = await tx.$queryRawUnsafe(
     `SELECT website_id::text AS id,active_generation::text AS generation,active_revision::text AS revision
-     FROM liekan_history_repair_run WHERE website_id=ANY($1::uuid[]) ORDER BY website_id`,
-    ids,
+     FROM liekan_history_repair_run WHERE website_id=ANY($1::uuid[]) AND campaign_id=$2 ORDER BY website_id`,
+    ids, HISTORY_REPAIR_CAMPAIGN,
   );
   return {
-    strong: JSON.stringify([TRAFFIC_POLICY_VERSION,'history-repair-v1.1',repairs,getPublishedCatalog()?.version || 'bundled',ids, revisions, logs.map(({ id, policy }: any) => ({ id, policy }))]),
+    strong: JSON.stringify([TRAFFIC_POLICY_VERSION,HISTORY_REPAIR_ENGINE,repairs,getPublishedCatalog()?.version || 'bundled',ids, revisions, logs.map(({ id, policy }: any) => ({ id, policy }))]),
     data: JSON.stringify(logs.map(({ id, data }: any) => ({ id, data }))),
   };
 }

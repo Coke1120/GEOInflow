@@ -1,3 +1,5 @@
+import { populationFromRow } from '@/lib/liekan/upstream/browser-population';
+import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { AnalyticsPages } from './AnalyticsPages';
@@ -334,14 +336,18 @@ it('keeps generated and supplied compare sources separate with correctly aligned
     previous: {},
     currentSeries: {},
     previousSeries: {},
-    sources: [
-      { referrer: null, visitors: 3 },
-      { referrer: '直接访问', visitors: 7 },
-    ],
-    oldSources: [
-      { referrer: null, visitors: 2 },
-      { referrer: '直接访问', visitors: 5 },
-    ],
+    sources: {
+      rows: [
+        { referrer: null, visitors: 3 },
+        { referrer: '直接访问', visitors: 7 },
+      ],
+    },
+    oldSources: {
+      rows: [
+        { referrer: null, visitors: 2 },
+        { referrer: '直接访问', visitors: 5 },
+      ],
+    },
   };
   render(
     <LiekanLocaleContext.Provider value="en-US">
@@ -473,4 +479,64 @@ it('keeps retention observation cells fixed across midnight until an explicit mo
   } finally {
     vi.useRealTimers();
   }
+});
+
+it('keeps unavailable path completion distinct from a measured empty path', () => {
+  mocks.context.query = { sequence: '["/","/done"]' };
+  const population = populationFromRow(
+    { eligibleEvents: 2, qualifiedEvents: 1, eligiblePV: 2, qualifiedPV: 1, qualifiedVisitors: 1 },
+    { startAt: 1, endAt: 2, timezone: 'UTC' },
+  );
+  mocks.query['journey-rich'] = { rows: [], visitors: null, count: null, sessions: [], population };
+  const view = render(<AnalyticsPages page="path-detail" />);
+  expect(screen.getAllByText(identityUnavailableReason).length).toBeGreaterThan(0);
+  expect(screen.queryByText('当前范围无匹配路径')).not.toBeInTheDocument();
+  expect(
+    screen.queryByText('当前条件没有匹配路径，请返回访问旅程调整条件。'),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText('完成路径').parentElement).toHaveTextContent('—');
+  mocks.query['journey-rich'] = {
+    rows: [],
+    visitors: 0,
+    count: 0,
+    sessions: [],
+    population: { ...population, identity: { ...population.identity, status: 'empty' } },
+  };
+  view.rerender(<AnalyticsPages page="path-detail" />);
+  expect(screen.getByText('完成路径').parentElement).toHaveTextContent('0');
+  expect(screen.getByText('当前范围无匹配路径')).toBeInTheDocument();
+});
+
+it('keeps partial-identity session association details unavailable without false empty states', () => {
+  mocks.context.route = { page: 'session-detail', id: 'fallback-session-id' };
+  const population = populationFromRow(
+    { eligibleEvents: 2, qualifiedEvents: 1, eligiblePV: 2, qualifiedPV: 1, qualifiedVisitors: 1 },
+    { startAt: 1, endAt: 2, timezone: 'UTC' },
+  );
+  mocks.query['session-timeline'] = {
+    rows: [],
+    more: false,
+    totals: {
+      views: 2,
+      events: 1,
+      seconds: null,
+      entryPath: null,
+      exitPath: null,
+      firstAt: null,
+      lastAt: null,
+      referrerDomain: null,
+    },
+    population,
+  };
+  mocks.query['session-record'] = { population, browser: 'Chrome' };
+  mocks.query['session-props'] = [];
+  mocks.query['session-replays'] = { data: [], count: null, population };
+  render(<AnalyticsPages page="session-detail" />);
+  expect(screen.queryByText(identityUnavailableReason)).not.toBeInTheDocument();
+  expect(screen.queryByText('直接访问')).not.toBeInTheDocument();
+  expect(screen.queryByText('当前范围没有访问行为。')).not.toBeInTheDocument();
+  expect(screen.queryByText('当前会话未提供属性。')).not.toBeInTheDocument();
+  expect(screen.queryByText('未采集回放')).not.toBeInTheDocument();
+  expect(screen.queryByText(/fallback-session/)).not.toBeInTheDocument();
+  expect(screen.getByText('页面访问').parentElement).toHaveTextContent('2');
 });

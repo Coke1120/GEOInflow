@@ -1,3 +1,8 @@
+import {
+  browserPopulationSchema,
+  identityUsable,
+  type BrowserPopulation,
+} from '../contracts/browser-population';
 import { checkAuth, hasPermission } from '@/lib/auth';
 import { PERMISSIONS } from '@/lib/constants';
 import prisma, { getRawQueryClient } from '@/lib/prisma';
@@ -124,8 +129,13 @@ export async function query<T = any>(sql: string, ...params: unknown[]): Promise
     return runCacheAuthorization(() => primaryMetadataClient().$queryRawUnsafe(sql, ...params));
   return transaction(tx => tx.$queryRawUnsafe(sql, ...params));
 }
-export async function sourceWebsite(tx: any, id: string, identity: WriteIdentity) {
-  await lockWritableWebsite(tx, id, identity);
+export async function sourceWebsite(
+  tx: any,
+  id: string,
+  identity: WriteIdentity,
+  lock: 'update' | 'share' = 'update',
+) {
+  await lockWritableWebsite(tx, id, identity, lock);
   return (
     await tx.$queryRawUnsafe(
       'SELECT domain,user_id,team_id,reset_at FROM website WHERE website_id=$1::uuid',
@@ -177,20 +187,33 @@ export async function transaction<T>(work: (tx: any) => Promise<T>): Promise<T> 
     { timeout: 60000, maxWait: 60000 },
   )) as T;
 }
-export async function humanTotals(websiteId: string, startDate: Date, endDate: Date) {
-  const raw: unknown = await getWebsiteStats(websiteId, { startDate, endDate });
+export async function humanTotals(
+  websiteId: string,
+  startDate: Date,
+  endDate: Date,
+  timezone = 'UTC',
+) {
+  const raw: unknown = await getWebsiteStats(websiteId, { startDate, endDate, timezone });
   const incompatible = () => new LiekanError('统计数据契约不兼容', 500);
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw incompatible();
   const totals = {} as {
     pageviews: number;
-    visitors: number;
-    visits: number;
-    bounces: number;
-    totaltime: number;
+    visitors: number | null;
+    visits: number | null;
+    bounces: number | null;
+    totaltime: number | null;
+    population?: BrowserPopulation;
   };
+  const population =
+    'population' in raw ? browserPopulationSchema.parse(raw.population) : undefined;
+  if (population) totals.population = population;
   for (const field of ['pageviews', 'visitors', 'visits', 'bounces', 'totaltime'] as const) {
     if (!Object.hasOwn(raw, field)) throw incompatible();
     let value = raw[field];
+    if (value === null && field !== 'pageviews' && population && !identityUsable(population)) {
+      totals[field] = null;
+      continue;
+    }
     // PostgreSQL aggregate counts are bigint. Normalize only exactly representable values.
     if (typeof value === 'bigint') {
       if (value < 0n || value > BigInt(Number.MAX_SAFE_INTEGER)) throw incompatible();

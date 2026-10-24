@@ -1,3 +1,5 @@
+import { populationFromRow } from '@/lib/liekan/upstream/browser-population';
+import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import { AiOverview } from './pages/AiOverview';
@@ -81,6 +83,28 @@ describe('evidence-backed reference copy', () => {
     expect(html).not.toContain('4.2%');
     expect(html).not.toContain('被引用得多');
     expect(html).toContain('会话首个 Referer');
+  });
+  it('keeps an unavailable AI referral population distinct from no observed referrals', () => {
+    const data = report();
+    data.meta.population = populationFromRow(
+      {
+        resourceKind: 'website',
+        eligibleEvents: 2,
+        qualifiedEvents: 1,
+        eligiblePV: 2,
+        qualifiedPV: 1,
+        qualifiedVisitors: 1,
+      },
+      { startAt: 1, endAt: 2, timezone: 'Asia/Shanghai' },
+    );
+    data.tables.srcBody = [{ source: 'chatgpt.com', channel: 'AI 搜索引荐', sessions: null }];
+    const html = renderToStaticMarkup(
+      <ReportContext.Provider value={actions}>
+        <HumanSources report={data} rangeLabel="范围" />
+      </ReportContext.Provider>,
+    );
+    expect(html).toContain(identityUnavailableReason);
+    expect(html).not.toContain('当前范围暂无可识别的 AI 引荐会话');
   });
   it('distinguishes an unconnected referral source from an empty range', () => {
     const data = report();

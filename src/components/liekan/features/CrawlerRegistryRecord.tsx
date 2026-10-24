@@ -114,6 +114,7 @@ function blankRecord(section: CatalogSection, payload: CatalogPayload): any {
       names: [],
       crawlerIds: [],
       parserVersion: 'prefixes-v1',
+      browserExclusion: 'unsupported',
       reviewedAt,
     };
   return {
@@ -229,7 +230,7 @@ export function CrawlerRegistryRecord({
     <Select
       key={key}
       label={i18n.system(label)}
-      value={value[key] || ''}
+      value={key === 'browserExclusion' ? value[key] || 'unsupported' : value[key] || ''}
       disabled={
         !editable ||
         busy ||
@@ -582,6 +583,15 @@ export function CrawlerRegistryRecord({
                 'amazon-code-json-v1': 'Amazon Code JSON',
                 'manual-reviewed-v1': '人工审核范围基准',
               })}
+              {select('browserExclusion', '浏览统计排除用途', {
+                unsupported: '未核实专用爬虫范围',
+                dedicated_crawler: '已核实官方专用爬虫范围',
+              })}
+              <p className="field-help">
+                {i18n.text(
+                  '仅将官方确认的专用爬虫范围用于浏览统计过滤，共享云、代理和用户出口范围保持未核实。',
+                )}
+              </p>
               {input('reviewedAt', '人工复核日期', { type: 'date', required: true })}
               <Textarea
                 label={i18n.text('已审核 CIDR 范围')}

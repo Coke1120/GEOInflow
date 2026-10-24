@@ -2,6 +2,7 @@ import { evidenceValue } from '../contracts/crawler-metrics';
 import { BROWSER_RISK_VERSION } from '../traffic-quality/behavior';
 import { OBSERVATION_VERSION } from '../upstream/collection-observation';
 import type { AiTx } from '../upstream/ai-db';
+import { databaseSchema } from '../upstream/database-schema';
 import { evidenceMeta, type EvidenceInputs } from './evidence-read';
 
 import { parseObservationQuery } from './observation-window';
@@ -12,13 +13,16 @@ export async function readObservations(
   p: ReturnType<typeof parseObservationQuery>,
   input: EvidenceInputs,
 ) {
+  // Reception diagnostics retain raw session presence; the eligible subset is selected explicitly below.
   // Quality.created_at is reception time, independent of the event's business timestamp.
+  const schema = databaseSchema();
   const args = [
     websiteId,
     new Date(Math.max(p.startAt, Date.now() - 30 * 86400000)),
     new Date(p.endAt),
   ];
-  const population = `FROM liekan_raw_website_event e JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id JOIN liekan_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id
+  const population = `FROM liekan_raw_website_event e JOIN "${schema}"."session" s ON s.session_id=e.session_id AND s.website_id=e.website_id JOIN liekan_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id
+    LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
     LEFT JOIN liekan_event_observation o ON o.website_id=e.website_id AND o.event_id=e.event_id
     WHERE e.website_id=$1::uuid AND e.event_type=1 AND q.source IN('browser','legacy_override')
       AND coalesce(o.received_at,q.created_at)>=$2 AND coalesce(o.received_at,q.created_at)<$3
@@ -50,11 +54,35 @@ export async function readObservations(
   const [totals] = await tx.query(
     `SELECT count(*)::float8 AS pv,count(distinct e.session_id)::float8 AS uv,
     count(distinct(e.visit_id,e.session_id))::float8 AS visits,count(o.event_id)::float8 AS observed,
+    count(*) FILTER(WHERE env.scope='browser' AND env.identity_available)::float8 AS "identityQualifiedPv",
+    count(distinct e.session_id) FILTER(WHERE env.scope='browser' AND env.identity_available)::float8 AS "identityQualifiedVisitors",
+    array_remove(array_agg(distinct env.identity_version ORDER BY env.identity_version),NULL) AS "identityVersions",
     count(*) FILTER(WHERE o.event_id IS NULL)::float8 AS "notCollected",count(*) FILTER(WHERE o.version=$4)::float8 AS "currentVersion"
     ${population}`,
     ...args,
     OBSERVATION_VERSION,
   );
+  const observationIdentity = {
+    version: 'received-browser-identity-v1' as const,
+    timeBasis: 'received_at' as const,
+    population: p.subset === 'raw' ? ('raw_public_pv' as const) : ('eligible_public_pv' as const),
+    range: { startAt: +args[1], endAt: p.endAt, timezone: p.timezone, endExclusive: true as const },
+    status: !totals.pv
+      ? ('empty' as const)
+      : totals.identityQualifiedPv === totals.pv
+        ? ('complete' as const)
+        : totals.identityQualifiedPv
+          ? ('partial' as const)
+          : ('unavailable' as const),
+    totalPV: totals.pv,
+    qualifiedPV: totals.identityQualifiedPv,
+    qualifiedVisitors: totals.identityQualifiedVisitors,
+    coverage: totals.pv ? totals.identityQualifiedPv / totals.pv : null,
+    versions: (totals.identityVersions || []).slice(0, 32),
+    versionsTruncated: (totals.identityVersions || []).length > 32,
+  };
+  const identityReady = ['complete', 'empty'].includes(observationIdentity.status);
+  const { identityQualifiedPv, identityQualifiedVisitors, identityVersions, ...counts } = totals;
   const [state] = await tx.query(
     'SELECT epoch,first_received_at AS "firstReceivedAt",last_received_at AS "lastReceivedAt",last_version AS "lastVersion",pruned_before AS "prunedBefore" FROM liekan_observation_state WHERE website_id=$1::uuid',
     websiteId,
@@ -84,11 +112,18 @@ export async function readObservations(
       timeBasis: 'received_at',
       population: p.subset === 'raw' ? 'raw_public_pv' : 'eligible_public_pv',
       observationVersion: OBSERVATION_VERSION,
+      observationIdentity,
       observationState: state?.epoch === input.baseline.epoch ? state : null,
       historicalReception: 'unknown',
     },
-    rows,
-    totals: { ...totals, ...behavior },
+    rows: rows.map(row => ({ ...row, uv: identityReady ? row.uv : null })),
+    totals: {
+      ...counts,
+      ...behavior,
+      uv: identityReady ? totals.uv : null,
+      visits: identityReady ? totals.visits : null,
+      flaggedUv: identityReady ? behavior.flaggedUv : null,
+    },
     coverage: fields,
     state: !totals.pv ? 'unknown' : totals.currentVersion !== totals.pv ? 'partial' : 'available',
     reasonCode: !totals.pv

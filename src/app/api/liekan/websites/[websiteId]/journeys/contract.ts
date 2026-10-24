@@ -1,3 +1,4 @@
+import { analysisAcceptedSchema } from '@/lib/liekan/contracts/analysis-acceleration';
 import { z } from 'zod';
 import { journeyQuery } from '@/lib/liekan/contracts/analysis';
 import { journeyResponse } from '@/lib/liekan/contracts/feature-responses';
@@ -20,6 +21,7 @@ export const operations = [
       tags: ['Liekan'],
       requestParams: { path: z.object({ websiteId: z.uuid() }), query: journeyQuery },
       responses: {
+        '202': {description:'Opt-in Prefer: respond-async accepted a durable private task',content:{'application/json':{schema:analysisAcceptedSchema}}},
         200: {
           description: '实际路径与访客统计',
           content: { 'application/json': { schema: journeyResponse } },

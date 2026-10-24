@@ -10,7 +10,7 @@ import {
 } from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
-import type { PageResult, QueryFilters, WebsiteSession } from '@/lib/types';
+import type { IdentityPageResult, QueryFilters, WebsiteSession } from '@/lib/types';
 
 const FUNCTION_NAME = 'getWebsiteSessions';
 const QUALIFIED_FILTER_COLUMNS = Object.fromEntries(
@@ -19,7 +19,7 @@ const QUALIFIED_FILTER_COLUMNS = Object.fromEntries(
 
 export async function getWebsiteSessions(
   ...args: [websiteId: string, filters: QueryFilters]
-): Promise<PageResult<WebsiteSession[]>> {
+): Promise<IdentityPageResult<WebsiteSession[]>> {
   return runQuery({
     [PRISMA]: () =>
       nativeAggregate(FUNCTION_NAME, args[0], args[1], args[1], () =>
@@ -41,9 +41,9 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
   const searchQuery = search
     ? `and (distinct_id ilike {{search}}
            or session.city ilike {{search}}
-           or browser ilike {{search}}
-           or os ilike {{search}}
-           or device ilike {{search}})`
+           or session.browser ilike {{search}}
+           or session.os ilike {{search}}
+           or session.device ilike {{search}})`
     : '';
 
   return pagedRawQuery(
@@ -51,12 +51,12 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
     select
       session.session_id as "id",
       session.website_id as "websiteId",
-      website_event.hostname,
-      session.browser,
-      session.os,
-      session.device,
-      session.screen,
-      session.language,
+      (array_agg(website_event.hostname order by website_event.created_at desc,website_event.event_id desc))[1] as hostname,
+      (array_agg(session.browser order by website_event.created_at desc,website_event.event_id desc))[1] as browser,
+      (array_agg(session.os order by website_event.created_at desc,website_event.event_id desc))[1] as os,
+      (array_agg(session.device order by website_event.created_at desc,website_event.event_id desc))[1] as device,
+      (array_agg(session.screen order by website_event.created_at desc,website_event.event_id desc))[1] as screen,
+      (array_agg(session.language order by website_event.created_at desc,website_event.event_id desc))[1] as language,
       ${getPostgresCountrySQL('(array_agg(session.country order by website_event.created_at desc,website_event.event_id desc))[1]')} as country,
       ${getPostgresRegionSQL('(array_agg(session.country order by website_event.created_at desc,website_event.event_id desc))[1]', '(array_agg(session.region order by website_event.created_at desc,website_event.event_id desc))[1]')} as region,
       (array_agg(session.city order by website_event.created_at desc,website_event.event_id desc))[1] as city,
@@ -76,13 +76,7 @@ async function relationalQuery(websiteId: string, filters: QueryFilters) {
     ${filterQuery}
     ${searchQuery}
     group by session.session_id, 
-      session.website_id, 
-      website_event.hostname, 
-      session.browser, 
-      session.os, 
-      session.device, 
-      session.screen, 
-      session.language
+      session.website_id
     `,
     queryParams,
     filters,

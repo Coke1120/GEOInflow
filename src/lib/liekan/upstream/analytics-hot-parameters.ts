@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import * as schemas from '@/lib/analytics-schema';
 import { EVENT_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
-import { withDateRange } from '@/lib/schema';
+import { filterParams, withDateRange } from '@/lib/schema';
 import { analysisQuery, journeyQuery } from '../contracts/analysis';
 import { parseReportQuery } from '../contracts/query';
 import { sharedReportQuery } from '../contracts/shared-report';
@@ -50,8 +50,14 @@ export const analyticsRefreshJobSchema = z
 export function analyticsHotCatalogVersion(strongVersion: string): string | undefined {
   try {
     const version = JSON.parse(strongVersion);
-    if (Array.isArray(version) && version.length === 5 && z.uuid().safeParse(version[1]).success)
-      return version[1];
+    if (!Array.isArray(version)) return undefined;
+    if (
+      version.length === 7 &&
+      ['history-repair-v1.1', 'history-repair-v1.2'].includes(version[1]) &&
+      z.uuid().safeParse(version[3]).success
+    )
+      return version[3];
+    if (version.length === 5 && z.uuid().safeParse(version[1]).success) return version[1];
   } catch {
     // Older hot registrations are renewed against the current catalog.
   }
@@ -72,10 +78,14 @@ const nativeSchemas: Record<string, z.ZodType> = {
   'performance/metrics': schemas.performanceMetricsQuerySchema,
   'utm/metrics': schemas.utmMetricsQuerySchema,
   metrics: withDateRange({
+    ...filterParams,
+    search: z.string().max(500).optional(),
+    offset: z.coerce.number().int().min(0).max(100000).optional(),
     type: z.enum(['channel', ...SESSION_COLUMNS, ...EVENT_COLUMNS]),
     limit: z.coerce.number().int().min(1).max(500).optional(),
   }),
   'revenue/metrics': withDateRange({
+    ...filterParams,
     type: z.enum(['country', 'region', 'referrer', 'channel']),
     currency: z.string().max(10),
   }),
@@ -100,6 +110,7 @@ export function parseAnalyticsHotParameters(target: string, input: Record<string
   return (
     nativeSchemas[native] ||
     withDateRange({
+      ...filterParams,
       limit: z.coerce.number().int().min(1).max(500).optional(),
       currency: z.string().max(10).optional(),
     })

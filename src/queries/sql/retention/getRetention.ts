@@ -12,9 +12,9 @@ export interface RetentionParameters {
 export interface RetentionResult {
   date: string;
   day: number;
-  visitors: number;
-  returnVisitors: number;
-  percentage: number;
+  visitors: number | null;
+  returnVisitors: number | null;
+  percentage: number | null;
 }
 
 export async function getRetention(
@@ -98,7 +98,8 @@ async function relationalQuery(
     on c.cohort_date = s.cohort_date
     where c.day_number <= 31
     order by 1, 2`,
-    queryParams, 'getRetention',
+    queryParams,
+    'getRetention',
   );
 }
 
@@ -174,6 +175,7 @@ async function clickhouseQuery(
     on c.cohort_date = s.cohort_date
     where c.day_number <= 31
     order by 1, 2`,
-    queryParams, 'getRetention',
+    queryParams,
+    'getRetention',
   );
 }

@@ -1,3 +1,4 @@
+import type { BrowserPopulation } from '@/lib/liekan/contracts/browser-population';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, EVENT_TYPE } from '@/lib/constants';
 import { getClickHouseCountrySQL, getPostgresCountrySQL } from '@/lib/country';
@@ -8,9 +9,10 @@ import type { QueryFilters } from '@/lib/types';
 const FUNCTION_NAME = 'getWebsiteSessionStats';
 
 export interface WebsiteSessionStatsData {
+  population?: BrowserPopulation;
   pageviews: number;
-  visitors: number;
-  visits: number;
+  visitors: number | null;
+  visits: number | null;
   countries: number;
   events: number;
 }

@@ -1,4 +1,5 @@
 'use client';
+import { AnalysisPendingNotice } from '../AnalysisPendingNotice';
 import { liekanProduct } from '@/lib/liekan/contracts/product';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { useLiekanPageTitle } from '@/lib/liekan/i18n/client';
@@ -55,6 +56,7 @@ const CrawlerRegistryPage = dynamic(() =>
   import('./CrawlerRegistryPage').then(module => module.CrawlerRegistryPage),
 );
 const HelpCenter = dynamic(() => import('./HelpCenter').then(module => module.HelpCenter));
+const AnalyticsAccelerationPage = dynamic(() => import('./AnalyticsAccelerationPage').then(module => module.AnalyticsAccelerationPage));
 const HistoryRepairPage = dynamic(() =>
   import('./HistoryRepairPage').then(module => module.HistoryRepairPage),
 );
@@ -69,6 +71,7 @@ import { WorkspacePages, workspacePages } from './WorkspacePages';
 
 export const coreFeaturePages = new Set([
   'history-repair',
+  'analytics-acceleration',
   'crawlers-manage',
   'help',
   'websites',
@@ -195,7 +198,7 @@ export function FeatureApp({
     ].includes(route.page);
   const preferences = getFeaturePreferences();
   const timezone = preferences.timezone || 'Asia/Shanghai';
-  const { dateRange, invalidDate } = useFeatureDateRange(timezone);
+  const { dateRange } = useFeatureDateRange(timezone);
   const range = useMemo(
     () => featureDateRange(dateRange, timezone),
     [+dateRange.startDate, +dateRange.endDate, dateRange.value, dateRange.unit, timezone],
@@ -505,6 +508,7 @@ export function FeatureApp({
               href={href}
               onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
             />
+            <AnalysisPendingNotice websiteId={site?.id || siteId} websiteHandle={current.websiteId} />
             {content}
           </main>
           <ProductFooter />
@@ -634,29 +638,9 @@ export function FeatureApp({
             </>
           )}
           <main className="content" id="main-content" ref={mainContent} tabIndex={-1}>
-            {datePage && invalidDate && (
-              <Notice tone="amber">
-                {i18n.fragment('日期参数无效，当前使用默认日期范围。', false, true)}
-                <Button
-                  onClick={() =>
-                    updateQuery({
-                      date: '30day',
-                      unit: undefined,
-                      offset: undefined,
-                      dateMode: undefined,
-                      live: undefined,
-                    })
-                  }
-                >
-                  {i18n.text('重置日期')}
-                </Button>
-              </Notice>
-            )}
             {!showAnalysisTools && rangeContext}
-            {websiteRequired && nav.query.clearedFilters === '1' && (
-              <Notice>{i18n.text('已清除当前页面不支持的筛选，统计采用页面显示的条件。')}</Notice>
-            )}
             {!showAnalysisTools && analysisTabs}
+            <AnalysisPendingNotice websiteId={site?.id || siteId} websiteHandle={current.websiteId} />
             {content}
           </main>
           <ProductFooter />
@@ -772,6 +756,7 @@ function FeaturePage({ page }: { page: string }) {
   if (aiPages.has(page)) return <AiPages page={page} />;
   if (page === 'help') return <HelpCenter />;
   if (page === 'crawlers-manage') return <CrawlerRegistryPage />;
+  if (page === 'analytics-acceleration') return <AnalyticsAccelerationPage />;
   if (page === 'history-repair') return <HistoryRepairPage />;
   if (coreFeaturePages.has(page)) return <CorePages page={page} />;
   if (analysisPages.has(page)) return <AnalyticsPages page={page} />;

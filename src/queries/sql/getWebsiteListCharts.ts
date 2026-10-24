@@ -1,3 +1,7 @@
+import { identityUsable, type BrowserPopulation } from '@/lib/liekan/contracts/browser-population';
+import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import { addHours } from 'date-fns';
 import { formatInTimeZone } from 'date-fns-tz';
 import clickhouse from '@/lib/clickhouse';
@@ -12,12 +16,13 @@ const BUCKET_HOURS = 12;
 interface WebsiteListChartPoint {
   websiteId: string;
   x: string | null;
-  y: number;
+  y: number | null;
 }
 
 export interface WebsiteListChartData {
-  values: number[];
-  total: number;
+  population?: BrowserPopulation;
+  values: (number | null)[];
+  total: number | null;
 }
 
 export async function getWebsiteListCharts(
@@ -39,11 +44,36 @@ export async function getWebsiteListCharts(
   }
 
   return runQuery({
-    [PRISMA]: async () => {
-      const points = await relationalQuery(websiteIds, startDate, endDate, timezone, eventType);
+    [PRISMA]: () =>
+      nativeAggregate(
+        FUNCTION_NAME,
+        websiteIds,
+        { startDate, endDate, timezone, eventType },
+        {},
+        () =>
+          nativeSnapshot(async () => {
+            const points = await relationalQuery(
+              websiteIds,
+              startDate,
+              endDate,
+              timezone,
+              eventType,
+            );
 
-      return formatResults({ points, websiteIds, startDate, endDate, timezone });
-    },
+            const result = formatResults({ points, websiteIds, startDate, endDate, timezone });
+            await Promise.all(
+              websiteIds.map(async id => {
+                const population = await readBrowserPopulation(id, startDate, endDate, timezone);
+                result[id].population = population;
+                if (!identityUsable(population)) {
+                  result[id].total = null;
+                  result[id].values.fill(null);
+                }
+              }),
+            );
+            return result;
+          }),
+      ),
     [CLICKHOUSE]: async () => {
       const points = await clickhouseQuery(websiteIds, startDate, endDate, timezone, eventType);
 
@@ -143,21 +173,19 @@ async function clickhouseQuery(
   );
 }
 
-function formatResults(
-  {
-    points,
-    websiteIds,
-    startDate,
-    endDate,
-    timezone,
-  }: {
-    points: WebsiteListChartPoint[];
-    websiteIds: string[];
-    startDate: Date;
-    endDate: Date;
-    timezone: string;
-  },
-) {
+function formatResults({
+  points,
+  websiteIds,
+  startDate,
+  endDate,
+  timezone,
+}: {
+  points: WebsiteListChartPoint[];
+  websiteIds: string[];
+  startDate: Date;
+  endDate: Date;
+  timezone: string;
+}) {
   const buckets: string[] = [];
 
   for (
@@ -185,14 +213,15 @@ function formatResults(
     // Subtotal rows from GROUPING SETS (null x on Postgres, '' on ClickHouse)
     // carry the window-wide distinct total per website
     if (!x) {
-      charts[websiteId].total = Number(y);
+      charts[websiteId].total = y === null ? null : Number(y);
+      if (y === null) charts[websiteId].values.fill(null);
       return;
     }
 
     const index = bucketIndex.get(String(x).slice(0, 19));
 
     if (index !== undefined) {
-      charts[websiteId].values[index] = Number(y);
+      charts[websiteId].values[index] = y === null ? null : Number(y);
     }
   });
 

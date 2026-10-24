@@ -62,6 +62,7 @@ async function installation(t, options = {}) {
       '    if [ "${DEPLOY_TEST_START_STATUS:-0}" != 0 ]; then exit "$DEPLOY_TEST_START_STATUS"; fi',
       '    touch "$DEPLOY_TEST_CALLS.started.$2" ;;',
       '  \'compose -f docker-compose.liekan.yml build app\') if [ "${DEPLOY_TEST_KILL_DEPLOY:-0}" = 1 ]; then kill -KILL "$PPID"; fi; if [ "${DEPLOY_TEST_BLOCK_BUILD:-0}" = 1 ]; then touch "$DEPLOY_TEST_CALLS.building"; sleep 2; fi; exit "${DEPLOY_TEST_BUILD_STATUS:-0}" ;;',
+      "  'compose -f docker-compose.liekan.yml stop log-worker analytics-worker') exit \"${DEPLOY_TEST_WORKER_STOP_STATUS:-0}\" ;;",
       "  'compose -f docker-compose.liekan.yml up -d --no-build --wait --wait-timeout 300') exit 0 ;;",
       "  'compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 '*)",
       '    shift 10',
@@ -358,4 +359,38 @@ test('a build failure leaves stopped database and cache containers untouched', a
   const commands = await readFile(calls, 'utf8');
   assert.match(commands, /build app/);
   assert.doesNotMatch(commands, /^start | up -d /m);
+});
+
+
+test('worker drain finishes before application migration during an existing upgrade', async t => {
+  const { calls, run } = await existingInstallation(t, {
+    DEPLOY_TEST_DB_CONTAINER: 'running-postgres-15',
+    DEPLOY_TEST_CACHE_CONTAINER: 'running-cache',
+  });
+  const result = run();
+  assert.equal(result.status, 0, result.stderr);
+  const commands = (await readFile(calls, 'utf8')).split('\n');
+  const stopped = commands.indexOf('compose -f docker-compose.liekan.yml stop log-worker analytics-worker');
+  assert.ok(stopped >= 0, 'old workers must stop before the app applies a new schema');
+  assert.ok(commands.indexOf('compose -f docker-compose.liekan.yml build app') < stopped);
+  assert.ok(stopped < commands.indexOf(`${safeUp} app`));
+  assert.ok(commands.indexOf(`${safeUp} app`) < commands.indexOf(`${safeUp} log-worker analytics-worker`));
+  assert.equal(commands.filter(command => command.includes(' stop ')).length, 1);
+});
+test('worker stop failure preserves existing configuration and prevents application migration', async t => {
+  const { root, calls, run } = await existingInstallation(t, { DEPLOY_TEST_WORKER_STOP_STATUS: '7' });
+  const original = await readFile(path.join(root, '.env'));
+  assert.equal(run().status, 7);
+  const commands = await readFile(calls, 'utf8');
+  assert.match(commands, /stop log-worker analytics-worker/);
+  assert.ok(!commands.includes(`${safeUp} app`));
+  assert.ok(!commands.includes(`${safeUp} log-worker analytics-worker`));
+  assert.deepEqual(await readFile(path.join(root, '.env')), original);
+});
+test('build failure leaves workers running before an upgrade begins', async t => {
+  const { calls, run } = await existingInstallation(t, { DEPLOY_TEST_BUILD_STATUS: '6' });
+  assert.equal(run().status, 6);
+  const commands = await readFile(calls, 'utf8');
+  assert.match(commands, /build app/);
+  assert.doesNotMatch(commands, / stop | up -d /);
 });

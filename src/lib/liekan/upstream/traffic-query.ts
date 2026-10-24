@@ -1,4 +1,4 @@
-export const TRAFFIC_POLICY_VERSION = 'traffic-quality-browser-source-v2';
+export const TRAFFIC_POLICY_VERSION = 'traffic-quality-browser-population-v4';
 
 type Token = { value: string; start: number; end: number; identifier: boolean };
 
@@ -33,6 +33,9 @@ const effectiveTables = {
   revenue: 'liekan_effective_revenue',
   heatmap_event: 'liekan_effective_heatmap_event',
   session_replay: 'liekan_effective_session_replay',
+  session: 'liekan_effective_session',
+  session_data: 'liekan_effective_session_data',
+  session_link: 'liekan_effective_session_link',
 } as const;
 
 /** Keep geography filters and event-bound visitor rows on one visit tuple. */
@@ -86,7 +89,11 @@ function withVisitGeography(sql: string) {
   for (let i = 0; i < parts.length - 2; i++) {
     const event = mapping.get(`${scopes[i]}:${parts[i].value}`),
       field = parts[i + 2]?.value;
-    if (event && parts[i + 1].value === '.' && ['country', 'region', 'city'].includes(field))
+    if (
+      event &&
+      parts[i + 1].value === '.' &&
+      ['country', 'region', 'city', 'browser', 'os', 'device', 'screen', 'language'].includes(field)
+    )
       edits.push({
         start: parts[i].start,
         end: parts[i + 2].end,

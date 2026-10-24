@@ -1,3 +1,4 @@
+import { analysisAcceptedSchema } from '@/lib/liekan/contracts/analysis-acceleration';
 import { z } from 'zod';
 import { reportQuery } from '@/lib/liekan/contracts/query';
 import { pageReportSchema } from '@/lib/liekan/contracts/page-report';
@@ -24,6 +25,7 @@ export const operations = [
         query: reportQuery.extend({ refresh: z.enum(['0', '1']).optional() }),
       },
       responses: {
+        '202': {description:'Opt-in Prefer: respond-async accepted a durable private task',content:{'application/json':{schema:analysisAcceptedSchema}}},
         '200': {
           description: 'Selected page statistics and freshness',
           content: { 'application/json': { schema: pageReportSchema } },

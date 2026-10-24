@@ -1,3 +1,6 @@
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { getWebsiteSession } from './getWebsiteSession';
 import clickhouse from '@/lib/clickhouse';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
@@ -8,9 +11,13 @@ const FUNCTION_NAME = 'getSessionData';
 export async function getSessionData(
   ...args: [websiteId: string, sessionId: string]
 ): Promise<SessionDataValue[]> {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
+  return nativeSnapshot(async () => {
+    const session = await getWebsiteSession(...args);
+    if (!session || !identityUsable(session.population)) return [];
+    return runQuery({
+      [PRISMA]: () => relationalQuery(...args),
+      [CLICKHOUSE]: () => clickhouseQuery(...args),
+    });
   });
 }
 

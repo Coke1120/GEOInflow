@@ -127,6 +127,10 @@ describe.skipIf(!enabled)('crawler first-entry attribution on isolated PostgreSQ
       "INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status) SELECT event_id,website_id,'browser','browser','{}','fixture-browser','missing' FROM website_event WHERE website_id=$1::uuid ON CONFLICT DO NOTHING",
       site,
     );
+    await q(
+      "INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available) SELECT event_id,website_id,'browser','fixture-trusted-browser',true FROM liekan_raw_website_event WHERE website_id=$1::uuid ON CONFLICT DO NOTHING",
+      site,
+    );
   });
   afterAll(async () => {
     if (!enabled) return;

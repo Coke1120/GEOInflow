@@ -132,13 +132,14 @@ export async function persistCrawlerEvidence(
     measurement: row.measurement ? logMeasurementSchema.parse(row.measurement) : null,
     ...(row.crawlerEvidence ?? {}),
   }));
-  // Keep the indexed event lookup batch-bounded while enforcing import ownership.
+  // The runtime site value avoids stale new-site MCV estimates selecting a
+  // site-prefix scan per record. Check import ownership after the unique point lookup.
   await tx.$executeRawUnsafe(
     `INSERT INTO liekan_crawler_evidence(website_id,log_id,classification_version,crawler_id,security_action,terminating_rule_id,matched_rule_ids,cache_status,duration_ms,measurement,edge_observation,catalog_version,identity_evidence)
      SELECT $1::uuid,r.id,r."classificationVersion",r."crawlerId",r."securityAction",r."terminatingRuleId",r."matchedRuleIds",r."cacheStatus",r."durationMs",r.measurement,r."edgeObservation",r."catalogVersion",r."identityEvidence"
      FROM jsonb_to_recordset($3::jsonb) AS r(id text,"classificationVersion" text,"crawlerId" text,"securityAction" text,"terminatingRuleId" text,"matchedRuleIds" jsonb,"cacheStatus" text,"durationMs" double precision,measurement jsonb,"edgeObservation" jsonb,"catalogVersion" uuid,"identityEvidence" jsonb)
-     JOIN LATERAL (SELECT 1 FROM liekan_log l
-       WHERE l.website_id=$1::uuid AND l.id=r.id AND l.import_id=$2::uuid OFFSET 0) l ON true
+     JOIN LATERAL (SELECT import_id FROM liekan_log l
+       WHERE l.website_id=(SELECT $1::uuid OFFSET 0) AND l.id=r.id OFFSET 0) l ON l.import_id=$2::uuid
      ON CONFLICT(website_id,log_id) DO NOTHING`,
     websiteId,
     importId,

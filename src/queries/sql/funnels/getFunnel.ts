@@ -23,11 +23,11 @@ export interface FunnelParameters {
 }
 
 export interface FunnelResult extends FunnelStep {
-  visitors: number;
-  previous: number;
-  dropped: number;
-  dropoff: number;
-  remaining: number;
+  visitors: number | null;
+  previous: number | null;
+  dropped: number | null;
+  dropoff: number | null;
+  remaining: number | null;
 }
 
 export async function getFunnel(
@@ -185,7 +185,8 @@ async function relationalQuery(
     {
       ...params,
       ...queryParams,
-    }, 'getFunnel',
+    },
+    'getFunnel',
   ).then(formatResults(steps));
 }
 
@@ -343,12 +344,23 @@ async function clickhouseQuery(
     {
       ...params,
       ...queryParams,
-    }, 'getFunnel',
+    },
+    'getFunnel',
   ).then(formatResults(steps));
 }
 
-const formatResults = (steps: Array<FunnelStep>) => (results: unknown) => {
+const formatResults = (steps: Array<FunnelStep>) => (value: unknown) => {
+  const results = value as any[];
   return steps.map((step: FunnelStep, i: number) => {
+    if (results.some(row => row.count === null))
+      return {
+        ...step,
+        visitors: null,
+        previous: null,
+        dropped: null,
+        dropoff: null,
+        remaining: null,
+      };
     const visitors = Number(results[i]?.count) || 0;
     const previous = Number(results[i - 1]?.count) || 0;
     const dropped = previous > 0 ? previous - visitors : 0;

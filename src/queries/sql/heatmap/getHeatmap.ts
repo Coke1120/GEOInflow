@@ -1,3 +1,7 @@
+import { identityUsable, type BrowserPopulation } from '@/lib/liekan/contracts/browser-population';
+import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
 import { HEATMAP_EVENT_TYPE, OPERATORS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -22,7 +26,7 @@ export interface HeatmapParameters extends QueryFilters {
 export interface HeatmapPage {
   urlPath: string;
   count: number;
-  sessions: number;
+  sessions: number | null;
 }
 
 export interface HeatmapPoint {
@@ -39,7 +43,7 @@ export interface HeatmapPoint {
 
 export interface HeatmapScrollBucket {
   depth: number;
-  sessions: number;
+  sessions: number | null;
   pageW: number;
   pageH: number;
   viewportW: number;
@@ -59,13 +63,14 @@ export interface HeatmapSnapshotIframe {
 export type HeatmapSnapshot = HeatmapSnapshotIframe;
 
 export interface HeatmapResult {
+  population?: BrowserPopulation;
   mode: HeatmapMode;
   pages: HeatmapPage[];
   points: HeatmapPoint[];
   snapshot: HeatmapSnapshot | null;
   scroll: {
     buckets: HeatmapScrollBucket[];
-    totalSessions: number;
+    totalSessions: number | null;
     pageW: number | null;
     pageH: number | null;
     viewportW: number | null;
@@ -78,7 +83,29 @@ export async function getHeatmap(
   parameters: HeatmapParameters,
 ): Promise<HeatmapResult> {
   return runQuery({
-    [PRISMA]: () => relationalQuery(websiteId, parameters),
+    [PRISMA]: () =>
+      nativeAggregate(FUNCTION_NAME, websiteId, parameters, parameters, () =>
+        nativeSnapshot(async () => {
+          const result = await relationalQuery(websiteId, parameters);
+          const population = await readBrowserPopulation(
+            websiteId,
+            parameters.startDate,
+            parameters.endDate,
+            parameters.timezone,
+          );
+          result.population = population;
+          if (!identityUsable(population)) {
+            result.pages.forEach(page => {
+              page.sessions = null;
+            });
+            result.scroll.buckets.forEach(bucket => {
+              bucket.sessions = null;
+            });
+            result.scroll.totalSessions = null;
+          }
+          return result;
+        }),
+      ),
     [CLICKHOUSE]: () => clickhouseQuery(websiteId, parameters),
   });
 }
@@ -191,7 +218,7 @@ async function relationalQuery(
 
     const scrollBuckets = bucketRows.map(r => ({
       depth: Number(r.depth),
-      sessions: Number(r.sessions),
+      sessions: r.sessions === null ? null : Number(r.sessions),
       pageW: Number(r.pageW),
       pageH: Number(r.pageH),
       viewportW: Number(r.viewportW),
@@ -200,7 +227,9 @@ async function relationalQuery(
     const viewport = pickScrollSnapshotViewport(scrollBuckets);
     const scroll = {
       buckets: scrollBuckets,
-      totalSessions: scrollBuckets.reduce((sum, bucket) => sum + bucket.sessions, 0),
+      totalSessions: scrollBuckets.some(bucket => bucket.sessions === null)
+        ? null
+        : scrollBuckets.reduce((sum, bucket) => sum + bucket.sessions, 0),
       pageW: viewport?.pageW ?? null,
       pageH: viewport?.pageH ?? null,
       viewportW: viewport?.width ?? null,
@@ -334,7 +363,7 @@ async function clickhouseQuery(
   const pages: HeatmapPage[] = pageRows.map(p => ({
     urlPath: p.urlPath,
     count: Number(p.count),
-    sessions: Number(p.sessions),
+    sessions: p.sessions === null ? null : Number(p.sessions),
   }));
 
   if (!urlPath) {
@@ -395,7 +424,7 @@ async function clickhouseQuery(
 
     const scrollBuckets = bucketRows.map(r => ({
       depth: Number(r.depth),
-      sessions: Number(r.sessions),
+      sessions: r.sessions === null ? null : Number(r.sessions),
       pageW: Number(r.pageW),
       pageH: Number(r.pageH),
       viewportW: Number(r.viewportW),
@@ -404,7 +433,9 @@ async function clickhouseQuery(
     const viewport = pickScrollSnapshotViewport(scrollBuckets);
     const scroll = {
       buckets: scrollBuckets,
-      totalSessions: scrollBuckets.reduce((sum, bucket) => sum + bucket.sessions, 0),
+      totalSessions: scrollBuckets.some(bucket => bucket.sessions === null)
+        ? null
+        : scrollBuckets.reduce((sum, bucket) => sum + bucket.sessions, 0),
       pageW: viewport?.pageW ?? null,
       pageH: viewport?.pageH ?? null,
       viewportW: viewport?.width ?? null,
@@ -688,7 +719,7 @@ function pickScrollSnapshotViewport(
     {
       width: number;
       height: number;
-      sessions: number;
+      sessions: number | null;
       maxPageW: number;
       maxPageH: number;
     }
@@ -716,7 +747,7 @@ function pickScrollSnapshotViewport(
   let bestViewport: {
     width: number;
     height: number;
-    sessions: number;
+    sessions: number | null;
     maxPageW: number;
     maxPageH: number;
   } | null = null;

@@ -1,3 +1,4 @@
+import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import clickhouse from '@/lib/clickhouse';
 import { SESSION_COLUMNS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -40,10 +41,11 @@ async function relationalQuery(
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
     parseFilters({ ...filters, websiteId }, { joinSession: SESSION_COLUMNS.includes(column) });
 
+  const environmentColumn = postgresEventEnvironmentColumn(column);
   return rawQuery(
     `
     select
-      ${column} as "name",
+      ${environmentColumn} as "name",
       percentile_cont(0.5) within group (order by ${metric}) as p50,
       percentile_cont(0.75) within group (order by ${metric}) as p75,
       percentile_cont(0.95) within group (order by ${metric}) as p95,
@@ -56,11 +58,12 @@ async function relationalQuery(
       and website_event.event_type = 5
       and website_event.created_at between {{startDate}} and {{endDate}}
       ${filterQuery}
-    group by ${column}
+    group by ${environmentColumn}
     order by p75 desc
     ${limit ? `limit ${limit}` : ''}
     `,
-    { ...queryParams, startDate, endDate }, 'getPerformanceMetrics',
+    { ...queryParams, startDate, endDate },
+    'getPerformanceMetrics',
   );
 }
 
@@ -97,6 +100,7 @@ async function clickhouseQuery(
     order by p75 desc
     ${limit ? `limit ${limit}` : ''}
     `,
-    { ...queryParams, startDate, endDate }, 'getPerformanceMetrics',
+    { ...queryParams, startDate, endDate },
+    'getPerformanceMetrics',
   );
 }

@@ -1,3 +1,7 @@
+import { CacheProbeMiss } from './liekan/upstream/cache-context';
+import { identityUsable } from './liekan/contracts/browser-population';
+import { readBrowserPopulation, applyNativePopulation } from './liekan/upstream/browser-population';
+import { noteBrowserPopulation } from './liekan/upstream/cache-context';
 import {
   cityNameSQL,
   cityFilterValues,
@@ -36,6 +40,7 @@ import { statisticsCacheTtl } from './liekan/upstream/cache-policy';
 import { installAnalyticsRuntime } from './liekan/upstream/analytics-runtime';
 import { isAnalyticsWorker } from './liekan/upstream/process-role';
 import { primaryMetadataClient } from './liekan/upstream/analytics-deadline';
+import { currentCollectionTransaction } from './liekan/upstream/collection-write';
 
 const log = debug('umami:prisma');
 
@@ -866,6 +871,7 @@ async function executeRawQuery(
   });
 
   const queryClient =
+    (write && currentCollectionTransaction()) ||
     (!write && getQuerySnapshot()) ||
     getRawQueryClient(client, {
       // Website analytics read repair pointers and facts from the same primary database.
@@ -917,6 +923,40 @@ async function rawQuery(sql: string, data: Record<string, any>, name?: string): 
     'getSessionMetrics',
     'getSessionExpandedMetrics',
   ]);
+  const populationQuery =
+    !!(data.websiteId || data.websiteIds?.length) &&
+    !!data.startDate &&
+    !!data.endDate &&
+    /\b(?:website_event|website_event_stats_hourly|heatmap_event)\b/.test(sql);
+  const load = async () => {
+    const rows = await executeRawQuery(sql, data, name);
+    const populations = populationQuery
+      ? await Promise.all(
+          (data.websiteId ? [data.websiteId] : data.websiteIds).map(async (id: string) => ({
+            id,
+            population: await readBrowserPopulation(
+              id,
+              new Date(data.startDate),
+              new Date(data.endDate),
+              data.timezone || (currentCacheContext()?.parameters?.timezone as string) || 'UTC',
+            ),
+          })),
+        )
+      : [];
+    return {
+      rows: rows.map(row => {
+        const population = populations.find(
+          item => item.id === (data.websiteId || row.websiteId),
+        )?.population;
+        return population ? applyNativePopulation([row], name, population)[0] : row;
+      }),
+      populations,
+    };
+  };
+  const unwrap = (result: Awaited<ReturnType<typeof load>>) => {
+    for (const { id, population } of result.populations) noteBrowserPopulation(id, population);
+    return result.rows;
+  };
   const ids = data.websiteId ? [data.websiteId] : data.websiteIds;
   const cacheTimezone = data.timezone || currentCacheContext()?.parameters?.timezone;
   if (ids?.length && cacheable.has(name) && !getQuerySnapshot() && cacheHeadersEnabled()) {
@@ -934,12 +974,13 @@ async function rawQuery(sql: string, data: Record<string, any>, name?: string): 
       inputKey,
       data.endDate ? statisticsCacheTtl(data.endDate, cacheTimezone) : 30000,
       ids.map(websiteCacheTag),
-      () => executeRawQuery(sql, data, name),
+      () => (populationQuery ? nativeSnapshot(load) : load()),
     );
     noteCacheResult(result);
-    return result.value;
+    return unwrap(result.value);
   }
-  return executeRawQuery(sql, data, name);
+  if (currentCacheContext()?.probeOnly) throw new CacheProbeMiss();
+  return unwrap(await (populationQuery ? nativeSnapshot(load) : load()));
 }
 
 async function writeRawQuery(sql: string, data: Record<string, any>, name?: string): Promise<any> {
@@ -1000,7 +1041,35 @@ async function pagedRawQuery(
       name === 'getEventDataPivot' ? name : undefined,
     ).then(res => Number(res[0].num));
     const data = await rawQuery(`${query}${statements}`, queryParams, name);
+    const population =
+      queryParams.websiteId && queryParams.startDate && queryParams.endDate
+        ? await readBrowserPopulation(
+            queryParams.websiteId,
+            new Date(queryParams.startDate),
+            new Date(queryParams.endDate),
+            queryParams.timezone || 'UTC',
+          )
+        : undefined;
+    if (
+      [
+        'getWebsiteSessions',
+        'getSessionDataPivot',
+        'getRevenueSessions',
+        'getSessionReplays',
+      ].includes(name) &&
+      !identityUsable(population)
+    )
+      return {
+        data: [],
+        count: null,
+        page: +page,
+        pageSize: size,
+        orderBy,
+        isCapped: false,
+        population,
+      };
     return {
+      ...(population ? { population } : {}),
       data,
       count,
       page: +page,

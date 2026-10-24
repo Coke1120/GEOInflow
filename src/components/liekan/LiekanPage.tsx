@@ -1,4 +1,5 @@
 'use client';
+import { AnalysisPendingNotice } from './AnalysisPendingNotice';
 import { downloadTrafficEvidence } from '@/lib/liekan/upstream/features-client';
 import { reportEvidenceViewPayload } from '@/lib/liekan/contracts/report-evidence-view';
 import { sha256 } from '@noble/hashes/sha2.js';
@@ -81,7 +82,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const { websiteId, teamId, pathname, query: params, router, updateParams } = useNavigation();
   const website = useWebsite();
   const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
-  const { dateRange, invalidDate } = useFeatureDateRange(timezone);
+  const { dateRange } = useFeatureDateRange(timezone);
   const actualRange = featureDateRange(dateRange, timezone);
   const route = { page: geoPageFromPath(pathname), websiteId };
   const href = (page: string, values: Record<string, any> = {}) =>
@@ -143,7 +144,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     };
   }, []);
   const [action, setAction] = useState('');
-  const [message, setMessage] = useState('');
+  const [actionError, setActionError] = useState('');
   const geographyExport = useRef<AbortController>(null);
   useEffect(() => () => geographyExport.current?.abort(), [pageIdentity]);
   const liveLogs = isLiveLogView(params, resource);
@@ -395,7 +396,6 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     )
       return;
     keywordResetSeen.current = report.meta.keywordSnapshot;
-    setMessage('统计数据已更新，关键词列表已回到第 1 页。');
     router.replace(updateParams({ page: undefined, keywordSnapshot: undefined }), {
       scroll: false,
     });
@@ -550,7 +550,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       );
   }, [report, userId, websiteId, queryClient]);
   useEffect(() => {
-    setMessage('');
+    setActionError('');
     setAction('');
   }, [resource]);
   const close = useCallback(() => {
@@ -570,6 +570,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       }),
     );
   const onFilter = (label: string) => {
+    setActionError('');
     if (['30 天', '7 天', '24h'].includes(label)) {
       updateView({ chartPeriod: label === '24h' ? '24h' : label === '7 天' ? '7d' : '30d' });
       return;
@@ -582,13 +583,6 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       cursor: undefined,
       seek: undefined,
     });
-    setMessage(
-      label === '未知／未分类'
-        ? '此筛选显示未识别或存在多候选身份的请求。'
-        : label === '按重复率' && !report?.tables.apBody?.some(row => row.repeatRate != null)
-          ? '重复抓取率待接入，当前保留已有页面顺序。'
-          : '',
-    );
   };
   const gotoLogsPage = (page: number) => {
     const next = page > displayedLogPage;
@@ -607,7 +601,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     let file: Extract<ExportFrame, { type: 'file' }> | undefined,
       bytes = 0;
     const chunks: Uint8Array[] = [];
-    setMessage('正在生成全部地域统计');
+    setActionError('');
     try {
       await streamFeatureExport(
         report.website.id,
@@ -644,22 +638,22 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       link.download = file.name;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage('已导出全部地域统计');
     } catch (error) {
       if (owner === currentPage.current.identity && !controller.signal.aborted)
-        setMessage(error instanceof Error ? error.message : '导出失败');
+        setActionError(error instanceof Error ? error.message : '导出失败');
     } finally {
       if (geographyExport.current === controller) geographyExport.current = null;
     }
   };
   const onAction = (label: string) => {
+    setActionError('');
     if (label === '未知请求日志') {
       router.push(href('logs', { filter: '未知／未分类' }));
       return;
     }
     if (label.startsWith('导出')) {
       if (!report || query.isFetching) {
-        setMessage('数据仍在读取，请稍后重试');
+        setActionError('数据仍在读取，请稍后重试');
         return;
       }
       if (['ai/bots', 'ai/pages', 'logs'].includes(resource)) {
@@ -718,11 +712,8 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               report.meta.catalogVersion,
             );
             downloadFile(exported.csv, reportCsvFilename(resource, report.range));
-            setMessage(
-              `${i18n.text('导出读取时间')}：${exported.readAt || '—'} · ${i18n.text(exported.changed === 'true' ? '按导出时数据生成' : '页面数据未变化')}`,
-            );
           } catch (error: any) {
-            setMessage(error.message);
+            setActionError(error.message || '导出失败');
           }
         })();
         return;
@@ -766,13 +757,12 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               ]),
           );
       downloadFile(content, reportCsvFilename(resource, report.range));
-      setMessage('已导出当前范围与筛选结果');
       return;
     }
     if (label === '生成内容建议') {
       refresh().then(succeeded => {
         if (succeeded === undefined || activeReportKey.current !== reportKey) return;
-        setMessage(succeeded ? '已根据当前数据重新生成内容建议' : '读取数据失败，请重试');
+        setActionError(succeeded ? '' : '读取数据失败，请重试');
       });
       return;
     }
@@ -794,25 +784,6 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     }
     setAction(label);
   };
-  const [displaySaving, setDisplaySaving] = useState(false);
-  const [promptHidden, setPromptHidden] = useState(false);
-  useEffect(() => setPromptHidden(false), [websiteId]);
-  async function hideCrawlerDisplay() {
-    if (!report?.meta.canManage || displaySaving) return;
-    setDisplaySaving(true);
-    const site = websiteId;
-    try {
-      await api.put(`/liekan/websites/${site}/settings`, {
-        aiCrawlerEnabled: false,
-      });
-      await afterSaved();
-      setMessage('已切换为访客统计，可从网站设置重新开启');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '保存失败，请重试');
-    } finally {
-      setDisplaySaving(false);
-    }
-  }
   if (crawlerHidden && resource.startsWith('ai/') && !restricted && !metadataLoading)
     return (
       <div className={styles.notice}>
@@ -973,6 +944,16 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         <AnalysisTabs route={route} href={href} />
       </div>
       <div className={styles.analysisTools}>
+        {report?.meta.snapshot && (
+          <span>
+            {i18n.text('数据截至 {v0}，后台每 5 分钟更新', [
+              new Date(report.meta.snapshot.dataThrough).toLocaleString(i18n.locale, {
+                timeZone: report.range.timezone,
+                hour12: false,
+              }),
+            ])}
+          </span>
+        )}
         {resource === 'logs' && (
           <span>
             {i18n.fragment('最近导入：', false, true)}
@@ -1004,39 +985,25 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             <Link href={href('sharing', { context: 'website' })}>{i18n.text('分享当前网站')}</Link>
           </>
         )}
-      </div>
-      {invalidDate && (
-        <div className={styles.tools} role="status">
-          {i18n.fragment('日期参数无效，当前使用默认日期范围。', false, true)}
+        {search && (
           <button
+            type="button"
             onClick={() =>
-              router.replace(
-                updateParams({
-                  ...(resource === 'human/geo' ? clearTablePages(tablePages) : {}),
-                  date: '30day',
-                  unit: undefined,
-                  offset: undefined,
-                  dateMode: undefined,
-                  live: undefined,
-                  page: undefined,
-                  cursor: undefined,
-                  seek: undefined,
-                }),
-                { scroll: false },
-              )
+              updateView({
+                ...clearTablePages(tablePages),
+                search: undefined,
+                page: undefined,
+                cursor: undefined,
+                seek: undefined,
+              })
             }
           >
-            {i18n.text('重置日期')}
+            {i18n.text('清除查询')}
           </button>
-        </div>
-      )}
-      {params.clearedFilters === '1' && (
-        <div className={styles.notice}>
-          {i18n.text('已清除当前页面不支持的筛选，统计采用页面显示的条件。')}
-        </div>
-      )}
-      {(query.isError || message || search) && (
-        <div className={styles.notice} role="status">
+        )}
+      </div>
+      {(query.isError || actionError) && (
+        <div className={styles.notice} role="alert">
           {query.isError
             ? report
               ? i18n.text('更新失败，当前显示上次读取的数据')
@@ -1045,7 +1012,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
                 : !restricted && query.error?.message
                   ? i18n.system(query.error.message)
                   : i18n.text('无法读取此范围的数据')
-            : i18n.system(message) || i18n.text('查询：{v0}', [search])}
+            : i18n.system(actionError)}
           {query.isError && (
             <button type="button" onClick={() => refresh()}>
               {i18n.text('重试')}
@@ -1084,80 +1051,15 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               ))}
             </>
           )}
-          {search && (
-            <button
-              type="button"
-              onClick={() =>
-                updateView({
-                  ...clearTablePages(tablePages),
-                  search: undefined,
-                  page: undefined,
-                  cursor: undefined,
-                  seek: undefined,
-                })
-              }
-            >
-              {i18n.text('清除查询')}
-            </button>
-          )}
         </div>
       )}
-      {report && query.isFetching && (
-        <div className={styles.notice} role="status">
-          {i18n.text('正在更新统计数据')}
-        </div>
-      )}
-      {report && query.isStaleAggregate && !query.isFetching && !query.error && (
-        <div className={styles.notice} role="status">
-          {i18n.text('统计待更新')}
-        </div>
-      )}
+      <AnalysisPendingNotice websiteId={reportWebsiteId} websiteHandle={websiteId} />
       {displayMismatch && !restricted && (displayQuery.error || query.error) && (
         <div className={styles.notice} role="alert">
           {i18n.fragment('数据展示设置与报表暂未同步，请重试读取。', false, true)}
           <button onClick={refresh}>{i18n.text('重新读取设置与报表')}</button>
         </div>
       )}
-      {resource === 'overview' &&
-        report &&
-        !crawlerHidden &&
-        !promptHidden &&
-        (report.meta.logsConfigured === false ||
-          (report.meta.logsConfigured === undefined && report.states.logs === 'not_connected')) && (
-          <div className={styles.notice}>
-            {i18n.fragment('尚未接入 AI 蜘蛛日志。暂不接入时，可仅展示访客统计。', false, true)}
-            <Link
-              className="text-brand ml-3"
-              href={href('website-settings', { section: 'install', step: 'logs' })}
-            >
-              {i18n.text('接入日志')}
-            </Link>
-            {report.meta.canManage ? (
-              <button disabled={displaySaving} onClick={hideCrawlerDisplay}>
-                {displaySaving ? i18n.text('正在保存…') : i18n.text('仅展示访客统计')}
-              </button>
-            ) : (
-              <Link
-                className="text-brand ml-3"
-                href={href('website-settings', { section: 'basic' })}
-              >
-                {i18n.text('数据展示设置')}
-              </Link>
-            )}
-            <button onClick={() => setPromptHidden(true)}>{i18n.text('保留展示')}</button>
-          </div>
-        )}
-      {report &&
-        !crawlerHidden &&
-        ['overview', 'ai/overview', 'ai/bots', 'ai/pages', 'ai/preference', 'content'].includes(
-          resource,
-        ) &&
-        report.meta.crawlerClassification &&
-        report.meta.crawlerClassification.mode !== 'current' && (
-          <div className={styles.notice} role="status">
-            {i18n.text('所选期间包含旧版或混合分类数据，历史记录保留采集时口径。')}
-          </div>
-        )}
       {query.isError && !report ? (
         geoWeight && !restricted ? (
           <main className="max-w-[1200px] mx-auto px-8 py-6">

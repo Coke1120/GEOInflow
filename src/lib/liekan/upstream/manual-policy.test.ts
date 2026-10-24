@@ -10,9 +10,9 @@ import {
 
 it('accepts the complete classified page inventory and closed ordinary read policy', () => {
   const inventory = assertManualReadPolicy();
-  expect(inventory.features).toHaveLength(70);
-  expect(inventory.routes).toHaveLength(60);
-  expect(inventory.files).toHaveLength(76);
+  expect(inventory.features).toHaveLength(71);
+  expect(inventory.routes).toHaveLength(61);
+  expect(inventory.files).toHaveLength(77);
 });
 
 it.each(['refetchOnWindowFocus', 'refetchOnReconnect', 'refetchInterval', 'retry'])(

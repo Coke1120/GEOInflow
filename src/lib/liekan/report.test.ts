@@ -1,3 +1,6 @@
+import { populationFromRow } from './upstream/browser-population';
+import { identityUnavailableReason } from './contracts/population-results';
+import { translateSystemText } from './i18n/text';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
@@ -29,6 +32,7 @@ vi.mock('@/queries/sql', () => ({ getFunnel: vi.fn() }));
 import { liekanReportSchema } from './contracts/report';
 import { pageReportParts, type ReportResource } from './contracts/page-report';
 import { buildReport } from './report';
+import { withDashboardClock } from './upstream/dashboard-clock';
 import { sharedReportParts } from './contracts/shared-report';
 import { geographyLabel, regionName } from './contracts/geography';
 
@@ -351,6 +355,20 @@ it('describes a half-open crawler interval using its included local dates', asyn
     endAt: Date.parse('2026-01-31T00:00:00Z'), timezone: 'UTC', crawlerMetricsVersion: 1,
   }, true);
   expect(r.insights[0]).toContain('2026-01-01 至 2026-01-30');
+});
+
+it.each([
+  ['Asia/Shanghai', '2026-09-05T16:00:00Z', '2026-10-05T15:59:59.999Z'],
+  ['Pacific/Honolulu', '2026-09-06T10:00:00Z', '2026-10-06T09:59:59.999Z'],
+])('describes the overview using the selected local dates in %s', async (timezone, from, to) => {
+  const startAt = Date.parse(from), endAt = Date.parse(to);
+  const report = await buildReport(website, false, {
+    ...params, resource: 'overview', startAt, endAt, timezone,
+  }, true);
+  expect(report.insights[0]).toMatch(/^2026-09-06 至 2026-10-05/);
+  expect(report.range).toMatchObject({ startAt, endAt, timezone });
+  expect(mocks.human.mock.calls[0][1]).toEqual(new Date(startAt));
+  expect(mocks.human.mock.calls[0][2]).toEqual(new Date(endAt));
 });
 
 it('keeps a stable current-day selection while reporting its actual read cutoff', async () => {
@@ -1034,4 +1052,72 @@ it('shows empty category charts and unavailable conversion rates without excludi
     labels: [],
     series: [{ name: '会话', values: [] }],
   });
+});
+
+it.each([false, true])(
+  'keeps unavailable identities out of private/share insights when visitor-only=%s',
+  async visitorOnly => {
+    const human = await mocks.human();
+    const population = populationFromRow(
+      {
+        eligibleEvents: 3,
+        qualifiedEvents: 1,
+        eligiblePV: 3,
+        qualifiedPV: 1,
+        qualifiedVisitors: 1,
+      },
+      { startAt: params.startAt, endAt: params.endAt, timezone: params.timezone },
+    );
+    mocks.human.mockResolvedValue({
+      ...human,
+      totals: {
+        pageviews: 3,
+        visitors: null,
+        visits: null,
+        bounces: null,
+        totaltime: null,
+        population,
+      },
+    });
+    mocks.settings.mockResolvedValue({
+      ...(await mocks.settings()),
+      aiCrawlerEnabled: !visitorOnly,
+    });
+    for (const pageOnly of [undefined, 'share'] as const) {
+      const report = await buildReport(website, false, params, pageOnly);
+      expect(report.insights).toContain(identityUnavailableReason);
+      expect(report.insights[0]).toContain('3 次浏览');
+      expect(report.insights.join(' ')).not.toMatch(/null|undefined|NaN|0 次访问|0 位访客/);
+      const english = report.insights.map(line => translateSystemText(line, 'en-US'));
+      expect(english[0]).toContain('3 pageviews');
+      expect(english.join(' ')).not.toMatch(/[\u4e00-\u9fff]|null|undefined|NaN/);
+      if (report.tables.recoList)
+        expect(report.tables.recoList.map(row => row.detail)).toEqual(report.insights);
+    }
+  },
+);
+
+it('keeps the selected trend start while a dashboard batch clips its data end', async () => {
+  const selectedEnd = +new Date('2026-10-24T23:59:59.999+08:00');
+  const cutoff = +new Date('2026-10-24T10:05:00+08:00');
+  await withDashboardClock(
+    cutoff,
+    () =>
+      buildReport(
+        website,
+        false,
+        {
+          ...params,
+          resource: 'overview',
+          startAt: +new Date('2026-09-25T00:00:00+08:00'),
+          endAt: selectedEnd,
+          timezone: 'Asia/Shanghai',
+          chartPeriod: '30d',
+        },
+        true,
+      ),
+  );
+  expect(mocks.humanDays.mock.calls[0][1]).toEqual(new Date(selectedEnd - 30 * 86400000));
+  expect(mocks.plotLogs.mock.calls[0][1]).toEqual(new Date(selectedEnd - 30 * 86400000));
+  expect(mocks.humanDays.mock.calls[0][2]).toEqual(new Date(cutoff - 1));
 });

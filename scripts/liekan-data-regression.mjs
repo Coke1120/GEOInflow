@@ -40,6 +40,14 @@ export function createDataAdapters(query, { sourceRef } = {}) {
       },
     }).outputText;
     const dependencies = id => {
+      // This harness compares original source queries; rollup equivalence has its own database suite.
+      if (id === './analysis-rollups')
+        return { readAnalysisLogRollup: async () => null, readAnalysisLogSeries: async () => null };
+      if (id === './browser-detail-facts') return { readBrowserDetailFacts: async () => null };
+      // This synthetic adapter checks SQL metric shapes; runtime population evidence has PostgreSQL integration coverage.
+      if (id === './browser-population' && relative.startsWith('src/lib/liekan/upstream/'))
+        return { readBrowserPopulation: async () => undefined };
+      if (id === './native-snapshot') return { nativeSnapshot: work => work() };
       if (id === './server')
         return {
           query,

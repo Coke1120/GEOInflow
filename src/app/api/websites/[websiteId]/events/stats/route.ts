@@ -1,3 +1,8 @@
+import { requestApi } from '@/lib/liekan/http';
+import {
+  analysisAsyncRequested,
+  asyncAnalysisResponse,
+} from '@/lib/liekan/upstream/analysis-query-api';
 import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { getCompareDate } from '@/lib/date';
 import { getQueryFilters, parseRequest } from '@/lib/request';
@@ -46,5 +51,10 @@ async function getResponse(
 }
 
 export async function GET(...args: Parameters<typeof getResponse>) {
+  if (analysisAsyncRequested(args[0], 'native:events/stats'))
+    return requestApi(args[0], async () =>
+      asyncAnalysisResponse(args[0], (await args[1].params).websiteId, 'native:events/stats'),
+    );
+
   return withQueryCacheHeaders(() => getResponse(...args), args[0]);
 }

@@ -1,3 +1,4 @@
+import { bumpAnalyticsRevision } from './analytics-revision';
 import { collectionRepairScope } from './history-repair-boundary';
 import { analyticsCache, websiteCacheTag } from './query-cache';
 import type { GeographyEvidence } from '../geography/evidence';
@@ -7,6 +8,7 @@ import prisma, { getRawQueryClient, getSchema } from '@/lib/prisma';
 import type { CollectionQuality } from './collection-quality';
 import type { CollectionObservation } from './collection-observation';
 import { processSingleton } from './process-singleton';
+import type { CollectionIdentity } from './collection-identity';
 
 export interface CollectionWriteInput {
   websiteId: string;
@@ -15,6 +17,9 @@ export interface CollectionWriteInput {
   quality?: CollectionQuality;
   geography?: GeographyEvidence;
   observation?: CollectionObservation;
+  identity?: CollectionIdentity;
+  identify?: boolean;
+  expectedPolicyRevision?: string;
 }
 export type CollectionWriteResult<T> =
   | { status: 'written'; value: T }
@@ -28,6 +33,7 @@ export class CollectionConflictError extends Error {
 interface CollectionWriteContext extends CollectionWriteInput {
   client: typeof prisma.client;
   invalidateGeography?: boolean;
+  invalidateIdentity?: boolean;
   repairScopeId?: string | null;
 }
 interface CollectionPrimary {
@@ -45,6 +51,79 @@ export function collectionWriteClient(): typeof prisma.client {
   return writes.getStore()?.client || prisma.client;
 }
 
+export function currentCollectionTransaction() {
+  return writes.getStore()?.client;
+}
+
+export async function recordCollectionIdentity(websiteId: string, identity: CollectionIdentity) {
+  const context = writes.getStore();
+  if (!context || context.websiteId !== websiteId || context.identity !== identity)
+    throw new Error('Collection identity requires its owning transaction');
+  const changed = await context.client.$executeRawUnsafe(
+    `INSERT INTO liekan_session_source(website_id,session_id,source,scope,identity_version,identity_available)
+     VALUES($1::uuid,$2::uuid,$3,$4,$5,$6)
+     ON CONFLICT(website_id,session_id) DO UPDATE SET updated_at=clock_timestamp()
+     WHERE liekan_session_source.source=EXCLUDED.source AND liekan_session_source.scope=EXCLUDED.scope`,
+    websiteId,
+    identity.sessionId,
+    context.quality.source,
+    identity.scope,
+    identity.version,
+    identity.available,
+  );
+  if (changed !== 1) throw new Error('Collection session belongs to another source');
+}
+
+export async function recordSessionPropertySource(
+  websiteId: string,
+  sessionId: string,
+  dataKey: string,
+) {
+  const context = writes.getStore();
+  if (!context?.identity) return;
+  if (context.websiteId !== websiteId || context.identity.sessionId !== sessionId)
+    throw new Error('Collection property crosses its source boundary');
+  await context.client.$executeRawUnsafe(
+    `INSERT INTO liekan_session_data_source(website_id,session_id,data_key,scope,hostname,origin_hostname,classification,row_digest)
+     SELECT $1::uuid,$2::uuid,$3::varchar,$4,$5,$6,$7,liekan_session_data_digest(d)
+     FROM session_data d WHERE d.website_id=$1::uuid AND d.session_id=$2::uuid AND d.data_key=$3
+     ON CONFLICT(website_id,session_id,data_key) DO UPDATE SET scope=EXCLUDED.scope,hostname=EXCLUDED.hostname,
+       origin_hostname=EXCLUDED.origin_hostname,classification=EXCLUDED.classification,row_digest=EXCLUDED.row_digest,updated_at=clock_timestamp()`,
+    websiteId,
+    sessionId,
+    dataKey,
+    context.identity.scope,
+    context.identity.hostname,
+    context.identity.originHostname,
+    context.identity.classification,
+  );
+  if (context.identity.scope === 'browser') context.invalidateIdentity = true;
+}
+
+export async function recordSessionLinkSource(
+  websiteId: string,
+  sessionId: string,
+  distinctId: string,
+) {
+  const context = writes.getStore();
+  if (!context?.identity) return;
+  if (context.websiteId !== websiteId || context.identity.sessionId !== sessionId)
+    throw new Error('Collection identity link crosses its source boundary');
+  await context.client.$executeRawUnsafe(
+    `INSERT INTO liekan_session_link_source(website_id,session_id,distinct_id,scope,hostname,origin_hostname,classification)
+     VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7) ON CONFLICT(website_id,session_id,distinct_id) DO UPDATE SET
+       hostname=EXCLUDED.hostname,origin_hostname=EXCLUDED.origin_hostname,classification=EXCLUDED.classification`,
+    websiteId,
+    sessionId,
+    distinctId,
+    context.identity.scope,
+    context.identity.hostname,
+    context.identity.originHostname,
+    context.identity.classification,
+  );
+  if (context.identity.scope === 'browser') context.invalidateIdentity = true;
+}
+
 export async function recordEventQuality(
   tx: typeof prisma.client,
   eventId: string,
@@ -54,6 +133,25 @@ export async function recordEventQuality(
   if (!context) return;
   if (context.client !== tx || context.websiteId !== websiteId)
     throw new Error('Collection context does not match event');
+  if (context.identity) {
+    const i = context.identity;
+    await tx.$executeRawUnsafe(
+      `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser,os,device,screen,language,origin_hostname,distinct_id)
+       VALUES($1::uuid,$2::uuid,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      eventId,
+      websiteId,
+      i.scope,
+      i.version,
+      i.available,
+      i.browser,
+      i.os,
+      i.device,
+      i.screen,
+      i.language,
+      i.originHostname,
+      i.distinctId,
+    );
+  }
   if (context.geography) {
     const g = context.geography;
     await tx.$executeRawUnsafe(
@@ -184,18 +282,29 @@ export async function withCollectionWrite<T>(
     async tx => {
       await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
       // Shared readers serialize with website reset/deletion while allowing parallel collection.
-      await tx.$queryRawUnsafe(
-        'SELECT website_id FROM website WHERE website_id=$1::uuid FOR SHARE',
+      const websites = await tx.$queryRawUnsafe<any[]>(
+        'SELECT website_id FROM website WHERE website_id=$1::uuid AND deleted_at IS NULL FOR SHARE',
         input.websiteId,
       );
+      if (!websites.length) throw new Error('Collection website is unavailable');
+      if (input.expectedPolicyRevision !== undefined) {
+        const [policy] = await tx.$queryRawUnsafe<{ revision: string }[]>(
+          'SELECT revision::text FROM liekan_collection_policy WHERE website_id=$1::uuid',
+          input.websiteId,
+        );
+        if ((policy?.revision ?? '0') !== input.expectedPolicyRevision)
+          throw new CollectionConflictError();
+      }
       if (input.eventId) {
         const inserted = await tx.$queryRawUnsafe<{ client_event_id: string }[]>(
-          `INSERT INTO liekan_collection_receipt(website_id,client_event_id,payload_hash)
-         VALUES($1::uuid,$2::uuid,$3)
+          `INSERT INTO liekan_collection_receipt(website_id,client_event_id,payload_hash,collection_source,collection_scope)
+         VALUES($1::uuid,$2::uuid,$3,$4,$5)
          ON CONFLICT(website_id,client_event_id) DO NOTHING RETURNING client_event_id`,
           input.websiteId,
           input.eventId,
           input.fingerprint,
+          input.quality?.source ?? null,
+          input.identity?.scope ?? input.quality?.source ?? null,
         );
         if (!inserted.length) {
           const receipt = await tx.$queryRawUnsafe<
@@ -203,17 +312,26 @@ export async function withCollectionWrite<T>(
               payload_hash: string;
               session_id: string | null;
               visit_id: string | null;
+              collection_source: string | null;
+              collection_scope: string | null;
             }[]
           >(
-            `SELECT r.payload_hash,e.session_id::text,e.visit_id::text
+            `SELECT r.payload_hash,e.session_id::text,e.visit_id::text,coalesce(r.collection_source,q.source) AS collection_source,
+              coalesce(r.collection_scope,env.scope,q.source) AS collection_scope
              FROM liekan_collection_receipt r
              LEFT JOIN website_event e ON e.event_id=r.event_id AND e.website_id=r.website_id
+             LEFT JOIN liekan_event_quality q ON q.event_id=r.event_id AND q.website_id=r.website_id
+             LEFT JOIN liekan_event_environment env ON env.event_id=r.event_id AND env.website_id=r.website_id
              WHERE r.website_id=$1::uuid AND r.client_event_id=$2::uuid`,
             input.websiteId,
             input.eventId,
           );
           if (!receipt.length) throw new Error('Collection receipt is unavailable');
           if (receipt[0].payload_hash !== input.fingerprint) throw new CollectionConflictError();
+          if (input.quality && receipt[0].collection_source !== input.quality.source)
+            throw new CollectionConflictError();
+          if (input.identity && receipt[0].collection_scope !== input.identity.scope)
+            throw new CollectionConflictError();
           if (!receipt[0].session_id || !receipt[0].visit_id)
             throw new Error('Collection receipt is unavailable');
           await recordDiagnostic(tx, input, true);
@@ -231,11 +349,12 @@ export async function withCollectionWrite<T>(
         ...input,
         quality,
         client: tx as typeof prisma.client,
-        repairScopeId: await collectionRepairScope(tx,input.websiteId),
+        repairScopeId: await collectionRepairScope(tx, input.websiteId),
       };
       const value = await writes.run(context, work);
-      invalidateGeography = !!context.invalidateGeography;
-      await recordDiagnostic(tx, input, false);
+      if (context.invalidateIdentity) await bumpAnalyticsRevision(tx, 'website', input.websiteId);
+      invalidateGeography = !!(context.invalidateGeography || context.invalidateIdentity);
+      if (!input.identify) await recordDiagnostic(tx, input, false);
       return { status: 'written', value };
     },
     { isolationLevel: 'ReadCommitted', maxWait: 10000, timeout: 30000 },

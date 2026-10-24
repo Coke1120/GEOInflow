@@ -446,11 +446,6 @@ function Heatmaps() {
   const height = snapshot ? Math.max(300, snapshot.pageH * scale) : 420;
   return (
     <>
-      <Notice tone="amber">
-        {i18n.text(
-          '画布使用当前页面预览叠加真实聚合数据。页面布局变化或网站禁止嵌入时，可通过右侧明细核对采样结果。',
-        )}
-      </Notice>
       <div className="row between">
         <div className="row">
           <Select
@@ -933,9 +928,6 @@ function ReplayPlayer() {
           </Button>
         </div>
       </div>
-      <Notice tone="amber">
-        {i18n.text('播放器重建已经采集并遮蔽的录制事件。录制未包含的行为不会补生成。')}
-      </Notice>
       <QueryState query={query}>
         <div className="wide-narrow">
           <Panel title={i18n.text('回放画布')} subtitle={i18n.text('使用实际页面快照与采集视口。')}>

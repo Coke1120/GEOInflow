@@ -54,7 +54,11 @@ export class ApiClient {
       method,
       data: options.data,
       params: params as Record<string, string | number | boolean>,
-      headers: { ...this.headers, ...options.headers },
+      headers: {
+        ...(process.env.LIEKAN_API_FIXTURE_CONTAINER ? { 'x-liekan-fixture-ip': '192.0.2.1' } : {}),
+        ...this.headers,
+        ...options.headers,
+      },
     });
 
     recordApiCall(method, path);

@@ -1,3 +1,4 @@
+import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import {
   citySearchSQL,
   regionSearchSQL,
@@ -44,9 +45,13 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
         : prisma.getSearchSQL(field, key);
   const params = {};
   const { startDate, endDate, search } = filters;
-  const valueColumn = visitGeography
-    ? postgresVisitGeographyColumn(column)
-    : getValueColumn(column, 'postgres');
+  const environmentColumn = postgresEventEnvironmentColumn(column);
+  const eventEnvironment = environmentColumn !== column;
+  const valueColumn = eventEnvironment
+    ? environmentColumn
+    : visitGeography
+      ? postgresVisitGeographyColumn(column)
+      : getValueColumn(column, 'postgres');
 
   let searchQuery = '';
   let excludeDomain = '';
@@ -74,7 +79,7 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
     }
   }
 
-  if (visitGeography) {
+  if (visitGeography || eventEnvironment) {
     return rawQuery(
       `select ${valueColumn} as "value",
         ${column === 'city' ? `${postgresVisitGeographyColumn('country')} AS country,${postgresVisitGeographyColumn('region')} AS region,` : ''}
@@ -87,7 +92,7 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
       order by "count" desc, "value"
       limit 10`,
       { websiteId, startDate, endDate, search: `%${search}%`, ...params },
-      FUNCTION_NAME,
+      'getSessionValues',
     );
   }
 
@@ -110,7 +115,7 @@ async function relationalQuery(websiteId: string, column: string, filters: Query
       limit 10
       `,
       { websiteId, startDate, endDate, search: `%${search}%`, ...params },
-      FUNCTION_NAME,
+      'getSessionValues',
     );
   }
 

@@ -31,3 +31,23 @@ it('clears failed negotiations and preserves unsupported native analytics', asyn
   await expect(clientCatalogVersion('page', {})).resolves.toBeUndefined();
   expect(fetcher).toHaveBeenCalledTimes(2);
 });
+it('uses the explicit public share when a signed-in visitor opens native share analytics', async () => {
+  const fetcher = vi.fn(async (_url: unknown, options: RequestInit) => {
+    const headers = new Headers(options.headers);
+    return headers.has('authorization')
+      ? Response.json({ error: 'mixed identities' }, { status: 403 })
+      : Response.json({ version });
+  });
+  vi.stubGlobal('fetch', fetcher);
+  const { clientCatalogVersion } = await import('./catalog-client');
+  const share = { 'x-umami-share-token': 'public-proof', 'x-umami-share-context': '1' };
+  await expect(
+    clientCatalogVersion('public-page', { authorization: 'Bearer private-session', ...share }),
+  ).resolves.toBe(version);
+  await expect(clientCatalogVersion('public-page', share)).resolves.toBe(version);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  const headers = new Headers(fetcher.mock.calls[0][1].headers);
+  expect(headers.has('authorization')).toBe(false);
+  expect(headers.get('x-umami-share-token')).toBe('public-proof');
+  expect(headers.get('x-umami-share-context')).toBe('1');
+});

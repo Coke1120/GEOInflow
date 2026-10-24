@@ -1,3 +1,8 @@
+import { applyFeaturePopulation } from '../contracts/population-results';
+import { readBrowserPopulation } from './browser-population';
+import { nativeSnapshot } from './native-snapshot';
+import { nativeAggregate } from './native-aggregate';
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { geographyVersion } from '../contracts/geography';
 import { getPostgresCountrySQL } from '@/lib/country';
 import { analyticsCache, analyticsCacheKey, websiteCacheTag } from './query-cache';
@@ -81,6 +86,18 @@ function attributionCte(
     direction = p.model === 'first-click' ? 'ASC' : 'DESC';
   return `${cte}, ${prefix}conversions AS(SELECT session_id,MAX(created_at) AS last_conversion FROM ${source} WHERE event_type={{${prefix}conversionType}} AND ${column}={{${prefix}step}} GROUP BY session_id), ${prefix}attributed AS(SELECT c.session_id,source.referrer_domain,source.hostname FROM ${prefix}conversions c LEFT JOIN LATERAL(SELECT e.referrer_domain,e.hostname FROM website_event e WHERE e.website_id={{websiteId::uuid}} AND e.session_id=c.session_id AND e.created_at BETWEEN {{startDate}} AND {{endDate}} AND e.created_at${p.model === 'last-click' ? '<' : '<='}c.last_conversion AND e.event_type IN(1,2) ORDER BY e.created_at ${direction},e.event_id ${direction} LIMIT 1) source ON TRUE)`;
 }
+async function featurePopulation(websiteId: string, p: any, load: () => Promise<any>) {
+  return nativeSnapshot(async () => {
+    const value = await load();
+    const population = await readBrowserPopulation(
+      websiteId,
+      new Date(p.startAt),
+      new Date(p.endAt),
+      p.timezone,
+    );
+    return applyFeaturePopulation(value, p.kind || 'properties', population);
+  });
+}
 export async function featureAnalytics(websiteId: string, input: unknown) {
   const parsed = analysisQuery.safeParse(input);
   if (!parsed.success) throw new LiekanError('统计参数无效');
@@ -94,7 +111,7 @@ export async function featureAnalytics(websiteId: string, input: unknown) {
     ['events', 'utm', 'sources', 'performance', 'attribution', 'heatmap-scroll'].includes(p.kind)
   ) {
     const result = await analyticsCache.read(
-      analyticsCacheKey(`feature-analytics-v2-${geographyVersion}`, [
+      analyticsCacheKey(`feature-analytics-v3-${geographyVersion}-${TRAFFIC_POLICY_VERSION}`, [
         process.env.DATABASE_URL,
         websiteId,
         p,
@@ -102,13 +119,13 @@ export async function featureAnalytics(websiteId: string, input: unknown) {
       ]),
       statisticsCacheTtl(p.endAt, p.timezone),
       [websiteCacheTag(websiteId)],
-      () => computeFeatureAnalytics(websiteId, p, filters),
+      () => featurePopulation(websiteId, p, () => computeFeatureAnalytics(websiteId, p, filters)),
       refresh === '1',
     );
     noteCacheResult(result);
     return result.value;
   }
-  return computeFeatureAnalytics(websiteId, p, filters);
+  return featurePopulation(websiteId, p, () => computeFeatureAnalytics(websiteId, p, filters));
 }
 async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) {
   let source = p.retentionDate ? 'cohort_events' : 'filtered_events';
@@ -155,7 +172,7 @@ async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) 
     return clean(result[0]);
   }
   if (p.kind === 'replays') {
-    const replayCte = `${cte}, matching_visits AS(SELECT visit_id,session_id,COUNT(*) FILTER(WHERE event_type=1) AS pageviews,(ARRAY_AGG(referrer_domain ORDER BY created_at,event_id))[1] AS "referrerDomain" FROM selected GROUP BY visit_id,session_id), recordings AS(SELECT r.visit_id AS id,r.visit_id AS "visitId",r.session_id AS "sessionId",MIN(r.started_at) AS "startedAt",MAX(r.ended_at) AS "endedAt",EXTRACT(EPOCH FROM MAX(r.ended_at)-MIN(r.started_at))*1000 AS duration,SUM(r.event_count) AS "eventCount",COUNT(*) AS "chunkCount",MAX(m.pageviews) AS pageviews,MAX(m."referrerDomain") AS "referrerDomain",MAX(s.device) AS device,MAX(s.browser) AS browser,MAX(saved.name) AS name FROM session_replay r JOIN matching_visits m ON m.visit_id=r.visit_id AND m.session_id=r.session_id JOIN session s ON s.session_id=r.session_id AND s.website_id=r.website_id LEFT JOIN session_replay_saved saved ON saved.website_id=r.website_id AND saved.visit_id=r.visit_id WHERE r.website_id={{websiteId::uuid}} ${p.saved === '1' ? 'AND saved.visit_id IS NOT NULL' : ''} GROUP BY r.visit_id,r.session_id)`;
+    const replayCte = `${cte}, matching_visits AS(SELECT visit_id,session_id,COUNT(*) FILTER(WHERE event_type=1) AS pageviews,(ARRAY_AGG(referrer_domain ORDER BY created_at,event_id))[1] AS "referrerDomain",(ARRAY_AGG(liekan_browser ORDER BY created_at DESC,event_id DESC))[1] AS browser,(ARRAY_AGG(liekan_device ORDER BY created_at DESC,event_id DESC))[1] AS device FROM selected GROUP BY visit_id,session_id), recordings AS(SELECT r.visit_id AS id,r.visit_id AS "visitId",r.session_id AS "sessionId",MIN(r.started_at) AS "startedAt",MAX(r.ended_at) AS "endedAt",EXTRACT(EPOCH FROM MAX(r.ended_at)-MIN(r.started_at))*1000 AS duration,SUM(r.event_count) AS "eventCount",COUNT(*) AS "chunkCount",MAX(m.pageviews) AS pageviews,MAX(m."referrerDomain") AS "referrerDomain",MAX(m.device) AS device,MAX(m.browser) AS browser,MAX(saved.name) AS name FROM session_replay r JOIN matching_visits m ON m.visit_id=r.visit_id AND m.session_id=r.session_id LEFT JOIN session_replay_saved saved ON saved.website_id=r.website_id AND saved.visit_id=r.visit_id WHERE r.website_id={{websiteId::uuid}} ${p.saved === '1' ? 'AND saved.visit_id IS NOT NULL' : ''} GROUP BY r.visit_id,r.session_id)`;
     const [count, rows] = await Promise.all([
       prisma.rawQuery(
         `${replayCte} SELECT COUNT(*) AS count FROM recordings`,
@@ -320,7 +337,7 @@ async function computeFeatureAnalytics(websiteId: string, p: any, filters: any) 
     const [count, rows] = await Promise.all([
       run('SELECT COUNT(DISTINCT session_id) AS count FROM selected'),
       run(
-        `SELECT s.session_id AS id,MIN(s.created_at) AS "firstAt",MAX(s.created_at) AS "lastAt",COUNT(DISTINCT visit_id) AS visits,COUNT(*) FILTER(WHERE event_type=1) AS views,COUNT(*) FILTER(WHERE event_type=2) AS events,EXTRACT(EPOCH FROM MAX(s.created_at)-MIN(s.created_at)) AS seconds,(ARRAY_AGG(s.referrer_domain ORDER BY s.created_at,s.event_id))[1] AS "referrerDomain",(ARRAY_AGG(s.url_path ORDER BY s.created_at DESC,s.event_id DESC))[1] AS "urlPath",${getPostgresCountrySQL('(ARRAY_AGG(s.liekan_country ORDER BY s.created_at DESC,s.event_id DESC))[1]')} AS country,(ARRAY_AGG(s.liekan_region ORDER BY s.created_at DESC,s.event_id DESC))[1] AS region,(ARRAY_AGG(s.liekan_city ORDER BY s.created_at DESC,s.event_id DESC))[1] AS city,MAX(e.browser) AS browser,MAX(e.os) AS os,MAX(e.device) AS device FROM selected s JOIN session e ON e.session_id=s.session_id AND e.website_id={{websiteId::uuid}} GROUP BY s.session_id ORDER BY "lastAt" DESC,s.session_id LIMIT 25 OFFSET {{offset}}`,
+        `SELECT s.session_id AS id,MIN(s.created_at) AS "firstAt",MAX(s.created_at) AS "lastAt",COUNT(DISTINCT visit_id) AS visits,COUNT(*) FILTER(WHERE event_type=1) AS views,COUNT(*) FILTER(WHERE event_type=2) AS events,EXTRACT(EPOCH FROM MAX(s.created_at)-MIN(s.created_at)) AS seconds,(ARRAY_AGG(s.referrer_domain ORDER BY s.created_at,s.event_id))[1] AS "referrerDomain",(ARRAY_AGG(s.url_path ORDER BY s.created_at DESC,s.event_id DESC))[1] AS "urlPath",${getPostgresCountrySQL('(ARRAY_AGG(s.liekan_country ORDER BY s.created_at DESC,s.event_id DESC))[1]')} AS country,(ARRAY_AGG(s.liekan_region ORDER BY s.created_at DESC,s.event_id DESC))[1] AS region,(ARRAY_AGG(s.liekan_city ORDER BY s.created_at DESC,s.event_id DESC))[1] AS city,(ARRAY_AGG(s.liekan_browser ORDER BY s.created_at DESC,s.event_id DESC))[1] AS browser,(ARRAY_AGG(s.liekan_os ORDER BY s.created_at DESC,s.event_id DESC))[1] AS os,(ARRAY_AGG(s.liekan_device ORDER BY s.created_at DESC,s.event_id DESC))[1] AS device FROM selected s GROUP BY s.session_id ORDER BY "lastAt" DESC,s.session_id LIMIT 25 OFFSET {{offset}}`,
         { offset: (p.page - 1) * 25 },
       ),
     ]);
@@ -394,20 +411,25 @@ export async function featureJourney(websiteId: string, input: unknown): Promise
   }
   if (!nodes && !bypassQueryCache()) {
     const result = await analyticsCache.read(
-      analyticsCacheKey(`feature-journey-v3-${geographyVersion}`, [
+      analyticsCacheKey(`feature-journey-v4-${geographyVersion}-${TRAFFIC_POLICY_VERSION}`, [
         process.env.DATABASE_URL,
         websiteId,
         p,
       ]),
       statisticsCacheTtl(p.endAt, p.timezone),
       [websiteCacheTag(websiteId)],
-      () => computeFeatureJourney(websiteId, p, nodes),
+      () =>
+        featurePopulation(websiteId, { ...p, kind: 'journey' }, () =>
+          computeFeatureJourney(websiteId, p, nodes),
+        ),
       refresh === '1',
     );
     noteCacheResult(result);
     return result.value;
   }
-  return computeFeatureJourney(websiteId, p, nodes);
+  return featurePopulation(websiteId, { ...p, kind: 'journey' }, () =>
+    computeFeatureJourney(websiteId, p, nodes),
+  );
 }
 async function computeFeatureJourney(
   websiteId: string,
@@ -449,7 +471,7 @@ async function computeFeatureJourney(
         { nodes },
       ),
       run(
-        `SELECT e.session_id AS id,MIN(d.created_at) AS "firstAt",MAX(d.created_at) AS "lastAt",COUNT(*) FILTER(WHERE d.event_type=1) AS views,EXTRACT(EPOCH FROM MAX(d.created_at)-MIN(d.created_at)) AS seconds,(ARRAY_AGG(d.url_path ORDER BY d.created_at DESC,d.event_id DESC))[1] AS "urlPath",(ARRAY_AGG(d.referrer_domain ORDER BY d.created_at,d.event_id))[1] AS "referrerDomain",${getPostgresCountrySQL('(ARRAY_AGG(d.liekan_country ORDER BY d.created_at DESC,d.event_id DESC))[1]')} AS country,(ARRAY_AGG(d.liekan_region ORDER BY d.created_at DESC,d.event_id DESC))[1] AS region,(ARRAY_AGG(d.liekan_city ORDER BY d.created_at DESC,d.event_id DESC))[1] AS city,MAX(s.browser) AS browser,MAX(s.device) AS device FROM eligible e JOIN selected d ON d.visit_id=e.visit_id JOIN session s ON s.session_id=e.session_id AND s.website_id={{websiteId::uuid}} WHERE e.nodes={{nodes}}::text[] GROUP BY e.session_id ORDER BY "lastAt" DESC,e.session_id LIMIT 25 OFFSET {{offset}}`,
+        `SELECT e.session_id AS id,MIN(d.created_at) AS "firstAt",MAX(d.created_at) AS "lastAt",COUNT(*) FILTER(WHERE d.event_type=1) AS views,EXTRACT(EPOCH FROM MAX(d.created_at)-MIN(d.created_at)) AS seconds,(ARRAY_AGG(d.url_path ORDER BY d.created_at DESC,d.event_id DESC))[1] AS "urlPath",(ARRAY_AGG(d.referrer_domain ORDER BY d.created_at,d.event_id))[1] AS "referrerDomain",${getPostgresCountrySQL('(ARRAY_AGG(d.liekan_country ORDER BY d.created_at DESC,d.event_id DESC))[1]')} AS country,(ARRAY_AGG(d.liekan_region ORDER BY d.created_at DESC,d.event_id DESC))[1] AS region,(ARRAY_AGG(d.liekan_city ORDER BY d.created_at DESC,d.event_id DESC))[1] AS city,(ARRAY_AGG(d.liekan_browser ORDER BY d.created_at DESC,d.event_id DESC))[1] AS browser,(ARRAY_AGG(d.liekan_device ORDER BY d.created_at DESC,d.event_id DESC))[1] AS device FROM eligible e JOIN selected d ON d.visit_id=e.visit_id WHERE e.nodes={{nodes}}::text[] GROUP BY e.session_id ORDER BY "lastAt" DESC,e.session_id LIMIT 25 OFFSET {{offset}}`,
         { nodes, offset: (p.page - 1) * 25 },
       ),
     ]);
@@ -468,17 +490,34 @@ async function computeFeatureJourney(
 }
 
 export async function featureGoal(websiteId: string, goalId: string, input: unknown, auth: Auth) {
-  const parsed = analysisQuery.safeParse(input);
-  if (!parsed.success) throw new LiekanError('统计参数无效');
+  const p = analysisQuery.parse(input);
   const report = await getReport(goalId);
   if (!report || report.websiteId !== websiteId || report.type !== 'goal')
     throw new LiekanError('目标不存在', 404);
   if (!(await canViewReport(auth, report))) throw new LiekanError('无权查看此目标', 403);
   const goal = goalParametersSchema.safeParse(report.parameters);
   if (!goal.success) throw new LiekanError('目标条件无效');
-  const { type, value } = goal.data;
-  let { cte, params } = selectEvents(websiteId, await filtersFor(websiteId, parsed.data));
-  if (parsed.data.requireUtm === '1')
+  const filters = await filtersFor(websiteId, p);
+  return nativeAggregate(
+    'liekanFeatureGoal',
+    websiteId,
+    { ...p, goalId, goal: goal.data, endDate: filters.endDate },
+    filters,
+    () =>
+      featurePopulation(websiteId, { ...p, kind: 'goal' }, () =>
+        computeFeatureGoal(websiteId, goal.data, p, filters),
+      ),
+  );
+}
+async function computeFeatureGoal(
+  websiteId: string,
+  goal: ReturnType<typeof goalParametersSchema.parse>,
+  p: ReturnType<typeof analysisQuery.parse>,
+  filters: Awaited<ReturnType<typeof filtersFor>>,
+) {
+  const { type, value } = goal;
+  let { cte, params } = selectEvents(websiteId, filters);
+  if (p.requireUtm === '1')
     cte = cte.replace(
       'AND website_event.event_type IN (1,2)',
       "AND website_event.event_type IN (1,2) AND (COALESCE(utm_source,'')<>'' OR COALESCE(utm_medium,'')<>'' OR COALESCE(utm_campaign,'')<>'' OR COALESCE(utm_content,'')<>'' OR COALESCE(utm_term,'')<>'')",
@@ -488,15 +527,8 @@ export async function featureGoal(websiteId: string, goalId: string, input: unkn
   const target = value.replace(/^\*|\*$/g, '%');
   const matching = `event_type=${type === 'path' ? 1 : 2} AND ${column} ${operator} {{target}}`;
   const dateSQL = prisma
-    .getDateSQL(
-      'created_at',
-      parsed.data.unit === 'week' ? 'day' : parsed.data.unit,
-      parsed.data.timezone,
-    )
-    .replace(
-      parsed.data.unit === 'week' ? "date_trunc('day'," : '__unused__',
-      "date_trunc('week',",
-    );
+    .getDateSQL('created_at', p.unit === 'week' ? 'day' : p.unit, p.timezone)
+    .replace(p.unit === 'week' ? "date_trunc('day'," : '__unused__', "date_trunc('week',");
   const run = (sql: string) =>
     prisma.rawQuery(`${cte} ${sql}`, { ...params, target }, 'liekanFeatureGoal').then(clean);
   const [totals, series] = await Promise.all([
@@ -534,13 +566,13 @@ export async function featureGoal(websiteId: string, goalId: string, input: unkn
   const byDate = new Map(series.map((r: any) => [r.x, Number(r.y)]));
   const filled: any[] = [];
   for (
-    let point = starts[parsed.data.unit](toZonedTime(parsed.data.startAt, parsed.data.timezone)),
-      end = toZonedTime(parsed.data.endAt, parsed.data.timezone);
+    let point = starts[p.unit](toZonedTime(p.startAt, p.timezone)),
+      end = toZonedTime(p.endAt, p.timezone);
     point <= end;
-    point = adds[parsed.data.unit](point, 1)
+    point = adds[p.unit](point, 1)
   ) {
     if (filled.length >= 10000) throw new LiekanError('图表时间桶过多，请改用更大的时间单位', 413);
-    const x = format(point, bucketFormat[parsed.data.unit]);
+    const x = format(point, bucketFormat[p.unit]);
     filled.push({ x, y: byDate.get(x) || 0 });
   }
   return { ...totals[0], series: filled };

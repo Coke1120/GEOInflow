@@ -1,3 +1,4 @@
+import { trafficGovernanceSchema } from './traffic-exclusions';
 import { z } from 'zod';
 
 export const trafficPolicySchema = z.strictObject({
@@ -12,6 +13,8 @@ export type TrafficPolicy = z.infer<typeof trafficPolicySchema>;
 export const savedTrafficPolicySchema = trafficPolicySchema
   .omit({ expectedRevision: true })
   .extend({
+    effectiveMode: z.enum(['standard', 'strict']).optional(),
+    rawAuditOnly: z.boolean().optional(),
     revision: z.string(),
     ruleVersion: z.string(),
     populationVersion: z.string().optional(),
@@ -36,10 +39,13 @@ export const qualityTotalsSchema = z.object({
   rawPV: z.number(),
   includedPV: z.number(),
   excludedPV: z.number(),
-  rawUV: z.number(),
-  includedUV: z.number(),
-  fullyExcludedUV: z.number(),
+  rawUV: z.number().nullable(),
+  includedUV: z.number().nullable(),
+  fullyExcludedUV: z.number().nullable(),
   missingVerdictPV: z.number(),
+  qualifiedUV: z.number().optional(),
+  qualifiedPV: z.number().optional(),
+  identityCoverage: z.number().nullable().optional(),
 });
 export const trafficPreviewSchema = z.strictObject({
   policy: trafficPolicySchema,
@@ -58,6 +64,7 @@ export const trafficAuditSchema = z.object({
   reportingBasis: z.literal('current-policy-and-active-history-repair').optional(),
   reason: z.string().optional(),
   policy: savedTrafficPolicySchema.optional(),
+  governance: trafficGovernanceSchema.optional(),
   range: z.object({ startAt: z.number(), endAt: z.number(), timezone: z.string() }).optional(),
   totals: qualityTotalsSchema.optional(),
   domainAudit: z
@@ -68,12 +75,13 @@ export const trafficAuditSchema = z.object({
       ),
     })
     .optional(),
+  partition: z.array(z.object({ bucket: z.string(), pageviews: z.number() })).optional(),
   summary: z
     .array(
       z.object({
         classification: z.string(),
         events: z.number(),
-        visitors: z.number(),
+        visitors: z.number().nullable(),
         pageviews: z.number(),
         missing_verdict: z.number(),
         included: z.number(),
@@ -180,9 +188,9 @@ export const browserRiskReportSchema = z.object({
   impact: z
     .object({
       includedPV: z.number(),
-      includedUV: z.number(),
+      includedUV: z.number().nullable(),
       flaggedPV: z.number(),
-      fullyExcludedUV: z.number(),
+      fullyExcludedUV: z.number().nullable(),
     })
     .optional(),
   timeBasis: z.literal('server-received').optional(),

@@ -17,6 +17,7 @@ import {
 } from './query-cache';
 import { query, reportSnapshot } from './server';
 import { attachReportEvidenceView } from './report-evidence-view';
+import { dashboardClock } from './dashboard-clock';
 
 async function readPageReportSnapshot(
   website: { id: string; name: string; domain: string },
@@ -39,11 +40,7 @@ async function readPageReportSnapshot(
     p.endAt < today ||
     (p.crawlerMetricsVersion === 1 && p.resource.startsWith('ai/') && p.endAt === today);
   const ttl =
-    p.resource === 'logs'
-      ? 0
-      : historical && !pageReportParts[p.resource].today
-        ? 300000
-        : 30000;
+    p.resource === 'logs' ? 0 : historical && !pageReportParts[p.resource].today ? 300000 : 30000;
   if (p.resource === 'human/keywords') {
     const result = await readKeywordPage(
       website,
@@ -75,7 +72,20 @@ async function readPageReportSnapshot(
     return pageReportSchema.parse({
       ...report,
       resource: p.resource,
-      meta: { ...report.meta, generatedAt, expiresAt: generatedAt + ttl },
+      meta: {
+        ...report.meta,
+        generatedAt,
+        expiresAt: generatedAt + ttl,
+        ...(dashboardClock()
+          ? {
+              snapshot: {
+                dataThrough: dashboardClock().cutoff,
+                state: 'ready',
+                intervalMs: 300000,
+              },
+            }
+          : {}),
+      },
     }) as LiekanPageReport;
   };
   if (!ttl) {
@@ -115,3 +125,18 @@ export const readPageReport: typeof readPageReportSnapshot = (...args) => {
   if (process.env.CLICKHOUSE_URL) return readPageReportSnapshot(...args);
   return withPublishedRegistry(() => readPageReportSnapshot(...args));
 };
+
+/** A private async request checks the identical cache identity without starting SQL. */
+export async function peekPageReport(website: { id: string }, input: unknown) {
+  const parsed = parseReportQuery(input);
+  if (!parsed.success) throw new LiekanError('统计参数无效');
+  const { refresh, ...p } = parsed.data;
+  if (refresh === '1' || ['logs', 'human/keywords'].includes(p.resource)) return undefined;
+  // Production runtime resolves resource versions. Standalone tests keep the existing direct path.
+  if (!analyticsCache.isRuntimeConfigured) return undefined;
+  const key = analyticsCacheKey(
+    `page-report-v10-${geographyVersion}-${CRAWLER_POPULATION_VERSION}`,
+    [process.env.DATABASE_URL, website.id, p, undefined],
+  );
+  return analyticsCache.peek<LiekanPageReport>(key, [websiteCacheTag(website.id)]);
+}

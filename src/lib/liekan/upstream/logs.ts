@@ -1,3 +1,4 @@
+import { readAnalysisLogRollup, readAnalysisLogSeries } from './analysis-rollups';
 import { getPublishedCatalog } from '../crawlers/published';
 import { createHash } from 'node:crypto';
 import { CRAWLER_POPULATION_VERSION } from '../rules/population';
@@ -165,7 +166,14 @@ async function readLogFacts(
     hours: `SELECT extract(hour FROM created_at AT TIME ZONE $4)::int AS hour,count(*)::int AS count ${base}${ai} GROUP BY 1 ORDER BY 1`,
   };
   const selectedAggregates = Object.entries(aggregateQueries).filter(([field]) => needs(field));
-  const aggregatesRead = selectedAggregates.length
+  const accelerated = selectedAggregates.length && /^[a-f0-9-]{36}$/i.test(id)
+    ? await readAnalysisLogRollup({websiteId:id,startDate:start,endDate:end,timezone,
+        crawlerMetricsVersion:metrics.crawlerMetricsVersion,crawlerIdentityScope:metrics.crawlerIdentityScope,fields:selectedAggregates.map(([field])=>field),
+        filters:{resource:metrics.resource,botProductForm:metrics.botProductForm,botCategory:metrics.botCategory,botType:metrics.botType,botId:metrics.botId,botName:metrics.botName}})
+    : null;
+  const aggregatesRead = accelerated
+    ? Promise.resolve([{...accelerated,summary:[accelerated.summary]}])
+    : selectedAggregates.length
     ? read(
         `WITH statistics_scope AS MATERIALIZED (
         SELECT created_at,path,status,bot,vendor,bot_type,ai_eligible,recognition_state,
@@ -313,6 +321,18 @@ export async function getMonthlyAiShare(
   metrics: CrawlerMetricOptions = { crawlerIdentityScope: 'all' },
 ) {
   const monthEnd = metrics.crawlerMetricsVersion === 1 ? new Date(+end - 1) : end;
+  if (/^[a-f0-9-]{36}$/i.test(id)) {
+    const [y,m]=formatInTimeZone(monthEnd,timezone,'yyyy-MM').split('-').map(Number);
+    const {fromZonedTime}=await import('date-fns-tz');
+    const start=fromZonedTime(`${new Date(Date.UTC(y,m-6,1)).toISOString().slice(0,10)}T00:00:00`,timezone);
+    const series=await readAnalysisLogSeries({websiteId:id,startDate:start,endDate:end,timezone,...metrics,grain:'month'});
+    if(series) return Array.from({length:6},(_,index)=>{
+      const month=new Date(Date.UTC(y,m-6+index,1)).toISOString().slice(0,7);
+      const rows=series.filter(row=>row.day===month);
+      return {month,total:rows.reduce((sum,row)=>sum+row.count,0),ai:rows.reduce((sum,row)=>sum+row.aiRequests,0)};
+    });
+  }
+
   const rows = await query<{ month: string; total: number; ai: number }>(
     `SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM') AS month,count(*)::int AS total,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS ai FROM liekan_reporting_log WHERE website_id=$1::uuid ${crawlerIdentitySql(metrics.crawlerIdentityScope)}${metrics.crawlerMetricsVersion === 1 ? " AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : ''} AND created_at${metrics.crawlerMetricsVersion === 1 ? '<' : '<='}$2 AND created_at>=((date_trunc('month',$4::timestamptz AT TIME ZONE $3)-interval '5 months') AT TIME ZONE $3) GROUP BY 1 ORDER BY 1`,
     id,
@@ -334,6 +354,10 @@ export async function getPlotLogs(
   hour = false,
   metrics: CrawlerMetricOptions = { crawlerIdentityScope: 'all' },
 ) {
+  if (/^[a-f0-9-]{36}$/i.test(id)) {
+    const series=await readAnalysisLogSeries({websiteId:id,startDate:start,endDate:end,timezone,...metrics,grain:hour?'hour':'day'});
+    if(series)return series;
+  }
   return query(
     `SELECT to_char(created_at AT TIME ZONE $4,'${hour ? 'YYYY-MM-DD HH24:00' : 'YYYY-MM-DD'}') AS day,bot,bot_type AS type,count(*)::int AS count,count(*) FILTER(WHERE ${crawlerAiSql()})::int AS "aiRequests" FROM liekan_reporting_log WHERE website_id=$1::uuid AND ${metrics.crawlerMetricsVersion === 1 ? "created_at>=$2 AND created_at<$3 AND user_agent NOT LIKE 'Liekan-Crawler-Check/%'" : 'created_at BETWEEN $2 AND $3'}${crawlerIdentitySql(metrics.crawlerIdentityScope)} GROUP BY 1,2,3 ORDER BY 1`,
     id,

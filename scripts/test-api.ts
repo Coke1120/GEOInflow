@@ -339,6 +339,17 @@ async function main() {
       PLAYWRIGHT_BASE_URL: BASE_URL,
       PLAYWRIGHT_SKIP_WEB_SERVER: '1',
       UMAMI_TEST_DB: profile,
+      ...(!EXTERNAL_TARGET && profile === 'postgres'
+        ? {
+            LIEKAN_API_FIXTURE_CONTAINER: capture(
+              'docker',
+              composeArgs([profile], ['ps', '-q', 'db']),
+            ).trim(),
+            LIEKAN_API_FIXTURE_OWNER: 'disposable-api-test',
+            LIEKAN_API_FIXTURE_DATABASE: 'umami',
+            LIEKAN_API_FIXTURE_USER: 'umami',
+          }
+        : {}),
       API_COVERAGE:
         process.env.API_COVERAGE ?? (options.grep || options.coverageReport ? 'report' : 'enforce'),
     });

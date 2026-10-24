@@ -125,6 +125,7 @@ export const stateLabels: Record<DataState, string> = {
   available: '',
   empty: '当前范围暂无数据',
   not_connected: '待接入',
+  unavailable: '身份指标不可用',
   unsupported: '当前数据源未提供',
   estimated: '估算',
 };

@@ -11,11 +11,11 @@ import {
 const uuid = '11111111-1111-4111-8111-111111111111';
 describe('approved scene routing', () => {
   it('registers every approved supplemental scene without duplicate IDs', () => {
-    expect(featurePages).toHaveLength(71);
-    expect(new Set(featurePages.map(p => p.id)).size).toBe(71);
+    expect(featurePages).toHaveLength(72);
+    expect(new Set(featurePages.map(p => p.id)).size).toBe(72);
     for (const p of featurePages)
       expect(matchFeatureRoute(`/liekan/${p.id}`, { websiteId: uuid, id: uuid })).toMatchObject(
-        ['help', 'crawlers-manage', 'history-repair'].includes(p.id)
+        ['help', 'crawlers-manage', 'history-repair', 'analytics-acceleration'].includes(p.id)
           ? { page: p.id }
           : {
               page: p.id,

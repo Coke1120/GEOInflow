@@ -133,7 +133,8 @@ async function relationalQuery(
     {
       ...params,
       ...queryParams,
-    }, 'getJourney',
+    },
+    'getJourney',
   ).then(parseResult);
 }
 
@@ -243,7 +244,8 @@ async function clickhouseQuery(
     {
       ...params,
       ...queryParams,
-    }, 'getJourney',
+    },
+    'getJourney',
   ).then(parseResult);
 }
 
@@ -264,6 +266,6 @@ function combineSequentialDuplicates(array: any) {
 function parseResult(data: any) {
   return data.map(({ e1, e2, e3, e4, e5, e6, e7, count }) => ({
     items: combineSequentialDuplicates([e1, e2, e3, e4, e5, e6, e7]),
-    count: +Number(count),
+    count: count === null ? null : +Number(count),
   }));
 }

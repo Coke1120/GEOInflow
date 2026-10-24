@@ -328,10 +328,9 @@ function included(mode, hosts = []) {
   return fixtures.filter(
     f =>
       f.source === 'browser' &&
-      (mode === 'raw' ||
-        (f.classification !== 'automated' &&
-          (mode !== 'strict' || f.classification !== 'suspected') &&
-          (!hosts.length || hosts.includes(f.host)))),
+      f.classification !== 'automated' &&
+      (mode !== 'strict' || f.classification !== 'suspected') &&
+      (!hosts.length || hosts.includes(f.host)),
   );
 }
 function unique(rows, field = 'sessionId') {
@@ -748,7 +747,7 @@ try {
   await test('server intake and quality policy require complete private authentication', async () => {
     await json('/api/liekan/collect', {
       method: 'POST',
-      body: event('/unauthenticated', { timestamp }),
+      body: event('/unauthenticated', {}),
       expected: 401,
       headers: { 'user-agent': browserUa, 'x-real-ip': normalIp },
     });
@@ -757,7 +756,7 @@ try {
     ensure(typeof share.token === 'string', 'Own-site share token was not created');
     await json('/api/liekan/collect', {
       method: 'POST',
-      body: event('/shared-denied', { timestamp }),
+      body: event('/shared-denied', {}),
       expected: 401,
       headers: {
         authorization: `Bearer ${share.token}`,
@@ -773,7 +772,6 @@ try {
   });
   await test('twenty concurrent identical nonces write exactly once', async () => {
     const body = event('/parallel', {
-      timestamp,
       name: 'purchase',
       data: { currency: 'USD', revenue: 12.5, marker: 'race' },
     });
@@ -815,30 +813,30 @@ try {
       expectedCounts(),
       'Concurrent duplicate receipts, events, properties and revenue must be exact',
     );
-    await record(event('/parallel', { timestamp, id: body.payload.id }), browserQuality);
+    await record(event('/parallel', { id: body.payload.id }), browserQuality);
   });
   await test('legacy requests without nonce retain both events', async () => {
-    const body = event('/legacy-script', { timestamp });
+    const body = event('/legacy-script', {});
     delete body.payload.eventId;
     await record(body, browserQuality);
     await record(body, browserQuality);
     same(await counts(), expectedCounts(), 'Nonce-free compatibility must preserve both writes');
   });
   await test('changed body conflicts and invalid nonce is rejected', async () => {
-    const body = event('/conflict', { timestamp });
+    const body = event('/conflict', {});
     await record(body, browserQuality);
     const before = await counts();
     await collect(
       { ...body, payload: { ...body.payload, url: '/different-content' } },
       { expected: 409 },
     );
-    await collect(event('/invalid-nonce', { timestamp, eventId: 'invalid-event-id' }), {
+    await collect(event('/invalid-nonce', { eventId: 'invalid-event-id' }), {
       expected: 400,
     });
     same(await counts(), before, 'Conflicting and malformed IDs must create no analytics rows');
   });
   await test('duplicate receipts acknowledge their original session and visit', async () => {
-    const body = event('/retry-identity', { timestamp });
+    const body = event('/retry-identity', {});
     const first = await record(body, browserQuality);
     const before = await counts();
     const retry = await collect(body, { ip: '192.0.2.18' });
@@ -880,7 +878,6 @@ try {
   });
   await test('property constraint rolls back and failed nonce can be repaired', async () => {
     const body = event('/property-rollback', {
-      timestamp,
       name: 'purchase',
       data: { currency: 'USD', revenue: 1e25, marker: 'overflow' },
     });
@@ -910,7 +907,6 @@ try {
   await test('revenue callback failure rolls back prior event and properties', async () => {
     // A revenue row requires event_name. A pageview has no event name, so revenue validation fails after properties are inserted.
     const body = event('/revenue-rollback', {
-      timestamp,
       data: { currency: 'USD', revenue: 4.5, marker: 'rollback' },
     });
     const nullable = await sql(
@@ -931,11 +927,10 @@ try {
     await record(body, browserQuality);
   });
   await test('transport bot evidence and fresh official CIDR are recorded', async () => {
-    await record(event('/transport-bot', { timestamp }), uaBotQuality, { userAgent: botUa });
-    await record(event('/official-range', { timestamp }), rangeQuality, { ip: rangeIp });
+    await record(event('/transport-bot', {}), uaBotQuality, { userAgent: botUa });
+    await record(event('/official-range', {}), rangeQuality, { ip: rangeIp });
     await record(
       event('/automated-purchase', {
-        timestamp,
         name: 'purchase',
         data: { currency: 'USD', revenue: 20, marker: 'automated' },
       }),
@@ -944,39 +939,34 @@ try {
     );
   });
   await test('v2 browser automation and public UA masking retain auditable raw events', async () => {
-    await record(event('/webdriver', { timestamp, webdriver: true }), {
+    await record(event('/webdriver', { webdriver: true }), {
       classification: 'automated',
       source: 'browser',
       reason: 'browser_webdriver',
     });
-    await record(event('/webdriver-false', { timestamp, webdriver: false }), browserQuality);
+    await record(event('/webdriver-false', { webdriver: false }), browserQuality);
     await record(
-      event('/masked-request-ua', { timestamp, userAgent: browserUa }),
+      event('/masked-request-ua', { userAgent: browserUa }),
       { classification: 'automated', source: 'legacy_override', reason: 'request_ua_bot' },
       { userAgent: 'python-requests/2.31.0' },
     );
-    await record(
-      event('/server-transport-ua', { timestamp, userAgent: browserUa }),
-      serverQuality,
-      { authenticated: true, userAgent: 'python-requests/2.31.0' },
-    );
+    await record(event('/server-transport-ua', { userAgent: browserUa }), serverQuality, {
+      authenticated: true,
+      userAgent: 'python-requests/2.31.0',
+    });
     const before = await counts();
-    await collect(event('/invalid-webdriver', { timestamp, webdriver: 'true' }), { expected: 400 });
+    await collect(event('/invalid-webdriver', { webdriver: 'true' }), { expected: 400 });
     same(await counts(), before, 'Invalid automation evidence must not write any analytics rows');
   });
   await test('public overrides remain suspected and Bearer header does not upgrade', async () => {
+    await record(event('/public-overrides', { ip: normalIp, userAgent: browserUa }), legacyQuality);
     await record(
-      event('/public-overrides', { timestamp, ip: normalIp, userAgent: browserUa }),
-      legacyQuality,
-    );
-    await record(
-      event('/public-bearer-overrides', { timestamp, ip: normalIp, userAgent: browserUa }),
+      event('/public-bearer-overrides', { ip: normalIp, userAgent: browserUa }),
       legacyQuality,
       { authHeader: true },
     );
     await record(
       event('/suspected-purchase', {
-        timestamp,
         ip: normalIp,
         userAgent: browserUa,
         name: 'purchase',
@@ -985,25 +975,45 @@ try {
       legacyQuality,
     );
   });
+  await test('public historical and future timestamps stay outside browser statistics', async () => {
+    for (const offset of [-86400 * 30, 86400 * 30]) {
+      const body = event('/timestamp-override', { timestamp: timestamp + offset });
+      await collect(body);
+      const evidence = await sqlJson(
+        `SELECT row_to_json(q) FROM liekan_event_quality q JOIN liekan_collection_receipt r ON r.event_id=q.event_id WHERE r.website_id=${websiteSql} AND r.client_event_id='${body.payload.eventId}'::uuid;`,
+      );
+      ensure(
+        evidence.source === 'legacy_override',
+        'Public timestamp must retain compatibility provenance',
+      );
+      ensure(
+        (await sql(
+          `SELECT count(*) FROM liekan_effective_browser_event WHERE event_id='${evidence.event_id}'::uuid;`,
+        )) === '0',
+        'Public timestamps cannot contribute browser metrics',
+      );
+      // This time-boundary fixture has its own range and is removed before shared count assertions.
+      await sql(`DELETE FROM website_event WHERE event_id='${evidence.event_id}'::uuid;`);
+    }
+  });
   await test('private server overrides retain authenticated source', async () => {
     await record(
-      event('/private-overrides', { timestamp, ip: normalIp, userAgent: browserUa }),
+      event('/private-overrides', { ip: normalIp, userAgent: browserUa }),
       serverQuality,
       { authenticated: true },
     );
   });
   await test('home paths and normalized Unicode hosts retain exact evidence', async () => {
-    await record(event('/home', { timestamp, hostname: 'WWW.Quality.Example:443' }), {
+    await record(event('/home', { hostname: 'WWW.Quality.Example:443' }), {
       ...browserQuality,
       hostname: 'quality.example',
     });
-    await record(event('/unicode-home', { timestamp, hostname: 'WWW.例子.测试:443' }), {
+    await record(event('/unicode-home', { hostname: 'WWW.例子.测试:443' }), {
       ...browserQuality,
       hostname: 'xn--fsqu00a.xn--0zwm56d',
     });
     await record(
       event('/outside-home', {
-        timestamp,
         hostname: 'quality.example',
         url: 'https://WWW.Outside.Example/outside-home',
       }),
@@ -1014,14 +1024,12 @@ try {
   await test('keyword evidence includes browser, suspected and automated intake', async () => {
     await record(
       event('/browser-keyword', {
-        timestamp,
         referrer: 'https://www.google.com/search?q=browser-fixture',
       }),
       browserQuality,
     );
     await record(
       event('/suspected-keyword', {
-        timestamp,
         ip: normalIp,
         userAgent: browserUa,
         referrer: 'https://www.google.com/search?q=suspected-fixture',
@@ -1030,7 +1038,6 @@ try {
     );
     await record(
       event('/automated-keyword', {
-        timestamp,
         referrer: 'https://www.google.com/search?q=automated-fixture',
       }),
       uaBotQuality,
@@ -1097,9 +1104,9 @@ try {
     same(await counts(), expectedCounts(), 'Historical aliases must retain missing verdicts');
   });
   await test('registered browser-like crawler stays separate from a normal short visit', async () => {
-    await record(event('/cases', { timestamp }), browserQuality);
+    await record(event('/cases', {}), browserQuality);
     await record(
-      event('/cases/', { timestamp }),
+      event('/cases/', {}),
       {
         classification: 'automated',
         source: 'browser',
@@ -1145,8 +1152,10 @@ try {
       const pages = fixtures.filter(f => f.classification === row.classification && f.pageview);
       same(
         row.visitors,
-        new Set(pages.map(f => f.sessionId)).size,
-        'Class UV counts only pageview visitors',
+        pages.some(f => f.source !== 'browser' || f.classification === 'automated')
+          ? null
+          : new Set(pages.map(f => f.sessionId)).size,
+        'Class UV remains unknown when identity proof is unavailable',
       );
       same(row.pageviews, pages.length, 'Class PV excludes custom events');
       same(
@@ -1180,7 +1189,11 @@ try {
         })
       ).body;
       same(preview.preview.rawPV, 1, 'Policy preview retains the path scope');
-      same(preview.preview.includedPV, 1, 'Raw preview preserves the excluded event');
+      same(
+        preview.preview.includedPV,
+        path === '/cases' ? 1 : 0,
+        'Raw audit mode keeps the browser automation floor',
+      );
     }
     const risk = (await json(qualityPath + '/risk?' + window, { auth: true })).body;
     const riskWithPath = (
@@ -1202,7 +1215,7 @@ try {
         );
       else {
         ensure(
-          row.ruleVersion === 'traffic-quality-v3' && row.reasons.includes(match.reason),
+          row.ruleVersion === 'traffic-quality-v4' && row.reasons.includes(match.reason),
           'Audit must preserve the classification rule and reason',
         );
         if (row.path === '/official-range')
@@ -1224,6 +1237,8 @@ try {
       {
         liekan_collection_receipt: [
           'client_event_id',
+          'collection_scope',
+          'collection_source',
           'created_at',
           'event_id',
           'payload_hash',
@@ -1512,7 +1527,7 @@ try {
       })
     ).body;
     ensure(
-      result.mode === mode && result.ruleVersion === 'traffic-quality-v3',
+      result.mode === mode && result.ruleVersion === 'traffic-quality-v4',
       'Policy response must retain versioned semantics',
     );
     const after = await sql(
@@ -1534,7 +1549,7 @@ try {
     await setPolicy('strict');
     await verifySurfaces('strict');
   });
-  await test('raw policy includes preserved automated and suspected rows', async () => {
+  await test('raw audit policy retains the main-report automation floor', async () => {
     await setPolicy('raw');
     await verifySurfaces('raw');
   });
@@ -1710,7 +1725,6 @@ try {
       'Reset must invalidate cached native totals',
     );
     const body = event('/after-reset', {
-      timestamp,
       name: 'purchase',
       data: { currency: 'USD', revenue: 2, marker: 'reset' },
     });

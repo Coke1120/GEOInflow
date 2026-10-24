@@ -92,6 +92,7 @@ async function relationalQuery(
     )
   `;
 
+  // Bind the final visit projection to each revenue event before expanding its geography.
   if (type === 'country') {
     return rawQuery(
       `
@@ -102,9 +103,12 @@ async function relationalQuery(
         ${postgresVisitGeographyColumn('country')} as "name",
         sum(filtered_revenue.revenue) as "value"
       from filtered_revenue
-      join website_event
-        on website_event.website_id = filtered_revenue.website_id
-          and website_event.event_id = filtered_revenue.event_id
+      join lateral (
+        select * from website_event revenue_event
+        where revenue_event.website_id = filtered_revenue.website_id
+          and revenue_event.event_id = filtered_revenue.event_id
+        offset 0
+      ) website_event on true
       group by 1
       order by value desc
       `,
@@ -124,9 +128,12 @@ async function relationalQuery(
         ${postgresVisitGeographyColumn('region')} as "name",
         sum(filtered_revenue.revenue) as "value"
       from filtered_revenue
-      join website_event
-        on website_event.website_id = filtered_revenue.website_id
-          and website_event.event_id = filtered_revenue.event_id
+      join lateral (
+        select * from website_event revenue_event
+        where revenue_event.website_id = filtered_revenue.website_id
+          and revenue_event.event_id = filtered_revenue.event_id
+        offset 0
+      ) website_event on true
       group by 1, 2
       order by value desc
       `,

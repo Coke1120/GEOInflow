@@ -578,7 +578,12 @@ export function useManualQueryOptions(options: any) {
             markVisitRead(key, epoch);
             const value = await withClientFreshness(
               context.signal,
-              () => options.queryFn({ ...context, queryKey: options.queryKey }),
+              () =>
+                options.queryFn({
+                  ...context,
+                  cacheQueryKey: context.queryKey,
+                  queryKey: options.queryKey,
+                }),
               {
                 refresh: !!reading?.busy && reading.page.force && !normalSelection,
                 queryKey: key,

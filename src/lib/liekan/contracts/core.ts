@@ -97,6 +97,7 @@ export function trackerSnippet(
 }
 
 export function conversionRate(num: unknown, total: unknown) {
+  if (num == null || total == null) return '—';
   const numerator = Number(num),
     denominator = Number(total);
   return Number.isFinite(numerator) && Number.isFinite(denominator) && denominator > 0

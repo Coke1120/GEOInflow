@@ -1,8 +1,13 @@
+import { applyHumanFactsPopulation } from '../contracts/population-results';
+import { identityUsable, unavailableFields } from '../contracts/browser-population';
+import { readBrowserPopulation } from './browser-population';
+import { nativeSnapshot } from './native-snapshot';
 import { funnelParametersSchema } from '@/lib/analytics-schema';
 import { getPostgresCountrySQL, getPostgresRegionSQL } from '@/lib/country';
 import { getFunnel } from '@/queries/sql';
 import { classifyEntrySource, classifyEntrySourceForDisplay } from '../contracts/sources';
 import { humanTotals, query, LiekanError } from './server';
+import { readBrowserDetailFacts } from './browser-detail-facts';
 
 export { classifyEntrySource } from '../contracts/sources';
 
@@ -52,7 +57,7 @@ function sourceFacts(rows: any[]) {
 
 // All knowledge of upstream storage and metric semantics is confined here.
 export function humanVisitsSql(keywords = false) {
-  return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country AS country,s.region AS region,s.city AS city,s.browser,s.os,s.device FROM website_event e
+  return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country AS country,s.region AS region,s.city AS city,s.browser AS browser,s.os AS os,s.device AS device FROM website_event e
   LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
   WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz AND e.event_type != 5 AND $4::text IS NOT NULL),
 visit_geography AS (SELECT DISTINCT ON (visit_id,session_id) visit_id,session_id,country,region,city FROM events WHERE event_type NOT IN(2,5) ORDER BY visit_id,session_id,created_at,event_id),
@@ -174,7 +179,7 @@ export async function getHumanFacts(
     pages: `, ordered AS (SELECT *,row_number() OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id) AS ordinal,extract(epoch FROM lead(created_at) OVER(PARTITION BY visit_id,session_id ORDER BY created_at,event_id)-created_at)::float AS dwell FROM events WHERE event_type NOT IN(2,5))
       SELECT e.url_path AS path,count(*)::int AS pv,count(distinct e.session_id)::int AS uv,count(*) FILTER(WHERE e.ordinal=1)::int AS entries,avg(e.dwell)::float AS duration,count(e.dwell)::int AS samples,
       count(*) FILTER(WHERE e.ordinal=1 AND v.pv=1 AND v.custom=0)::int AS bounces FROM ordered e JOIN visits v USING(visit_id,session_id) GROUP BY 1 ORDER BY pv DESC,path`,
-    heatmap: ` SELECT extract(dow FROM started AT TIME ZONE $4)::int AS weekday,extract(hour FROM started AT TIME ZONE $4)::int AS hour,count(*)::int AS count FROM visits GROUP BY 1,2`,
+    heatmap: ` SELECT extract(dow FROM started AT TIME ZONE $4)::int AS weekday,extract(hour FROM started AT TIME ZONE $4)::int AS hour,count(*)::int AS count FROM visits GROUP BY 1,2 ORDER BY 1,2`,
     goals: ` SELECT d.report_id AS id,d.name,d.parameters->>'value' AS path,count(distinct m.event_id)::int AS count,count(distinct (m.visit_id,m.session_id)) FILTER(WHERE v.visit_id IS NOT NULL)::int AS "convertedSessions" FROM definitions d LEFT JOIN matches m USING(report_id) LEFT JOIN visits v ON v.visit_id=m.visit_id AND v.session_id=m.session_id GROUP BY 1,2,3`,
     converted: ` SELECT count(*)::int AS count,(SELECT count(distinct event_id)::int FROM matches) AS events FROM visits v JOIN converted cv USING(visit_id,session_id)`,
     journeys: `, paths AS (SELECT visit_id,(array_agg(url_path ORDER BY created_at,event_id))[1:6] AS path FROM events WHERE event_type=1 GROUP BY visit_id) SELECT array_to_string(path,' → ') AS path,count(*)::int AS count FROM paths GROUP BY 1 ORDER BY count DESC,path LIMIT 6`,
@@ -183,8 +188,16 @@ export async function getHumanFacts(
     newVisitors: ` SELECT count(distinct v.session_id)::int AS count FROM visits v JOIN session s ON s.session_id=v.session_id AND s.website_id=$1::uuid WHERE s.created_at BETWEEN $2 AND $3`,
     dailyConversions: ` SELECT to_char(created_at AT TIME ZONE $4,'YYYY-MM-DD') AS day,count(distinct event_id)::int AS count FROM matches GROUP BY 1 ORDER BY 1`,
   };
+  const detail = await readBrowserDetailFacts(
+    id,
+    start,
+    end,
+    timezone,
+    Object.keys(statements).filter(key => needs(key as HumanFact)),
+    { geographyReadLimit },
+  );
   const projections = Object.entries(statements)
-    .filter(([key]) => needs(key as HumanFact))
+    .filter(([key]) => needs(key as HumanFact) && !Object.hasOwn(detail || {}, key))
     .map(([key, tail]) => {
       const select = tail.trimStart().startsWith(',') ? 'WITH ' + tail.trimStart().slice(1) : tail;
       if (key === 'geo' && geographyReadLimit) {
@@ -192,9 +205,10 @@ export async function getHumanFacts(
       }
       return `'${key}',(SELECT coalesce(jsonb_agg(to_jsonb(fact)), '[]'::jsonb) FROM (${select}) fact)`;
     });
-  if (geographyReadLimit) args.push(geographyReadLimit.rows, geographyReadLimit.bytes);
+  if (geographyReadLimit && needs('geo') && !detail?.geo)
+    args.push(geographyReadLimit.rows, geographyReadLimit.bytes);
   const [totals, definitions, current, previousSources, previousGoals] = await Promise.all([
-    humanTotals(id, start, end),
+    humanTotals(id, start, end, timezone),
     query(
       "SELECT report_id AS id,name,type,parameters FROM report WHERE website_id=$1::uuid AND type IN('goal','funnel') ORDER BY created_at LIMIT 100",
       id,
@@ -203,27 +217,55 @@ export async function getHumanFacts(
       ? query(cte + ` SELECT jsonb_build_object(${projections.join(',')}) AS facts`, ...args)
       : Promise.resolve([]),
     needs('previousSources')
-      ? query(
-          cte +
-            ` SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",count(*)::int AS sessions,count(*) FILTER(WHERE cv.visit_id IS NOT NULL)::int AS conversions FROM visits v ${convertedJoin} GROUP BY 1,2,3,4`,
-          id,
-          new Date(Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1))),
-          new Date(start.getTime() - 1),
-          timezone,
-        )
+      ? (async () => {
+          const previousStart = new Date(
+            Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1)),
+          );
+          const previousEnd = new Date(start.getTime() - 1);
+          const previous = await readBrowserDetailFacts(id, previousStart, previousEnd, timezone, [
+            'sources',
+          ]);
+          if (previous)
+            return previous.sources.map(
+              ({ referrer, utmSource, utmMedium, utmCampaign, sessions, conversions }) => ({
+                referrer,
+                utmSource,
+                utmMedium,
+                utmCampaign,
+                sessions,
+                conversions,
+              }),
+            );
+          return query(
+            cte +
+              ` SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",count(*)::int AS sessions,count(*) FILTER(WHERE cv.visit_id IS NOT NULL)::int AS conversions FROM visits v ${convertedJoin} GROUP BY 1,2,3,4`,
+            id,
+            previousStart,
+            previousEnd,
+            timezone,
+          );
+        })()
       : Promise.resolve([]),
     needs('previousGoals')
-      ? query(
-          cte +
-            ` SELECT report_id AS id,count(distinct event_id)::int AS count FROM matches GROUP BY 1`,
-          id,
-          new Date(Math.max(0, start.getTime() - (end.getTime() - start.getTime() + 1))),
-          new Date(start.getTime() - 1),
-          timezone,
-        )
+      ? (async () => {
+          const previousStart = new Date(Math.max(0, +start - (+end - +start + 1)));
+          const previousEnd = new Date(+start - 1);
+          const previous = await readBrowserDetailFacts(id, previousStart, previousEnd, timezone, [
+            'goals',
+          ]);
+          if (previous) return previous.goals.map(({ id, count }) => ({ id, count }));
+          return query(
+            cte +
+              ` SELECT report_id AS id,count(distinct event_id)::int AS count FROM matches GROUP BY 1`,
+            id,
+            previousStart,
+            previousEnd,
+            timezone,
+          );
+        })()
       : Promise.resolve([]),
   ]);
-  const facts = current[0]?.facts ?? {};
+  const facts = { ...current[0]?.facts, ...detail };
   if (geographyReadLimit && facts.geo?.limitExceeded)
     throw new LiekanError('地域处理数据超过 100,000 组或 50 MiB，请缩小日期范围', 413);
   const {
@@ -269,28 +311,45 @@ export async function getHumanFacts(
       funnelState = funnel.length ? 'available' : 'empty';
     }
   }
-  return {
-    totals,
-    daily,
-    geo,
-    sources: sourceFacts(sources),
-    sourceEvidence: sources.map(row => ({ ...row, ...classifyEntrySourceForDisplay(row) })),
-    environment,
-    pages,
-    heatmap,
-    goals: allGoals,
-    converted: converted[0]?.count ?? 0,
-    conversionEvents: converted[0]?.events ?? 0,
-    dailyConversions,
-    funnel,
-    funnelState,
-    funnelError,
-    journeys,
-    exits,
-    dailySources: sourceFacts(dailySources),
-    newVisitors: newVisitors[0]?.count ?? 0,
-    previousSources: sourceFacts(previousSources),
-  };
+  const previousPopulation =
+    totals.population && needs('previousSources')
+      ? await readBrowserPopulation(
+          id,
+          new Date(Math.max(0, +start - (+end - +start + 1))),
+          new Date(+start - 1),
+          timezone,
+        )
+      : undefined;
+  return applyHumanFactsPopulation(
+    {
+      population: totals.population,
+      totals,
+      daily,
+      geo,
+      sources: sourceFacts(sources),
+      sourceEvidence: sources.map(row => ({ ...row, ...classifyEntrySourceForDisplay(row) })),
+      environment,
+      pages,
+      heatmap,
+      goals: allGoals,
+      converted: converted[0]?.count ?? 0,
+      conversionEvents: converted[0]?.events ?? 0,
+      dailyConversions,
+      funnel,
+      funnelState,
+      funnelError,
+      journeys,
+      exits,
+      dailySources: sourceFacts(dailySources),
+      newVisitors: newVisitors[0]?.count ?? 0,
+      previousSources: sourceFacts(previousSources).map(row =>
+        identityUsable(previousPopulation)
+          ? row
+          : unavailableFields(row, ['sessions', 'conversions']),
+      ),
+    },
+    totals.population,
+  );
 }
 export async function getHumanConversions(id: string, start: Date, end: Date, timezone: string) {
   return (
@@ -312,5 +371,14 @@ export async function getHumanDays(
   timezone: string,
   hour = false,
 ) {
-  return query(cte + humanBinsSql(hour), id, start, end, timezone);
+  return nativeSnapshot(async () => {
+    const detail = await readBrowserDetailFacts(id, start, end, timezone, ['daily'], { hour });
+    const rows = detail?.daily ?? (await query(cte + humanBinsSql(hour), id, start, end, timezone));
+    const population = await readBrowserPopulation(id, start, end, timezone);
+    return identityUsable(population)
+      ? rows
+      : rows.map(row =>
+          unavailableFields(row, ['uv', 'sessions', 'duration', 'bounces', 'conversions']),
+        );
+  });
 }

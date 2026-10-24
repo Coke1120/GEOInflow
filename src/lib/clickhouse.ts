@@ -1,3 +1,5 @@
+import { readBrowserPopulation } from './liekan/upstream/browser-population';
+import { noteBrowserPopulation } from './liekan/upstream/cache-context';
 import {
   cityNameSQL,
   cityFilterValues,
@@ -821,6 +823,23 @@ async function rawQuery<T = unknown>(
     },
   });
 
+  const ids = params.websiteId
+    ? [params.websiteId]
+    : Array.isArray(params.websiteIds)
+      ? params.websiteIds
+      : [];
+  if (params.startDate)
+    await Promise.all(
+      ids.map(async id => {
+        const population = await readBrowserPopulation(
+          String(id),
+          new Date(params.startDate as string),
+          params.endDate ? new Date(params.endDate as string) : new Date(),
+          String(params.timezone || 'UTC'),
+        );
+        noteBrowserPopulation(String(id), population);
+      }),
+    );
   return (await resultSet.json()) as T;
 }
 

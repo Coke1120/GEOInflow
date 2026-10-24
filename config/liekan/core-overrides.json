@@ -161,13 +161,14 @@
     },
     {
       "path": "next.config.ts",
-      "purpose": "Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy; preserve private no-store headers for crawler recognition, candidates, administrator source health, crawler context and private traffic evidence; preserve private no-store headers for browser cache authorization manifests",
+      "purpose": "Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy; preserve private no-store headers for crawler recognition, candidates, administrator source health, crawler context and private traffic evidence; preserve private no-store headers for browser cache authorization manifests; preserve private no-store responses for durable analysis tasks, acceleration management and opted-in native aggregates",
       "tests": [
         "pnpm liekan:verify",
         "Liekan Docker and visual acceptance",
         "tests/liekan/ai/http.integration.ts",
         "src/proxy.test.ts",
-        "src/lib/liekan/upstream/crawler-private-headers.test.ts"
+        "src/lib/liekan/upstream/crawler-private-headers.test.ts",
+        "src/lib/liekan/upstream/analysis-private-headers.test.ts"
       ],
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Typed production build, local font/branding and explicit agent rule control; externalize the pg driver for the website handle proxy",
@@ -3085,7 +3086,7 @@
     },
     {
       "path": "src/lib/prisma.ts",
-      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; preserve cookieless tracking while applying versioned traffic quality and exact event receipt deduplication; reuse the complete bounded property window for repair-aware native property reads; keep website pagination counts and rows on one primary reporting generation",
+      "purpose": "Liekan primary query snapshots and typed interactive transactions for website and source lifecycle; Preserve device/geography compatibility, exact channel and drill filters, request-local repeatable-read export snapshots, private AI query logging and bounded derived-statistics caching with live authorization and write invalidation; Aggregate Taiwan geography under China and Taiwan province CN-71; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; preserve cookieless tracking while applying versioned traffic quality and exact event receipt deduplication; reuse the complete bounded property window for repair-aware native property reads; keep website pagination counts and rows on one primary reporting generation",
       "tests": [
         "pnpm test:log-ingestion",
         "node scripts/liekan-log-integration.mjs",
@@ -3101,10 +3102,12 @@
         "src/lib/liekan/contracts/geography.test.ts",
         "Browser collection quality regressions",
         "Isolated traffic quality database integration",
-        "pnpm test:history-repair"
+        "pnpm test:history-repair",
+        "src/lib/liekan/upstream/analysis-cache-probe.test.ts",
+        "src/lib/liekan/upstream/analysis-query-population.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
-      "constraint": "Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation; Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation",
+      "constraint": "Keep parameterized upstream SQL and replica policy; use scoped transaction executor for snapshot reads without global client mutation",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
@@ -3247,10 +3250,11 @@
     },
     {
       "path": "src/queries/prisma/session.ts",
-      "purpose": "Derived-statistics cache invalidation, original export bypass and shared metadata compatibility",
+      "purpose": "Derived-statistics cache invalidation, original export bypass and shared metadata compatibility; serialize visitor deletion with website lifecycle before child mutation",
       "tests": [
         "pnpm liekan:verify --working-tree",
-        "Liekan statistics cache and metadata regressions"
+        "Liekan statistics cache and metadata regressions",
+        "src/lib/liekan/upstream/session-invalidation.test.ts"
       ],
       "owner": "Liekan statistics maintenance",
       "constraint": "Preserve original SQL, live permission checks, source statistics and public-share compatibility",
@@ -3350,12 +3354,13 @@
     },
     {
       "path": "src/queries/sql/breakdown/getBreakdown.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3423,13 +3428,14 @@
     },
     {
       "path": "src/queries/sql/getValues.ts",
-      "purpose": "Inherited device/geography compatibility; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; restrict session filter candidates to the same eligible traffic population; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
+      "purpose": "Inherited device/geography compatibility; normalize reviewed geography aliases at query/display boundaries while preserving stored source values; restrict session filter candidates to the same eligible traffic population; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "src/lib/liekan/contracts/geography.test.ts",
-        "pnpm test:traffic-quality"
+        "pnpm test:traffic-quality",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3496,14 +3502,15 @@
     },
     {
       "path": "src/queries/sql/performance/getPerformanceMetrics.ts",
-      "purpose": "Preserve non-null metric sample counts and apply bounce exclusion consistently to performance dimensions",
+      "purpose": "Preserve non-null metric sample counts and apply bounce exclusion consistently to performance dimensions; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "owner": "Liekan upstream compatibility",
       "constraint": "Keep tracker, SDK identities, database schema and existing route behavior compatible; UI ownership remains in Liekan directories",
       "removalCondition": "Remove when the upstream exposes an equivalent extension point and regression checks pass",
       "tests": [
         "src/queries/sql/performance/getPerformance.test.ts",
         "tests/api/liekan-features.spec.ts",
-        "pnpm liekan:verify"
+        "pnpm liekan:verify",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ]
     },
     {
@@ -3520,10 +3527,11 @@
     },
     {
       "path": "src/queries/sql/replays/getSessionReplays.ts",
-      "purpose": "Inherited device/geography compatibility",
+      "purpose": "Inherited device/geography compatibility; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "src/lib/country.test.ts",
-        "src/lib/detect.test.ts"
+        "src/lib/detect.test.ts",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3577,9 +3585,10 @@
     },
     {
       "path": "src/queries/sql/revenue/getRevenueMetrics.ts",
-      "purpose": "Preserve inherited geography compatibility, apply bounce exclusion consistently and resolve one deterministic first event per session for revenue attribution; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
+      "purpose": "Preserve inherited geography compatibility, apply bounce exclusion consistently and resolve one deterministic first event per session for revenue attribution; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts; keep each final revenue geography lookup bound to its event ID before visit expansion",
       "tests": [
         "tests/liekan/native-geography.integration.ts",
+        "src/lib/liekan/upstream/analysis-revenue.integration.test.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
         "src/queries/sql/revenue/getRevenue.test.ts",
@@ -3628,12 +3637,13 @@
     },
     {
       "path": "src/queries/sql/sessions/getSessionExpandedMetrics.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
       "tests": [
         "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -3641,12 +3651,14 @@
     },
     {
       "path": "src/queries/sql/sessions/getSessionMetrics.ts",
-      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts",
+      "purpose": "Inherited device/geography compatibility; Aggregate Taiwan geography under China and Taiwan province CN-71; read the eligible visit geography tuple while preserving native response fields and revenue visitor cohorts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window; use exact covered visit facts and whole-window identity evidence in one primary snapshot",
       "tests": [
         "tests/liekan/native-geography.integration.ts",
         "src/lib/country.test.ts",
         "src/lib/detect.test.ts",
-        "scripts/liekan-data-regression.mjs"
+        "scripts/liekan-data-regression.mjs",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts",
+        "src/lib/liekan/upstream/analysis-native-population.test.ts"
       ],
       "owner": "Liekan compatibility adapters",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Inherited device/geography compatibility",
@@ -4746,6 +4758,1026 @@
       "owner": "Liekan analytics cache maintenance",
       "constraint": "Keep private restoration limited to current full sessions and authorized resources",
       "removalCondition": "Remove when upstream provides equivalent browser snapshot authorization"
+    },
+    {
+      "path": "src/queries/sql/getWebsiteStats.ts",
+      "purpose": "Exact PostgreSQL rollup reads and opt-in durable private analytics tasks; preserve browser population isolation and identity availability",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:analytics-rollups",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts",
+        "src/lib/liekan/upstream/analysis-native-population.test.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve exact query conditions, cookieless collection, authentication, ClickHouse, link, pixel and public-share contracts; require trusted browser source for website identity metrics and use original exact queries for unsupported predicates",
+      "removalCondition": "Remove when upstream supports the same source boundaries, identity coverage, exact derived statistics and durable private query execution"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/attribution/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/breakdown/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/funnels/stats/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs; preserve browser population isolation and identity availability",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups",
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve exact query conditions, cookieless collection, authentication, ClickHouse, link, pixel and public-share contracts; require trusted browser source for website identity metrics and use original exact queries for unsupported predicates",
+      "removalCondition": "Remove when upstream supports the same source boundaries, identity coverage, exact derived statistics and durable private query execution"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/goals/stats/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs; preserve browser population isolation and identity availability",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups",
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve exact query conditions, cookieless collection, authentication, ClickHouse, link, pixel and public-share contracts; require trusted browser source for website identity metrics and use original exact queries for unsupported predicates",
+      "removalCondition": "Remove when upstream supports the same source boundaries, identity coverage, exact derived statistics and durable private query execution"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/heatmaps/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/journeys/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs; preserve browser population isolation and identity availability",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups",
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve exact query conditions, cookieless collection, authentication, ClickHouse, link, pixel and public-share contracts; require trusted browser source for website identity metrics and use original exact queries for unsupported predicates",
+      "removalCondition": "Remove when upstream supports the same source boundaries, identity coverage, exact derived statistics and durable private query execution"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/metrics/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/pageviews/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/performance/chart/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/performance/metrics/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/performance/stats/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/retention/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs; preserve browser population isolation and identity availability",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups",
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve exact query conditions, cookieless collection, authentication, ClickHouse, link, pixel and public-share contracts; require trusted browser source for website identity metrics and use original exact queries for unsupported predicates",
+      "removalCondition": "Remove when upstream supports the same source boundaries, identity coverage, exact derived statistics and durable private query execution"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/stats/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/utm/metrics/contract.ts",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/app/(main)/settings/analytics-acceleration/page.tsx",
+      "purpose": "Opt-in durable private statistics reads with exact native fallback and unchanged successful DTOs",
+      "tests": [
+        "pnpm liekan:verify --working-tree",
+        "pnpm test:analytics-rollups"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Preserve existing authentication, query conditions, ClickHouse, link, pixel and public share protocols",
+      "removalCondition": "Remove when upstream offers the same bounded exact analytics extension point"
+    },
+    {
+      "path": "src/test/analysis-capture-statistics.mjs",
+      "purpose": "Pure test statistics for complete and right-censored closed-bucket lag samples, included in the Docker type-check context",
+      "tests": [
+        "node --test tests/liekan/analysis-capture-statistics.test.mjs",
+        "pnpm test:analytics-rollups -- --capture-benchmark --candidate-image <candidate>"
+      ],
+      "owner": "Liekan statistics maintenance",
+      "constraint": "Test-only helper; keep production worker and API entrypoints independent and retain all unfinished samples in percentile gates",
+      "removalCondition": "Remove when the capture benchmark no longer needs shared Node and TypeScript percentile calculations"
+    },
+    {
+      "path": "src/app/api/realtime/[websiteId]/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/send/route.boundaries.test.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/active/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/analytics-schema.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data-pivot/array-series/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data-pivot/date-series/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data-pivot/numeric-series/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data-pivot/numeric-stats/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data-pivot/property-series/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data-pivot/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data/[eventId]/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data/events/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data/fields/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data/properties/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data/stats/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/event-data/values/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/funnels/[funnelId]/stats/contract.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/replays/[replayId]/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/replays/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/revenue/sessions/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/session-data-pivot/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/session-data/array-series/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/session-data/date-series/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/session-data/numeric-series/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/session-data/numeric-stats/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/session-data/properties/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/session-data/property-series/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/session-data/stats/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/session-data/values/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/[sessionId]/activity/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/[sessionId]/properties/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/[sessionId]/replays/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/[sessionId]/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/stats/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/weekly/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/values/route.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/openapi/population-contract.test.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/openapi/population-contract.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/getActiveVisitors.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/getWebsiteListCharts.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/getWeeklyTraffic.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/pageviews/getPageviewExpandedMetrics.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts; Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/sessions/saveSessionData.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/sessions/saveSessionLink.ts",
+      "purpose": "Browser population isolation and identity availability across collection, analytics and generated contracts",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair",
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; require trusted browser source for website identity metrics",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "scripts/test-api.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/[sessionId]/activity/route.test.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/[sessionId]/route.test.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/app/api/websites/[websiteId]/sessions/stats/route.test.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/attribution/getAttribution.test.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/sessions/getSessionActivity.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/sessions/getSessionData.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/sessions/getSessionDataPivot.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/queries/sql/sessions/getWebsiteSession.test.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "tests/api/client.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "tests/api/collection.spec.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "tests/api/liekan-traffic-exclusions.spec.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "tests/api/seed/retime.ts",
+      "purpose": "Browser population isolation, identity availability and isolated acceptance coverage",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm test:history-repair"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve cookieless tracking and ClickHouse, link and pixel compatibility; isolate fixture mutations to owned disposable databases",
+      "removalCondition": "Remove when upstream provides equivalent source boundaries and identity coverage with these regression checks"
+    },
+    {
+      "path": "src/openapi/population-document.test.ts",
+      "purpose": "Preserve reporting API authentication, parameters and nullable population schemas through local handler delegation",
+      "tests": [
+        "pnpm exec vitest run src/openapi/source-analysis.test.ts src/openapi/population-document.test.ts",
+        "pnpm build:openapi",
+        "pnpm openapi:check --explicit"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Analyze only called local functions with recursion protection; preserve unrelated API contracts",
+      "removalCondition": "Remove when upstream source analysis supports delegated handlers and these contract regressions pass"
+    },
+    {
+      "path": "src/openapi/source-analysis.test.ts",
+      "purpose": "Preserve reporting API authentication, parameters and nullable population schemas through local handler delegation",
+      "tests": [
+        "pnpm exec vitest run src/openapi/source-analysis.test.ts src/openapi/population-document.test.ts",
+        "pnpm build:openapi",
+        "pnpm openapi:check --explicit"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Analyze only called local functions with recursion protection; preserve unrelated API contracts",
+      "removalCondition": "Remove when upstream source analysis supports delegated handlers and these contract regressions pass"
+    },
+    {
+      "path": "src/openapi/source-analysis.ts",
+      "purpose": "Preserve reporting API authentication, parameters and nullable population schemas through local handler delegation",
+      "tests": [
+        "pnpm exec vitest run src/openapi/source-analysis.test.ts src/openapi/population-document.test.ts",
+        "pnpm build:openapi",
+        "pnpm openapi:check --explicit"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Analyze only called local functions with recursion protection; preserve unrelated API contracts",
+      "removalCondition": "Remove when upstream source analysis supports delegated handlers and these contract regressions pass"
+    },
+    {
+      "path": "tests/api/analytics.spec.ts",
+      "purpose": "Verify source-qualified browser analytics and population metadata in isolated API fixtures",
+      "tests": [
+        "pnpm test:api:run",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Keep exact metric assertions and preserve ClickHouse response compatibility",
+      "removalCondition": "Remove when upstream provides equivalent population metadata and these regressions pass"
+    },
+    {
+      "path": "src/queries/sql/events/getEventExpandedMetrics.ts",
+      "purpose": "Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
+      "tests": [
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve ClickHouse, link and pixel semantics; keep missing historical environments unknown",
+      "removalCondition": "Remove when upstream supplies event-scoped environment dimensions with equivalent regression coverage"
+    },
+    {
+      "path": "src/queries/sql/events/getEventMetrics.ts",
+      "purpose": "Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
+      "tests": [
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve ClickHouse, link and pixel semantics; keep missing historical environments unknown",
+      "removalCondition": "Remove when upstream supplies event-scoped environment dimensions with equivalent regression coverage"
+    },
+    {
+      "path": "src/queries/sql/pageviews/getPageviewMetrics.ts",
+      "purpose": "Bind PostgreSQL environment dimensions, filter candidates and recording labels to eligible event snapshots in the selected window",
+      "tests": [
+        "LIEKAN_HUMAN_TEST_DATABASE_URL=<isolated loopback database> pnpm exec tsx tests/liekan/browser-population.integration.ts",
+        "pnpm liekan:verify"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve ClickHouse, link and pixel semantics; keep missing historical environments unknown",
+      "removalCondition": "Remove when upstream supplies event-scoped environment dimensions with equivalent regression coverage"
+    },
+    {
+      "path": "src/queries/sql/heatmap/getHeatmap.test.ts",
+      "purpose": "Regression coverage for complete native snapshot caching, population replay and resource invalidation",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm exec vitest run src/queries/sql/heatmap/getHeatmap.test.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve snapshot consistency, unavailable identity states, resource boundaries and ClickHouse compatibility",
+      "removalCondition": "Remove when equivalent upstream cache and population regression coverage is available"
+    },
+    {
+      "path": "src/queries/sql/native-derived-cache.test.ts",
+      "purpose": "Regression coverage for complete native snapshot caching, population replay and resource invalidation",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm exec vitest run src/queries/sql/native-derived-cache.test.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve snapshot consistency, unavailable identity states, resource boundaries and ClickHouse compatibility",
+      "removalCondition": "Remove when equivalent upstream cache and population regression coverage is available"
+    },
+    {
+      "path": "src/queries/sql/getWebsiteListCharts.cache.test.ts",
+      "purpose": "Regression coverage for complete native snapshot caching, population replay and resource invalidation",
+      "tests": [
+        "pnpm liekan:verify",
+        "pnpm exec vitest run src/queries/sql/getWebsiteListCharts.cache.test.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Preserve snapshot consistency, unavailable identity states, resource boundaries and ClickHouse compatibility",
+      "removalCondition": "Remove when equivalent upstream cache and population regression coverage is available"
+    },
+    {
+      "path": "src/lib/liekan/upstream/feature-goal-cache.test.ts",
+      "purpose": "Regression coverage for saved-goal cache reuse with fresh report permission and configuration checks",
+      "tests": [
+        "pnpm exec vitest run src/lib/liekan/upstream/feature-goal-cache.test.ts"
+      ],
+      "owner": "Liekan analytics maintenance",
+      "constraint": "Check current report, website, permission and configuration before every cached result; preserve population masking and query snapshot consistency",
+      "removalCondition": "Remove when upstream provides equivalent saved-goal caching and permission regression coverage"
     },
     {
       "path": "src/app/not-found.tsx",

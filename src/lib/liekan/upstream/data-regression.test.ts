@@ -5,6 +5,17 @@ import {
 } from '../../../../scripts/liekan-data-regression.mjs';
 
 describe('read-only data regression runner', () => {
+  it('loads the real population contract when the storage reader is isolated', async () => {
+    const adapters = createDataAdapters(async () => []);
+    const facts = await adapters.analytics.getHumanFacts(
+      '11111111-1111-4111-8111-111111111111',
+      new Date('2026-10-01T00:00:00Z'),
+      new Date('2026-10-02T23:59:59Z'),
+      'UTC',
+    );
+    expect(facts.totals).toMatchObject({ pageviews: 3, visitors: 2 });
+    expect(facts.daily).toEqual([]);
+  });
   it('captures the live adapter query and bound range without requiring a database for unit tests', async () => {
     const execute = vi.fn(async () => [
       { day: '2026-10-02', pv: 1, uv: 1, sessions: 1, bounces: 1 },

@@ -1,3 +1,4 @@
+import { analysisAcceptedSchema } from '@/lib/liekan/contracts/analysis-acceleration';
 import { z } from 'zod';
 import { performanceMetricsQuerySchema } from '@/lib/analytics-schema';
 import { defineOperation } from '@/openapi/operation';
@@ -18,6 +19,7 @@ export const operations = [
         query: performanceMetricsQuerySchema,
       },
       responses: {
+        '202': {description:'Opt-in Prefer: respond-async accepted a durable private task',content:{'application/json':{schema:analysisAcceptedSchema}}},
         '200': {
           description: 'Analytics results.',
           content: {

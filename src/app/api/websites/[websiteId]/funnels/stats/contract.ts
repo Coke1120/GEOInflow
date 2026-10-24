@@ -1,3 +1,4 @@
+import { analysisAcceptedSchema } from '@/lib/liekan/contracts/analysis-acceleration';
 import { z } from 'zod';
 import { funnelQuerySchema } from '@/lib/analytics-schema';
 import { defineOperation } from '@/openapi/operation';
@@ -15,6 +16,7 @@ export const operations = [
       tags: ['Websites'],
       requestParams: { path: z.object({ websiteId: z.uuid() }), query: funnelQuerySchema },
       responses: {
+        '202': {description:'Opt-in Prefer: respond-async accepted a durable private task',content:{'application/json':{schema:analysisAcceptedSchema}}},
         '200': {
           description: 'The operation completed successfully.',
           content: {
@@ -25,19 +27,19 @@ export const operations = [
                   type: 'object',
                   properties: {
                     visitors: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     previous: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     dropped: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     dropoff: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     remaining: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                     type: {
                       type: 'string',

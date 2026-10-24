@@ -1,4 +1,5 @@
 import { analyticsCacheLimits } from './cache-policy';
+import { dashboardClock } from './dashboard-clock';
 import { analyticsGate, AnalyticsRestart, AnalyticsUnavailable } from './analytics-budget';
 import {
   currentCacheContext,
@@ -189,7 +190,11 @@ export function installAnalyticsRuntime(
     deadline: number,
   ): Promise<CachedResult<T>> {
     return analyticsGate.run(async () => {
-      if (currentCacheContext()?.background && !(await reserveWorkerComputation()))
+      if (
+        currentCacheContext()?.background &&
+        currentCacheContext()?.workKind !== 'interactive' &&
+        !(await reserveWorkerComputation())
+      )
         throw new AnalyticsUnavailable();
       const generatedAt = Date.now();
       const computeDeadline = Math.min(deadline, generatedAt + 60000);
@@ -223,6 +228,25 @@ export function installAnalyticsRuntime(
     }, deadline);
   }
 
+  cache.configureProbe(async <T>(inputKey: string, tags: string[]) => {
+    const context = currentCacheContext();
+    if (context?.refresh) return undefined;
+    const revision = await versions(tags);
+    const key = `liekan:analytics:v1:${database}:${analyticsCacheKey('result-contract-v4', [inputKey, revision.strong, context?.scope])}`;
+    let result = cache.getLocal<T>(key);
+    if (!result) {
+      const shared = await redis.read<T>(key);
+      if (shared && typeof shared !== 'string') result = shared;
+    }
+    if (!result || result.expiresAt <= Date.now()) return undefined;
+    const current = await versions(tags, true);
+    if (current.strong !== revision.strong) throw new AnalyticsRestart();
+    if (context?.reauthorize && !(await runCacheAuthorization(context.reauthorize)))
+      throw new AnalyticsUnavailable('资源访问权限已变更', 0, 403);
+    if (!dashboardClock()) void rememberAnalyticsHot(result, revision).catch(() => {});
+    return result;
+  });
+
   cache.configure(
     async <T>(
       inputKey: string,
@@ -250,7 +274,7 @@ export function installAnalyticsRuntime(
               !(await runCacheAuthorization(context.reauthorize))
             )
               throw new AnalyticsUnavailable('资源访问权限已变更', 0, 403);
-            void rememberAnalyticsHot(result, revision).catch(() => {});
+            if (!dashboardClock()) void rememberAnalyticsHot(result, revision).catch(() => {});
             return {
               ...result,
               value: decodeAnalyticsResult(encodeAnalyticsResult(result.value)),

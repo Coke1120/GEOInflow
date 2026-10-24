@@ -1,3 +1,8 @@
+import { requestApi } from '@/lib/liekan/http';
+import {
+  analysisAsyncRequested,
+  asyncAnalysisResponse,
+} from '@/lib/liekan/upstream/analysis-query-api';
 import { heatmapQuerySchema } from '@/lib/analytics-schema';
 import { withQueryCacheHeaders } from '@/lib/liekan/upstream/cache-context';
 import { getQueryFilters, parseRequest } from '@/lib/request';
@@ -19,5 +24,10 @@ async function getResponse(
 }
 
 export async function GET(...args: Parameters<typeof getResponse>) {
+  if (analysisAsyncRequested(args[0], 'native:heatmaps'))
+    return requestApi(args[0], async () =>
+      asyncAnalysisResponse(args[0], (await args[1].params).websiteId, 'native:heatmaps'),
+    );
+
   return withQueryCacheHeaders(() => getResponse(...args), args[0]);
 }

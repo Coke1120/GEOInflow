@@ -1,3 +1,21 @@
+vi.mock('./browser-population', async importOriginal => {
+  const actual = await importOriginal<typeof import('./browser-population')>();
+  return {
+    ...actual,
+    readBrowserPopulation: async (_id: string, start: Date, end: Date, timezone: string) =>
+      actual.populationFromRow(
+        {
+          resourceKind: 'website',
+          eligibleEvents: 5,
+          qualifiedEvents: 5,
+          eligiblePV: 5,
+          qualifiedPV: 5,
+          qualifiedVisitors: 2,
+        },
+        { startAt: +start, endAt: +end, timezone },
+      ),
+  };
+});
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -9,7 +27,10 @@ const mocks = vi.hoisted(() => ({
   dates: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({ checkAuth: mocks.auth }));
-vi.mock('@/lib/prisma', () => ({ default: { client: { website: { findMany: mocks.sites } } }, getRawQueryClient: (client: unknown) => client }));
+vi.mock('@/lib/prisma', () => ({
+  default: { client: { website: { findMany: mocks.sites } } },
+  getRawQueryClient: (client: unknown) => client,
+}));
 vi.mock('@/permissions', () => ({ canViewWebsiteSection: mocks.allowed }));
 vi.mock('@/lib/request', () => ({ getQueryFilters: mocks.filters }));
 vi.mock('@/queries/sql', () => ({

@@ -46,6 +46,7 @@ const dataStateLabels: Record<DataState | 'actual' | 'zero' | 'unknown', string>
   empty: '暂无数据',
   zero: '实际值为 0',
   estimated: '估算数据',
+  unavailable: '身份指标不可用',
   unsupported: '暂不支持',
   not_connected: '尚未接入',
   unknown: '未知',

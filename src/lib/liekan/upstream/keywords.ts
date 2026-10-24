@@ -1,3 +1,6 @@
+import { readBrowserPopulation } from './browser-population';
+import { applyReportPopulation } from '../contracts/population-results';
+import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { createHash, randomUUID } from 'node:crypto';
 import {
   addKeywordCandidate,
@@ -190,7 +193,7 @@ export async function readKeywordPage(
   refresh: boolean,
 ): Promise<CachedResult<LiekanReport>> {
   validateKeywordRange(p);
-  const key = analyticsCacheKey('source-keywords-v3', [
+  const key = analyticsCacheKey(`source-keywords-v4-${TRAFFIC_POLICY_VERSION}`, [
     process.env.DATABASE_URL,
     website.id,
     p.startAt,
@@ -206,9 +209,21 @@ export async function readKeywordPage(
         withoutQueryCache(async () => ({
           facts: await readKeywordFacts(website.id, p),
           settings: await getSettings(website.id),
+          population: await readBrowserPopulation(
+            website.id,
+            new Date(p.startAt),
+            new Date(p.endAt),
+            p.timezone,
+          ),
         })),
       ),
     refresh,
   );
-  return { ...result, value: keywordReport(website, p, result.value.facts, result.value.settings) };
+  return {
+    ...result,
+    value: applyReportPopulation(
+      keywordReport(website, p, result.value.facts, result.value.settings),
+      result.value.population,
+    ),
+  };
 }

@@ -8,13 +8,13 @@ import {
 } from '@/lib/country';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
-import type { PageResult, QueryFilters, WebsiteSession } from '@/lib/types';
+import type { IdentityPageResult, QueryFilters, WebsiteSession } from '@/lib/types';
 
 const FUNCTION_NAME = 'getRevenueSessions';
 
 export async function getRevenueSessions(
   ...args: [websiteId: string, currency: string, filters: QueryFilters]
-): Promise<PageResult<WebsiteSession[]>> {
+): Promise<IdentityPageResult<WebsiteSession[]>> {
   return runQuery({
     [PRISMA]: () => relationalQuery(...args),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
@@ -43,12 +43,12 @@ async function relationalQuery(websiteId: string, currency: string, filters: Que
     select
       session.session_id as "id",
       session.website_id as "websiteId",
-      website_event.hostname,
-      session.browser,
-      session.os,
-      session.device,
-      session.screen,
-      session.language,
+      (array_agg(website_event.hostname order by website_event.created_at desc,website_event.event_id desc))[1] as hostname,
+      (array_agg(session.browser order by website_event.created_at desc,website_event.event_id desc))[1] as browser,
+      (array_agg(session.os order by website_event.created_at desc,website_event.event_id desc))[1] as os,
+      (array_agg(session.device order by website_event.created_at desc,website_event.event_id desc))[1] as device,
+      (array_agg(session.screen order by website_event.created_at desc,website_event.event_id desc))[1] as screen,
+      (array_agg(session.language order by website_event.created_at desc,website_event.event_id desc))[1] as language,
       ${getPostgresCountrySQL('(array_agg(session.country order by website_event.created_at desc,website_event.event_id desc))[1]')} as country,
       ${getPostgresRegionSQL('(array_agg(session.country order by website_event.created_at desc,website_event.event_id desc))[1]', '(array_agg(session.region order by website_event.created_at desc,website_event.event_id desc))[1]')} as region,
       (array_agg(session.city order by website_event.created_at desc,website_event.event_id desc))[1] as city,
@@ -77,13 +77,7 @@ async function relationalQuery(websiteId: string, currency: string, filters: Que
     ${searchQuery}
     group by
       session.session_id,
-      session.website_id,
-      website_event.hostname,
-      session.browser,
-      session.os,
-      session.device,
-      session.screen,
-      session.language
+      session.website_id
     order by max(website_event.created_at) desc
     `,
     queryParams,

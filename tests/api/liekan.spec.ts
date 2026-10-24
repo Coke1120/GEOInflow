@@ -406,6 +406,7 @@ test('keeps the deployed shared overview scoped and aggregate-only', async ({
     ]);
     expect(result.body.meta).toEqual({
       geographyCoverage: privateReport.body.meta.geographyCoverage,
+      ...(seed.db === 'postgres' ? { population: privateReport.body.meta.population } : {}),
       aiCrawlerEnabled: true,
       demo: false,
       canManage: false,

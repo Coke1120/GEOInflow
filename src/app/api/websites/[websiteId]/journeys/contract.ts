@@ -1,3 +1,4 @@
+import { analysisAcceptedSchema } from '@/lib/liekan/contracts/analysis-acceleration';
 import { z } from 'zod';
 import { journeyQuerySchema } from '@/lib/analytics-schema';
 import { defineOperation } from '@/openapi/operation';
@@ -15,6 +16,7 @@ export const operations = [
       tags: ['Websites'],
       requestParams: { path: z.object({ websiteId: z.uuid() }), query: journeyQuerySchema },
       responses: {
+        '202': {description:'Opt-in Prefer: respond-async accepted a durable private task',content:{'application/json':{schema:analysisAcceptedSchema}}},
         '200': {
           description: 'Analytics results.',
           content: {
@@ -31,7 +33,7 @@ export const operations = [
                       },
                     },
                     count: {
-                      type: 'number',
+                      type: ['number', 'null'],
                     },
                   },
                   required: ['items', 'count'],

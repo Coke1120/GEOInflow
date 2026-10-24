@@ -1,3 +1,13 @@
+import { currentCacheContext } from '@/lib/liekan/upstream/cache-context';
+import { readAnalysisVisitMetrics } from '@/lib/liekan/upstream/analysis-rollups';
+import {
+  applyNativePopulation,
+  readBrowserPopulation,
+} from '@/lib/liekan/upstream/browser-population';
+import { noteBrowserPopulation } from '@/lib/liekan/upstream/cache-context';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
+import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import { getClickHouseCountrySQL, getClickHouseRegionSQL } from '@/lib/country';
@@ -18,7 +28,10 @@ export async function getSessionMetrics(
   ...args: [websiteId: string, parameters: SessionMetricsParameters, filters: QueryFilters]
 ) {
   return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
+    [PRISMA]: () =>
+      nativeAggregate(FUNCTION_NAME, args[0], { ...args[1], ...args[2] }, args[2], () =>
+        relationalQuery(...args),
+      ),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
 }
@@ -29,7 +42,31 @@ async function relationalQuery(
   filters: QueryFilters,
 ) {
   const { type, limit = 500, offset = 0 } = parameters;
-  let column = FILTER_COLUMNS[type] || type;
+  if (
+    !currentCacheContext()?.probeOnly &&
+    /^[a-f0-9-]{36}$/i.test(websiteId) &&
+    filters.startDate &&
+    filters.endDate
+  ) {
+    const { startDate, endDate, timezone, unit, compare, ...conditions } = filters;
+    const accelerated = await nativeSnapshot(async () => {
+      const rows = await readAnalysisVisitMetrics({
+        websiteId,
+        startDate,
+        endDate,
+        filters: conditions,
+        type,
+        limit: Number(limit),
+        offset: Number(offset),
+      });
+      if (!rows) return undefined;
+      const population = await readBrowserPopulation(websiteId, startDate, endDate, timezone);
+      noteBrowserPopulation(websiteId, population);
+      return applyNativePopulation(rows, FUNCTION_NAME, population);
+    });
+    if (accelerated) return accelerated;
+  }
+  let column = postgresEventEnvironmentColumn(FILTER_COLUMNS[type] || type);
   const { parseFilters, rawQuery } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
     parseFilters(
@@ -44,7 +81,7 @@ async function relationalQuery(
   const includeCountry = column === 'city' || column === 'region';
 
   if (type === 'language') {
-    column = `lower(left(${type}, 2))`;
+    column = `lower(left(${column}, 2))`;
   }
   const countryColumn = postgresVisitGeographyColumn('country');
 

@@ -846,6 +846,7 @@ function setupState(query: any, state?: DataState, available = '已收到数据'
     available,
     empty: '当前范围无数据',
     not_connected: absent,
+    unavailable: '身份指标不可用',
     unsupported: '当前实例不支持',
     estimated: '估算数据',
   }[state];
@@ -993,6 +994,7 @@ function WebsiteSettings() {
               subtitle={i18n.text('本次升级专项：扫描、预览并确认旧数据的爬虫识别修正。')}
             >
               <Body>
+                <LinkButton page="analytics-acceleration" params={{ websiteId: site.id }}>{i18n.text('统计加速')}</LinkButton>
                 <LinkButton page="history-repair" params={{ websiteId: site.id }}>
                   {i18n.text('查看历史数据修复')}
                 </LinkButton>
@@ -2890,12 +2892,14 @@ function Funnels() {
         items={[
           [
             i18n.text('进入漏斗'),
-            stats.isPending || stats.error ? '—' : numberLabel(first ?? 0),
+            stats.isPending || stats.error
+              ? '—'
+              : numberLabel(first === null ? null : (first ?? 0)),
             i18n.text('当前范围访客'),
           ],
           [
             i18n.text('完成路径'),
-            stats.isPending || stats.error ? '—' : numberLabel(last ?? 0),
+            stats.isPending || stats.error ? '—' : numberLabel(last === null ? null : (last ?? 0)),
             i18n.text('完成访客'),
             'blue',
           ],

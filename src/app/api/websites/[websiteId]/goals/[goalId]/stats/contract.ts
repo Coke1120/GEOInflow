@@ -26,7 +26,7 @@ export const operations = [
                 type: 'object',
                 properties: {
                   num: {
-                    type: 'number',
+                    type: ['number', 'null'],
                   },
                   conversions: { type: 'number' },
                   series: {
@@ -38,7 +38,7 @@ export const operations = [
                     },
                   },
                   total: {
-                    type: 'number',
+                    type: ['number', 'null'],
                   },
                 },
                 required: ['num', 'total'],

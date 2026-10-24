@@ -1,3 +1,7 @@
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
+import { noteBrowserPopulation } from '@/lib/liekan/upstream/cache-context';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -9,9 +13,19 @@ const FUNCTION_NAME = 'getSessionActivity';
 export async function getSessionActivity(
   ...args: [websiteId: string, sessionIds: string[], filters: QueryFilters]
 ) {
-  return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
-    [CLICKHOUSE]: () => clickhouseQuery(...args),
+  return nativeSnapshot(async () => {
+    const population = await readBrowserPopulation(
+      args[0],
+      args[2].startDate,
+      args[2].endDate,
+      args[2].timezone || 'UTC',
+    );
+    noteBrowserPopulation(args[0], population);
+    if (!identityUsable(population)) return [];
+    return runQuery({
+      [PRISMA]: () => relationalQuery(...args),
+      [CLICKHOUSE]: () => clickhouseQuery(...args),
+    });
   });
 }
 
@@ -44,7 +58,7 @@ async function relationalQuery(websiteId: string, sessionIds: string[], filters:
     order by created_at desc
     limit 500
     `,
-    { websiteId, sessionIds, startDate, endDate },
+    { websiteId, sessionIds, startDate, endDate, timezone: filters.timezone || 'UTC' },
     FUNCTION_NAME,
   );
 }
@@ -78,7 +92,7 @@ async function clickhouseQuery(websiteId: string, sessionIds: string[], filters:
     order by created_at desc
     limit 500
     `,
-    { websiteId, sessionIds, startDate, endDate },
+    { websiteId, sessionIds, startDate, endDate, timezone: filters.timezone || 'UTC' },
     FUNCTION_NAME,
   );
 }

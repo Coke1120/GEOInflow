@@ -1,3 +1,7 @@
+import {
+  analysisAsyncRequested,
+  asyncAnalysisResponse,
+} from '@/lib/liekan/upstream/analysis-query-api';
 import { requestApi, api } from '@/lib/liekan/http';
 import { readPageReport } from '@/lib/liekan/upstream/page-report';
 import { authorize } from '@/lib/liekan/upstream/server';
@@ -9,9 +13,15 @@ export async function GET(
 ) {
   const start = performance.now();
   let headers: Record<string, string> = {};
-  return requestApi(request,
+  return requestApi(
+    request,
     async () => {
       const { websiteId } = await params;
+      if (
+        analysisAsyncRequested(request, 'feature:page-report') &&
+        !['logs', 'human/keywords'].includes(new URL(request.url).searchParams.get('resource'))
+      )
+        return asyncAnalysisResponse(request, websiteId, 'feature:page-report');
       const access = await authorize(request, websiteId);
       const authorizedAt = performance.now();
       const query = new URL(request.url).searchParams;

@@ -1,3 +1,4 @@
+import { postgresEventEnvironmentColumn } from '@/lib/liekan/upstream/environment-query';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, FILTER_COLUMNS, SESSION_COLUMNS } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
@@ -32,7 +33,7 @@ async function relationalQuery(
   filters: QueryFilters,
 ): Promise<PageviewMetricsData[]> {
   const { type, limit = 500, offset = 0 } = parameters;
-  let column = getPageviewColumn(type);
+  let column = postgresEventEnvironmentColumn(getPageviewColumn(type));
   const { rawQuery, parseFilters } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
     parseFilters(

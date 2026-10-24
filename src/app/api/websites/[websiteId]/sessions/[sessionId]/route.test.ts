@@ -1,3 +1,15 @@
+const snapshot = vi.hoisted(() => ({ active: false }));
+vi.mock('@/lib/liekan/upstream/native-snapshot', () => ({
+  nativeSnapshot: async (work: () => unknown) => {
+    snapshot.active = true;
+    try {
+      return await work();
+    } finally {
+      snapshot.active = false;
+    }
+  },
+}));
+import { populationFromRow } from '@/lib/liekan/upstream/browser-population';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { isRelationalOnly } from '@/lib/db';
 import { parseRequest } from '@/lib/request';
@@ -198,4 +210,70 @@ test('DELETE removes the session when the request is valid', async () => {
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toEqual({ ok: true });
   expect(deleteSessionMock).toHaveBeenCalledWith('website-1', 'session-1');
+});
+
+test('GET does not stitch fallback associations when session identity is unavailable', async () => {
+  parseRequestMock.mockResolvedValue({ auth: {}, error: undefined });
+  canViewWebsiteSectionMock.mockResolvedValue(true);
+  isRelationalOnlyMock.mockReturnValue(true);
+  canDeleteWebsiteMock.mockResolvedValue(false);
+  const population = populationFromRow(
+    {
+      resourceKind: 'website',
+      eligibleEvents: 2,
+      qualifiedEvents: 1,
+      eligiblePV: 2,
+      qualifiedPV: 1,
+      qualifiedVisitors: 1,
+    },
+    { startAt: 1000, endAt: 2000, timezone: 'UTC' },
+  );
+  getWebsiteSessionMock.mockResolvedValue({
+    id: 'session-1',
+    distinctId: 'fallback',
+    visits: null,
+    totaltime: null,
+    views: 2,
+    population,
+  });
+  getLinkedDistinctIdsMock.mockResolvedValue(['fallback']);
+  getLinkedSessionIdsMock.mockResolvedValue([
+    { sessionId: 'session-2', createdAt: '2026-07-24T00:00:00.000Z' },
+  ]);
+  const response = await GET(new Request('http://localhost/api/websites/site/sessions/session-1'), {
+    params: Promise.resolve({ websiteId: 'site', sessionId: 'session-1' }),
+  });
+  expect(await response.json()).toMatchObject({
+    views: 2,
+    visits: null,
+    totaltime: null,
+    stitchedSessionCount: null,
+    distinctIds: [],
+    population,
+  });
+  expect(getLinkedDistinctIdsMock).not.toHaveBeenCalled();
+  expect(getLinkedSessionIdsMock).not.toHaveBeenCalled();
+});
+
+test('reads identity metrics and stitching links inside one reporting snapshot', async () => {
+  parseRequestMock.mockResolvedValue({ auth: {}, error: undefined });
+  canViewWebsiteSectionMock.mockResolvedValue(true);
+  getWebsiteSessionMock.mockImplementation(async () => {
+    expect(snapshot.active).toBe(true);
+    return { id: 'session-1', visits: 2 };
+  });
+  getLinkedDistinctIdsMock.mockImplementation(async () => {
+    expect(snapshot.active).toBe(true);
+    return ['trusted'];
+  });
+  getLinkedSessionIdsMock.mockImplementation(async () => {
+    expect(snapshot.active).toBe(true);
+    return [{ sessionId: 'session-2', createdAt: new Date().toISOString() }];
+  });
+  const result = await GET(
+    new Request('https://synthetic.test/api/websites/site/sessions/session-1'),
+    { params: Promise.resolve({ websiteId: 'site', sessionId: 'session-1' }) },
+  );
+  expect(await result.json()).toMatchObject({ visits: 2, stitchedSessionCount: 2 });
+  expect(snapshot.active).toBe(false);
 });

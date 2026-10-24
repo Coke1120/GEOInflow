@@ -26,11 +26,27 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  actionLiekanAnalysisBuild: {
+    operationId: 'actionLiekanAnalysisBuild',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/analytics-acceleration/action',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
+  },
   batch: {
     operationId: 'batch',
     method: 'post',
     path: '/api/batch',
     pathParams: [],
+    queryParams: [],
+    hasBody: true,
+  },
+  buildLiekanAnalysisHistory: {
+    operationId: 'buildLiekanAnalysisHistory',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/analytics-acceleration/build',
+    pathParams: ['websiteId'],
     queryParams: [],
     hasBody: true,
   },
@@ -993,6 +1009,30 @@ export const operations = {
     queryParams: [],
     hasBody: false,
   },
+  getLiekanAnalysisJob: {
+    operationId: 'getLiekanAnalysisJob',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/analytics-jobs/{jobId}',
+    pathParams: ['websiteId', 'jobId'],
+    queryParams: [],
+    hasBody: false,
+  },
+  getLiekanAnalysisJobResult: {
+    operationId: 'getLiekanAnalysisJobResult',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/analytics-jobs/{jobId}/result',
+    pathParams: ['websiteId', 'jobId'],
+    queryParams: [],
+    hasBody: false,
+  },
+  getLiekanAnalysisStatus: {
+    operationId: 'getLiekanAnalysisStatus',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/analytics-acceleration',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: false,
+  },
   getLiekanBrowserRisk: {
     operationId: 'getLiekanBrowserRisk',
     method: 'get',
@@ -1230,6 +1270,14 @@ export const operations = {
     path: '/api/liekan/websites/{websiteId}/shared-report',
     pathParams: ['websiteId'],
     queryParams: ['startAt', 'endAt', 'timezone', 'chartPeriod', 'refresh'],
+    hasBody: false,
+  },
+  getLiekanTrafficExclusions: {
+    operationId: 'getLiekanTrafficExclusions',
+    method: 'get',
+    path: '/api/liekan/websites/{websiteId}/traffic-quality/exclusions',
+    pathParams: ['websiteId'],
+    queryParams: ['cursor'],
     hasBody: false,
   },
   getLiekanTrafficQuality: {
@@ -3334,6 +3382,14 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  listLiekanAnalysisWebsites: {
+    operationId: 'listLiekanAnalysisWebsites',
+    method: 'get',
+    path: '/api/liekan/analytics-acceleration',
+    pathParams: [],
+    queryParams: ['cursor'],
+    hasBody: false,
+  },
   listLiekanHistoryRepair: {
     operationId: 'listLiekanHistoryRepair',
     method: 'get',
@@ -3373,6 +3429,14 @@ export const operations = {
     pathParams: [],
     queryParams: [],
     hasBody: false,
+  },
+  manageLiekanTrafficExclusions: {
+    operationId: 'manageLiekanTrafficExclusions',
+    method: 'post',
+    path: '/api/liekan/websites/{websiteId}/traffic-quality/exclusions',
+    pathParams: ['websiteId'],
+    queryParams: [],
+    hasBody: true,
   },
   postLiekanAiAnalysis: {
     operationId: 'postLiekanAiAnalysis',
@@ -3716,6 +3780,17 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * Private statistics acceleration (complete session and current website authority required)
+   * `POST /api/liekan/websites/{websiteId}/analytics-acceleration/action`
+   */
+  actionLiekanAnalysisBuild(
+    input: OperationInput<'actionLiekanAnalysisBuild'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'actionLiekanAnalysisBuild'>> {
+    return this.execute('actionLiekanAnalysisBuild', input, options);
+  }
+
+  /**
    * Send a batch of tracking requests
    * Processes up to 500 tracking payloads and returns processed and failed counts, individual error details, and a tracking cache token.
    * `POST /api/batch`
@@ -3725,6 +3800,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'batch'>> {
     return this.execute('batch', input, options);
+  }
+
+  /**
+   * Private statistics acceleration (complete session and current website authority required)
+   * `POST /api/liekan/websites/{websiteId}/analytics-acceleration/build`
+   */
+  buildLiekanAnalysisHistory(
+    input: OperationInput<'buildLiekanAnalysisHistory'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'buildLiekanAnalysisHistory'>> {
+    return this.execute('buildLiekanAnalysisHistory', input, options);
   }
 
   /**
@@ -4550,6 +4636,39 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * Private statistics acceleration (complete session and current website authority required)
+   * `GET /api/liekan/websites/{websiteId}/analytics-jobs/{jobId}`
+   */
+  getLiekanAnalysisJob(
+    input: OperationInput<'getLiekanAnalysisJob'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAnalysisJob'>> {
+    return this.execute('getLiekanAnalysisJob', input, options);
+  }
+
+  /**
+   * Private statistics acceleration (complete session and current website authority required)
+   * `GET /api/liekan/websites/{websiteId}/analytics-jobs/{jobId}/result`
+   */
+  getLiekanAnalysisJobResult(
+    input: OperationInput<'getLiekanAnalysisJobResult'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAnalysisJobResult'>> {
+    return this.execute('getLiekanAnalysisJobResult', input, options);
+  }
+
+  /**
+   * Private statistics acceleration (complete session and current website authority required)
+   * `GET /api/liekan/websites/{websiteId}/analytics-acceleration`
+   */
+  getLiekanAnalysisStatus(
+    input: OperationInput<'getLiekanAnalysisStatus'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanAnalysisStatus'>> {
+    return this.execute('getLiekanAnalysisStatus', input, options);
+  }
+
+  /**
    * Read browser behavior observations
    * `GET /api/liekan/websites/{websiteId}/traffic-quality/risk`
    */
@@ -4690,6 +4809,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'getLiekanSharedReport'>> {
     return this.execute('getLiekanSharedReport', input, options);
+  }
+
+  /**
+   * Read a stable page of confirmed traffic exclusions
+   * `GET /api/liekan/websites/{websiteId}/traffic-quality/exclusions`
+   */
+  getLiekanTrafficExclusions(
+    input: OperationInput<'getLiekanTrafficExclusions'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'getLiekanTrafficExclusions'>> {
+    return this.execute('getLiekanTrafficExclusions', input, options);
   }
 
   /**
@@ -5766,6 +5896,17 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * Private statistics acceleration (complete session and current website authority required)
+   * `GET /api/liekan/analytics-acceleration`
+   */
+  listLiekanAnalysisWebsites(
+    input?: OperationInput<'listLiekanAnalysisWebsites'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'listLiekanAnalysisWebsites'>> {
+    return this.execute('listLiekanAnalysisWebsites', input, options);
+  }
+
+  /**
    * List manageable sites for this upgrade campaign (full session required)
    * `GET /api/liekan/history-repair`
    */
@@ -5810,6 +5951,17 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'logout'>> {
     return this.execute('logout', input, options);
+  }
+
+  /**
+   * Preview, confirm or revoke a bounded traffic exclusion
+   * `POST /api/liekan/websites/{websiteId}/traffic-quality/exclusions`
+   */
+  manageLiekanTrafficExclusions(
+    input: OperationInput<'manageLiekanTrafficExclusions'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'manageLiekanTrafficExclusions'>> {
+    return this.execute('manageLiekanTrafficExclusions', input, options);
   }
 
   /**

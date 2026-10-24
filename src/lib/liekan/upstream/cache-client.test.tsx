@@ -1015,3 +1015,72 @@ it.each([false, true])(
     }
   },
 );
+
+it('shows a 202 previous report on the authorized resolved key while the current task remains in flight', async () => {
+  const { pageReportQuery } = await import('./page-report-client');
+  const { featureApi } = await import('./features-client');
+  const { chartIds } = await import('../contracts/report');
+  const f = fixture();
+  vi.stubGlobal('fetch', f.request);
+  setClientAuthToken('session-a');
+  setUser({ id: userId });
+  const previous = {
+    contractVersion: 2,
+    resource: 'ai/overview',
+    website: { id: website, name: 'Fixture', domain: 'fixture.invalid' },
+    range: { startAt: 1000, endAt: 2000, timezone: 'UTC' },
+    states: { human: 'empty', logs: 'available', catalog: 'empty', goals: 'empty' },
+    cards: [{ key: 'requests', label: 'AI 蜘蛛请求', value: 17, state: 'available' }],
+    charts: Object.fromEntries(chartIds.map(id => [id, { labels: [], series: [] }])),
+    tables: {},
+    insights: [],
+    meta: {
+      demo: false,
+      canManage: false,
+      latestImportAt: null,
+      ruleCount: 0,
+      generatedAt: serverTime - 10000,
+      expiresAt: serverTime - 1,
+    },
+  };
+  let finish!: (value: any) => void;
+  const get = vi
+    .spyOn(featureApi, 'get')
+    .mockImplementation(async (_path, _params, _signal, options) => {
+      options?.onPrevious?.(previous);
+      return new Promise(resolve => {
+        finish = resolve;
+      });
+    });
+  const options = pageReportQuery(userId, website, {
+    resource: 'ai/overview',
+    startAt: 1000,
+    endAt: 2000,
+    timezone: 'UTC',
+  });
+  try {
+    const hook = renderHook(() => useManualQuery(options), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={f.client}>
+          <BrowserCacheProvider storage={f.storage}>
+            <ManualRefreshProvider>{children}</ManualRefreshProvider>
+          </BrowserCacheProvider>
+        </QueryClientProvider>
+      ),
+    });
+    await waitFor(() => expect(hook.result.current.data?.cards[0].value).toBe(17));
+    expect(hook.result.current.fetchStatus).toBe('fetching');
+    const resolved = (hook.result.current as any).resolvedQueryKey;
+    expect(resolved).not.toEqual(options.queryKey);
+    expect(f.client.getQueryData(options.queryKey)).toBeUndefined();
+    await act(async () => {
+      finish({ ...previous, cards: [{ ...previous.cards[0], value: 18 }] });
+    });
+    await waitFor(() => expect(hook.result.current.data?.cards[0].value).toBe(18));
+  } finally {
+    get.mockRestore();
+    cleanup();
+    removeClientAuthToken();
+    vi.unstubAllGlobals();
+  }
+});

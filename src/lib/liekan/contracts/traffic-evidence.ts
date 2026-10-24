@@ -1,3 +1,4 @@
+import { browserPopulationSchema } from './browser-population';
 import { z } from 'zod';
 import { crawlerPathSchema } from './crawlers';
 import { crawlerIdentityScopeSchema, evidenceStateSchema } from './crawler-metrics';
@@ -129,7 +130,27 @@ export const metricValueSchema = z.object({
 });
 const metricMap = z.record(z.string(), metricValueSchema);
 const counts = z.record(z.string(), z.number().nullable());
+export const observationIdentitySchema = z.object({
+  version: z.literal('received-browser-identity-v1'),
+  timeBasis: z.literal('received_at'),
+  population: z.enum(['raw_public_pv', 'eligible_public_pv']),
+  range: z.object({
+    startAt: z.number(),
+    endAt: z.number(),
+    timezone: z.string(),
+    endExclusive: z.literal(true),
+  }),
+  status: z.enum(['complete', 'partial', 'unavailable', 'empty']),
+  totalPV: z.number(),
+  qualifiedPV: z.number(),
+  qualifiedVisitors: z.number(),
+  coverage: z.number().nullable(),
+  versions: z.array(z.string()),
+  versionsTruncated: z.boolean(),
+});
 export const evidenceMetaSchema = z.looseObject({
+  browserPopulation: browserPopulationSchema.optional(),
+  observationIdentity: observationIdentitySchema.optional(),
   metricVersion: z.literal('crawler-metrics-v1'),
   timeBasis: z.enum(['event_time', 'received_at']),
   timeBoundary: z.literal('half_open'),
@@ -277,7 +298,8 @@ export const outcomesResponseSchema = base.extend({
     outcomeCounts.extend({
       path: z.string(),
       observedVisits: z.number().nullable(),
-      unknownBrowserHost: z.number(),
+      unknownBrowserHost: z.number().nullable(),
+      browserHostKnown: z.boolean(),
       ambiguous: z.boolean(),
       unsampled: z.boolean().nullable(),
       hostObserved: z.boolean(),
@@ -306,7 +328,7 @@ export const observationsResponseSchema = base.extend({
         )
         .nullable(),
       pv: z.number(),
-      uv: z.number(),
+      uv: z.number().nullable(),
       smallSample: z.boolean(),
       firstEventAt: z.string(),
       lastEventAt: z.string(),

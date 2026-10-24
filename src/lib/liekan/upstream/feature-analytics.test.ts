@@ -1,3 +1,28 @@
+const identityFixture = vi.hoisted(() => ({ status: 'complete' }));
+vi.mock('./native-snapshot', () => ({ nativeSnapshot: (work: () => unknown) => work() }));
+vi.mock('./browser-population', async importOriginal => {
+  const actual = await importOriginal<typeof import('./browser-population')>();
+  return {
+    ...actual,
+    readBrowserPopulation: async (_id: string, start: Date, end: Date, timezone: string) =>
+      actual.populationFromRow(
+        {
+          resourceKind: 'website',
+          eligibleEvents: 5,
+          qualifiedEvents:
+            identityFixture.status === 'complete'
+              ? 5
+              : identityFixture.status === 'partial'
+                ? 2
+                : 0,
+          eligiblePV: 5,
+          qualifiedPV: 5,
+          qualifiedVisitors: 2,
+        },
+        { startAt: +start, endAt: +end, timezone },
+      ),
+  };
+});
 import { Decimal } from '@prisma/client/runtime/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { featureAnalytics, featureJourney } from './feature-analytics';
@@ -39,6 +64,7 @@ const association = {
 };
 
 beforeEach(() => {
+  identityFixture.status = 'complete';
   delete process.env.CLICKHOUSE_URL;
   mocks.getQueryFilters.mockImplementation((input: any) => input);
   mocks.rawQuery.mockReset().mockResolvedValue([{ count: 0n, visitors: 0n, attributed: 0n }]);
@@ -184,3 +210,51 @@ describe('explicit journey endpoints', () => {
     expect(params).toMatchObject({ steps, startStep: '/a', endStep: '/d' });
   });
 });
+
+it.each(['partial', 'unavailable'])(
+  'withholds %s session associations while retaining observed event counts',
+  async status => {
+    identityFixture.status = status;
+    const sessionId = '22222222-2222-4222-8222-222222222222';
+    const totals = {
+      views: 2,
+      events: 1,
+      seconds: 30,
+      count: 3,
+      firstAt: '2026-01-01',
+      lastAt: '2026-01-02',
+      entryPath: '/private-entry',
+      exitPath: '/private-exit',
+      referrerDomain: 'source.test',
+    };
+    const rows = [{ sessionId, eventId: 'fallback-event', urlPath: '/private-entry' }];
+    mocks.rawQuery.mockImplementation(async sql =>
+      sql.includes('AS "entryPath"') ? [totals] : rows,
+    );
+    const unavailable = await featureAnalytics(websiteId, {
+      ...common,
+      kind: 'session',
+      sessionId,
+    });
+    expect(unavailable).toMatchObject({
+      rows: [],
+      more: false,
+      totals: {
+        views: 2,
+        events: 1,
+        count: null,
+        seconds: null,
+        firstAt: null,
+        lastAt: null,
+        entryPath: null,
+        exitPath: null,
+        referrerDomain: null,
+      },
+      population: { identity: { status } },
+    });
+    expect(JSON.stringify(unavailable)).not.toContain(sessionId);
+    identityFixture.status = 'complete';
+    const complete = await featureAnalytics(websiteId, { ...common, kind: 'session', sessionId });
+    expect(complete).toMatchObject({ rows, totals, more: false });
+  },
+);

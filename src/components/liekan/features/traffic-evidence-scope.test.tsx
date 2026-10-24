@@ -132,3 +132,46 @@ it('pins source discovery and pagination to one catalog read round until explici
   await waitFor(() => expect(scopes.at(-1)).not.toBe(firstScope));
   expect(mocks.request.mock.calls.at(-1)[2].page).toBe(1);
 });
+
+it('shows reception identity unavailability while keeping observed PV and features', async () => {
+  mocks.request.mockImplementation(async (_method, _path, query) => ({
+    meta: {
+      sources: [],
+      readAt: new Date(range.endAt).toISOString(),
+      conditions: query,
+      page: 1,
+      total: 1,
+      quality: { state: 'complete' },
+      observationIdentity: { status: 'partial', coverage: 0.5, timeBasis: 'received_at' },
+    },
+    rows: [
+      {
+        browser: 'Chrome',
+        source: 'browser',
+        classification: 'browser',
+        features: null,
+        pv: 2,
+        uv: null,
+        smallSample: true,
+      },
+    ],
+    totals: { pv: 2, flaggedPv: 2, flaggedUv: null },
+    coverage: {},
+    state: 'available',
+  }));
+  render(
+    <TrafficEvidencePanel
+      websiteId={websiteId}
+      hostname="example.com"
+      range={range}
+      mode="observations"
+    />,
+  );
+  expect(
+    await screen.findByText(
+      '所选范围存在身份信息缺失，访客、会话及依赖身份的指标不可用；浏览量仍可统计。',
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByText('Chrome').closest('tr')).toHaveTextContent('2—');
+  expect(screen.getByText(/与既有行为观察重叠的 PV \/ UV 2 \/ —/)).toHaveTextContent('2 / —');
+});

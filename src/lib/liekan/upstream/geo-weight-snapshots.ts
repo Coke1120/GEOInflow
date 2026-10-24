@@ -1,3 +1,4 @@
+import { currentAnalysisPermit } from './analysis-permit-context';
 import { createHash, randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { fromPrisma, type PgBoss } from 'pg-boss';
@@ -811,6 +812,9 @@ export async function processGeoSnapshotJob(_job: GeoSnapshotJob, boss: PgBoss) 
     if (bytes > GEO_SNAPSHOT_LIMITS.resultBytes)
       throw Object.assign(new Error('Result exceeds snapshot limit'), { code: 'result_too_large' });
     await transaction(async tx => {
+      const permit=currentAnalysisPermit();
+      if(permit && !(await tx.query(`SELECT id FROM liekan_analysis_background_lease WHERE id AND token=$1::uuid AND epoch=$2::bigint AND lease_until>clock_timestamp() FOR SHARE`,permit.token,permit.epoch)).length)
+        throw new LiekanError('GEO 权重后台名额已失效',499);
       // Website lifecycle operations acquire this lock before touching GEO heads.
       await geoSnapshotAccess(tx, actor, head.website_id, head.timezone, head.as_of);
       await siteLock(tx, head.website_id);

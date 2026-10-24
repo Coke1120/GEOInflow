@@ -99,6 +99,8 @@ export function safeAiCount(value: unknown): number {
     throw new AiError('facts_invalid', '统计计数超出支持范围', 500);
   return value;
 }
-export function aiChangePercent(current: number, previous: number): number | null {
-  return previous === 0 ? null : Math.round(((current - previous) / previous) * 10000) / 100;
+export function aiChangePercent(current: number | null, previous: number | null): number | null {
+  return current === null || previous === null || previous === 0
+    ? null
+    : Math.round(((current - previous) / previous) * 10000) / 100;
 }

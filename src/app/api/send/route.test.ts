@@ -21,6 +21,18 @@ import {
 } from '@/queries/sql';
 import { POST } from './route';
 
+vi.mock('@/lib/liekan/upstream/collection-admission', () => ({
+  collectionAdmission: async () => ({ revision: '0', mode: 'standard', allowedHostnames: [] }),
+  normalizeCollectionOrigin: () => null,
+  conflictsWithCollectionHosts: () => false,
+}));
+vi.mock('@/lib/liekan/upstream/crawler-registry-context', () => ({
+  withPublishedRegistry: (work: () => unknown) => work(),
+}));
+vi.mock('@/queries/prisma', () => ({
+  getLink: async (id: string) => (id === '22222222-2222-4222-8222-222222222222' ? { id } : null),
+  getPixel: async (id: string) => (id === '33333333-3333-4333-8333-333333333333' ? { id } : null),
+}));
 vi.mock('@/lib/clickhouse', () => ({ default: { enabled: false } }));
 vi.mock('@/lib/liekan/upstream/collection-snapshots', () => ({
   collectionSnapshots: async () => ({}),
@@ -41,6 +53,7 @@ vi.mock('@/lib/liekan/upstream/collection-auth', () => ({
 }));
 vi.mock('@/lib/liekan/upstream/collection-write', () => ({
   CollectionConflictError: class extends Error {},
+  recordCollectionIdentity: vi.fn(),
   withCollectionWrite: async (_input: any, work: () => Promise<any>) => ({
     status: 'written',
     value: await work(),
@@ -89,6 +102,7 @@ const PIXEL_ID = '33333333-3333-4333-8333-333333333333';
 
 const defaultClientInfo = {
   ip: '203.0.113.5',
+  ipEvidence: { trusted: true, source: 'trusted_ingress' },
   userAgent: 'Mozilla/5.0',
   device: 'desktop',
   browser: 'chrome',
@@ -320,7 +334,7 @@ describe('website lookup', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({
-      error: { message: 'Website not found.', status: 400 },
+      error: { message: 'Collection resource not found or type mismatch.', status: 400 },
     });
     expect(saveEventMock).not.toHaveBeenCalled();
   });
@@ -582,7 +596,7 @@ describe('cache token handling', () => {
     );
   }
 
-  test('a valid cache token skips website lookup and session creation when it matches the computed session', async () => {
+  test('a matching cache token still checks the resource and ensures its atomic session write', async () => {
     const timestamp = 1704067200;
     const token = makeCacheToken({ sessionId: makeComputedSessionId(WEBSITE_ID, timestamp) });
 
@@ -591,8 +605,8 @@ describe('cache token handling', () => {
       { headers: { 'x-umami-cache': token } },
     );
 
-    expect(fetchWebsiteMock).not.toHaveBeenCalled();
-    expect(createSessionMock).not.toHaveBeenCalled();
+    expect(fetchWebsiteMock).toHaveBeenCalledTimes(1);
+    expect(createSessionMock).toHaveBeenCalledTimes(1);
     await expect(response.json()).resolves.toMatchObject({ visitId: 'cached-visit' });
   });
 
@@ -893,7 +907,7 @@ describe('identify collection', () => {
     expect(updateSessionMock).not.toHaveBeenCalled();
   });
 
-  test('identity link failures do not block session data writes', async () => {
+  test('identity link failures abort the atomic identify operation', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     saveSessionLinkMock.mockRejectedValue(new Error('link failed'));
 
@@ -902,8 +916,8 @@ describe('identify collection', () => {
       payload: { website: WEBSITE_ID, id: 'user-42', data: { plan: 'pro' } },
     });
 
-    expect(response.status).toBe(200);
-    expect(saveSessionDataMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(500);
+    expect(saveSessionDataMock).not.toHaveBeenCalled();
     consoleError.mockRestore();
   });
 });

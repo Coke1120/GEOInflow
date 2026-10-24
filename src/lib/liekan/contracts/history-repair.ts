@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const HISTORY_REPAIR_CAMPAIGN = 'traffic-quality-repair-20261022-v1';
-export const HISTORY_REPAIR_ENGINE = 'history-repair-v1.1';
+export const HISTORY_REPAIR_ENGINE = 'history-repair-v1.2';
 export const HISTORY_REPAIR_QUEUE = 'liekan-history-repair';
 export const historyRepairStatuses = [
   'unscanned',
@@ -121,15 +121,23 @@ export interface HistoryRepairCounts {
   undatedEvents: string;
   beforePV: string;
   afterPV: string;
-  beforeUV: string;
-  afterUV: string;
+  beforeUV: string | null;
+  afterUV: string | null;
+  beforeQualifiedUV?: string | null;
+  afterQualifiedUV?: string | null;
+  beforeIdentityMissingPV?: string | null;
+  afterIdentityMissingPV?: string | null;
 }
 export interface HistoryRepairDay {
   date: string;
   beforePV: string;
   afterPV: string;
-  beforeUV: string;
-  afterUV: string;
+  beforeUV: string | null;
+  afterUV: string | null;
+  beforeQualifiedUV?: string | null;
+  afterQualifiedUV?: string | null;
+  beforeIdentityMissingPV?: string | null;
+  afterIdentityMissingPV?: string | null;
   eventRows: string;
   logRows: string;
   changedEvents: string;
@@ -294,15 +302,23 @@ export const historyRepairCountsSchema = z.strictObject({
   undatedEvents: decimalCount,
   beforePV: decimalCount,
   afterPV: decimalCount,
-  beforeUV: decimalCount,
-  afterUV: decimalCount,
+  beforeUV: decimalCount.nullable(),
+  afterUV: decimalCount.nullable(),
+  beforeQualifiedUV: decimalCount.nullable().optional(),
+  afterQualifiedUV: decimalCount.nullable().optional(),
+  beforeIdentityMissingPV: decimalCount.nullable().optional(),
+  afterIdentityMissingPV: decimalCount.nullable().optional(),
 });
 export const historyRepairDaySchema = z.strictObject({
   date: z.string(),
   beforePV: decimalCount,
   afterPV: decimalCount,
-  beforeUV: decimalCount,
-  afterUV: decimalCount,
+  beforeUV: decimalCount.nullable(),
+  afterUV: decimalCount.nullable(),
+  beforeQualifiedUV: decimalCount.nullable().optional(),
+  afterQualifiedUV: decimalCount.nullable().optional(),
+  beforeIdentityMissingPV: decimalCount.nullable().optional(),
+  afterIdentityMissingPV: decimalCount.nullable().optional(),
   eventRows: decimalCount,
   logRows: decimalCount,
   changedEvents: decimalCount,

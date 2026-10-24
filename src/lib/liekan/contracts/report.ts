@@ -1,3 +1,4 @@
+import { browserPopulationSchema, type BrowserPopulation } from './browser-population';
 import { crawlerIdentityScopeSchema, type CrawlerIdentityScope } from './crawler-metrics';
 import { z } from 'zod';
 import type { GeographyDisplay, GeographyCoverage } from './geography';
@@ -20,6 +21,7 @@ export const dataStateSchema = z.enum([
   'not_connected',
   'unsupported',
   'estimated',
+  'unavailable',
 ]);
 export type DataState = z.infer<typeof dataStateSchema>;
 export type Row = Record<string, string | number | null | boolean>;
@@ -48,6 +50,8 @@ export interface LiekanReport {
   tables: Record<string, Row[]>;
   insights: string[];
   meta: {
+    snapshot?: { dataThrough: number; state: 'ready' | 'updating'; intervalMs: number };
+    population?: BrowserPopulation;
     catalogVersion?: string;
     crawlerPageBots?: Array<{
       botId: string | null;
@@ -175,6 +179,14 @@ export const liekanReportSchema = z.object({
   ),
   insights: z.array(z.string()),
   meta: z.object({
+    snapshot: z
+      .object({
+        dataThrough: z.number(),
+        state: z.enum(['ready', 'updating']),
+        intervalMs: z.number(),
+      })
+      .optional(),
+    population: browserPopulationSchema.optional(),
     catalogVersion: z.uuid().optional(),
     crawlerPageBots: z
       .array(

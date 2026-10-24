@@ -1,6 +1,29 @@
 import { beforeAll, describe, expect, test, vi } from 'vitest';
+const populationFixture = vi.hoisted(() => ({ partial: false }));
 import { analyticsCache } from './liekan/upstream/query-cache';
 import { bindCacheRequest, withQueryCacheHeaders } from './liekan/upstream/cache-context';
+
+vi.mock('./liekan/upstream/native-snapshot', () => ({
+  nativeSnapshot: (work: () => unknown) => work(),
+}));
+vi.mock('./liekan/upstream/browser-population', async importOriginal => {
+  const actual = await importOriginal<typeof import('./liekan/upstream/browser-population')>();
+  return {
+    ...actual,
+    readBrowserPopulation: async (_id: string, start: Date, end: Date, timezone = 'UTC') =>
+      actual.populationFromRow(
+        {
+          resourceKind: 'website',
+          eligibleEvents: 1,
+          qualifiedEvents: populationFixture.partial ? 0 : 1,
+          eligiblePV: 1,
+          qualifiedPV: populationFixture.partial ? 0 : 1,
+          qualifiedVisitors: populationFixture.partial ? 0 : 1,
+        },
+        { startAt: +start, endAt: +end, timezone },
+      ),
+  };
+});
 
 process.env.DATABASE_URL ??= 'postgresql://user:pass@localhost:5432/umami?schema=public';
 delete process.env.DATABASE_REPLICA_URL;
@@ -16,7 +39,7 @@ vi.mock('@prisma/extension-read-replicas', () => ({
 vi.mock('@/generated/prisma/client', () => ({
   PrismaClient: class PrismaClient {
     $executeRawUnsafe = vi.fn();
-    $queryRawUnsafe = vi.fn();
+    $queryRawUnsafe = vi.fn().mockResolvedValue([]);
     $transaction = vi.fn();
     $on = vi.fn();
     $extends() {
@@ -42,7 +65,7 @@ interface RawQueryClient {
 function createClient(): RawQueryClient {
   return {
     $executeRawUnsafe: vi.fn(),
-    $queryRawUnsafe: vi.fn(),
+    $queryRawUnsafe: vi.fn().mockResolvedValue([]),
   };
 }
 
@@ -87,7 +110,7 @@ describe('getRawQueryClient', () => {
 test('native aggregates use the request timezone when SQL parameters omit it', async () => {
   const clock = vi.spyOn(Date, 'now').mockReturnValue(+new Date('2026-10-05T01:00:00Z'));
   const read = vi.spyOn(analyticsCache, 'read').mockResolvedValue({
-    value: [{ count: 1 }],
+    value: { rows: [{ count: 1 }], populations: [] },
     generatedAt: Date.now(),
     expiresAt: Date.now() + 30000,
     status: 'hit',
@@ -122,7 +145,7 @@ test('native aggregates use the request timezone when SQL parameters omit it', a
 
 test('equivalent native SQL bindings share a key across worker and HTTP metadata', async () => {
   const read = vi.spyOn(analyticsCache, 'read').mockResolvedValue({
-    value: [{ count: 1 }],
+    value: { rows: [{ count: 1 }], populations: [] },
     generatedAt: Date.now(),
     expiresAt: Date.now() + 30000,
     status: 'hit',
@@ -353,3 +376,36 @@ test('scopes named property sources using their actual binding positions', async
   await prisma.rawQuery(sql, parameters, 'unrelatedReport');
   expect(queried.mock.lastCall?.[0]).toContain('event_data AS NOT MATERIALIZED');
 });
+
+test.each(['getRevenueSessions', 'getSessionReplays'])(
+  'withholds fallback identity listings for %s and retains complete known rows',
+  async name => {
+    const queryRaw = vi.mocked((prisma.client as any).$queryRawUnsafe);
+    queryRaw.mockImplementation(async (sql: string) =>
+      sql.includes('count(*) as num')
+        ? [{ num: 1 }]
+        : [{ id: 'fallback', visits: 2, amount: '123456789.1234' }],
+    );
+    const params = { websiteId: 'site', startDate: new Date(1000), endDate: new Date(2000) };
+    populationFixture.partial = true;
+    try {
+      expect(
+        await prisma.pagedRawQuery('select * from thing', params, { page: 1, pageSize: 10 }, name),
+      ).toMatchObject({
+        data: [],
+        count: null,
+        population: { identity: { status: 'unavailable' } },
+      });
+      populationFixture.partial = false;
+      expect(
+        await prisma.pagedRawQuery('select * from thing', params, { page: 1, pageSize: 10 }, name),
+      ).toMatchObject({
+        data: [{ visits: 2, amount: '123456789.1234' }],
+        count: 1,
+        population: { identity: { status: 'complete' } },
+      });
+    } finally {
+      populationFixture.partial = false;
+    }
+  },
+);

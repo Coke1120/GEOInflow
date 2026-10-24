@@ -18,6 +18,7 @@ import {
 import {
   addCounts,
   emptyCounts,
+  publicRepairCounts,
   eventDecision,
   fraction,
   hash,
@@ -51,6 +52,9 @@ interface EventRow {
   session_id: string;
   event_type: number;
   hostname: string | null;
+  origin_hostname: string | null;
+  excluded: boolean;
+  identity_available: boolean;
   classification: EventVerdict['classification'];
   source: string;
   reasons: string[];
@@ -91,6 +95,8 @@ interface DayWrite {
   day: string;
   beforePV: number;
   afterPV: number;
+  beforeIdentityMissingPV: number;
+  afterIdentityMissingPV: number;
   events: number;
   logs: number;
   changedEvents: number;
@@ -120,9 +126,9 @@ async function writeResults(tx: RepairTx, row: RunRow, values: ResultWrite[]) {
 async function writeDays(tx: RepairTx, row: RunRow, values: DayWrite[]) {
   if (!values.length) return;
   await tx.$executeRawUnsafe(
-    `INSERT INTO liekan_history_repair_day(run_id,website_id,generation,day,before_pv,after_pv,event_rows,log_rows,changed_events,changed_logs,evidence_rows,log_evidence_rows)
- SELECT $1::uuid,$2::uuid,$3::uuid,r.day::date,sum(r."beforePV"),sum(r."afterPV"),sum(r.events),sum(r.logs),sum(r."changedEvents"),sum(r."changedLogs"),sum(r.evidence),sum(r."logEvidence") FROM jsonb_to_recordset($4::jsonb) r(day text,"beforePV" integer,"afterPV" integer,events integer,logs integer,"changedEvents" integer,"changedLogs" integer,evidence integer,"logEvidence" integer) GROUP BY r.day
- ON CONFLICT(run_id,generation,day) DO UPDATE SET before_pv=liekan_history_repair_day.before_pv+EXCLUDED.before_pv,after_pv=liekan_history_repair_day.after_pv+EXCLUDED.after_pv,event_rows=liekan_history_repair_day.event_rows+EXCLUDED.event_rows,log_rows=liekan_history_repair_day.log_rows+EXCLUDED.log_rows,changed_events=liekan_history_repair_day.changed_events+EXCLUDED.changed_events,changed_logs=liekan_history_repair_day.changed_logs+EXCLUDED.changed_logs,evidence_rows=liekan_history_repair_day.evidence_rows+EXCLUDED.evidence_rows,log_evidence_rows=liekan_history_repair_day.log_evidence_rows+EXCLUDED.log_evidence_rows`,
+    `INSERT INTO liekan_history_repair_day(run_id,website_id,generation,day,before_pv,after_pv,before_identity_missing_pv,after_identity_missing_pv,event_rows,log_rows,changed_events,changed_logs,evidence_rows,log_evidence_rows)
+ SELECT $1::uuid,$2::uuid,$3::uuid,r.day::date,sum(r."beforePV"),sum(r."afterPV"),sum(r."beforeIdentityMissingPV"),sum(r."afterIdentityMissingPV"),sum(r.events),sum(r.logs),sum(r."changedEvents"),sum(r."changedLogs"),sum(r.evidence),sum(r."logEvidence") FROM jsonb_to_recordset($4::jsonb) r(day text,"beforePV" integer,"afterPV" integer,"beforeIdentityMissingPV" integer,"afterIdentityMissingPV" integer,events integer,logs integer,"changedEvents" integer,"changedLogs" integer,evidence integer,"logEvidence" integer) GROUP BY r.day
+ ON CONFLICT(run_id,generation,day) DO UPDATE SET before_pv=liekan_history_repair_day.before_pv+EXCLUDED.before_pv,after_pv=liekan_history_repair_day.after_pv+EXCLUDED.after_pv,before_identity_missing_pv=coalesce(liekan_history_repair_day.before_identity_missing_pv,0)+EXCLUDED.before_identity_missing_pv,after_identity_missing_pv=coalesce(liekan_history_repair_day.after_identity_missing_pv,0)+EXCLUDED.after_identity_missing_pv,event_rows=liekan_history_repair_day.event_rows+EXCLUDED.event_rows,log_rows=liekan_history_repair_day.log_rows+EXCLUDED.log_rows,changed_events=liekan_history_repair_day.changed_events+EXCLUDED.changed_events,changed_logs=liekan_history_repair_day.changed_logs+EXCLUDED.changed_logs,evidence_rows=liekan_history_repair_day.evidence_rows+EXCLUDED.evidence_rows,log_evidence_rows=liekan_history_repair_day.log_evidence_rows+EXCLUDED.log_evidence_rows`,
     row.id,
     row.website_id,
     row.generation,
@@ -181,10 +187,13 @@ async function prepareBoundary(tx: RepairTx, row: RunRow) {
 async function eventBatch(tx: RepairTx, row: RunRow) {
   const rows = await tx.$queryRawUnsafe<EventRow[]>(
     `SELECT e.event_id::text AS id,to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS time,to_char(e.created_at AT TIME ZONE $2,'YYYY-MM-DD') AS day,e.session_id::text,e.event_type,coalesce(q.hostname,h.hostname) AS hostname,q.classification,q.source,q.reasons,q.rule_version,
+ env.origin_hostname,coalesce(env.identity_available,false) AS identity_available,
+ EXISTS(SELECT 1 FROM liekan_traffic_exclusion_member m JOIN liekan_traffic_exclusion x ON x.id=m.collection_id AND x.website_id=m.website_id LEFT JOIN liekan_log_state ls ON ls.website_id=x.website_id WHERE m.website_id=e.website_id AND m.event_id=e.event_id AND x.state='active' AND x.epoch=coalesce(ls.epoch,1)) AS excluded,
  coalesce(active.after_value->>'classification',q.classification) AS current_classification,
  CASE WHEN active.record_id IS NULL THEN q.reasons ELSE ARRAY(SELECT jsonb_array_elements_text(active.after_value->'reasons')) END AS current_reasons,
  coalesce(active.after_value->>'ruleVersion',q.rule_version) AS current_rule_version
  FROM liekan_event_quality q JOIN website_event e ON e.website_id=q.website_id AND e.event_id=q.event_id
+ LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
  LEFT JOIN liekan_collection_hostname h ON h.website_id=e.website_id AND q.hostname IS NULL AND h.reported_hash=encode(sha256(convert_to(e.hostname,'UTF8')),'hex')
  LEFT JOIN liekan_history_repair_result active ON active.run_id=$5::uuid AND active.generation=$6::uuid AND active.kind='event' AND active.record_id=e.event_id::text AND active.issue IS NULL
  WHERE ${EVENT_SCOPE} AND e.created_at IS NOT NULL AND ($3::timestamptz IS NULL OR (e.created_at,e.event_id)>($3::timestamptz,$4::uuid))
@@ -219,7 +228,7 @@ async function eventBatch(tx: RepairTx, row: RunRow) {
     covered = 0,
     conflicts = 0,
     beforePV = 0,
-    afterPV = 0;
+    afterPV = 0, beforeIdentityMissingPV = 0, afterIdentityMissingPV = 0;
   for (const event of rows) {
     const original: EventVerdict = {
       classification: event.classification,
@@ -234,7 +243,7 @@ async function eventBatch(tx: RepairTx, row: RunRow) {
         kind: 'event',
         before: decision.before,
         after: decision.after,
-        proof: decision.proof,
+        proof: supplied.has(event.id) ? { ...decision.proof, catalogVersion: row.snapshot.rulepack.catalogVersion } : decision.proof,
         issue: decision.issue,
       });
     const before = {
@@ -245,23 +254,27 @@ async function eventBatch(tx: RepairTx, row: RunRow) {
     };
     const pv = event.event_type === 1;
     const beforeIncluded =
-      pv && includedEvent(before, event.event_type, event.hostname, row.snapshot.policy);
+      pv && includedEvent(before, event.event_type, event.hostname, row.snapshot.policy, { originHostname: event.origin_hostname, excluded: event.excluded });
     const afterIncluded =
-      pv && includedEvent(decision.after, event.event_type, event.hostname, row.snapshot.policy);
+      pv && includedEvent(decision.after, event.event_type, event.hostname, row.snapshot.policy, { originHostname: event.origin_hostname, excluded: event.excluded });
     if (pv)
       visitors.push(
-        { day: event.day, session: event.session_id, before: beforeIncluded, after: afterIncluded },
-        { day: 'all', session: event.session_id, before: beforeIncluded, after: afterIncluded },
+        { day: event.day, session: event.session_id, before: beforeIncluded && event.identity_available, after: afterIncluded && event.identity_available },
+        { day: 'all', session: event.session_id, before: beforeIncluded && event.identity_available, after: afterIncluded && event.identity_available },
       );
     changed += +decision.changed;
     covered += +decision.evidence;
     conflicts += +!!decision.issue;
     beforePV += +beforeIncluded;
     afterPV += +afterIncluded;
+    beforeIdentityMissingPV += +(beforeIncluded && !event.identity_available);
+    afterIdentityMissingPV += +(afterIncluded && !event.identity_available);
     days.push({
       day: event.day,
       beforePV: +beforeIncluded,
       afterPV: +afterIncluded,
+      beforeIdentityMissingPV: +(beforeIncluded && !event.identity_available),
+      afterIdentityMissingPV: +(afterIncluded && !event.identity_available),
       events: 1,
       logs: 0,
       changedEvents: +decision.changed,
@@ -280,6 +293,8 @@ async function eventBatch(tx: RepairTx, row: RunRow) {
     conflicts: String(conflicts),
     beforePV: String(beforePV),
     afterPV: String(afterPV),
+    beforeIdentityMissingPV: String(beforeIdentityMissingPV),
+    afterIdentityMissingPV: String(afterIdentityMissingPV),
   });
   const last = rows.at(-1);
   row.cursor = {
@@ -432,6 +447,7 @@ async function logBatch(tx: RepairTx, row: RunRow) {
       day: log.day,
       beforePV: 0,
       afterPV: 0,
+      beforeIdentityMissingPV: 0, afterIdentityMissingPV: 0,
       events: 0,
       logs: 1,
       changedEvents: 0,
@@ -550,6 +566,7 @@ async function finishPreview(tx: RepairTx, row: RunRow) {
   if (BigInt(row.counts.undatedEvents)) limitations.push('undated-events');
   if (BigInt(row.counts.conflicts)) limitations.push('evidence-conflicts-retained');
   if (row.excluded_batches.length) limitations.push('excluded-old-batches');
+  if (BigInt(row.counts.beforeIdentityMissingPV ?? '0') || BigInt(row.counts.afterIdentityMissingPV ?? '0')) limitations.push('identity-input-incomplete');
   if (row.snapshot.rulepack.botCheckDisabled) limitations.push('bot-check-disabled');
   const sourceUploads = await tx.$queryRawUnsafe<{ id: string }[]>(
     `SELECT DISTINCT upload_id::text AS id FROM liekan_history_repair_input i WHERE run_id=$1::uuid AND state='finalized' AND rulepack_hash=$2 AND ${currentRepairInputSql} ORDER BY id LIMIT 100`,
@@ -561,7 +578,7 @@ async function finishPreview(tx: RepairTx, row: RunRow) {
     revision: row.revision,
     digest: '',
     complete: true,
-    counts: row.counts,
+    counts: publicRepairCounts(row.counts),
     logImpact: { ...emptyLogImpact(), ...row.log_impact },
     sourceUploads: sourceUploads.map(source => source.id),
     browserCoverage: fraction(row.counts.browserEvidence, row.counts.events),
@@ -936,8 +953,12 @@ export function dayDto(row: Record<string, unknown>): HistoryRepairDay {
     date: String(row.day),
     beforePV: String(row.before_pv),
     afterPV: String(row.after_pv),
-    beforeUV: String(row.before_uv),
-    afterUV: String(row.after_uv),
+    beforeUV: String(row.before_identity_missing_pv) === '0' ? String(row.before_uv) : null,
+    afterUV: String(row.after_identity_missing_pv) === '0' ? String(row.after_uv) : null,
+    beforeQualifiedUV: row.before_identity_missing_pv == null ? null : String(row.before_uv),
+    afterQualifiedUV: row.after_identity_missing_pv == null ? null : String(row.after_uv),
+    beforeIdentityMissingPV: row.before_identity_missing_pv == null ? null : String(row.before_identity_missing_pv),
+    afterIdentityMissingPV: row.after_identity_missing_pv == null ? null : String(row.after_identity_missing_pv),
     eventRows: String(row.event_rows),
     logRows: String(row.log_rows),
     changedEvents: String(row.changed_events),

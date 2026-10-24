@@ -74,13 +74,24 @@ export async function ensureState(tx: any, websiteId: string) {
     )
   )[0];
 }
-export async function validateSource(tx: any, id: string, token?: string, allowInactive = false) {
+export async function validateSource(
+  tx: any,
+  id: string,
+  token?: string,
+  allowInactive = false,
+  websiteLock: 'update' | 'share' = 'update',
+) {
   const first: LogSource = (
     await tx.$queryRawUnsafe('SELECT * FROM liekan_log_source WHERE id=$1::uuid', uuid(id))
   )[0];
   if (!first || (token !== undefined && tokenHash(token) !== first.credential_hash))
     throw new LiekanError('接入凭据无效', 401);
-  const website = await sourceWebsite(tx, first.website_id, { userId: first.created_by });
+  const website = await sourceWebsite(
+    tx,
+    first.website_id,
+    { userId: first.created_by },
+    websiteLock,
+  );
   const source: LogSource = (
     await tx.$queryRawUnsafe(
       'SELECT * FROM liekan_log_source WHERE id=$1::uuid FOR UPDATE',
@@ -331,8 +342,8 @@ async function receivePinnedBatch(request: Request, sourceId: string) {
     };
   });
 }
-// A website already serializes inside PostgreSQL. Queue local workers before they occupy
-// connections; database locks still coordinate every writer and all other worker processes.
+// Queue this worker's website batches before reserving connections. PostgreSQL source locks
+// serialize batches from the same source across worker processes.
 const websiteBatchTails = new Map<string, Promise<void>>();
 async function withWebsiteBatchTurn(websiteId: string, work: () => Promise<void>) {
   const previous = websiteBatchTails.get(websiteId) || Promise.resolve();
@@ -354,7 +365,7 @@ export async function processBatch(batchId: string) {
   if (!first || first.state !== 'pending') return;
   return withWebsiteBatchTurn(first.website_id, () =>
     transaction(async tx => {
-      const live = await validateSource(tx, first.source_id, undefined, true);
+      const live = await validateSource(tx, first.source_id, undefined, true, 'share');
       const batch = (
         await tx.$queryRawUnsafe(
           'SELECT * FROM liekan_ingest_batch WHERE id=$1::uuid FOR UPDATE',
@@ -372,12 +383,12 @@ export async function processBatch(batchId: string) {
       const rows: AutomaticRecord[] = batch.payload || [];
       const resetAt = live.resetAt ? +new Date(live.resetAt) : 0;
       const valid = rows.filter(row => +new Date(row.time) >= resetAt);
-      // Keep each incoming event as the lookup driver while table statistics catch up.
-      // OFFSET 0 fences join reordering around the unique website/event lookup.
+      // Keep incoming records as the lookup driver. The runtime site value avoids
+      // stale new-site MCV estimates choosing a site-prefix scan for every record.
       const conflicting = await tx.$queryRawUnsafe(
         `SELECT 1 FROM jsonb_to_recordset($2::jsonb) AS r(id text,"eventDigest" text)
        JOIN LATERAL (SELECT event_digest FROM liekan_log l
-         WHERE l.website_id=$1::uuid AND l.id=r.id OFFSET 0) l ON true
+         WHERE l.website_id=(SELECT $1::uuid OFFSET 0) AND l.id=r.id OFFSET 0) l ON true
        WHERE l.event_digest IS DISTINCT FROM r."eventDigest" LIMIT 1`,
         first.website_id,
         JSON.stringify(valid),

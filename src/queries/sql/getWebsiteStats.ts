@@ -1,24 +1,37 @@
+import { currentCacheContext } from '@/lib/liekan/upstream/cache-context';
+import type { BrowserPopulation } from '@/lib/liekan/contracts/browser-population';
+import {
+  applyNativePopulation,
+  readBrowserPopulation,
+  unsupportedPopulation,
+} from '@/lib/liekan/upstream/browser-population';
+import { noteBrowserPopulation } from '@/lib/liekan/upstream/cache-context';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_COLUMNS, EVENT_TYPE } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
 import prisma from '@/lib/prisma';
+import { readAnalysisVisitTotals } from '@/lib/liekan/upstream/analysis-rollups';
 import type { QueryFilters } from '@/lib/types';
 
 const FUNCTION_NAME = 'getWebsiteStats';
 
 export interface WebsiteStatsData {
   pageviews: number;
-  visitors: number;
-  visits: number;
-  bounces: number;
-  totaltime: number;
+  visitors: number | null;
+  visits: number | null;
+  bounces: number | null;
+  totaltime: number | null;
+  population?: BrowserPopulation;
 }
 
 export async function getWebsiteStats(
   ...args: [websiteId: string, filters: QueryFilters]
-): Promise<WebsiteStatsData[]> {
+): Promise<WebsiteStatsData> {
   return runQuery({
-    [PRISMA]: () => relationalQuery(...args),
+    [PRISMA]: () =>
+      nativeAggregate(FUNCTION_NAME, args[0], args[1], args[1], () => relationalQuery(...args)),
     [CLICKHOUSE]: () => clickhouseQuery(...args),
   });
 }
@@ -26,7 +39,28 @@ export async function getWebsiteStats(
 async function relationalQuery(
   websiteId: string,
   filters: QueryFilters,
-): Promise<WebsiteStatsData[]> {
+): Promise<WebsiteStatsData> {
+  if (
+    !currentCacheContext()?.probeOnly &&
+    /^[a-f0-9-]{36}$/i.test(websiteId) &&
+    filters.startDate &&
+    filters.endDate
+  ) {
+    const { startDate, endDate, timezone, unit, compare, ...conditions } = filters;
+    const accelerated = await nativeSnapshot(async () => {
+      const totals = await readAnalysisVisitTotals({
+        websiteId,
+        startDate,
+        endDate,
+        filters: conditions,
+      });
+      if (!totals) return undefined;
+      const population = await readBrowserPopulation(websiteId, startDate, endDate, timezone);
+      noteBrowserPopulation(websiteId, population);
+      return applyNativePopulation([totals], FUNCTION_NAME, population)[0] as WebsiteStatsData;
+    });
+    if (accelerated) return accelerated;
+  }
   const { getTimestampDiffSQL, parseFilters, rawQuery } = prisma;
   const { filterQuery, joinSessionQuery, cohortQuery, excludeBounceQuery, queryParams } =
     parseFilters({
@@ -125,7 +159,7 @@ async function relationalQuery(
 async function clickhouseQuery(
   websiteId: string,
   filters: QueryFilters,
-): Promise<WebsiteStatsData[]> {
+): Promise<WebsiteStatsData> {
   const { rawQuery, parseFilters } = clickhouse;
   const { filterQuery, cohortQuery, excludeBounceQuery, queryParams } = parseFilters({
     ...filters,
@@ -137,9 +171,7 @@ async function clickhouseQuery(
   const hasEventFilters =
     EVENT_COLUMNS.some(item => Object.keys(filters).includes(item)) ||
     !!filters.eventPropertyFilters?.length;
-  const bounceQuery = excludeBounce
-    ? '0'
-    : 'sumIf(1, t.c = 1 and t.has_custom_event = 0)';
+  const bounceQuery = excludeBounce ? '0' : 'sumIf(1, t.c = 1 and t.has_custom_event = 0)';
 
   if (hasEventFilters) {
     sql = `
@@ -165,14 +197,18 @@ async function clickhouseQuery(
         ${filterQuery}
       group by session_id, visit_id
     ) as t
-    ${excludeBounce ? '' : `left join (
+    ${
+      excludeBounce
+        ? ''
+        : `left join (
       select session_id, visit_id, toUInt8(1) as has_custom_event
       from website_event
       where website_id = {websiteId:UUID}
         and created_at between {startDate:DateTime64} and {endDate:DateTime64}
         and event_type = ${EVENT_TYPE.customEvent}
       group by session_id, visit_id
-    ) as e using (session_id, visit_id)`};
+    ) as e using (session_id, visit_id)`
+    };
     `;
   } else {
     sql = `
@@ -203,5 +239,15 @@ async function clickhouseQuery(
     `;
   }
 
-  return rawQuery(sql, queryParams, FUNCTION_NAME).then(result => result?.[0]);
+  const result = await rawQuery(sql, queryParams, FUNCTION_NAME).then(result => result?.[0]);
+  const population =
+    filters.startDate && filters.endDate
+      ? await readBrowserPopulation(websiteId, filters.startDate, filters.endDate, filters.timezone)
+      : unsupportedPopulation({
+          startAt: +filters.startDate,
+          endAt: +filters.endDate,
+          timezone: filters.timezone || 'UTC',
+        });
+  noteBrowserPopulation(websiteId, population);
+  return { ...result, population };
 }

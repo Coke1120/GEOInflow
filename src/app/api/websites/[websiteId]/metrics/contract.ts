@@ -1,3 +1,4 @@
+import { analysisAcceptedSchema } from '@/lib/liekan/contracts/analysis-acceleration';
 import { defineOperation } from '@/openapi/operation';
 import { badRequestResponse, jsonResponse, unauthorizedResponse } from '@/openapi/schemas';
 import { websiteIdPathSchema } from '../../response-schema';
@@ -19,6 +20,7 @@ const getWebsiteMetricsOperation = defineOperation({
       query: metricsQuerySchema,
     },
     responses: {
+        '202': {description:'Opt-in Prefer: respond-async accepted a durable private task',content:{'application/json':{schema:analysisAcceptedSchema}}},
       '200': jsonResponse(metricRowsSchema, 'Ranked rows.'),
       '400': badRequestResponse,
       '401': unauthorizedResponse,

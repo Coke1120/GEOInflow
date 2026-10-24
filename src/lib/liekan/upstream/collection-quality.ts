@@ -4,12 +4,12 @@ import { createHash } from 'node:crypto';
 import { browserName } from 'detect-browser';
 import ipaddr from 'ipaddr.js';
 import { isbot } from 'isbot';
-import { getRangeSources } from '../crawlers/range-sources';
-import officialSnapshots from '../../../../config/liekan/bot-ranges.json';
+import { getBrowserRangeSources } from '../crawlers/range-sources';
+import { collectionRegistryIsCurrent } from './crawler-registry-context';
 import { rangeContainsAddress, type VerificationSnapshots } from '../rules/verify';
 import { getBotRules, classifyBot } from '../rules/bots';
 
-export const COLLECTION_RULE_VERSION = 'traffic-quality-v3';
+export const COLLECTION_RULE_VERSION = 'traffic-quality-v4';
 export type CollectionClassification = 'browser' | 'automated' | 'suspected' | 'unknown';
 export type CollectionSource = 'browser' | 'authenticated_server' | 'legacy_override';
 export type CollectionRangeStatus = 'fresh' | 'stale' | 'missing' | 'untrusted' | 'invalid';
@@ -30,13 +30,24 @@ export interface CollectionInput {
   ip: string;
   userAgent: string;
   snapshots: VerificationSnapshots;
+  /** Collector receipt time, independent of a caller-supplied historical timestamp. */
+  receivedAt?: Date;
   now?: Date;
 }
 
 const RANGE_MAX_AGE = 7 * 86400000;
-const OVERRIDE_FIELDS = ['ip', 'userAgent', 'browser', 'os', 'device'] as const;
+const OVERRIDE_FIELDS = ['ip', 'userAgent', 'browser', 'os', 'device', 'timestamp'] as const;
+
+export function collectionSource(
+  payload: Record<string, any>,
+  authenticated: boolean,
+): CollectionSource {
+  if (authenticated) return 'authenticated_server';
+  return OVERRIDE_FIELDS.some(field => payload?.[field] != null) ? 'legacy_override' : 'browser';
+}
 
 function registeredCrawler(ua: string) {
+  if (!collectionRegistryIsCurrent()) return false;
   const match = classifyBot(ua, getBotRules());
   // Conflicting registered identities still establish automation, without attributing a vendor.
   return !!match.crawlerId || !!match.candidateIds?.length;
@@ -106,10 +117,12 @@ function rangeEvidence(input: CollectionInput): RangeEvidence {
   const clientAddress = trustedAddress(input);
   if (!clientAddress)
     return empty(input.authenticated && !address(input.ip) ? 'invalid' : 'untrusted');
-  const timestamp = +(input.now || new Date());
+  if (!collectionRegistryIsCurrent()) return empty('untrusted');
+  const timestamp = +(input.receivedAt ?? input.now ?? new Date());
   if (!Number.isFinite(timestamp)) return empty('invalid');
+  // Public overrides describe source provenance; current network evidence uses receipt time.
   const eventTimestamp =
-    input.payload?.timestamp == null
+    !input.authenticated || input.payload?.timestamp == null
       ? timestamp
       : typeof input.payload.timestamp === 'number'
         ? input.payload.timestamp * 1000
@@ -117,13 +130,10 @@ function rangeEvidence(input: CollectionInput): RangeEvidence {
   if (!Number.isFinite(eventTimestamp)) return empty('invalid');
   const available: CollectionRangeStatus[] = [];
   const matching: { status: 'fresh' | 'stale'; version: string }[] = [];
+  const sources = getBrowserRangeSources();
   for (const [bot, snapshot] of entries) {
-    // Browser quality retains the six independently reviewed original trust bindings.
-    const official = Object.hasOwn(officialSnapshots, bot)
-      ? officialSnapshots[bot as keyof typeof officialSnapshots]
-      : null;
+    const official = sources.find(source => source.names.includes(bot));
     if (!official) {
-      if (getRangeSources().some(source => source.names.includes(bot))) continue;
       available.push('untrusted');
       continue;
     }
@@ -137,15 +147,7 @@ function rangeEvidence(input: CollectionInput): RangeEvidence {
         typeof snapshot.retrievedAt !== 'string'
       )
         throw new Error('Invalid range snapshot');
-      if (
-        snapshot.source &&
-        snapshot.source !== official.source &&
-        !(
-          bot === 'Googlebot' &&
-          snapshot.source ===
-            'https://developers.google.com/static/crawling/ipranges/common-crawlers.json'
-        )
-      ) {
+      if (snapshot.source !== official.url) {
         available.push('untrusted');
         continue;
       }
@@ -197,12 +199,7 @@ function rangeEvidence(input: CollectionInput): RangeEvidence {
 }
 
 export function classifyCollection(input: CollectionInput): CollectionQuality {
-  const legacy = OVERRIDE_FIELDS.some(field => input.payload?.[field] != null);
-  const source: CollectionSource = input.authenticated
-    ? 'authenticated_server'
-    : legacy
-      ? 'legacy_override'
-      : 'browser';
+  const source = collectionSource(input.payload, input.authenticated);
   const ranges = rangeEvidence(input);
   const ua = typeof input.userAgent === 'string' ? input.userAgent : '';
   const uaBot = isbot(ua);
@@ -214,14 +211,9 @@ export function classifyCollection(input: CollectionInput): CollectionQuality {
     !input.authenticated && registeredCrawler(input.request.headers.get('user-agent') || '');
   // A positive client declaration can exclude automation. Absence/false proves no human identity.
   const webdriver = input.payload?.webdriver === true;
-  const automated =
-    ranges.freshMatches > 0 || uaBot || requestUaBot || crawlerUa || requestCrawlerUa || webdriver;
   let classification: CollectionClassification;
   let reasons: string[];
-  if (automated && process.env.DISABLE_BOT_CHECK) {
-    classification = 'unknown';
-    reasons = ['bot_check_disabled'];
-  } else if (ranges.freshMatches) {
+  if (ranges.freshMatches) {
     classification = 'automated';
     reasons = [ranges.freshMatches > 1 ? 'official_range_ambiguous' : 'official_range_match'];
   } else if (uaBot) {

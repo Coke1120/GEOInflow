@@ -7,6 +7,8 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client.js';
 import { assertUpstreamMigrations, assertUpstreamSchema } from './liekan-schema-check.mjs';
 
+const lockTimeoutSql = "SET LOCAL lock_timeout TO '2s'";
+
 const client = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
@@ -20,6 +22,7 @@ try {
     .sort();
   await client.$transaction(
     async tx => {
+      await tx.$executeRawUnsafe(lockTimeoutSql);
       await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
       await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(12800001)');
       await tx.$executeRawUnsafe(
@@ -37,7 +40,10 @@ try {
             throw new Error(`Immutable migration checksum changed: ${name}`);
           continue;
         }
-        for (const statement of sqlStatements(sql)) await tx.$executeRawUnsafe(statement);
+        for (const statement of sqlStatements(sql)) {
+          await tx.$executeRawUnsafe(lockTimeoutSql);
+          await tx.$executeRawUnsafe(statement);
+        }
         await tx.$executeRawUnsafe(
           'INSERT INTO liekan_migration (name,checksum) VALUES ($1,$2)',
           name,

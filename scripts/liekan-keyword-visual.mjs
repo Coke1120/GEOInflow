@@ -23,6 +23,7 @@ async function api(method, path, body) {
       'content-type': 'application/json',
       ...(method === 'POST' && path === '/send'
         ? {
+            'x-liekan-fixture-ip': '192.0.2.1',
             'user-agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
           }
@@ -40,7 +41,7 @@ const website = await api('POST', '/websites', {
   domain: 'keyword-visual.test',
 });
 const now = Date.now(),
-  range = { startAt: now - 600000, endAt: now + 60000 };
+  range = { startAt: now - 600000, endAt: now + 3600000 };
 const report = {
   head: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
   passed: false,
@@ -68,7 +69,6 @@ try {
           ? 'https://www.google.com/'
           : 'https://www.google.com/search?q=' + encodeURIComponent(term),
         id: `keyword-visual-${i}`,
-        timestamp: Math.floor(now / 1000),
       },
     });
   for (const [i, referrer] of [
@@ -85,7 +85,6 @@ try {
         url: '/',
         referrer,
         id: `keyword-status-visual-${i}`,
-        timestamp: Math.floor(now / 1000),
       },
     });
   browser = await chromium.launch({
@@ -202,7 +201,6 @@ try {
         url: '/',
         referrer: 'https://www.google.com/search?q=word00',
         id: `keyword-refresh-${width}`,
-        timestamp: Math.floor(now / 1000),
       },
     });
     visitCount++;

@@ -1,4 +1,6 @@
 'use client';
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
@@ -286,7 +288,12 @@ function Realtime() {
             interactionKey={JSON.stringify(['realtime', c.user.id, c.siteId, scope, timeline.data])}
             type="bar"
             labels={series.map((r: any) => r.x)}
-            series={[{ name: i18n.text('访客'), values: series.map((r: any) => Number(r.y)) }]}
+            series={[
+              {
+                name: i18n.text('访客'),
+                values: series.map((r: any) => (r.y == null ? null : Number(r.y))),
+              },
+            ]}
           />
         </QueryState>
       </Panel>
@@ -373,7 +380,7 @@ function Events() {
               values: buckets.map(bucket =>
                 points
                   .filter(r => r.x === name && r.t === bucket)
-                  .reduce((s, r) => s + Number(r.y), 0),
+                  .reduce((s, r) => (s === null || r.y === null ? null : s + Number(r.y)), 0),
               ),
             }))}
           />
@@ -698,20 +705,22 @@ function SessionDetail() {
         <LinkButton page="sessions">{i18n.text('返回访问记录')}</LinkButton>
       </Notice>
     );
+  const unavailable = !identityUsable(query.data?.population);
   const r = record.data,
     rows = query.data?.rows || [],
     t = query.data?.totals,
-    first = t
-      ? { createdAt: t.firstAt, referrerDomain: t.referrerDomain, urlPath: t.entryPath }
-      : undefined,
-    last = t ? { createdAt: t.lastAt, urlPath: t.exitPath } : undefined,
+    first =
+      t && !unavailable
+        ? { createdAt: t.firstAt, referrerDomain: t.referrerDomain, urlPath: t.entryPath }
+        : undefined,
+    last = t && !unavailable ? { createdAt: t.lastAt, urlPath: t.exitPath } : undefined,
     replay = rowsOf<any>(replays.data)[0];
   return (
     <>
       <div className="row between">
         <div className="row">
           <Badge tone="blue">{i18n.text('访问详情')}</Badge>
-          <strong>{i18n.system(visitor(id))}</strong>
+          <strong>{unavailable ? '—' : i18n.system(visitor(id))}</strong>
           <span className="muted">{date(first?.createdAt, c.range.timezone)}</span>
         </div>
         <div className="actions">
@@ -726,7 +735,7 @@ function SessionDetail() {
                 ? i18n.text('正在读取回放')
                 : replays.error
                   ? i18n.text('回放读取失败')
-                  : i18n.text('未采集回放')}
+                  : i18n.text(unavailable ? '不可用' : '未采集回放')}
             </Button>
           )}
         </div>
@@ -766,7 +775,10 @@ function SessionDetail() {
                   [i18n.text('浏览器'), r?.browser || i18n.text('未提供')],
                   [i18n.text('操作系统'), r?.os || i18n.text('未提供')],
                   [i18n.text('语言'), r?.language || i18n.text('未提供')],
-                  [i18n.text('引荐来源'), first?.referrerDomain || i18n.text('直接访问')],
+                  [
+                    i18n.text('引荐来源'),
+                    unavailable ? '—' : first?.referrerDomain || i18n.text('直接访问'),
+                  ],
                   [
                     i18n.text('入口页面'),
                     pageLink(first?.urlPath, c.site?.domain, undefined, undefined, i18n.locale),
@@ -790,7 +802,9 @@ function SessionDetail() {
                     ),
                   ])}
                 />
-                {!props.data?.length && <Notice>{i18n.text('当前会话未提供属性。')}</Notice>}
+                {!unavailable && !props.data?.length && (
+                  <Notice>{i18n.text('当前会话未提供属性。')}</Notice>
+                )}
               </QueryState>
             </div>
           </Body>
@@ -844,7 +858,9 @@ function SessionDetail() {
                   </li>
                 ))}
               </ul>
-              {!rows.length && <Notice>{i18n.text('当前范围没有访问行为。')}</Notice>}
+              {!rows.length && !unavailable && (
+                <Notice>{i18n.text('当前范围没有访问行为。')}</Notice>
+              )}
               {(query.data?.more || page > 1) && (
                 <div className="actions">
                   <Button disabled={page === 1} onClick={() => setPage(page - 1)}>
@@ -1019,7 +1035,7 @@ function FilterEditor({
   const previewMatches = async () => {
     const params = conditionsToQuery(conditions, match, property, propertyValue, preservedProps);
     const stats = await c.api.get(`/websites/${c.siteId}/stats`, { ...c.range, ...params });
-    setPreview(Number(stats.visitors));
+    setPreview(stats.visitors == null ? null : Number(stats.visitors));
   };
   const form = (
     <Form
@@ -1586,7 +1602,13 @@ function Retention() {
         items={[
           [
             i18n.text('入组访客'),
-            query.data ? n(cohorts.reduce((s, r) => s + Number(r.visitors), 0)) : null,
+            query.data
+              ? n(
+                  cohorts.some(r => r.visitors === null)
+                    ? null
+                    : cohorts.reduce((s, r) => s + Number(r.visitors), 0),
+                )
+              : null,
             i18n.text('按所选期间首次访问日期分组'),
           ],
           ...summary.map(
@@ -1638,20 +1660,27 @@ function Retention() {
                               </span>
                             </td>
                           );
-                        const returned = Number(
-                          rows.find(r => String(r.date).slice(0, 10) === day && Number(r.day) === d)
-                            ?.returnVisitors || 0,
+                        const matched = rows.find(
+                          r => String(r.date).slice(0, 10) === day && Number(r.day) === d,
                         );
-                        const pct = (returned / Number(cohort.visitors)) * 100;
+                        const returned =
+                          matched?.returnVisitors === null
+                            ? null
+                            : Number(matched?.returnVisitors || 0);
+                        const pct =
+                          cohort.visitors === null || returned === null
+                            ? null
+                            : (returned / Number(cohort.visitors)) * 100;
                         return (
                           <td key={d}>
                             <button
                               className="heat-cell"
-                              style={{ background: `rgba(15,98,254,${pct / 90 + 0.06})` }}
+                              style={{ background: `rgba(15,98,254,${(pct ?? 0) / 90 + 0.06})` }}
+                              disabled={pct === null}
                               aria-label={i18n.text('{v0} 入组，第 {v1} 天，留存 {v2}%', [
                                 day,
                                 d,
-                                pct.toFixed(2),
+                                pct?.toFixed(2),
                               ])}
                               onClick={() =>
                                 setDetail({
@@ -1663,7 +1692,7 @@ function Retention() {
                                 })
                               }
                             >
-                              {pct.toFixed(2)}%
+                              {pct === null ? '—' : `${pct.toFixed(2)}%`}
                             </button>
                           </td>
                         );
@@ -1766,6 +1795,7 @@ function Journeys({ detail = false }: { detail?: boolean }) {
     true,
   );
   const d = query.data as JourneyData;
+  const unavailable = !identityUsable(d?.population);
   const rows = d?.rows || [];
   const nodes: any[] = [],
     links: any[] = [],
@@ -1828,20 +1858,28 @@ function Journeys({ detail = false }: { detail?: boolean }) {
           <Metrics
             loading={query.isPending}
             items={[
-              [i18n.text('完成路径'), row ? n(row.visitors) : '0', i18n.text('独立访客')],
+              [
+                i18n.text('完成路径'),
+                row ? n(row.visitors) : unavailable ? '—' : '0',
+                i18n.text('独立访客'),
+              ],
               [
                 i18n.text('路径占比'),
                 row ? percentage(row.visitors, d.visitors) : '—',
-                row ? `${n(row.visitors)} / ${n(d.visitors)}` : i18n.text('当前范围无匹配路径'),
+                row
+                  ? `${n(row.visitors)} / ${n(d.visitors)}`
+                  : i18n.text(unavailable ? identityUnavailableReason : '当前范围无匹配路径'),
               ],
               [
                 i18n.text('平均完成时间'),
                 duration(row?.seconds, i18n.locale),
-                i18n.text('{v0} 步路径', [row?.nodes.length || 0]),
+                unavailable
+                  ? i18n.text(identityUnavailableReason)
+                  : i18n.text('{v0} 步路径', [row?.nodes.length || 0]),
               ],
               [
                 i18n.text('主要来源'),
-                row?.source || i18n.text('直接访问'),
+                row?.source || (unavailable ? '—' : i18n.text('直接访问')),
                 i18n.text('按完成路径的访客数排序'),
               ],
             ]}
@@ -1867,7 +1905,13 @@ function Journeys({ detail = false }: { detail?: boolean }) {
                 ))}
               </ol>
               {!row && (
-                <Notice>{i18n.text('当前条件没有匹配路径，请返回访问旅程调整条件。')}</Notice>
+                <Notice>
+                  {i18n.text(
+                    unavailable
+                      ? identityUnavailableReason
+                      : '当前条件没有匹配路径，请返回访问旅程调整条件。',
+                  )}
+                </Notice>
               )}
             </Body>
           </Panel>
@@ -2217,8 +2261,8 @@ function Attribution() {
   );
   const d = query.data;
   const rows = d?.referrer || [];
-  const total = Number(d?.total?.visitors || 0),
-    attributed = Number(d?.total?.attributed || 0);
+  const total = d?.total?.visitors == null ? null : Number(d.total.visitors),
+    attributed = d?.total?.attributed == null ? null : Number(d.total.attributed);
   return (
     <>
       <Panel title={i18n.text('归因设置')}>
@@ -2295,7 +2339,10 @@ function Attribution() {
             horizontal
             labels={rows.map((r: any) => r.name)}
             series={[
-              { name: i18n.text('转化访客'), values: rows.map((r: any) => Number(r.value)) },
+              {
+                name: i18n.text('转化访客'),
+                values: rows.map((r: any) => (r.value == null ? null : Number(r.value))),
+              },
             ]}
           />
           <Panel
@@ -2529,25 +2576,46 @@ function Compare() {
             signal,
           ),
         ]);
-      return { current, previous, currentSeries, previousSeries, sources, oldSources };
+      return {
+        current,
+        previous,
+        currentSeries,
+        previousSeries,
+        sources,
+        oldSources,
+        population:
+          [current.population, previous.population].find(
+            population =>
+              population && ['partial', 'unavailable'].includes(population.identity.status),
+          ) || current.population,
+      };
     },
     !!c.siteId && comparison.startAt >= 0,
   );
   const d = query.data;
-  const change = (a: number, b: number) =>
-    b ? `${a >= b ? '+' : ''}${(((a - b) / b) * 100).toFixed(2)}%` : a ? i18n.text('新增') : '0%';
+  const change = (a: number | null, b: number | null) =>
+    a == null || b == null
+      ? '—'
+      : b
+        ? `${a >= b ? '+' : ''}${(((a - b) / b) * 100).toFixed(2)}%`
+        : a
+          ? i18n.text('新增')
+          : '0%';
   const rate = (r: any) => (r?.visits ? (r.bounces / r.visits) * 100 : null);
   const channels = new Map<string, { label: SourceDisplay; current: number; previous: number }>();
   for (const [rows, period] of [
-    [d?.sources || [], 'current'],
-    [d?.oldSources || [], 'previous'],
+    [d?.sources?.rows || [], 'current'],
+    [d?.oldSources?.rows || [], 'previous'],
   ] as const) {
     for (const row of rows) {
       const generated = classifyEntrySourceForDisplay({ referrer: row.referrer });
       const label = generated.sourceLabel ? generated : { source: row.referrer };
       const key = JSON.stringify([label.source, generated.sourceLabel ?? null]);
       if (!channels.has(key)) channels.set(key, { label, current: 0, previous: 0 });
-      channels.get(key)[period] += Number(row.visitors || 0);
+      channels.get(key)[period] =
+        row.visitors == null || channels.get(key)[period] === null
+          ? null
+          : channels.get(key)[period] + Number(row.visitors);
     }
   }
   const first = relativeDaySeries(
@@ -2780,12 +2848,17 @@ function Annotations() {
               query.data,
             ])}
             labels={dates}
-            series={[{ name: i18n.text('访问'), values: points.map((r: any) => Number(r.y)) }]}
+            series={[
+              {
+                name: i18n.text('访问'),
+                values: points.map((r: any) => (r.y == null ? null : Number(r.y))),
+              },
+            ]}
             option={{
               series: [
                 {
                   type: 'line',
-                  data: points.map((r: any) => Number(r.y)),
+                  data: points.map((r: any) => (r.y == null ? null : Number(r.y))),
                   markLine: {
                     symbol: 'none',
                     label: { formatter: (p: any) => p.name },
