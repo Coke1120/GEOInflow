@@ -7,7 +7,7 @@
   padding: calc((60px - var(--lk-toolbar-control-height) - 1px) / 2) 32px;
   min-height: 60px;
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(0, auto) auto;
+  grid-template-columns: minmax(228px, 1fr) minmax(0, auto) auto;
   align-items: start;
   gap: 8px 16px;
   background: #f5f7fa;
