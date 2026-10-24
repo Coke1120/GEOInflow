@@ -208,6 +208,8 @@ try {
         dialog.getByRole('button', { name: text('标记已查看', locale), exact: true }),
       ).toBeEnabled();
       await dialog.getByLabel(text('处理备注', locale), { exact: true }).fill('test visual note');
+      // The shared actor and aggregation retain their refresh cooldown across browser contexts.
+      await page.waitForTimeout(5100);
       await dialog.getByRole('button', { name: text('标记已查看', locale), exact: true }).click();
       await expect(dialog.getByLabel(text('处理备注', locale), { exact: true })).toHaveValue('');
       await expect(
