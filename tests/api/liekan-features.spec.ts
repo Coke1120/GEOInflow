@@ -17,6 +17,87 @@ import { dateRange } from './helpers/dates';
 import { uniqueName, uniqueSlug } from './helpers/entities';
 
 test.describe('Liekan integrated feature contracts', () => {
+  test('account preferences initialize once and persist only for the authenticated account', async ({
+    admin,
+    api,
+    seed,
+  }) => {
+    const path = '/api/liekan/account/preferences';
+    const before = await admin.get(path);
+    expect(before.status, before.text).toBe(200);
+    const username = uniqueName('calendar-account');
+    const created = await admin.post('/api/users', {
+      username,
+      password: seed.user.password,
+      role: 'user',
+    });
+    expect(created.status, created.text).toBe(200);
+    try {
+      const login = await api.post('/api/auth/login', { username, password: seed.user.password });
+      expect(login.status, login.text).toBe(200);
+      const account = api.bearer(login.body.token);
+      const defaults = await account.get(path);
+      expect(defaults.status, defaults.text).toBe(200);
+      expect(defaults.body).toEqual({
+        countryCode: 'CN',
+        timezone: 'Asia/Shanghai',
+        range: '0day',
+        configured: false,
+        updatedAt: null,
+      });
+      const initialized = await account.post(path, { timezone: 'Asia/Shanghai', range: '24hour' });
+      expect(initialized.status, initialized.text).toBe(200);
+      expect(initialized.body).toMatchObject({
+        timezone: 'Asia/Shanghai',
+        range: '0day',
+        configured: false,
+      });
+      const repeated = await account.post(path, { timezone: 'America/New_York', range: '30day' });
+      expect(repeated.status, repeated.text).toBe(200);
+      expect(repeated.body).toEqual(initialized.body);
+      const saved = await account.request('PATCH', path, {
+        data: { countryCode: 'US', timezone: 'America/New_York', range: '7day' },
+      });
+      expect(saved.status, saved.text).toBe(200);
+      expect(saved.body).toMatchObject({
+        countryCode: 'US',
+        timezone: 'America/New_York',
+        range: '7day',
+        configured: true,
+      });
+      expect(saved.body.updatedAt).toEqual(expect.any(String));
+      expect((await account.get(path)).body).toEqual(saved.body);
+      const mismatch = await account.request('PATCH', path, {
+        data: { countryCode: 'US', timezone: 'Asia/Tokyo', range: '7day' },
+      });
+      expect(mismatch.status, mismatch.text).toBe(400);
+      expect((await account.get(path)).body).toEqual(saved.body);
+      expect((await admin.get(path)).body).toEqual(before.body);
+    } finally {
+      expect((await admin.del(`/api/users/${created.body.id}`)).status).toBe(200);
+    }
+  });
+
+  test('account preference endpoints reject anonymous, API key and public share identities', async ({
+    api,
+    apiKey,
+    share,
+  }) => {
+    const publicShare = await share();
+    for (const client of [api, apiKey, publicShare]) {
+      for (const method of ['GET', 'POST', 'PATCH'] as const) {
+        const response = await client.request(method, '/api/liekan/account/preferences', {
+          ...(method !== 'GET' && {
+            data:
+              method === 'POST'
+                ? { timezone: 'Asia/Shanghai', range: '0day' }
+                : { countryCode: 'CN', timezone: 'Asia/Shanghai', range: '0day' },
+          }),
+        });
+        expect(response.status, `${method}: ${response.text}`).toBe(401);
+      }
+    }
+  });
   const kinds = [
     'events',
     'utm',
