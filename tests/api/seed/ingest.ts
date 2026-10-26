@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { retimeBrowserFixtures, type BrowserFixtureTime } from './retime';
-import type { ApiClient, ApiRequestOptions } from '../client';
+import type { ApiClient, ApiRequestOptions, ApiResponse } from '../client';
 import { CACHE_HEADER } from '../helpers/constants';
 import type { Dataset, RecordPayload, SendPayload } from './dataset';
 
@@ -72,10 +72,28 @@ export async function sendBrowserFixture(
   return response;
 }
 
+/** Receipt IDs keep isolated seed retries atomic during a temporary analytics epoch lock. */
+async function seedReceiptWrite(write: () => Promise<ApiResponse>, events: SendPayload[]) {
+  for (let attempt = 0; ; attempt++) {
+    const response = await write();
+    if (
+      !seedingDataset ||
+      !process.env.LIEKAN_API_FIXTURE_CONTAINER ||
+      attempt >= 4 ||
+      ![500, 503].includes(response.status) ||
+      !events.every(event => event.type !== 'identify' && fixtureEventIds.has(event))
+    )
+      return response;
+    console.log(`Retrying isolated seed receipt write (${attempt + 1}/4)`);
+    await new Promise(resolve => setTimeout(resolve, 500 * 2 ** attempt));
+  }
+}
+
 async function send(api: ApiClient, event: SendPayload, cache?: string) {
-  const response = await sendBrowserFixture(api, event, {
-    headers: cache ? { [CACHE_HEADER]: cache } : {},
-  });
+  const response = await seedReceiptWrite(
+    () => sendBrowserFixture(api, event, { headers: cache ? { [CACHE_HEADER]: cache } : {} }),
+    [event],
+  );
 
   if (response.status !== 200) {
     throw new Error(`POST /api/send failed (${response.status}): ${response.text}`);
@@ -124,12 +142,16 @@ export async function ingestDataset(api: ApiClient, dataset: Dataset): Promise<I
     }
     for (const events of batches.values())
       for (const items of chunk(events, BATCH_LIMIT)) {
-        const response = await api.post(
-          '/api/batch',
-          items.map(event => browserRequest(event).body),
-          {
-            headers: browserRequest(items[0]).headers,
-          },
+        const response = await seedReceiptWrite(
+          () =>
+            api.post(
+              '/api/batch',
+              items.map(event => browserRequest(event).body),
+              {
+                headers: browserRequest(items[0]).headers,
+              },
+            ),
+          items,
         );
 
         if (response.status !== 200) {
