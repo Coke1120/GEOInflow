@@ -1,5 +1,5 @@
 name: '✨ Feature Request'
-description: Create a feature or enhancement request for Umami.
+description: Create a feature or enhancement request for GEOInflow.
 body:
   - type: textarea
     attributes:

@@ -71,6 +71,23 @@ beforeEach(() => {
 });
 
 describe('composed analytics membership', () => {
+  it('keeps revenue membership correlated to each transaction session before view expansion', async () => {
+    await featureAnalytics(websiteId, {
+      ...common,
+      kind: 'revenue',
+      currency: 'CNY',
+      browser: 'eq.Firefox',
+    });
+    expect(mocks.rawQuery).toHaveBeenCalledTimes(2);
+    for (const [sql, params] of mocks.rawQuery.mock.calls) {
+      expect(sql).toContain('transactions AS(SELECT r.event_id AS id,r.session_id AS "sessionId"');
+      expect(sql).toMatch(
+        /EXISTS\(SELECT 1 FROM selected s WHERE s\.session_id=r\.session_id OFFSET 0\)/,
+      );
+      expect(params.currency).toBe('CNY');
+    }
+  });
+
   it('uses unique CTE names and independent parameters for nested attribution', async () => {
     await featureAnalytics(websiteId, {
       ...common,
@@ -105,6 +122,22 @@ describe('composed analytics membership', () => {
     expect(sql).not.toMatch(/FROM base_selected\b/);
   });
 });
+
+it.each(['0', '1'])(
+  'restricts replay aggregation to existing recording visits (saved %s)',
+  async saved => {
+    mocks.rawQuery.mockImplementation(async (sql: string) =>
+      sql.includes('SELECT COUNT(*) AS count FROM recordings') ? [{ count: 0n }] : [],
+    );
+    await featureAnalytics(websiteId, { ...common, kind: 'replays', saved });
+    expect(mocks.rawQuery).toHaveBeenCalledTimes(2);
+    for (const [sql] of mocks.rawQuery.mock.calls) {
+      expect(sql).toContain('replay_visits AS MATERIALIZED');
+      expect(sql).toContain('FROM selected JOIN replay_visits USING(visit_id,session_id)');
+      if (saved === '1') expect(sql).toContain('saved.visit_id=r.visit_id');
+    }
+  },
+);
 
 describe('native numeric response normalization', () => {
   it('keeps realtime generated direct labels separate from same-named supplied referrers', async () => {
@@ -173,6 +206,35 @@ describe('native numeric response normalization', () => {
 });
 
 describe('explicit journey endpoints', () => {
+  it('reads each visit source once from the full selected window before applying journey bounds', async () => {
+    mocks.rawQuery.mockImplementation(async (sql: string) =>
+      sql.includes('SELECT COUNT(DISTINCT session_id) AS visitors FROM eligible')
+        ? [{ visitors: 0n }]
+        : sql.includes('SELECT COUNT(DISTINCT session_id) AS count FROM eligible')
+          ? [{ count: 0n }]
+          : [],
+    );
+    await featureJourney(websiteId, {
+      ...common,
+      type: 'pages',
+      steps: 2,
+      startStep: '/start',
+      endStep: '/end',
+      sequence: JSON.stringify(['/start', '/end']),
+    });
+    expect(mocks.rawQuery).toHaveBeenCalledTimes(4);
+    for (const [sql] of mocks.rawQuery.mock.calls) {
+      expect(sql).toMatch(
+        /first_sources AS\(SELECT DISTINCT ON\(visit_id\) visit_id,referrer_domain AS source FROM selected ORDER BY visit_id,created_at,event_id\)/,
+      );
+      expect(sql).toContain('JOIN first_sources source ON source.visit_id=w.visit_id');
+      expect(sql).toContain('GROUP BY w.visit_id,w.session_id,source.source HAVING COUNT(*)>=2');
+      expect(sql).not.toContain(
+        'SELECT e.referrer_domain FROM selected e WHERE e.visit_id=w.visit_id',
+      );
+    }
+  });
+
   it('observes a repeated starting node only after the initial node', async () => {
     mocks.rawQuery.mockImplementation(async (sql: string) =>
       sql.includes('SELECT COUNT(DISTINCT session_id) AS visitors FROM eligible')

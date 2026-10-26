@@ -43,6 +43,7 @@ async function getResponse(
       filters.compare,
       filters.startDate,
       filters.endDate,
+      filters.timezone,
     );
 
     const [comparePageviews, compareSessions] = await Promise.all([

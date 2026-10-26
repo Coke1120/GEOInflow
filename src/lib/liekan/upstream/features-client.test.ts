@@ -18,6 +18,61 @@ import {
 } from './features-client';
 import { freshnessExpiry, withClientFreshness } from './client-freshness';
 
+it.each([true, false])(
+  'resumes an idle handle once and bounds rapid repeated idle failures: %s',
+  async success => {
+    vi.useFakeTimers();
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+    const site = '11111111-1111-4111-8111-111111111111',
+      id = '22222222-2222-4222-8222-222222222222';
+    const job = {
+      id,
+      websiteId: site,
+      status: 'queued',
+      queuedAt: '2026-01-01',
+      startedAt: null,
+      completedAt: null,
+      generatedAt: null,
+      expiresAt: null,
+      errorCode: null,
+      retryAfterMs: 1000,
+      resultUrl: `/liekan/websites/${site}/analytics-jobs/${id}/result`,
+    };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ analysisJob: job }, { status: 202 }))
+      .mockResolvedValueOnce(
+        Response.json({ analysisJob: { ...job, status: 'failed', errorCode: 'analysis-idle' } }),
+      )
+      .mockResolvedValueOnce(
+        success
+          ? Response.json({ synthetic: 'resumed' })
+          : Response.json({ analysisJob: job }, { status: 202 }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ analysisJob: { ...job, status: 'failed', errorCode: 'analysis-idle' } }),
+      );
+    vi.stubGlobal('fetch', fetcher);
+    try {
+      const pending = featureApi.get(`/liekan/websites/${site}/page-report`, {
+        resource: 'ai/pages',
+        startAt: 1,
+        endAt: 2,
+      });
+      const checked = success
+        ? expect(pending).resolves.toEqual({ synthetic: 'resumed' })
+        : expect(pending).rejects.toMatchObject({ code: 'analysis-idle' });
+      await vi.advanceTimersByTimeAsync(3000);
+      await checked;
+      expect(fetcher).toHaveBeenCalledTimes(success ? 3 : 4);
+    } finally {
+      vi.useRealTimers();
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
+  },
+);
+
 it('keeps previous and final async populations with their own exact range and freshness headers', async () => {
   vi.useFakeTimers();
   const site = '11111111-1111-4111-8111-111111111111';

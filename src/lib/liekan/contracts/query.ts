@@ -93,7 +93,7 @@ export const reportQuery = z.object({
     .string()
     .regex(/^$|^[a-f0-9-]{36}$/)
     .default(''),
-  chartPeriod: z.enum(['30d', '7d', '24h']).default('30d'),
+  chartPeriod: z.enum(['today', '30d', '7d', '24h']).default('30d'),
   tablePages: z.record(z.string(), z.coerce.number().int().min(1).max(100000)).default({}),
 });
 export type ReportQuery = z.output<typeof reportQuery>;

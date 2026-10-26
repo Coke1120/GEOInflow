@@ -1,0 +1,54 @@
+title = "GEOInflow source and history secret checks"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Generated translation message IDs, limited to the message catalogs"
+condition = "AND"
+paths = ['''^src/lib/liekan/i18n/(?:help-)?messages/en-US\.json$''']
+regexTarget = "secret"
+regexes = ['''^m_[a-f0-9]{12}$''']
+
+[[rules.allowlists]]
+description = "Reviewed file SHA-256 digests in the immutable manifests; review changed digests before updating"
+condition = "AND"
+paths = ['''^config/liekan/(?:ai-ui|feature-ui|migrations)\.json$''']
+regexTarget = "secret"
+regexes = [
+  '''^0ba7d2f5e951e4d43e423ed49da2e9937726bd31cff468b776b410f5088c0ed7$''',
+  '''^41c4343666950c35a6b190b6ab7a6424e1d029a2231d2453b7550a18346933c2$''',
+  '''^8acda80aad3ba44e716263728d57195737ba515e122b7a0289e2a132321ba519$''',
+  '''^d6cdd8bd9edd19805c998cda32250a3ff3b9ec167f3bf7374a67c59c720afe60$''',
+]
+
+[[rules.allowlists]]
+description = "Fixed JSX reconciliation keys"
+condition = "AND"
+paths = ['''^src/components/liekan/features/WorkspacePages\.tsx$''']
+regexTarget = "secret"
+regexes = ['''^cell-twofactorbadge-[0-9]+$''']
+
+[[rules.allowlists]]
+description = "Synthetic, fixed integration encryption key"
+condition = "AND"
+paths = ['''^docker-compose\.test\.yml$''']
+regexTarget = "secret"
+regexes = ['''^(?:0123456789abcdef){4}$''']
+
+[[rules.allowlists]]
+description = "Fixed deployment fixture credentials"
+condition = "AND"
+paths = ['''^tests/liekan/deployment\.test\.mjs$''']
+regexTarget = "secret"
+regexes = ['''^preserved-private-2fa-key$''']
+
+[[rules.allowlists]]
+description = "Deliberately invalid MCP token fixture"
+condition = "AND"
+paths = ['''^src/lib/mcp/auth\.test\.ts$''']
+regexTarget = "secret"
+regexes = ['''^not-a-token$''', '''^eyJhbGciOiJIUzI1NiJ9\.eyJ0eXBlIjoib2F1dGhfYWNjZXNzIn0\.signature$''']

@@ -61,7 +61,7 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
   const ttl = Math.min(30000, statisticsCacheTtl(p.endAt, p.timezone));
   if (!p.ids.length) return [];
   const current = { startDate: new Date(p.startAt), endDate: new Date(p.endAt) };
-  const previous = getCompareDate('prev', current.startDate, current.endDate);
+  const previous = getCompareDate('prev', current.startDate, current.endDate, p.timezone);
   const zero = { pageviews: 0, visitors: 0, visits: 0, bounces: 0, totaltime: 0, aiVisits: 0 };
   const normalize = (row: any) =>
     Object.fromEntries(
@@ -85,7 +85,7 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
             { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
             site.id,
           );
-          const comparisonFilters = getCompareDate('prev', filters.startDate, filters.endDate);
+          const comparisonFilters = getCompareDate('prev', filters.startDate, filters.endDate, p.timezone);
           const lifetimeFilters = await getQueryFilters(
             { startAt: +site.createdAt, endAt: Date.now() },
             site.id,

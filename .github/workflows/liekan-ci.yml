@@ -23,4 +23,5 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      - run: node --test tests/liekan/docker-context.test.mjs
       - run: pnpm liekan:verify --source-only

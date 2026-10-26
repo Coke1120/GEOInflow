@@ -58,7 +58,7 @@ function wait(ms: number, signal?: AbortSignal) {
     signal?.addEventListener('abort', abort, { once: true });
   });
 }
-async function visible(signal?: AbortSignal) {
+export async function waitForAnalysisVisibility(signal?: AbortSignal) {
   while (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
     await new Promise<void>((resolve, reject) => {
       const clear = () => {
@@ -140,7 +140,7 @@ export async function waitForAnalysisAdmission(
   try {
     for (;;) {
       signal?.throwIfAborted();
-      await visible(signal);
+      await waitForAnalysisVisibility(signal);
       if (budget.elapsed() >= 15 * 60000) {
         await resumePolling(entry, signal);
         budget.reset();
@@ -197,12 +197,12 @@ export async function followAnalysisJob(
   try {
     for (;;) {
       options.signal?.throwIfAborted();
-      await visible(options.signal);
+      await waitForAnalysisVisibility(options.signal);
       if (budget.elapsed() >= 15 * 60000) {
         await resumePolling(entry, options.signal);
         budget.reset();
       }
-      await wait(Math.max(3000, Math.min(10000, job.retryAfterMs)), options.signal);
+      await wait(Math.max(1000, Math.min(10000, job.retryAfterMs)), options.signal);
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') continue;
       const status = await read(job.resultUrl.replace(/\/result$/, ''));
       job = analysisAcceptedSchema.parse(status.data).analysisJob;

@@ -39,6 +39,7 @@ async function getResponse(
     filters.compare ?? 'prev',
     filters.startDate,
     filters.endDate,
+    filters.timezone,
   );
 
   const comparison = await getWebsiteEventStats(websiteId, {

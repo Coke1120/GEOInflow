@@ -59,6 +59,7 @@ export const analysisTables = [
   'liekan_analysis_query',
   'liekan_analysis_query_consumer',
   'liekan_analysis_background_lease',
+  'liekan_analysis_dashboard_lease',
   'liekan_analysis_probe',
   'liekan_dashboard_snapshot',
   'liekan_dashboard_dirty',

@@ -63,7 +63,7 @@ export function Overview({
           <div className="flex items-center gap-2">
             <FilterChip label="30 天" />
             <FilterChip label="7 天" />
-            <FilterChip label="24h" />
+            <FilterChip label="今天" />
           </div>
         </div>
         <ReferenceChart id="d1" height={280} report={report} />
@@ -154,7 +154,7 @@ function VisitorOverview({ report, rangeLabel, trendLabel }: ReportViewProps) {
           <div className="flex items-center gap-2">
             <FilterChip label="30 天" />
             <FilterChip label="7 天" />
-            <FilterChip label="24h" />
+            <FilterChip label="今天" />
           </div>
         </div>
         <ReferenceChart id="d1" height={280} report={report} />

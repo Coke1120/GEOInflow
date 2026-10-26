@@ -73,7 +73,7 @@ export async function tryFastAnalysis(
   const windows = [{ startDate: filters.startDate, endDate: filters.endDate }];
   if (target === 'native:stats')
     windows.push(
-      getCompareDate(filters.compare || 'prev', filters.startDate, filters.endDate) as any,
+      getCompareDate(filters.compare || 'prev', filters.startDate, filters.endDate, filters.timezone) as any,
     );
   // Partial hourly edges stay on the persistent exact path. Inclusive final instants use the reader's indexed point gap.
   if (

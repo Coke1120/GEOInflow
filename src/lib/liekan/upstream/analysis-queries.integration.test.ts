@@ -6,6 +6,7 @@ import {
   requestAnalysisQuery,
   readAnalysisQuery,
   processAnalysisQuery,
+  processAnalysisQueryDelivery,
   pumpAnalysisQueries,
 } from './analysis-queries';
 import { analysisTransaction } from './analysis-rollups-db';
@@ -64,6 +65,109 @@ describe.skipIf(!enabled)('durable private query lifecycle in PostgreSQL', () =>
     for (const team of teams) await sql('DELETE FROM team WHERE team_id=$1::uuid', team);
     for (const user of [actor, other])
       await sql('DELETE FROM "user" WHERE user_id=$1::uuid', user.id);
+  });
+  it('joins an active refresh instead of returning an older ready generation', async () => {
+    const first = await request();
+    if (first.ready === true) throw new Error('expected cold fixture');
+    await processAnalysisQuery(first.analysisJob.id);
+    await sql(
+      "UPDATE liekan_analysis_query SET queued_at=clock_timestamp()-interval '10 seconds' WHERE id=$1::uuid",
+      first.analysisJob.id,
+    );
+    const refreshed = await request({ refresh: '1' });
+    if (refreshed.ready === true) throw new Error('expected active refresh');
+    const joined = await request();
+    expect(joined).toMatchObject({
+      ready: false,
+      analysisJob: { id: refreshed.analysisJob.id },
+      previousResult: { pageviews: 0 },
+    });
+    expect(
+      (
+        await q(
+          'SELECT count(*)::int AS n FROM liekan_analysis_query WHERE website_id=$1::uuid',
+          site,
+        )
+      )[0].n,
+    ).toBe(2);
+  });
+  it('moves an oversized short attempt to the original heavy budget on retry', async () => {
+    const execution = await import('./analysis-query-execution');
+    const { currentCacheContext } = await import('./cache-context');
+    const task = await request();
+    if (task.ready === true) throw new Error('expected cold query');
+    const run = vi.spyOn(execution, 'executeAnalysisQuery').mockImplementation(async () => {
+      const remaining = currentCacheContext().deadline - Date.now();
+      expect(remaining).toBeGreaterThan(0);
+      expect(remaining).toBeLessThanOrEqual(10000);
+      throw new Error('synthetic short budget exhaustion');
+    });
+    try {
+      await processAnalysisQuery(task.analysisJob.id);
+    } finally {
+      run.mockRestore();
+    }
+    expect(
+      (
+        await q(
+          'SELECT status,attempts FROM liekan_analysis_query WHERE id=$1::uuid',
+          task.analysisJob.id,
+        )
+      )[0],
+    ).toEqual({ status: 'queued', attempts: 1 });
+    const queue = { fail: vi.fn(), update: vi.fn() };
+    await expect(
+      processAnalysisQueryDelivery(
+        { id: randomUUID(), retryCount: 0, data: { id: task.analysisJob.id } },
+        queue,
+      ),
+    ).resolves.toBeUndefined();
+    expect(queue.fail).not.toHaveBeenCalled();
+    expect(queue.update).not.toHaveBeenCalled();
+    expect(
+      (
+        await q('SELECT attempts FROM liekan_analysis_query WHERE id=$1::uuid', task.analysisJob.id)
+      )[0].attempts,
+    ).toBe(1);
+    await sql(
+      'UPDATE liekan_analysis_query SET next_attempt_at=clock_timestamp() WHERE id=$1::uuid',
+      task.analysisJob.id,
+    );
+    await withAnalysisPermit('interactive', async () =>
+      expect((await processAnalysisQuery(task.analysisJob.id)).acquired).toBe(false),
+    );
+    const retried = await processAnalysisQuery(task.analysisJob.id);
+    expect(retried.acquired).toBe(true);
+    expect(retried.value).toBeUndefined();
+    expect(
+      (
+        await q(
+          'SELECT status,attempts FROM liekan_analysis_query WHERE id=$1::uuid',
+          task.analysisJob.id,
+        )
+      )[0],
+    ).toEqual({ status: 'ready', attempts: 2 });
+  });
+  it('checks the first native metrics computation promptly and slows after a computation failure', async () => {
+    const task = await withPublishedRegistry(() =>
+      requestAnalysisQuery(site, actor, 'native:metrics', { ...parameters, type: 'path' }),
+    );
+    if (task.ready === true) throw new Error('Expected cold metrics');
+    expect(task.analysisJob.retryAfterMs).toBe(1000);
+    await sql(
+      "UPDATE liekan_analysis_query SET status='running',attempts=1 WHERE id=$1::uuid",
+      task.analysisJob.id,
+    );
+    expect(
+      await withPublishedRegistry(() => readAnalysisQuery(site, actor, task.analysisJob.id)),
+    ).toMatchObject({ analysisJob: { retryAfterMs: 1000 } });
+    await sql(
+      "UPDATE liekan_analysis_query SET status='queued',attempts=1,next_attempt_at=clock_timestamp()+interval '5 seconds' WHERE id=$1::uuid",
+      task.analysisJob.id,
+    );
+    expect(
+      await withPublishedRegistry(() => readAnalysisQuery(site, actor, task.analysisJob.id)),
+    ).toMatchObject({ analysisJob: { retryAfterMs: 3000 } });
   });
   it('coalesces a repeated query and lets the worker publish the original DTO', async () => {
     const first = await request(),
@@ -180,9 +284,9 @@ describe.skipIf(!enabled)('durable private query lifecycle in PostgreSQL', () =>
     const task = await request();
     if (task.ready === true) throw new Error('new fixture unexpectedly cached');
     const send = vi.fn().mockResolvedValue('delivered');
-    await pumpAnalysisQueries({ send });
+    await pumpAnalysisQueries({ send, update: vi.fn() });
     expect(send.mock.calls.some(([, data]) => data.id === task.analysisJob.id)).toBe(true);
-    await withAnalysisPermit('interactive', async () => {
+    await withAnalysisPermit('dashboard', async () => {
       expect((await processAnalysisQuery(task.analysisJob.id)).acquired).toBe(false);
     });
     const [row] = await q(

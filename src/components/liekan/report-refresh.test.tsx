@@ -166,7 +166,7 @@ it.each([
     fireEvent.click(screen.getByRole('button', { name: reset }));
     expect(state.updateParams).toHaveBeenCalledWith({
       tp_cityBody: undefined,
-      date: '30day',
+      date: '0day',
       unit: undefined,
       offset: undefined,
       dateMode: undefined,
@@ -180,33 +180,39 @@ it.each([
 );
 
 it.each(['ai/overview', 'ai/bots', 'ai/pages', 'ai/preference'] as const)(
-  'reuses the current-day crawler aggregate when reentering %s later', async resource => {
-  vi.useFakeTimers({ toFake: ['Date'] });
-  vi.setSystemTime(new Date('2026-10-23T05:00:00Z'));
-  state.dateMode = 'default';
-  state.get.mockResolvedValue(report('crawler-aggregate'));
-  const tree = () => (
-    <QueryClientProvider client={client}>
-      <ManualRefreshProvider>
-        <LiekanPage resource={resource} />
-      </ManualRefreshProvider>
-    </QueryClientProvider>
-  );
-  try {
-    const first = render(tree());
-    await waitFor(() => expect(state.get.mock.calls.filter(call => call[1]?.resource === resource)).toHaveLength(1));
-    await waitFor(() => expect(client.isFetching()).toBe(0));
-    first.unmount();
-    vi.setSystemTime(new Date('2026-10-23T05:00:01Z'));
-    render(tree());
-    await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
-    expect(state.get.mock.calls.filter(call => call[1]?.resource === resource)).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: '刷新' }));
-    await waitFor(() => expect(state.get.mock.calls.filter(call => call[1]?.resource === resource)).toHaveLength(2));
-  } finally {
-    vi.useRealTimers();
-  }
-});
+  'reuses the current-day crawler aggregate when reentering %s later',
+  async resource => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-23T05:00:00Z'));
+    state.dateMode = 'default';
+    state.get.mockResolvedValue(report('crawler-aggregate'));
+    const tree = () => (
+      <QueryClientProvider client={client}>
+        <ManualRefreshProvider>
+          <LiekanPage resource={resource} />
+        </ManualRefreshProvider>
+      </QueryClientProvider>
+    );
+    try {
+      const first = render(tree());
+      await waitFor(() =>
+        expect(state.get.mock.calls.filter(call => call[1]?.resource === resource)).toHaveLength(1),
+      );
+      await waitFor(() => expect(client.isFetching()).toBe(0));
+      first.unmount();
+      vi.setSystemTime(new Date('2026-10-23T05:00:01Z'));
+      render(tree());
+      await waitFor(() => expect(screen.getByRole('button', { name: '刷新' })).toBeEnabled());
+      expect(state.get.mock.calls.filter(call => call[1]?.resource === resource)).toHaveLength(1);
+      fireEvent.click(screen.getByRole('button', { name: '刷新' }));
+      await waitFor(() =>
+        expect(state.get.mock.calls.filter(call => call[1]?.resource === resource)).toHaveLength(2),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  },
+);
 
 it('resets a rolling log cursor before reading the refreshed window and fetches only the first batch', async () => {
   state.dateMode = 'default';
@@ -523,7 +529,7 @@ it('reports a failed manual read while retaining the previous data', async () =>
   expect(screen.getByTestId('report-value')).toHaveTextContent('initial');
 });
 
-it('preserves the generated range and URL across site midnight', async () => {
+it('advances the default Today range across site midnight', async () => {
   vi.useFakeTimers();
   vi.setSystemTime(new Date('2026-10-05T15:59:59Z'));
   state.date = 'range:old:old';
@@ -539,12 +545,12 @@ it('preserves the generated range and URL across site midnight', async () => {
     const first = state.get.mock.calls[0][1];
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     const second = state.get.mock.calls.at(-1)[1];
-    expect(second.startAt).toBe(first.startAt);
-    expect(second.endAt).toBe(first.endAt);
+    expect(second.startAt).toBe(first.endAt + 1);
+    expect(second.endAt).toBeGreaterThan(first.endAt);
     expect(state.updateParams).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        date: `range:${second.startAt}:${second.endAt}`,
-        dateMode: 'default',
+        date: '0day',
+        dateMode: undefined,
       }),
     );
   } finally {

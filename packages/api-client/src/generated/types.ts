@@ -530,6 +530,34 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/liekan/account/preferences': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read the current account preferences
+     * @description Requires a complete login session. Reading an unconfigured account returns the China and Today defaults without creating a record.
+     */
+    get: operations['readLiekanAccountPreferences'];
+    put?: never;
+    /**
+     * Initialize account preferences once from legacy browser values
+     * @description Requires a complete login session. Existing server preferences always win. Initialization leaves country and timezone confirmation pending.
+     */
+    post: operations['initializeLiekanAccountPreferences'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Confirm and save the current account preferences
+     * @description Requires a complete login session and an explicit country and matching timezone. API keys and public share identities are rejected.
+     */
+    patch: operations['saveLiekanAccountPreferences'];
+    trace?: never;
+  };
   '/api/liekan/admin/crawler-registry': {
     parameters: {
       query?: never;
@@ -8247,6 +8275,215 @@ export interface operations {
             /** @description Whether the operation succeeded. */
             ok: boolean;
           };
+        };
+      };
+    };
+  };
+  readLiekanAccountPreferences: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Current account country, timezone and date preferences */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            configured: boolean;
+            countryCode: string | null;
+            range: string;
+            /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+            timezone: string;
+            /** @description Date and time the record was last updated. */
+            updatedAt: string | null;
+          };
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  initializeLiekanAccountPreferences: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          range?: string;
+          /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+          timezone?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Current account country, timezone and date preferences */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            configured: boolean;
+            countryCode: string | null;
+            range: string;
+            /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+            timezone: string;
+            /** @description Date and time the record was last updated. */
+            updatedAt: string | null;
+          };
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+    };
+  };
+  saveLiekanAccountPreferences: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          countryCode: string;
+          range?: string;
+          /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+          timezone: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Current account country, timezone and date preferences */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            configured: boolean;
+            countryCode: string | null;
+            range: string;
+            /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+            timezone: string;
+            /** @description Date and time the record was last updated. */
+            updatedAt: string | null;
+          };
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
+        };
+      };
+      /** @description Request rejected or service unavailable */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ApiError'];
         };
       };
     };
@@ -30237,7 +30474,7 @@ export interface operations {
         botName?: string;
         botProductForm?: 'workbench' | 'personal_agent';
         botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
-        chartPeriod?: '30d' | '7d' | '24h';
+        chartPeriod?: 'today' | '30d' | '7d' | '24h';
         crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
         crawlerMetricsVersion?: number;
         cursor?: string;
@@ -30702,7 +30939,7 @@ export interface operations {
         botName?: string;
         botProductForm?: 'workbench' | 'personal_agent';
         botType?: '训练' | '搜索' | '用户触发' | '传统搜索' | '其他';
-        chartPeriod?: '30d' | '7d' | '24h';
+        chartPeriod?: 'today' | '30d' | '7d' | '24h';
         crawlerIdentityScope?: 'all' | 'verified_range' | 'verified_identity';
         crawlerMetricsVersion?: number;
         cursor?: string;
@@ -31769,7 +32006,7 @@ export interface operations {
   getLiekanSharedReport: {
     parameters: {
       query: {
-        chartPeriod?: '30d' | '7d' | '24h';
+        chartPeriod?: 'today' | '30d' | '7d' | '24h';
         /** @description End of the date range as a Unix timestamp in milliseconds. */
         endAt: number;
         refresh?: '1';

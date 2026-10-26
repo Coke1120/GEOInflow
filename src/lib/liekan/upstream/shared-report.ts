@@ -8,6 +8,7 @@ import {
   sharedReportParts,
   sharedReportQuery,
   sharedReportSchema,
+  sharedTimezone,
   type SharedReport,
 } from '../contracts/shared-report';
 import { buildReport } from '../report';
@@ -75,6 +76,7 @@ export async function warmSharedReport(
   const input = sharedReportQuery.safeParse(parameters);
   if (!input.success) throw new LiekanError('分享统计参数无效');
   const { refresh, ...parametersForReport } = input.data;
+  if (auth.shareToken) parametersForReport.timezone = sharedTimezone(auth.shareToken.parameters);
   const goals = auth.shareToken ? await canViewWebsiteSection(auth, website.id, 'goals') : true;
   const revision = analyticsCache.isRuntimeConfigured
     ? undefined

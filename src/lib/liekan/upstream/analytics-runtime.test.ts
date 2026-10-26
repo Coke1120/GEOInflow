@@ -12,6 +12,7 @@ import {
   runCacheAuthorization,
 } from './cache-context';
 import { currentCacheContext } from './cache-context';
+import { withinAnalysisPermit } from './analysis-permit-context';
 import { primaryMetadataClient } from './analytics-deadline';
 
 vi.mock('./analytics-hot', () => ({
@@ -113,6 +114,7 @@ it('coalesces fifty viewers, clones their results, and always computes on a prim
   installAnalyticsRuntime(cache, primary, disabled());
   const load = vi.fn(async () => {
     expect(getQuerySnapshot()).toBeDefined();
+    expect(sql.mock.calls.some(([statement]) => statement === 'SET LOCAL jit=off')).toBe(true);
     return { count: 1n };
   });
   const values = await Promise.all(
@@ -357,9 +359,15 @@ it('refreshes a bounded snapshot on demand and fences strong mutations immediate
   await cache.read('bounded-refresh', 30000, tags, load);
   data++;
   expect((await cache.read('bounded-refresh', 30000, tags, load)).status).toBe('hit');
-  expect((await cache.read('bounded-refresh', 30000, tags, load, true)).value).toEqual({ data: 1, strong: 0 });
+  expect((await cache.read('bounded-refresh', 30000, tags, load, true)).value).toEqual({
+    data: 1,
+    strong: 0,
+  });
   strong++;
-  expect((await cache.read('bounded-refresh', 30000, tags, load)).value).toEqual({ data: 1, strong: 1 });
+  expect((await cache.read('bounded-refresh', 30000, tags, load)).value).toEqual({
+    data: 1,
+    strong: 1,
+  });
   expect(load).toHaveBeenCalledTimes(3);
 });
 it('restarts the whole request when a definition changed after resolving filters', async () => {
@@ -597,4 +605,60 @@ it('restarts joined prepared requests after a strong revision changes during the
     expect(await response.json()).toEqual({ version: 1 });
   }
   expect(load).toHaveBeenCalledTimes(2);
+});
+
+it('keeps dashboard computation independent of occupied heavy computation slots', async () => {
+  const cache = new QueryCache();
+  installAnalyticsRuntime(cache, primary, disabled());
+  let release!: () => void,
+    allStarted!: () => void,
+    active = 0;
+  const held = new Promise<void>(resolve => (release = resolve)),
+    started = new Promise<void>(resolve => (allStarted = resolve));
+  const heavy = [0, 1].map(i =>
+    cache.read('occupied-heavy-' + i, 30000, tags, async () => {
+      if (++active === 2) allStarted();
+      await held;
+      return i;
+    }),
+  );
+  await started;
+  const shortLoad = vi.fn(async () => ({ ready: 7 }));
+  const short = withinAnalysisPermit({ token: id, epoch: '1', lane: 'dashboard' }, () =>
+    cache.read('independent-dashboard', 30000, tags, shortLoad),
+  );
+  try {
+    await vi.waitFor(() => expect(shortLoad).toHaveBeenCalledOnce(), { timeout: 1000 });
+    expect((await short).value).toEqual({ ready: 7 });
+  } finally {
+    release();
+    await Promise.allSettled([...heavy, short]);
+  }
+});
+it('keeps the dashboard computation slot bounded across concurrent requests', async () => {
+  const cache = new QueryCache();
+  installAnalyticsRuntime(cache, primary, disabled());
+  let release!: () => void, began!: () => void;
+  const held = new Promise<void>(resolve => (release = resolve)),
+    started = new Promise<void>(resolve => (began = resolve));
+  const run = (key: string, load: () => Promise<unknown>) =>
+    withinAnalysisPermit({ token: id, epoch: '1', lane: 'dashboard' }, () =>
+      cache.read(key, 30000, tags, load),
+    );
+  const first = run('dashboard-first', async () => {
+    began();
+    await held;
+    return 1;
+  });
+  await started;
+  const secondLoad = vi.fn(async () => 2),
+    second = run('dashboard-second', secondLoad);
+  try {
+    await new Promise(resolve => setTimeout(resolve, 50));
+    expect(secondLoad).not.toHaveBeenCalled();
+  } finally {
+    release();
+    await Promise.allSettled([first, second]);
+  }
+  expect(secondLoad).toHaveBeenCalledOnce();
 });

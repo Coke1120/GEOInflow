@@ -3366,6 +3366,14 @@ export const operations = {
     ],
     hasBody: false,
   },
+  initializeLiekanAccountPreferences: {
+    operationId: 'initializeLiekanAccountPreferences',
+    method: 'post',
+    path: '/api/liekan/account/preferences',
+    pathParams: [],
+    queryParams: [],
+    hasBody: true,
+  },
   initiateTwoFactorSetup: {
     operationId: 'initiateTwoFactorSetup',
     method: 'post',
@@ -3526,6 +3534,14 @@ export const operations = {
     queryParams: [],
     hasBody: true,
   },
+  readLiekanAccountPreferences: {
+    operationId: 'readLiekanAccountPreferences',
+    method: 'get',
+    path: '/api/liekan/account/preferences',
+    pathParams: [],
+    queryParams: [],
+    hasBody: false,
+  },
   readLiekanTeamUserCreation: {
     operationId: 'readLiekanTeamUserCreation',
     method: 'get',
@@ -3549,6 +3565,14 @@ export const operations = {
     pathParams: ['websiteId'],
     queryParams: [],
     hasBody: false,
+  },
+  saveLiekanAccountPreferences: {
+    operationId: 'saveLiekanAccountPreferences',
+    method: 'patch',
+    path: '/api/liekan/account/preferences',
+    pathParams: [],
+    queryParams: [],
+    hasBody: true,
   },
   saveWebsiteReplay: {
     operationId: 'saveWebsiteReplay',
@@ -5872,6 +5896,18 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * Initialize account preferences once from legacy browser values
+   * Requires a complete login session. Existing server preferences always win. Initialization leaves country and timezone confirmation pending.
+   * `POST /api/liekan/account/preferences`
+   */
+  initializeLiekanAccountPreferences(
+    input: OperationInput<'initializeLiekanAccountPreferences'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'initializeLiekanAccountPreferences'>> {
+    return this.execute('initializeLiekanAccountPreferences', input, options);
+  }
+
+  /**
    * Set up two-factor authentication
    * Starts or replaces the current user's pending setup and returns a QR code and manual setup key for an authenticator app.
    * `POST /api/2fa/setup/initiate`
@@ -6087,6 +6123,18 @@ export abstract class GeneratedUmamiClient {
   }
 
   /**
+   * Read the current account preferences
+   * Requires a complete login session. Reading an unconfigured account returns the China and Today defaults without creating a record.
+   * `GET /api/liekan/account/preferences`
+   */
+  readLiekanAccountPreferences(
+    input?: OperationInput<'readLiekanAccountPreferences'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'readLiekanAccountPreferences'>> {
+    return this.execute('readLiekanAccountPreferences', input, options);
+  }
+
+  /**
    * Reconcile a team account creation through read-only metadata
    * Requires a complete administrator login session. This operation never creates an account, changes a password or restores membership.
    * `GET /api/liekan/teams/{teamId}/users/create`
@@ -6120,6 +6168,18 @@ export abstract class GeneratedUmamiClient {
     options?: RequestOptions,
   ): Promise<OperationOutput<'resetWebsite'>> {
     return this.execute('resetWebsite', input, options);
+  }
+
+  /**
+   * Confirm and save the current account preferences
+   * Requires a complete login session and an explicit country and matching timezone. API keys and public share identities are rejected.
+   * `PATCH /api/liekan/account/preferences`
+   */
+  saveLiekanAccountPreferences(
+    input: OperationInput<'saveLiekanAccountPreferences'>,
+    options?: RequestOptions,
+  ): Promise<OperationOutput<'saveLiekanAccountPreferences'>> {
+    return this.execute('saveLiekanAccountPreferences', input, options);
   }
 
   /**

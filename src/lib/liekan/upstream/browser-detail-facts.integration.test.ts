@@ -252,6 +252,96 @@ describe.skipIf(!enabled)('exact persisted browser detail facts', () => {
     expect(pick(await facts())).toEqual(oracle);
     expect((await facts()).sourceEvidence[0].referrer).toBe('bing.com');
   });
+  it('keeps native reporting snapshots free of compilation and restores pooled session policy', async () => {
+    await event('2026-01-02T00:01Z', '/native-jit');
+    await event('2026-01-02T00:04Z', '/native-next');
+    const { executeNativeAnalysis } = await import('./analysis-native-execution');
+    const { withoutQueryCache } = await import('./cache-context');
+    expect((await q("SELECT current_setting('jit') AS mode"))[0].mode).toBe('on');
+    await server.reportSnapshot(async () => {
+      const tx = getQuerySnapshot();
+      expect(await tx.$queryRawUnsafe("SELECT current_setting('jit') AS mode")).toEqual([
+        { mode: 'off' },
+      ]);
+      await tx.$executeRawUnsafe('SET LOCAL jit_above_cost=0');
+      const plans = await tx.$queryRawUnsafe(
+        'EXPLAIN (ANALYZE,FORMAT JSON) SELECT sum(x) FROM generate_series(1,2) x',
+      );
+      if (!Array.isArray(plans)) throw new Error('Missing reporting plan');
+      expect(plans[0]['QUERY PLAN'][0].JIT).toBeUndefined();
+      for (const [target, extra] of [
+        ['retention', {}],
+        ['journeys', { steps: 3 }],
+        [
+          'funnels/stats',
+          {
+            window: 60,
+            steps: JSON.stringify([
+              { type: 'path', value: '/native-jit' },
+              { type: 'path', value: '/native-next' },
+            ]),
+          },
+        ],
+      ] as const) {
+        expect(
+          await withoutQueryCache(() =>
+            executeNativeAnalysis(site, target, {
+              startAt: +start,
+              endAt: +end,
+              timezone: 'UTC',
+              ...extra,
+            }),
+          ),
+        ).toBeDefined();
+      }
+    });
+    await expect(
+      server.reportSnapshot(async () => {
+        throw new Error('synthetic rollback');
+      }),
+    ).rejects.toThrow('synthetic rollback');
+    expect((await q("SELECT current_setting('jit') AS mode"))[0].mode).toBe('on');
+  });
+  it('avoids JIT compilation for covered detail reads while preserving exact facts', async context => {
+    const [support] = await q('SELECT pg_jit_available() AS available');
+    if (!support.available) return context.skip();
+    await event('2026-01-02T00:01Z', '/jit-fixture');
+    await event('2026-01-02T00:04Z', '/jit-fixture');
+    await build();
+    const oracle = (await facts()).pages;
+    let checked = false;
+    await db.analysisTransaction(async tx => {
+      await tx.$executeRawUnsafe('SET LOCAL jit=on');
+      await tx.$executeRawUnsafe('SET LOCAL jit_above_cost=0');
+      await tx.$executeRawUnsafe('SET LOCAL jit_inline_above_cost=-1');
+      await tx.$executeRawUnsafe('SET LOCAL jit_optimize_above_cost=-1');
+      const [control] = await tx.$queryRawUnsafe<any[]>(
+        'EXPLAIN (ANALYZE,FORMAT JSON) SELECT sum(x) FROM generate_series(1,2) x',
+      );
+      expect(control['QUERY PLAN'][0].JIT).toBeDefined();
+      const value = await withinQuerySnapshot(
+        {
+          $executeRawUnsafe: (sql: string, ...values: unknown[]) =>
+            tx.$executeRawUnsafe(sql, ...values),
+          $queryRawUnsafe: async (sql: string, ...values: unknown[]) => {
+            if (sql.startsWith('WITH original_coverage AS MATERIALIZED')) {
+              const [plan] = await tx.$queryRawUnsafe<any[]>(
+                'EXPLAIN (ANALYZE,FORMAT JSON) ' + sql,
+                ...values,
+              );
+              checked = true;
+              expect(plan['QUERY PLAN'][0].JIT).toBeUndefined();
+            }
+            return tx.$queryRawUnsafe(sql, ...values);
+          },
+        },
+        () => detail.readBrowserDetailFacts(site, start, end, 'UTC', ['pages']),
+      );
+      expect(value?.pages).toEqual(oracle);
+    });
+    expect(checked).toBe(true);
+    expect((await q("SELECT current_setting('jit') AS mode"))[0].mode).toBe('on');
+  });
   it('reads fully covered historical pages without executing historical event scans', async () => {
     await event('2026-01-02T00:01Z', '/a');
     await event('2026-01-02T00:04Z', '/b');
@@ -279,5 +369,117 @@ describe.skipIf(!enabled)('exact persisted browser detail facts', () => {
     );
     expect(reads.length).toBeGreaterThan(0);
     expect(reads.every(node => !node['Actual Loops'] || node['Actual Rows'] === 0)).toBe(true);
+  });
+  it('matches original content paths across inclusive boundaries and coverage without expanding dimensions', async () => {
+    await event(new Date(+start - 1).toISOString(), '/outside-left');
+    await event(start.toISOString(), '/included-start');
+    await event('2026-01-02T00:00:00Z', '/tie-a');
+    await event('2026-01-02T00:00:00Z', '/tie-b');
+    await event('2026-01-02T00:01:00Z', '/other-session', {
+      visit: session,
+      session: secondSession,
+    });
+    await event(end.toISOString(), '/included-end');
+    await event(new Date(+end + 1).toISOString(), '/outside-right');
+    await event('2026-01-02T00:02:00Z', '/custom-only', {
+      visit: randomUUID(),
+      type: 2,
+      name: 'synthetic-custom',
+    });
+    await event('2026-01-02T00:03:00Z', '/excluded', { excluded: true });
+    await event('2026-01-02T00:04:00Z', '/performance', { type: 5 });
+    await event('2026-01-02T00:05:00Z', '', { visit: randomUUID() });
+    const foreignSite = randomUUID(),
+      foreignSession = randomUUID(),
+      foreignVisit = randomUUID();
+    sites.push(foreignSite);
+    await execute(
+      `INSERT INTO website(website_id,user_id,name,domain) VALUES($1::uuid,$2::uuid,'Synthetic foreign session fixture','foreign-detail.invalid')`,
+      foreignSite,
+      actor.userId,
+    );
+    await execute(
+      `INSERT INTO session(session_id,website_id,created_at) VALUES($1::uuid,$2::uuid,'2026-01-01')`,
+      foreignSession,
+      foreignSite,
+    );
+    for (const [at, path] of [
+      ['2026-01-02T00:06:00Z', '/foreign-session-start'],
+      ['2026-01-02T00:07:00Z', '/foreign-session-end'],
+    ])
+      await event(at, path, { session: foreignSession, visit: foreignVisit });
+    const [ownership] = await q(
+      `SELECT
+        (SELECT count(*)::int FROM liekan_effective_website_event WHERE website_id=$1::uuid AND session_id=$2::uuid) AS admissible,
+        (SELECT count(*)::int FROM liekan_geographic_website_event WHERE website_id=$1::uuid AND session_id=$2::uuid) AS owned`,
+      site,
+      foreignSession,
+    );
+    expect(ownership).toEqual({ admissible: 2, owned: 0 });
+    const original = async (from = start, until = end) =>
+      server.reportSnapshot(async () => {
+        const [row] = await server.query(
+          analytics.humanVisitsSql() +
+            ` SELECT jsonb_build_object(
+            'journeys',(SELECT coalesce(jsonb_agg(to_jsonb(fact)),'[]'::jsonb) FROM (
+              WITH paths AS (SELECT visit_id,(array_agg(url_path ORDER BY created_at,event_id))[1:6] AS path
+                FROM events WHERE event_type=1 GROUP BY visit_id)
+              SELECT array_to_string(path,' → ') AS path,count(*)::int AS count FROM paths
+                GROUP BY 1 ORDER BY count DESC,path LIMIT 6) fact),
+            'exits',(SELECT coalesce(jsonb_agg(to_jsonb(fact)),'[]'::jsonb) FROM (
+              WITH lasts AS (SELECT DISTINCT ON(visit_id,session_id) url_path AS path FROM events WHERE event_type=1
+                ORDER BY visit_id,session_id,created_at DESC,event_id DESC)
+              SELECT path,count(*)::int AS count FROM lasts GROUP BY 1 ORDER BY count DESC,path LIMIT 1) fact)) AS facts`,
+          site,
+          from,
+          until,
+          'UTC',
+        );
+        return row.facts;
+      });
+    let checked = 0;
+    const read = (selected: HumanFact[], from = start, until = end) =>
+      server.reportSnapshot(() => {
+        const tx = getQuerySnapshot();
+        return withinQuerySnapshot(
+          {
+            $executeRawUnsafe: (sql: string, ...values: unknown[]) =>
+              tx.$executeRawUnsafe(sql, ...values),
+            $queryRawUnsafe: async (sql: string, ...values: unknown[]) => {
+              if (sql.includes("'journeys',") && sql.includes("'exits',")) {
+                const explain = await tx.$queryRawUnsafe(`EXPLAIN (FORMAT JSON) ${sql}`, ...values);
+                if (!Array.isArray(explain)) throw new Error('Expected a browser path query plan');
+                expect(explain).toHaveLength(1);
+                const [plan] = explain;
+                const nodes = (node: any): any[] => [node, ...(node.Plans || []).flatMap(nodes)];
+                const relations = nodes(plan['QUERY PLAN'][0].Plan).map(
+                  node => node['Relation Name'],
+                );
+                expect(relations).not.toContain('liekan_event_geography');
+                checked++;
+              }
+              return tx.$queryRawUnsafe(sql, ...values);
+            },
+          },
+          () => analytics.getHumanFacts(site, from, until, 'UTC', selected),
+        );
+      });
+    const paths = (value: any) => ({ journeys: value.journeys, exits: value.exits });
+    const oracle = await original();
+    expect(oracle.journeys.length).toBeGreaterThan(0);
+    expect(oracle.journeys.some(row => row.path === '')).toBe(true);
+    expect(oracle.exits.length).toBeGreaterThan(0);
+    expect(oracle.journeys.every(row => !row.path.includes('/foreign-session-'))).toBe(true);
+    expect(paths(await read(['journeys', 'exits']))).toEqual(oracle);
+    await build();
+    const covered = await read(['pages', 'journeys', 'exits']);
+    expect(covered.pages.length).toBeGreaterThan(0);
+    expect(paths(covered)).toEqual(oracle);
+    const emptyStart = new Date(+end + 86400000),
+      emptyEnd = new Date(+emptyStart + 1000);
+    expect(paths(await read(['journeys', 'exits'], emptyStart, emptyEnd))).toEqual(
+      await original(emptyStart, emptyEnd),
+    );
+    expect(checked).toBe(3);
   });
 });

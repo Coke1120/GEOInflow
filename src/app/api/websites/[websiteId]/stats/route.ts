@@ -37,6 +37,7 @@ async function getResponse(
     filters.compare ?? 'prev',
     filters.startDate,
     filters.endDate,
+    filters.timezone,
   );
 
   const [data, comparison] = await Promise.all([

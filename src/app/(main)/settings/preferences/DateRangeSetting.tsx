@@ -4,19 +4,35 @@ import { useMessages } from '@/components/hooks';
 import { DateFilter } from '@/components/input/DateFilter';
 import { DATE_RANGE_CONFIG, DEFAULT_DATE_RANGE_VALUE } from '@/lib/constants';
 import { getItem, setItem } from '@/lib/storage';
+import {
+  saveAccountPreferences,
+  useAccountPreferences,
+} from '@/lib/liekan/upstream/account-preferences-client';
 
 export function DateRangeSetting() {
   const { t, labels } = useMessages();
   const [date, setDate] = useState(getItem(DATE_RANGE_CONFIG) || DEFAULT_DATE_RANGE_VALUE);
+  const preferences = useAccountPreferences();
+  const [error, setError] = useState('');
 
-  const handleChange = (value: string) => {
-    setItem(DATE_RANGE_CONFIG, value);
-    setDate(value);
+  const handleChange = async (value: string) => {
+    try {
+      if (preferences?.countryCode)
+        await saveAccountPreferences({
+          countryCode: preferences.countryCode,
+          timezone: preferences.timezone,
+          range: value,
+        });
+      else setItem(DATE_RANGE_CONFIG, value);
+      setDate(value);
+      setError('');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    }
   };
 
   const handleReset = () => {
-    setItem(DATE_RANGE_CONFIG, DEFAULT_DATE_RANGE_VALUE);
-    setDate(DEFAULT_DATE_RANGE_VALUE);
+    void handleChange(DEFAULT_DATE_RANGE_VALUE);
   };
 
   return (
@@ -27,6 +43,7 @@ export function DateRangeSetting() {
         buttonProps={{ style: { minWidth: '250px' } }}
       />
       <Button onPress={handleReset}>{t(labels.reset)}</Button>
+      {error && <span role="alert">{error}</span>}
     </Row>
   );
 }

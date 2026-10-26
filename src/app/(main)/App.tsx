@@ -15,6 +15,7 @@ import {
 import { isLiekanRoute, isWebsiteLanding } from '@/components/liekan/data';
 import { LiekanShell } from '@/components/liekan/LiekanShell';
 import { FeatureApp, canRenderFeatureRoute } from '@/components/liekan/features/FeatureApp';
+import { AccountPreferencesBoundary } from '@/components/liekan/features/AccountPreferencesBoundary';
 import { matchFeatureRoute } from '@/components/liekan/features/routes';
 import { TwoFactorSetupModal } from '@/components/modals/TwoFactorSetupModal';
 import { LAST_TEAM_CONFIG } from '@/lib/constants';
@@ -73,7 +74,7 @@ export function App({ children }) {
     return null;
   }
 
-  return (
+  const content = (
     <>
       {showFeature ? (
         <FeatureApp user={user} route={featureRoute} forceSetup={needsTwoFactorSetup} />
@@ -138,5 +139,10 @@ export function App({ children }) {
         />
       )}
     </>
+  );
+  return needsTwoFactorSetup ? (
+    content
+  ) : (
+    <AccountPreferencesBoundary key={user.id}>{content}</AccountPreferencesBoundary>
   );
 }

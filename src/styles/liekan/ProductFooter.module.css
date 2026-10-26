@@ -38,7 +38,8 @@
   font-weight: 500;
   color: #16181d;
 }
-.publishers {
+.publishers,
+.attribution {
   display: inline-flex;
   align-items: center;
   flex-wrap: nowrap;

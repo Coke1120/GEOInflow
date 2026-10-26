@@ -22,6 +22,13 @@ import {
 } from './share-security';
 
 describe('live password shares', () => {
+  it('preserves the exact existing share calendar across metadata and password edits', () => {
+    const calendar = { timezone: 'US/Eastern', range: 'range:123:456', startAt: 123, endAt: 456 };
+    const previous = { ...calendar, password: 'legacy' };
+    expect(secureShareParameters({ timezone: 'Asia/Tokyo', range: '0day', password: null }, previous)).toEqual(calendar);
+    expect(secureShareParameters({ events: true }, previous)).toMatchObject(calendar);
+    expect(secureShareParameters({ events: true }, { overview: true })).not.toHaveProperty('timezone');
+  });
   it('hashes legacy passwords on the next write', () => {
     const migrated = secureShareParameters({ events: true }, { password: 'legacy' });
     expect(migrated.password).toBeUndefined();

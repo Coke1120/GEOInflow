@@ -3,6 +3,38 @@ import type { requestAnalysisQuery } from './analysis-queries';
 import { noteCacheResult } from './cache-context';
 import { LiekanError } from './errors';
 import { analysisQueryParameters } from './analysis-query-model';
+import { processSingleton } from './process-singleton';
+
+const handoffs = processSingleton(
+  'analysis-early-handoffs',
+  () => new Map<string, Promise<void>>(),
+);
+async function earlyHandoff(id: string) {
+  let pending = handoffs.get(id);
+  if (!pending && handoffs.size < 64) {
+    pending = (async () => {
+      const { getQueue } = await import('../log-ingestion/queue');
+      const { dispatchAnalysisQuery } = await import('./analysis-queries');
+      await dispatchAnalysisQuery(id, await getQueue());
+    })()
+      .catch(() => {})
+      .finally(() => handoffs.delete(id));
+    handoffs.set(id, pending);
+  }
+  if (!pending) return;
+  let timeout: ReturnType<typeof setTimeout>;
+  try {
+    // Queue recovery runs independently; it cannot hold a committed HTTP handle indefinitely.
+    await Promise.race([
+      pending,
+      new Promise<void>(resolve => {
+        timeout = setTimeout(resolve, 150);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export function analysisAsyncRequested(request: Request, target?: string) {
   if (
@@ -33,12 +65,19 @@ export function analysisResponse(value: Awaited<ReturnType<typeof requestAnalysi
     });
     return Response.json(value.value, { headers: { 'Cache-Control': 'private, no-store' } });
   }
+  const retryAfterMs = 'analysisJob' in value ? (value.analysisJob.retryAfterMs ?? 3000) : 3000;
   return Response.json(
     {
       analysisJob: (value as { analysisJob: unknown }).analysisJob,
       ...('previousResult' in value ? { previousResult: value.previousResult } : {}),
     },
-    { status: 202, headers: { 'Cache-Control': 'private, no-store', 'Retry-After': '3' } },
+    {
+      status: 202,
+      headers: {
+        'Cache-Control': 'private, no-store',
+        'Retry-After': String(Math.ceil(retryAfterMs / 1000)),
+      },
+    },
   );
 }
 export async function asyncAnalysisResponse(request: Request, websiteId: string, target: string) {
@@ -53,6 +92,9 @@ export async function asyncAnalysisResponse(request: Request, websiteId: string,
     readLocaleCookie(request.headers.get('cookie') || '') ||
     (request.headers.get('accept-language')?.startsWith('en') ? 'en-US' : 'zh-CN');
   const value = await requestDashboardSnapshot(access.website.id, actor, target, query, locale);
+  if (value.ready === false) {
+    await earlyHandoff(value.analysisJob.id);
+  }
   const response = analysisResponse(value);
   if ('dataThrough' in value && 'snapshotState' in value) {
     response.headers.set('X-Liekan-Data-Through', String(value.dataThrough));

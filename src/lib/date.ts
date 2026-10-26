@@ -41,6 +41,13 @@ import {
 import { toZonedTime } from 'date-fns-tz';
 import { getDateLocale } from '@/lib/lang';
 import type { DateRange } from '@/lib/types';
+import {
+  calendarDayRange,
+  calendarDateRange,
+  calendarDateTimeToUtc,
+  shiftCalendarRange,
+} from '@/lib/liekan/contracts/calendar';
+import { formatInTimeZone } from 'date-fns-tz';
 
 export const TIME_UNIT = {
   minute: 'minute',
@@ -195,9 +202,9 @@ export function parseDateRange(
     case 'week':
       return {
         startDate: num
-          ? subWeeks(startOfWeek(now, { locale: dateLocale }), num)
-          : startOfWeek(now, { locale: dateLocale }),
-        endDate: endOfWeek(now, { locale: dateLocale }),
+          ? subWeeks(startOfWeek(now, { locale: dateLocale, weekStartsOn: 1 }), num)
+          : startOfWeek(now, { locale: dateLocale, weekStartsOn: 1 }),
+        endDate: endOfWeek(now, { locale: dateLocale, weekStartsOn: 1 }),
         unit: unitValue || 'day',
         offset: 0,
         num: num || 1,
@@ -314,12 +321,43 @@ export function minDate(...args: any[]) {
   return min(args.filter(n => isDate(n)));
 }
 
-export function getCompareDate(compare: string, startDate: Date, endDate: Date) {
+export function getCompareDate(
+  compare: string,
+  startDate: Date,
+  endDate: Date,
+  naturalDay: boolean | string = false,
+) {
+  const calendar =
+    typeof naturalDay === 'string' &&
+    calendarDayRange(+startDate, naturalDay).startAt === +startDate &&
+    formatInTimeZone(startDate, naturalDay, 'yyyy-MM-dd') ===
+      formatInTimeZone(endDate, naturalDay, 'yyyy-MM-dd');
   if (compare === 'yoy') {
+    if (calendar && typeof naturalDay === 'string') {
+      const day = calendarDateRange(
+        format(subYears(toZonedTime(startDate, naturalDay), 1), 'yyyy-MM-dd'),
+        naturalDay,
+      );
+      return {
+        compare,
+        startDate: new Date(day.startAt),
+        endDate: new Date(
+          +endDate === calendarDayRange(+startDate, naturalDay).endAt
+            ? day.endAt
+            : calendarDateTimeToUtc(subYears(toZonedTime(endDate, naturalDay), 1), naturalDay),
+        ),
+      };
+    }
     return { compare, startDate: subYears(startDate, 1), endDate: subYears(endDate, 1) };
   }
 
   if (compare === 'prev') {
+    if (calendar && typeof naturalDay === 'string') {
+      const previous = shiftCalendarRange(+startDate, +endDate, -1, naturalDay);
+      return { compare, startDate: new Date(previous.startAt), endDate: new Date(previous.endAt) };
+    }
+    if (naturalDay === true)
+      return { compare, startDate: subDays(startDate, 1), endDate: subDays(endDate, 1) };
     const diff = differenceInMinutes(endDate, startDate);
 
     return { compare, startDate: subMinutes(startDate, diff), endDate: subMinutes(endDate, diff) };

@@ -1,3 +1,4 @@
+import { captureShareCalendar } from '@/lib/liekan/upstream/share-calendar';
 import { validShareParameters } from '@/lib/liekan/contracts/shares';
 import { z } from 'zod';
 import { ENTITY_TYPE } from '@/lib/constants';
@@ -73,7 +74,7 @@ export async function POST(
     shareType: ENTITY_TYPE.website,
     name,
     slug,
-    parameters: shareParameters,
+    parameters: await captureShareCalendar(auth, shareParameters),
   });
 
   return json(share);

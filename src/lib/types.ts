@@ -47,7 +47,17 @@ export interface ShareParameters {
   enabled?: boolean;
   allowFilter?: boolean;
   theme?: ShareTheme;
-  [key: string]: boolean | ShareTheme | undefined;
+  timezone?: string;
+  range?: string | { startAt: number; endAt: number; unit?: string };
+  date?: string;
+  startAt?: number;
+  endAt?: number;
+  [key: string]:
+    | boolean
+    | string
+    | number
+    | { startAt: number; endAt: number; unit?: string }
+    | undefined;
 }
 
 export interface PropertyFilter {

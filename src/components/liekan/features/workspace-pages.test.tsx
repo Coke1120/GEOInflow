@@ -22,6 +22,7 @@ import { freshAggregateFixture } from '@/test/liekan-freshness';
 import { clientRequestOptions } from '@/lib/liekan/upstream/client-freshness';
 import { ResourceAnalytics, ShareFeatureView, WorkspacePages } from './WorkspacePages';
 import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
+import { setTestUrl } from '@/test/navigation';
 
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
@@ -962,6 +963,8 @@ describe('share settings and public access from the list', () => {
       entityId: site.id,
       shareType: 1,
       parameters: {
+        timezone: 'America/New_York',
+        range: '0day',
         enabled: true,
         allowFilter: false,
         theme: 'light',
@@ -1041,6 +1044,62 @@ describe('share settings and public access from the list', () => {
 });
 
 describe('public share restrictions and password lifecycle', () => {
+  it.each([
+    ['2026-03-08T12:00:00Z', '2026-03-08T05:00:00Z', '2026-03-09T03:59:59.999Z'],
+    ['2026-11-01T12:00:00Z', '2026-11-01T04:00:00Z', '2026-11-02T04:59:59.999Z'],
+  ])('pins public Today to the publisher calendar on %s and preserves its selected button', async (now, start, end) => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.parse(now));
+    const slug = `calendar-report-${Date.parse(now)}`;
+    setTestUrl(`/share/${slug}`);
+    mocks.preferences.mockReturnValue({ timezone: 'Asia/Tokyo', range: '30day' });
+    mocks.request.mockImplementation(async (_method: string, path: string) => {
+      if (path === `/share/${slug}`) return {
+        token: 'calendar-proof', websiteId: 'site-1', parameters: {
+          timezone: 'America/New_York', range: '0day', overview: true, events: false,
+          goals: false, utm: false, allowFilter: true,
+        },
+      };
+      return {
+        website: { id: 'site-1', name: '日历分享', domain: 'example.com' },
+        states: { human: 'available', logs: 'not_connected' }, cards: [], charts: {},
+        tables: { envGrid: [], cityBody: [] }, insights: [], meta: { demo: false },
+        capabilities: { goals: false },
+      };
+    });
+    mount(<ShareFeatureView slug={slug} />, false);
+    await screen.findByRole('heading', { name: '日历分享' });
+    const reportCalls = () => mocks.request.mock.calls.filter(call => call[1].endsWith('/shared-report'));
+    expect(reportCalls()).toHaveLength(1);
+    expect(reportCalls()[0][2]).toEqual({
+      startAt: Date.parse(start), endAt: Date.parse(end), timezone: 'America/New_York', chartPeriod: 'today',
+    });
+    expect(screen.getByRole('button', { name: '今天' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: '7 天' }));
+    await waitFor(() => expect(reportCalls()).toHaveLength(2));
+    expect(screen.getByRole('button', { name: '7 天' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(screen.getByRole('button', { name: '今天' }));
+    expect(screen.getByRole('button', { name: '今天' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: '24h' })).not.toBeInTheDocument();
+  });
+
+  it.each(['24hour', '24h'])('keeps an explicit legacy %s URL rolling when a share defaults to Today', async token => {
+    setTestUrl(`/share/rolling-report?date=${token}`);
+    mocks.request.mockImplementation(async (_method: string, path: string) => {
+      if (path === '/share/rolling-report') return {
+        token: 'rolling-proof', websiteId: 'site-1', parameters: {
+          timezone: 'America/New_York', range: '0day', overview: false, events: true,
+          goals: false, utm: false, allowFilter: false,
+        },
+      };
+      return [];
+    });
+    mount(<ShareFeatureView slug="rolling-report" />, false);
+    await screen.findByRole('heading', { name: '事件趋势' });
+    const request = mocks.request.mock.calls.find(call => call[1].endsWith('/events/series'));
+    expect(request[2].endAt - request[2].startAt).toBe(86400000);
+    expect(request[2].timezone).toBe('America/New_York');
+  });
+
   it('does not carry returned password material into an update, and explicitly removes protection with null', () => {
     const unchanged = shareParameters(
       { overview: 'on', allowFilter: 'on', theme: 'light' },

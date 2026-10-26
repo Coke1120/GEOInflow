@@ -22,6 +22,7 @@ import {
   rowsOf,
 } from '@/lib/liekan/contracts/features';
 import { useFeatureDateRange, useNavigation } from '@/lib/liekan/upstream/client';
+import { useAccountPreferences } from '@/lib/liekan/upstream/account-preferences-client';
 import {
   featureApi,
   featureSiteQuery,
@@ -56,7 +57,9 @@ const CrawlerRegistryPage = dynamic(() =>
   import('./CrawlerRegistryPage').then(module => module.CrawlerRegistryPage),
 );
 const HelpCenter = dynamic(() => import('./HelpCenter').then(module => module.HelpCenter));
-const AnalyticsAccelerationPage = dynamic(() => import('./AnalyticsAccelerationPage').then(module => module.AnalyticsAccelerationPage));
+const AnalyticsAccelerationPage = dynamic(() =>
+  import('./AnalyticsAccelerationPage').then(module => module.AnalyticsAccelerationPage),
+);
 const HistoryRepairPage = dynamic(() =>
   import('./HistoryRepairPage').then(module => module.HistoryRepairPage),
 );
@@ -197,7 +200,8 @@ export function FeatureApp({
       'team-detail',
     ].includes(route.page);
   const preferences = getFeaturePreferences();
-  const timezone = preferences.timezone || 'Asia/Shanghai';
+  const accountPreferences = useAccountPreferences();
+  const timezone = accountPreferences?.timezone || preferences.timezone || 'Asia/Shanghai';
   const { dateRange, invalidDate } = useFeatureDateRange(timezone);
   const range = useMemo(
     () => featureDateRange(dateRange, timezone),
@@ -402,7 +406,7 @@ export function FeatureApp({
       current.page,
     ) &&
     !!siteId;
-  const rangeContext = datePage && (
+  const rangeContext = datePage && !['realtime', 'retention'].includes(current.page) && (
     <div className="range-context">
       {i18n.fragment('统计期间：', false, true)}
       {formatInTimeZone(range.startAt, timezone, 'yyyy-MM-dd')}
@@ -474,26 +478,28 @@ export function FeatureApp({
     </Button>
   );
   // 快捷时间按钮只进网站项目工具栏；非 websiteLayout 的页头（dateControl 的另一处渲染）不加。
-  const websiteDateActions = websiteLayout && datePage && (
-    <>
-      <QuickRangeButtons
-        variant="btn"
-        activeToken={activeQuickDateRange(nav.query)}
-        onSelect={token =>
-          nav.router.push(
-            nav.updateParams({
-              date: token,
-              unit: undefined,
-              offset: undefined,
-              dateMode: undefined,
-              live: undefined,
-            }),
-          )
-        }
-      />
-      {dateControl}
-    </>
-  );
+  const websiteDateActions = websiteLayout &&
+    datePage &&
+    !['realtime', 'retention'].includes(route.page) && (
+      <>
+        <QuickRangeButtons
+          variant="btn"
+          activeToken={activeQuickDateRange(nav.query)}
+          onSelect={token =>
+            nav.router.push(
+              nav.updateParams({
+                date: token,
+                unit: undefined,
+                offset: undefined,
+                dateMode: undefined,
+                live: undefined,
+              }),
+            )
+          }
+        />
+        {dateControl}
+      </>
+    );
   if (setup)
     return (
       <FeatureProvider value={value}>
@@ -508,7 +514,10 @@ export function FeatureApp({
               href={href}
               onSegments={siteId && !meta.parent ? () => setSegmentsOpen(true) : undefined}
             />
-            <AnalysisPendingNotice websiteId={site?.id || siteId} websiteHandle={current.websiteId} />
+            <AnalysisPendingNotice
+              websiteId={site?.id || siteId}
+              websiteHandle={current.websiteId}
+            />
             {content}
           </main>
           <ProductFooter />
@@ -644,7 +653,7 @@ export function FeatureApp({
                 <Button
                   onClick={() =>
                     updateQuery({
-                      date: '30day',
+                      date: '0day',
                       unit: undefined,
                       offset: undefined,
                       dateMode: undefined,
@@ -661,7 +670,10 @@ export function FeatureApp({
               <Notice>{i18n.text('已清除当前页面不支持的筛选，统计采用页面显示的条件。')}</Notice>
             )}
             {!showAnalysisTools && analysisTabs}
-            <AnalysisPendingNotice websiteId={site?.id || siteId} websiteHandle={current.websiteId} />
+            <AnalysisPendingNotice
+              websiteId={site?.id || siteId}
+              websiteHandle={current.websiteId}
+            />
             {content}
           </main>
           <ProductFooter />

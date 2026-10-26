@@ -20,9 +20,10 @@ import {
 } from 'react';
 import { getClientAuthToken } from '@/lib/client';
 import { AUTH_TOKEN } from '@/lib/constants';
-import { setUser } from '@/store/app';
+import { setUser, useApp } from '@/store/app';
 import { useBrowserCacheClock, useBrowserCacheQuery } from './cache-client';
 import { browserQueryPolicy } from './cache-policy';
+import { isRealtimeRead, liveReadInterval, liveClockChanged } from './live-read-policy';
 import {
   aggregateReadFailure,
   hasClientFreshness,
@@ -43,6 +44,7 @@ export const ordinaryReadOptions = {
   refetchInterval: false,
 } as const;
 
+const livePolls = new WeakMap<object, number>();
 let nextPage = 0;
 const visitReads = new Map<string, string>();
 const completedReads = new Map<string, string>();
@@ -92,6 +94,7 @@ interface ManualReading {
   error: string;
   refresh: (expectedPage?: number, force?: boolean) => Promise<void>;
   retirePage: (expectedPage: number) => boolean;
+  advanceClock: (expectedPage: number) => void;
   register: (key: readonly unknown[], observation: ReadObservation) => () => void;
   authorized?: boolean;
 }
@@ -163,6 +166,11 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
   const [readState, setReadState] = useState({ token: 0, at: 0, error: '' });
   const principal = useRef(getClientAuthToken());
   const conditions = new URLSearchParams(search?.toString() || '');
+  const account = useApp(state => state.accountPreferences);
+  if (account && !pathname?.startsWith('/share')) {
+    if (!conditions.has('timezone')) conditions.set('timezone', account.timezone);
+    if (!conditions.has('date')) conditions.set('date', account.range);
+  }
   for (const cosmetic of ['theme', 'language', 'locale']) conditions.delete(cosmetic);
   // Conversation and task acknowledgments keep the current AI workspace mounted.
   if (pathname === '/liekan/ai-chat') {
@@ -450,6 +458,18 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
     return true;
   }, []);
   const authorized = pausedScope.current !== locationScope && retiredPage.current !== page.token;
+  const advanceClock = useCallback((expectedPage: number) => {
+    const active = current.current;
+    if (
+      !active ||
+      active.token !== expectedPage ||
+      pending.current ||
+      Date.now() - active.now < 1000
+    )
+      return;
+    current.current = { ...active, now: Date.now(), clockReady: true };
+    update();
+  }, []);
   const value = useMemo(
     () => ({
       page,
@@ -459,9 +479,10 @@ export function ManualRefreshProvider({ children }: { children: ReactNode }) {
       error: readState.token === page.token ? readState.error : '',
       refresh,
       retirePage,
+      advanceClock,
       register,
     }),
-    [page, authorized, busy, readState, refresh, retirePage, register],
+    [page, authorized, busy, readState, refresh, retirePage, advanceClock, register],
   );
   return <ManualContext.Provider value={value}>{children}</ManualContext.Provider>;
 }
@@ -601,6 +622,19 @@ export function useManualQueryOptions(options: any) {
   };
 }
 function ownerScope(key: readonly any[], options: any) {
+  if (isRealtimeRead(key))
+    return hashKey(
+      key.map(value =>
+        typeof value === 'number'
+          ? undefined
+          : value &&
+              typeof value === 'object' &&
+              Number.isFinite(value.startAt) &&
+              Number.isFinite(value.endAt)
+            ? { ...value, startAt: undefined, endAt: undefined }
+            : value,
+      ),
+    );
   const clock = options?.meta?.manualClock;
   const relative = clock && !String(clock.conditions || '').split('|')[0];
   if (!relative) return hashKey(key);
@@ -679,6 +713,43 @@ export function useRetainedRead(
   const principalPaused =
     options?.meta?.readPurpose === 'ordinary' &&
     (reading?.authorized === false || options.meta.manualAuthorized === false);
+  const relativeClock = options?.meta?.manualClock &&
+    !String(options.meta.manualClock.conditions || '').split('|')[0].startsWith('range:');
+  const liveInterval = reading && readable && !restricted && !principalPaused
+    ? liveReadInterval(key, relativeClock ? options.meta.manualClock.now : Date.now()) : false;
+  const liveRead = useRef({ result, reading, options });
+  liveRead.current = { result, reading, options };
+  useEffect(() => {
+    if (!liveInterval) return;
+    const poll = () => {
+      const active = client.getQueryCache().find({ queryKey: key, exact: true });
+      if (
+        !active ||
+        active.state.fetchStatus !== 'idle' ||
+        document.visibilityState === 'hidden' ||
+        navigator.onLine === false ||
+        liveRead.current.reading?.authorized === false ||
+        [401, 403, 404, 409, 410].includes((active.state.error as any)?.status)
+      )
+        return;
+      const now = performance.now();
+      if (now - (livePolls.get(active) ?? -Infinity) < liveInterval) return;
+      livePolls.set(active, now);
+      if (liveClockChanged(key, liveRead.current.options?.meta?.manualClock)) {
+        liveRead.current.reading?.advanceClock(liveRead.current.reading.page.token);
+        return;
+      }
+      void liveRead.current.result.refetch({ cancelRefetch: false }).catch(() => {});
+    };
+    const timer = setInterval(poll, liveInterval);
+    document.addEventListener('visibilitychange', poll);
+    window.addEventListener('online', poll);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', poll);
+      window.removeEventListener('online', poll);
+    };
+  }, [client, id, liveInterval]);
   const invalidatedDefinition = useRef<string>(null);
   const definitionSelection = useRef<{ id: string; epoch: string }>(null);
   if (definitionSelection.current?.id !== id || definitionSelection.current?.epoch !== epoch) {

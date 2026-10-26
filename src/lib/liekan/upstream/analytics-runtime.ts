@@ -1,6 +1,10 @@
 import { analyticsCacheLimits } from './cache-policy';
 import { dashboardClock } from './dashboard-clock';
-import { analyticsGate, AnalyticsRestart, AnalyticsUnavailable } from './analytics-budget';
+import {
+  analyticsComputationGate,
+  AnalyticsRestart,
+  AnalyticsUnavailable,
+} from './analytics-budget';
 import {
   currentCacheContext,
   installVersionReader,
@@ -189,7 +193,7 @@ export function installAnalyticsRuntime(
     load: () => Promise<T>,
     deadline: number,
   ): Promise<CachedResult<T>> {
-    return analyticsGate.run(async () => {
+    return analyticsComputationGate().run(async () => {
       if (
         currentCacheContext()?.background &&
         currentCacheContext()?.workKind !== 'interactive' &&
@@ -203,6 +207,7 @@ export function installAnalyticsRuntime(
         async (transaction: any) => {
           const tx = timedAnalyticsClient(transaction, computeDeadline);
           await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+          await tx.$executeRawUnsafe('SET LOCAL jit=off');
           // Ingestion can advance before snapshot acquisition; the result freshness check handles it.
           if ((await readAnalyticsVersions(tx, tags)).strong !== expected.strong)
             throw new RevisionChanged();

@@ -1,6 +1,22 @@
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+
+export function livePageReadAllowed(read, now = Date.now()) {
+  if (/^\/api\/(?:realtime\/[^/]+|websites\/[^/]+\/active)$/.test(read.path)) return true;
+  if (/^\/api\/liekan\/websites\/[^/]+\/analytics$/.test(read.path) && read.kind === 'realtime') return true;
+  if (/^\/api\/liekan\/websites\/[^/]+\/analytics-jobs\/[^/]+(?:\/result)?$/.test(read.path)) return true;
+  const report = /^\/api\/liekan\/websites\/[^/]+\/page-report$/.test(read.path);
+  if (report && ['overview', 'conversions'].includes(read.resource)) return true;
+  if ((report && ['logs', 'human/keywords'].includes(read.resource)) ||
+    (!report && !/^\/api\/websites\/[^/]+\/(?:stats|pageviews|metrics)$/.test(read.path))) return false;
+  try {
+    const timezone = read.timezone || 'UTC';
+    const today = +fromZonedTime(`${formatInTimeZone(now, timezone, 'yyyy-MM-dd')}T00:00:00`, timezone);
+    return Number(read.startAt) <= now && (Number(read.endAt) > today || (read.crawlerMetricsVersion !== '1' && Number(read.endAt) === today));
+  } catch { return false; }
+}
 
 export function manualReadKind(method, path) {
   if (method !== 'GET' || !path.startsWith('/api/')) return 'ignored';

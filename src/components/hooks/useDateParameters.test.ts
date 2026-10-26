@@ -21,6 +21,26 @@ vi.mock('./useTimezone', () => ({
 import { useDateParameters } from './useDateParameters';
 
 describe('useDateParameters', () => {
+  test('retains public share epochs and timezone without reinterpreting DST or saved custom dates', () => {
+    const sharedRange = {
+      startAt: 1793505600000,
+      endAt: 1793595599999,
+      timezone: 'US/Eastern',
+      unit: 'hour',
+    };
+    useDateRangeMock.mockReturnValue({
+      dateRange: {
+        startDate: new Date(sharedRange.startAt),
+        endDate: new Date(sharedRange.endAt),
+        unit: 'day',
+      },
+      sharedRange,
+    });
+    toUtcMock.mockClear();
+    const { result } = renderHook(() => useDateParameters());
+    expect(result.current).toMatchObject(sharedRange);
+    expect(toUtcMock).not.toHaveBeenCalled();
+  });
   test('passes the profile timezone into useDateRange instead of ignoring it', () => {
     useDateRangeMock.mockReturnValue({
       dateRange: { startDate: new Date('2026-09-16T03:00:00Z'), endDate: new Date(), unit: 'hour' },

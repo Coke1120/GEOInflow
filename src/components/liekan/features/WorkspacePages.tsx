@@ -61,7 +61,12 @@ import {
 } from '@/lib/liekan/upstream/features-client';
 import { Chart } from './Chart';
 import { SharedWebsiteOverview } from './SharedWebsiteOverview';
-import { sharedDateRange } from '@/lib/liekan/contracts/shared-report';
+import {
+  resolveSharedDateRange,
+  sharedDateRange,
+  sharedTimezone,
+  type SharedDateRange,
+} from '@/lib/liekan/contracts/shared-report';
 import sharedStyles from '@/styles/liekan/SharedReport.module.css';
 import {
   FeatureProvider,
@@ -2915,7 +2920,15 @@ export function ShareDrawer({
               throw new Error('此资源需要管理权限');
             if (values.password && new TextEncoder().encode(String(values.password)).length > 72)
               throw new Error('密码最多 72 个 UTF-8 字节');
-            const body = { name: values.name, parameters: shareParameters(values, parameters) };
+            const body = {
+              name: values.name,
+              parameters: shareParameters(
+                values,
+                share
+                  ? parameters
+                  : { ...parameters, timezone: getFeaturePreferences().timezone, range: '0day' },
+              ),
+            };
             await action.run(
               () =>
                 c.api.post(
@@ -3677,14 +3690,56 @@ export function ShareFeatureView({
     data: any;
     deadline: number;
   }>();
-  const [presetDays, setPresetDays] = useState<number | null>(30);
+  const [calendarParameters, setCalendarParameters] = useState<{ slug: string; parameters: any }>();
+  const parameters = calendarParameters?.slug === slug ? calendarParameters.parameters : {};
+  const timezone = sharedTimezone(parameters);
+  const search = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
+  const dateParameter = search?.get('date') || search?.get('range') || undefined;
+  const calendarKey = hashKey([
+    timezone,
+    dateParameter,
+    parameters.range,
+    parameters.date,
+    parameters.startAt,
+    parameters.endAt,
+    parameters.unit,
+  ]);
+  const [selection, setSelection] = useState<{
+    slug: string;
+    calendarKey: string;
+    presetDays: number | null;
+    range: SharedDateRange;
+  }>();
+  const selectedRange =
+    selection?.slug === slug && selection.calendarKey === calendarKey ? selection : undefined;
   const reading = useManualRefresh();
-  const enteredAt = useDateRangeClock('Asia/Shanghai', presetDays != null);
+  const storedDate = dateParameter || parameters.range || parameters.date;
+  const fixedRange = typeof storedDate === 'object' ||
+    (typeof storedDate === 'string' && storedDate.startsWith('range:')) ||
+    (parameters.startAt != null && parameters.endAt != null);
+  const enteredAt = useDateRangeClock(
+    timezone, selectedRange ? selectedRange.presetDays != null : !fixedRange,
+  );
   const [selectedAt, setSelectedAt] = useState<{ epoch: string; now: number }>(null);
   const rangeEpoch = `${reading?.page.token}:${reading?.page.round}`;
-  const rangeNow = selectedAt?.epoch === rangeEpoch ? selectedAt.now : enteredAt;
-  const [customRange, setRange] = useState(() => sharedDateRange(30, rangeNow));
-  const range = presetDays != null ? sharedDateRange(presetDays, rangeNow) : customRange;
+  const rangeNow = selectedAt?.epoch === rangeEpoch ? Math.max(selectedAt.now, enteredAt) : enteredAt;
+  const initialRange = resolveSharedDateRange(parameters, rangeNow, dateParameter);
+  const presetDays = selectedRange
+    ? selectedRange.presetDays
+    : initialRange.chartPeriod === 'today'
+      ? 0
+      : initialRange.chartPeriod === '24h'
+        ? 1
+        : initialRange.chartPeriod === '30d'
+          ? 30
+          : null;
+  const range = selectedRange
+    ? presetDays != null
+      ? sharedDateRange(presetDays, rangeNow, timezone)
+      : selectedRange.range
+    : initialRange;
+  const chooseRange = (range: SharedDateRange, presetDays: number | null) =>
+    setSelection({ slug, calendarKey, range, presetDays });
   const retryAt = useRef(0);
   const clearPublicQueries = () =>
     client.removeQueries({
@@ -3703,6 +3758,7 @@ export function ShareFeatureView({
     scopeSlug.current = slug;
   }
   const acceptAuthorization = (data: any) => {
+    if (data.token) setCalendarParameters({ slug, parameters: data.parameters || {} });
     const parameters = Object.fromEntries(
       Object.entries(data.parameters || {}).filter(
         ([key]) => !['theme', 'hasPassword'].includes(key),
@@ -3868,18 +3924,17 @@ export function ShareFeatureView({
           [
             [i18n.text('30 天'), 30],
             [i18n.text('7 天'), 7],
-            ['24h', 1],
+            [i18n.text('今天'), 0],
           ] as const
         ).map(([label, days]) => (
           <Button
             key={label}
-            primary={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
-            aria-pressed={Math.abs(range.endAt - range.startAt - days * 86400000) < 1000}
+            primary={presetDays === days}
+            aria-pressed={presetDays === days}
             onClick={() => {
               const now = Date.now();
               setSelectedAt({ epoch: rangeEpoch, now });
-              setRange(sharedDateRange(days, now));
-              setPresetDays(days);
+              chooseRange(sharedDateRange(days, now, timezone), days);
             }}
           >
             {i18n.system(label)}
@@ -3893,8 +3948,7 @@ export function ShareFeatureView({
         onChange={e => {
           const time = +fromZonedTime(`${e.target.value}T00:00:00`, range.timezone);
           if (Number.isFinite(time)) {
-            setRange({ ...range, startAt: time });
-            setPresetDays(null);
+            chooseRange({ ...range, startAt: time, chartPeriod: undefined }, null);
           }
         }}
       />
@@ -3905,8 +3959,7 @@ export function ShareFeatureView({
         onChange={e => {
           const time = +fromZonedTime(`${e.target.value}T23:59:59.999`, range.timezone);
           if (Number.isFinite(time)) {
-            setRange({ ...range, endAt: time });
-            setPresetDays(null);
+            chooseRange({ ...range, endAt: time, chartPeriod: undefined }, null);
           }
         }}
       />

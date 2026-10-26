@@ -1,13 +1,99 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 
 vi.mock('./server', () => ({ query: vi.fn(), humanTotals: vi.fn() }));
 vi.mock('@/queries/sql', () => ({ getFunnel: vi.fn() }));
 
 import { getFunnel } from '@/queries/sql';
-import { classifyEntrySource, getHumanFacts } from './analytics';
+import { classifyEntrySource, getHumanFacts, humanVisitsSql } from './analytics';
+import { withTrafficPolicy } from './traffic-query';
 import { humanTotals, query } from './server';
+import { readBrowserDetailFacts } from './browser-detail-facts';
 
-beforeEach(() => vi.resetAllMocks());
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(readBrowserDetailFacts).mockResolvedValue(null);
+});
+
+describe('keyword visit projection', () => {
+  it.each([
+    [true, '3af1223ab54ac6d759cc893381dc1f67551f4d6d37f53d8c20b32386900c1646'],
+    [false, '91361fd263b615a9f5b329a3e601aaaa125b60cc115d513a1bac2bf756a2eaa2'],
+  ] as const)(
+    'preserves the original SQL with keywords=%s as the compatibility oracle',
+    (keywords, hash) => {
+      expect(createHash('sha256').update(humanVisitsSql(keywords)).digest('hex')).toBe(hash);
+      expect(humanVisitsSql(keywords)).toBe(humanVisitsSql(keywords, true));
+    },
+  );
+  it('omits optional dimensions while retaining the entry, goal and visit metric boundaries', () => {
+    const original = humanVisitsSql(true);
+    const narrow = humanVisitsSql(true, false);
+    expect(original).toContain('LEFT JOIN session s');
+    expect(original).toContain('JOIN visit_geography geography USING(visit_id,session_id)');
+    expect(narrow).not.toContain('LEFT JOIN session s');
+    expect(narrow).not.toContain('visit_geography');
+    expect(narrow).not.toContain('max(browser)');
+    expect(narrow).toContain('FROM visit_totals v LEFT JOIN LATERAL');
+    expect(narrow).toContain('e.created_at BETWEEN $2::timestamptz AND $3::timestamptz');
+    expect(narrow).toContain('e.created_at<=$3::timestamptz AND e.event_type NOT IN(2,5)');
+    expect(narrow).toContain('converted AS (SELECT DISTINCT visit_id,session_id FROM matches)');
+    expect(withTrafficPolicy(narrow)).toContain(
+      'website_event AS NOT MATERIALIZED (SELECT * FROM liekan_geographic_website_event)',
+    );
+  });
+});
+
+describe('content path projections', () => {
+  const start = new Date('2026-01-01T00:00Z'),
+    end = new Date('2026-01-08T00:00Z');
+  const configure = () => {
+    vi.mocked(humanTotals).mockResolvedValue({
+      pageviews: 3,
+      visitors: 1,
+      visits: 1,
+      bounces: 0,
+      totaltime: 0,
+    });
+    vi.mocked(query).mockImplementation(async sql =>
+      sql.includes('jsonb_build_object')
+        ? [{ facts: { journeys: [{ path: '/a → /b', count: 1 }], exits: [{ path: null, count: 1 }] } }]
+        : [],
+    );
+  };
+  it.each([false, true])(
+    'retains event ownership without unused visit or geography expansion when detail coverage is %s',
+    async covered => {
+      configure();
+      if (covered) {
+        vi.mocked(readBrowserDetailFacts).mockResolvedValue({ pages: [{ path: '/a', pv: 3 }] });
+      }
+      const actual = await getHumanFacts(
+        'site',
+        start,
+        end,
+        'UTC',
+        covered ? ['pages', 'journeys', 'exits'] : ['journeys', 'exits'],
+      );
+      const [sql, ...parameters] = vi.mocked(query).mock.calls.find(([sql]) =>
+        sql.includes('jsonb_build_object'),
+      );
+      expect(sql).toContain('FROM liekan_geographic_website_event e');
+      expect(sql).not.toContain('JOIN session');
+      expect(sql).not.toContain('visit_totals');
+      expect(parameters).toEqual(['site', start, end, 'UTC']);
+      expect(actual.journeys).toEqual([{ path: '/a → /b', count: 1 }]);
+      expect(actual.exits).toEqual([{ path: null, count: 1 }]);
+    },
+  );
+  it('retains the full visit query when another requested field has no detail coverage', async () => {
+    configure();
+    await getHumanFacts('site', start, end, 'UTC', ['pages', 'journeys', 'exits']);
+    const [sql] = vi.mocked(query).mock.calls.find(([sql]) => sql.includes('jsonb_build_object'));
+    expect(sql).toContain('LEFT JOIN session s');
+    expect(sql).toContain('visit_totals');
+  });
+});
 
 describe('visit entry attribution', () => {
   it('keeps generated direct traffic separate from a supplied source with the same name', async () => {
@@ -153,4 +239,4 @@ describe('saved funnel isolation', () => {
     expect(getFunnel).not.toHaveBeenCalled();
   });
 });
-vi.mock('./browser-detail-facts', () => ({ readBrowserDetailFacts: async () => null }));
+vi.mock('./browser-detail-facts', () => ({ readBrowserDetailFacts: vi.fn() }));

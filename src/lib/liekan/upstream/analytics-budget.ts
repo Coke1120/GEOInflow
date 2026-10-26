@@ -1,6 +1,7 @@
 import { LiekanError } from './errors';
 import { isAnalyticsWorker } from './process-role';
 import { processSingleton } from './process-singleton';
+import { currentAnalysisPermit } from './analysis-permit-context';
 
 export const AnalyticsUnavailable = processSingleton(
   'analytics-unavailable-error',
@@ -69,3 +70,11 @@ export const analyticsGate = processSingleton(
   'analytics-computation-gate',
   () => new AnalyticsGate(isAnalyticsWorker() ? 1 : 2),
 );
+const dashboardGate = processSingleton(
+  'analytics-dashboard-computation-gate',
+  () => new AnalyticsGate(1),
+);
+
+/** Match the database permits with bounded process-local computation slots. */
+export const analyticsComputationGate = () =>
+  currentAnalysisPermit()?.lane === 'dashboard' ? dashboardGate : analyticsGate;

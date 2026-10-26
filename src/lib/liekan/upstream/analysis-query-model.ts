@@ -6,6 +6,7 @@ import { LiekanError } from './errors';
 export const ANALYSIS_QUERY_QUEUE = 'liekan-analysis-query';
 export const ANALYSIS_BUILD_QUEUE = 'liekan-analysis-build';
 export const ANALYSIS_RESULT_FORMAT = 'liekan-analysis-result-v1';
+export const liveAnalysisTargets = ['feature:page-report', 'native:stats', 'native:pageviews'];
 export const analysisQueryLimits = Object.freeze({
   global: 32,
   site: 8,

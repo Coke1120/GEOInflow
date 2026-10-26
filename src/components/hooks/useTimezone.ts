@@ -1,18 +1,26 @@
 import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
+import { usePathname } from 'next/navigation';
 import { TIMEZONE_CONFIG, TIMEZONE_LEGACY } from '@/lib/constants';
 import { getTimezone } from '@/lib/date';
 import { setItem } from '@/lib/storage';
 import { setTimezone, useApp } from '@/store/app';
 import { useLocale } from './useLocale';
+import { useShare } from './context/useShare';
+import { sharedTimezone } from '@/lib/liekan/contracts/shared-report';
 
 const selector = (state: { timezone: string }) => state.timezone;
 
 export function useTimezone() {
-  const timezone = useApp(selector);
-  const localTimeZone = getTimezone();
+  const accountTimezone = useApp(selector);
+  const share = useShare();
+  const pathname = usePathname();
+  const publicView = !!share || /(?:^|\/)share\//.test(pathname || '');
+  const timezone = publicView ? sharedTimezone(share?.parameters) : accountTimezone;
+  const localTimeZone = publicView ? timezone : getTimezone();
   const { dateLocale } = useLocale();
 
   const saveTimezone = (value: string) => {
+    if (publicView) return;
     setItem(TIMEZONE_CONFIG, value);
     setTimezone(value);
   };

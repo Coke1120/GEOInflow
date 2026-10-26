@@ -10,7 +10,11 @@ import {
 } from '@/lib/liekan/upstream/cache-context';
 import { analyticsCache, websiteCacheTag } from '@/lib/liekan/upstream/query-cache';
 import { getQuerySnapshot, withinQuerySnapshot } from '@/lib/liekan/upstream/query-snapshot';
-import { getHeatmap, type HeatmapParameters } from './getHeatmap';
+import {
+  getHeatmap,
+  getRelationalHeatmapFilterContext,
+  type HeatmapParameters,
+} from './getHeatmap';
 
 const mocks = vi.hoisted(() => ({
   mode: 'prisma',
@@ -127,6 +131,20 @@ beforeEach(() => {
 const request = (input = parameters, site = 'synthetic-site') =>
   withQueryCacheHeaders(async () => Response.json(await getHeatmap(site, input)));
 
+it('checks filtered membership within each candidate heatmap visit', () => {
+  const context = getRelationalHeatmapFilterContext('synthetic-site', {
+    ...parameters,
+    browser: 'eq.Synthetic Firefox',
+  });
+  expect(context.joinQuery).toBe('');
+  expect(context.filterQuery).toContain('exists (');
+  expect(context.filterQuery).toContain('website_event.session_id = h.session_id');
+  expect(context.filterQuery).toContain('website_event.visit_id = h.visit_id');
+  expect(context.filterQuery).toContain('website_event.website_id = h.website_id');
+  expect(context.filterQuery).toContain('offset 0');
+  expect(context.filterQuery).toContain('website_event.browser = {{browser}}');
+});
+
 it.each(['click', 'scroll'] as const)(
   'caches the complete %s snapshot and population envelope',
   async mode => {
@@ -194,7 +212,7 @@ it('separates website, path, mode and filters in the aggregate identity', async 
   await request();
   expect(mocks.population).toHaveBeenCalledTimes(5);
   expect(mocks.raw).toHaveBeenCalledTimes(10);
-  expect(mocks.raw.mock.calls[2][0]).toContain('filtered_visits');
+  expect(mocks.raw.mock.calls[2][0]).toContain('website_event.visit_id = h.visit_id');
   expect(mocks.raw.mock.calls[2][1]).toMatchObject({ browser: 'eq.Synthetic Firefox' });
 });
 

@@ -155,6 +155,7 @@ export async function reportSnapshot<T>(work: () => Promise<T>, deadline?: numbe
     return await primary().$transaction(
       async tx => {
         await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
+        await tx.$executeRawUnsafe('SET LOCAL jit=off');
         return withinQuerySnapshot(
           deadline === undefined ? tx : timedAnalyticsClient(tx, deadline),
           work,

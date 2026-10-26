@@ -1,8 +1,7 @@
-import { endOfDay, startOfDay, subDays } from 'date-fns';
-import { fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { crawlerFilterLabels, pagableTables } from '@/lib/liekan/contracts/query';
 import { columns, primaryTables } from './data';
 import type { Resource } from './types';
+import { calendarDayRange, shiftCalendarRange } from '@/lib/liekan/contracts/calendar';
 
 export const viewParamKeys = [
   'botType',
@@ -69,9 +68,15 @@ export function readViewState(params: Record<string, string>, resource: Resource
     cursor,
     seek: cursor ? params.seek : '',
     chartPeriod: (['overview', 'human/overview'].includes(resource) &&
-    ['30d', '7d', '24h'].includes(params.chartPeriod)
+    ['today', '30d', '7d', '24h'].includes(params.chartPeriod)
       ? params.chartPeriod
-      : '30d') as '30d' | '7d' | '24h',
+      : params.date === '7day'
+        ? '7d'
+        : params.date === '24hour'
+          ? '24h'
+          : !params.date || params.date === '0day'
+            ? 'today'
+            : '30d') as 'today' | '30d' | '7d' | '24h',
     sort: {
       label: [
         ...(columns[table] || []),
@@ -85,19 +90,12 @@ export function readViewState(params: Record<string, string>, resource: Resource
     tablePages: resource === 'logs' ? {} : readTablePages(params),
   };
 }
-export function previousWeekRange(startAt: number, endAt: number) {
-  const week = 7 * 86400000;
-  return { startAt: startAt - week, endAt: endAt - week };
+export function previousWeekRange(startAt: number, endAt: number, timezone = 'Asia/Shanghai') {
+  return shiftCalendarRange(startAt, endAt, -7, timezone);
 }
 export function isLiveLogView(params: Record<string, string>, resource: Resource) {
-  return (
-    resource === 'logs' && (params.live === '1' || !params.date || params.dateMode === 'default')
-  );
+  return resource === 'logs' && params.live === '1';
 }
 export function defaultDateRange(now: number, timezone = 'Asia/Shanghai') {
-  const local = toZonedTime(new Date(now), timezone);
-  return {
-    startAt: +fromZonedTime(startOfDay(subDays(local, 29)), timezone),
-    endAt: +fromZonedTime(endOfDay(local), timezone),
-  };
+  return calendarDayRange(now, timezone);
 }
