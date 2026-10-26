@@ -6,6 +6,7 @@ import { freshAggregateFixture } from '@/test/liekan-freshness';
 import { ManualRefreshProvider } from '@/lib/liekan/contracts/manual-refresh';
 import { setTestUrl } from '@/test/navigation';
 import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
+import { featureDateRange } from '@/lib/liekan/contracts/analysis';
 
 const state = vi.hoisted(() => ({
   get: vi.fn(),
@@ -109,9 +110,18 @@ function deferred<T>() {
   });
   return { promise, resolve: (value: T) => resolve(value) };
 }
-const report = (value: string) =>
+const report = (value: string, range?: { startAt: number; endAt: number; timezone: string }) =>
   freshAggregateFixture({
     value,
+    range:
+      range ??
+      featureDateRange(
+        {
+          startDate: new Date('2026-09-01'),
+          endDate: new Date('2026-10-01'),
+        },
+        'Asia/Shanghai',
+      ),
     website: { id: 'site-a' },
     tables: {},
     states: {},
@@ -185,7 +195,9 @@ it.each(['ai/overview', 'ai/bots', 'ai/pages', 'ai/preference'] as const)(
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-10-23T05:00:00Z'));
     state.dateMode = 'default';
-    state.get.mockResolvedValue(report('crawler-aggregate'));
+    state.get.mockImplementation((_path, { startAt, endAt, timezone }) =>
+      Promise.resolve(report('crawler-aggregate', { startAt, endAt, timezone })),
+    );
     const tree = () => (
       <QueryClientProvider client={client}>
         <ManualRefreshProvider>
