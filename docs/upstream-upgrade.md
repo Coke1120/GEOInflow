@@ -1,6 +1,23 @@
 # 持续吸收 Umami 更新
 
-Liekan 保留 Umami Git 历史。upstream 指向官方仓库；main 保存已验收的 Liekan 版本；feature/* 用于产品迭代；upstream-sync/* 用于上游升级候选。Liekan 自有前端通过稳定契约连接 src/lib/liekan/upstream，认证、权限和原统计算法集中适配。必要核心修改逐文件记录在 config/liekan/core-overrides.json。
+GEOInflow 公开仓库以完整源码快照作为初始提交，保留 MIT 许可证、上游版权与来源说明。持续合并上游的开发仓库保留 Umami Git 历史，以下升级流程在该开发仓库执行。upstream 指向官方仓库；main 保存已验收的 Liekan 版本；feature/* 用于产品迭代；upstream-sync/* 用于上游升级候选。Liekan 自有前端通过稳定契约连接 src/lib/liekan/upstream，认证、权限和原统计算法集中适配。必要核心修改逐文件记录在 config/liekan/core-overrides.json。
+
+## 公开仓库的基线准备
+
+公开仓库的提交历史独立维护。首次从公开仓库克隆并运行源码检查时，先获取 `config/liekan/upstream.json` 中固定的上游提交，供核心差异检查使用：
+
+```sh
+node --input-type=module <<'NODE'
+import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+const { repository, commit } = JSON.parse(readFileSync('config/liekan/upstream.json', 'utf8'));
+execFileSync('git', ['fetch', '--no-tags', '--depth=1', repository, commit], { stdio: 'inherit' });
+NODE
+```
+
+该命令将上游基线写入本地对象库，公开分支的提交历史保持独立。GitHub 源码检查已包含这一步。开发维护中的上游合并需要保留共同祖先的完整开发历史。
+
+## 开发仓库的升级流程
 
 1. 在现有运行版本导出数据库备份，保留镜像 ID、标签、APP_SECRET 和 TWO_FACTOR_ENCRYPTION_KEY。环境配置和备份放私有位置。
 2. 使用 Node.js 22.23.3、pnpm 12.3.4，运行 `pnpm liekan:upstream:report --tag vX.Y.Z`。工具核对官方 remote、获取目标发布并输出变更、核心重叠和关键路径报告，不修改 main。

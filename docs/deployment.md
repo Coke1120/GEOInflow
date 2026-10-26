@@ -1,5 +1,7 @@
 # 部署与运维
 
+[English](deployment.en.md) | **简体中文**
+
 推荐用仓库中的 `scripts/liekan-deploy.sh` 部署 GEOInflow。它负责构建当前源码、生成首次私有配置、执行迁移、检查健康并更新应用及后台处理服务。
 
 本文以单机 Docker Compose 为例。既有实例的大版本保护、地理数据与恢复细节见 [本地部署说明](local-deployment.md)。

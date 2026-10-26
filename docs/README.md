@@ -2,6 +2,8 @@
 
 GEOInflow 将浏览器访客、AI 爬虫日志、搜索引荐和内容目录关联到同一网站，支持自托管部署。产品显示版本 v1.2 对应工程版本 1.2.0。
 
+快速开始和部署指南同时提供英文版：[Quick start](getting-started.en.md) · [Deployment](deployment.en.md)。
+
 ## 从这里开始
 
 | 你的目标 | 阅读顺序 |

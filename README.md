@@ -1,143 +1,151 @@
 # GEOInflow
 
-面向 GEO 的自托管网站与 AI 爬虫分析系统。
+**English** | [简体中文](README.zh-CN.md)
 
-**联合发布：猎看科技 · 北京日报社智源GEO**
+Self-hosted web and AI crawler analytics for Generative Engine Optimization (GEO).
 
-[快速开始](docs/getting-started.md) · [部署指南](docs/deployment.md) · [AI 爬虫分析](docs/ai-crawler-analytics.md) · [系统架构](docs/system-overview.md) · [文档目录](docs/README.md) · [参与贡献](CONTRIBUTING.md)
+**Jointly published by 猎看科技 · 北京日报社智源GEO**
 
-GEOInflow 将网站访客、AI 搜索引荐、服务器抓取日志和内容目录放在同一个网站上下文中，帮助团队回答这些问题：哪些 AI 蜘蛛访问了网站，访问了哪些内容，哪些关键页面长期缺少抓取记录，访问是否遇到错误，以及 AI 搜索实际带来了多少访客和转化。
+[Quick start](docs/getting-started.en.md) · [Deployment](docs/deployment.en.md) · [AI crawler analytics](docs/ai-crawler-analytics.md) · [Architecture](docs/system-overview.md) · [Documentation](docs/README.md) · [Contributing](CONTRIBUTING.md)
 
-GEOInflow 提供浏览采集、账号权限、GEO 统计界面、爬虫证据、日志采集和统计加速。当前产品版本为 **v1.2**，工程版本为 **1.2.0**。应用源码采用 [MIT 许可证](LICENSE)。
+GEOInflow brings website visitors, AI search referrals, server crawl logs, and content inventories into a shared website context. It helps teams understand which AI crawlers visit their sites, which pages they request, which important pages have no observed crawl activity, where requests fail, and how AI search contributes visitors and conversions.
 
-## 用它做什么
+The system includes browser tracking, account permissions, GEO reports, crawler evidence, log collection, and analytics acceleration. The current product version is **v1.2**, with build version **1.2.0**. Application source code is distributed under the [MIT license](LICENSE).
 
-| 你关心的问题 | 可以查看的内容 | 可以据此安排的工作 |
+Quick start and deployment guides are available in English and Simplified Chinese. Other linked reference guides are currently in Simplified Chinese.
+
+## Introduction video
+
+https://github.com/user-attachments/assets/81e57cc4-3441-4e5f-b2fb-cd929c6c27bd
+
+## What you can use it for
+
+| Question | Available data | Actions it can inform |
 | --- | --- | --- |
-| 哪些 AI 平台在访问网站 | 爬虫身份、用途、厂商、请求量、核验状态和趋势 | 区分训练、搜索、用户触发等访问，了解内容被访问的方式 |
-| 哪些内容被反复抓取 | 页面排行、重复抓取、目录分布、最近访问 | 检查高频路径、无效 URL 和内容组织方式 |
-| 关键内容有没有抓取记录 | 导入 sitemap / CSV / JSON，与观察日志核对覆盖 | 排查入口、内部链接、robots 和响应问题 |
-| 蜘蛛访问是否正常 | HTTP 状态、GET / HEAD、缓存、耗时、错误及风险线索 | 定位访问受阻、源站错误、覆盖下降和来源中断 |
-| AI 搜索带来了什么 | AI 引荐会话、落地页、目标与转化 | 观察实际访问和业务效果的变化 |
-| 数据是否足以支持结论 | 身份证据、来源覆盖、缺口、缺失与估算状态 | 按相同数据范围复核，保留证据不足的结论 |
+| Which AI platforms visit the site? | Crawler identity, purpose, provider, request volume, verification status, and trends | Distinguish training, search, and user-triggered requests to understand how content is accessed |
+| Which pages are crawled repeatedly? | Page rankings, repeat requests, directory distribution, and recent activity | Review frequently requested paths, invalid URLs, and content structure |
+| Have important pages been crawled? | Import sitemap / CSV / JSON inventories and compare them with observed logs | Check entry points, internal links, robots rules, and responses |
+| Are crawler requests succeeding? | HTTP status, GET / HEAD, caching, latency, errors, and risk signals | Investigate blocked requests, origin errors, coverage drops, and source interruptions |
+| What does AI search bring to the site? | AI referral sessions, landing pages, goals, and conversions | Observe changes in real traffic and business outcomes |
+| Is there enough evidence for a conclusion? | Identity evidence, source coverage, gaps, missing inputs, and estimates | Review results over the same data scope and keep evidence gaps explicit |
 
-适用于企业官网、内容站点、媒体网站、开发者文档和为多个网站提供服务的 GEO 团队。日常运营可从网站和页面维度查看，部署维护者可继续检查接入、队列、来源质量与计算依据。
+GEOInflow is designed for company websites, content sites, media publishers, developer documentation, and GEO teams managing multiple sites. Operators can work at the website and page level, while maintainers can inspect ingestion, queues, source quality, and calculation methods.
 
-## AI 爬虫分析
+## AI crawler analytics
 
-### 身份与用途分别展示
+### Crawler identity and purpose
 
-内置爬虫目录覆盖 OpenAI、Anthropic、Perplexity、Google、Microsoft、字节跳动、百度、Kimi、腾讯混元等平台，并保留传统搜索和其他爬虫观察。
+The built-in catalog covers OpenAI, Anthropic, Perplexity, Google, Microsoft, ByteDance, Baidu, Kimi, Tencent Hunyuan, and other providers. It also retains observations of traditional search crawlers and other bots.
 
-目录区分平台、产品和请求身份；训练、AI 搜索、用户触发属于用途维度，AI 工作台和个人 Agent 属于产品形态维度。两个维度可以有交集，实际启用项以管理员发布的目录及网站配置为准。
+The catalog records platforms, products, and request identities separately. Training, AI search, and user-triggered access describe request purposes; AI workbenches and personal agents describe product types. These dimensions can overlap. Active entries depend on the administrator-published catalog and each website's configuration.
 
-请求声明的 User-Agent、官方 IP 范围匹配及已接入的 DNS / 可信边缘证据独立保存。普通 UA 声明不足以确认真实来源，缺少历史核验证据的记录保留未知状态。
+Declared User-Agent strings, matches against official IP ranges, and available DNS or trusted edge evidence are stored independently. A User-Agent claim alone is insufficient to confirm a source. Historical records without verification evidence retain an unknown status.
 
-### 抓取与内容关联
+### Crawl activity and content coverage
 
-可以查看抓取页面排行、覆盖页面、重复抓取、目录分布、主力蜘蛛、最近访问及内容新鲜度。导入内容目录后，可以按已知页面集合检查观察到的抓取覆盖与 AI 盲区。
+Review requested-page rankings, observed pages, repeated requests, directory distribution, leading crawlers, recent activity, and content freshness. Import a content inventory to measure observed crawl coverage and AI blind spots against a known set of pages.
 
-身份、用途和产品形态条件在聚合与分页前应用，卡片、列表、对比与导出共用相同条件。路径观察和推断结果保留其估算标记。
+Identity, purpose, and product-type filters apply before aggregation and pagination. Cards, tables, comparisons, and exports use the same conditions. Path observations and inferred results retain their estimate labels.
 
-### 从访问异常追到可用证据
+### Investigate access problems with evidence
 
-HTTP 响应、缓存、耗时、响应字节、采集连续性和风险发现分别展示。可以记录处理状态、备注、暂缓与恢复，核对历史发生窗口及相关证据。
+HTTP responses, caching, latency, response bytes, collection continuity, and risk findings are shown separately. Teams can record handling status, notes, deferrals, and resumptions, then review the relevant time windows and evidence.
 
-访问策略提供 robots / Nginx 配置导出；已支持的 Cloudflare 控制需要独立 Zone 凭据，并经过预览、明确确认、后台执行和远端回读。提供方套餐、权限和字段可用性需要在实际环境确认。
+Access policies support robots / Nginx configuration exports. Supported Cloudflare controls require separate Zone credentials, a preview, explicit confirmation, background execution, and a read-back of the remote state. Provider plans, permissions, and available fields must be checked in the deployed environment.
 
-### 观察 AI 引荐与业务效果
+### AI referrals and business outcomes
 
-浏览器采集识别已支持的 AI 搜索引荐来源，结合落地页、事件、目标和转化分析实际访问。爬虫请求、引荐会话和转化分别计量，跨来源的关联结果保留可比性限制。
+Browser tracking recognizes supported AI search referrals and combines them with landing pages, events, goals, and conversions. Crawler requests, referral sessions, and conversions are measured separately. Cross-source associations retain their comparability limits.
 
-**抓取记录能说明观察到的访问行为；收录、模型训练、回答引用、推荐排名和获客效果需要各自的证据。**
+**Crawl logs establish observed access. Indexing, model training, answer citations, recommendation rankings, and customer acquisition each require their own evidence.**
 
-详细指标、使用步骤和边界见 [AI 爬虫分析指南](docs/ai-crawler-analytics.md)。
+See the [AI crawler analytics guide](docs/ai-crawler-analytics.md) for metrics, workflows, and limitations.
 
-## 完整的网站统计
+## Website analytics
 
-| 能力 | 范围 |
+| Capability | Scope |
 | --- | --- |
-| 浏览与访客 | PV、UV、访问、来源、地域、设备、浏览器及内容表现 |
-| 事件与转化 | 自定义事件、目标、漏斗、访问路径、归因和收入分析 |
-| 扩展分析 | 搜索引擎、来源关键词、UTM、性能、热力图、留存及人群 |
-| 协作 | 网站、个人和团队空间、权限、工作台、看板与公开分享 |
-| 导出 | 按实际范围导出 CSV / JSON / ZIP，保留字段、状态和敏感信息处理 |
-| AI 辅助 | 可选模型连接与基于网站事实的分析对话，默认关闭 |
-| 运维与治理 | 接入检查、历史数据修复、统计加速、来源与规则版本管理 |
+| Pageviews and visitors | PV, UV, visits, referrals, geography, devices, browsers, and content performance |
+| Events and conversions | Custom events, goals, funnels, visitor paths, attribution, and revenue analysis |
+| Extended analysis | Search engines, referral keywords, UTM, performance, heatmaps, retention, and audiences |
+| Collaboration | Websites, personal and team spaces, permissions, workspaces, dashboards, and public sharing |
+| Exports | CSV / JSON / ZIP for the selected scope, preserving fields, states, and sensitive-data handling |
+| AI assistance | Optional model connections and conversations based on website facts, disabled by default |
+| Operations and governance | Ingestion checks, historical data repair, analytics acceleration, and source and rule versioning |
 
-界面支持简体中文与英文。主要统计入口为“今天 / 7 天 / 30 天”，默认分析时区为 `Asia/Shanghai`。首次完整登录确认国家和城市时区，之后按账户保存的时区定义今天。实时访客采用最近 30 分钟，留存分析采用自然月。
+The application supports Simplified Chinese and English. The main date ranges are Today / 7 days / 30 days, and the default analytics timezone is `Asia/Shanghai`. The first full sign-in confirms the country and city timezone; later requests use the account's saved timezone to define today. Realtime visitors cover the most recent 30 minutes, and retention uses calendar months.
 
-浏览指标使用统一的流量质量策略。空数据、未接入、未知、估算和未支持分别展示。演示站带有明确标识。功能支持矩阵见 [页面覆盖](docs/ui-coverage.md)，日期定义见 [日期与时区](docs/date-ranges.md)。
+Browser metrics share a common traffic-quality policy. Empty data, missing integrations, unknown values, estimates, and unsupported capabilities are shown as distinct states. Demo websites are explicitly labeled. See [page coverage](docs/ui-coverage.md) for the feature matrix and [date ranges and timezones](docs/date-ranges.md) for date definitions.
 
-## 数据怎样进入系统
+## How data enters the system
 
 ```mermaid
 flowchart LR
-  A[网站浏览器脚本] --> C[应用与接收接口]
-  B[服务器 / CDN 日志] --> C
-  D[sitemap / CSV / JSON 目录] --> C
+  A[Website browser script] --> C[Application and ingestion APIs]
+  B[Server / CDN logs] --> C
+  D[sitemap / CSV / JSON inventory] --> C
   C --> E[(PostgreSQL)]
-  E --> F[日志与统计后台]
+  E --> F[Log and analytics workers]
   F --> E
-  E --> G[报告与已发布结果]
-  H[(Redis 缓存)] --- G
-  G --> I[GEO / 访客 / 内容分析]
-  G --> J[权限控制后的分享与导出]
+  E --> G[Reports and published results]
+  H[(Redis cache)] --- G
+  G --> I[GEO / visitor / content analytics]
+  G --> J[Permission-controlled sharing and exports]
 ```
 
-浏览器脚本采集浏览访问、事件及已启用的扩展数据。服务器日志与 CDN 日志补充未执行脚本的抓取请求；内容目录提供已知页面集合。三个入口可以独立接入，缺少某一来源时，对应分析会说明限制。
+The browser script collects pageviews, events, and enabled extended data. Server and CDN logs add crawler requests that do not run browser scripts. Content inventories provide a known set of pages. Each input can be connected independently, and the corresponding analysis states its limitations when a source is missing.
 
-日志处理保存来源、分类和核验证据；统计后台使用预聚合、精确访问事实与持久结果减少重复计算。普通看板与重分析采用独立准入，常用范围预热，已发布结果可在后台更新时继续展示。具体设计见 [系统架构](docs/system-overview.md)。
+Log processing retains sources, classifications, and verification evidence. Analytics workers use pre-aggregation, exact visit facts, and durable results to reduce repeated calculations. Standard dashboards and heavier analysis have separate admission controls. Frequently used ranges are prewarmed, and published results remain available during background updates. See the [architecture guide](docs/system-overview.md).
 
-## 快速部署
+## Quick deployment
 
-准备已启动的 Docker Engine / Docker Desktop、Docker Compose V2，以及可访问镜像和依赖下载源的网络。在取得源码并进入项目根目录后执行：
+Start Docker Engine / Docker Desktop and Docker Compose V2, and ensure that image and dependency download sources are reachable. After obtaining the source code, run this command from the project root:
 
 ```sh
 sh scripts/liekan-deploy.sh
 ```
 
-脚本会生成私有 `.env` 与随机密钥，构建应用镜像，执行迁移并启动应用、日志后台、统计后台、PostgreSQL 和 Redis。默认访问：
+The script generates a private `.env` and random secrets, builds the application image, runs migrations, and starts the application, log worker, analytics worker, PostgreSQL, and Redis. The default address is:
 
 ```text
 http://127.0.0.1:3002
 ```
 
-首次安装的初始账号为 `admin`，初始密码为 `liekan`。登录后修改密码，再按接入指南创建网站。已有自定义密码和账号在升级时保留。
+For a fresh installation, the initial username is `admin` and the initial password is `liekan`. Change the password after signing in, then create a website using the ingestion guide. Upgrades preserve existing customized passwords and accounts.
 
-如需体验内置示例，待应用启动后执行：
+To try the bundled example after the application starts, run:
 
 ```sh
 docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-demo.mjs
 ```
 
-示例名称为“猎看官网（示例数据）”。它从随源码提供的已处理数据包初始化，首次导入平移时间便于查看，重复运行保留已有数据和删除状态。详情见 [默认示例说明](docs/default-demo.md)。
+The example is named “猎看官网（示例数据）”. It initializes from the processed dataset included with the source. On first import, its timestamps are shifted to make the data convenient to explore. Repeated runs preserve existing data and deletion state. See the [default demo guide](docs/default-demo.md).
 
-生产访问需配置域名、HTTPS 与可信反向代理。浏览 PV 可以在缺少可信 IP 入口时继续采集，UV 等身份指标需要可靠的入口证据。自动日志接入和可选 AI 分析各有独立配置要求。
+Production access requires a domain, HTTPS, and a trusted reverse proxy. Browser PV collection can continue without a trusted IP ingress, while identity metrics such as UV require reliable ingress evidence. Automatic log ingestion and optional AI analysis have separate configuration requirements.
 
-[部署指南](docs/deployment.md)包含服务结构、配置、代理、备份和升级步骤；[快速开始](docs/getting-started.md)说明如何完成第一个网站的数据接入。
+The [deployment guide](docs/deployment.en.md) covers services, configuration, proxies, backups, and upgrades. The [quick start](docs/getting-started.en.md) explains how to connect the first website.
 
-## 为什么当前数据可以持续更新
+## Keeping analytics current
 
-主要今日看板按 30 秒节奏读取已发布结果，显示实际数据截止时间；页面隐藏或离线时暂停。实时访客按自己的节奏读取，热力图、留存等重分析使用较长的后台窗口。
+The main Today dashboards read published results every 30 seconds and show the actual data cutoff. Reads pause while the page is hidden or offline. Realtime visitors use their own refresh interval, while heavier analyses such as heatmaps and retention use longer background windows.
 
-已完成结果同时利用浏览器、进程、Redis 和 PostgreSQL 持久存储。常用日期与页面共用查询条件；旧窗口结果受容量淘汰保护，闲置失败任务暂停自动重试，首次冷计算可通过持久任务完成。更新时保留统计权限、来源质量、日期与规则版本校验。
+Completed results use browser, process, Redis, and PostgreSQL persistence. Common date ranges and pages share query conditions. Capacity safeguards govern eviction of older windows, idle failed tasks pause automatic retries, and initial calculations can finish through durable background tasks. Updates retain statistics permissions and checks for source quality, dates, and rule versions.
 
-首次计算、缓存命中和后台更新有不同成本。实际速度取决于数据规模、覆盖构建情况、数据库和缓存状态；部署后可在“统计加速”查看任务与覆盖。实现细节见 [统计加速](docs/analytics-acceleration.md) 和 [缓存说明](docs/analytics-cache.md)。
+Initial calculations, cache hits, and background updates have different costs. Actual performance depends on data volume, coverage construction, the database, and cache state. After deployment, the Analytics Acceleration page shows tasks and coverage. See [analytics acceleration](docs/analytics-acceleration.md) and [caching](docs/analytics-cache.md).
 
-## 自托管与能力边界
+## Self-hosting and scope
 
-- 日常网站统计与爬虫识别可以在自己的基础设施运行，核心统计无需模型 API Key。
-- 浏览采集默认采用无 Cookie 方式；可选录制、事件属性及业务接入需按自己的数据范围配置。
-- AI 分析默认关闭，启用后由用户选择模型连接与网站资料，数据发送范围见 [AI 配置器](docs/ai.md)。
-- GEO 权重为 Beta，基于最近 30 个完整自然日内具备既定证据的 AI 内容访问计算，提供公式、依据和限制。[权重说明](docs/geo-weight.md)列出固定政策与适用范围。
-- GEO 扩展、补充旅程、完整导出及统计加速主要面向 PostgreSQL。保留的 ClickHouse、链接和像素入口按各自已有协议工作，不能据此推定全部 GEO 扩展均已支持。
-- 服务器自动采集需要公网 HTTPS、接收密钥与已签名安装资产；Cloudflare 接入另需 OAuth、权限与相应产品能力。
-- 搜索曝光、实际排名、模型回答引用、训练入库和正文完成率需要额外数据。当前项目提供的观察与评分范围见详细文档。
+- Core website analytics and crawler identification can run on your own infrastructure without a model API key.
+- Browser tracking is cookieless by default. Optional recording, event properties, and business integrations use the data scope configured for each deployment.
+- AI analysis is disabled by default. When enabled, users choose model connections and website materials. See the [AI configuration guide](docs/ai.md) for the data sent to models.
+- GEO Weight is in Beta. It uses qualified AI content access from the most recent 30 complete calendar days, with a documented formula, evidence, and limitations. The [weight guide](docs/geo-weight.md) defines the fixed policy and applicable scope.
+- GEO extensions, supplemental journeys, complete exports, and analytics acceleration primarily target PostgreSQL. Retained ClickHouse, link, and pixel endpoints follow their existing protocols; support for each GEO extension must be checked separately.
+- Automatic server collection requires public HTTPS, an ingestion secret, and signed installation assets. Cloudflare integration also requires OAuth, permissions, and the relevant provider capabilities.
+- Search impressions, actual rankings, model-answer citations, training inclusion, and article completion rates require additional data. The detailed guides define the observations and scores this project provides.
 
-## 开发与维护
+## Development and maintenance
 
-开发环境使用 Node.js **22.23.3**、pnpm **12.3.4** 和 PostgreSQL。先按 [部署指南](docs/deployment.md)准备自己的数据库与私有配置，再运行（以下使用独立开发端口 `3302`）：
+Development uses Node.js **22.23.3**, pnpm **12.3.4**, and PostgreSQL. Prepare an independent database and private configuration using the [deployment guide](docs/deployment.en.md), then run the following commands. This example uses the separate development port `3302`:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -153,16 +161,16 @@ pnpm liekan:build-worker
 pnpm dev --port 3302
 ```
 
-日志和统计后台需在各自终端启动，命令见 [CONTRIBUTING.md](CONTRIBUTING.md)。本地开发的后台服务与 Web 应用共用自己的私有环境配置。
+Start the log and analytics workers in separate terminals as described in [CONTRIBUTING.md](CONTRIBUTING.md). Development workers and the web application use the same private environment configuration.
 
-`src/components/liekan` 保存产品页面，`src/lib/liekan/contracts` 定义数据契约，上游查询与权限适配集中在 `src/lib/liekan/upstream`。新增结构使用自有增量迁移，已执行的迁移保持不可变。`liekan` 工程标识、采集协议和既有工作区包名继续保留兼容性。
+Product pages live in `src/components/liekan`, data contracts in `src/lib/liekan/contracts`, and upstream query and permission adapters in `src/lib/liekan/upstream`. New structures use incremental project migrations. Applied migrations remain immutable. The `liekan` technical identifiers, collection protocols, and existing workspace package names retain compatibility.
 
-问题反馈、贡献、针对性验证和上游同步见 [贡献指南](CONTRIBUTING.md)、[文档目录](docs/README.md)与[上游维护](docs/upstream-upgrade.md)。
+For issue reports, contributions, scoped verification, and upstream synchronization, see [Contributing](CONTRIBUTING.md), the [documentation index](docs/README.md), and [upstream maintenance](docs/upstream-upgrade.md).
 
-## 许可与声明
+## License and notices
 
-GEOInflow 的应用源码与项目文档采用 [MIT](LICENSE)，允许在保留许可要求的前提下使用、修改和分发，包括商业使用。完整条款以许可证原文为准。
+GEOInflow application source code and project documentation use the [MIT license](LICENSE), permitting use, modification, and redistribution, including commercial use, subject to its notice requirements. The full license text governs these permissions.
 
-GEOInflow 由猎看科技与北京日报社智源GEO 联合发布。原有版权声明与许可文本随源码保留，项目来源和兼容关系见 [上游说明](docs/upstream.md)。
+GEOInflow is jointly published by 猎看科技 and 北京日报社智源GEO. Original copyright and license text are retained with the source. See the [upstream notes](docs/upstream.md) for the project's origin and compatibility relationship.
 
-依赖组件、字体和地理数据按各自许可使用，详见 [第三方声明](THIRD_PARTY_NOTICES.md)。默认地理数据为 DB-IP City Lite，保留其署名与 CC BY 4.0 许可；自备 MaxMind 或其他地理库需符合相应数据条款。运行配置、真实访客数据、数据库备份、私有密钥及自备地理库不属于源码发布内容。
+Dependencies, fonts, and geographic datasets retain their own licenses. See [third-party notices](THIRD_PARTY_NOTICES.md). The default geographic dataset is DB-IP City Lite, with its attribution and CC BY 4.0 license retained. Supplied MaxMind or other geographic databases must comply with their respective data terms. Runtime configuration, real visitor data, database backups, private keys, and privately supplied geographic databases are outside the source release.

@@ -212,6 +212,17 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": "README.zh-CN.md",
+      "purpose": "Retain the complete Simplified Chinese project overview alongside the default English README",
+      "tests": [
+        "Review bilingual README links, commands, license notices and video rendering",
+        "node scripts/liekan-static-check.mjs"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Keep English first in the language navigation; preserve the original source attribution, joint publisher names and deployment contracts in both languages",
+      "removalCondition": "Remove when project documentation uses a replacement locale structure with equivalent content and navigation"
+    },
+    {
       "path": "THIRD_PARTY_NOTICES.md",
       "purpose": "Retain licenses for durable queue, PostgreSQL client and bundled collector runtime Retain licenses for durable queue, PostgreSQL client and bundled collector runtime; Liekan branding, contributor attribution and third-party license documentation",
       "tests": [
