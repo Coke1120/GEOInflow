@@ -13,6 +13,39 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": ".github/ISSUE_TEMPLATE/1.bug_report.yml",
+      "purpose": "Document actual GEOInflow deployment inputs and redact public bug reports",
+      "tests": [
+        "Review GitHub workflow permissions and public support templates",
+        "node scripts/liekan-static-check.mjs"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Keep user support in the current repository and avoid enabling inherited external write automation",
+      "removalCondition": "Remove when the repository adopts an explicitly reviewed community maintenance policy"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/2.feature_request.yml",
+      "purpose": "Keep enhancement requests aligned with GEOInflow",
+      "tests": [
+        "Review GitHub workflow permissions and public support templates",
+        "node scripts/liekan-static-check.mjs"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Keep user support in the current repository and avoid enabling inherited external write automation",
+      "removalCondition": "Remove when the repository adopts an explicitly reviewed community maintenance policy"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/config.yml",
+      "purpose": "Keep GEOInflow support requests in the current repository",
+      "tests": [
+        "node scripts/liekan-static-check.mjs",
+        "Review public documentation and local file inventory"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Retain original copyright and source provenance; exclude private operational reports and external support redirects",
+      "removalCondition": "Remove when the upstream surface follows the same product and distribution boundaries"
+    },
+    {
       "path": ".github/workflows/cd-cloud.yml",
       "purpose": "Independent Liekan verification and disable inherited official publishing targets",
       "tests": [
@@ -35,6 +68,17 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": ".github/workflows/gitleaks.yml",
+      "purpose": "Portable source and history secret scans with narrow metadata exceptions",
+      "tests": [
+        "GITLEAKS_BINARY=gitleaks node --test tests/liekan/secrets-scan.test.mjs",
+        "gitleaks git . --log-opts=HEAD --redact=100"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Retain the default secret rules; exceptions require both an exact source path and a known metadata format",
+      "removalCondition": "Remove when an equivalent upstream scan is portable and the regression checks pass"
+    },
+    {
       "path": ".github/workflows/liekan-ci.yml",
       "purpose": "Independent Liekan verification and disable inherited official publishing targets",
       "tests": [
@@ -46,6 +90,17 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": ".github/workflows/stale-issues.yml",
+      "purpose": "Keep inherited automatic issue closure restricted to the upstream repository",
+      "tests": [
+        "Review GitHub workflow permissions and public support templates",
+        "node scripts/liekan-static-check.mjs"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Keep user support in the current repository and avoid enabling inherited external write automation",
+      "removalCondition": "Remove when the repository adopts an explicitly reviewed community maintenance policy"
+    },
+    {
       "path": ".gitignore",
       "purpose": "Liekan release, branding or compatibility integration",
       "tests": [
@@ -55,6 +110,17 @@
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan release, branding or compatibility integration",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": ".gitleaks.toml",
+      "purpose": "Portable source and history secret scans with narrow metadata exceptions",
+      "tests": [
+        "GITLEAKS_BINARY=gitleaks node --test tests/liekan/secrets-scan.test.mjs",
+        "gitleaks git . --log-opts=HEAD --redact=100"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Retain the default secret rules; exceptions require both an exact source path and a known metadata format",
+      "removalCondition": "Remove when an equivalent upstream scan is portable and the regression checks pass"
     },
     {
       "path": ".nvmrc",
@@ -88,6 +154,17 @@
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan branding, contributor attribution and third-party license documentation",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "purpose": "GEOInflow contribution, deployment, privacy and scoped verification documentation",
+      "tests": [
+        "Review documentation links and command contracts",
+        "node scripts/liekan-static-check.mjs"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Retain upstream MIT provenance, compatible identifiers and isolated database verification",
+      "removalCondition": "Remove when upstream contribution instructions cover the same product and release requirements"
     },
     {
       "path": "DESIGN.md",
@@ -146,6 +223,17 @@
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Liekan branding, contributor attribution and third-party license documentation Preserve upstream behavior and protocols outside this recorded purpose: Liekan branding, contributor attribution and third-party license documentation; Preserve upstream behavior and protocols outside this recorded purpose: Liekan branding, contributor attribution and third-party license documentation",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": "dependabot-review.md",
+      "purpose": "Exclude inherited dated audit output from the public source; retain durable license and maintenance guidance",
+      "tests": [
+        "node scripts/liekan-static-check.mjs",
+        "Review public documentation and local file inventory"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Retain original copyright and source provenance; exclude private operational reports and external support redirects",
+      "removalCondition": "Remove when the upstream surface follows the same product and distribution boundaries"
     },
     {
       "path": "docker-compose.liekan.yml",
@@ -4400,6 +4488,16 @@
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
     },
     {
+      "path": "src/lib/date.test.ts",
+      "purpose": "Verify Monday-to-Sunday calendar weeks shared by both product locales",
+      "tests": [
+        "pnpm exec vitest run src/lib/date.test.ts"
+      ],
+      "owner": "Liekan calendar compatibility",
+      "constraint": "Preserve existing date-range semantics and explicit Monday week boundaries",
+      "removalCondition": "Remove when upstream uses the same calendar week contract and its regression tests cover both boundaries"
+    },
+    {
       "path": "src/lib/date.ts",
       "purpose": "Apply the ordinary manual-read policy while preserving separate authorization checks; account calendar preferences and Today defaults",
       "tests": [
@@ -5978,94 +6076,6 @@
       "owner": "Liekan automatic logs maintenance",
       "constraint": "Keep the existing browser test environment unchanged",
       "removalCondition": "Remove when the primary test configuration supports explicit multi-environment projects"
-    },
-    {
-      "path": ".github/workflows/gitleaks.yml",
-      "purpose": "Portable source and history secret scans with narrow metadata exceptions",
-      "tests": [
-        "GITLEAKS_BINARY=gitleaks node --test tests/liekan/secrets-scan.test.mjs",
-        "gitleaks git . --log-opts=HEAD --redact=100"
-      ],
-      "owner": "Liekan release maintenance",
-      "constraint": "Retain the default secret rules; exceptions require both an exact source path and a known metadata format",
-      "removalCondition": "Remove when an equivalent upstream scan is portable and the regression checks pass"
-    },
-    {
-      "path": ".gitleaks.toml",
-      "purpose": "Portable source and history secret scans with narrow metadata exceptions",
-      "tests": [
-        "GITLEAKS_BINARY=gitleaks node --test tests/liekan/secrets-scan.test.mjs",
-        "gitleaks git . --log-opts=HEAD --redact=100"
-      ],
-      "owner": "Liekan release maintenance",
-      "constraint": "Retain the default secret rules; exceptions require both an exact source path and a known metadata format",
-      "removalCondition": "Remove when an equivalent upstream scan is portable and the regression checks pass"
-    },
-    {
-      "path": ".github/ISSUE_TEMPLATE/config.yml",
-      "purpose": "Keep GEOInflow support requests in the current repository",
-      "tests": [
-        "node scripts/liekan-static-check.mjs",
-        "Review public documentation and local file inventory"
-      ],
-      "owner": "Liekan release maintenance",
-      "constraint": "Retain original copyright and source provenance; exclude private operational reports and external support redirects",
-      "removalCondition": "Remove when the upstream surface follows the same product and distribution boundaries"
-    },
-    {
-      "path": "dependabot-review.md",
-      "purpose": "Exclude inherited dated audit output from the public source; retain durable license and maintenance guidance",
-      "tests": [
-        "node scripts/liekan-static-check.mjs",
-        "Review public documentation and local file inventory"
-      ],
-      "owner": "Liekan release maintenance",
-      "constraint": "Retain original copyright and source provenance; exclude private operational reports and external support redirects",
-      "removalCondition": "Remove when the upstream surface follows the same product and distribution boundaries"
-    },
-    {
-      "path": ".github/ISSUE_TEMPLATE/1.bug_report.yml",
-      "purpose": "Document actual GEOInflow deployment inputs and redact public bug reports",
-      "tests": [
-        "Review GitHub workflow permissions and public support templates",
-        "node scripts/liekan-static-check.mjs"
-      ],
-      "owner": "Liekan release maintenance",
-      "constraint": "Keep user support in the current repository and avoid enabling inherited external write automation",
-      "removalCondition": "Remove when the repository adopts an explicitly reviewed community maintenance policy"
-    },
-    {
-      "path": ".github/ISSUE_TEMPLATE/2.feature_request.yml",
-      "purpose": "Keep enhancement requests aligned with GEOInflow",
-      "tests": [
-        "Review GitHub workflow permissions and public support templates",
-        "node scripts/liekan-static-check.mjs"
-      ],
-      "owner": "Liekan release maintenance",
-      "constraint": "Keep user support in the current repository and avoid enabling inherited external write automation",
-      "removalCondition": "Remove when the repository adopts an explicitly reviewed community maintenance policy"
-    },
-    {
-      "path": ".github/workflows/stale-issues.yml",
-      "purpose": "Keep inherited automatic issue closure restricted to the upstream repository",
-      "tests": [
-        "Review GitHub workflow permissions and public support templates",
-        "node scripts/liekan-static-check.mjs"
-      ],
-      "owner": "Liekan release maintenance",
-      "constraint": "Keep user support in the current repository and avoid enabling inherited external write automation",
-      "removalCondition": "Remove when the repository adopts an explicitly reviewed community maintenance policy"
-    },
-    {
-      "path": "CONTRIBUTING.md",
-      "purpose": "GEOInflow contribution, deployment, privacy and scoped verification documentation",
-      "tests": [
-        "Review documentation links and command contracts",
-        "node scripts/liekan-static-check.mjs"
-      ],
-      "owner": "Liekan release maintenance",
-      "constraint": "Retain upstream MIT provenance, compatible identifiers and isolated database verification",
-      "removalCondition": "Remove when upstream contribution instructions cover the same product and release requirements"
     }
   ]
 }

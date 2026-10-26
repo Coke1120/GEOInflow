@@ -24,8 +24,10 @@ vi.mock('./analysis-rollups-db', () => ({
   }),
 }));
 vi.mock('./analysis-background', () => ({
-  withAnalysisPermit: async (_kind: string, work: any) =>
-    work(() => true, { token: 'permit', epoch: 1n }),
+  withAnalysisPermit: async (_kind: string, work: any) => ({
+    acquired: true,
+    value: await work(() => true, { token: 'permit', epoch: 1n }),
+  }),
 }));
 vi.mock('./analysis-query-execution', () => ({ executeAnalysisQuery: m.execute }));
 vi.mock('./dashboard-snapshots', () => ({
@@ -154,7 +156,11 @@ it('publishes only the recomputed value and metadata after a stale input retry',
     });
     return [{ x: retry ? 'fresh' : 'expired', y: null }];
   });
-  expect(await processAnalysisQuery('job')).toBeUndefined();
+  expect(await processAnalysisQuery('job')).toEqual({
+    acquired: true,
+    value: undefined,
+    retryDelivery: false,
+  });
   expect(m.execute).toHaveBeenCalledTimes(2);
   const published = m.write.mock.calls.find(([sql]) => sql.includes("SET status='ready'"));
   const stored = JSON.parse(published[3]);

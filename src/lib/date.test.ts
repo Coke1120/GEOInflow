@@ -124,8 +124,8 @@ describe('parseDateRange', () => {
       offset: 0,
       value: '4week',
     });
-    expect(result.startDate).toEqual(subWeeks(startOfWeek(NOW), 4));
-    expect(result.endDate).toEqual(endOfWeek(NOW));
+    expect(result.startDate).toEqual(subWeeks(startOfWeek(NOW, { weekStartsOn: 1 }), 4));
+    expect(result.endDate).toEqual(endOfWeek(NOW, { weekStartsOn: 1 }));
   });
 
   test('parses month ranges', () => {

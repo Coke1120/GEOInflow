@@ -15,6 +15,7 @@ vi.mock('@/components/hooks/useDateParameters', () => ({
 }));
 vi.mock('@/components/hooks/useFilterParameters', () => ({ useFilterParameters: () => ({}) }));
 
+const NOW = Date.parse('2026-10-01T12:00:00Z');
 let client: QueryClient;
 let visibility: DocumentVisibilityState;
 let online: boolean;
@@ -28,7 +29,7 @@ let fetch: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.useFakeTimers();
-  vi.setSystemTime(1000000);
+  vi.setSystemTime(NOW);
   visibility = 'visible';
   online = true;
   proofReads = 0;
@@ -239,7 +240,7 @@ it('shows a transient failure after authorization expires and recovers through e
 it('expires authorization by monotonic time when the wall clock moves back', async () => {
   mount();
   await advance(1);
-  vi.setSystemTime(500000);
+  vi.setSystemTime(NOW - 500000);
   holdProof = true;
   await advance(30000);
   expect(proofReads).toBe(2);
@@ -264,7 +265,7 @@ it('waits for the first failed proof Retry-After deadline before automatically r
   expect(proofReads).toBe(1);
   expect(screen.getByRole('alert')).toHaveTextContent('分享权限验证失败');
   expect(screen.getByRole('button', { name: '重试' })).toBeDisabled();
-  vi.setSystemTime(500000);
+  vi.setSystemTime(NOW - 500000);
   fireEvent(window, new Event('focus'));
   await advance(89899);
   expect(proofReads).toBe(1);
