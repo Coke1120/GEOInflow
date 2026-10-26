@@ -32,13 +32,13 @@ Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 R
 
 开发时安装冻结依赖、生成 Prisma 客户端、生成 OpenAPI/SDK 并构建工作区包。先执行上游 `pnpm db:migrate`，再运行 `pnpm liekan:migrate`。`pnpm liekan:seed-demo` 从仓库内的示例数据包创建“猎看官网（示例数据）”，保持已有管理员密码。数据包可离线导入，详情见 [默认示例说明](default-demo.md)。
 
-首次安装并完成容器启动后，可在应用容器内初始化默认示例：
+Docker 首次启动会在迁移后自动导入完整官方示例。手动开发或需要显式重试初始化时，可执行：
 
 ```sh
 docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-demo.mjs
 ```
 
-默认示例仅在显式运行初始化命令时创建。重启和升级保留现有网站与示例删除状态。
+默认示例随源码和镜像分发完整脱敏数据包、目录与 SHA-256 清单。重启和升级保留已有数据、自定义资源、清空与删除状态，重复初始化不会重建已删除的示例。
 
 构建自动准备地理库，也可优先使用已获授权的本地 City MMDB。首次安装先运行独立数据库并完成迁移和演示站接入，再将已审查代码提交。完整验收会生成带候选 SHA 的镜像。以下升级示例要求原数据库与缓存容器正在运行且健康，仅更新应用与后台处理服务，并直接使用已验收镜像。首次安装或依赖服务需要恢复时使用上述部署脚本。
 
@@ -47,11 +47,11 @@ pnpm liekan:verify
 liekan_version=$(node -p "require('./package.json').version")
 docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" "liekan:${liekan_version}"
 docker compose -f docker-compose.liekan.yml stop log-worker analytics-worker
-docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 app
+docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 1800 app
 docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 log-worker analytics-worker
 ```
 
-启动依次检查并应用 Umami 迁移、应用 Liekan 校验和迁移、更新 tracker 文件、启动服务器。首次安装的默认用户名为 `admin`，密码为 `liekan`。Liekan 的第 5 项迁移仅更新身份、名称、角色及密码摘要仍与上游初始管理员完全一致的有效账号，保留自定义密码、改名账号和已删除账号。迁移账本保证后续重启保留用户修改后的密码。已有账号继续使用其设置的密码。
+启动依次检查并应用 Umami 迁移、应用 Liekan 校验和迁移、初始化官方示例、准备队列、更新 tracker 文件、启动服务器。首次安装的默认用户名为 `admin`，密码为 `liekan`。Liekan 的第 5 项迁移仅更新身份、名称、角色及密码摘要仍与上游初始管理员完全一致的有效账号，保留自定义密码、改名账号和已删除账号。迁移账本保证后续重启保留用户修改后的密码。已有账号继续使用其设置的密码。
 
 完整验收的镜像构建沿用环境中的 HTTP_PROXY、HTTPS_PROXY 和 NO_PROXY；macOS 的回环代理地址转换为 Docker Desktop 的 host.docker.internal。可用 LIEKAN_DOCKER_HTTP_PROXY / LIEKAN_DOCKER_HTTPS_PROXY 单独指定容器可达的构建代理。代理值通过构建进程环境传入，命令参数只带变量名，最终应用不配置这些构建代理；官方组件来源和 HTTPS 校验保持有效。Prisma 的代理支持见 [官方说明](https://www.prisma.io/docs/orm/v7/reference/environment-variables-reference#proxy-environment-variables)。
 

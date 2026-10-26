@@ -105,7 +105,7 @@ Start Docker Engine / Docker Desktop and Docker Compose V2, and ensure that imag
 sh scripts/liekan-deploy.sh
 ```
 
-The script generates a private `.env` and random secrets, builds the application image, runs migrations, and starts the application, log worker, analytics worker, PostgreSQL, and Redis. The default address is:
+The script generates a private `.env` and random secrets, builds the application image, runs migrations, imports the bundled official example on a fresh installation, and starts the application, log worker, analytics worker, PostgreSQL, and Redis. The default address is:
 
 ```text
 http://127.0.0.1:3002
@@ -113,15 +113,15 @@ http://127.0.0.1:3002
 
 For a fresh installation, the initial username is `admin` and the initial password is `liekan`. Change the password after signing in, then create a website using the ingestion guide. Upgrades preserve existing customized passwords and accounts.
 
-To try the bundled example after the application starts, run:
+Docker startup imports the complete sanitized official example after migrations. For manual development, run:
 
 ```sh
 docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-demo.mjs
 ```
 
-The example is named “猎看官网（示例数据）”. It initializes from the processed dataset included with the source. On first import, its timestamps are shifted to make the data convenient to explore. Repeated runs preserve existing data and deletion state. See the [default demo guide](docs/default-demo.md).
+The example is named “猎看官网（示例数据）”. The source and Docker image include its complete sanitized dataset, catalog, and checksum manifest, covering browser events, performance, revenue, heatmaps, replays, crawler evidence, content, and goals. On first import, its timestamps are shifted to make the data convenient to explore. Repeated runs preserve existing data and deletion state. See the [default demo guide](docs/default-demo.md).
 
-Production access requires a domain, HTTPS, and a trusted reverse proxy. Browser PV collection can continue without a trusted IP ingress, while identity metrics such as UV require reliable ingress evidence. Automatic log ingestion and optional AI analysis have separate configuration requirements.
+Production access requires a domain, HTTPS, and a trusted reverse proxy. Raw browser receipt remains observable without trusted IP ingress. Qualified browser metrics, including PV and UV, require usable identity evidence. Automatic log ingestion and optional AI analysis have separate configuration requirements.
 
 The [deployment guide](docs/deployment.en.md) covers services, configuration, proxies, backups, and upgrades. The [quick start](docs/getting-started.en.md) explains how to connect the first website.
 

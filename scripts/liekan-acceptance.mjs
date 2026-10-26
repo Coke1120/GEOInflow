@@ -172,7 +172,8 @@ const countsSQL =
   ')';
 const pause = cancellation.pause;
 const healthy = async () => {
-  for (let attempt = 0; attempt < 180; attempt++) {
+  const deadline = Date.now() + 30 * 60 * 1000;
+  while (Date.now() < deadline) {
     cancellation.checkpoint();
     try {
       const response = await fetch(`${baseUrl}/api/heartbeat`, {

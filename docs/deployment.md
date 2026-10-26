@@ -61,13 +61,13 @@ docker compose -f docker-compose.liekan.yml logs --tail=100 analytics-worker
 
 日志接收与处理、统计查询与历史构建由不同后台承担。接收成功而统计尚未更新时，继续核对处理状态、队列和数据截止时间。
 
-## 初始化可选示例
+## 官方示例初始化
 
 ```sh
 docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-demo.mjs
 ```
 
-示例为“猎看官网（示例数据）”，带明确数据标识。首次导入平移时间；重复导入保持已有数据和删除状态。正式网站按 [快速开始](getting-started.md) 接入真实输入。
+Docker 首次启动在迁移后自动导入“猎看官网（示例数据）”，上面的命令可用于手动开发和显式重试。源码与镜像包含完整脱敏数据包、目录和校验清单。首次导入平移时间；重复导入保持已有数据、自定义资源和清空、删除状态。正式网站按 [快速开始](getting-started.md) 接入真实输入。
 
 ## 域名、HTTPS 与可信入口
 

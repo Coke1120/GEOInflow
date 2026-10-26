@@ -61,13 +61,13 @@ docker compose -f docker-compose.liekan.yml logs --tail=100 analytics-worker
 
 Log receipt and processing, statistics queries, and historical builds run through different workers. If receipt succeeds before analytics updates, check processing status, queues, and the data cutoff.
 
-## Initialize the optional example
+## Official example initialization
 
 ```sh
 docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-demo.mjs
 ```
 
-The example is named “猎看官网（示例数据）” and is explicitly labeled as demo data. The first import shifts timestamps; repeated imports preserve existing data and deletion state. Connect real inputs for production websites using the [quick start](getting-started.en.md).
+Docker startup imports “猎看官网（示例数据）” after migrations on a fresh installation. Use the command above for manual development or an explicit retry. Source and Docker images carry the complete sanitized dataset, catalog, and checksum manifest. The first import shifts timestamps; repeated imports preserve existing data, customized resources, and cleared or deleted state. Connect real inputs for production websites using the [quick start](getting-started.en.md).
 
 ## Domain, HTTPS, and trusted ingress
 
