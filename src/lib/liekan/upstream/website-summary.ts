@@ -1,5 +1,6 @@
 import { readBrowserPopulation } from './browser-population';
 import {
+  type BrowserPopulation,
   identityUsable,
   totalIdentityFields,
   unavailableFields,
@@ -67,8 +68,18 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
     Object.fromEntries(
       Object.keys(zero).map(key => [key, row?.[key] === null ? null : Number(row?.[key] ?? 0)]),
     ) as typeof zero;
+  const populationTotals = (row: any, population: BrowserPopulation) => {
+    const totals = normalize(row);
+    return identityUsable(population)
+      ? totals
+      : unavailableFields(totals, [
+          ...totalIdentityFields,
+          'aiVisits',
+          ...(population.metricScope === 'qualified-browser' ? ['pageviews'] : []),
+        ]);
+  };
   const result = await analyticsCache.read(
-    analyticsCacheKey('website-summary-browser-population-v2', [
+    analyticsCacheKey('website-summary-browser-population-v3', [
       process.env.DATABASE_URL,
       process.env.CLICKHOUSE_URL,
       p,
@@ -85,7 +96,12 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
             { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
             site.id,
           );
-          const comparisonFilters = getCompareDate('prev', filters.startDate, filters.endDate, p.timezone);
+          const comparisonFilters = getCompareDate(
+            'prev',
+            filters.startDate,
+            filters.endDate,
+            p.timezone,
+          );
           const lifetimeFilters = await getQueryFilters(
             { startAt: +site.createdAt, endAt: Date.now() },
             site.id,
@@ -174,21 +190,17 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
               previous.endDate,
               p.timezone,
             );
-            const currentTotals = normalize(row.current),
-              previousTotals = normalize(row.previous);
+            const currentTotals = populationTotals(row.current, population),
+              previousTotals = populationTotals(row.previous, comparisonPopulation);
             return {
               id: row.id,
-              ...(identityUsable(population)
-                ? currentTotals
-                : unavailableFields(currentTotals, [...totalIdentityFields, 'aiVisits'])),
+              ...currentTotals,
               population,
               comparison: {
-                ...(identityUsable(comparisonPopulation)
-                  ? previousTotals
-                  : unavailableFields(previousTotals, [...totalIdentityFields, 'aiVisits'])),
+                ...previousTotals,
                 population: comparisonPopulation,
               },
-              views: normalize(row.current).pageviews,
+              views: currentTotals.pageviews,
               received: row.received,
               lastAt: row.last_at?.toISOString() ?? null,
             };

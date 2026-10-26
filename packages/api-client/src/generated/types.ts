@@ -34452,7 +34452,7 @@ export interface operations {
               /** @description Number of visits with only one pageview. */
               bounces: number | null;
               /** @description Pageview counts for the selected period. */
-              pageviews: number;
+              pageviews: number | null;
               population?: {
                 /** @enum {string} */
                 capability: 'supported' | 'unsupported';
@@ -34515,7 +34515,7 @@ export interface operations {
             /** @description Date and time of the most recent recorded activity. */
             lastAt: string | null;
             /** @description Pageview counts for the selected period. */
-            pageviews: number;
+            pageviews: number | null;
             population?: {
               /** @enum {string} */
               capability: 'supported' | 'unsupported';
@@ -34567,7 +34567,7 @@ export interface operations {
             /** @description Total visit duration in seconds. */
             totaltime: number | null;
             /** @description Pageview counts for the selected period. */
-            views: number;
+            views: number | null;
             /** @description Unique visitor counts for the selected period. */
             visitors: number | null;
             /** @description Visit counts for the selected period. */
