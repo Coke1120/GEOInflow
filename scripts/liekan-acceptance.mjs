@@ -281,7 +281,7 @@ try {
     server.once('error', reject);
     server.listen(acceptancePort, '127.0.0.1', () => server.close(resolve));
   });
-  await run('docker', ['pull', 'node:22.23.3-alpine'], 'node-base');
+  await run('docker', ['pull', 'node:22.23.4-alpine'], 'node-base');
   await run('docker', ['pull', 'postgres:15-alpine'], 'database-base');
   await run(
     'docker',
@@ -335,7 +335,7 @@ try {
   )
     throw new Error('Candidate OCI metadata differs');
   report.imageId = docker('image', 'inspect', image, '--format', '{{.Id}}');
-  report.baseImages = ['node:22.23.3-alpine', 'postgres:15-alpine'].map(ref => ({
+  report.baseImages = ['node:22.23.4-alpine', 'postgres:15-alpine'].map(ref => ({
     ref,
     id: docker('image', 'inspect', ref, '--format', '{{.Id}}'),
   }));

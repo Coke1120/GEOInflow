@@ -13,7 +13,7 @@ This guide uses Docker Compose on a single host. See the [local deployment detai
 - Network access to container images, Node dependencies, and geographic database download sources.
 - Sufficient memory and disk space for Docker, builds, PostgreSQL, and the application.
 
-The image pins Node.js 22.23.3 and pnpm 12.3.4. Docker builds configure a Node heap of 3072 MiB; native component builds, the Docker VM, and other services also need memory. Runtime capacity depends on actual log volume, retention, concurrency, and background builds. Measure capacity using your own data.
+The image pins Node.js 22.23.4 and pnpm 12.3.4. Docker builds configure a Node heap of 3072 MiB; native component builds, the Docker VM, and other services also need memory. Runtime capacity depends on actual log volume, retention, concurrency, and background builds. Measure capacity using your own data.
 
 New installations use PostgreSQL 16 and Redis 7.4. Existing PostgreSQL 15 instances retain version 15. Changing the database major version requires a separate migration and recovery plan.
 

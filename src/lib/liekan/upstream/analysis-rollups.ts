@@ -11,8 +11,7 @@ import {
   analysisTransaction,
   findAnalysisVersions,
   logDimensionsSql,
-  visitDimensionsSql,
-  visitEvidenceJoinsSql,
+  analysisVisitRowsSql,
 } from './analysis-rollups-db';
 import { browserPopulationMetadataSql, populationFromRow } from './browser-population';
 import type { BrowserPopulation } from '../contracts/browser-population';
@@ -376,17 +375,18 @@ function visitConditions(filters: Record<string, string>) {
 function visitFactsSql(inclusiveEnd = true) {
   return `${coverageSql}, ${gapRangesSql('visit_gaps', 'covered', inclusiveEnd)}, raw_scope AS MATERIALIZED (
   SELECT r.* FROM visit_gaps g CROSS JOIN LATERAL (
-   SELECT e.session_id,e.visit_id,coalesce(e.hostname,'') AS hostname,${visitDimensionsSql} AS dimensions,
+   SELECT e.session_id,e.visit_id,e.hostname,e.dimensions,
     count(*) AS eligible_events,count(*) FILTER(WHERE e.event_type NOT IN(2,5)) AS pageviews,bool_or(e.event_type=2) AS has_custom,
     min(e.created_at) FILTER(WHERE e.event_type NOT IN(2,5)) AS min_time,max(e.created_at) FILTER(WHERE e.event_type NOT IN(2,5)) AS max_time
-   FROM liekan_geographic_website_event e ${visitEvidenceJoinsSql}
-   WHERE e.website_id=$1::uuid AND e.created_at>=g.starts AND e.created_at<g.ends
-   GROUP BY e.session_id,e.visit_id,e.hostname,${visitDimensionsSql} OFFSET 0
+   FROM (${analysisVisitRowsSql('e.website_id=$1::uuid AND e.created_at>=g.starts AND e.created_at<g.ends')}) e
+   GROUP BY e.session_id,e.visit_id,e.hostname,e.dimensions OFFSET 0
   ) r
- ), facts AS MATERIALIZED (
+ ), observed_facts AS MATERIALIZED (
   SELECT f.session_id,f.visit_id,f.hostname,f.dimensions,f.eligible_events,f.pageviews,f.has_custom,f.min_time,f.max_time
   FROM liekan_analysis_visit f JOIN covered c ON c.generation=f.generation AND c.website_id=f.website_id WHERE ${derivedBucketBounds}
   UNION ALL SELECT * FROM raw_scope
+ ), facts AS MATERIALIZED (
+  SELECT * FROM observed_facts WHERE coalesce((dimensions->>'identityAvailable')::boolean,false)
  )`;
 }
 
@@ -411,17 +411,7 @@ export async function readAnalysisVisitPopulation(
     if (!versions || !(await hasCoveredManifest(tx, input, 'visit', versions))) return null;
     const [row] = await tx.$queryRawUnsafe<Record<string, any>[]>(
       `WITH ${visitFactsSql(!input.halfOpen)}, population_facts AS MATERIALIZED (
-       SELECT session_id,eligible_events,pageviews,dimensions FROM facts
-       UNION ALL
-       SELECT NULL::uuid,count(*),count(*) FILTER(WHERE e.event_type=1),
-         jsonb_build_object('identityAvailable',false,'identityVersion',env.identity_version,'ruleVersion',q.rule_version,'catalogVersion',q.catalog_version)
-       FROM liekan_observed_browser_event e
-       LEFT JOIN liekan_browser_identity qualified ON qualified.website_id=e.website_id AND qualified.event_id=e.event_id
-       LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
-       LEFT JOIN liekan_reporting_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id
-       WHERE e.website_id=$1::uuid AND e.created_at>=$2::timestamptz AND e.created_at${input.halfOpen ? '<' : '<='}$3::timestamptz
-         AND qualified.event_id IS NULL
-       GROUP BY env.identity_version,q.rule_version,q.catalog_version
+       SELECT session_id,eligible_events,pageviews,dimensions FROM observed_facts
        ) SELECT ${browserPopulationMetadataSql},'qualified-browser' AS "metricScope",
        coalesce(sum(eligible_events),0)::text AS "eligibleEvents",
        coalesce(sum(eligible_events) FILTER(WHERE (dimensions->>'identityAvailable')::boolean),0)::text AS "qualifiedEvents",
@@ -429,6 +419,7 @@ export async function readAnalysisVisitPopulation(
        coalesce(sum(pageviews) FILTER(WHERE (dimensions->>'identityAvailable')::boolean),0)::text AS "qualifiedPV",
        count(DISTINCT session_id) FILTER(WHERE pageviews>0 AND (dimensions->>'identityAvailable')::boolean)::text AS "qualifiedVisitors",
        ARRAY(SELECT DISTINCT dimensions->>'identityVersion' FROM population_facts WHERE dimensions->>'identityVersion' IS NOT NULL ORDER BY 1 LIMIT 33) AS "identityVersions",
+       ARRAY(SELECT DISTINCT dimensions->>'identityVersion' FROM population_facts WHERE dimensions->>'identityVersion' IS NOT NULL AND pageviews>0 AND (dimensions->>'identityAvailable')::boolean ORDER BY 1 LIMIT 33) AS "qualifiedIdentityVersions",
        ARRAY(SELECT DISTINCT dimensions->>'ruleVersion' FROM population_facts WHERE dimensions->>'ruleVersion' IS NOT NULL ORDER BY 1 LIMIT 33) AS "ruleVersions",
        ARRAY(SELECT DISTINCT dimensions->>'catalogVersion' FROM population_facts WHERE dimensions->>'catalogVersion' IS NOT NULL ORDER BY 1 LIMIT 33) AS "catalogVersions"
        FROM population_facts CROSS JOIN(SELECT $4::text) parameter_types`,

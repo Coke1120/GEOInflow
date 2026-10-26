@@ -9,8 +9,7 @@ import {
   analysisVersions,
   analysisCapacity,
   analysisLogDimensionsSql,
-  visitDimensionsSql,
-  visitEvidenceJoinsSql,
+  analysisVisitRowsSql,
   ensureAnalysisPartitions,
   chargeAnalysisGeneration,
 } from './analysis-rollups-db';
@@ -113,12 +112,9 @@ async function visitChunk(tx: AnalysisTx, row: AnalysisBuildRow, state: Analysis
   const [result] = await tx.$queryRawUnsafe<
     { rows: string; after_time: string | null; after_id: string | null; bytes: string }[]
   >(
-    `WITH chunk AS MATERIALIZED (
-     SELECT e.event_id,e.created_at,e.session_id,e.visit_id,coalesce(e.hostname,'') AS hostname,e.event_type,${visitDimensionsSql} AS dimensions
-     FROM liekan_geographic_website_event e ${visitEvidenceJoinsSql}
-     WHERE e.website_id=$1::uuid AND e.created_at>=$3::timestamptz AND e.created_at<$4::timestamptz
-     AND ($5::timestamptz IS NULL OR (e.created_at,e.event_id)>($5::timestamptz,$6::uuid))
-     ORDER BY e.created_at,e.event_id LIMIT $7
+    `WITH observed AS (${analysisVisitRowsSql(`e.website_id=$1::uuid AND e.created_at>=$3::timestamptz AND e.created_at<$4::timestamptz
+     AND ($5::timestamptz IS NULL OR (e.created_at,e.event_id)>($5::timestamptz,$6::uuid))`)}), chunk AS MATERIALIZED (
+     SELECT * FROM observed ORDER BY created_at,event_id LIMIT $7
     ), facts AS (
      INSERT INTO liekan_analysis_visit(website_id,generation,bucket,session_id,visit_id,hostname,dimensions,dimension_key,eligible_events,pageviews,has_custom,min_time,max_time)
      SELECT $1::uuid,$2::uuid,date_bin(interval '1 hour',c.created_at,timestamptz '2000-01-01Z'),c.session_id,c.visit_id,c.hostname,c.dimensions,md5(c.dimensions::text),
@@ -366,7 +362,7 @@ export async function runOneAnalysisWorkUnit(
       const chunk =
         state.family === 'log' ? await logChunk(tx, row, state) : await visitChunk(tx, row, state);
       if (state.family === 'visit') {
-        const detail = await buildBrowserDetailChunk(tx, row, state);
+        const detail = await buildBrowserDetailChunk(tx, row, state, chunk);
         chunk.bytes = String(BigInt(chunk.bytes) + BigInt(detail.bytes));
       }
       await chargeAnalysisGeneration(tx, row.website_id, state.generation, chunk.bytes);

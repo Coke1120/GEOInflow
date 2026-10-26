@@ -26,7 +26,7 @@ Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 R
 
 ## 手动开发与本地验收
 
-手动开发与验收要求 Docker Desktop、Node.js 22.23.3、pnpm 12.3.4。应用 http://127.0.0.1:3002，专用 PostgreSQL 在本机 15435，新卷 liekan_liekan-data。原 Umami 的 3001 入口和 umami_umami-db-data 卷保持独立。
+手动开发与验收要求 Docker Desktop、Node.js 22.23.4、pnpm 12.3.4。应用 http://127.0.0.1:3002，专用 PostgreSQL 在本机 15435，新卷 liekan_liekan-data。原 Umami 的 3001 入口和 umami_umami-db-data 卷保持独立。
 
 手动安装时复制 env.example 到 .env，替换随机密码与密钥，文件权限设为 0600。迁移已有 Umami 数据时沿用原 APP_SECRET 与 TWO_FACTOR_ENCRYPTION_KEY，避免既有会话、身份标识和 2FA 加密数据失配。DATABASE_URL 指向新的副本，所有备份与配置都不纳入 Git。
 

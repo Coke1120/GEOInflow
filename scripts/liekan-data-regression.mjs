@@ -225,8 +225,8 @@ export async function runDataRegression(query, options = {}) {
     assert.deepEqual(actual, expected, name);
     checks.push(name);
   };
-  const metrics = rows =>
-    rows.map(({ day, pv, uv, sessions, bounces }) => ({ day, pv, uv, sessions, bounces }));
+  const metrics = result =>
+    (Array.isArray(result) ? result : result.rows).map(({ day, pv, uv, sessions, bounces }) => ({ day, pv, uv, sessions, bounces }));
   check(
     'daily PV/UV by event time with visit-start session cohorts',
     metrics(await analytics.getHumanDays(websiteId, start, end, 'Asia/Shanghai')),

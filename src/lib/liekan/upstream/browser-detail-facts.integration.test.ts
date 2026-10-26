@@ -48,6 +48,7 @@ async function event(
     country?: string;
     referrer?: string;
     excluded?: boolean;
+    available?: boolean;
   } = {},
 ) {
   const id = randomUUID(),
@@ -80,10 +81,11 @@ async function event(
     );
     await tx.$executeRawUnsafe(
       `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser,os,device)
-     VALUES($1::uuid,$2::uuid,'browser','detail-fixture',true,$3,'event-os','event-device')`,
+     VALUES($1::uuid,$2::uuid,'browser','detail-fixture',$4,$3,'event-os','event-device')`,
       id,
       site,
       options.browser || 'Firefox',
+      options.available !== false,
     );
     await tx.$executeRawUnsafe(
       `INSERT INTO liekan_event_geography(event_id,website_id,country,region,city,source,trust,ip_family,precision,reason,rule_version,country_basis,processed_at)
@@ -171,6 +173,22 @@ describe.skipIf(!enabled)('exact persisted browser detail facts', () => {
     await execute('DELETE FROM "user" WHERE user_id=$1::uuid', actor.userId);
     const { default: prisma } = await import('@/lib/prisma');
     await prisma.client.$disconnect();
+  });
+  it('keeps qualified detail events within the observed batch cursor when missing identities precede them', async () => {
+    await event('2026-01-01T23:00Z', '/missing-one', { available: false });
+    await event('2026-01-01T23:01Z', '/missing-two', { available: false });
+    await execute(`WITH missing AS (INSERT INTO website_event(event_id,website_id,session_id,visit_id,created_at,event_type,url_path,hostname)
+      SELECT gen_random_uuid(),$1::uuid,$2::uuid,$2::uuid,timestamptz '2026-01-01T23:00:01Z'+n*interval '1 millisecond',1,'/missing-batch','detail.invalid'
+      FROM generate_series(1,1998) n RETURNING event_id,website_id)
+      INSERT INTO liekan_event_quality(event_id,website_id,classification,source,reasons,rule_version,range_status,hostname)
+      SELECT event_id,website_id,'browser','browser','{}','detail-fixture','missing','detail.invalid' FROM missing`, site, session);
+    await event('2026-01-01T23:02Z', '/qualified');
+    const expected = pick(await facts());
+    expect(expected.daily.reduce((sum, day) => sum + Number(day.pv), 0)).toBe(1);
+    await build();
+    expect((await q(`SELECT coalesce(sum(v.pageviews),0)::int AS pv FROM liekan_analysis_browser_visit v WHERE v.website_id=$1 AND EXISTS(SELECT 1 FROM liekan_analysis_manifest m WHERE m.website_id=v.website_id AND m.generation=v.generation AND m.family='visit')`, site))[0].pv).toBe(1);
+    expect(pick(await facts())).toEqual(expected);
+    expect(await rollups.readAnalysisVisitTotals({ websiteId: site, startDate: start, endDate: end })).toMatchObject({ pageviews: 1, visitors: 1 });
   });
   it('matches the original raw contract across chunks, buckets, days, identities, entry and dwell', async () => {
     await event('2026-01-01T22:59:00Z', '/entry', { referrer: 'google.com' });
