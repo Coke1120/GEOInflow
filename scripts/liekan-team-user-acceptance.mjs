@@ -172,7 +172,18 @@ try {
       await page.goto(
         `${base}/liekan/team-detail?${new URLSearchParams({ id: team.id, teamId: team.id })}`,
       );
-      await page.getByRole('button', { name: '新建用户', exact: true }).click();
+      const createUser = page.getByRole('button', { name: '新建用户', exact: true });
+      const confirmCalendar = page.getByRole('button', { name: '确认并继续', exact: true });
+      await createUser.or(confirmCalendar).first().waitFor({ state: 'visible' });
+      if (await confirmCalendar.isVisible()) {
+        await page.locator('select[name=countryCode]').selectOption('CN');
+        await page.locator('select[name=timezone]').selectOption('Asia/Shanghai');
+        await page.screenshot({ path: `${out}/calendar-setup-${width}.png`, fullPage: true });
+        await confirmCalendar.click();
+        await createUser.waitFor({ state: 'visible' });
+        report.calendarSetup = { confirmed: true, countryCode: 'CN', timezone: 'Asia/Shanghai' };
+      }
+      await createUser.click();
       const dialog = page.getByRole('dialog');
       assert.equal(await dialog.locator('select[name=teamRole]').inputValue(), 'team-view-only');
       await dialog.locator('select[name=teamRole]').selectOption('team-manager');
