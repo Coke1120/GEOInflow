@@ -34,7 +34,14 @@ const browser = await chromium.launch({
   headless: true,
   ...(!process.env.CI ? { channel: 'chrome' } : {}),
 });
+const preparedCalendars = new Set();
 async function pageAt(path, slow = false) {
+  if (!preparedCalendars.has(token)) {
+    await api('PATCH', '/liekan/account/preferences', {
+      countryCode: 'CN', timezone: 'Asia/Shanghai', range: '0day',
+    });
+    preparedCalendars.add(token);
+  }
   const context = await browser.newContext({
     viewport: { width: 1440, height: 1000 },
     locale: 'zh-CN',
@@ -225,7 +232,7 @@ try {
   ({ page, context } = await pageAt('/websites?date=range:bad:bad'));
   assert(await page.getByText('日期参数无效，当前使用默认日期范围。').isVisible());
   await page.getByRole('button', { name: '重置日期', exact: true }).click();
-  await page.waitForURL(u => u.searchParams.get('date') === '30day');
+  await page.waitForURL(u => u.searchParams.get('date') === '0day');
   await page.waitForLoadState('networkidle');
   await context.close();
   ({ page, context } = await pageAt(

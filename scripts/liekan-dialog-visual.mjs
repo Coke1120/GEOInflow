@@ -59,6 +59,9 @@ try {
   created.push('/users/' + own.id);
   const ownCredentials = { username: own.username, password: fixturePassword };
   ownToken = (await api('POST', '/auth/login', ownCredentials, '')).token;
+  await api('PATCH', '/liekan/account/preferences', {
+    countryCode: 'CN', timezone: 'Asia/Shanghai', range: '0day',
+  }, ownToken);
   team = (await api('POST', '/teams', { name: '弹窗验收团队' }))[0];
   created.push('/teams/' + team.id);
   await api('POST', `/teams/${team.id}/users`, { userId: own.id, role: 'team-member' });
