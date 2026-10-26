@@ -11,6 +11,9 @@ import {
   eventDecision,
   fraction,
   includedEvent,
+  includedBrowserMetricEvent,
+  publicRepairCounts,
+  publicRepairPreview,
   logDecision,
   progress,
   rulepack,
@@ -45,6 +48,44 @@ const log = (changes: Partial<LogVerdict> = {}): LogVerdict => ({
   verificationObservedAt: null,
   verificationReason: null,
   ...changes,
+});
+it('keeps v5 repair PV aligned with browser classification and event-owned identity', () => {
+  const policy = { mode: 'standard' as const, allowedHostnames: [], revision: '1' };
+  const context = { identityScope: 'browser', identityAvailable: true };
+  const browser = event({ classification: 'browser' });
+  expect(includedBrowserMetricEvent(browser, 1, null, policy, context)).toBe(true);
+  expect(includedBrowserMetricEvent(event(), 1, null, policy, context)).toBe(false);
+  expect(
+    includedBrowserMetricEvent(browser, 1, null, policy, { ...context, identityAvailable: false }),
+  ).toBe(false);
+  expect(
+    includedBrowserMetricEvent(browser, 1, null, policy, { ...context, identityScope: null }),
+  ).toBe(false);
+  expect(includedEvent(browser, 1, null, policy)).toBe(true);
+});
+it('preserves qualified preview UV while keeping missing-input and archived whole-population counts explicit', () => {
+  const counts = {
+    ...emptyCounts(),
+    beforeUV: '2',
+    afterUV: '1',
+    beforeIdentityMissingPV: '20',
+    afterIdentityMissingPV: '10',
+  };
+  expect(publicRepairCounts(counts).beforeUV).toBeNull();
+  const result = publicRepairPreview({ metricScope: 'qualified-browser' as const, counts });
+  expect(result.counts).toMatchObject({
+    beforeUV: '2',
+    afterUV: '1',
+    beforeQualifiedUV: '2',
+    afterQualifiedUV: '1',
+    beforeIdentityMissingPV: '20',
+  });
+  expect(
+    publicRepairPreview({
+      metricScope: 'qualified-browser' as const,
+      counts: { ...counts, beforeUV: '0' },
+    }).counts.beforeUV,
+  ).toBeNull();
 });
 describe('history repair evidence and population invariants', () => {
   it('normalizes UUID inputs and accepts one bounded manifest confirmation mode', () => {
@@ -287,11 +328,17 @@ describe('history repair evidence and population invariants', () => {
   });
 });
 
-
 it('applies Origin and explicit exclusions to historical browser population', () => {
-  const verdict = { classification: 'browser' as const, source: 'browser', reasons: [], ruleVersion: 'traffic-quality-v4' };
+  const verdict = {
+    classification: 'browser' as const,
+    source: 'browser',
+    reasons: [],
+    ruleVersion: 'traffic-quality-v4',
+  };
   const policy = { mode: 'raw' as const, allowedHostnames: ['example.test'], revision: '1' };
-  expect(includedEvent(verdict, 1, 'example.test', policy, { originHostname: 'other.test' })).toBe(false);
+  expect(includedEvent(verdict, 1, 'example.test', policy, { originHostname: 'other.test' })).toBe(
+    false,
+  );
   expect(includedEvent(verdict, 1, 'example.test', policy, { excluded: true })).toBe(false);
   expect(includedEvent(verdict, 1, 'example.test', policy)).toBe(true);
 });

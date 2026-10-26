@@ -1,5 +1,5 @@
 import { readTransactionBrowserPopulation } from '../upstream/browser-population';
-import { identityUsable, unavailableFields } from '../contracts/browser-population';
+import { identityComplete, unavailableFields } from '../contracts/browser-population';
 import { noteBrowserPopulation } from '../upstream/cache-context';
 import { withPublishedRegistry } from '../upstream/crawler-registry-context';
 import { getPublishedCatalog } from './published';
@@ -352,7 +352,7 @@ export async function readReconciliation(
   input: EvidenceInputs,
 ) {
   const browserPopulation = await readTransactionBrowserPopulation(tx, websiteId, p);
-  const identityReady = identityUsable(browserPopulation);
+  const identityReady = identityComplete(browserPopulation);
   const hostname = normalizeCollectionHostname(p.hostname);
   const sourceHost =
     p.sourceId === 'manual'

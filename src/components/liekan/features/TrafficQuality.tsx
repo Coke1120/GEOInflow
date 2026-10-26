@@ -48,6 +48,8 @@ const partitionLabels: Record<string, string> = {
   strict_policy: '严格策略排除',
   hostname_conflict: '主机或来源冲突',
   confirmed_exclusion: '经确认排除',
+  unclassified_browser: '浏览器分类未确认',
+  identity_unavailable: '浏览身份依据缺失',
   unknown_evidence: '证据不足',
 };
 const modes: [string, string][] = [

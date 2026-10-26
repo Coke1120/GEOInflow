@@ -146,7 +146,7 @@ try {
     pixelEvent = await add(4, null, 'browser', pixel);
   await test('typed views keep browser event types and genuine link/pixel while closing website type bypass', async () => {
     const { rows } = await db.query(
-      'SELECT event_id::text FROM liekan_effective_browser_event ORDER BY event_id',
+      'SELECT event_id::text FROM liekan_observed_browser_event ORDER BY event_id',
     );
     assert.deepEqual(rows.map(r => r.event_id).sort(), [browser, humanEvent, performance].sort());
     const all = await db.query(
@@ -154,7 +154,7 @@ try {
     );
     assert.deepEqual(
       all.rows.map(r => r.event_id).sort(),
-      [browser, humanEvent, performance, linkEvent, pixelEvent].sort(),
+      [linkEvent, pixelEvent].sort(),
     );
   });
   await test('raw policy cannot bring known automation or server producers into browser population', async () => {
@@ -164,7 +164,7 @@ try {
     );
     assert.equal(
       (await db.query('SELECT count(*)::int AS n FROM liekan_effective_browser_event')).rows[0].n,
-      3,
+      0,
     );
   });
   await test('event environment never inherits previously mixed session device identity', async () => {
@@ -174,8 +174,8 @@ try {
           'SELECT liekan_browser,liekan_identity_available FROM liekan_geographic_website_event WHERE event_id=$1',
           [browser],
         )
-      ).rows[0].liekan_browser,
-      null,
+      ).rows.length,
+      0,
     );
     await db.query(
       `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser,origin_hostname)
@@ -190,6 +190,11 @@ try {
     ).rows[0];
     assert.equal(row.liekan_browser, 'Chrome');
     assert.equal(row.liekan_identity_available, true);
+    await db.query(
+      `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available)
+      SELECT event_id,website_id,'browser','cookieless-trusted-input-v2',true FROM website_event WHERE event_id=ANY($1::uuid[])`,
+      [[humanEvent, performance]],
+    );
   });
   await test('Origin conflict follows configured hosts and absent Origin keeps compatibility', async () => {
     await db.query(
@@ -291,6 +296,14 @@ try {
       JOIN liekan_event_quality q ON q.event_id=e.event_id WHERE e.website_id=$1 AND q.created_at>$2::timestamptz-interval '5 minutes' AND q.created_at<=$2`,
       [website, windowEnd],
     );
+  });
+  await test('unknown classification cannot receive visit exclusion authority from identity inputs alone', async () => {
+    await db.query(`UPDATE liekan_event_quality SET classification='unknown' WHERE website_id=$1 AND created_at>$2::timestamptz-interval '5 minutes' AND created_at<=$2`, [website, windowEnd]);
+    try {
+      await assert.rejects(() => preview('0'), (e: any) => e.status === 409);
+    } finally {
+      await db.query(`UPDATE liekan_event_quality SET classification='browser' WHERE website_id=$1 AND created_at>$2::timestamptz-interval '5 minutes' AND created_at<=$2`, [website, windowEnd]);
+    }
   });
   await test('preview freezes 40 explicit events and leaves metrics unchanged', async () => {
     first = await preview('0');
@@ -415,6 +428,10 @@ try {
     const fresh = await preview('4');
     await confirm(fresh);
     const newer = await add(1, 'browser', 'browser', website, new Date(+windowEnd - 1000));
+    await db.query(
+      `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available) VALUES($1,$2,'browser','cookieless-trusted-input-v2',true)`,
+      [newer, website],
+    );
     assert.equal(
       (
         await db.query(
@@ -674,7 +691,7 @@ try {
     VALUES($1,$2,'browser','cookieless-trusted-input-v2',true,'Chrome')`,
     [fresh, website],
   );
-  await test('partial identity keeps PV and suppresses totals while exposing qualified UV', async () => {
+  await test('partial identity publishes one qualified cohort and retains observed coverage', async () => {
     const population = await readBrowserPopulation(
       website,
       range.startDate,
@@ -690,9 +707,10 @@ try {
     const stats: any = await withinQuerySnapshot({ ...executor }, () =>
       getWebsiteStats(website, range),
     );
-    assert.equal(Number(stats.pageviews), 2);
-    assert.equal(stats.visitors, null);
-    assert.equal(stats.visits, null);
+    assert.equal(Number(stats.pageviews), 1);
+    assert.equal(Number(stats.visitors), 1);
+    assert.equal(Number(stats.visits), 1);
+    assert.equal(stats.population.metricScope, 'qualified-browser');
     const { browserRiskReport } = await import('../../src/lib/liekan/upstream/browser-risk');
     const risk: any = await browserRiskReport(
       website,
@@ -702,9 +720,9 @@ try {
         timezone: 'UTC',
       }),
     );
-    assert.equal(risk.impact.includedUV, null);
-    assert.equal(risk.impact.fullyExcludedUV, null);
-    assert.equal(risk.impact.includedPV, 2);
+    assert.equal(risk.impact.includedUV, 1);
+    assert.equal(risk.impact.fullyExcludedUV, 0);
+    assert.equal(risk.impact.includedPV, 1);
   });
   await db.query(
     `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser)

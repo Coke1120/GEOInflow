@@ -23,6 +23,7 @@ import {
   fraction,
   hash,
   includedEvent,
+  includedBrowserMetricEvent,
   logDecision,
   terminalStatuses,
   workingStatuses,
@@ -55,6 +56,7 @@ interface EventRow {
   origin_hostname: string | null;
   excluded: boolean;
   identity_available: boolean;
+  identity_scope: string | null;
   classification: EventVerdict['classification'];
   source: string;
   reasons: string[];
@@ -187,7 +189,7 @@ async function prepareBoundary(tx: RepairTx, row: RunRow) {
 async function eventBatch(tx: RepairTx, row: RunRow) {
   const rows = await tx.$queryRawUnsafe<EventRow[]>(
     `SELECT e.event_id::text AS id,to_char(e.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS time,to_char(e.created_at AT TIME ZONE $2,'YYYY-MM-DD') AS day,e.session_id::text,e.event_type,coalesce(q.hostname,h.hostname) AS hostname,q.classification,q.source,q.reasons,q.rule_version,
- env.origin_hostname,coalesce(env.identity_available,false) AS identity_available,
+ env.origin_hostname,env.scope AS identity_scope,coalesce(env.identity_available,false) AS identity_available,
  EXISTS(SELECT 1 FROM liekan_traffic_exclusion_member m JOIN liekan_traffic_exclusion x ON x.id=m.collection_id AND x.website_id=m.website_id LEFT JOIN liekan_log_state ls ON ls.website_id=x.website_id WHERE m.website_id=e.website_id AND m.event_id=e.event_id AND x.state='active' AND x.epoch=coalesce(ls.epoch,1)) AS excluded,
  coalesce(active.after_value->>'classification',q.classification) AS current_classification,
  CASE WHEN active.record_id IS NULL THEN q.reasons ELSE ARRAY(SELECT jsonb_array_elements_text(active.after_value->'reasons')) END AS current_reasons,
@@ -228,7 +230,9 @@ async function eventBatch(tx: RepairTx, row: RunRow) {
     covered = 0,
     conflicts = 0,
     beforePV = 0,
-    afterPV = 0, beforeIdentityMissingPV = 0, afterIdentityMissingPV = 0;
+    afterPV = 0,
+    beforeIdentityMissingPV = 0,
+    afterIdentityMissingPV = 0;
   for (const event of rows) {
     const original: EventVerdict = {
       classification: event.classification,
@@ -243,7 +247,9 @@ async function eventBatch(tx: RepairTx, row: RunRow) {
         kind: 'event',
         before: decision.before,
         after: decision.after,
-        proof: supplied.has(event.id) ? { ...decision.proof, catalogVersion: row.snapshot.rulepack.catalogVersion } : decision.proof,
+        proof: supplied.has(event.id)
+          ? { ...decision.proof, catalogVersion: row.snapshot.rulepack.catalogVersion }
+          : decision.proof,
         issue: decision.issue,
       });
     const before = {
@@ -253,28 +259,70 @@ async function eventBatch(tx: RepairTx, row: RunRow) {
       ruleVersion: event.current_rule_version,
     };
     const pv = event.event_type === 1;
+    const beforeAdmissible =
+      pv &&
+      includedEvent(before, event.event_type, event.hostname, row.snapshot.policy, {
+        originHostname: event.origin_hostname,
+        excluded: event.excluded,
+      });
+    const afterAdmissible =
+      pv &&
+      includedEvent(decision.after, event.event_type, event.hostname, row.snapshot.policy, {
+        originHostname: event.origin_hostname,
+        excluded: event.excluded,
+      });
+    const metricContext = {
+      originHostname: event.origin_hostname,
+      excluded: event.excluded,
+      identityScope: event.identity_scope,
+      identityAvailable: event.identity_available,
+    };
     const beforeIncluded =
-      pv && includedEvent(before, event.event_type, event.hostname, row.snapshot.policy, { originHostname: event.origin_hostname, excluded: event.excluded });
+      pv &&
+      includedBrowserMetricEvent(
+        before,
+        event.event_type,
+        event.hostname,
+        row.snapshot.policy,
+        metricContext,
+      );
     const afterIncluded =
-      pv && includedEvent(decision.after, event.event_type, event.hostname, row.snapshot.policy, { originHostname: event.origin_hostname, excluded: event.excluded });
+      pv &&
+      includedBrowserMetricEvent(
+        decision.after,
+        event.event_type,
+        event.hostname,
+        row.snapshot.policy,
+        metricContext,
+      );
     if (pv)
       visitors.push(
-        { day: event.day, session: event.session_id, before: beforeIncluded && event.identity_available, after: afterIncluded && event.identity_available },
-        { day: 'all', session: event.session_id, before: beforeIncluded && event.identity_available, after: afterIncluded && event.identity_available },
+        {
+          day: event.day,
+          session: event.session_id,
+          before: beforeIncluded && event.identity_available,
+          after: afterIncluded && event.identity_available,
+        },
+        {
+          day: 'all',
+          session: event.session_id,
+          before: beforeIncluded && event.identity_available,
+          after: afterIncluded && event.identity_available,
+        },
       );
     changed += +decision.changed;
     covered += +decision.evidence;
     conflicts += +!!decision.issue;
     beforePV += +beforeIncluded;
     afterPV += +afterIncluded;
-    beforeIdentityMissingPV += +(beforeIncluded && !event.identity_available);
-    afterIdentityMissingPV += +(afterIncluded && !event.identity_available);
+    beforeIdentityMissingPV += +(beforeAdmissible && !beforeIncluded);
+    afterIdentityMissingPV += +(afterAdmissible && !afterIncluded);
     days.push({
       day: event.day,
       beforePV: +beforeIncluded,
       afterPV: +afterIncluded,
-      beforeIdentityMissingPV: +(beforeIncluded && !event.identity_available),
-      afterIdentityMissingPV: +(afterIncluded && !event.identity_available),
+      beforeIdentityMissingPV: +(beforeAdmissible && !beforeIncluded),
+      afterIdentityMissingPV: +(afterAdmissible && !afterIncluded),
       events: 1,
       logs: 0,
       changedEvents: +decision.changed,
@@ -447,7 +495,8 @@ async function logBatch(tx: RepairTx, row: RunRow) {
       day: log.day,
       beforePV: 0,
       afterPV: 0,
-      beforeIdentityMissingPV: 0, afterIdentityMissingPV: 0,
+      beforeIdentityMissingPV: 0,
+      afterIdentityMissingPV: 0,
       events: 0,
       logs: 1,
       changedEvents: 0,
@@ -566,7 +615,11 @@ async function finishPreview(tx: RepairTx, row: RunRow) {
   if (BigInt(row.counts.undatedEvents)) limitations.push('undated-events');
   if (BigInt(row.counts.conflicts)) limitations.push('evidence-conflicts-retained');
   if (row.excluded_batches.length) limitations.push('excluded-old-batches');
-  if (BigInt(row.counts.beforeIdentityMissingPV ?? '0') || BigInt(row.counts.afterIdentityMissingPV ?? '0')) limitations.push('identity-input-incomplete');
+  if (
+    BigInt(row.counts.beforeIdentityMissingPV ?? '0') ||
+    BigInt(row.counts.afterIdentityMissingPV ?? '0')
+  )
+    limitations.push('identity-input-incomplete');
   if (row.snapshot.rulepack.botCheckDisabled) limitations.push('bot-check-disabled');
   const sourceUploads = await tx.$queryRawUnsafe<{ id: string }[]>(
     `SELECT DISTINCT upload_id::text AS id FROM liekan_history_repair_input i WHERE run_id=$1::uuid AND state='finalized' AND rulepack_hash=$2 AND ${currentRepairInputSql} ORDER BY id LIMIT 100`,
@@ -578,7 +631,8 @@ async function finishPreview(tx: RepairTx, row: RunRow) {
     revision: row.revision,
     digest: '',
     complete: true,
-    counts: publicRepairCounts(row.counts),
+    metricScope: 'qualified-browser',
+    counts: publicRepairCounts(row.counts, 'qualified-browser'),
     logImpact: { ...emptyLogImpact(), ...row.log_impact },
     sourceUploads: sourceUploads.map(source => source.id),
     browserCoverage: fraction(row.counts.browserEvidence, row.counts.events),
@@ -948,17 +1002,24 @@ export async function reconcileHistoryRepairs() {
     }
   });
 }
-export function dayDto(row: Record<string, unknown>): HistoryRepairDay {
+export function dayDto(row: Record<string, unknown>, metricScope?: 'qualified-browser'): HistoryRepairDay {
+  const counts = publicRepairCounts({
+    ...emptyCounts(),
+    beforeUV: row.before_uv == null ? null : String(row.before_uv),
+    afterUV: row.after_uv == null ? null : String(row.after_uv),
+    beforeIdentityMissingPV: row.before_identity_missing_pv == null ? null : String(row.before_identity_missing_pv),
+    afterIdentityMissingPV: row.after_identity_missing_pv == null ? null : String(row.after_identity_missing_pv),
+  }, metricScope);
   return {
     date: String(row.day),
     beforePV: String(row.before_pv),
     afterPV: String(row.after_pv),
-    beforeUV: String(row.before_identity_missing_pv) === '0' ? String(row.before_uv) : null,
-    afterUV: String(row.after_identity_missing_pv) === '0' ? String(row.after_uv) : null,
-    beforeQualifiedUV: row.before_identity_missing_pv == null ? null : String(row.before_uv),
-    afterQualifiedUV: row.after_identity_missing_pv == null ? null : String(row.after_uv),
-    beforeIdentityMissingPV: row.before_identity_missing_pv == null ? null : String(row.before_identity_missing_pv),
-    afterIdentityMissingPV: row.after_identity_missing_pv == null ? null : String(row.after_identity_missing_pv),
+    beforeUV: counts.beforeUV,
+    afterUV: counts.afterUV,
+    beforeQualifiedUV: counts.beforeQualifiedUV,
+    afterQualifiedUV: counts.afterQualifiedUV,
+    beforeIdentityMissingPV: counts.beforeIdentityMissingPV,
+    afterIdentityMissingPV: counts.afterIdentityMissingPV,
     eventRows: String(row.event_rows),
     logRows: String(row.log_rows),
     changedEvents: String(row.changed_events),
