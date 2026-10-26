@@ -4958,6 +4958,7 @@ export interface components {
           eligibleEvents: number | null;
           eligiblePV: number | null;
           qualifiedPV: number | null;
+          qualifiedVersions?: string[];
           qualifiedVisitors: number | null;
           /** @enum {string} */
           status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -5013,6 +5014,7 @@ export interface components {
           eligibleEvents: number | null;
           eligiblePV: number | null;
           qualifiedPV: number | null;
+          qualifiedVersions?: string[];
           qualifiedVisitors: number | null;
           /** @enum {string} */
           status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -5072,6 +5074,7 @@ export interface components {
           eligibleEvents: number | null;
           eligiblePV: number | null;
           qualifiedPV: number | null;
+          qualifiedVersions?: string[];
           qualifiedVisitors: number | null;
           /** @enum {string} */
           status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -11913,6 +11916,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -11960,6 +11964,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -15902,6 +15907,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -15986,6 +15992,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16044,6 +16051,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16107,6 +16115,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16191,6 +16200,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16292,6 +16302,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16354,6 +16365,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16433,6 +16445,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16492,6 +16505,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16560,6 +16574,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16620,6 +16635,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -16680,6 +16696,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -18595,6 +18612,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -18676,6 +18694,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -19049,6 +19068,7 @@ export interface operations {
                       eligibleEvents: number | null;
                       eligiblePV: number | null;
                       qualifiedPV: number | null;
+                      qualifiedVersions?: string[];
                       qualifiedVisitors: number | null;
                       /** @enum {string} */
                       status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -19215,6 +19235,7 @@ export interface operations {
                       eligibleEvents: number | null;
                       eligiblePV: number | null;
                       qualifiedPV: number | null;
+                      qualifiedVersions?: string[];
                       qualifiedVisitors: number | null;
                       /** @enum {string} */
                       status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -19386,6 +19407,7 @@ export interface operations {
                       eligibleEvents: number | null;
                       eligiblePV: number | null;
                       qualifiedPV: number | null;
+                      qualifiedVersions?: string[];
                       qualifiedVisitors: number | null;
                       /** @enum {string} */
                       status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -19548,6 +19570,7 @@ export interface operations {
                       eligibleEvents: number | null;
                       eligiblePV: number | null;
                       qualifiedPV: number | null;
+                      qualifiedVersions?: string[];
                       qualifiedVisitors: number | null;
                       /** @enum {string} */
                       status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -19926,6 +19949,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -20289,6 +20313,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -26998,6 +27023,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -29209,6 +29235,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -29451,6 +29478,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -30781,6 +30809,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -30825,6 +30854,54 @@ export interface operations {
                 };
               };
               totalLogs?: number;
+              trendPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                /** @constant */
+                metricScope?: 'qualified-browser';
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
             };
             range: {
               /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -31681,6 +31758,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -31725,6 +31803,54 @@ export interface operations {
                 };
               };
               totalLogs?: number;
+              trendPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                /** @constant */
+                metricScope?: 'qualified-browser';
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
             };
             range: {
               /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -32399,6 +32525,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -32443,6 +32570,54 @@ export interface operations {
                 };
               };
               totalLogs?: number;
+              trendPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                /** @constant */
+                metricScope?: 'qualified-browser';
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
             };
             range: {
               /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -33465,6 +33640,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -33958,6 +34134,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -34474,6 +34651,7 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -34537,6 +34715,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -35412,6 +35591,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -36919,6 +37099,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -37113,6 +37294,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -41542,6 +41724,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -43971,6 +44154,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -45984,6 +46168,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -47578,6 +47763,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -48608,6 +48794,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -49501,6 +49688,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -50763,6 +50951,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -51180,6 +51369,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -51358,6 +51548,7 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
@@ -52440,6 +52631,7 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';

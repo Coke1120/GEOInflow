@@ -159,3 +159,18 @@ export const visitDimensionsSql = `jsonb_build_object(
 export const visitEvidenceJoinsSql = `LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
  LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
  LEFT JOIN liekan_reporting_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id`;
+
+/** Persist observed identity coverage beside qualified facts; metric readers filter the verdict. */
+export function analysisVisitRowsSql(condition: string) {
+  return `SELECT e.event_id,e.created_at,e.session_id,e.visit_id,coalesce(e.hostname,'') AS hostname,e.event_type,${visitDimensionsSql} AS dimensions
+   FROM liekan_geographic_website_event e ${visitEvidenceJoinsSql} WHERE ${condition}
+   UNION ALL
+   SELECT e.event_id,e.created_at,e.session_id,e.visit_id,coalesce(e.hostname,''),e.event_type,
+    jsonb_build_object('identityAvailable',false,'identityVersion',env.identity_version,'ruleVersion',q.rule_version,'catalogVersion',q.catalog_version::text)
+   FROM liekan_observed_browser_event e
+   LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
+   LEFT JOIN liekan_reporting_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id
+   WHERE ${condition} AND NOT EXISTS(SELECT 1 FROM liekan_browser_identity qualified
+    JOIN session present ON present.session_id=e.session_id AND present.website_id=e.website_id
+    WHERE qualified.website_id=e.website_id AND qualified.event_id=e.event_id)`;
+}

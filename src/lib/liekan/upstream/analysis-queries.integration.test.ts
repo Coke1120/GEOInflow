@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { ANALYSIS_ROLLUP_VERSION } from './analysis-rollups-model';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { withPublishedRegistry } from './crawler-registry-context';
@@ -435,7 +436,7 @@ describe.skipIf(!enabled)('durable private query lifecycle in PostgreSQL', () =>
     );
     expect(upgraded).toHaveLength(3);
     for (const row of upgraded) {
-      expect(row.versions.engine).toBe('analysis-rollups-v2');
+      expect(row.versions.engine).toBe(ANALYSIS_ROLLUP_VERSION);
       expect(row.compared).toBe(true);
       expect(row.input_rows).toBe(32n);
     }

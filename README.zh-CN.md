@@ -143,7 +143,7 @@ docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-de
 
 ## 开发与维护
 
-开发环境使用 Node.js **22.23.3**、pnpm **12.3.4** 和 PostgreSQL。先按 [部署指南](docs/deployment.md)准备自己的数据库与私有配置，再运行（以下使用独立开发端口 `3302`）：
+开发环境使用 Node.js **22.23.4**、pnpm **12.3.4** 和 PostgreSQL。先按 [部署指南](docs/deployment.md)准备自己的数据库与私有配置，再运行（以下使用独立开发端口 `3302`）：
 
 ```sh
 pnpm install --frozen-lockfile

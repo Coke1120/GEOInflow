@@ -139,7 +139,7 @@ export async function buildReport(
     todayConversions,
     impact,
     months,
-    plotHuman,
+    plotFacts,
     plotLogs,
   ] = await Promise.all([
     getHumanFacts(website.id, start, end, p.timezone, parts?.human as readonly HumanFact[]),
@@ -174,11 +174,15 @@ export async function buildReport(
     needed('ai/overview') ? getMonthlyAiShare(website.id, end, p.timezone, p) : Promise.resolve([]),
     needed('overview', 'human/overview')
       ? getHumanDays(website.id, plotStart, end, p.timezone, ['today', '24h'].includes(p.chartPeriod))
-      : Promise.resolve([]),
+      : Promise.resolve({ rows: [], population: undefined }),
     needed('overview', 'human/overview')
       ? getPlotLogs(website.id, plotStart, end, p.timezone, ['today', '24h'].includes(p.chartPeriod), p)
       : Promise.resolve([]),
   ]);
+  const plotHuman = plotFacts.rows;
+  const trendState: DataState = !identityUsable(plotFacts.population)
+    ? 'unavailable'
+    : plotHuman.length ? 'available' : 'empty';
   const h = stringifySafe(rawHuman),
     l = stringifySafe(rawLogs);
   const halfOpen = p.crawlerMetricsVersion === 1;
@@ -212,6 +216,7 @@ export async function buildReport(
     tables: {},
     insights: [],
     meta: {
+      ...(plotFacts.population ? { trendPopulation: plotFacts.population } : {}),
       catalogVersion: getPublishedCatalog()?.version,
       ...(p.resource === 'ai/pages'
         ? {
@@ -637,7 +642,7 @@ export async function buildReport(
         }),
       },
     ],
-    humanState,
+    trendState,
   );
   chart(
     'h2',

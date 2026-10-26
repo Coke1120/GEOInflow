@@ -145,7 +145,7 @@ Initial calculations, cache hits, and background updates have different costs. A
 
 ## Development and maintenance
 
-Development uses Node.js **22.23.3**, pnpm **12.3.4**, and PostgreSQL. Prepare an independent database and private configuration using the [deployment guide](docs/deployment.en.md), then run the following commands. This example uses the separate development port `3302`:
+Development uses Node.js **22.23.4**, pnpm **12.3.4**, and PostgreSQL. Prepare an independent database and private configuration using the [deployment guide](docs/deployment.en.md), then run the following commands. This example uses the separate development port `3302`:
 
 ```sh
 pnpm install --frozen-lockfile

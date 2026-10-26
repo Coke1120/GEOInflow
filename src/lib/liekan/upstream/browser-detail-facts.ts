@@ -63,12 +63,14 @@ export async function buildBrowserDetailChunk(
   tx: AnalysisTx,
   row: AnalysisBuildRow,
   state: AnalysisCheckpoint,
+  observed: { rows: string; after_time: string | null; after_id: string | null },
 ) {
   const [result] = await tx.$queryRawUnsafe<{ bytes: string }[]>(
     `WITH chunk AS MATERIALIZED (SELECT ${eventColumns} FROM liekan_geographic_website_event e
      LEFT JOIN liekan_effective_session s ON s.session_id=e.session_id AND s.website_id=e.website_id
      WHERE e.website_id=$1::uuid AND e.created_at>=$3::timestamptz AND e.created_at<$4::timestamptz
      AND ($5::timestamptz IS NULL OR (e.created_at,e.event_id)>($5::timestamptz,$6::uuid))
+     AND $9::timestamptz IS NOT NULL AND (e.created_at,e.event_id)<=($9::timestamptz,$10::uuid)
      ORDER BY e.created_at,e.event_id LIMIT $7), ${pieces('chunk')},
     previous AS MATERIALIZED (SELECT old.* FROM liekan_analysis_browser_visit old JOIN detail_visits n USING(bucket,session_id,visit_id)
      WHERE old.website_id=$1::uuid AND old.generation=$2::uuid),
@@ -93,7 +95,7 @@ export async function buildBrowserDetailChunk(
       dwell_total=liekan_analysis_browser_path.dwell_total+EXCLUDED.dwell_total,dwell_samples=liekan_analysis_browser_path.dwell_samples+EXCLUDED.dwell_samples,updated_at=clock_timestamp()
      RETURNING pg_column_size(liekan_analysis_browser_path)*2 AS bytes),
     proof AS (INSERT INTO liekan_analysis_browser_detail(website_id,generation,format,complete)
-     VALUES($1::uuid,$2::uuid,$8,(SELECT count(*)<$7 FROM chunk)) ON CONFLICT(website_id,generation) DO UPDATE SET complete=EXCLUDED.complete
+     VALUES($1::uuid,$2::uuid,$8,$11::boolean) ON CONFLICT(website_id,generation) DO UPDATE SET complete=EXCLUDED.complete
      RETURNING pg_column_size(liekan_analysis_browser_detail)*2 AS bytes)
     SELECT coalesce(sum(bytes),0)::text AS bytes FROM (SELECT bytes FROM visits UNION ALL SELECT bytes FROM paths UNION ALL SELECT bytes FROM proof) sizes`,
     row.website_id,
@@ -104,6 +106,9 @@ export async function buildBrowserDetailChunk(
     state.afterId || '00000000-0000-0000-0000-000000000000',
     state.chunkSize || ANALYSIS_CHUNK_SIZE,
     BROWSER_DETAIL_FORMAT,
+    observed.after_time,
+    observed.after_id || '00000000-0000-0000-0000-000000000000',
+    Number(observed.rows) < (state.chunkSize || ANALYSIS_CHUNK_SIZE),
   );
   return result;
 }
