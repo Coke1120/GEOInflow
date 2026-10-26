@@ -1,6 +1,7 @@
 'use client';
 import type { HistoryRepairPreview as Preview } from '@/lib/liekan/contracts/history-repair';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
+import { qualifiedBrowserReason } from '@/lib/liekan/contracts/population-results';
 import { Definition, Metrics, Notice, Table } from './ui';
 import { repairCount, repairDifference, repairLimitationLabels } from './historyRepairUi';
 const categories: Record<string, string> = {
@@ -20,6 +21,9 @@ export function HistoryRepairPreview({ preview }: { preview: Preview }) {
   const logs = preview.logImpact;
   return (
     <>
+      {preview.metricScope === 'qualified-browser' && (
+        <Notice>{i18n.text(qualifiedBrowserReason)}</Notice>
+      )}
       <Metrics
         items={[
           [i18n.text('修复前浏览 PV'), n(preview.counts.beforePV)],

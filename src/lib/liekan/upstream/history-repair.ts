@@ -248,7 +248,7 @@ export async function getHistoryRepair(
         generation,
       );
       response.days = {
-        items: items.slice(0, query.pageSize).map(dayDto),
+        items: items.slice(0, query.pageSize).map(value => dayDto(value, selected?.preview?.metricScope)),
         page: query.page,
         pageSize: query.pageSize,
         total: total.count,
@@ -710,7 +710,7 @@ export async function exportHistoryRepair(
             '日志变化',
             '证据覆盖', '原已确认身份UV', '预计已确认身份UV', '原缺失身份PV', '预计缺失身份PV',
           ];
-    const total = publicRepairCounts(saved.preview.counts);
+    const total = publicRepairCounts(saved.preview.counts, saved.preview.metricScope);
     const notes =
       locale === 'en-US'
         ? ['Campaign', 'Generation', 'Scope', 'Timezone', 'Limitations', 'Raw UA and IP excluded']
@@ -754,15 +754,15 @@ export async function exportHistoryRepair(
           value.day,
           value.before_pv,
           value.after_pv,
-          dayDto(value).beforeUV,
-          dayDto(value).afterUV,
+          dayDto(value, saved.preview.metricScope).beforeUV,
+          dayDto(value, saved.preview.metricScope).afterUV,
           value.event_rows,
           value.log_rows,
           value.changed_events,
           value.changed_logs,
           translatedCoverage[String(value.coverage)],
-          dayDto(value).beforeQualifiedUV, dayDto(value).afterQualifiedUV,
-          dayDto(value).beforeIdentityMissingPV, dayDto(value).afterIdentityMissingPV,
+          dayDto(value, saved.preview.metricScope).beforeQualifiedUV, dayDto(value, saved.preview.metricScope).afterQualifiedUV,
+          dayDto(value, saved.preview.metricScope).beforeIdentityMissingPV, dayDto(value, saved.preview.metricScope).afterIdentityMissingPV,
         ]
           .map(csvCell)
           .join(','),

@@ -20,7 +20,7 @@ import { prepareFeatureExport } from '../../src/lib/liekan/upstream/feature-expo
 
 /** Environment groups, drilldowns and exports use the selected events' snapshots.
  * A later event in the same cookieless session must preserve old-window dimensions,
- * and historical events without environment proof keep their unknown values.
+ * and historical events without environment proof remain outside qualified metrics.
  */
 export async function verifyEventEnvironmentReads(db: pg.Client) {
   const site = randomUUID(),
@@ -204,11 +204,9 @@ export async function verifyEventEnvironmentReads(db: pg.Client) {
   await db.query('DELETE FROM liekan_event_environment WHERE event_id=ANY($1::uuid[])', [oldIds]);
   assert.deepEqual(await read(() => getSessionMetrics(site, { type: 'browser' }, filters)), []);
   const unknown = await read(() => getValues(site, 'browser', filters));
-  assert.equal(unknown.length, 1);
-  assert.equal(unknown[0].value, null);
+  assert.equal(unknown.length, 0);
   const unknownExport = await exportRows();
-  assert.equal((await unknownExport('browsers.csv'))[0].name, '');
-  assert.equal((await unknownExport('browsers.csv'))[0].views, '2');
+  assert.equal((await unknownExport('browsers.csv')).some(row => Number(row.views) > 0), false);
   // Link and pixel event environments retain their compatible session dimensions.
   for (const type of [3, 4]) {
     const resource = randomUUID(),

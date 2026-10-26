@@ -1,5 +1,5 @@
 import { readTransactionBrowserPopulation } from '../upstream/browser-population';
-import { identityUsable } from '../contracts/browser-population';
+import { identityComplete, identityUsable } from '../contracts/browser-population';
 import { humanPathFromEncoded } from '../upstream/paths';
 import type { AiTx } from '../upstream/ai-db';
 import { crawlerReferralRows } from '../upstream/analytics';
@@ -147,7 +147,7 @@ export async function readOutcomes(
         ? 'ambiguous_path'
         : !presence.connected
           ? 'browser_missing'
-          : !identityReady
+          : !identityComplete(browserPopulation)
             ? 'browser_identity_unavailable'
             : row.unknownBrowserHost
               ? 'browser_host_unknown'

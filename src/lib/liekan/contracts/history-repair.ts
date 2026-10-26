@@ -165,6 +165,7 @@ export interface HistoryRepairLogImpact {
   afterAiPages: string;
 }
 export interface HistoryRepairPreview {
+  metricScope?: 'qualified-browser';
   generation: string;
   revision: number;
   digest: string;
@@ -363,6 +364,7 @@ export const historyRepairLogImpactSchema = z.strictObject({
   afterAiPages: decimalCount,
 });
 export const historyRepairResultPreviewSchema = z.strictObject({
+  metricScope: z.literal('qualified-browser').optional(),
   generation: z.uuid(),
   revision: z.number().int().positive(),
   digest: z.string(),

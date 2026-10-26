@@ -60,5 +60,6 @@
   "052_dashboard_visit_dependencies.sql": "176b47aaa64993e698e644fc26fee56dad6c0e5e16111cd005529e0794eaac13",
   "053_dashboard_execution_lane.sql": "702e4c9c58e11602980af78ec5ef6f108405b4b3baf71f542f9fea5efd560c28",
   "054_replay_eligibility_probe.sql": "c3167591787e73dc7c5ca788dedf0972884ad4febb1ac176e617f967f9d4e822",
-  "055_account_preferences.sql": "2ca9d64ea90d03f85c34ac844b9a711cce4c4aced5006be158c90d63a5bdcec3"
+  "055_account_preferences.sql": "2ca9d64ea90d03f85c34ac844b9a711cce4c4aced5006be158c90d63a5bdcec3",
+  "056_qualified_browser_metrics.sql": "2b223de098bf1ee6626ab9d9a4b3c10548069baa650fa341ea65377b44926dd4"
 }

@@ -410,16 +410,28 @@ export async function readAnalysisVisitPopulation(
     const versions = await pinnedReadVersions(tx, input.websiteId);
     if (!versions || !(await hasCoveredManifest(tx, input, 'visit', versions))) return null;
     const [row] = await tx.$queryRawUnsafe<Record<string, any>[]>(
-      `WITH ${visitFactsSql(!input.halfOpen)} SELECT ${browserPopulationMetadataSql},
+      `WITH ${visitFactsSql(!input.halfOpen)}, population_facts AS MATERIALIZED (
+       SELECT session_id,eligible_events,pageviews,dimensions FROM facts
+       UNION ALL
+       SELECT NULL::uuid,count(*),count(*) FILTER(WHERE e.event_type=1),
+         jsonb_build_object('identityAvailable',false,'identityVersion',env.identity_version,'ruleVersion',q.rule_version,'catalogVersion',q.catalog_version)
+       FROM liekan_observed_browser_event e
+       LEFT JOIN liekan_browser_identity qualified ON qualified.website_id=e.website_id AND qualified.event_id=e.event_id
+       LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
+       LEFT JOIN liekan_reporting_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id
+       WHERE e.website_id=$1::uuid AND e.created_at>=$2::timestamptz AND e.created_at${input.halfOpen ? '<' : '<='}$3::timestamptz
+         AND qualified.event_id IS NULL
+       GROUP BY env.identity_version,q.rule_version,q.catalog_version
+       ) SELECT ${browserPopulationMetadataSql},'qualified-browser' AS "metricScope",
        coalesce(sum(eligible_events),0)::text AS "eligibleEvents",
        coalesce(sum(eligible_events) FILTER(WHERE (dimensions->>'identityAvailable')::boolean),0)::text AS "qualifiedEvents",
        coalesce(sum(pageviews),0)::text AS "eligiblePV",
        coalesce(sum(pageviews) FILTER(WHERE (dimensions->>'identityAvailable')::boolean),0)::text AS "qualifiedPV",
        count(DISTINCT session_id) FILTER(WHERE pageviews>0 AND (dimensions->>'identityAvailable')::boolean)::text AS "qualifiedVisitors",
-       ARRAY(SELECT DISTINCT dimensions->>'identityVersion' FROM facts WHERE dimensions->>'identityVersion' IS NOT NULL ORDER BY 1 LIMIT 33) AS "identityVersions",
-       ARRAY(SELECT DISTINCT dimensions->>'ruleVersion' FROM facts WHERE dimensions->>'ruleVersion' IS NOT NULL ORDER BY 1 LIMIT 33) AS "ruleVersions",
-       ARRAY(SELECT DISTINCT dimensions->>'catalogVersion' FROM facts WHERE dimensions->>'catalogVersion' IS NOT NULL ORDER BY 1 LIMIT 33) AS "catalogVersions"
-       FROM facts CROSS JOIN(SELECT $4::text) parameter_types`,
+       ARRAY(SELECT DISTINCT dimensions->>'identityVersion' FROM population_facts WHERE dimensions->>'identityVersion' IS NOT NULL ORDER BY 1 LIMIT 33) AS "identityVersions",
+       ARRAY(SELECT DISTINCT dimensions->>'ruleVersion' FROM population_facts WHERE dimensions->>'ruleVersion' IS NOT NULL ORDER BY 1 LIMIT 33) AS "ruleVersions",
+       ARRAY(SELECT DISTINCT dimensions->>'catalogVersion' FROM population_facts WHERE dimensions->>'catalogVersion' IS NOT NULL ORDER BY 1 LIMIT 33) AS "catalogVersions"
+       FROM population_facts CROSS JOIN(SELECT $4::text) parameter_types`,
       input.websiteId,
       input.startDate,
       input.endDate,

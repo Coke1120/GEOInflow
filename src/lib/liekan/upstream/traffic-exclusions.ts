@@ -61,7 +61,7 @@ async function windowEvidence(tx: any, websiteId: string, windowEnd: Date, epoch
     EXISTS(SELECT 1 FROM liekan_admissible_browser_event a WHERE a.website_id=e.website_id AND a.event_id=e.event_id) AS admissible
     FROM liekan_event_quality q JOIN website_event e ON e.event_id=q.event_id AND e.website_id=q.website_id
     JOIN liekan_reporting_event_quality c ON c.event_id=q.event_id AND c.website_id=q.website_id
-    LEFT JOIN liekan_event_environment env ON env.event_id=e.event_id AND env.website_id=e.website_id
+    LEFT JOIN liekan_browser_identity env ON env.event_id=e.event_id AND env.website_id=e.website_id
     WHERE q.website_id=$1::uuid AND q.created_at>$2::timestamptz-interval '5 minutes' AND q.created_at<=$2
     ORDER BY q.created_at,q.event_id LIMIT $3`,
     websiteId,
