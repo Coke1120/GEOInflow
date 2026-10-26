@@ -1,5 +1,5 @@
 import { applyReportPopulation, identityUnavailableReason } from './contracts/population-results';
-import { identityUsable } from './contracts/browser-population';
+import { identityComplete, identityUsable } from './contracts/browser-population';
 import { dashboardClock } from './upstream/dashboard-clock';
 import { getPublishedCatalog } from './crawlers/published';
 import { crawlerAiRequests, isUnknownCrawler } from './rules/population';
@@ -429,7 +429,7 @@ export async function buildReport(
     path: page.path,
     humanPv: page.pv,
     aiRequests: l.latest ? (humanAiPages.get(page.path)?.requests ?? 0) : null,
-    ratio: l.latest ? ratio(humanAiPages.get(page.path)?.requests ?? 0, page.pv) : null,
+    ratio: l.latest && identityComplete(t.population) ? ratio(humanAiPages.get(page.path)?.requests ?? 0, page.pv) : null,
     bot: humanAiPages.get(page.path)?.bot ?? null,
     ...(humanAiPages.get(page.path)?.botId !== undefined && {
       botId: humanAiPages.get(page.path).botId,
@@ -960,7 +960,7 @@ export async function buildReport(
   );
   card(
     '案例页 AI/浏览 比值',
-    l.latest && catalog.size ? ratio(cases.ai, cases.human) : null,
+    l.latest && catalog.size && identityComplete(t.population) ? ratio(cases.ai, cases.human) : null,
     catalogLogState,
   );
   card(

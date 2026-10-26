@@ -4834,5 +4834,9 @@
   "m_96f04ae216f4": "Awaiting public repository connection",
   "m_d6c3ca8ea30c": "MIT License",
   "m_8240001d74f8": "Built on Umami · Thanks to the upstream community",
-  "m_6d2bba653a58": "About GEOInflow"
+  "m_6d2bba653a58": "About GEOInflow",
+  "m_7b0c2d082ca3": "Metrics include only browser events with complete identity evidence. Review remaining collected events in Traffic quality.",
+  "m_f266d09636ed": "No usable browser identity is available in this range. Check CLIENT_IP_HEADER and proxy header replacement; review historical gaps in Traffic quality.",
+  "m_b92aacc02476": "Unconfirmed browser classification",
+  "m_6b7f6edbff2b": "Missing browser identity evidence"
 }

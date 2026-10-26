@@ -3,7 +3,7 @@ import { uuid } from '@/lib/crypto';
 import type { IpEvidence } from '@/lib/ip';
 import type { CollectionQuality } from './collection-quality';
 
-export const COLLECTION_IDENTITY_VERSION = 'cookieless-trusted-input-v2';
+export const COLLECTION_IDENTITY_VERSION = 'cookieless-trusted-input-v3';
 export type CollectionIdentityScope =
   | 'browser'
   | 'browser_unresolved'
@@ -59,7 +59,7 @@ export function collectionIdentity(input: {
             ) ||
               (input.admission.mode === 'strict' && quality.classification === 'suspected'))
           ? 'browser_conflicted'
-          : trusted
+          : trusted && quality.classification === 'browser'
             ? 'browser'
             : 'browser_unresolved';
   // Unresolved storage keys are never counted as qualified visitor identities.

@@ -3,6 +3,9 @@ import type { LiekanReport } from './report';
 
 export const identityUnavailableReason =
   '所选范围存在身份信息缺失，访客、会话及依赖身份的指标不可用；浏览量仍可统计。';
+export const qualifiedBrowserReason = '仅统计身份信息完整的浏览事件；其余采集数据见流量质量。';
+export const qualifiedBrowserUnavailableReason =
+  '当前范围缺少可用浏览身份。请核对可信入口 CLIENT_IP_HEADER 及代理覆盖配置；历史缺失数据见流量质量。';
 
 /** Apply after report calculations so zero-coalescing never publishes a fabricated identity metric. */
 export function applyReportPopulation(
@@ -11,9 +14,10 @@ export function applyReportPopulation(
 ): LiekanReport {
   if (!population) return report;
   report.meta.population = population;
-  if (identityUsable(population)) return report;
+  const scoped = population.metricScope === 'qualified-browser';
   const cards = new Set([
     '人类访客（UV）',
+    '访客（UV）',
     '访客数 UV',
     '跳出率',
     '平均访问时长',
@@ -37,16 +41,31 @@ export function applyReportPopulation(
     'UTM 关键词会话',
     '关键词可用率',
   ]);
+  if (scoped) {
+    cards.add('浏览量 PV');
+    cards.add('浏览量（PV）');
+  }
+  if (identityUsable(population)) {
+    if (scoped && population.identity.status === 'partial')
+      report.cards = report.cards.map(card =>
+        cards.has(card.key) || cards.has(card.label)
+          ? { ...card, detail: qualifiedBrowserReason }
+          : card,
+      );
+    return report;
+  }
+  const reason = scoped ? qualifiedBrowserUnavailableReason : identityUnavailableReason;
+  if (scoped && report.states) report.states.human = 'unavailable';
   report.cards = report.cards.map(card =>
     cards.has(card.key) || cards.has(card.label)
-      ? { ...card, value: null, state: 'unavailable', detail: identityUnavailableReason }
+      ? { ...card, value: null, state: 'unavailable', detail: reason }
       : card,
   );
   const chartIds = new Set(['d3', 'h2', 'h3', 's1', 's2', 'se1', 'se2', 'g1', 'g2', 'f1', 'f2']);
   for (const [id, chart] of Object.entries(report.charts)) {
     if (id === 'h1' || chartIds.has(id)) {
       chart.series = chart.series.map(series =>
-        id === 'h1' && series.name === 'PV'
+        !scoped && id === 'h1' && series.name === 'PV'
           ? series
           : { ...series, values: series.values.map(() => null) },
       );

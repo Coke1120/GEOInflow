@@ -58,6 +58,9 @@ export function populationFromRow(row: any, range: BrowserPopulation['range']): 
   const sets = [row.identityVersions || [], row.ruleVersions || [], row.catalogVersions || []];
   return {
     populationVersion: TRAFFIC_POLICY_VERSION,
+    ...(row.metricScope === 'qualified-browser' && row.resourceKind === 'website'
+      ? { metricScope: 'qualified-browser' as const }
+      : {}),
     resourceKind: row.resourceKind || 'unknown',
     capability: 'supported',
     scope: 'resource-window',
@@ -186,13 +189,14 @@ export async function readBrowserPopulation(
         if (covered) return covered;
         const [row] = await tx.$queryRawUnsafe(
           `WITH population AS MATERIALIZED (
-      SELECT e.event_id,e.session_id,e.event_type,e.liekan_identity_available,env.identity_version,q.rule_version,q.catalog_version
-      FROM liekan_geographic_website_event e
+      SELECT e.event_id,e.session_id,e.event_type,(qualified.event_id IS NOT NULL OR e.event_type IN(3,4)) AS liekan_identity_available,env.identity_version,q.rule_version,q.catalog_version
+      FROM liekan_observed_website_event e
       LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
       LEFT JOIN liekan_reporting_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id
+      LEFT JOIN liekan_browser_identity qualified ON qualified.website_id=e.website_id AND qualified.event_id=e.event_id
       WHERE e.website_id=$1::uuid AND ${options.halfOpen ? 'e.created_at >= $2::timestamptz AND e.created_at < $3::timestamptz' : 'e.created_at BETWEEN $2::timestamptz AND $3::timestamptz'}
     ) SELECT
-      ${browserPopulationMetadataSql},
+      ${browserPopulationMetadataSql},'qualified-browser' AS "metricScope",
       COUNT(*)::float8 AS "eligibleEvents",COUNT(*) FILTER(WHERE liekan_identity_available)::float8 AS "qualifiedEvents",
       COUNT(*) FILTER(WHERE event_type IN(1,3,4))::float8 AS "eligiblePV",
       COUNT(*) FILTER(WHERE event_type IN(1,3,4) AND liekan_identity_available)::float8 AS "qualifiedPV",
