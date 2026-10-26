@@ -17,6 +17,9 @@ export function publicShareParameters(parameters: any = {}) {
 }
 export function secureShareParameters(input: any = {}, previous: any = {}) {
   const { password, passwordHash, hasPassword, ...safe } = input || {};
+  for (const key of ['timezone', 'range', 'date', 'startAt', 'endAt', 'unit']) {
+    if (Object.hasOwn(previous || {}, key)) safe[key] = previous[key];
+  }
   const stored = previous?.passwordHash || previous?.password;
   if (password === null) return safe;
   if (typeof password === 'string' && password) {

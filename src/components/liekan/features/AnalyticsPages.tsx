@@ -1,4 +1,5 @@
 'use client';
+import { calendarDayRange, shiftCalendarRange } from '@/lib/liekan/contracts/calendar';
 import { identityUsable } from '@/lib/liekan/contracts/browser-population';
 import { identityUnavailableReason } from '@/lib/liekan/contracts/population-results';
 import { TableCell } from './ui';
@@ -243,12 +244,22 @@ function Realtime() {
     unit: 'minute',
     ...c.filters,
   };
-  const query = useWebsiteData(
+  const query = useData(
     ['realtime-rich', tick],
-    'analytics',
-    { ...scope, kind: 'realtime' },
-    true,
-    true,
+    signal => {
+      const endAt = Date.now();
+      return c.api.get(
+        `/liekan/websites/${c.siteId}/analytics`,
+        {
+          ...scope,
+          kind: 'realtime',
+          startAt: endAt - 30 * 60000,
+          endAt,
+        },
+        signal,
+      );
+    },
+    !!c.siteId,
   );
   const timeline = useData(
     ['realtime-series', tick],
@@ -2542,15 +2553,16 @@ function Compare() {
   const c = useFeature(),
     scope = useScope();
   const size = c.range.endAt - c.range.startAt + 1;
-  const [comparison, setComparison] = useState({
-      startAt: c.range.startAt - size,
-      endAt: c.range.startAt - 1,
-    }),
+  const day = calendarDayRange(c.range.startAt, c.range.timezone);
+  const previous = day.startAt === c.range.startAt && day.endAt === c.range.endAt
+    ? shiftCalendarRange(c.range.startAt, c.range.endAt, -1, c.range.timezone)
+    : {startAt: Math.max(0, c.range.startAt - size), endAt: c.range.startAt - 1};
+  const [comparison, setComparison] = useState(previous),
     [open, setOpen] = useState(false);
   useEffect(
     () =>
-      setComparison({ startAt: Math.max(0, c.range.startAt - size), endAt: c.range.startAt - 1 }),
-    [c.range.startAt, c.range.endAt],
+      setComparison(previous),
+    [c.range.startAt, c.range.endAt, c.range.timezone],
   );
   const query = useData(
     ['compare-rich', comparison],

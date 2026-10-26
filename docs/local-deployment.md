@@ -46,6 +46,7 @@ docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-de
 pnpm liekan:verify
 liekan_version=$(node -p "require('./package.json').version")
 docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" "liekan:${liekan_version}"
+docker compose -f docker-compose.liekan.yml stop log-worker analytics-worker
 docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 app
 docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 log-worker analytics-worker
 ```
@@ -54,7 +55,7 @@ docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --
 
 完整验收的镜像构建沿用环境中的 HTTP_PROXY、HTTPS_PROXY 和 NO_PROXY；macOS 的回环代理地址转换为 Docker Desktop 的 host.docker.internal。可用 LIEKAN_DOCKER_HTTP_PROXY / LIEKAN_DOCKER_HTTPS_PROXY 单独指定容器可达的构建代理。代理值通过构建进程环境传入，命令参数只带变量名，最终应用不配置这些构建代理；官方组件来源和 HTTPS 校验保持有效。Prisma 的代理支持见 [官方说明](https://www.prisma.io/docs/orm/v7/reference/environment-variables-reference#proxy-environment-variables)。
 
-每次升级先导出数据备份，并记录镜像 SHA、代码标签和迁移版本。启动新版本后检查登录/2FA、网站切换、人类指标、日志导入、目录管理、目标、CSV 与数据总量。应用回退须保留当前分享实时授权层，并验证分享停用、密码变化和范围收缩；已记录的旧镜像需要完成这些适配后再启用。若迁移改变数据或不向后兼容，需要从备份恢复至新的卷再验证。删除数据库卷、清空数据和重置历史均需要明确授权。
+每次升级先按 [部署指南](deployment.md#备份与升级) 导出数据备份，保存原 `.env` 和定制过的 `docker-compose.liekan.yml`，并记录镜像 SHA、代码标签和迁移版本。启动新版本后检查登录/2FA、网站切换、人类指标、日志导入、目录管理、目标、CSV 与数据总量。应用回退须保留当前分享实时授权层，并验证分享停用、密码变化和范围收缩；已记录的旧镜像需要完成这些适配后再启用。若迁移改变数据或不向后兼容，需要从备份恢复至新的卷再验证。删除数据库卷、清空数据和重置历史均需要明确授权。
 
 公开分享密码请求内容上限为 1 KiB。验证在 60 秒窗口内限制每客户端/分享 5 次、每分享 60 次、每应用 120 次，成功和失败均计入次数，每进程最多同时验证 4 个密码。达到限制返回 429 和 Retry-After；拒绝请求保持原窗口到期时间。未配置 Redis 时使用有容量上限的进程内计数，多实例部署需共用 Redis 与 APP_SECRET，并配置代理正确传递客户端地址。Redis 不可用时返回 503 和重试时间，保留密码验证保护。计数键使用摘要，保持原始客户端地址不被记录。
 
@@ -78,19 +79,21 @@ Compose 将 CLIENT_IP_HEADER、IGNORE_IP、GEOLITE_DB_PATH 和 SKIP_LOCATION_HEA
 
 `liekan-geography` 是本产品独立持久卷，应用只读，日志 worker 写入。默认全局库继续使用 DB-IP City Lite，大陆 XDB 补齐为影子模式。`LIEKAN_GEO_CHINA_MODE=active` 仍需要独立真实样本审核和有效 XDB 数据许可清单。
 
-自定义库、许可清单和源文件可用独立 Compose override 做只读挂载：
+标准部署脚本显式读取基础 `docker-compose.liekan.yml`，自动 override 文件和 `COMPOSE_FILE` 不会被加载。自定义库、许可清单和源文件放到被 Git 忽略的 `.local/private-geo/`，然后在基础配置的 `app` 与 `log-worker` 中维护以下挂载片段，保留已有管理卷：
 
 ```yaml
 services:
   app:
     volumes:
-      - ./private-geo/City.mmdb:/app/private-geo/City.mmdb:ro
+      - liekan-geography:/app/managed-geo:ro
+      - ./.local/private-geo:/app/private-geo:ro
   log-worker:
     volumes:
-      - ./private-geo:/app/private-geo:ro
+      - liekan-geography:/app/managed-geo
+      - ./.local/private-geo:/app/private-geo:ro
 ```
 
-同时在私有 .env 中将 GEOLITE_DB_PATH 指向 `/app/private-geo/City.mmdb`，将 LIEKAN_GEO_XDB_MANIFEST 指向相应私有 JSON 清单。清单中 path 使用容器内位置。两个服务必须能读取同一授权文件，原文件不会自动覆盖。MaxMind 下载账号与密钥只进入 worker 环境。管理目录内 `.update-lock` 保证同一时间一个写入者；异常终止后先确认不存在更新进程，再清理锁。地理更新失败保留权限有效的旧版本，事件采集持续可用。
+同时在私有 .env 中将 GEOLITE_DB_PATH 指向 `/app/private-geo/City.mmdb`，将 LIEKAN_GEO_XDB_MANIFEST 指向相应私有 JSON 清单。清单中 path 使用容器内位置。两个服务必须能读取同一授权文件，原文件不会自动覆盖。备份并保留这些基础配置定制，升级源码时核对挂载和路径，再通过部署脚本更新应用与后台，继续保留原数据库容器及其大版本。MaxMind 下载账号与密钥只进入 worker 环境。管理目录内 `.update-lock` 保证同一时间一个写入者；异常终止后先确认不存在更新进程，再清理锁。地理更新失败保留权限有效的旧版本，事件采集持续可用。
 
 ## 浏览器身份的可信入口
 

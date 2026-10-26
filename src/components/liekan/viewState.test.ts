@@ -60,7 +60,7 @@ describe('shareable GEO view conditions', () => {
       filter: '',
       search: '',
       logPage: 1,
-      chartPeriod: '30d',
+      chartPeriod: 'today',
       sort: { label: '' },
     });
     expect(Object.keys(resetViewParams)).toContain('chartPeriod');
@@ -78,8 +78,8 @@ describe('shareable GEO view conditions', () => {
   });
   it('keeps automatic log windows live while preserving explicitly selected history', () => {
     const date = 'range:1751328000000:1754006399999';
-    expect(isLiveLogView({}, 'logs')).toBe(true);
-    expect(isLiveLogView({ date, dateMode: 'default' }, 'logs')).toBe(true);
+    expect(isLiveLogView({}, 'logs')).toBe(false);
+    expect(isLiveLogView({ date, dateMode: 'default' }, 'logs')).toBe(false);
     expect(isLiveLogView({ date, live: '1' }, 'logs')).toBe(true);
     expect(isLiveLogView({ date }, 'logs')).toBe(false);
     expect(isLiveLogView({ live: '1' }, 'overview')).toBe(false);
@@ -88,14 +88,14 @@ describe('shareable GEO view conditions', () => {
   it('ends the automatic statistics range at Shanghai day end', () => {
     const range = defaultDateRange(Date.parse('2026-10-02T12:00:00+08:00'));
     expect(range.endAt).toBe(Date.parse('2026-10-02T23:59:59.999+08:00'));
-    expect(range.startAt).toBe(Date.parse('2026-09-03T00:00:00+08:00'));
+    expect(range.startAt).toBe(Date.parse('2026-10-02T00:00:00+08:00'));
   });
-  it('uses thirty calendar dates in the selected timezone, including daylight saving changes', () => {
+  it('uses today calendar boundaries in the selected timezone, including daylight saving changes', () => {
     const utc = defaultDateRange(Date.parse('2026-10-03T04:00:00Z'), 'UTC');
-    expect(utc.startAt).toBe(Date.parse('2026-09-04T00:00:00Z'));
+    expect(utc.startAt).toBe(Date.parse('2026-10-03T00:00:00Z'));
     expect(utc.endAt).toBe(Date.parse('2026-10-03T23:59:59.999Z'));
     const newYork = defaultDateRange(Date.parse('2026-03-20T16:00:00Z'), 'America/New_York');
-    expect(newYork.startAt).toBe(Date.parse('2026-02-19T05:00:00Z'));
+    expect(newYork.startAt).toBe(Date.parse('2026-03-20T04:00:00Z'));
     expect(newYork.endAt).toBe(Date.parse('2026-03-21T03:59:59.999Z'));
   });
 });

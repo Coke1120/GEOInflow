@@ -2,7 +2,8 @@ import { Column, Grid, Heading, ListItem, Row, Select } from '@umami/react-zen';
 import { useState } from 'react';
 import { DateDisplay } from '@/components/common/DateDisplay';
 import { Panel } from '@/components/common/Panel';
-import { useDateRange, useMessages, useNavigation } from '@/components/hooks';
+import { useDateRange, useDateParameters, useMessages, useNavigation } from '@/components/hooks';
+import { getCompareDate } from '@/lib/date';
 import { ChangeLabel } from '@/components/metrics/ChangeLabel';
 import { MetricsTable } from '@/components/metrics/MetricsTable';
 import { formatNumber } from '@/lib/format';
@@ -17,10 +18,17 @@ export function CompareTables({ websiteId }: { websiteId: string }) {
     query: { view = 'path' },
   } = useNavigation();
   const { startDate, endDate } = dateCompare;
+  const canonical = useDateParameters();
+  const comparison = getCompareDate(
+    dateCompare.compare,
+    new Date(canonical.startAt),
+    new Date(canonical.endAt),
+    canonical.timezone,
+  );
 
   const params = {
-    startAt: startDate.getTime(),
-    endAt: endDate.getTime(),
+    startAt: comparison.startDate?.getTime(),
+    endAt: comparison.endDate?.getTime(),
   };
 
   const renderPath = (view: string) => {

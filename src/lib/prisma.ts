@@ -1137,7 +1137,8 @@ function getClient() {
   const schema = getSchema();
 
   const baseAdapter = new PrismaPg(
-    { connectionString: url, ...(isAnalyticsWorker() ? { max: 2 } : {}) },
+    // Two bounded computations retain one connection for authorization, leases and queue metadata.
+    { connectionString: url, ...(isAnalyticsWorker() ? { max: 3 } : {}) },
     { schema },
   );
 

@@ -5,6 +5,23 @@ import { chromium, webkit } from '@playwright/test';
 import { checkNavigation } from './liekan-navigation-visual.mjs';
 import { isolatedAcceptanceTarget } from './liekan-acceptance-target.mjs';
 
+export async function checkVisitorTrendShortcuts(page) {
+  const buttons = page.locator('#h1').locator('xpath=ancestor::section').locator('button.chip');
+  assert.equal(await buttons.count(), 3, 'Visitor trend must expose Today, seven and thirty days');
+  const lines = await buttons.evaluateAll(buttons =>
+    buttons.map(button => {
+      const range = document.createRange();
+      range.selectNodeContents(button);
+      return { label: button.textContent, lines: range.getClientRects().length };
+    }),
+  );
+  assert(
+    lines.every(button => button.lines === 1),
+    'Visitor trend date labels must fit on one line',
+  );
+  return lines;
+}
+
 export async function checkMobileExperience({ base, seed, board, share, partial, journey, token }) {
   isolatedAcceptanceTarget(base, { localhost: false });
   const baseline = JSON.parse(fs.readFileSync('config/liekan/mobile-ui.json'));
@@ -200,6 +217,7 @@ export async function checkMobileExperience({ base, seed, board, share, partial,
             await current.goto(base + target(p));
             await ready(current);
             const metrics = await inspect(current, width);
+            if (p.id === 'geo-human') await checkVisitorTrendShortcuts(current);
             assert.equal(metrics.overflow, 0, `${p.id} page overflow`);
             assert.equal(metrics.error, false, `${p.id} chart failure`);
             assert.equal(metrics.uninitializedCharts, 0, `${p.id} chart initialization`);

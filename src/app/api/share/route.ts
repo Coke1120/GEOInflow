@@ -1,3 +1,4 @@
+import { captureShareCalendar } from '@/lib/liekan/upstream/share-calendar';
 import { validShareParameters } from '@/lib/liekan/contracts/shares';
 import z from 'zod';
 import { uuid } from '@/lib/crypto';
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
     shareType,
     name,
     slug: slug || getRandomChars(16),
-    parameters: shareParameters,
+    parameters: await captureShareCalendar(auth, shareParameters),
   });
 
   return json(share);

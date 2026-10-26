@@ -41,7 +41,7 @@ export function pageReportQuery(
   fresh?: () => boolean,
   priority: 'foreground' | 'prefetch' = 'foreground',
 ) {
-  const p = { chartPeriod: '30d', filter: '', search: '', page: 1, cursor: '', seek: '', ...input };
+  const p = { chartPeriod: 'today', filter: '', search: '', page: 1, cursor: '', seek: '', ...input };
   // tablePages 以扁平 tp_<table> 参数上送（reportQuery 归口解析）；
   // queryKey 记录排序后的页码集合，保证等价分页状态命中同一缓存。
   const tpParams = Object.fromEntries(

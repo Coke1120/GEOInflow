@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { manualReadKind } from '../../scripts/liekan-manual-read-contract.mjs';
+import { manualReadKind, livePageReadAllowed } from '../../scripts/liekan-manual-read-contract.mjs';
+
+test('limits automatic reads to realtime, today and their bounded job protocol', () => {
+  const now = +new Date('2026-10-24T10:00Z');
+  assert.equal(livePageReadAllowed({ path: '/api/realtime/site' }, now), true);
+  assert.equal(livePageReadAllowed({ path: '/api/websites/site/active' }, now), true);
+  assert.equal(livePageReadAllowed({ path: '/api/websites/site/heatmaps', startAt: 0, endAt: now }, now), false);
+  assert.equal(livePageReadAllowed({ path: '/api/websites/site/stats', startAt: 0, endAt: now - 86400000 }, now), false);
+  assert.equal(livePageReadAllowed({ path: '/api/websites/site/stats', startAt: 0, endAt: now }, now), true);
+  assert.equal(livePageReadAllowed({ path: '/api/liekan/websites/site/page-report', resource: 'logs', startAt: 0, endAt: now }, now), false);
+  assert.equal(livePageReadAllowed({ path: '/api/liekan/websites/site/page-report', resource: 'ai/overview', startAt: 0, endAt: +new Date('2026-10-24T00:00Z'), crawlerMetricsVersion: '1' }, now), false);
+});
 
 test('public geography credits remain recorded metadata during share reauthorization', () => {
   assert.equal(manualReadKind('GET', '/api/liekan/geography/attribution'), 'metadata');

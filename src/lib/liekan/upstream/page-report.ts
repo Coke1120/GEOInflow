@@ -18,6 +18,7 @@ import {
 import { query, reportSnapshot } from './server';
 import { attachReportEvidenceView } from './report-evidence-view';
 import { dashboardClock } from './dashboard-clock';
+import { DASHBOARD_INTERVAL } from './dashboard-snapshot-model';
 
 async function readPageReportSnapshot(
   website: { id: string; name: string; domain: string },
@@ -81,7 +82,7 @@ async function readPageReportSnapshot(
               snapshot: {
                 dataThrough: dashboardClock().cutoff,
                 state: 'ready',
-                intervalMs: 300000,
+                intervalMs: DASHBOARD_INTERVAL,
               },
             }
           : {}),

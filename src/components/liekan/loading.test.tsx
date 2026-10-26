@@ -44,7 +44,7 @@ vi.mock('./Navigation', () => ({
   useSidebarWidth: () => [228, vi.fn()],
   Navigation: ({ site }: any) => <div data-test="site-name">{site?.name}</div>,
 }));
-vi.mock('@/store/app', () => ({ useApp: (select: any) => select({ user: { id: 'user' } }) }));
+vi.mock('@/store/app', () => ({ useApp: Object.assign((select: any) => select({ user: { id: 'user' } }), {getState: () => ({accountPreferences:null})}) }));
 vi.mock('@/components/hooks/queries/useWebsiteQuery', () => ({
   useWebsiteQuery: () => ({
     ...mocks.metadata,

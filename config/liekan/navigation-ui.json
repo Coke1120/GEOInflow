@@ -1785,5 +1785,26 @@
       "https://www.liekan.com/?GEOInflow",
       "https://geo.takefoto.cn/?GEOInflow"
     ]
+  },
+  "todayCalendarApproval": {
+    "date": "2026-10-25",
+    "shortcuts": [
+      "今天",
+      "7 天",
+      "30 天"
+    ],
+    "defaultRange": "0day",
+    "defaultTimezone": "Asia/Shanghai",
+    "timezoneOwner": "account",
+    "multiTimezoneCountry": "explicit-city-confirmation",
+    "realtimeWindow": "30minute",
+    "retentionWindow": "month",
+    "legacy24hour": "preserve-explicit-rolling-links",
+    "bodyChartsTablesStyles": "preserve",
+    "copyCorrections": {
+      "AI 蜘蛛请求（30天）": "AI 蜘蛛请求"
+    },
+    "visitorTrendShortcut": "today",
+    "invalidDateRecovery": "0day"
   }
 }

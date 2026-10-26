@@ -1,7 +1,11 @@
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 import { GeographyAttribution } from './GeographyAttribution';
 import Link from '@/components/liekan/Link';
-import { liekanFooterLinks, liekanProduct } from '@/lib/liekan/contracts/product';
+import {
+  liekanFooterLinks,
+  liekanProduct,
+  liekanPublisherLinks,
+} from '@/lib/liekan/contracts/product';
 import styles from '@/styles/liekan/ProductFooter.module.css';
 
 export function ProductFooter() {
@@ -19,13 +23,20 @@ export function ProductFooter() {
           </Link>
           <span className={styles.publishers} data-product-publishers>
             <span>{i18n.text('联合发布：')}</span>
-            {liekanProduct.publishers.map(name => (
-              <span key={name}>{name}</span>
+            {liekanPublisherLinks.map(({ label, href }) => (
+              <a key={href} href={href} target="_blank" rel="noopener noreferrer">
+                {label}
+              </a>
             ))}
           </span>
-          <a href={liekanProduct.links.license} target="_blank" rel="noopener noreferrer">
-            {liekanProduct.license}
-          </a>
+          <span className={styles.attribution}>
+            <a href={liekanProduct.links.license} target="_blank" rel="noopener noreferrer">
+              {liekanProduct.license}
+            </a>
+            <a href={liekanProduct.links.upstream} target="_blank" rel="noopener noreferrer">
+              Umami
+            </a>
+          </span>
         </div>
         <nav className={styles.links} aria-label={i18n.text('项目相关链接')}>
           <GeographyAttribution />

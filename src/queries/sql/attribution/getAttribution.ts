@@ -1,14 +1,14 @@
-import {
-  identityUsable,
-  unavailableFields,
-  type BrowserPopulation,
-} from '@/lib/liekan/contracts/browser-population';
-import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
-import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
-import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
 import clickhouse from '@/lib/clickhouse';
 import { EVENT_TYPE } from '@/lib/constants';
 import { CLICKHOUSE, PRISMA, runQuery } from '@/lib/db';
+import {
+  type BrowserPopulation,
+  identityUsable,
+  unavailableFields,
+} from '@/lib/liekan/contracts/browser-population';
+import { readBrowserPopulation } from '@/lib/liekan/upstream/browser-population';
+import { nativeAggregate } from '@/lib/liekan/upstream/native-aggregate';
+import { nativeSnapshot } from '@/lib/liekan/upstream/native-snapshot';
 import prisma from '@/lib/prisma';
 import type { QueryFilters } from '@/lib/types';
 
@@ -65,22 +65,15 @@ async function relationalQuery(
     select
         coalesce(we.${utmColumn}, '') as "name",
         count(distinct we.session_id) as "value"
-    from model m
-    join website_event we
-    on we.created_at = m.created_at
-        and we.session_id = m.session_id
-    where we.website_id = {{websiteId::uuid}}
-          and we.created_at between {{startDate}} and {{endDate}}
-          and we.${utmColumn} != ''
+    from attributed we
+    where we.${utmColumn} != ''
     group by 1
     order by 2 desc
     limit 20`;
   }
 
-  const eventQuery = `WITH events AS (
-        select distinct
-            website_event.session_id,
-            max(website_event.created_at) max_dt
+  const eventQuery = `WITH conversion_events AS MATERIALIZED (
+        select website_event.session_id,website_event.visit_id,website_event.created_at
         from website_event
         ${cohortQuery}
         ${joinSessionQuery}
@@ -88,7 +81,8 @@ async function relationalQuery(
           and website_event.created_at between {{startDate}} and {{endDate}}
           and website_event.${column} = {{step}}
           ${filterQuery}
-        group by 1),`;
+        ),events AS (
+        select session_id,max(created_at) max_dt from conversion_events group by 1),`;
 
   function getModelQuery(model: string) {
     return model === 'first-click'
@@ -113,36 +107,39 @@ async function relationalQuery(
     group by e.session_id)`;
   }
 
-  const referrerRes = await rawQuery(
+  const groups = [
+    'referrer',
+    'paidAds',
+    'utm_source',
+    'utm_medium',
+    'utm_campaign',
+    'utm_content',
+    'utm_term',
+  ] as const;
+  // Reuse the exact selected timestamps, including every event tied at the attribution boundary.
+  const result = await rawQuery(
     `
     ${eventQuery}
-    ${getModelQuery(model)}
-    select coalesce(we.referrer_domain, '') as "name",
-        count(distinct we.session_id) value
-    from model m
-    join website_event we
-    on we.created_at = m.created_at
-        and we.session_id = m.session_id
+    ${getModelQuery(model)},
+    attributed AS MATERIALIZED (
+      select we.session_id,we.referrer_domain,we.hostname,
+        we.gclid,we.fbclid,we.msclkid,we.ttclid,we.li_fat_id,we.twclid,
+        we.utm_source,we.utm_medium,we.utm_campaign,we.utm_content,we.utm_term
+      from model m
+      join website_event we on we.created_at=m.created_at and we.session_id=m.session_id
+      where we.website_id={{websiteId::uuid}}
+        and we.created_at between {{startDate}} and {{endDate}}
+    ),referrer AS (
+    select coalesce(we.referrer_domain, '') as "name",count(distinct we.session_id) as "value"
+    from attributed we
     join session s
-    on s.session_id = m.session_id
-    where we.website_id = {{websiteId::uuid}}
-          and we.created_at between {{startDate}} and {{endDate}}
-          and we.referrer_domain != regexp_replace(we.hostname, '^www.', '')
+    on s.session_id = we.session_id
+    where we.referrer_domain != regexp_replace(we.hostname, '^www.', '')
           and we.referrer_domain != ''
     group by 1
     order by 2 desc
     limit 20
-    `,
-    queryParams,
-    'getAttribution',
-  );
-
-  const paidAdsres = await rawQuery(
-    `
-    ${eventQuery}
-    ${getModelQuery(model)},
-
-    results AS (
+    ),paid_ads AS (
     select case
             when coalesce(gclid, '') != '' then 'Google Ads'
             when coalesce(fbclid, '') != '' then 'Facebook / Meta'
@@ -153,90 +150,41 @@ async function relationalQuery(
             else ''
           end as "name",
         count(distinct we.session_id) as "value"
-    from model m
-    join website_event we
-    on we.created_at = m.created_at
-        and we.session_id = m.session_id
-    where we.website_id = {{websiteId::uuid}}
-          and we.created_at between {{startDate}} and {{endDate}}
+    from attributed we
     group by 1
     order by 2 desc
-    limit 20)
-    SELECT *
-    FROM results
-    WHERE name != ''
-    `,
-    queryParams,
-    'getAttribution',
-  );
-
-  const sourceRes = await rawQuery(
-    `
-    ${eventQuery}
-    ${getModelQuery(model)}
-    ${getUTMQuery('utm_source')}
-    `,
-    queryParams,
-    'getAttribution',
-  );
-
-  const mediumRes = await rawQuery(
-    `
-    ${eventQuery}
-    ${getModelQuery(model)}
-    ${getUTMQuery('utm_medium')}
-    `,
-    queryParams,
-    'getAttribution',
-  );
-
-  const campaignRes = await rawQuery(
-    `
-    ${eventQuery}
-    ${getModelQuery(model)}
-    ${getUTMQuery('utm_campaign')}
-    `,
-    queryParams,
-    'getAttribution',
-  );
-
-  const contentRes = await rawQuery(
-    `
-    ${eventQuery}
-    ${getModelQuery(model)}
-    ${getUTMQuery('utm_content')}
-    `,
-    queryParams,
-    'getAttribution',
-  );
-
-  const termRes = await rawQuery(
-    `
-    ${eventQuery}
-    ${getModelQuery(model)}
-    ${getUTMQuery('utm_term')}
-    `,
-    queryParams,
-    'getAttribution',
-  );
-
-  const totalRes = await rawQuery(
-    `
+    limit 20),"paidAds" AS (select * from paid_ads where name != ''),
+    ${groups
+      .slice(2)
+      .map(field => `${field} AS (${getUTMQuery(field)})`)
+      .join(',')},
+    totals AS (
     select
         count(*) as "pageviews",
-        count(distinct website_event.session_id) as "visitors",
-        count(distinct website_event.visit_id) as "visits"
-    from website_event
-    ${joinSessionQuery}
-    ${cohortQuery}
-    where website_event.website_id = {{websiteId::uuid}}
-        and website_event.created_at between {{startDate}} and {{endDate}}
-        and website_event.${column} = {{step}}
-        ${filterQuery}
+        count(distinct session_id) as "visitors",
+        count(distinct visit_id) as "visits"
+    from conversion_events)
+    ${groups
+      .map(
+        group => `select '${group}' as group_key,name,value,
+      null::bigint as pageviews,null::bigint as visitors,null::bigint as visits from "${group}"`,
+      )
+      .join('\nunion all\n')}
+    union all
+    select 'total',null::text,null::bigint,pageviews,visitors,visits from totals
+    order by group_key,value desc
     `,
     queryParams,
     'getAttribution',
-  ).then(result => result?.[0]);
+  );
+  const values = (group: (typeof groups)[number]) =>
+    result.filter(row => row.group_key === group).map(({ name, value }) => ({ name, value }));
+  const total = result.find(row => row.group_key === 'total');
+  const totalRes = total && {
+    pageviews: total.pageviews,
+    visitors: total.visitors,
+    visits: total.visits,
+  };
 
   const population = await readBrowserPopulation(
     websiteId,
@@ -246,13 +194,13 @@ async function relationalQuery(
   );
   return {
     population,
-    referrer: referrerRes,
-    paidAds: paidAdsres,
-    utm_source: sourceRes,
-    utm_medium: mediumRes,
-    utm_campaign: campaignRes,
-    utm_content: contentRes,
-    utm_term: termRes,
+    referrer: values('referrer'),
+    paidAds: values('paidAds'),
+    utm_source: values('utm_source'),
+    utm_medium: values('utm_medium'),
+    utm_campaign: values('utm_campaign'),
+    utm_content: values('utm_content'),
+    utm_term: values('utm_term'),
     total: identityUsable(population)
       ? totalRes
       : unavailableFields(totalRes, ['visitors', 'visits']),

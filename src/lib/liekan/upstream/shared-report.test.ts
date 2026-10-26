@@ -101,6 +101,13 @@ it('returns only aggregate fields in one snapshot and preserves the demo marker'
   expect(report.cards).toHaveLength(1);
   expect(JSON.stringify(report)).not.toMatch(/private-|hidden|访问流/);
 });
+it('uses the pinned public timezone even when the request supplies another viewer timezone', async () => {
+  mocks.auth.mockResolvedValue(share({ overview: true, goals: true, timezone: 'America/New_York' } as any));
+  await readSharedReport(new Request(request().url.replace('Asia%2FShanghai', 'Asia%2FTokyo')), id);
+  expect(mocks.build).toHaveBeenCalledWith(website, false, {
+    ...input, timezone: 'America/New_York', resource: 'overview',
+  }, 'share');
+});
 it('removes every conversion result when the live share does not permit goals', async () => {
   mocks.auth.mockResolvedValue(share({ overview: true, goals: false }));
   const report = await readSharedReport(request(), id);

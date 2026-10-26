@@ -102,6 +102,10 @@ beforeEach(() => {
   mocks.post.mockResolvedValue({});
 });
 describe('feature navigation scope', () => {
+  it.each(['realtime', 'retention'])('leaves the %s window to its dedicated controls', page => {
+    const { container } = mount({ page, websiteId: personal.id });
+    expect(container.querySelector('.range-context')).not.toBeInTheDocument();
+  });
   it.each([
     ['zh-CN', '日期参数无效，当前使用默认日期范围。', '重置日期'],
     ['en-US', 'Invalid date parameters. The default date range is in use.', 'Reset dates'],
@@ -110,20 +114,20 @@ describe('feature navigation scope', () => {
     async (locale, warning, reset) => {
       mocks.invalidDate = true;
       mocks.navigation.query = { date: 'range:bad:bad' };
-      mocks.navigation.updateParams.mockReturnValue('/websites?date=30day');
+      mocks.navigation.updateParams.mockReturnValue('/websites?date=0day');
       mount({ page: 'websites' }, user, locale);
       expect(await screen.findByText(warning)).toBeVisible();
       await userEvent.click(screen.getByRole('button', { name: reset }));
       await waitFor(() =>
         expect(mocks.navigation.updateParams).toHaveBeenCalledWith({
-          date: '30day',
+          date: '0day',
           unit: undefined,
           offset: undefined,
           dateMode: undefined,
           live: undefined,
         }),
       );
-      expect(mocks.navigation.router.replace).toHaveBeenCalledWith('/websites?date=30day', {
+      expect(mocks.navigation.router.replace).toHaveBeenCalledWith('/websites?date=0day', {
         scroll: false,
       });
     },
@@ -355,12 +359,12 @@ describe('feature navigation scope', () => {
     mocks.navigation.updateParams.mockReturnValue('/next-range');
     mount({ page: 'events', websiteId: personal.id });
     await screen.findByRole('button', { name: '切换网站，当前个人网站' });
-    // dateMode=default 继承自 GEO 默认窗口，快捷钮按 30 天高亮。
-    expect(screen.getByRole('button', { name: '30 天' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: '24h' })).toHaveAttribute('aria-pressed', 'false');
-    await userEvent.click(screen.getByRole('button', { name: '24h' }));
+    // The migrated dynamic default highlights Today.
+    expect(screen.getByRole('button', { name: '今天' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: '30 天' })).toHaveAttribute('aria-pressed', 'false');
+    await userEvent.click(screen.getByRole('button', { name: '今天' }));
     expect(mocks.navigation.updateParams).toHaveBeenCalledWith({
-      date: '24hour',
+      date: '0day',
       unit: undefined,
       offset: undefined,
       dateMode: undefined,

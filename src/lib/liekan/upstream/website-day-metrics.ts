@@ -1,14 +1,12 @@
-import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { calendarDayRange } from '../contracts/calendar';
 
-const DAY_MS = 86400000;
 // 预计今日按已流逝进度折算；凌晨至少按 10 分钟进度，避免刚开日时数值爆炸。
 const MIN_PROJECTED_MS = 600000;
 
 /** Exact [today 00:00, tomorrow 00:00) window in the site timezone. */
 export function websiteDayWindow(timezone: string, now = Date.now()) {
-  const day = formatInTimeZone(now, timezone, 'yyyy-MM-dd');
-  const startAt = +fromZonedTime(`${day}T00:00:00`, timezone);
-  return { startAt, endAt: startAt + DAY_MS, timezone };
+  const day = calendarDayRange(now, timezone);
+  return { startAt: day.startAt, endAt: day.endAt + 1, timezone };
 }
 
 /** End-of-day projection: measured value divided by elapsed day progress. */
@@ -18,8 +16,9 @@ export function projectToday(
   now = Date.now(),
 ): number | null {
   if (value == null || !Number.isFinite(value)) return null;
-  const { startAt } = websiteDayWindow(timezone, now);
-  const progress = Math.min(DAY_MS, Math.max(MIN_PROJECTED_MS, now - startAt)) / DAY_MS;
+  const { startAt, endAt } = websiteDayWindow(timezone, now);
+  const duration = endAt - startAt;
+  const progress = Math.min(duration, Math.max(MIN_PROJECTED_MS, now - startAt)) / duration;
   return Math.round(value / progress);
 }
 

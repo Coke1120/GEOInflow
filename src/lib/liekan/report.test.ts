@@ -1121,3 +1121,11 @@ it('keeps the selected trend start while a dashboard batch clips its data end', 
   expect(mocks.plotLogs.mock.calls[0][1]).toEqual(new Date(selectedEnd - 30 * 86400000));
   expect(mocks.humanDays.mock.calls[0][2]).toEqual(new Date(cutoff - 1));
 });
+
+it('anchors Today hourly trends to the selected comparison date',async () => {
+ const startAt=Date.parse('2026-03-01T05:00Z');
+ const endAt=Date.parse('2026-03-02T04:59:59.999Z');
+ await buildReport(website,false,{...params,resource:'human/overview',startAt,endAt,timezone:'America/New_York',chartPeriod:'today'},true);
+ expect(mocks.humanDays).toHaveBeenCalledWith(website.id,new Date(startAt),new Date(endAt),'America/New_York',true);
+ expect(mocks.plotLogs.mock.calls[0][1]).toEqual(new Date(startAt));
+});

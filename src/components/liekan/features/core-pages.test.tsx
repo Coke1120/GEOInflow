@@ -29,6 +29,11 @@ const mocks = vi.hoisted(() => ({
   queries: [] as any[],
   loaders: {} as Record<string, (signal?: AbortSignal) => Promise<any>>,
   managementDrawer: vi.fn(),
+  preferences: {} as any,
+  savePreferences: vi.fn(),
+}));
+vi.mock('@/lib/liekan/upstream/account-preferences-client', () => ({
+  saveAccountPreferences: mocks.savePreferences,
 }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: mocks.replace }),
@@ -114,17 +119,19 @@ vi.mock('@/lib/liekan/upstream/features-client', async importOriginal => ({
   clearFeatureLogin: vi.fn(),
   verifyFeatureTwoFactor: mocks.verify,
   verifyFeatureSso: mocks.sso,
-  getFeaturePreferences: () => ({
-    range: '30day',
-    timezone: 'Asia/Shanghai',
-    language: 'zh-CN',
-    theme: 'light',
-  }),
+  getFeaturePreferences: () => mocks.preferences,
   saveFeaturePreferences: vi.fn(),
 }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.preferences = {
+    range: '30day',
+    countryCode: 'CN',
+    timezone: 'Asia/Shanghai',
+    language: 'zh-CN',
+    theme: 'light',
+  };
   mocks.resumeLogin.mockResolvedValue(null);
   mocks.query = {
     'website-installation': {
@@ -165,6 +172,21 @@ beforeEach(() => {
 });
 
 describe('core API mappings', () => {
+  it('preserves an explicit legacy rolling preference when the country changes', async () => {
+    mocks.preferences.range = '24hour';
+    const { container } = render(<CorePages page="preferences" />);
+    const range = await screen.findByLabelText('默认日期范围');
+    expect(range).toHaveValue('24hour');
+    await userEvent.selectOptions(container.querySelector('select[name="countryCode"]')!, 'JP');
+    await userEvent.click(screen.getByRole('button', { name: '保存偏好' }));
+    await waitFor(() =>
+      expect(mocks.savePreferences).toHaveBeenCalledWith({
+        countryCode: 'JP',
+        timezone: 'Asia/Tokyo',
+        range: '24hour',
+      }),
+    );
+  });
   it('localizes website section tabs while retaining the form draft and canonical navigation', async () => {
     mocks.query['site-record'] = mocks.context.site;
     const page = (locale: 'zh-CN' | 'en-US') => (

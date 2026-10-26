@@ -2,6 +2,8 @@ import type { BrowserPopulation } from './browser-population';
 import { z } from 'zod';
 import { fromZonedTime, formatInTimeZone } from 'date-fns-tz';
 import type { LiekanLocale } from '../i18n/locale';
+import { format } from 'date-fns';
+import { calendarDateRange } from './calendar';
 export function completedObservationDate(endAt: number, timezone: string) {
   const day = formatInTimeZone(endAt, timezone, 'yyyy-MM-dd');
   const next = new Date(`${day}T00:00:00Z`);
@@ -50,9 +52,14 @@ export function featureDateRange(
   timezone: string,
 ) {
   const custom = range.value?.startsWith('range:');
+  const today =
+    range.value === '0day'
+      ? calendarDateRange(format(range.startDate, 'yyyy-MM-dd'), timezone)
+      : null;
   return {
-    startAt: +(custom ? range.startDate : fromZonedTime(range.startDate, timezone)),
-    endAt: +(custom ? range.endDate : fromZonedTime(range.endDate, timezone)),
+    startAt:
+      today?.startAt ?? +(custom ? range.startDate : fromZonedTime(range.startDate, timezone)),
+    endAt: today?.endAt ?? +(custom ? range.endDate : fromZonedTime(range.endDate, timezone)),
     timezone,
     unit: range.unit || 'day',
   };

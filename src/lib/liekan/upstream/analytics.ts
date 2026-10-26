@@ -56,18 +56,15 @@ function sourceFacts(rows: any[]) {
 }
 
 // All knowledge of upstream storage and metric semantics is confined here.
-export function humanVisitsSql(keywords = false) {
-  return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign,s.country AS country,s.region AS region,s.city AS city,s.browser AS browser,s.os AS os,s.device AS device FROM website_event e
-  LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
+export function humanVisitsSql(keywords = false, dimensions = true) {
+  return `WITH events AS (SELECT e.event_id,e.website_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path,e.event_name,e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign${dimensions ? ',s.country AS country,s.region AS region,s.city AS city,s.browser AS browser,s.os AS os,s.device AS device' : ''} FROM website_event e${dimensions ? '\n  LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id' : ''}
   WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz AND e.event_type != 5 AND $4::text IS NOT NULL),
-visit_geography AS (SELECT DISTINCT ON (visit_id,session_id) visit_id,session_id,country,region,city FROM events WHERE event_type NOT IN(2,5) ORDER BY visit_id,session_id,created_at,event_id),
-visit_totals AS (SELECT visit_id,session_id,count(*) FILTER(WHERE event_type NOT IN(2,5))::int AS pv,
+${dimensions ? 'visit_geography AS (SELECT DISTINCT ON (visit_id,session_id) visit_id,session_id,country,region,city FROM events WHERE event_type NOT IN(2,5) ORDER BY visit_id,session_id,created_at,event_id),\n' : ''}visit_totals AS (SELECT visit_id,session_id,count(*) FILTER(WHERE event_type NOT IN(2,5))::int AS pv,
   bool_or(event_type=2)::int AS custom, min(created_at) FILTER(WHERE event_type NOT IN(2,5)) AS started,
-  extract(epoch FROM max(created_at) FILTER(WHERE event_type NOT IN(2,5))-min(created_at) FILTER(WHERE event_type NOT IN(2,5)))::float AS duration,
-  max(browser) AS browser,max(os) AS os,max(device) AS device
+  extract(epoch FROM max(created_at) FILTER(WHERE event_type NOT IN(2,5))-min(created_at) FILTER(WHERE event_type NOT IN(2,5)))::float AS duration${dimensions ? ',\n  max(browser) AS browser,max(os) AS os,max(device) AS device' : ''}
   FROM events GROUP BY visit_id,session_id HAVING count(*) FILTER(WHERE event_type NOT IN(2,5))>0),
-visits AS (SELECT v.*,geography.country,geography.region,geography.city,entry.referrer_domain AS referrer,entry.utm_source AS "utmSource",entry.utm_medium AS "utmMedium",entry.utm_campaign AS "utmCampaign"${keywords ? ' ,entry.referrer_path AS "referrerPath",entry.referrer_query AS "referrerQuery",entry.utm_term AS "utmTerm"' : ''}
-  FROM visit_totals v JOIN visit_geography geography USING(visit_id,session_id) LEFT JOIN LATERAL (
+visits AS (SELECT v.*${dimensions ? ',geography.country,geography.region,geography.city' : ''},entry.referrer_domain AS referrer,entry.utm_source AS "utmSource",entry.utm_medium AS "utmMedium",entry.utm_campaign AS "utmCampaign"${keywords ? ' ,entry.referrer_path AS "referrerPath",entry.referrer_query AS "referrerQuery",entry.utm_term AS "utmTerm"' : ''}
+  FROM visit_totals v${dimensions ? ' JOIN visit_geography geography USING(visit_id,session_id)' : ''} LEFT JOIN LATERAL (
     SELECT e.referrer_domain,e.utm_source,e.utm_medium,e.utm_campaign${keywords ? ',e.referrer_path,e.referrer_query,e.utm_term' : ''} FROM website_event e
     WHERE e.website_id=$1::uuid AND e.visit_id=v.visit_id AND e.session_id=v.session_id
       AND e.created_at<=$3::timestamptz AND e.event_type NOT IN(2,5)
@@ -196,15 +193,24 @@ export async function getHumanFacts(
     Object.keys(statements).filter(key => needs(key as HumanFact)),
     { geographyReadLimit },
   );
-  const projections = Object.entries(statements)
-    .filter(([key]) => needs(key as HumanFact) && !Object.hasOwn(detail || {}, key))
-    .map(([key, tail]) => {
-      const select = tail.trimStart().startsWith(',') ? 'WITH ' + tail.trimStart().slice(1) : tail;
-      if (key === 'geo' && geographyReadLimit) {
-        return `'geo',(SELECT CASE WHEN count(*) > $5::int OR coalesce(sum(octet_length(to_jsonb(fact)::text)),0) > $6::bigint THEN '{"limitExceeded":true}'::jsonb ELSE coalesce(jsonb_agg(to_jsonb(fact)), '[]'::jsonb) END FROM (${select} LIMIT ($5::int + 1)) fact)`;
-      }
-      return `'${key}',(SELECT coalesce(jsonb_agg(to_jsonb(fact)), '[]'::jsonb) FROM (${select}) fact)`;
-    });
+  const remaining = Object.entries(statements).filter(
+    ([key]) => needs(key as HumanFact) && !Object.hasOwn(detail || {}, key),
+  );
+  // Path projections share one eligible scan with the original date and identity boundaries.
+  const currentCte =
+    remaining.length && remaining.every(([key]) => key === 'journeys' || key === 'exits')
+      ? `WITH events AS MATERIALIZED (SELECT e.event_id,e.session_id,e.visit_id,e.created_at,e.event_type,e.url_path
+         FROM liekan_geographic_website_event e
+         WHERE e.website_id=$1::uuid AND e.created_at BETWEEN $2::timestamptz AND $3::timestamptz
+          AND e.event_type != 5 AND $4::text IS NOT NULL)`
+      : cte;
+  const projections = remaining.map(([key, tail]) => {
+    const select = tail.trimStart().startsWith(',') ? 'WITH ' + tail.trimStart().slice(1) : tail;
+    if (key === 'geo' && geographyReadLimit) {
+      return `'geo',(SELECT CASE WHEN count(*) > $5::int OR coalesce(sum(octet_length(to_jsonb(fact)::text)),0) > $6::bigint THEN '{"limitExceeded":true}'::jsonb ELSE coalesce(jsonb_agg(to_jsonb(fact)), '[]'::jsonb) END FROM (${select} LIMIT ($5::int + 1)) fact)`;
+    }
+    return `'${key}',(SELECT coalesce(jsonb_agg(to_jsonb(fact)), '[]'::jsonb) FROM (${select}) fact)`;
+  });
   if (geographyReadLimit && needs('geo') && !detail?.geo)
     args.push(geographyReadLimit.rows, geographyReadLimit.bytes);
   const [totals, definitions, current, previousSources, previousGoals] = await Promise.all([
@@ -214,7 +220,7 @@ export async function getHumanFacts(
       id,
     ),
     projections.length
-      ? query(cte + ` SELECT jsonb_build_object(${projections.join(',')}) AS facts`, ...args)
+      ? query(currentCte + ` SELECT jsonb_build_object(${projections.join(',')}) AS facts`, ...args)
       : Promise.resolve([]),
     needs('previousSources')
       ? (async () => {

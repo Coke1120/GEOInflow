@@ -4,11 +4,11 @@ import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 // 产品组件不能直接 import '@/lib/constants'（上游边界）；键名与默认值与
 // upstream useFeatureDateRange 的 DATE_RANGE_CONFIG / DEFAULT_DATE_RANGE_VALUE 保持一致。
 const STORED_DATE_RANGE_KEY = 'umami.date-range';
-const FALLBACK_DATE_RANGE_TOKEN = '24hour';
+const FALLBACK_DATE_RANGE_TOKEN = '0day';
 
-// 顺序即工具栏展示顺序：24h、7 天、30 天，随后才是自定义范围控件。
+// 顺序即工具栏展示顺序：今天、7 天、30 天，随后是自定义范围控件。
 export const QUICK_DATE_RANGES = [
-  ['24hour', '24h'],
+  ['0day', '今天'],
   ['7day', '7 天'],
   ['30day', '30 天'],
 ] as const;
@@ -22,7 +22,7 @@ export function activeQuickDateRange(
   params: { date?: string; dateMode?: string },
   defaultToken?: QuickDateRangeToken,
 ): QuickDateRangeToken | null {
-  if (params.dateMode === 'default') return '30day';
+  if (params.dateMode === 'default') return '0day';
   if (params.date) {
     return QUICK_TOKENS.has(params.date) ? (params.date as QuickDateRangeToken) : null;
   }

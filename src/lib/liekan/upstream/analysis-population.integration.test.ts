@@ -98,8 +98,10 @@ async function build(from = startDate, until = endDate) {
 async function oracle(start = startDate, end = endDate, halfOpen = true) {
   const [row] = await q(
     `WITH p AS MATERIALIZED (
-    SELECT e.*,env.identity_version,q.rule_version,q.catalog_version
-    FROM liekan_geographic_website_event e
+    SELECT e.*,(qualified.event_id IS NOT NULL OR e.event_type IN(3,4)) AS liekan_identity_available,
+     env.identity_version,q.rule_version,q.catalog_version
+    FROM liekan_observed_website_event e
+    LEFT JOIN liekan_browser_identity qualified ON qualified.website_id=e.website_id AND qualified.event_id=e.event_id
     LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
     LEFT JOIN liekan_reporting_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id
     WHERE e.website_id=$1 AND e.created_at>=$2 AND e.created_at${halfOpen ? '<' : '<='}$3
@@ -359,7 +361,6 @@ describe.skipIf(!enabled)('browser population facts in an owned PostgreSQL schem
         .filter(
           node =>
             String(node['Relation Name'] || '').startsWith('liekan_analysis_visit_') &&
-            node['Actual Rows'] > 0 &&
             node['Actual Loops'] > 0,
         );
       await save('population-covered-plans', {
@@ -372,7 +373,27 @@ describe.skipIf(!enabled)('browser population facts in an owned PostgreSQL schem
       });
       expect(raw.length).toBeGreaterThan(0);
       expect(derived.length).toBeGreaterThan(0);
-      expect(rawVisits).toBe(0);
+      expect(plans.flatMap(nodes).some(node =>
+        node['CTE Name'] === 'facts' && node['Actual Rows'] * node['Actual Loops'] > 0,
+      )).toBe(true);
+      const metricRawScopes = plans
+        .flatMap(nodes)
+        .filter(node => node['Subplan Name'] === 'CTE raw_scope');
+      expect(metricRawScopes.length).toBeGreaterThan(0);
+      expect(
+        metricRawScopes.every(node => node['Actual Rows'] * node['Actual Loops'] === 0),
+      ).toBe(true);
+      const metricRawScans = metricRawScopes
+        .flatMap(nodes)
+        .filter(node => node['Relation Name'] === 'website_event');
+      expect(metricRawScans.length).toBeGreaterThan(0);
+      expect(
+        metricRawScans.reduce(
+          (sum, node) => sum + node['Actual Rows'] * node['Actual Loops'],
+          0,
+        ),
+      ).toBe(0);
+      expect(actual.identity.eligibleEvents).toBe(expected.events);
     } finally {
       await client.query('ROLLBACK');
     }
@@ -482,7 +503,7 @@ describe.skipIf(!enabled)('browser population facts in an owned PostgreSQL schem
       WHERE f.website_id=$1 AND m.family='visit'`,
       site,
     );
-    expect(facts).toEqual({ events: 33, pv: 0 });
+    expect(facts).toEqual({ events: 32, pv: 0 });
     expect(
       await api.readAnalysisVisitTotals({ websiteId: site, startDate, endDate }),
     ).toMatchObject({ pageviews: 0, visitors: 0, visits: 0, bounces: 0, totaltime: 0 });
@@ -835,7 +856,11 @@ describe.skipIf(!enabled)('browser population facts in an owned PostgreSQL schem
     await save('population-probe-late-correction', { before, after });
     expect(after[2].versions).toEqual(before[2].versions);
     expect(after[2].fingerprint).not.toBe(before[2].fingerprint);
-    expect(after[2]).toMatchObject({ compared: true, input_rows: 4n, derived_rows: 2n });
+    expect(after[2]).toMatchObject({ compared: true, input_rows: 3n, derived_rows: 1n });
+    expect(await oracle(new Date('2026-01-03T00:00Z'), until)).toMatchObject({
+      events: 4,
+      qualified: 3,
+    });
     await build(startDate, until);
     await execute(
       'UPDATE liekan_event_environment SET identity_available=true WHERE event_id=$1',
@@ -936,7 +961,7 @@ describe.skipIf(!enabled)('browser population facts in an owned PostgreSQL schem
           ),
         ),
       );
-      expect(filtered.value).toEqual([{ x: 'Firefox', y: null }]);
+      expect(filtered.value).toEqual([{ x: 'Firefox', y: 1 }]);
       expect(
         filtered.populations.some(
           p => p.identity.eligibleEvents === 2 && p.identity.status === 'partial',

@@ -35,7 +35,10 @@ const ownedMetadata = {
     accountNavigation: ['label'],
     adminNavigation: ['label'],
   },
-  'src/lib/liekan/contracts/product.ts': { liekanFooterLinks: ['label'] },
+  'src/lib/liekan/contracts/product.ts': {
+    liekanFooterLinks: ['label'],
+    liekanProjectInitiators: ['description'],
+  },
   'src/lib/liekan/contracts/management.ts': { managementLabels: '*' },
   'src/lib/liekan/contracts/workspace.ts': { workspaceRoleLabels: '*' },
   'src/lib/liekan/contracts/team-users.ts': { teamUserRoleChoices: '*' },

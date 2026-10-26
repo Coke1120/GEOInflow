@@ -6,7 +6,11 @@ import { useFreshQuery } from './context';
 import { useQueryClient } from '@tanstack/react-query';
 import { type ReactNode, useEffect, useState } from 'react';
 import { formatInTimeZone } from 'date-fns-tz';
-import type { SharedReport } from '@/lib/liekan/contracts/shared-report';
+import {
+  sharedChartPeriod,
+  type SharedDateRange,
+  type SharedReport,
+} from '@/lib/liekan/contracts/shared-report';
 import { countryName, geographyLabel } from '@/lib/liekan/contracts/geography';
 import styles from '@/styles/liekan/SharedReport.module.css';
 import { LoadingLines } from '../DataLoading';
@@ -49,17 +53,12 @@ export function SharedWebsiteOverview({
   id: string;
   token: string;
   cacheKey?: string;
-  range: { startAt: number; endAt: number; timezone: string };
+  range: Pick<SharedDateRange, 'startAt' | 'endAt' | 'timezone' | 'chartPeriod'>;
   request: (path: string, params?: any, signal?: AbortSignal) => Promise<any>;
   dateControls?: ReactNode;
 }) {
   const i18n = useLiekanI18n();
-  const chartPeriod =
-    range.endAt - range.startAt <= 86400000
-      ? '24h'
-      : range.endAt - range.startAt <= 7 * 86400000
-        ? '7d'
-        : '30d';
+  const chartPeriod = sharedChartPeriod(range);
   const query = useFreshQuery<SharedReport>(
     {
       queryKey: ['liekan-shared-report', cacheKey || token, id, range, chartPeriod],

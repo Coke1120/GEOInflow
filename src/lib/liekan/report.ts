@@ -3,7 +3,7 @@ import { identityComplete, identityUsable } from './contracts/browser-population
 import { dashboardClock } from './upstream/dashboard-clock';
 import { getPublishedCatalog } from './crawlers/published';
 import { crawlerAiRequests, isUnknownCrawler } from './rules/population';
-import { differenceInCalendarDays, endOfDay } from 'date-fns';
+import { endOfDay } from 'date-fns';
 import { formatInTimeZone, fromZonedTime, toZonedTime } from 'date-fns-tz';
 import { isbot } from 'isbot';
 import { pageReportParts, visitorOverviewCards } from './contracts/page-report';
@@ -16,6 +16,7 @@ import {
 } from './contracts/report';
 import { summarizeSearchEngines, searchChannels } from './contracts/search-engines';
 import { sharedReportParts } from './contracts/shared-report';
+import { calendarDayRange, calendarDayCount } from './contracts/calendar';
 import { getSettings } from './store';
 import {
   classifyEntrySource,
@@ -123,15 +124,15 @@ export async function buildReport(
     throw new LiekanError('日期范围无效，上限 3 年');
   const start = new Date(p.startAt),
     end = new Date(readEndAt);
-  const todayStart = fromZonedTime(
-    `${formatInTimeZone(clock?.dayAt ?? now, p.timezone, 'yyyy-MM-dd')}T00:00:00`,
-    p.timezone,
-  );
+  const todayStart = new Date(calendarDayRange(clock?.dayAt ?? now, p.timezone).startAt);
   const plotStart = new Date(
-    Math.max(
-      pageOnly === 'share' ? p.startAt : 0,
-      (clock ? p.endAt : readEndAt) - { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000,
-    ),
+    p.chartPeriod === 'today'
+      ? calendarDayRange(p.endAt, p.timezone).startAt
+      : Math.max(
+          pageOnly === 'share' ? p.startAt : 0,
+          (clock ? p.endAt : readEndAt) -
+            { '30d': 30, '7d': 7, '24h': 1 }[p.chartPeriod] * 86400000,
+        ),
   );
   const [
     rawHuman,
@@ -175,24 +176,33 @@ export async function buildReport(
     needed('content') ? getContentImpact(website.id, start, end, p) : Promise.resolve([]),
     needed('ai/overview') ? getMonthlyAiShare(website.id, end, p.timezone, p) : Promise.resolve([]),
     needed('overview', 'human/overview')
-      ? getHumanDays(website.id, plotStart, end, p.timezone, p.chartPeriod === '24h')
+      ? getHumanDays(
+          website.id,
+          plotStart,
+          end,
+          p.timezone,
+          ['today', '24h'].includes(p.chartPeriod),
+        )
       : Promise.resolve([]),
     needed('overview', 'human/overview')
-      ? getPlotLogs(website.id, plotStart, end, p.timezone, p.chartPeriod === '24h', p)
+      ? getPlotLogs(
+          website.id,
+          plotStart,
+          end,
+          p.timezone,
+          ['today', '24h'].includes(p.chartPeriod),
+          p,
+        )
       : Promise.resolve([]),
   ]);
   const h = stringifySafe(rawHuman),
     l = stringifySafe(rawLogs);
   const halfOpen = p.crawlerMetricsVersion === 1;
-  const calendarStart =
-    halfOpen && formatInTimeZone(start, p.timezone, 'HH:mm:ss.SSS') === '00:00:00.000';
+  const calendarStart = calendarDayRange(+start, p.timezone).startAt === +start;
   const days = Math.max(
     1,
     calendarStart
-      ? differenceInCalendarDays(
-          toZonedTime(Math.max(p.startAt, readEndAt - 1), p.timezone),
-          toZonedTime(start, p.timezone),
-        ) + 1
+      ? calendarDayCount(+start, Math.max(p.startAt, readEndAt - (halfOpen ? 1 : 0)), p.timezone)
       : Math.ceil((readEndAt - p.startAt + (halfOpen ? 0 : 1)) / 86400000),
   );
   h.geo = mergeGeography(h.geo);
@@ -429,7 +439,10 @@ export async function buildReport(
     path: page.path,
     humanPv: page.pv,
     aiRequests: l.latest ? (humanAiPages.get(page.path)?.requests ?? 0) : null,
-    ratio: l.latest && identityComplete(t.population) ? ratio(humanAiPages.get(page.path)?.requests ?? 0, page.pv) : null,
+    ratio:
+      l.latest && identityComplete(t.population)
+        ? ratio(humanAiPages.get(page.path)?.requests ?? 0, page.pv)
+        : null,
     bot: humanAiPages.get(page.path)?.bot ?? null,
     ...(humanAiPages.get(page.path)?.botId !== undefined && {
       botId: humanAiPages.get(page.path).botId,
@@ -960,7 +973,9 @@ export async function buildReport(
   );
   card(
     '案例页 AI/浏览 比值',
-    l.latest && catalog.size && identityComplete(t.population) ? ratio(cases.ai, cases.human) : null,
+    l.latest && catalog.size && identityComplete(t.population)
+      ? ratio(cases.ai, cases.human)
+      : null,
     catalogLogState,
   );
   card(

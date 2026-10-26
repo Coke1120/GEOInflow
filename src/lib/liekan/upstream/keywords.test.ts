@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   cache: vi.fn(),
   settings: vi.fn(),
   key: vi.fn(),
+  visitsSql: vi.fn(),
 }));
 vi.mock('./server', async () => ({
   query: mocks.query,
@@ -21,7 +22,7 @@ vi.mock('./query-cache', () => ({
 }));
 vi.mock('../store', () => ({ getSettings: mocks.settings }));
 vi.mock('./analytics', () => ({
-  humanVisitsSql: () => 'WITH visits AS (SELECT * FROM website_event), converted AS (SELECT 1)',
+  humanVisitsSql: mocks.visitsSql,
   visitMetrics: 'count(*) AS sessions',
   convertedJoin: '',
 }));
@@ -46,6 +47,9 @@ const settings = { isDemo: false, aiCrawlerEnabled: false } as any;
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.key.mockImplementation((_key: string, p: unknown) => JSON.stringify(p));
+  mocks.visitsSql.mockReturnValue(
+    'WITH visits AS (SELECT * FROM website_event), converted AS (SELECT 1)',
+  );
   delete process.env.CLICKHOUSE_URL;
   mocks.execute.mockResolvedValue(undefined);
   mocks.query.mockImplementation(async (sql: string) =>
@@ -59,6 +63,7 @@ it('batches raw evidence in one snapshot and closes the cursor after completion'
     .mockResolvedValueOnce([{ ...raw, referrerQuery: '?q=person%40example.test' }])
     .mockResolvedValueOnce([{ present: true }]);
   const result = await readKeywordFacts(website.id, p());
+  expect(mocks.visitsSql).toHaveBeenCalledWith(true, false);
   expect(result.rows).toHaveLength(2);
   expect(result.rows.reduce((n, r) => n + r.sessions, 0)).toBe(501);
   expect(JSON.stringify(result)).not.toContain('person');

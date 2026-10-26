@@ -1,3 +1,4 @@
+import { captureShareCalendar } from '@/lib/liekan/upstream/share-calendar';
 import type { Prisma } from '@/generated/prisma/client';
 import { ENTITY_TYPE } from '@/lib/constants';
 import { uuid } from '@/lib/crypto';
@@ -89,7 +90,7 @@ export async function POST(
           shareType: ENTITY_TYPE.website,
           name: website.name,
           slug: shareId,
-          parameters: { overview: true, events: true },
+          parameters: await captureShareCalendar(auth, { overview: true, events: true }),
         })
       : await getShareByEntityId(websiteId);
 

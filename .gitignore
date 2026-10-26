@@ -62,6 +62,7 @@ yarn-error.log*
 /tmp/
 /outputs/
 /.local/
+/dependabot-review.md
 
 # Signed collector assets are built artifacts; signing keys stay outside source.
 /public/liekan-agent/

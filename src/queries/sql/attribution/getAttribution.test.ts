@@ -78,15 +78,15 @@ beforeEach(() => {
 
   prismaParseFilters.mockReturnValue(parseFiltersResult);
   clickhouseParseFilters.mockReturnValue(parseFiltersResult);
-  prismaRawQuery.mockResolvedValue([]);
+  prismaRawQuery.mockResolvedValue([{ group_key: 'total', pageviews: 0, visitors: 0, visits: 0 }]);
   clickhouseRawQuery.mockResolvedValue([]);
 });
 
 describe('getAttribution postgres branch', () => {
-  test('runs eight rawQuery calls covering referrer, paid ads, utm columns and totals', async () => {
+  test('reads referrer, paid ads, utm columns and totals in one database statement', async () => {
     await getAttribution('website-1', parameters, {});
 
-    expect(prismaRawQuery).toHaveBeenCalledTimes(8);
+    expect(prismaRawQuery).toHaveBeenCalledTimes(1);
     expect(clickhouseRawQuery).not.toHaveBeenCalled();
 
     const queries = prismaRawQuery.mock.calls.map(c => c[0] as string);
@@ -112,11 +112,12 @@ describe('getAttribution postgres branch', () => {
       },
       { startAt: +parameters.startDate, endAt: +parameters.endDate, timezone: 'UTC' },
     );
-    prismaRawQuery.mockImplementation(async (sql: string, _params: unknown, name: string) =>
+    prismaRawQuery.mockImplementation(async (_sql: string, _params: unknown, name: string) =>
       applyNativePopulation(
-        sql.includes('as "pageviews"')
-          ? [{ pageviews: 10, visitors: 8, visits: 9 }]
-          : [{ name: 'source', value: 4 }],
+        [
+          { group_key: 'referrer', name: 'source', value: 4 },
+          { group_key: 'total', pageviews: 10, visitors: 8, visits: 9 },
+        ],
         name,
         population,
       ),
@@ -131,7 +132,7 @@ describe('getAttribution postgres branch', () => {
 
     // eventType / column derive from `type`; column is embedded in the SQL string
     const eventQueryCall = prismaRawQuery.mock.calls.find(c =>
-      (c[0] as string).includes('WITH events AS'),
+      (c[0] as string).includes('conversion_events AS MATERIALIZED'),
     );
     expect(eventQueryCall?.[0]).toContain('website_event.url_path = {{step}}');
     expect(prismaParseFilters).toHaveBeenCalledWith(
@@ -143,7 +144,7 @@ describe('getAttribution postgres branch', () => {
     await getAttribution('website-1', { ...parameters, type: 'event' }, {});
 
     const eventQueryCall = prismaRawQuery.mock.calls.find(c =>
-      (c[0] as string).includes('WITH events AS'),
+      (c[0] as string).includes('conversion_events AS MATERIALIZED'),
     );
     expect(eventQueryCall?.[0]).toContain('website_event.event_name = {{step}}');
     expect(prismaParseFilters).toHaveBeenCalledWith(expect.objectContaining({ eventType: 2 }));
@@ -170,15 +171,16 @@ describe('getAttribution postgres branch', () => {
   });
 
   test('returns the shaped attribution result object', async () => {
-    prismaRawQuery
-      .mockResolvedValueOnce([{ name: 'a', value: 1 }]) // referrer
-      .mockResolvedValueOnce([{ name: 'Google Ads', value: 2 }]) // paidAds
-      .mockResolvedValueOnce([{ name: 's', value: 3 }]) // source
-      .mockResolvedValueOnce([{ name: 'm', value: 4 }]) // medium
-      .mockResolvedValueOnce([{ name: 'c', value: 5 }]) // campaign
-      .mockResolvedValueOnce([{ name: 'ct', value: 6 }]) // content
-      .mockResolvedValueOnce([{ name: 't', value: 7 }]) // term
-      .mockResolvedValueOnce([{ pageviews: 10, visitors: 8, visits: 9 }]); // total
+    prismaRawQuery.mockResolvedValueOnce([
+      { group_key: 'referrer', name: 'a', value: 1 },
+      { group_key: 'paidAds', name: 'Google Ads', value: 2 },
+      { group_key: 'utm_source', name: 's', value: 3 },
+      { group_key: 'utm_medium', name: 'm', value: 4 },
+      { group_key: 'utm_campaign', name: 'c', value: 5 },
+      { group_key: 'utm_content', name: 'ct', value: 6 },
+      { group_key: 'utm_term', name: 't', value: 7 },
+      { group_key: 'total', pageviews: 10, visitors: 8, visits: 9 },
+    ]);
 
     const result = await getAttribution('website-1', parameters, {});
 

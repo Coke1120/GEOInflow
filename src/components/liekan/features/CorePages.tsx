@@ -4,6 +4,8 @@ import { TableCell } from './ui';
 import { useLiekanI18n } from '@/lib/liekan/i18n/client';
 
 import { LanguageSelector } from '../LanguageSelector';
+import { AccountTimezoneFields } from './AccountTimezoneFields';
+import { saveAccountPreferences } from '@/lib/liekan/upstream/account-preferences-client';
 
 import { formatInTimeZone } from 'date-fns-tz';
 import Link from '@/components/liekan/Link';
@@ -237,7 +239,11 @@ function MetricRows({
             <Skeleton width="3em" />
           ) : kind === 'percent' ? (
             percentLabel(today)
-          ) : today == null ? '—' : numberLabel(today)}
+          ) : today == null ? (
+            '—'
+          ) : (
+            numberLabel(today)
+          )}
         </span>
       </div>
       <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
@@ -245,11 +251,13 @@ function MetricRows({
         <span className="site-metric-value">
           {loading ? (
             <Skeleton width="3em" />
-          ) : kind === 'percent'
-            ? percentLabel(yesterday)
-            : yesterday == null
-              ? '—'
-              : numberLabel(yesterday)}
+          ) : kind === 'percent' ? (
+            percentLabel(yesterday)
+          ) : yesterday == null ? (
+            '—'
+          ) : (
+            numberLabel(yesterday)
+          )}
         </span>
       </div>
       <div className={labels ? 'site-metric' : 'site-metric site-metric-bare'}>
@@ -257,7 +265,11 @@ function MetricRows({
         <span className="site-metric-value">
           {loading && kind === 'count' ? (
             <Skeleton width="3em" />
-          ) : estimate == null ? '—' : numberLabel(estimate)}
+          ) : estimate == null ? (
+            '—'
+          ) : (
+            numberLabel(estimate)
+          )}
           {trend === 1 && (
             <span className="metric-arrow metric-up" aria-label={i18n.text('预计高于昨日')}>
               ▲
@@ -994,7 +1006,9 @@ function WebsiteSettings() {
               subtitle={i18n.text('本次升级专项：扫描、预览并确认旧数据的爬虫识别修正。')}
             >
               <Body>
-                <LinkButton page="analytics-acceleration" params={{ websiteId: site.id }}>{i18n.text('统计加速')}</LinkButton>
+                <LinkButton page="analytics-acceleration" params={{ websiteId: site.id }}>
+                  {i18n.text('统计加速')}
+                </LinkButton>
                 <LinkButton page="history-repair" params={{ websiteId: site.id }}>
                   {i18n.text('查看历史数据修复')}
                 </LinkButton>
@@ -2398,6 +2412,11 @@ function Preferences() {
             key={JSON.stringify(prefs)}
             submitLabel={i18n.text('保存偏好')}
             onSubmit={async values => {
+              await saveAccountPreferences({
+                countryCode: values.countryCode,
+                timezone: values.timezone,
+                range: values.range,
+              });
               saveFeaturePreferences({
                 range: values.range,
                 timezone: values.timezone,
@@ -2413,30 +2432,17 @@ function Preferences() {
                 name="range"
                 options={[
                   ['0day', i18n.text('今天')],
-                  ['24hour', i18n.text('过去 24 小时')],
                   ['7day', i18n.text('过去 7 天')],
                   ['30day', i18n.text('过去 30 天')],
                   ['0month', i18n.text('本月')],
-                  ...(!['0day', '24hour', '7day', '30day', '0month'].includes(prefs.range)
+                  ...(!['0day', '7day', '30day', '0month'].includes(prefs.range)
                     ? [[prefs.range, i18n.text('当前已保存范围')] as [string, string]]
                     : []),
                 ]}
                 localizeLabels
                 defaultValue={prefs.range}
               />
-              <Select
-                label={i18n.text('时区')}
-                name="timezone"
-                options={Array.from(
-                  new Set(
-                    [prefs.timezone, 'Asia/Shanghai', 'Asia/Tokyo', 'Europe/Berlin', 'UTC'].filter(
-                      Boolean,
-                    ),
-                  ),
-                )}
-                localizeLabels
-                defaultValue={prefs.timezone}
-              />
+              <AccountTimezoneFields countryCode={prefs.countryCode} timezone={prefs.timezone} />
               <LanguageSelector field />
               <label className="field">
                 <span>{i18n.text('主题')}</span>

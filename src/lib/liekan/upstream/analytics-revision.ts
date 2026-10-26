@@ -1,5 +1,6 @@
 import { HISTORY_REPAIR_CAMPAIGN, HISTORY_REPAIR_ENGINE } from '../contracts/history-repair';
 import { getPublishedCatalog } from '../crawlers/published';
+import { CALENDAR_POLICY_VERSION } from '../contracts/calendar';
 export type AnalyticsResource = 'website' | 'link' | 'pixel';
 export const resourceCacheTag = (type: AnalyticsResource, id: string) =>
   `${type}:${id.toLowerCase()}`;
@@ -45,10 +46,20 @@ export async function readAnalyticsVersions(tx: any, tags: string[]): Promise<An
   const repairs = await tx.$queryRawUnsafe(
     `SELECT website_id::text AS id,active_generation::text AS generation,active_revision::text AS revision
      FROM liekan_history_repair_run WHERE website_id=ANY($1::uuid[]) AND campaign_id=$2 ORDER BY website_id`,
-    ids, HISTORY_REPAIR_CAMPAIGN,
+    ids,
+    HISTORY_REPAIR_CAMPAIGN,
   );
   return {
-    strong: JSON.stringify([TRAFFIC_POLICY_VERSION,HISTORY_REPAIR_ENGINE,repairs,getPublishedCatalog()?.version || 'bundled',ids, revisions, logs.map(({ id, policy }: any) => ({ id, policy }))]),
+    strong: JSON.stringify([
+      TRAFFIC_POLICY_VERSION,
+      HISTORY_REPAIR_ENGINE,
+      repairs,
+      getPublishedCatalog()?.version || 'bundled',
+      ids,
+      revisions,
+      logs.map(({ id, policy }: any) => ({ id, policy })),
+      CALENDAR_POLICY_VERSION,
+    ]),
     data: JSON.stringify(logs.map(({ id, data }: any) => ({ id, data }))),
   };
 }

@@ -1,15 +1,35 @@
-import { withinAnalysisPermit } from './analysis-permit-context';
+import {
+  analysisPermitTable,
+  withinAnalysisPermit,
+  type AnalysisPermit,
+} from './analysis-permit-context';
 import { randomUUID } from 'node:crypto';
+import { liveAnalysisTargets } from './analysis-query-model';
 import { analysisTransaction } from './analysis-rollups-db';
 
-export type AnalysisWorkKind = 'interactive' | 'incremental' | 'history' | 'preheat';
-/** One database lease covers every analysis worker process. Waiting never holds a connection. */
+export type AnalysisWorkKind = 'interactive' | 'incremental' | 'history' | 'preheat' | 'dashboard';
+/** Database leases bound concurrent analysis across worker processes. Waiting holds no connection. */
 export async function withAnalysisPermit<T>(
   kind: AnalysisWorkKind,
-  work: (owned: () => boolean, lease: { token: string; epoch: string }) => Promise<T>,
+  work: (owned: () => boolean, lease: AnalysisPermit) => Promise<T>,
 ) {
   const token = randomUUID();
+  const table = analysisPermitTable({
+    token,
+    epoch: '',
+    ...(kind === 'dashboard' ? { lane: 'dashboard' as const } : {}),
+  });
   const acquired = await analysisTransaction(async tx => {
+    if (kind === 'dashboard') {
+      const [row] = await tx.$queryRawUnsafe<{ epoch: bigint }[]>(
+        `WITH slot AS(SELECT id FROM liekan_analysis_dashboard_lease WHERE id FOR UPDATE SKIP LOCKED)
+         UPDATE liekan_analysis_dashboard_lease SET token=$1::uuid,epoch=epoch+1,
+         lease_until=clock_timestamp()+interval '90 seconds'
+         WHERE id IN(SELECT id FROM slot) AND (lease_until IS NULL OR lease_until<=clock_timestamp()) RETURNING epoch`,
+        token,
+      );
+      return row;
+    }
     const [row] = await tx.$queryRawUnsafe<{ epoch: bigint }[]>(
       `WITH slot AS(SELECT id FROM liekan_analysis_background_lease WHERE id FOR UPDATE SKIP LOCKED)
        UPDATE liekan_analysis_background_lease SET token=$1::uuid,epoch=epoch+1,
@@ -21,14 +41,15 @@ export async function withAnalysisPermit<T>(
        WHERE id IN(SELECT id FROM slot) AND (lease_until IS NULL OR lease_until<=clock_timestamp())
        AND ($2='incremental' OR incremental_waiting_at IS NULL OR incremental_waiting_at>clock_timestamp()-interval '30 seconds')
        AND ($2 IN('history','incremental') OR history_waiting_at IS NULL OR interactive_turns<5)
-       AND ($2<>'history' OR interactive_turns>=5 OR (NOT EXISTS(SELECT 1 FROM liekan_analysis_query WHERE status IN('queued','running')) AND NOT EXISTS(SELECT 1 FROM liekan_geo_weight_head WHERE task_status IN('queued','running'))))
-       AND ($2<>'incremental' OR incremental_waiting_at<=clock_timestamp()-interval '30 seconds' OR (NOT EXISTS(SELECT 1 FROM liekan_analysis_query WHERE status IN('queued','running')) AND NOT EXISTS(SELECT 1 FROM liekan_geo_weight_head WHERE task_status IN('queued','running'))))
-       AND ($2<>'preheat' OR NOT EXISTS(SELECT 1 FROM liekan_analysis_query WHERE status IN('queued','running'))
+       AND ($2<>'history' OR interactive_turns>=5 OR (NOT EXISTS(SELECT 1 FROM liekan_analysis_query WHERE status IN('queued','running') AND NOT(target=ANY($3::text[]) AND (attempts=0 OR (status='running' AND attempts=1)))) AND NOT EXISTS(SELECT 1 FROM liekan_geo_weight_head WHERE task_status IN('queued','running'))))
+       AND ($2<>'incremental' OR incremental_waiting_at<=clock_timestamp()-interval '30 seconds' OR (NOT EXISTS(SELECT 1 FROM liekan_analysis_query WHERE status IN('queued','running') AND NOT(target=ANY($3::text[]) AND (attempts=0 OR (status='running' AND attempts=1)))) AND NOT EXISTS(SELECT 1 FROM liekan_geo_weight_head WHERE task_status IN('queued','running'))))
+       AND ($2<>'preheat' OR NOT EXISTS(SELECT 1 FROM liekan_analysis_query WHERE status IN('queued','running') AND NOT(target=ANY($3::text[]) AND (attempts=0 OR (status='running' AND attempts=1))))
           AND NOT EXISTS(SELECT 1 FROM liekan_geo_weight_head WHERE task_status IN('queued','running'))
           AND incremental_waiting_at IS NULL AND history_waiting_at IS NULL)
        RETURNING epoch`,
       token,
       kind,
+      liveAnalysisTargets,
     );
     return row;
   });
@@ -41,7 +62,7 @@ export async function withAnalysisPermit<T>(
     try {
       owned = !!(await analysisTransaction(tx =>
         tx.$executeRawUnsafe(
-          `UPDATE liekan_analysis_background_lease SET lease_until=clock_timestamp()+interval '90 seconds'
+          `UPDATE ${table} SET lease_until=clock_timestamp()+interval '90 seconds'
          WHERE id AND token=$1::uuid AND epoch=$2::bigint AND lease_until>clock_timestamp()`,
           token,
           acquired.epoch,
@@ -53,19 +74,22 @@ export async function withAnalysisPermit<T>(
       renewing = false;
     }
   }, 15000);
+  const lease: AnalysisPermit = {
+    token,
+    epoch: String(acquired.epoch),
+    ...(kind === 'dashboard' ? { lane: 'dashboard' as const } : {}),
+  };
   try {
     return {
       acquired: true as const,
-      value: await withinAnalysisPermit({ token, epoch: String(acquired.epoch) }, () =>
-        work(() => owned, { token, epoch: String(acquired.epoch) }),
-      ),
+      value: await withinAnalysisPermit(lease, () => work(() => owned, lease)),
     };
   } finally {
     clearInterval(renewal);
     owned = false;
     await analysisTransaction(tx =>
       tx.$executeRawUnsafe(
-        'UPDATE liekan_analysis_background_lease SET token=NULL,lease_until=NULL WHERE id AND token=$1::uuid AND epoch=$2::bigint',
+        `UPDATE ${table} SET token=NULL,lease_until=NULL WHERE id AND token=$1::uuid AND epoch=$2::bigint`,
         token,
         acquired.epoch,
       ),

@@ -33,6 +33,31 @@ it.each(['zh-CN', 'en-US'] as const)(
       ),
     ).toBeVisible();
     expect(dialog.getByText('v1.2')).toBeVisible();
+    const biographies =
+      locale === 'zh-CN'
+        ? [
+            ['姚金刚', '猎看科技创始人，《AI营销：从SEO到GEO》作者，中国GEO大会发起人'],
+            ['向阳乔木', '知名AI自媒体，《AI营销：从SEO到GEO》作者，中国GEO大会发起人'],
+            ['任强', '北京日报智源GEO负责人，北京日报京报移动副总经理'],
+          ]
+        : [
+            [
+              '姚金刚',
+              'Founder of 猎看科技; author of AI营销：从SEO到GEO; initiator of 中国GEO大会',
+            ],
+            [
+              '向阳乔木',
+              'Prominent AI content creator; author of AI营销：从SEO到GEO; initiator of 中国GEO大会',
+            ],
+            ['任强', 'Head of 北京日报智源GEO; Deputy General Manager of 北京日报京报移动'],
+          ];
+    for (const [name, description] of biographies) {
+      const person = dialog.getByText(name).closest('[data-project-initiator]') as HTMLElement;
+      expect(within(person).getByText(description)).toBeVisible();
+    }
+    const ren = dialog.getByText('任强').closest('[data-project-initiator]') as HTMLElement;
+    expect(within(ren).queryByRole('link')).toBeNull();
+
     for (const [name, href] of [
       ['猎看科技', 'https://www.liekan.com/?GEOInflow'],
       ['北京日报社智源GEO', 'https://geo.takefoto.cn/?GEOInflow'],
@@ -46,6 +71,7 @@ it.each(['zh-CN', 'en-US'] as const)(
     }
     expect(dialog.queryByText(/贡献者 \d|Contributor \d|排版示意/)).toBeNull();
     expect(dialog.queryByRole('link', { name: 'GitHub' })).toBeNull();
+    expect(dialog.queryByRole('link', { name: /MIT|Umami/ })).toBeNull();
     const about = dialog.getByRole('link', {
       name: locale === 'zh-CN' ? '项目说明' : 'About GEOInflow',
     });

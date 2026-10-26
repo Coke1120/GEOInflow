@@ -10,6 +10,7 @@ export function AiOverview({ report, rangeLabel, geoWeight }: ReportViewProps) {
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label="AI 蜘蛛请求（30天）"
+          displayLabel="AI 蜘蛛请求"
           className="card p-4 fade-in d1"
           valueClass="num text-[24px] font-bold text-up mt-1.5"
           report={report}

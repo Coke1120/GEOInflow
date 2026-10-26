@@ -3,7 +3,7 @@
 }
 .root:global(.liekan-dialog) :global(.dialog-footer .dialog-actions) {
   width: 100%;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
 }
 .heading {
@@ -71,7 +71,7 @@
   flex-wrap: nowrap;
 }
 .root .publisherLink {
-  color: var(--ink);
+  color: var(--brand);
   font-size: 16px;
   font-weight: 650;
   letter-spacing: -0.015em;
@@ -94,7 +94,7 @@
 }
 .person {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 13px 0;
   border-bottom: 1px solid var(--line);
@@ -126,6 +126,13 @@
   flex: 1;
   min-width: 0;
 }
+.personHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 42px;
+}
 .personName,
 .personRole {
   display: block;
@@ -138,6 +145,8 @@
   margin-top: 3px;
   color: var(--sub);
   font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
 .profile {
   display: inline-flex;
@@ -230,30 +239,9 @@
   border-radius: 50%;
   background: #a9b2c1;
 }
-.credits,
-.credits a,
 .actions {
   display: flex;
   align-items: center;
-}
-.credits {
-  flex-wrap: wrap;
-  gap: 7px;
-  font-size: 11px;
-  color: var(--sub);
-}
-.credits a {
-  gap: 5px;
-  min-height: 40px;
-}
-.root .credits a {
-  color: var(--sub);
-}
-.credits svg {
-  width: 13px;
-  height: 13px;
-}
-.actions {
   gap: 16px;
   font-size: 12px;
 }
@@ -306,14 +294,6 @@
   }
   .caption {
     font-size: 11px;
-  }
-  .root:global(.liekan-dialog) :global(.dialog-footer .dialog-actions) {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .credits {
-    gap: 5px;
   }
   .publishers {
     padding: 14px 16px;

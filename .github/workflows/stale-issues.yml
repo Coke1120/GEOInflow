@@ -5,6 +5,7 @@ on:
 
 jobs:
   stale:
+    if: github.repository == 'umami-software/umami'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       issues: write

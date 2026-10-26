@@ -1,14 +1,15 @@
 'use client';
 import { useMemo } from 'react';
 import { useNavigation as useCoreNavigation } from '@/components/hooks/useNavigation';
-import { DATE_RANGE_CONFIG, DEFAULT_DATE_RANGE_VALUE } from '@/lib/constants';
+import { DEFAULT_DATE_RANGE_VALUE } from '@/lib/constants';
 import { getCompareDate } from '@/lib/date';
-import { getItem } from '@/lib/storage';
 import { readFeatureDateRange } from './date-range';
 import { useDateRangeClock } from './date-range-clock';
+import { useApp } from '@/store/app';
 export function useFeatureDateRange(timezone: string) {
   const { query } = useCoreNavigation();
-  const date = query.date || getItem(DATE_RANGE_CONFIG) || DEFAULT_DATE_RANGE_VALUE;
+  const preference = useApp(state => state.dateRangeValue);
+  const date = query.dateMode === 'default' ? '0day' : query.date || preference || DEFAULT_DATE_RANGE_VALUE;
   const now = useDateRangeClock(timezone, !String(date).startsWith('range:'));
   const { dateRange, invalidDate } = useMemo(
     () =>
@@ -25,7 +26,7 @@ export function useFeatureDateRange(timezone: string) {
   return {
     dateRange,
     invalidDate,
-    dateCompare: getCompareDate(query.compare || 'prev', dateRange.startDate, dateRange.endDate),
+    dateCompare: getCompareDate(query.compare || 'prev', dateRange.startDate, dateRange.endDate, date === '0day'),
   };
 }
 export { AdminNav } from '@/app/(main)/admin/AdminNav';

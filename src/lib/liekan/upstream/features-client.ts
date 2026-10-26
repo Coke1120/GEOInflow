@@ -4,6 +4,7 @@ import {
   analysisAsyncPath,
   followAnalysisJob,
   waitForAnalysisAdmission,
+  waitForAnalysisVisibility,
 } from './analysis-query-client';
 import type { QueryClient } from '@tanstack/react-query';
 import { getApiUrl } from '@/lib/api-url';
@@ -175,7 +176,7 @@ export async function featureRequest<T = any>(
     if (version) headers['X-Liekan-Catalog-Version'] = version;
     signal?.throwIfAborted();
   }
-  const load = async (requestSignal?: AbortSignal) => {
+  const load = async (requestSignal?: AbortSignal, idleResume = -Infinity): Promise<any> => {
     let startedAt = monotonicNow();
     const send = () => {
       startedAt = monotonicNow();
@@ -207,32 +208,40 @@ export async function featureRequest<T = any>(
         retryAfter(response),
       );
     if (response.status === 202 && headers.Prefer === 'respond-async') {
-      const result = await followAnalysisJob(data, {
-        signal: requestSignal,
-        onPrevious: value => {
-          if (requestSignal?.aborted) return;
-          rememberPopulation(value, response.headers, params);
-          rememberResponseFreshness(
-            value,
-            response.headers,
-            startedAt,
-            monotonicNow(),
-            aggregateRequestResources(path, params),
-          );
-          options?.onPrevious?.(value);
-        },
-        fetchJob: taskPath =>
-          fetch(new URL(getApiUrl(taskPath), window.location.origin), {
-            headers: Object.fromEntries(
-              Object.entries(headers).filter(([key]) => key !== 'Prefer'),
-            ),
-            signal: requestSignal,
-            cache: 'no-store',
-          }),
-      });
-      response = result.response;
-      data = result.data;
-      startedAt = result.startedAt;
+      try {
+        const result = await followAnalysisJob(data, {
+          signal: requestSignal,
+          onPrevious: value => {
+            if (requestSignal?.aborted) return;
+            rememberPopulation(value, response.headers, params);
+            rememberResponseFreshness(
+              value,
+              response.headers,
+              startedAt,
+              monotonicNow(),
+              aggregateRequestResources(path, params),
+            );
+            options?.onPrevious?.(value);
+          },
+          fetchJob: taskPath =>
+            fetch(new URL(getApiUrl(taskPath), window.location.origin), {
+              headers: Object.fromEntries(
+                Object.entries(headers).filter(([key]) => key !== 'Prefer'),
+              ),
+              signal: requestSignal,
+              cache: 'no-store',
+            }),
+        });
+        response = result.response;
+        data = result.data;
+        startedAt = result.startedAt;
+      } catch (error) {
+        // A visible reader can replace a parked handle; rapid repeated failures remain bounded.
+        if ((error as any)?.code !== 'analysis-idle' || Date.now() - idleResume < 120000)
+          throw error;
+        await waitForAnalysisVisibility(requestSignal);
+        return load(requestSignal, Date.now());
+      }
     }
     rememberPopulation(data, response.headers, params);
     if (aggregate || (geoSnapshot && data?.taskStatus === 'ready' && data?.result))
@@ -336,6 +345,7 @@ export function featureAssetUrl(file: string) {
   return `${window.location.origin}${process.env.basePath || ''}/${file.replace(/^\/+/, '')}`;
 }
 export function getFeaturePreferences() {
+  const account = useApp.getState().accountPreferences;
   let cookieLocale: ReturnType<typeof readLocaleCookie>;
   try {
     if (typeof document !== 'undefined') cookieLocale = readLocaleCookie(document.cookie);
@@ -344,8 +354,9 @@ export function getFeaturePreferences() {
   }
   const storedLocale = getItem(LOCALE_CONFIG);
   return {
-    range: getItem(DATE_RANGE_CONFIG) || '24hour',
-    timezone: getItem(TIMEZONE_CONFIG) || 'Asia/Shanghai',
+    range: account?.range || getItem(DATE_RANGE_CONFIG) || '0day',
+    timezone: account?.timezone || getItem(TIMEZONE_CONFIG) || 'Asia/Shanghai',
+    countryCode: account?.countryCode ?? null,
     language: defaultLiekanLocale(
       cookieLocale || (isLiekanLocale(storedLocale) ? storedLocale : undefined),
     ),

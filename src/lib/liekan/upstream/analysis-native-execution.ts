@@ -32,6 +32,7 @@ export async function executeNativeAnalysis(
     filters.compare || 'prev',
     filters.startDate,
     filters.endDate,
+    filters.timezone,
   );
   const comparison = { ...filters, startDate: comparisonStart, endDate: comparisonEnd };
   // One worker computation slot serves the entire job; finish each query before starting the next.

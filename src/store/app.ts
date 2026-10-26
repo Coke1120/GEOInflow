@@ -8,14 +8,15 @@ import {
   THEME_CONFIG,
   TIMEZONE_CONFIG,
 } from '@/lib/constants';
-import { getTimezone } from '@/lib/date';
+import type { AccountPreferences } from '@/lib/liekan/contracts/account-preferences';
 import { getItem } from '@/lib/storage';
 
 const initialState = {
   locale: getItem(LOCALE_CONFIG) || process.env.defaultLocale || DEFAULT_LOCALE,
   theme: getItem(THEME_CONFIG) || DEFAULT_THEME,
-  timezone: getItem(TIMEZONE_CONFIG) || getTimezone(),
+  timezone: getItem(TIMEZONE_CONFIG) || 'Asia/Shanghai',
   dateRangeValue: getItem(DATE_RANGE_CONFIG) || DEFAULT_DATE_RANGE_VALUE,
+  accountPreferences: null as AccountPreferences | null,
   share: null,
   shareToken: null,
   user: null,
@@ -46,6 +47,18 @@ export function setConfig(config: object) {
 
 export function setDateRangeValue(dateRangeValue: string) {
   store.setState({ dateRangeValue });
+}
+
+export function setAccountPreferences(accountPreferences: AccountPreferences | null) {
+  store.setState(
+    accountPreferences
+      ? {
+          accountPreferences,
+          timezone: accountPreferences.timezone,
+          dateRangeValue: accountPreferences.range,
+        }
+      : { accountPreferences },
+  );
 }
 
 export const useApp = store;

@@ -917,12 +917,19 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       orphan,
       site,
     );
+    let identityRepaired = false;
     const normalizeNative = (value: unknown) => {
       const result = JSON.parse(
         JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? Number(v) : v)),
       );
       if (result?.population) {
-        expect(['complete', 'empty']).toContain(result.population.identity.status);
+        expect(result.population.metricScope).toBe('qualified-browser');
+        expect(result.population.identity).toMatchObject({
+          status: identityRepaired ? 'complete' : 'partial',
+          eligiblePV: 2,
+          qualifiedPV: identityRepaired ? 2 : 1,
+          qualifiedVisitors: identityRepaired ? 2 : 1,
+        });
         const { population: _population, ...counts } = result;
         return counts;
       }
@@ -987,6 +994,7 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       orphan,
       site,
     );
+    identityRepaired = true;
     expect(
       await readVisits({
         websiteId: site,

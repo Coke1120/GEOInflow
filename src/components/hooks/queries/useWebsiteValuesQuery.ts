@@ -3,6 +3,8 @@ import { useCountryNames } from '@/components/hooks/useCountryNames';
 import { useRegionNames } from '@/components/hooks/useRegionNames';
 import { useApi } from '../useApi';
 import { useLocale } from '../useLocale';
+import { useDateParameters } from '../useDateParameters';
+import { calendarDateTimeToUtc } from '@/lib/liekan/contracts/calendar';
 
 export function useWebsiteValuesQuery({
   websiteId,
@@ -19,6 +21,20 @@ export function useWebsiteValuesQuery({
 }) {
   const { get, useQuery } = useApi();
   const { locale } = useLocale();
+  const calendar = useDateParameters({ calendarMetadata: true });
+  const { timezone, datesAreLocal } = calendar;
+  const startAt =
+    datesAreLocal && Number.isFinite(+startDate)
+      ? +startDate === calendar.displayStartAt
+        ? calendar.startAt
+        : calendarDateTimeToUtc(startDate, timezone)
+      : +startDate;
+  const endAt =
+    datesAreLocal && Number.isFinite(+endDate)
+      ? +endDate === calendar.displayEndAt
+        ? calendar.endAt
+        : calendarDateTimeToUtc(endDate, timezone)
+      : +endDate;
   const { countryNames } = useCountryNames(locale);
   const { regionNames } = useRegionNames(locale);
 
@@ -50,14 +66,14 @@ export function useWebsiteValuesQuery({
   };
 
   return useQuery({
-    queryKey: ['websites:values', { websiteId, type, startDate, endDate, search, locale }],
+    queryKey: ['websites:values', { websiteId, type, startAt, endAt, timezone, search, locale }],
     queryFn: async ({ signal }: { signal?: AbortSignal } = {}) => {
       const rows = await get(
         `/websites/${websiteId}/values`,
         {
           type,
-          startAt: +startDate,
-          endAt: +endDate,
+          startAt,
+          endAt,
           search: getSearch(type, search),
         },
         {},

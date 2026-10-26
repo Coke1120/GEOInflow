@@ -61,7 +61,7 @@ export async function readKeywordFacts(
   if (!tx) return reportSnapshot(() => readKeywordFacts(websiteId, p, signal));
   const groups = new Map<string, KeywordRow>();
   const cursor = `keyword_${randomUUID().replaceAll('-', '')}`;
-  const sql = `${humanVisitsSql(true)} SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",v."referrerPath",v."referrerQuery",v."utmTerm",${visitMetrics}
+  const sql = `${humanVisitsSql(true, false)} SELECT v.referrer,v."utmSource",v."utmMedium",v."utmCampaign",v."referrerPath",v."referrerQuery",v."utmTerm",${visitMetrics}
     FROM visits v ${convertedJoin} GROUP BY 1,2,3,4,5,6,7`;
   let bytes = 0,
     candidates = 0;

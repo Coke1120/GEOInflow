@@ -7,10 +7,14 @@ const m = vi.hoisted(() => ({
   read: vi.fn(),
   peek: vi.fn(),
   fast: vi.fn(),
+  dispatch: vi.fn(),
+  queue: vi.fn(),
 }));
 vi.mock('./crawler-maintenance', () => ({ authenticateCrawlerMaintenance: m.authenticate }));
 vi.mock('./server', () => ({ authorize: m.authorize }));
+vi.mock('../log-ingestion/queue', () => ({ getQueue: m.queue }));
 vi.mock('./analysis-queries', () => ({
+  dispatchAnalysisQuery: m.dispatch,
   requestAnalysisQuery: m.request,
   readAnalysisQuery: m.read,
 }));
@@ -42,6 +46,7 @@ beforeEach(() => {
 it('returns immediate 202 only after full private authentication and current site authorization', async () => {
   const response = await asyncAnalysisResponse(request(), '103', 'feature:page-report');
   expect(response.status).toBe(202);
+  expect(m.dispatch).toHaveBeenCalledWith(id, undefined);
   expect(response.headers.get('Cache-Control')).toBe('private, no-store');
   expect(response.headers.has('X-Liekan-Expires-At')).toBe(false);
   expect(m.request).toHaveBeenCalledWith(
@@ -57,6 +62,17 @@ it('returns immediate 202 only after full private authentication and current sit
   );
   expect(m.request).toHaveBeenCalledTimes(1);
 });
+it.each([1000, 3000])(
+  'keeps HTTP retry guidance aligned with the job interval %s',
+  async retryAfterMs => {
+    m.request.mockResolvedValue({
+      ready: false,
+      analysisJob: { id, websiteId: site, status: 'queued', retryAfterMs },
+    });
+    const response = await asyncAnalysisResponse(request(), site, 'feature:page-report');
+    expect(response.headers.get('Retry-After')).toBe(String(retryAfterMs / 1000));
+  },
+);
 it('returns a published snapshot without running foreground aggregation', async () => {
   m.request.mockResolvedValue({
     ready: true,
@@ -122,4 +138,35 @@ it('registers cold work without executing the covered foreground reader', async 
   expect(response.status).toBe(202);
   expect(m.request).toHaveBeenCalledTimes(1);
   expect(m.fast).not.toHaveBeenCalled();
+});
+
+it('retains the durable handle when immediate queue handoff is unavailable', async () => {
+  m.queue.mockRejectedValue(new Error('synthetic queue unavailable'));
+  const response = await asyncAnalysisResponse(request(), site, 'feature:page-report');
+  expect(response.status).toBe(202);
+  expect((await response.json()).analysisJob.id).toBe(id);
+});
+
+it('returns a committed handle when queue setup is stalled and coalesces handoff retries', async () => {
+  vi.useFakeTimers();
+  let release: (value?: any) => void;
+  m.queue.mockImplementation(
+    () =>
+      new Promise(resolve => {
+        release = resolve;
+      }),
+  );
+  try {
+    const first = asyncAnalysisResponse(request(), site, 'feature:page-report');
+    await vi.advanceTimersByTimeAsync(151);
+    expect((await first).status).toBe(202);
+    const second = asyncAnalysisResponse(request(), site, 'feature:page-report');
+    await vi.advanceTimersByTimeAsync(151);
+    expect((await second).status).toBe(202);
+    expect(m.queue).toHaveBeenCalledTimes(1);
+  } finally {
+    release?.();
+    await vi.advanceTimersByTimeAsync(0);
+    vi.useRealTimers();
+  }
 });

@@ -80,30 +80,38 @@ export function ProductAboutDialog({ onClose }: { onClose: () => void }) {
           </section>
           <section className={styles.initiators}>
             <h3 className={styles.sectionTitle}>{i18n.text('项目发起人')}</h3>
-            {liekanProjectInitiators.map(({ name, initial, href, handle }, index) => (
-              <div className={styles.person} key={href}>
-                <span
-                  className={`${styles.avatar} ${index === 1 ? styles.neutralAvatar : ''}`}
-                  aria-hidden="true"
-                >
-                  {initial}
-                </span>
-                <div className={styles.personText}>
-                  <span className={styles.personName}>{name}</span>
-                  <span className={styles.personRole}>{i18n.text('项目发起人')}</span>
+            {liekanProjectInitiators.map(
+              ({ name, initial, description, descriptionValues, href, handle }, index) => (
+                <div className={styles.person} key={name} data-project-initiator={name}>
+                  <span
+                    className={`${styles.avatar} ${index > 0 ? styles.neutralAvatar : ''}`}
+                    aria-hidden="true"
+                  >
+                    {initial}
+                  </span>
+                  <div className={styles.personText}>
+                    <div className={styles.personHeading}>
+                      <span className={styles.personName}>{name}</span>
+                      {href && handle && (
+                        <a
+                          className={styles.profile}
+                          href={href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={i18n.text('{v0}的 X 主页', [name])}
+                        >
+                          {handle}
+                          <ExternalIcon />
+                        </a>
+                      )}
+                    </div>
+                    <span className={styles.personRole}>
+                      {i18n.text(description, descriptionValues)}
+                    </span>
+                  </div>
                 </div>
-                <a
-                  className={styles.profile}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={i18n.text('{v0}的 X 主页', [name])}
-                >
-                  {handle}
-                  <ExternalIcon />
-                </a>
-              </div>
-            ))}
+              ),
+            )}
           </section>
         </div>
         <section className={styles.contributors} aria-label={i18n.text('开源贡献者')}>
@@ -129,24 +137,6 @@ export function ProductAboutDialog({ onClose }: { onClose: () => void }) {
         </section>
       </div>
       <DialogActions>
-        <div className={styles.credits}>
-          <a href={liekanProduct.links.license} target="_blank" rel="noopener noreferrer">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              aria-hidden="true"
-            >
-              <path d="M12 3v17M4 6h16M7 6l-4 8h8L7 6Zm10 0-4 8h8l-4-8ZM7 21h10" />
-            </svg>
-            {i18n.text('MIT 开源许可')}
-          </a>
-          <span aria-hidden="true">·</span>
-          <a href={liekanProduct.links.upstream} target="_blank" rel="noopener noreferrer">
-            {i18n.text('基于 Umami，感谢上游社区')}
-          </a>
-        </div>
         <nav className={styles.actions} aria-label={i18n.text('项目相关链接')}>
           <Link prefetch={false} href={liekanProduct.links.changelog} onClick={onClose}>
             {i18n.text('更新日志')}

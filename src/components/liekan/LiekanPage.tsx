@@ -32,6 +32,7 @@ import {
 } from '@/lib/liekan/upstream/client';
 import { useFreshnessLifecycle } from '@/lib/liekan/upstream/client-freshness';
 import { useDateRangeClock } from '@/lib/liekan/upstream/date-range-clock';
+import { useAccountPreferences } from '@/lib/liekan/upstream/account-preferences-client';
 import {
   featureApi,
   getFeaturePreferences,
@@ -81,19 +82,24 @@ export function LiekanPage({ resource }: { resource: Resource }) {
   const queryClient = useQueryClient();
   const { websiteId, teamId, pathname, query: params, router, updateParams } = useNavigation();
   const website = useWebsite();
-  const timezone = getFeaturePreferences().timezone || 'Asia/Shanghai';
+  const accountPreferences = useAccountPreferences();
+  const timezone =
+    accountPreferences?.timezone || getFeaturePreferences().timezone || 'Asia/Shanghai';
   const { dateRange, invalidDate } = useFeatureDateRange(timezone);
   const actualRange = featureDateRange(dateRange, timezone);
   const route = { page: geoPageFromPath(pathname), websiteId };
   const href = (page: string, values: Record<string, any> = {}) =>
     featureNavigationHref(route, params, page, values);
   const shell = useLiekanShell();
-  const dynamicDefault = !params.date || params.dateMode === 'default';
+  const dynamicDefault = params.dateMode === 'default';
   const now = useDateRangeClock(timezone, dynamicDefault);
   const [savedNow, setLiveNow] = useState(now);
   const liveNow = reading?.page.now ?? savedNow;
   const { filter, search, logPage, cursor, seek, chartPeriod, sort, compare, tablePages } =
-    readViewState(params, resource);
+    readViewState(
+      { ...params, date: dynamicDefault ? '0day' : params.date || getFeaturePreferences().range },
+      resource,
+    );
   const keywordParsed = keywordConditionsSchema.safeParse(params);
   const otherCrawlers =
     resource === 'ai/bots'
@@ -168,16 +174,16 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       : defaultRange.startAt;
   const endAt = liveLogs ? liveNow : dynamicDefault ? defaultRange.endAt : actualRange.endAt;
   const page = pages.find(page => page.resource === resource);
-  const shiftedRange = previousWeekRange(startAt, endAt);
+  const shiftedRange = previousWeekRange(startAt, endAt, timezone);
   const updateView = (next: Record<string, string | number>) =>
     router.push(updateParams(next), { scroll: false });
   useEffect(() => {
     if (dynamicDefault && params.date !== `range:${defaultRange.startAt}:${defaultRange.endAt}`)
       router.replace(
         updateParams({
-          date: `range:${defaultRange.startAt}:${defaultRange.endAt}`,
-          dateMode: 'default',
-          live: resource === 'logs' ? '1' : undefined,
+          date: '0day',
+          dateMode: undefined,
+          live: undefined,
           ...(resetLogBatch ? { page: undefined, cursor: undefined, seek: undefined } : {}),
         }),
         {
@@ -571,8 +577,11 @@ export function LiekanPage({ resource }: { resource: Resource }) {
     );
   const onFilter = (label: string) => {
     setActionError('');
-    if (['30 天', '7 天', '24h'].includes(label)) {
-      updateView({ chartPeriod: label === '24h' ? '24h' : label === '7 天' ? '7d' : '30d' });
+    if (['30 天', '7 天', '今天', '24h'].includes(label)) {
+      updateView({
+        chartPeriod:
+          label === '今天' ? 'today' : label === '24h' ? '24h' : label === '7 天' ? '7d' : '30d',
+      });
       return;
     }
     // 筛选/排序改变行内容与顺序：清空服务端分页参数，等价回第 1 页并恢复本地全量模式。
@@ -801,7 +810,14 @@ export function LiekanPage({ resource }: { resource: Resource }) {
         </div>
       </div>
     );
-  const period = chartPeriod === '24h' ? '24h' : chartPeriod === '7d' ? '7 天' : '30 天';
+  const period =
+    chartPeriod === 'today'
+      ? '今天'
+      : chartPeriod === '24h'
+        ? '24h'
+        : chartPeriod === '7d'
+          ? '7 天'
+          : '30 天';
   const View = reportViews[resource];
   const headerActions = (
     <div data-liekan-owned-actions className={styles.headerActions}>
@@ -835,7 +851,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       )}
       <QuickRangeButtons
         variant="chip"
-        activeToken={activeQuickDateRange(params, '30day')}
+        activeToken={activeQuickDateRange(params)}
         onSelect={token =>
           updateView({
             ...(resource === 'human/geo' ? clearTablePages(tablePages) : {}),
@@ -946,7 +962,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
       <div className={styles.analysisTools}>
         {report?.meta.snapshot && (
           <span>
-            {i18n.text('数据截至 {v0}，后台每 5 分钟更新', [
+            {i18n.text('数据截至 {v0}，后台每 30 秒更新', [
               new Date(report.meta.snapshot.dataThrough).toLocaleString(i18n.locale, {
                 timeZone: report.range.timezone,
                 hour12: false,
@@ -1010,7 +1026,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               router.replace(
                 updateParams({
                   ...(resource === 'human/geo' ? clearTablePages(tablePages) : {}),
-                  date: '30day',
+                  date: '0day',
                   unit: undefined,
                   offset: undefined,
                   dateMode: undefined,
@@ -1053,7 +1069,7 @@ export function LiekanPage({ resource }: { resource: Resource }) {
               <span>{i18n.text('也可缩小时间范围后重试：')}</span>
               {(
                 [
-                  ['24hour', i18n.text('近 24 小时')],
+                  ['0day', i18n.text('今天')],
                   ['7day', i18n.text('近 7 天')],
                   ['30day', i18n.text('近 30 天')],
                 ] as const
@@ -1113,11 +1129,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
             rangeLabel={i18n.system(rangeLabel)}
             live={liveLogs}
             trendLabel={
-              chartPeriod === '24h'
-                ? i18n.text('近 24 小时')
-                : chartPeriod === '7d'
-                  ? i18n.text('近 7 天')
-                  : i18n.text('近 30 天')
+              chartPeriod === 'today'
+                ? i18n.text('今天')
+                : chartPeriod === '24h'
+                  ? i18n.text('近 24 小时')
+                  : chartPeriod === '7d'
+                    ? i18n.text('近 7 天')
+                    : i18n.text('近 30 天')
             }
           />
         </DataLoading>
@@ -1128,11 +1146,13 @@ export function LiekanPage({ resource }: { resource: Resource }) {
           aiCrawlerEnabled={!crawlerHidden}
           rangeLabel={i18n.system(rangeLabel)}
           trendLabel={
-            chartPeriod === '24h'
-              ? i18n.text('近 24 小时')
-              : chartPeriod === '7d'
-                ? i18n.text('近 7 天')
-                : i18n.text('近 30 天')
+            chartPeriod === 'today'
+              ? i18n.text('今天')
+              : chartPeriod === '24h'
+                ? i18n.text('近 24 小时')
+                : chartPeriod === '7d'
+                  ? i18n.text('近 7 天')
+                  : i18n.text('近 30 天')
           }
         />
       ) : null}

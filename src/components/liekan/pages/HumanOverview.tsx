@@ -49,9 +49,10 @@ export function HumanOverview({ report, rangeLabel, trendLabel }: ReportViewProp
               {i18n.fragment(' · 浏览器追踪数据', true, false)}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <FilterChip label="30 天" />
             <FilterChip label="7 天" />
+            <FilterChip label="今天" />
           </div>
         </div>
         <ReferenceChart id="h1" height={270} report={report} />

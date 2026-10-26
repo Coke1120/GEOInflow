@@ -24,6 +24,7 @@ import { useDateRangeClock } from './date-range-clock';
 import { clientRequestOptions } from './client-freshness';
 import { getClientAuthToken, setClientAuthToken, removeClientAuthToken } from '@/lib/client';
 import { AUTH_TOKEN } from '@/lib/constants';
+import { liveReadInterval, liveClockChanged } from './live-read-policy';
 import definitions from '../contracts/feature-pages.json';
 
 const navigation = vi.hoisted(() => ({ path: '/websites', search: '' }));
@@ -57,6 +58,323 @@ const advance = (ms = 50) =>
   act(async () => {
     await vi.advanceTimersByTimeAsync(ms);
   });
+
+it('refreshes a visible realtime page every ten seconds and pauses while hidden', async () => {
+  navigation.path = '/websites/site/realtime';
+  const load = vi.fn(async () => ({ visitors: load.mock.calls.length }));
+  const hook = renderHook(
+    () =>
+      useManualQuery({
+        queryKey: ['realtime', { websiteId: 'site' }],
+        queryFn: load,
+      }),
+    { wrapper },
+  );
+  await advance();
+  expect(load).toHaveBeenCalledTimes(1);
+  await advance(10000);
+  await advance();
+  expect(load).toHaveBeenCalledTimes(2);
+  expect(hook.result.current.data).toEqual({ visitors: 2 });
+  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+  await advance(30000);
+  expect(load).toHaveBeenCalledTimes(2);
+  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  await advance();
+  await advance();
+  expect(load).toHaveBeenCalledTimes(3);
+  hook.unmount();
+  await advance(30000);
+  expect(load).toHaveBeenCalledTimes(3);
+});
+
+it.each([true, false])('updates only reports containing today: %s', async current => {
+  const start = +new Date(current ? '2026-10-09T00:00Z' : '2026-10-07T00:00Z');
+  const end = start + 86400000 - 1;
+  const load = vi.fn(async () => ({ count: load.mock.calls.length }));
+  renderHook(
+    () =>
+      useManualQuery({
+        queryKey: [
+          'liekan',
+          'site',
+          '',
+          'human/overview',
+          start,
+          end,
+          'UTC',
+          '30d',
+          '',
+          '',
+          1,
+          '',
+          '',
+          '{}',
+          'user',
+        ],
+        queryFn: load,
+      }),
+    { wrapper },
+  );
+  await advance();
+  await advance(30000);
+  expect(load).toHaveBeenCalledTimes(current ? 2 : 1);
+});
+
+it('refreshes a realtime tile independently of a pending historical heatmap', async () => {
+  const realtime = vi.fn(async () => ({ count: realtime.mock.calls.length }));
+  const historical = vi.fn(() => new Promise(() => {}));
+  const metadata = vi.fn(async () => ({ title: 'Saved board' }));
+  const hook = renderHook(
+    () => ({
+      live: useManualQuery({ queryKey: ['realtime', { websiteId: 'site' }], queryFn: realtime }),
+      heatmap: useManualQuery({
+        queryKey: ['websites:heatmaps', { websiteId: 'site', startAt: 0, endAt: 1 }],
+        queryFn: historical,
+      }),
+      metadata: useManualQuery({ queryKey: ['saved-board'], queryFn: metadata }),
+    }),
+    { wrapper },
+  );
+  await advance();
+  await advance(10000);
+  await advance();
+  expect(realtime).toHaveBeenCalledTimes(2);
+  expect(historical).toHaveBeenCalledTimes(1);
+  expect(metadata).toHaveBeenCalledTimes(1);
+  expect(hook.result.current.live.data).toEqual({ count: 2 });
+  expect(hook.result.current.heatmap.isPending).toBe(true);
+});
+
+it('pauses live queries offline and keeps duplicate observers on one polling request', async () => {
+  const load = vi.fn(async () => 1);
+  renderHook(
+    () => {
+      const input = { queryKey: ['realtime', { websiteId: 'site' }], queryFn: load };
+      useManualQuery(input);
+      useManualQuery(input);
+    },
+    { wrapper },
+  );
+  await advance();
+  await advance(10000);
+  await advance();
+  expect(load).toHaveBeenCalledTimes(2);
+  vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+  await advance(30000);
+  expect(load).toHaveBeenCalledTimes(2);
+  vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true);
+  act(() => window.dispatchEvent(new Event('online')));
+  await advance();
+  expect(load).toHaveBeenCalledTimes(3);
+});
+
+it.each([
+  ['realtime-rich', ''],
+  ['purchase', 'realtime-series'],
+])('keeps historical event details manual for event %s and property %s', async (name, property) => {
+  navigation.path = '/websites/site/events/details';
+  navigation.search = 'date=range:0:1';
+  const load = vi.fn(async () => ({ total: 1 }));
+  renderHook(
+    () =>
+      useManualQuery({
+        queryKey: [
+          'liekan-feature',
+          'user',
+          'site',
+          'event-detail',
+          name,
+          property,
+          {
+            kind: 'events',
+            startAt: 0,
+            endAt: 1,
+            timezone: 'UTC',
+            eventName: name,
+            propertyName: property,
+          },
+        ],
+        queryFn: load,
+      }),
+    { wrapper },
+  );
+  await advance();
+  await advance(30000);
+  expect(load).toHaveBeenCalledTimes(1);
+});
+
+it.each(['realtime-rich', 'realtime-series'])(
+  'refreshes the controlled feature query %s',
+  async label => {
+    const load = vi.fn(async () => ({ total: load.mock.calls.length }));
+    const tick = Date.now();
+    renderHook(
+      () =>
+        useManualQuery({
+          queryKey: [
+            'liekan-feature',
+            'user',
+            'site',
+            undefined,
+            'website',
+            undefined,
+            undefined,
+            { startAt: 0, endAt: tick, timezone: 'UTC' },
+            {},
+            label,
+            tick,
+          ],
+          queryFn: load,
+        }),
+      { wrapper },
+    );
+    await advance();
+    await advance(10000);
+    await advance();
+    expect(load).toHaveBeenCalledTimes(2);
+  },
+);
+
+it('keeps a completed half-open AI day outside automatic reads', () => {
+  const today = +new Date('2026-10-09T00:00Z');
+  const key = [
+    'liekan',
+    'site',
+    '',
+    'ai/overview',
+    today - 86400000,
+    today,
+    'UTC',
+    '30d',
+    '',
+    '',
+    1,
+    '',
+    '',
+    '{}',
+    'user',
+    JSON.stringify(['all', 1, 'calendar-v2']),
+  ];
+  expect(liveReadInterval(key)).toBe(false);
+  key[5] = today + 86400000;
+  expect(liveReadInterval(key)).toBe(30000);
+});
+it('advances hourly presets and native midnight windows while preserving explicit history', () => {
+  const key = [
+    'websites:stats',
+    { websiteId: 'site', startAt: 0, endAt: Date.now(), timezone: 'Asia/Shanghai' },
+  ];
+  const now = +new Date('2026-10-09T10:50:00+08:00');
+  expect(liveClockChanged(key, { now, conditions: '24hour|||' }, now + 15 * 60000)).toBe(true);
+  expect(liveClockChanged(key, { now, conditions: '|||' }, now + 15 * 60000)).toBe(true);
+  expect(liveClockChanged(key, { now, conditions: '0day|||' }, now + 15 * 60000)).toBe(false);
+  expect(liveClockChanged(key, { now, conditions: '0day|||' }, now + 86400000)).toBe(true);
+  expect(liveClockChanged(key, { now, conditions: 'range:0:1|||' }, now + 86400000)).toBe(false);
+});
+it('advances a relative report clock at the hour without canceling unrelated historical work', async () => {
+  navigation.search = 'date=24hour';
+  vi.setSystemTime(new Date('2026-10-09T10:59:50Z'));
+  const values: number[] = [],
+    canceled: boolean[] = [];
+  renderHook(
+    () => {
+      const now = useDateRangeClock('UTC');
+      const endAt = Math.floor(now / 3600000) * 3600000 + 3599999;
+      useManualQuery({
+        queryKey: [
+          'liekan',
+          'site',
+          '',
+          'human/overview',
+          endAt - 86400000,
+          endAt,
+          'UTC',
+          '30d',
+          '',
+          '',
+          1,
+          '',
+          '',
+          '{}',
+          'user',
+        ],
+        queryFn: async () => {
+          values.push(endAt);
+          return { count: 1 };
+        },
+      });
+      useManualQuery({
+        queryKey: ['historical-heatmap'],
+        queryFn: ({ signal }) =>
+          new Promise(() => {
+            signal.addEventListener('abort', () => canceled.push(true));
+          }),
+      });
+    },
+    { wrapper },
+  );
+  await advance();
+  await advance(30000);
+  await advance();
+  expect(values).toEqual([
+    +new Date('2026-10-09T10:59:59.999Z'),
+    +new Date('2026-10-09T11:59:59.999Z'),
+  ]);
+  expect(canceled).toEqual([]);
+});
+it('keeps a relative today timer alive when its first response completes after midnight', async () => {
+  navigation.search = 'date=0day';
+  vi.setSystemTime(new Date('2026-10-09T23:59:50Z'));
+  const values: number[] = [];
+  let release: () => void;
+  const first = new Promise<void>(resolve => {
+    release = resolve;
+  });
+  renderHook(
+    () => {
+      const now = useDateRangeClock('UTC');
+      const endAt = Math.floor(now / 86400000) * 86400000 + 86399999;
+      return useManualQuery({
+        queryKey: [
+          'liekan',
+          'site',
+          '',
+          'human/overview',
+          endAt - 86399999,
+          endAt,
+          'UTC',
+          '30d',
+          '',
+          '',
+          1,
+          '',
+          '',
+          '{}',
+          'user',
+        ],
+        queryFn: async () => {
+          values.push(endAt);
+          if (values.length === 1) await first;
+          return { count: 1 };
+        },
+      });
+    },
+    { wrapper },
+  );
+  await advance();
+  await advance(15000);
+  act(() => release());
+  await advance();
+  await advance(30000);
+  await advance();
+  expect(values).toEqual([
+    +new Date('2026-10-09T23:59:59.999Z'),
+    +new Date('2026-10-10T23:59:59.999Z'),
+    +new Date('2026-10-10T23:59:59.999Z'),
+  ]);
+});
 it('recognizes a real cached history return and keeps a frozen current page unchanged', () => {
   const callbacks = new Map<string, (event: any) => void>();
   const target = {
@@ -253,11 +571,11 @@ it('does not queue an offline entry or offline manual read for network restorati
   expect(hook.result.current.query.data).toEqual({ visitors: 1 });
 });
 
-it('freezes midnight and refreshes the clock once alongside the final read parameters', async () => {
+it('keeps an explicitly frozen clock until manual refresh', async () => {
   const load = vi.fn(async ({ queryKey }: any) => queryKey[1]);
   const hook = renderHook(
     () => {
-      const now = useDateRangeClock('Asia/Shanghai');
+      const now = useDateRangeClock('Asia/Shanghai', false);
       return {
         now,
         reading: useManualRefresh(),

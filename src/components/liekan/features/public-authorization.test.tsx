@@ -322,7 +322,7 @@ it('retains a historical aggregate behind the resume authorization gate and reus
   expect(screen.getByRole('heading', { name: '事件趋势' })).toBeInTheDocument();
   expect(aggregateCalls).toBe(1);
 });
-it('freezes the public default calendar range across Shanghai midnight', async () => {
+it('advances the public relative calendar range across Shanghai midnight', async () => {
   vi.setSystemTime(new Date('2026-10-05T15:59:59Z'));
   const reads: URL[] = [];
   vi.stubGlobal(
@@ -337,8 +337,32 @@ it('freezes the public default calendar range across Shanghai midnight', async (
   await advance(1);
   const initialEnd = Number(reads[0].searchParams.get('endAt'));
   await advance(1000);
-  expect(reads.length).toBe(1);
-  expect(Number(reads[0].searchParams.get('endAt'))).toBe(initialEnd);
+  expect(reads.length).toBe(2);
+  expect(Number(reads.at(-1)!.searchParams.get('endAt'))).toBe(initialEnd + 86400000);
+});
+
+it('keeps a selected Today preset live across publisher midnight into a 25-hour day', async () => {
+  vi.setSystemTime(new Date('2026-11-01T03:59:59Z'));
+  const reads: URL[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (input: URL) => {
+    if (String(input).includes('/api/share/')) return Response.json({
+      ...share(), parameters: { ...share().parameters, allowFilter: true, timezone: 'America/New_York', range: '0day' },
+    });
+    reads.push(new URL(String(input)));
+    return aggregate();
+  }));
+  mount();
+  await advance(20);
+  fireEvent.click(screen.getByRole('button', { name: '今天' }));
+  await advance(20);
+  expect(reads).toHaveLength(1);
+  await advance(1000);
+  expect(reads).toHaveLength(2);
+  const latest = reads.at(-1)!.searchParams;
+  expect(latest.get('timezone')).toBe('America/New_York');
+  expect(Number(latest.get('startAt'))).toBe(Date.parse('2026-11-01T04:00:00Z'));
+  expect(Number(latest.get('endAt'))).toBe(Date.parse('2026-11-02T04:59:59.999Z'));
+  expect(screen.getByRole('button', { name: '今天' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 it('reads a newly selected public preset using the selection time after midnight', async () => {

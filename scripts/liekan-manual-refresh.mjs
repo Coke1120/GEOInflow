@@ -9,6 +9,7 @@ import {
   manualRouteFeature,
   assertManualPageReads,
   manualReadKind,
+  livePageReadAllowed,
 } from './liekan-manual-read-contract.mjs';
 
 const base = process.env.LIEKAN_URL || 'http://127.0.0.1:3302';
@@ -105,7 +106,7 @@ const describeRead = request => {
   return {
     path: url.pathname,
     ...Object.fromEntries(
-      ['kind', 'type', 'resource', 'eventName', 'sessionId']
+      ['kind', 'type', 'resource', 'eventName', 'sessionId', 'startAt', 'endAt', 'timezone', 'crawlerMetricsVersion']
         .filter(key => url.searchParams.has(key))
         .map(key => [key, url.searchParams.get(key)]),
     ),
@@ -162,6 +163,7 @@ async function open(url, authenticated = true, cacheableDocument = false) {
     });
   });
   const reads = [],
+    readDetails = [],
     successes = [],
     logouts = [];
   const requestDetails = new WeakMap();
@@ -176,6 +178,7 @@ async function open(url, authenticated = true, cacheableDocument = false) {
         refresh: url.searchParams.get('refresh') === '1',
         startedAt: Date.now(),
       };
+      if (kind === 'ordinary') readDetails.push(detail);
       requestDetails.set(request, detail);
       (kind === 'ordinary' ? report.httpReads : report.metadataReads).push(detail);
       if (detail.refresh) forcedInFlight.add(request);
@@ -225,6 +228,7 @@ async function open(url, authenticated = true, cacheableDocument = false) {
     context,
     page,
     reads,
+    readDetails,
     successes,
     logouts,
     sourceCacheControl: sourceCacheControl || documentResponse.headers()['cache-control'],
@@ -484,7 +488,7 @@ try {
       continue;
     }
     seen.add(key);
-    const { context, page, reads, successes, logouts } = await open(
+    const { context, page, reads, readDetails, successes, logouts } = await open(
       item.url,
       item.authenticated !== false,
     );
@@ -542,7 +546,8 @@ try {
       await context.setOffline(true);
       await context.setOffline(false);
       await ready(page);
-      assert.equal(reads.length, initial, `${item.id}: ordinary idle/focus/reconnect read`);
+      const idleDelta = reads.length - initial;
+      assert(readDetails.slice(initial).every(read => livePageReadAllowed(read)), `${item.id}: unexpected automatic read outside realtime/today scope`);
       const control = page.locator('[data-manual-refresh]').first();
       let refreshed = null;
       if (policy.endpoints.length && !policy.entryOnly) {
@@ -609,7 +614,7 @@ try {
         exception: policy.exception,
         initial,
         successful,
-        idleDelta: 0,
+        idleDelta,
         refreshed,
         reentry,
         ...(item.url === '/logout' ? { logoutStatuses: logouts } : {}),
@@ -631,18 +636,17 @@ try {
       ),
     );
   for (const [index, value] of realSessions.entries()) {
-    assert.equal(
-      value.reads.length,
-      realBaselines[index],
-      `${realCases[index]}: real ten-minute idle read`,
-    );
+    const automatic = value.readDetails.slice(realBaselines[index]);
+    assert(automatic.every(read => livePageReadAllowed(read)), `${realCases[index]}: unexpected real idle read`);
+    if ([1, 2].includes(index)) assert(automatic.length > 0, `${realCases[index]}: live updates did not run`);
     report.realIdle.push({
       url: realCases[index],
       seconds: (Date.now() - realStarted) / 1000,
       initial: realBaselines[index],
-      idleDelta: 0,
+      idleDelta: automatic.length,
     });
   }
+  assert.notDeepEqual(await metric.allTextContents(), renderedBefore, 'Visible overview did not automatically render new tracker data');
   await session.page.locator('[data-manual-refresh]').first().click();
   await ready(session.page);
   const renderedAfter = await metric.allTextContents();

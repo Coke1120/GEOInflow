@@ -194,8 +194,11 @@ async function populationProof(client, schema, ids, history) {
     await client.query(`SET LOCAL search_path TO ${quote(schema)}`);
     await client.query('SELECT website_id FROM website WHERE website_id=$1 FOR UPDATE', [ids.site]);
     const { rows } = await client.query(
-      `SELECT event_id::text,liekan_browser AS browser,liekan_identity_available AS qualified
-       FROM liekan_geographic_website_event WHERE website_id=$1 ORDER BY created_at,event_id`,
+      `SELECT e.event_id::text,identity.browser,coalesce(identity.identity_available,false) AS qualified
+       FROM liekan_observed_browser_event e
+       LEFT JOIN liekan_browser_identity identity
+         ON identity.website_id=e.website_id AND identity.event_id=e.event_id
+       WHERE e.website_id=$1 ORDER BY e.created_at,e.event_id`,
       [ids.site],
     );
     assert.equal(rows.length, 2);
@@ -203,6 +206,17 @@ async function populationProof(client, schema, ids, history) {
     assert.equal(rows[0].qualified, history === 'main42');
     assert.equal(rows[1].browser, null);
     assert.equal(rows[1].qualified, false);
+    const qualifiedEvents = async () =>
+      (
+        await client.query(
+          'SELECT event_id::text FROM liekan_geographic_website_event WHERE website_id=$1 ORDER BY created_at,event_id',
+          [ids.site],
+        )
+      ).rows.map(row => row.event_id);
+    assert.deepEqual(
+      await qualifiedEvents(),
+      history === 'main42' ? [ids.events[0]] : [],
+    );
     const revision = async () =>
       (
         await client.query(
@@ -222,6 +236,11 @@ async function populationProof(client, schema, ids, history) {
       `INSERT INTO liekan_event_environment(event_id,website_id,scope,identity_version,identity_available,browser)
        VALUES($1,$2,'browser','upgrade-identity-v2',true,'Firefox')`,
       [ids.events[1], ids.site],
+    );
+    assert.deepEqual(
+      await qualifiedEvents(),
+      history === 'main42' ? ids.events : [ids.events[1]],
+      'Late identity evidence adds only its qualified events to metrics',
     );
     assert.ok(
       BigInt(await revision()) > BigInt(before.revision),

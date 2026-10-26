@@ -917,22 +917,24 @@ export function getRelationalHeatmapFilterContext(
   }
 
   return {
-    joinQuery: `
-    inner join (
-      select distinct website_event.website_id, website_event.session_id, website_event.visit_id
+    joinQuery: '',
+    // Correlate eligibility with candidate heatmap visits before expanding reporting views.
+    filterQuery: `${pathFilterContext.filterQuery}
+    and exists (
+      select 1
       from website_event
       ${joinSessionQuery}
       ${cohortQuery}
       ${excludeBounceQuery}
       where website_event.website_id = {{websiteId::uuid}}
+        and website_event.website_id = h.website_id
+        and website_event.session_id = h.session_id
+        and website_event.visit_id = h.visit_id
         and website_event.created_at between {{startDate}} and {{endDate}}
         ${filterQuery}
-    ) filtered_visits
-      on filtered_visits.website_id = h.website_id
-      and filtered_visits.session_id = h.session_id
-      and filtered_visits.visit_id = h.visit_id
+      offset 0
+    )
     `,
-    filterQuery: pathFilterContext.filterQuery,
     queryParams: { ...queryParams, ...pathFilterContext.queryParams },
   };
 }

@@ -26,10 +26,37 @@ export const liekanPublisherLinks = [
   { label: liekanProduct.publishers[1], href: 'https://geo.takefoto.cn/?GEOInflow' },
 ] as const;
 
-export const liekanProjectInitiators = [
-  { name: '姚金刚', initial: '姚', handle: '@yaojingang', href: liekanProduct.links.author },
-  { name: '向阳乔木', initial: '木', handle: '@vista8', href: 'https://x.com/vista8' },
-] as const;
+export const liekanProjectInitiators: readonly {
+  name: string;
+  initial: string;
+  description: string;
+  descriptionValues?: readonly string[];
+  handle?: string;
+  href?: string;
+}[] = [
+  {
+    name: '姚金刚',
+    initial: '姚',
+    description: '{v0}创始人，《{v1}》作者，{v2}发起人',
+    descriptionValues: ['猎看科技', 'AI营销：从SEO到GEO', '中国GEO大会'],
+    handle: '@yaojingang',
+    href: liekanProduct.links.author,
+  },
+  {
+    name: '向阳乔木',
+    initial: '木',
+    description: '知名AI自媒体，《{v0}》作者，{v1}发起人',
+    descriptionValues: ['AI营销：从SEO到GEO', '中国GEO大会'],
+    handle: '@vista8',
+    href: 'https://x.com/vista8',
+  },
+  {
+    name: '任强',
+    initial: '任',
+    description: '{v0}负责人，{v1}副总经理',
+    descriptionValues: ['北京日报智源GEO', '北京日报京报移动'],
+  },
+];
 
 export const liekanFooterLinks = [
   { label: '更新日志', href: liekanProduct.links.changelog },

@@ -197,6 +197,9 @@ export async function readBrowserDetailFacts(
          ELSE coalesce(jsonb_agg(to_jsonb(fact)),'[]'::jsonb) END FROM (${statements.geo} LIMIT ($7::int+1)) fact)`;
       return `'${field}',(SELECT coalesce(jsonb_agg(to_jsonb(fact)),'[]'::jsonb) FROM (${statements[field]}) fact)`;
     });
+    // Expanded policy views can trigger seconds of LLVM compilation for millisecond detail reads.
+    // Keep this execution policy local to the current reporting transaction.
+    await tx.$executeRawUnsafe('SET LOCAL jit=off');
     const [row] = await tx.$queryRawUnsafe<{ facts: Record<string, any[]> }[]>(
       `WITH original_coverage AS MATERIALIZED(SELECT m.* FROM liekan_analysis_manifest m JOIN liekan_analysis_site s USING(website_id,epoch)
        JOIN liekan_analysis_browser_detail d USING(website_id,generation) JOIN website w ON w.website_id=m.website_id AND w.deleted_at IS NULL

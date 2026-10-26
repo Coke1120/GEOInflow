@@ -40,9 +40,14 @@ it.each(['zh-CN', 'en-US'] as const)(
       '猎看科技',
       '北京日报社智源GEO',
     ]);
-    expect(screen.getByRole('link', { name: 'MIT' })).toBeInTheDocument();
+    const license = screen.getByRole('link', { name: 'MIT' });
+    expect(license).toBeInTheDocument();
+    expect(license.nextElementSibling).toBe(screen.getByRole('link', { name: 'Umami' }));
     expect(screen.getByText('IP Geolocation by DB-IP')).toBeInTheDocument();
     for (const [name, href] of [
+      ['Umami', 'https://github.com/umami-software/umami'],
+      ['猎看科技', 'https://www.liekan.com/?GEOInflow'],
+      ['北京日报社智源GEO', 'https://geo.takefoto.cn/?GEOInflow'],
       ['姚金刚', 'https://x.com/yaojingang'],
       ['向阳乔木', 'https://x.com/vista8'],
     ]) {

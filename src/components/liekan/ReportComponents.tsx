@@ -48,11 +48,13 @@ function reportState(report: LiekanReport, table?: string): DataState {
 }
 export function MetricCard({
   label,
+  displayLabel = label,
   className,
   valueClass,
   report,
 }: {
   label: string;
+  displayLabel?: string;
   className: string;
   valueClass: string;
   report?: LiekanReport;
@@ -71,7 +73,7 @@ export function MetricCard({
   return (
     <div className={className} aria-busy={loading || undefined}>
       <p data-liekan-metric-label className="text-[11.5px] text-sub">
-        {i18n.system(label)}
+        {i18n.system(displayLabel)}
       </p>
       <p className={`${valueClass} ${styles.metricValue} ${pageMetric ? styles.pageMetric : ''}`}>
         {loading ? (
@@ -275,7 +277,7 @@ export function FilterChip({ label }: { label: string }) {
   const i18n = useLiekanI18n();
   const a = useReportActions();
   const loading = useDataLoading();
-  const isPeriod = ['30 天', '7 天', '24h'].includes(label);
+  const isPeriod = ['30 天', '7 天', '今天', '24h'].includes(label);
   const active = isPeriod
     ? a.period === label
     : a.filter === label ||
