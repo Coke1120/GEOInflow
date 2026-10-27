@@ -160,6 +160,7 @@ it('publishes only the recomputed value and metadata after a stale input retry',
     acquired: true,
     value: undefined,
     retryDelivery: false,
+    wakeDashboardHead: false,
   });
   expect(m.execute).toHaveBeenCalledTimes(2);
   const published = m.write.mock.calls.find(([sql]) => sql.includes("SET status='ready'"));
