@@ -4883,5 +4883,10 @@
   "m_b820927a9b77": "Receipt window: {v0} to {v1} (exclusive end).",
   "m_96651e528bea": "The denominator is public browser PV with a session link and original receipt evidence, including legacy override sources. Reporting eligibility is calculated separately.",
   "m_5eab29bea419": "Last received: {v0}.",
-  "m_7a70e38b940d": "Installation settings for “{v0}” have been saved"
+  "m_7a70e38b940d": "Installation settings for “{v0}” have been saved",
+  "m_2e3e747f933d": "The current Cloudflare account has not enabled the required Logpush capability. Check enablement and billing, or use server collection.",
+  "m_24165ab98197": "Cloudflare authorization is missing log management permissions. Check Zone Logs permissions, then reconnect.",
+  "m_d2a4d220dc46": "Invalid Cloudflare OAuth scope configuration",
+  "m_d3da5e85ecaf": "The Cloudflare account has not enabled the required Logpush capability",
+  "m_c4627cf414b5": "Cloudflare authorization is missing required permissions"
 }
