@@ -83,9 +83,13 @@ function createDeleteTx(calls: string[]) {
         calls.push('eventData');
       }),
     },
-    $executeRawUnsafe: vi.fn(async () => {
+    $executeRawUnsafe: vi.fn<(sql: string, ...values: unknown[]) => Promise<number>>(async () => {
       calls.push('rawSql');
+      return 0;
     }),
+    $queryRawUnsafe: vi.fn<(sql: string, arg?: string) => Promise<{ name: string }[]>>(
+      async () => [],
+    ),
     sessionData: {
       deleteMany: vi.fn(async () => {
         calls.push('sessionData');
