@@ -8,7 +8,7 @@ import { calendarDayRange } from '../contracts/calendar';
 
 export const DASHBOARD_INTERVAL = 30000;
 export const DASHBOARD_SETTLE = 0;
-export const DASHBOARD_FORMAT = 'dashboard-snapshot-v3';
+export const DASHBOARD_FORMAT = 'dashboard-snapshot-v4';
 export const dashboardInterval = (target: string) =>
   [
     'native:heatmaps',

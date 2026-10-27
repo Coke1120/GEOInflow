@@ -89,7 +89,7 @@ await boss.work<AnalyticsRefreshJob>(
 );
 await boss.work<{ id: string }>(
   ANALYSIS_QUERY_QUEUE,
-  { localConcurrency: 2, batchSize: 1, pollingIntervalSeconds: 1 },
+  { localConcurrency: 2, batchSize: 1, pollingIntervalSeconds: 1, includeMetadata: true },
   async jobs => {
     for (const job of jobs) if (!stopped) await processAnalysisQueryDelivery(job, boss);
   },

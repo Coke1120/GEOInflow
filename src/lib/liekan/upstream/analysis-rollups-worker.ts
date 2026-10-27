@@ -1,5 +1,6 @@
 import { discoverAnalysisRollups } from './analysis-rollups-discovery';
 import { buildBrowserDetailChunk } from './browser-detail-facts';
+import { boundedBrowserEventsSql } from './bounded-browser-events';
 import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { CRAWLER_POPULATION_VERSION } from '../rules/population';
 import { randomUUID } from 'node:crypto';
@@ -21,6 +22,7 @@ import {
   ANALYSIS_GLOBAL_LIMIT,
   analysisNextBoundary,
   analysisCompletedUnits,
+  analysisBuildPrioritySql,
   type AnalysisBuildRow,
   type AnalysisCheckpoint,
   type AnalysisTx,
@@ -109,12 +111,25 @@ async function logChunk(tx: AnalysisTx, row: AnalysisBuildRow, state: AnalysisCh
   return result;
 }
 async function visitChunk(tx: AnalysisTx, row: AnalysisBuildRow, state: AnalysisCheckpoint) {
+  // Expanded policy compilation can consume the short unit's SQL budget before reading its page.
+  await tx.$executeRawUnsafe('SET LOCAL jit=off');
+  const condition = `e.website_id=$1::uuid AND e.created_at>=$3::timestamptz AND e.created_at<$4::timestamptz
+     AND ($5::timestamptz IS NULL OR (e.created_at,e.event_id)>($5::timestamptz,$6::uuid))`;
   const [result] = await tx.$queryRawUnsafe<
-    { rows: string; after_time: string | null; after_id: string | null; bytes: string }[]
+    {
+      rows: string;
+      input_rows: string;
+      after_time: string | null;
+      after_id: string | null;
+      bytes: string;
+    }[]
   >(
-    `WITH observed AS (${analysisVisitRowsSql(`e.website_id=$1::uuid AND e.created_at>=$3::timestamptz AND e.created_at<$4::timestamptz
-     AND ($5::timestamptz IS NULL OR (e.created_at,e.event_id)>($5::timestamptz,$6::uuid))`)}), chunk AS MATERIALIZED (
-     SELECT * FROM observed ORDER BY created_at,event_id LIMIT $7
+    `WITH physical_page AS MATERIALIZED (
+     SELECT e.event_id,e.created_at FROM (TABLE website_event) e WHERE ${condition}
+     ORDER BY e.created_at,e.event_id LIMIT $7
+    ), ${boundedBrowserEventsSql(condition, { geography: true, environment: true, physicalKeys: 'physical_page' })},
+    observed AS (${analysisVisitRowsSql(condition, 'bounded_events')}), chunk AS MATERIALIZED (
+     SELECT * FROM observed
     ), facts AS (
      INSERT INTO liekan_analysis_visit(website_id,generation,bucket,session_id,visit_id,hostname,dimensions,dimension_key,eligible_events,pageviews,has_custom,min_time,max_time)
      SELECT $1::uuid,$2::uuid,date_bin(interval '1 hour',c.created_at,timestamptz '2000-01-01Z'),c.session_id,c.visit_id,c.hostname,c.dimensions,md5(c.dimensions::text),
@@ -127,8 +142,10 @@ async function visitChunk(tx: AnalysisTx, row: AnalysisBuildRow, state: Analysis
        has_custom=liekan_analysis_visit.has_custom OR EXCLUDED.has_custom,
        min_time=least(liekan_analysis_visit.min_time,EXCLUDED.min_time),max_time=greatest(liekan_analysis_visit.max_time,EXCLUDED.max_time),updated_at=clock_timestamp()
      RETURNING pg_column_size(liekan_analysis_visit)*2 AS bytes
-    ) SELECT coalesce((SELECT sum(bytes) FROM facts),0)::text AS bytes,count(*)::text AS rows,(SELECT created_at::text FROM chunk ORDER BY created_at DESC,event_id DESC LIMIT 1) AS after_time,
-     (SELECT event_id::text FROM chunk ORDER BY created_at DESC,event_id DESC LIMIT 1) AS after_id FROM chunk`,
+    ) SELECT coalesce((SELECT sum(bytes) FROM facts),0)::text AS bytes,count(*)::text AS rows,
+     (SELECT count(*)::text FROM physical_page) AS input_rows,
+     (SELECT created_at::text FROM physical_page ORDER BY created_at DESC,event_id DESC LIMIT 1) AS after_time,
+     (SELECT event_id::text FROM physical_page ORDER BY created_at DESC,event_id DESC LIMIT 1) AS after_id FROM chunk`,
     row.website_id,
     state.generation,
     state.hour,
@@ -278,9 +295,9 @@ export async function runOneAnalysisWorkUnit(
   if (process.env.CLICKHOUSE_URL) return { worked: false };
   const row = await analysisTransaction(async tx => {
     const [candidate] = await tx.$queryRawUnsafe<AnalysisBuildRow[]>(
-      `SELECT * FROM liekan_analysis_build WHERE status IN('queued','running') AND next_attempt_at<=now()
+      `SELECT b.* FROM liekan_analysis_build b WHERE status IN('queued','running') AND next_attempt_at<=now()
        AND (lease_until IS NULL OR lease_until<clock_timestamp()) AND ($1::uuid IS NULL OR id=$1::uuid)
-       ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`,
+       ORDER BY ${analysisBuildPrioritySql},created_at,id FOR UPDATE SKIP LOCKED LIMIT 1`,
       buildId || null,
     );
     if (!candidate) return null;
@@ -377,7 +394,9 @@ export async function runOneAnalysisWorkUnit(
         state.afterTime = chunk.after_time;
         state.afterId = chunk.after_id;
       }
-      if (Number(chunk.rows) === (state.chunkSize || ANALYSIS_CHUNK_SIZE)) {
+      // Physical pages advance even when every event is excluded from observed facts.
+      const inputRows = 'input_rows' in chunk ? chunk.input_rows : chunk.rows;
+      if (Number(inputRows) === (state.chunkSize || ANALYSIS_CHUNK_SIZE)) {
         await updateCheckpoint(tx, row, state);
       } else {
         // Publication uses a separate current snapshot to detect mutations committed during this chunk.

@@ -19,7 +19,45 @@ import { noteBrowserPopulation } from './cache-context';
 import { pageReportParts } from '../contracts/page-report';
 import { withPublishedRegistry } from './crawler-registry-context';
 import { LiekanError } from './errors';
-import { pauseIdleDashboardRetries } from './dashboard-demand';
+import {
+  analysisForegroundDemandSql,
+  coldDashboardPrewarmSql,
+  foregroundAnalysisQueuedSql,
+  pauseIdleDashboardRetries,
+} from './dashboard-demand';
+
+type MaintenancePass = { coldRegistered: boolean };
+const refreshJob = Symbol('dashboard-refresh-job');
+
+/** Only server-created projections can carry a committed producer to the HTTP handoff. */
+export function dashboardRefreshJobId(value: object): string | undefined {
+  return (value as { [refreshJob]?: string })[refreshJob];
+}
+
+async function lockSnapshotCapacity(tx: AnalysisTx, websiteId: string) {
+  // Capacity writers serialize independently of the shared authority held by bounded builds.
+  await tx.$queryRawUnsafe(
+    'SELECT 1 FROM pg_advisory_xact_lock(1277339413,hashtext($1::text))',
+    websiteId,
+  );
+  // Preserve the mode/epoch fence while allowing other authority readers to keep working.
+  await tx.$queryRawUnsafe(
+    'SELECT website_id FROM liekan_analysis_site WHERE website_id=$1::uuid FOR SHARE',
+    websiteId,
+  );
+}
+
+async function noteSeedChecked(websiteId: string) {
+  // Rotation bookkeeping can wait for the next pass while a bounded build pins authority.
+  await analysisTransaction(tx =>
+    tx.$executeRawUnsafe(
+      `UPDATE liekan_analysis_site SET dashboard_seed_checked_at=clock_timestamp()
+       WHERE website_id=(SELECT website_id FROM liekan_analysis_site
+         WHERE website_id=$1::uuid FOR NO KEY UPDATE SKIP LOCKED)`,
+      websiteId,
+    ),
+  );
+}
 
 type Snapshot = {
   website_id: string;
@@ -148,6 +186,7 @@ export async function requestDashboardSnapshot(
   input: Record<string, unknown>,
   locale: 'zh-CN' | 'en-US' = 'zh-CN',
   foreground = true,
+  maintenance?: MaintenancePass,
 ) {
   let parameters = analysisQueryParameters(target, input);
   if (Buffer.byteLength(JSON.stringify(parameters)) > 16384)
@@ -242,7 +281,7 @@ export async function requestDashboardSnapshot(
     const due = window.hot && +new Date(row.data_through) < window.through;
     if (foreground && (input.refresh === '1' || due || changed)) {
       try {
-        const job = await enqueue(row, actor);
+        const job = await enqueue(row, actor, maintenance);
         if (
           !job.ready &&
           (input.refresh === '1' ||
@@ -251,8 +290,10 @@ export async function requestDashboardSnapshot(
             !window.hot)
         )
           return { ...job, previousResult: project(row, current.website, true).value };
-        if (job.ready) return job;
-        return project(row, current.website, true);
+        if (job.ready === true) return job;
+        return Object.defineProperty(project(row, current.website, true), refreshJob, {
+          value: job.analysisJob.id,
+        });
       } catch (error) {
         // A full queue retains the published value; the next visible read retries admission.
         if (
@@ -268,7 +309,7 @@ export async function requestDashboardSnapshot(
       changed || due || (+new Date(row.next_refresh_at) <= Date.now() && window.hot),
     );
   }
-  const job = await enqueue(row, actor);
+  const job = await enqueue(row, actor, maintenance);
   if (job.ready) return job;
   return {
     ...job,
@@ -276,7 +317,7 @@ export async function requestDashboardSnapshot(
   };
 }
 
-async function enqueue(row: Snapshot, actor: CrawlerActor) {
+async function enqueue(row: Snapshot, actor: CrawlerActor, maintenance?: MaintenancePass) {
   if (row.job_id) {
     const [active] = await analysisTransaction(tx =>
       tx.$queryRawUnsafe<{ parameters: Record<string, unknown> }[]>(
@@ -341,7 +382,13 @@ async function enqueue(row: Snapshot, actor: CrawlerActor) {
   );
   const end = new Date(window.dependencyEnd);
   const pin = await analysisTransaction(tx => fingerprint(tx, row, end));
-  return requestAnalysisQuery(
+  const cold =
+    row.target === 'feature:page-report' &&
+    row.result == null &&
+    +new Date(row.last_read_at) <= Date.now() - 120000;
+  if (cold && maintenance?.coldRegistered)
+    throw new LiekanError('本轮后台预热已登记', 503, 'dashboard-cold-busy');
+  const result = await requestAnalysisQuery(
     row.website_id,
     actor,
     row.target,
@@ -350,11 +397,23 @@ async function enqueue(row: Snapshot, actor: CrawlerActor) {
     async (tx, job) => {
       if (job.strong_version !== row.strong_version || String(job.epoch) !== String(row.epoch))
         throw new LiekanError('统计条件已变化，请重新读取', 409);
+      if (cold && ['queued', 'running'].includes(job.status)) {
+        // Reuse the admission lock so separate workers cannot register competing cold producers.
+        const [lock] = await tx.$queryRawUnsafe(
+          'SELECT pg_try_advisory_xact_lock(1277339412) AS locked',
+        );
+        if (!lock.locked)
+          throw new LiekanError('统计任务登记繁忙，请稍后重试', 503, 'analysis-admission-busy');
+        const [busy] = await tx.$queryRawUnsafe(
+          `SELECT 1 FROM liekan_analysis_query q WHERE q.id<>$1::uuid AND
+            ((q.status IN('queued','running') AND ${coldDashboardPrewarmSql})
+              OR (q.status='queued' AND ${analysisForegroundDemandSql})) LIMIT 1`,
+          job.id,
+        );
+        if (busy) throw new LiekanError('后台预热等待当前任务', 503, 'dashboard-cold-busy');
+      }
       // Admission, per-site capacity, result identity and the queued producer commit together.
-      await tx.$queryRawUnsafe(
-        'SELECT website_id FROM liekan_analysis_site WHERE website_id=$1::uuid FOR UPDATE',
-        row.website_id,
-      );
+      await lockSnapshotCapacity(tx, row.website_id);
       const [existing] = await tx.$queryRawUnsafe(
         'SELECT 1 FROM liekan_dashboard_snapshot WHERE website_id=$1::uuid AND query_key=$2',
         row.website_id,
@@ -441,6 +500,8 @@ async function enqueue(row: Snapshot, actor: CrawlerActor) {
         await publishDashboardSnapshot(tx, { ...job, generated_at: job.generated_at });
     },
   );
+  if (cold && !result.ready && maintenance) maintenance.coldRegistered = true;
+  return result;
 }
 
 export async function dashboardJobClock(tx: AnalysisTx, jobId: string) {
@@ -505,7 +566,9 @@ export async function publishDashboardSnapshot(
 }
 
 /** Persistent demand is revisited by the worker; ordinary page reads never start statistics SQL. */
-export async function pumpDashboardSnapshots() {
+export async function pumpDashboardSnapshots(
+  maintenance: MaintenancePass = { coldRegistered: false },
+) {
   if (process.env.CLICKHOUSE_URL) return;
   await analysisTransaction(pauseIdleDashboardRetries);
   await analysisTransaction(tx =>
@@ -553,9 +616,7 @@ export async function pumpDashboardSnapshots() {
           !recent &&
           (
             await analysisTransaction(tx =>
-              tx.$queryRawUnsafe<any[]>(
-                "SELECT 1 FROM liekan_analysis_query WHERE status IN('queued','running') LIMIT 1",
-              ),
+              tx.$queryRawUnsafe<any[]>(`SELECT 1 WHERE ${foregroundAnalysisQueuedSql}`),
             )
           ).length
         )
@@ -586,6 +647,7 @@ export async function pumpDashboardSnapshots() {
             row.parameters,
             row.locale,
             false,
+            maintenance,
           );
           await analysisTransaction(tx =>
             tx.$executeRawUnsafe(
@@ -617,9 +679,10 @@ export async function pumpDashboardSnapshots() {
           );
           return;
         }
-        if (window.computable) await enqueue(row, actor);
+        if (window.computable) await enqueue(row, actor, maintenance);
       });
     } catch (error) {
+      if ((error as any)?.code === 'dashboard-cold-busy') continue;
       const status = (error as any)?.status;
       await analysisTransaction(tx =>
         tx.$executeRawUnsafe(
@@ -635,12 +698,16 @@ export async function pumpDashboardSnapshots() {
 }
 
 /** Warm the date picker's common ranges at low priority, one cold job per idle pass. */
-export async function seedDashboardSnapshots() {
+export async function seedDashboardSnapshots(
+  maintenance: MaintenancePass = { coldRegistered: false },
+) {
+  if (maintenance.coldRegistered) return;
   if (
     (
       await analysisTransaction(tx =>
         tx.$queryRawUnsafe<any[]>(
-          "SELECT 1 FROM liekan_analysis_query WHERE status IN('queued','running') LIMIT 1",
+          `SELECT 1 WHERE ${foregroundAnalysisQueuedSql} OR EXISTS(
+            SELECT 1 FROM liekan_analysis_query q WHERE q.status IN('queued','running') AND ${coldDashboardPrewarmSql})`,
         ),
       )
     ).length
@@ -666,9 +733,10 @@ export async function seedDashboardSnapshots() {
       ),
     );
     const resources = [
-      'ai/pages',
+      'overview',
+      'human/overview',
       ...Object.keys(pageReportParts).filter(
-        x => !['ai/pages', 'logs', 'human/keywords'].includes(x),
+        x => !['overview', 'human/overview', 'logs', 'human/keywords'].includes(x),
       ),
     ];
     const scopes = [
@@ -683,9 +751,10 @@ export async function seedDashboardSnapshots() {
       analysisTransaction(tx => analysisQueryState(tx, site.website_id, actor)),
     ).catch(() => null);
     if (!current) continue;
-    const candidates = scopes.flatMap(({ timezone, locale }) =>
-      resources.flatMap(resource =>
-        warmParameters(resource, timezone).map(parameters => {
+    const candidates = [0, 1, 2].flatMap(rangeIndex =>
+      scopes.flatMap(({ timezone, locale }) =>
+        resources.map(resource => {
+          const parameters = warmParameters(resource, timezone)[rangeIndex];
           const key = snapshotKey(
             site.website_id,
             'feature:page-report',
@@ -700,10 +769,7 @@ export async function seedDashboardSnapshots() {
     );
     const existing = await analysisTransaction(async tx => {
       // Share the capacity lock with foreground registration before reclaiming result space.
-      await tx.$queryRawUnsafe(
-        'SELECT website_id FROM liekan_analysis_site WHERE website_id=$1::uuid FOR UPDATE',
-        site.website_id,
-      );
+      await lockSnapshotCapacity(tx, site.website_id);
       const protectedKeys = candidates.map(candidate => candidate.key);
       await tx.$executeRawUnsafe(
         `DELETE FROM liekan_dashboard_snapshot WHERE website_id=$1::uuid AND target='feature:page-report'
@@ -747,31 +813,23 @@ export async function seedDashboardSnapshots() {
             parameters,
             locale,
             false,
+            maintenance,
           ),
         );
         if (!result.ready) {
-          await analysisTransaction(tx =>
-            tx.$executeRawUnsafe(
-              'UPDATE liekan_analysis_site SET dashboard_seed_checked_at=clock_timestamp() WHERE website_id=$1::uuid',
-              site.website_id,
-            ),
-          );
+          await noteSeedChecked(site.website_id);
           return;
         }
         if (!keys.has(key)) {
           keys.add(key);
           space--;
         }
-      } catch {
+      } catch (error) {
+        if ((error as any)?.code === 'dashboard-cold-busy') return;
         /* Quotas and per-site permission failures leave other websites independent. */
       }
     }
-    await analysisTransaction(tx =>
-      tx.$executeRawUnsafe(
-        'UPDATE liekan_analysis_site SET dashboard_seed_checked_at=clock_timestamp() WHERE website_id=$1::uuid',
-        site.website_id,
-      ),
-    );
+    await noteSeedChecked(site.website_id);
   }
 }
 
@@ -780,7 +838,8 @@ let seedFirst = true;
 export async function pumpDashboardDemand() {
   const first = seedFirst;
   seedFirst = !seedFirst;
-  if (first) await seedDashboardSnapshots();
-  await pumpDashboardSnapshots();
-  if (!first) await seedDashboardSnapshots();
+  const maintenance = { coldRegistered: false };
+  if (first) await seedDashboardSnapshots(maintenance);
+  await pumpDashboardSnapshots(maintenance);
+  if (!first) await seedDashboardSnapshots(maintenance);
 }

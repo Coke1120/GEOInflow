@@ -1,6 +1,8 @@
+import { boundedBrowserEventsSql } from './bounded-browser-events';
 import { primary, LiekanError } from './server';
 import { TRAFFIC_POLICY_VERSION } from './traffic-query';
 import { CRAWLER_POPULATION_VERSION } from '../rules/population';
+import { staticRequestExtensionPattern } from './log-content-boundary';
 import {
   ANALYSIS_ROLLUP_VERSION,
   ANALYSIS_GLOBAL_LIMIT,
@@ -148,26 +150,33 @@ export function analysisLogDimensionsSql(productFormSql = archivedProductFormSql
  'catalogVersion',l.reporting_catalog_version,'classificationVersion',l.reporting_classification_version,
  'aiEligible',l.ai_eligible,'recognitionState',l.recognition_state,'verification',l.verification,
  'selfCheck',l.user_agent LIKE 'Liekan-Crawler-Check/%','status',l.status,
+ 'staticResource',l.path ~* '${staticRequestExtensionPattern}',
  'productForm',${productFormSql})`;
 }
 export const logDimensionsSql = analysisLogDimensionsSql();
-export const visitDimensionsSql = `jsonb_build_object(
+function analysisVisitDimensionsSql(geography = true) {
+  return `jsonb_build_object(
  'sessionPresent',s.session_id IS NOT NULL,'browser',e.liekan_browser,'os',e.liekan_os,'device',e.liekan_device,'screen',e.liekan_screen,'language',e.liekan_language,
- 'country',e.liekan_country,'region',e.liekan_region,'city',e.liekan_city,
+ ${geography ? "'country',e.liekan_country,'region',e.liekan_region,'city',e.liekan_city," : ''}
  'identityAvailable',e.liekan_identity_available,'identityVersion',env.identity_version,
  'ruleVersion',q.rule_version,'catalogVersion',q.catalog_version::text)`;
+}
+export const visitDimensionsSql = analysisVisitDimensionsSql();
 export const visitEvidenceJoinsSql = `LEFT JOIN session s ON s.session_id=e.session_id AND s.website_id=e.website_id
  LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
  LEFT JOIN liekan_reporting_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id`;
 
 /** Persist observed identity coverage beside qualified facts; metric readers filter the verdict. */
-export function analysisVisitRowsSql(condition: string) {
-  return `SELECT e.event_id,e.created_at,e.session_id,e.visit_id,coalesce(e.hostname,'') AS hostname,e.event_type,${visitDimensionsSql} AS dimensions
-   FROM liekan_geographic_website_event e ${visitEvidenceJoinsSql} WHERE ${condition}
+export function analysisVisitRowsSql(condition: string, source?: string, geography = true) {
+  const dimensions = analysisVisitDimensionsSql(geography);
+  return `${source ? '' : `WITH ${boundedBrowserEventsSql(condition, { geography, environment: true })}`}
+   SELECT e.event_id,e.created_at,e.session_id,e.visit_id,coalesce(e.hostname,'') AS hostname,e.event_type,${dimensions} AS dimensions
+   FROM ${source || 'bounded_events'} e ${visitEvidenceJoinsSql} WHERE ${condition}
    UNION ALL
    SELECT e.event_id,e.created_at,e.session_id,e.visit_id,coalesce(e.hostname,''),e.event_type,
     jsonb_build_object('identityAvailable',false,'identityVersion',env.identity_version,'ruleVersion',q.rule_version,'catalogVersion',q.catalog_version::text)
-   FROM liekan_observed_browser_event e
+   FROM bounded_keys k CROSS JOIN LATERAL(SELECT e.* FROM liekan_observed_browser_event e
+    WHERE e.website_id=$1::uuid AND e.event_id=k.event_id OFFSET 0) e
    LEFT JOIN liekan_event_environment env ON env.website_id=e.website_id AND env.event_id=e.event_id
    LEFT JOIN liekan_reporting_event_quality q ON q.website_id=e.website_id AND q.event_id=e.event_id
    WHERE ${condition} AND NOT EXISTS(SELECT 1 FROM liekan_browser_identity qualified

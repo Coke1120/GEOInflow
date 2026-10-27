@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtemp, mkdir, readFile, writeFile, copyFile, stat, access, rm } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  readFile,
+  writeFile,
+  copyFile,
+  stat,
+  access,
+  rm,
+  chmod,
+  readdir,
+} from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
@@ -32,50 +43,8 @@ async function installation(t, options = {}) {
   await mkdir(path.join(root, 'scripts'));
   await mkdir(path.join(root, 'bin'));
   await copyFile('scripts/liekan-deploy.sh', path.join(root, 'scripts/liekan-deploy.sh'));
-  await writeFile(
-    path.join(root, 'bin/docker'),
-    [
-      '#!/bin/sh',
-      'printf \'%s\\n\' "$*" >> "$DEPLOY_TEST_CALLS"',
-      'compose_project=${DEPLOY_TEST_PROJECT_FROM_ENV:-${COMPOSE_PROJECT_NAME:-liekan}}',
-      'database_volume=${DEPLOY_TEST_DATABASE_VOLUME_NAME:-${compose_project}_liekan-data}',
-      'db_container=${DEPLOY_TEST_DB_CONTAINER:-}',
-      'cache_container=${DEPLOY_TEST_CACHE_CONTAINER:-}',
-      'case "$*" in',
-      "  'compose version'|info|'compose -f docker-compose.liekan.yml config --quiet') exit 0 ;;",
-      '  \'volume ls --format {{.Name}}\') if [ "${DEPLOY_TEST_VOLUME_EXISTS:-1}" = 0 ]; then printf \'%s\\n\' "${DEPLOY_TEST_VOLUME_NAME:-${compose_project}_liekan-data}"; fi ;;',
-      '  \'compose -f docker-compose.liekan.yml config --format yaml\') printf \'name: "%s"\\nvolumes:\\n  liekan-data:\\n    name: "%s"\\n  liekan-geography:\\n    name: %s_liekan-geography\\n\' "$compose_project" "$database_volume" "$compose_project" ;;',
-      "  'compose -f docker-compose.liekan.yml ps --all --quiet db') printf '%s\\n' \"$db_container\" ;;",
-      "  'compose -f docker-compose.liekan.yml ps --all --quiet analytics-cache') printf '%s\\n' \"$cache_container\" ;;",
-      "  'inspect --format '*)",
-      '    if [ "$4" = "$db_container" ] && [ -n "$db_container" ]; then state=${DEPLOY_TEST_DB_STATE:-running}; health=${DEPLOY_TEST_DB_HEALTH:-healthy};',
-      '    elif [ "$4" = "$cache_container" ] && [ -n "$cache_container" ]; then state=${DEPLOY_TEST_CACHE_STATE:-running}; health=${DEPLOY_TEST_CACHE_HEALTH:-healthy};',
-      '    else exit 91; fi',
-      '    if [ -e "$DEPLOY_TEST_CALLS.started.$4" ]; then state=running; fi',
-      '    case "$3" in',
-      "      '{{.State.Status}}') printf '%s\\n' \"$state\" ;;",
-      '      \'{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}\') printf \'%s %s\\n\' "$state" "$health" ;;',
-      '      *) exit 94 ;;',
-      '    esac ;;',
-      '  start\\ *)',
-      '    if [ "$2" != "$db_container" ] && [ "$2" != "$cache_container" ]; then exit 92; fi',
-      '    if [ "${DEPLOY_TEST_START_STATUS:-0}" != 0 ]; then exit "$DEPLOY_TEST_START_STATUS"; fi',
-      '    touch "$DEPLOY_TEST_CALLS.started.$2" ;;',
-      '  \'compose -f docker-compose.liekan.yml build app\') if [ "${DEPLOY_TEST_KILL_DEPLOY:-0}" = 1 ]; then kill -KILL "$PPID"; fi; if [ "${DEPLOY_TEST_BLOCK_BUILD:-0}" = 1 ]; then touch "$DEPLOY_TEST_CALLS.building"; sleep 2; fi; exit "${DEPLOY_TEST_BUILD_STATUS:-0}" ;;',
-      "  'compose -f docker-compose.liekan.yml stop log-worker analytics-worker') exit \"${DEPLOY_TEST_WORKER_STOP_STATUS:-0}\" ;;",
-      "  'compose -f docker-compose.liekan.yml up -d --no-build --wait --wait-timeout 300') exit 0 ;;",
-      "  'compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 '*)",
-      '    shift 10',
-      '    case "$*" in db|analytics-cache|app|\'log-worker analytics-worker\') ;; *) exit 93 ;; esac',
-      '    if [ "$*" = analytics-cache ]; then exit "${DEPLOY_TEST_CACHE_UP_STATUS:-0}"; fi',
-      '    if [ "$*" = app ]; then exit "${DEPLOY_TEST_APP_UP_STATUS:-0}"; fi ;;',
-      "  *) printf 'Unexpected Docker command in deployment test\\n' >&2; exit 90 ;;",
-      'esac',
-      'exit 0',
-      '',
-    ].join('\n'),
-    { mode: 0o755 },
-  );
+  await copyFile('tests/liekan/fixtures/deployment-docker.sh', path.join(root, 'bin/docker'));
+  await chmod(path.join(root, 'bin/docker'), 0o755);
   const calls = path.join(root, 'calls');
   const invoke = (method, args) =>
     method('sh', [path.join(root, 'scripts/liekan-deploy.sh'), ...(args || [])], {
@@ -199,11 +168,13 @@ async function existingInstallation(t, options = {}) {
 }
 
 function serviceStarts(calls) {
-  return calls.split('\n').filter(line => line.includes(' up -d '));
+  return calls.split('\n').filter(line => line.includes(' up -d ') && !line.includes('--no-start'));
 }
 
 const safeUp =
   'compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300';
+const safeAppUp = safeUp.replace('300', '1800');
+const safeWorkerUp = safeUp.replace('--no-deps ', '--no-deps --no-recreate ');
 
 test('fresh installation starts database and cache before replacing the application and workers', async t => {
   const { calls, run } = await installation(t);
@@ -212,8 +183,8 @@ test('fresh installation starts database and cache before replacing the applicat
   assert.deepEqual(serviceStarts(await readFile(calls, 'utf8')), [
     `${safeUp} db`,
     `${safeUp} analytics-cache`,
-    `${safeUp} app`,
-    `${safeUp} log-worker analytics-worker`,
+    `${safeAppUp} app`,
+    `${safeWorkerUp} log-worker analytics-worker`,
   ]);
 });
 
@@ -228,8 +199,8 @@ test('upgrading a running PostgreSQL 15 instance preserves its container despite
   assert.equal(result.status, 0, result.stderr);
   const commands = await readFile(calls, 'utf8');
   assert.deepEqual(serviceStarts(commands), [
-    `${safeUp} app`,
-    `${safeUp} log-worker analytics-worker`,
+    `${safeAppUp} app`,
+    `${safeWorkerUp} log-worker analytics-worker`,
   ]);
   assert.ok(commands.includes('existing-postgres-15'));
   assert.ok(commands.includes('existing-cache'));
@@ -249,11 +220,11 @@ test('stopped database and cache containers are started by their original IDs be
   const commands = await readFile(calls, 'utf8');
   assert.match(commands, /^start stopped-postgres-15$/m);
   assert.match(commands, /^start stopped-cache$/m);
-  assert.ok(commands.indexOf('start stopped-postgres-15') < commands.indexOf(`${safeUp} app`));
-  assert.ok(commands.indexOf('start stopped-cache') < commands.indexOf(`${safeUp} app`));
+  assert.ok(commands.indexOf('start stopped-postgres-15') < commands.indexOf(`${safeAppUp} app`));
+  assert.ok(commands.indexOf('start stopped-cache') < commands.indexOf(`${safeAppUp} app`));
   assert.deepEqual(serviceStarts(commands), [
-    `${safeUp} app`,
-    `${safeUp} log-worker analytics-worker`,
+    `${safeAppUp} app`,
+    `${safeWorkerUp} log-worker analytics-worker`,
   ]);
 });
 
@@ -303,8 +274,8 @@ test('an existing database with no cache creates only the missing cache before u
   assert.equal(result.status, 0, result.stderr);
   assert.deepEqual(serviceStarts(await readFile(calls, 'utf8')), [
     `${safeUp} analytics-cache`,
-    `${safeUp} app`,
-    `${safeUp} log-worker analytics-worker`,
+    `${safeAppUp} app`,
+    `${safeWorkerUp} log-worker analytics-worker`,
   ]);
 });
 
@@ -344,7 +315,7 @@ test('failed application health stops before replacing workers', async t => {
     DEPLOY_TEST_APP_UP_STATUS: '1',
   });
   assert.equal(run().status, 1);
-  assert.deepEqual(serviceStarts(await readFile(calls, 'utf8')), [`${safeUp} app`]);
+  assert.deepEqual(serviceStarts(await readFile(calls, 'utf8')), [`${safeAppUp} app`]);
 });
 
 test('a build failure leaves stopped database and cache containers untouched', async t => {
@@ -361,7 +332,6 @@ test('a build failure leaves stopped database and cache containers untouched', a
   assert.doesNotMatch(commands, /^start | up -d /m);
 });
 
-
 test('worker drain finishes before application migration during an existing upgrade', async t => {
   const { calls, run } = await existingInstallation(t, {
     DEPLOY_TEST_DB_CONTAINER: 'running-postgres-15',
@@ -370,21 +340,28 @@ test('worker drain finishes before application migration during an existing upgr
   const result = run();
   assert.equal(result.status, 0, result.stderr);
   const commands = (await readFile(calls, 'utf8')).split('\n');
-  const stopped = commands.indexOf('compose -f docker-compose.liekan.yml stop log-worker analytics-worker');
+  const stopped = commands.indexOf(
+    'compose -f docker-compose.liekan.yml stop log-worker analytics-worker',
+  );
   assert.ok(stopped >= 0, 'old workers must stop before the app applies a new schema');
   assert.ok(commands.indexOf('compose -f docker-compose.liekan.yml build app') < stopped);
-  assert.ok(stopped < commands.indexOf(`${safeUp} app`));
-  assert.ok(commands.indexOf(`${safeUp} app`) < commands.indexOf(`${safeUp} log-worker analytics-worker`));
+  assert.ok(stopped < commands.indexOf(`${safeAppUp} app`));
+  assert.ok(
+    commands.indexOf(`${safeAppUp} app`) <
+      commands.indexOf(`${safeWorkerUp} log-worker analytics-worker`),
+  );
   assert.equal(commands.filter(command => command.includes(' stop ')).length, 1);
 });
 test('worker stop failure preserves existing configuration and prevents application migration', async t => {
-  const { root, calls, run } = await existingInstallation(t, { DEPLOY_TEST_WORKER_STOP_STATUS: '7' });
+  const { root, calls, run } = await existingInstallation(t, {
+    DEPLOY_TEST_WORKER_STOP_STATUS: '7',
+  });
   const original = await readFile(path.join(root, '.env'));
   assert.equal(run().status, 7);
   const commands = await readFile(calls, 'utf8');
   assert.match(commands, /stop log-worker analytics-worker/);
-  assert.ok(!commands.includes(`${safeUp} app`));
-  assert.ok(!commands.includes(`${safeUp} log-worker analytics-worker`));
+  assert.ok(!commands.includes(`${safeAppUp} app`));
+  assert.ok(!commands.includes(`${safeWorkerUp} log-worker analytics-worker`));
   assert.deepEqual(await readFile(path.join(root, '.env')), original);
 });
 test('build failure leaves workers running before an upgrade begins', async t => {
@@ -393,4 +370,176 @@ test('build failure leaves workers running before an upgrade begins', async t =>
   const commands = await readFile(calls, 'utf8');
   assert.match(commands, /build app/);
   assert.doesNotMatch(commands, / stop | up -d /);
+});
+
+const candidateImage = `sha256:${'a'.repeat(64)}`;
+test('one immutable image ID pins all services through creation, startup and health checks', async t => {
+  const { root, calls, run } = await installation(t);
+  const result = run();
+  assert.equal(result.status, 0, result.stderr);
+  for (const phase of ['create', 'app', 'worker']) {
+    const override = await readFile(`${calls}.${phase}-override`, 'utf8');
+    assert.equal(override.match(new RegExp(`image: ${candidateImage}`, 'g'))?.length, 3);
+    assert.equal(override.match(/pull_policy: never/g)?.length, 3);
+    assert.doesNotMatch(override, /APP_SECRET|POSTGRES_PASSWORD/);
+    assert.equal((await stat(`${calls}.${phase}-override`)).mode & 0o777, 0o600);
+  }
+  const trace = await readFile(calls, 'utf8');
+  const create = trace.indexOf('up -d --no-build --no-deps --no-start log-worker analytics-worker');
+  const inspect = trace.indexOf('inspect --format {{.Image}} log-worker-container');
+  const start = trace.indexOf(safeWorkerUp);
+  assert.ok(create >= 0 && inspect > create && start > inspect);
+  assert.match(trace, new RegExp(`tag ${candidateImage} liekan:1.2.0`));
+  assert.match(trace, /image inspect --format \{\{.Id\}\} liekan:deploy-liekan-candidate\./);
+  assert.doesNotMatch(trace, /compose .* images /);
+  assert.match(result.stdout, /来源：unknown；工作区：unknown/);
+  assert.doesNotMatch(result.stdout, /来源：development/);
+  const files = await readdir(path.join(root, '.local'));
+  assert.ok(!files.some(file => file.startsWith('liekan-candidate.')));
+});
+
+for (const [service, options, workersMayStart] of [
+  ['app', { DEPLOY_TEST_APP_IMAGE: `sha256:${'b'.repeat(64)}` }, false],
+  ['app', { DEPLOY_TEST_APP_HEALTH: 'unhealthy' }, false],
+  ['log-worker', { DEPLOY_TEST_LOG_WORKER_IMAGE: `sha256:${'b'.repeat(64)}` }, false],
+  [
+    'analytics-worker',
+    { DEPLOY_TEST_ANALYTICS_WORKER_REVISION: 'different-known-revision' },
+    false,
+  ],
+  ['log-worker', { DEPLOY_TEST_LOG_WORKER_HEALTH: 'unhealthy' }, true],
+  ['analytics-worker', { DEPLOY_TEST_ANALYTICS_WORKER_HEALTH: 'unhealthy' }, true],
+  ['log-worker', { DEPLOY_TEST_RUNNING_WORKER_IMAGE: `sha256:${'b'.repeat(64)}` }, true],
+]) {
+  test(`${service} candidate mismatch or health failure stops workers safely (${Object.keys(options)[0]})`, async t => {
+    const { root, calls, run } = await existingInstallation(t, options);
+    const result = run();
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, new RegExp(service));
+    assert.doesNotMatch(
+      result.stdout + result.stderr,
+      /preserved-private|different-known-revision/,
+    );
+    const trace = await readFile(calls, 'utf8');
+    if (!workersMayStart) assert.ok(!trace.includes(safeWorkerUp));
+    assert.ok(trace.lastIndexOf('stop log-worker analytics-worker') > trace.indexOf('build app'));
+    assert.doesNotMatch(trace, /^tag /m);
+    assert.ok(
+      !(await readdir(path.join(root, '.local'))).some(file =>
+        file.startsWith('liekan-candidate.'),
+      ),
+    );
+    assert.match(trace, /^image rm liekan:deploy-/m);
+  });
+}
+
+test('an unresolved candidate image stops before touching the current services', async t => {
+  const { calls, run } = await existingInstallation(t, {
+    DEPLOY_TEST_CANDIDATE_IMAGE: 'liekan:1.2.0',
+  });
+  const result = run();
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /不可变镜像 ID/);
+  assert.doesNotMatch(await readFile(calls, 'utf8'), / stop | up -d |^start /m);
+});
+
+for (const revision of ['development', '<no value>']) {
+  test(`legacy ${revision} revision metadata remains unknown while immutable images agree`, async t => {
+    const { run } = await installation(t, { DEPLOY_TEST_REVISION_LABEL: revision });
+    assert.equal(run().status, 0);
+  });
+}
+
+test('source archives deploy when Git is unavailable', async t => {
+  const { root, run } = await installation(t);
+  await writeFile(path.join(root, 'bin/git'), '#!/bin/sh\nexit 127\n', { mode: 0o755 });
+  const result = run();
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /来源：unknown；工作区：unknown/);
+});
+
+test('Git source metadata records real HEAD and changes its digest for untracked content only', async t => {
+  const options = {};
+  const { root, calls, run } = await installation(t, options);
+  const git = spawnSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).stdout.trim();
+  assert.ok(git);
+  const revision = 'c'.repeat(40);
+  // Git plumbing hashes real fixture bytes; repository history and the caller checkout stay untouched.
+  await writeFile(
+    path.join(root, 'bin/git'),
+    [
+      '#!/bin/sh',
+      'case "$*" in',
+      '  "rev-parse --show-toplevel") printf "%s\\n" "$PWD" ;;',
+      `  "rev-parse HEAD") printf '%s\\n' '${revision}' ;;`,
+      '  status*) if [ "${DEPLOY_TEST_GIT_CLEAN:-0}" != 1 ]; then printf " M product.ts\\n?? new-product.ts\\n"; fi ;;',
+      '  diff*) printf "private fixture difference\\n" ;;',
+      '  ls-files*) printf "new-product.ts\\0" ;;',
+      `  hash-object*) exec '${git}' "$@" ;;`,
+      '  *) exit 99 ;;',
+      'esac',
+    ].join('\n'),
+    { mode: 0o755 },
+  );
+  await writeFile(path.join(root, 'new-product.ts'), 'first untracked product');
+  const first = run();
+  assert.equal(first.status, 0, first.stderr);
+  const original = await readFile(`${calls}.build-override`, 'utf8');
+  assert.match(original, new RegExp(`revision: "${revision}"`));
+  assert.match(original, /source.state: "dirty"/);
+  assert.match(original, /source.difference: "[a-f0-9]{40}"/);
+  assert.doesNotMatch(first.stdout + first.stderr, /private fixture|first untracked/);
+  await writeFile(path.join(root, 'new-product.ts'), 'second untracked product');
+  assert.equal(run().status, 0);
+  const changed = await readFile(`${calls}.build-override`, 'utf8');
+  assert.notEqual(changed, original);
+  const raw = await readFile(`${calls}.raw`, 'utf8');
+  assert.match(raw, new RegExp(`build --build-arg LIEKAN_REVISION=${revision} app`));
+  options.DEPLOY_TEST_GIT_CLEAN = '1';
+  assert.equal(run().status, 0);
+  assert.match(await readFile(`${calls}.build-override`, 'utf8'), /source.state: "clean"/);
+  assert.match(await readFile(`${calls}.build-override`, 'utf8'), /source.difference: "none"/);
+  const previousCalls = (await readFile(calls, 'utf8')).length;
+  options.DEPLOY_TEST_REVISION_LABEL = 'd'.repeat(40);
+  const mismatch = run();
+  assert.equal(mismatch.status, 1);
+  assert.match(mismatch.stderr, /app 构建来源版本不匹配/);
+  assert.doesNotMatch((await readFile(calls, 'utf8')).slice(previousCalls), / stop | up -d /);
+});
+
+test('Docker startup seeds the bundled official demo after migrations and before serving', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'liekan-demo-start-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(root, 'bin'));
+  await mkdir(path.join(root, 'scripts'));
+  await copyFile('scripts/liekan-start.sh', path.join(root, 'scripts/liekan-start.sh'));
+  const calls = path.join(root, 'calls');
+  await writeFile(
+    path.join(root, 'bin/node'),
+    '#!/bin/sh\nprintf "%s\\n" "$*" >> "$DEMO_START_CALLS"\nif [ "$1" = scripts/liekan-seed-demo.mjs ]; then exit "${DEMO_START_FAIL:-0}"; fi\n',
+    { mode: 0o755 },
+  );
+  const run = failure =>
+    spawnSync('sh', ['scripts/liekan-start.sh'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PATH: path.join(root, 'bin') + ':' + process.env.PATH,
+        DEMO_START_CALLS: calls,
+        DEMO_START_FAIL: String(failure),
+      },
+    });
+  assert.equal(run(0).status, 0);
+  const trace = (await readFile(calls, 'utf8')).trim().split('\n');
+  const seed = trace.indexOf('scripts/liekan-seed-demo.mjs --automatic');
+  assert(seed > trace.indexOf('scripts/liekan-migrate.mjs'));
+  assert(seed < trace.indexOf('server.js'));
+  await writeFile(calls, '');
+  assert.equal(run(1).status, 1);
+  assert(!(await readFile(calls, 'utf8')).includes('server.js'));
+  const dockerfile = await readFile('Dockerfile.liekan', 'utf8');
+  assert.match(dockerfile, /COPY --from=builder[^\n]+scripts/);
+  const packageJson = JSON.parse(await readFile('package.json', 'utf8'));
+  assert(packageJson.scripts['build:docker'].includes('liekan:check-demo'));
 });

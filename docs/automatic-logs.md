@@ -13,6 +13,12 @@
 
 Cloudflare 应用应按[官方 OAuth 指南](https://developers.cloudflare.com/fundamentals/oauth/create-an-oauth-client/)中的可选权限配置读取匹配 Zone 与管理 Logpush 所需的最小权限，并完成供应商的应用登记、域名验证及可见性要求。Zone 与 Logpush 的实际可用性在授权和任务创建时核对。账户套餐、日志字段和费用由 Cloudflare 决定，连接前需要用户确认。官方权限标识通过授权账户的 scopes API 获取，避免猜测权限 ID。
 
+授权请求默认显式携带 `zone.read logs.read logs.write`。在 OAuth 客户端中登记相应的 Zone 读取及 Zone Logs 读写权限；账户级 Logs 权限与 Zone Logs 权限的作用范围不同。以官方 scopes 目录和当前账户允许配置的权限为准。需要调整时，在私有 `.env` 设置 `CLOUDFLARE_OAUTH_SCOPES`，使用空格分隔；标准 Compose 会将它传入应用。修改后重建应用容器以加载配置，并重新发起授权。该变量不会为客户端或账户自动添加权限。
+
+Logpush 返回“当前账户未启用”时，连接显示独立的能力提示；缺少 Zone 日志权限时显示权限提示。两者暂停该来源并保留已有接收凭据，不再统一要求按“授权失效”重新连接。真实认证失败仍会撤销接收授权。Cloudflare 已提供[各套餐自助启用及按用量计费](https://developers.cloudflare.com/changelog/post/2026-09-30-logpush-usage-based-pricing/)，具体数据集、账户启用状态和费用需在供应商处确认，也可改用服务器采集。应用不会自动启用计费服务。
+
+应用与日志 worker 的 Cloudflare 请求失败会输出 `[liekan-cloudflare]` 结构化诊断。`operation` 区分 `token`、`api`、`revoke`；HTTP 失败记录状态和受限的数字供应商错误码，网络失败记录允许列表中的异常名称与原因码，例如 `ENOTFOUND`、`ETIMEDOUT`、TLS 证书错误或 `redirect-not-allowed`。不记录请求头、请求体、完整 URL、供应商响应正文、OAuth 授权码或令牌。用户界面继续使用经过控制的错误提示；排查时按失败阶段核对 DNS、连接、TLS 或供应商能力。
+
 能力入口根据公网地址、队列登记、近期 worker 心跳、签名安装资产和 OAuth 配置显示“可用”或具体待配置原因。待配置时，主操作为“开始配置”；普通网站用户可“查看配置说明”，复制要求交给部署管理员。引导在原页面提供公网地址填写、环境配置与回调地址复制、部署步骤和重新检查，按接入方式展示全部相关检查项。配置仍由部署环境管理，页面填写仅生成说明；密钥不会返回浏览器。重新检查核对运行配置与心跳，外部 HTTPS 连通性和真实日志到达在连接后验证。检查通过后恢复授权链接或安装命令生成，用户也可延后配置完成网站设置。连接探测仅记录测试到达，真实数据与处理状态由实际日志更新。部署代理应过滤 OAuth 回调查询参数及 Authorization 请求头，避免将临时授权码和接收凭据写入访问日志。
 
 ## 服务器安装

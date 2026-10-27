@@ -5,6 +5,7 @@ import { writeFile } from 'node:fs/promises';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HISTORY_REPAIR_ENGINE } from '../contracts/history-repair';
 import type { AnalysisBuildDto, AnalysisLogInput } from './analysis-rollups-model';
+import { staticRequestExtensionPattern } from './log-content-boundary';
 let api: typeof import('./analysis-rollups');
 let db: typeof import('./analysis-rollups-db');
 let prisma: typeof import('@/lib/prisma').default;
@@ -73,10 +74,26 @@ async function finish(value: AnalysisBuildDto) {
   }
   throw new Error('Bounded worker did not finish');
 }
+async function shortLogBuild(start: Date, end: Date) {
+  const id = randomUUID();
+  await execute(
+    `INSERT INTO liekan_analysis_build(id,website_id,actor_id,epoch,family,unit_seconds,range_start,range_end,timezone,locale,request_id,request_hash,status,work_total)
+   SELECT $1::uuid,$2::uuid,$3::uuid,epoch,'log',300,$4,$5,'UTC','en-US',$1::uuid,'today-short-recovery','queued',$6::bigint
+   FROM liekan_analysis_site WHERE website_id=$2::uuid`,
+    id,
+    site,
+    actor.userId,
+    start,
+    end,
+    Math.ceil((+end - +start) / 300000),
+  );
+  return { id } as AnalysisBuildDto;
+}
 async function log(
   at: string,
   options: {
     path?: string;
+    status?: number;
     selfCheck?: boolean;
     verification?: string;
     ai?: boolean | null;
@@ -87,7 +104,7 @@ async function log(
   const id = randomUUID();
   await execute(
     `INSERT INTO liekan_log(id,website_id,import_id,created_at,path,method,status,bytes,ip_masked,ip_hash,user_agent,location,bot,vendor,bot_type,verification,ai_eligible,recognition_state)
-   VALUES($1,$2::uuid,$3::uuid,$4::timestamptz,$5,'GET',200,0,'','',$6,'',$7,'OpenAI','训练',$8,$9::boolean,$10)`,
+   VALUES($1,$2::uuid,$3::uuid,$4::timestamptz,$5,'GET',$11,0,'','',$6,'',$7,'OpenAI','训练',$8,$9::boolean,$10)`,
     id,
     site,
     imported,
@@ -98,6 +115,7 @@ async function log(
     options.verification || 'verified_range',
     options.ai === undefined ? true : options.ai,
     options.state === undefined ? 'recognized' : options.state,
+    options.status ?? 200,
   );
   return id;
 }
@@ -282,6 +300,145 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       (await api.readAnalysisLogRollup(input({ crawlerIdentityScope: 'verified_range' }))).summary
         .requests,
     ).toBe(2);
+  });
+  it('keeps today static errors, case/path/query boundaries and import time exact through partial v4 coverage', async () => {
+    const end = new Date('2026-01-01T00:15:00.123Z');
+    const paths = [
+      '/app.css',
+      '/app.CSS?x=1',
+      '/app.js#hash',
+      '/app.js/guide',
+      '/index.js-extra',
+      '/report.pdf',
+      '/data.json',
+      '/asset.SvG',
+      '/nested.css/path',
+      '/x?file=app.js',
+    ];
+    for (const [index, path] of paths.entries())
+      await log(`2026-01-01T00:0${Math.floor(index / 2)}:00Z`, {
+        path,
+        status: index === 0 ? 400 : 200,
+        selfCheck: index === 4,
+        verification: index === 6 ? 'unverified' : 'verified_range',
+      });
+    await log('2026-01-01T00:05:00Z', { path: '/edge' });
+    await log('2026-01-01T00:15:00.123Z', { path: '/inclusive', status: 503 });
+    await log('2026-01-01T00:15:00.124Z', { path: '/outside', status: 500 });
+    await log('2025-12-31T23:59:59.999Z', { path: '/imported-today-event-yesterday' });
+    await execute(
+      "UPDATE liekan_import SET imported_at='2026-01-01T00:06Z',accepted=91 WHERE id=$1::uuid",
+      imported,
+    );
+    const todayInput = { websiteId: site, startDate: from, endDate: end };
+    const raw = await api.readAnalysisLogToday({ ...todayInput, allowRawOnly: true });
+    expect(raw).toMatchObject({
+      requests: 7,
+      abnormal: 2,
+      coverage: { manifests: 0, rawFallback: true },
+    });
+    await finish(await shortLogBuild(from, new Date('2026-01-01T00:05Z')));
+    const partial = await api.readAnalysisLogToday(todayInput);
+    expect(partial).toMatchObject({ requests: raw.requests, abnormal: raw.abnormal });
+    expect(partial.coverage.manifests).toBeGreaterThan(0);
+    const { getLogToday } = await import('./logs');
+    expect(await getLogToday(site, from, end)).toEqual({ requests: 7, abnormal: 2, accepted: 91 });
+    await finish(await shortLogBuild(new Date('2026-01-01T00:05Z'), new Date('2026-01-01T00:15Z')));
+    expect(await api.readAnalysisLogToday(todayInput)).toMatchObject({ requests: 7, abnormal: 2 });
+    for (const [startDate, endDate] of [
+      [from, new Date('2026-01-01T00:05Z')],
+      [new Date('2026-01-01T00:05Z'), new Date('2026-01-01T00:05Z')],
+      [new Date('2026-01-01T00:00:00.001Z'), new Date('2026-01-01T00:15:00.122Z')],
+    ]) {
+      const value = { websiteId: site, startDate, endDate };
+      const expected = await api.readAnalysisLogToday({ ...value, allowRawOnly: true });
+      expect(await api.readAnalysisLogToday(value)).toMatchObject({
+        requests: expected.requests,
+        abnormal: expected.abnormal,
+      });
+    }
+    const dimensions = await q<{ missing: bigint; variants: bigint }[]>(
+      "SELECT count(*) FILTER(WHERE NOT(dimensions ? 'staticResource')) AS missing,count(DISTINCT dimensions->'staticResource') AS variants FROM liekan_analysis_log WHERE website_id=$1::uuid",
+      site,
+    );
+    expect(dimensions[0]).toEqual({ missing: 0n, variants: 2n });
+  });
+  it('rejects the old global coverage vector for both families and reuses one pinned metadata read', async () => {
+    await log('2026-01-01T00:01Z', { path: '/style.CSS', status: 404 });
+    await event('2026-01-01T00:01Z');
+    await finish(await build(from, new Date('2026-01-01T01:00Z')));
+    await execute(
+      `UPDATE liekan_analysis_manifest SET versions=jsonb_set(versions,'{engine}','"analysis-rollups-v3"') WHERE website_id=$1::uuid`,
+      site,
+    );
+    const value = { websiteId: site, startDate: from, endDate: new Date('2026-01-01T01:00Z') };
+    expect(await api.readAnalysisLogToday(value)).toMatchObject({
+      requests: 0,
+      abnormal: 1,
+      coverage: { manifests: 0, rawFallback: true },
+    });
+    expect(await api.readAnalysisVisitTotals(value)).toBeNull();
+    let metadataReads = 0;
+    await db.analysisTransaction(
+      tx =>
+        withinQuerySnapshot(
+          {
+            $executeRawUnsafe: (statement: string, ...values: unknown[]) =>
+              tx.$executeRawUnsafe(statement, ...values),
+            $queryRawUnsafe: (statement: string, ...values: unknown[]) => {
+              if (statement.startsWith('SELECT liekan_analysis_versions')) metadataReads++;
+              return tx.$queryRawUnsafe(statement, ...values);
+            },
+          },
+          async () => {
+            await api.readAnalysisLogToday(value);
+            await api.readAnalysisLogToday(value);
+            await api.readAnalysisVisitTotals(value);
+          },
+        ),
+      'RepeatableRead',
+    );
+    expect(metadataReads).toBe(1);
+    await finish(await build(from, new Date('2026-01-01T01:00Z')));
+    expect(await api.readAnalysisLogToday(value)).toMatchObject({ requests: 0, abnormal: 1 });
+    expect(await api.readAnalysisVisitTotals(value)).not.toBeNull();
+  });
+  it('invalidates today coverage for late, corrected and deleted logs, mode and epoch changes', async () => {
+    const end = new Date('2026-01-01T01:00Z');
+    const id = await log('2026-01-01T00:01Z', { path: '/style.css', status: 404 });
+    await finish(await build(from, end));
+    const value = { websiteId: site, startDate: from, endDate: end };
+    const check = async (requests: number, abnormal: number) => {
+      expect(await api.readAnalysisLogToday(value)).toMatchObject({ requests, abnormal });
+      expect(await api.readAnalysisLogToday({ ...value, allowRawOnly: true })).toMatchObject({
+        requests,
+        abnormal,
+      });
+    };
+    await check(0, 1);
+    await log('2026-01-01T00:02Z', { path: '/late' });
+    await check(1, 1);
+    await execute(
+      "UPDATE liekan_log SET path='/corrected',status=200 WHERE website_id=$1::uuid AND id=$2",
+      site,
+      id,
+    );
+    await check(2, 0);
+    await execute('DELETE FROM liekan_log WHERE website_id=$1::uuid AND id=$2', site, id);
+    await check(1, 0);
+    await finish(await build(from, end));
+    await execute(
+      "UPDATE liekan_analysis_site SET mode='disabled' WHERE website_id=$1::uuid",
+      site,
+    );
+    expect((await api.readAnalysisLogToday(value)).coverage.manifests).toBe(0);
+    await check(1, 0);
+    await execute(
+      "UPDATE liekan_analysis_site SET mode='live',epoch=epoch+1 WHERE website_id=$1::uuid",
+      site,
+    );
+    expect((await api.readAnalysisLogToday(value)).coverage.manifests).toBe(0);
+    await check(1, 0);
   });
   it('merges visitor/visit IDs, custom events and fractional duration across hours and days', async () => {
     await event('2026-01-01T23:59:59.900Z');
@@ -634,9 +791,16 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
   });
   it('bounds reporting joins and archived identity expansion after source eligibility without changing repaired facts', async () => {
     try {
-      expect(createHash('sha256').update(db.logDimensionsSql).digest('hex')).toBe(
-        'fd88430e483bf16cdded464f0233a5ca30b1c500e456cc5105617ebd6602ca61',
-      );
+      expect(
+        createHash('sha256')
+          .update(
+            db.logDimensionsSql.replace(
+              ` 'staticResource',l.path ~* '${staticRequestExtensionPattern}',\n`,
+              '',
+            ),
+          )
+          .digest('hex'),
+      ).toBe('fd88430e483bf16cdded464f0233a5ca30b1c500e456cc5105617ebd6602ca61');
       const source = randomUUID(),
         version = randomUUID(),
         secondVersion = randomUUID(),
@@ -689,17 +853,18 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       await log('2026-01-01T00:00:30Z', { path: '/eligible-manual' });
       await log('2026-01-01T00:03Z', { path: '/excluded-manual' });
       // Match collector batch bounds while retaining the complete large query fixture.
-      for (let offset = 0; offset < 4500; offset += 500) await execute(
-        `INSERT INTO liekan_crawler_evidence(website_id,log_id,crawler_id,catalog_version,classification_version)
+      for (let offset = 0; offset < 4500; offset += 500)
+        await execute(
+          `INSERT INTO liekan_crawler_evidence(website_id,log_id,crawler_id,catalog_version,classification_version)
        SELECT website_id,id,CASE path WHEN '/encoded%2F0' THEN 'gptbot' WHEN '/encoded%2F1' THEN 'alternate' WHEN '/encoded%2F2' THEN 'missing' ELSE NULL END,
        CASE WHEN path='/encoded%2F3' THEN NULL WHEN method='HEAD' THEN $2::uuid ELSE $3::uuid END,'archived-fixture'
        FROM liekan_log WHERE website_id=$1::uuid AND created_at='2026-01-01T00:02Z' ORDER BY id LIMIT $4::int OFFSET $5::int`,
-        site,
-        version,
-        secondVersion,
-        500,
-        offset,
-      );
+          site,
+          version,
+          secondVersion,
+          500,
+          offset,
+        );
       const [repair] = await q<{ id: string }[]>(
         "SELECT min(id) AS id FROM liekan_log WHERE website_id=$1::uuid AND created_at='2026-01-01T00:02Z' AND path='/encoded%2F0'",
         site,
@@ -732,6 +897,12 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
         end,
       );
       const raw = await api.readAnalysisLogRollup(input({ endDate: end }));
+      const rawToday = await api.readAnalysisLogToday({
+        websiteId: site,
+        startDate: from,
+        endDate: end,
+        allowRawOnly: true,
+      });
       expect(raw.summary.requests).toBe(4002);
       let savedPlan: any;
       const original = db.analysisTransaction;
@@ -789,6 +960,12 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
         for (const child of node.Plans || []) walk(child);
       };
       expect(savedPlan).toBeDefined();
+      expect(
+        await api.readAnalysisLogToday({ websiteId: site, startDate: from, endDate: end }),
+      ).toMatchObject({
+        requests: rawToday.requests,
+        abnormal: rawToday.abnormal,
+      });
       walk(savedPlan.Plan);
       const evidence = nodes.filter(node => node['Relation Name'] === 'liekan_crawler_evidence');
       expect(evidence.length).toBeGreaterThan(0);
@@ -926,7 +1103,11 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       );
       if (result?.population) {
         expect(['complete', 'empty', 'partial']).toContain(result.population.identity.status);
-        if (result.population.identity.status === 'partial') expect(result.population).toMatchObject({ metricScope: 'qualified-browser', identity: { eligiblePV: 2, qualifiedPV: 1, qualifiedVisitors: 1 } });
+        if (result.population.identity.status === 'partial')
+          expect(result.population).toMatchObject({
+            metricScope: 'qualified-browser',
+            identity: { eligiblePV: 2, qualifiedPV: 1, qualifiedVisitors: 1 },
+          });
         const { population: _population, ...counts } = result;
         return counts;
       }
@@ -2577,6 +2758,56 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
         )
       )[0].n,
     ).toBeGreaterThan(30n);
+  });
+  it('prioritizes current closed log and visit units within a site while old recovery remains queued', async () => {
+    const { pumpAnalysisBuilds } = await import('./analysis-build-queue');
+    const now = Date.now(),
+      closedLog = Math.floor((now - 60000) / 300000) * 300000,
+      closedVisit = Math.floor((now - 60000) / 3600000) * 3600000;
+    const old = randomUUID(),
+      recentLog = randomUUID(),
+      recentVisit = randomUUID();
+    for (const [id, family, unit, start, order] of [
+      [old, 'log', 300, +from, 0],
+      [recentLog, 'log', 300, closedLog - 300000, 1],
+      [recentVisit, 'visit', 3600, closedVisit - 3600000, 2],
+    ] as const)
+      await execute(
+        `INSERT INTO liekan_analysis_build(id,website_id,epoch,family,unit_seconds,range_start,range_end,timezone,locale,request_id,request_hash,status,work_total,updated_at)
+      VALUES($1::uuid,$2::uuid,1,$3,$4,$5,$6,'UTC','en-US',$1::uuid,'current-unit-priority','queued',1,timestamptz '1960-01-01Z'+$7::int*interval '1 second')`,
+        id,
+        site,
+        family,
+        unit,
+        new Date(start),
+        new Date(start + unit * 1000),
+        order,
+      );
+    const selected = async () => {
+      const ids: string[] = [];
+      await pumpAnalysisBuilds({
+        send: async (_queue: string, data: { id: string }) => {
+          ids.push(data.id);
+          return randomUUID();
+        },
+      } as any);
+      const owned = new Set<string>([old, recentLog, recentVisit]);
+      return ids.filter(id => owned.has(id));
+    };
+    // Both recent families belong to the same incremental lane. The newer completed boundary wins.
+    const first = (await selected())[0];
+    expect([recentLog, recentVisit]).toContain(first);
+    await api.runOneAnalysisWorkUnit(first);
+    const second = (await selected())[0];
+    expect(second).toBe(first === recentLog ? recentVisit : recentLog);
+    await api.runOneAnalysisWorkUnit(second);
+    expect((await selected())[0]).toBe(old);
+    const [state] = await q<{ status: string }[]>(
+      'SELECT status FROM liekan_analysis_build WHERE id=$1::uuid',
+      old,
+    );
+    expect(state.status).toBe('queued');
+    await api.actionAnalysisBuild(site, actor, { action: 'disable', requestId: randomUUID() });
   });
   it('dispatches both kinds when eight incremental sites have continuously pending work', async () => {
     await build(from, new Date(+from + 3600000));

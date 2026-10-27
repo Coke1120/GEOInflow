@@ -45,6 +45,7 @@ import {
 } from './upstream/logs';
 import { humanPathFromEncoded } from './upstream/paths';
 import { LiekanError } from './upstream/server';
+import { timeReportQuery } from './upstream/analysis-diagnostics';
 
 const pct = (a: number, b: number): number | null => (b ? Math.round((a / b) * 10000) / 100 : null);
 const ratio = (a: number, b: number) => (b ? Math.round((a / b) * 100) / 100 : null);
@@ -142,41 +143,57 @@ export async function buildReport(
     plotFacts,
     plotLogs,
   ] = await Promise.all([
-    getHumanFacts(website.id, start, end, p.timezone, parts?.human as readonly HumanFact[]),
-    getLogFacts(
-      website.id,
-      start,
-      end,
-      p.timezone,
-      p.page,
-      p.filter,
-      p.search,
-      p.cursor,
-      p.seek,
-      parts?.logs,
-      p,
-      fullTableExport,
-      comparisonBoundary,
+    timeReportQuery('human', () =>
+      getHumanFacts(website.id, start, end, p.timezone, parts?.human as readonly HumanFact[]),
     ),
-    getSettings(website.id),
+    timeReportQuery('logs', () =>
+      getLogFacts(
+        website.id,
+        start,
+        end,
+        p.timezone,
+        p.page,
+        p.filter,
+        p.search,
+        p.cursor,
+        p.seek,
+        parts?.logs,
+        p,
+        fullTableExport,
+        comparisonBoundary,
+      ),
+    ),
+    timeReportQuery('settings', () => getSettings(website.id)),
     needed('overview', 'logs') && (!clock || now > +todayStart)
-      ? getLogToday(website.id, todayStart, new Date(Math.max(+todayStart, now)))
+      ? timeReportQuery('today-logs', () =>
+          getLogToday(website.id, todayStart, new Date(Math.max(+todayStart, now))),
+        )
       : Promise.resolve({ requests: 0, accepted: 0, abnormal: 0 }),
     needed('overview', 'conversions') && (!clock || now > +todayStart)
-      ? getHumanConversions(
-          website.id,
-          todayStart,
-          new Date(Math.max(+todayStart, now)),
-          p.timezone,
+      ? timeReportQuery('today-conversions', () =>
+          getHumanConversions(
+            website.id,
+            todayStart,
+            new Date(Math.max(+todayStart, now)),
+            p.timezone,
+          ),
         )
       : Promise.resolve(0),
-    needed('content') ? getContentImpact(website.id, start, end, p) : Promise.resolve([]),
-    needed('ai/overview') ? getMonthlyAiShare(website.id, end, p.timezone, p) : Promise.resolve([]),
+    needed('content')
+      ? timeReportQuery('content-impact', () => getContentImpact(website.id, start, end, p))
+      : Promise.resolve([]),
+    needed('ai/overview')
+      ? timeReportQuery('monthly-ai', () => getMonthlyAiShare(website.id, end, p.timezone, p))
+      : Promise.resolve([]),
     needed('overview', 'human/overview')
-      ? getHumanDays(website.id, plotStart, end, p.timezone, ['today', '24h'].includes(p.chartPeriod))
+      ? timeReportQuery('plot-human', () =>
+          getHumanDays(website.id, plotStart, end, p.timezone, ['today', '24h'].includes(p.chartPeriod)),
+        )
       : Promise.resolve({ rows: [], population: undefined }),
     needed('overview', 'human/overview')
-      ? getPlotLogs(website.id, plotStart, end, p.timezone, ['today', '24h'].includes(p.chartPeriod), p)
+      ? timeReportQuery('plot-logs', () =>
+          getPlotLogs(website.id, plotStart, end, p.timezone, ['today', '24h'].includes(p.chartPeriod), p),
+        )
       : Promise.resolve([]),
   ]);
   const plotHuman = plotFacts.rows;

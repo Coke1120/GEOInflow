@@ -1,3 +1,4 @@
+import { boundedBrowserEventsSql } from './bounded-browser-events';
 import { parseFilterValue } from '@/lib/params';
 import {
   getPostgresCountrySQL,
@@ -7,6 +8,7 @@ import {
 } from '@/lib/country';
 import { cityNameSQL, cityFilterValues } from './geography-query';
 import { getQuerySnapshot } from './query-snapshot';
+import { staticRequestExtensionPattern } from './log-content-boundary';
 import {
   analysisTransaction,
   findAnalysisVersions,
@@ -175,6 +177,71 @@ const ai = `coalesce(ai_eligible,bot_type IN('训练','搜索','用户触发'))`
 const unknown = `(coalesce(recognition_state IN('unknown','ambiguous'),false) OR (recognition_state IS NULL AND bot='其他'))`;
 const identity = `($8='all' OR ($8='verified_range' AND verification='verified_range') OR ($8='verified_identity' AND verification IN('verified_range','verified_dns','verified_edge')))`;
 const forms = `($9::text IS NULL OR product_form=$9) AND ($10::text IS NULL OR (bot_type NOT IN('训练','搜索','用户触发','传统搜索') AND coalesce(product_form,'unknown') NOT IN('workbench','personal_agent')))`;
+
+/** Today keeps its inclusive endpoints and its complete reporting-log population. */
+export async function readAnalysisLogToday(input: AnalysisVisitInput): Promise<{
+  requests: number;
+  abnormal: number;
+  coverage: { manifests: number; rawFallback: boolean };
+} | null> {
+  if (process.env.CLICKHOUSE_URL || !validWindow(input)) return null;
+  try {
+    return await readTransaction(async tx => {
+      const versions = await pinnedReadVersions(tx, input.websiteId);
+      if (!versions) return null;
+      const [result] = await tx.$queryRawUnsafe<
+        {
+          requests: string;
+          abnormal: string;
+          manifests: string;
+          raw_fallback: boolean;
+        }[]
+      >(
+        `WITH covered AS MATERIALIZED (
+         SELECT m.website_id,m.generation,m.bucket,m.bucket_end FROM liekan_analysis_manifest m
+         JOIN liekan_analysis_site s ON s.website_id=m.website_id AND s.epoch=m.epoch
+         JOIN website w ON w.website_id=s.website_id AND w.deleted_at IS NULL
+         WHERE m.website_id=$1::uuid AND s.mode='live' AND m.family='log' AND NOT $5::boolean
+          AND m.bucket>=$2::timestamptz AND m.bucket_end<=$3::timestamptz
+          AND m.bucket_end<=clock_timestamp()-interval '30 seconds'
+          AND m.bucket=date_bin(interval '5 minutes',m.bucket,timestamptz '2000-01-01Z')
+          AND m.bucket_end=date_bin(interval '5 minutes',m.bucket_end,timestamptz '2000-01-01Z')
+          AND m.versions=$4::jsonb
+          AND m.fingerprint=liekan_analysis_fingerprint(m.website_id,m.epoch,m.family,m.bucket,m.bucket_end)
+        ), ${gapRangesSql('raw_gaps', 'covered', true)}, counts AS (
+         SELECT coalesce(sum(f.requests) FILTER(WHERE NOT (f.dimensions->>'staticResource')::boolean),0) AS requests,
+          coalesce(sum(f.requests) FILTER(WHERE (f.dimensions->>'status')::int>=400),0) AS abnormal
+         FROM covered c JOIN liekan_analysis_log f ON f.website_id=c.website_id AND f.generation=c.generation
+          AND f.grain='5m' AND f.bucket>=c.bucket AND f.bucket<c.bucket_end
+         UNION ALL
+         SELECT count(*) FILTER(WHERE l.path !~* '${staticRequestExtensionPattern}'),count(*) FILTER(WHERE l.status>=400)
+         FROM raw_gaps g CROSS JOIN LATERAL (
+          SELECT l.path,l.status FROM liekan_reporting_log l
+          WHERE l.website_id=$1::uuid AND l.created_at>=g.starts AND l.created_at<g.ends OFFSET 0
+         ) l
+        ) SELECT coalesce(sum(requests),0)::text AS requests,coalesce(sum(abnormal),0)::text AS abnormal,
+         (SELECT count(*)::text FROM covered) AS manifests,
+         EXISTS(SELECT 1 FROM raw_gaps) AS raw_fallback FROM counts`,
+        input.websiteId,
+        input.startDate,
+        input.endDate,
+        JSON.stringify(versions),
+        !!input.allowRawOnly,
+      );
+      return {
+        requests: analysisSafeNumber(result.requests),
+        abnormal: analysisSafeNumber(result.abnormal),
+        coverage: {
+          manifests: analysisSafeNumber(result.manifests),
+          rawFallback: result.raw_fallback,
+        },
+      };
+    });
+  } catch (error) {
+    if (error instanceof RangeError) return null;
+    throw error;
+  }
+}
 
 /** Exact disjoint covered/raw population. Unsupported input returns null to the existing SQL path. */
 export async function readAnalysisLogRollup(
@@ -372,15 +439,15 @@ function visitConditions(filters: Record<string, string>) {
     parts.push("(dimensions->>'sessionPresent')::boolean");
   return parts.join(' AND ') || 'true';
 }
-function visitFactsSql(inclusiveEnd = true) {
-  return `${coverageSql}, ${gapRangesSql('visit_gaps', 'covered', inclusiveEnd)}, raw_scope AS MATERIALIZED (
-  SELECT r.* FROM visit_gaps g CROSS JOIN LATERAL (
+function visitFactsSql(inclusiveEnd = true, geography = true) {
+  const condition = `e.website_id=$1::uuid AND e.created_at>=$2::timestamptz AND e.created_at${inclusiveEnd ? '<=' : '<'}$3::timestamptz AND EXISTS(SELECT 1 FROM visit_gaps g WHERE e.created_at>=g.starts AND e.created_at<g.ends)`;
+  return `${coverageSql}, ${gapRangesSql('visit_gaps', 'covered', inclusiveEnd)},
+  ${boundedBrowserEventsSql(condition, { geography, environment: true, ranges: 'visit_gaps' })}, raw_scope AS MATERIALIZED (
    SELECT e.session_id,e.visit_id,e.hostname,e.dimensions,
     count(*) AS eligible_events,count(*) FILTER(WHERE e.event_type NOT IN(2,5)) AS pageviews,bool_or(e.event_type=2) AS has_custom,
     min(e.created_at) FILTER(WHERE e.event_type NOT IN(2,5)) AS min_time,max(e.created_at) FILTER(WHERE e.event_type NOT IN(2,5)) AS max_time
-   FROM (${analysisVisitRowsSql('e.website_id=$1::uuid AND e.created_at>=g.starts AND e.created_at<g.ends')}) e
-   GROUP BY e.session_id,e.visit_id,e.hostname,e.dimensions OFFSET 0
-  ) r
+   FROM (${analysisVisitRowsSql(condition, 'bounded_events', geography)}) e
+   GROUP BY e.session_id,e.visit_id,e.hostname,e.dimensions
  ), observed_facts AS MATERIALIZED (
   SELECT f.session_id,f.visit_id,f.hostname,f.dimensions,f.eligible_events,f.pageviews,f.has_custom,f.min_time,f.max_time
   FROM liekan_analysis_visit f JOIN covered c ON c.generation=f.generation AND c.website_id=f.website_id WHERE ${derivedBucketBounds}
@@ -468,7 +535,10 @@ export async function readAnalysisVisitTotals(
       const versions = await pinnedReadVersions(tx, input.websiteId);
       if (!versions || !(await hasCoveredManifest(tx, input, 'visit', versions))) return null;
       const [result] = await tx.$queryRawUnsafe<Record<keyof AnalysisVisitTotals, string>[]>(
-        `WITH ${visitFactsSql()}, visits AS (
+        `WITH ${visitFactsSql(
+          true,
+          ['country', 'region', 'city'].some(key => key in filters),
+        )}, visits AS (
          SELECT session_id,visit_id,sum(pageviews) AS pageviews,
           ${'hostname' in filters ? '(SELECT bool_or(all_facts.has_custom) FROM facts all_facts WHERE all_facts.session_id=facts.session_id AND all_facts.visit_id=facts.visit_id)' : 'bool_or(has_custom)'} AS has_custom,
           min(min_time) AS min_time,max(max_time) AS max_time

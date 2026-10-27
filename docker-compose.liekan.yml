@@ -30,6 +30,7 @@ services:
       LIEKAN_LOG_PREVIOUS_KEYS: ${LIEKAN_LOG_PREVIOUS_KEYS:-}
       CLOUDFLARE_OAUTH_CLIENT_ID: ${CLOUDFLARE_OAUTH_CLIENT_ID:-}
       CLOUDFLARE_OAUTH_CLIENT_SECRET: ${CLOUDFLARE_OAUTH_CLIENT_SECRET:-}
+      CLOUDFLARE_OAUTH_SCOPES: ${CLOUDFLARE_OAUTH_SCOPES:-zone.read logs.read logs.write}
     volumes:
       - liekan-geography:/app/managed-geo:ro
     depends_on:
@@ -40,6 +41,7 @@ services:
       interval: 15s
       timeout: 5s
       retries: 10
+      start_period: 30m
     restart: unless-stopped
   log-worker:
     image: liekan:1.2.0
