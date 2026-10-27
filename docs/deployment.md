@@ -13,7 +13,7 @@
 - 可访问容器镜像、Node 依赖和地理数据库下载源的网络。
 - 可供 Docker、构建过程、PostgreSQL 和应用使用的内存与磁盘空间。
 
-镜像固定 Node.js 22.23.3、pnpm 12.3.4。Docker 构建的 Node 堆配置为 3072 MiB，还需要为构建原生组件、Docker 虚拟机及其他服务预留内存。运行规模取决于真实日志量、数据保留范围、并发与后台构建，按自己的数据实测容量。
+镜像固定 Node.js 22.23.4、pnpm 12.3.4。Docker 构建的 Node 堆配置为 3072 MiB，还需要为构建原生组件、Docker 虚拟机及其他服务预留内存。运行规模取决于真实日志量、数据保留范围、并发与后台构建，按自己的数据实测容量。
 
 新安装使用 PostgreSQL 16 和 Redis 7.4。已有 PostgreSQL 15 实例继续保留 15。切换数据库主版本需要单独制定迁移与恢复方案。
 
@@ -61,13 +61,13 @@ docker compose -f docker-compose.liekan.yml logs --tail=100 analytics-worker
 
 日志接收与处理、统计查询与历史构建由不同后台承担。接收成功而统计尚未更新时，继续核对处理状态、队列和数据截止时间。
 
-## 初始化可选示例
+## 官方示例初始化
 
 ```sh
 docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-demo.mjs
 ```
 
-示例为“猎看官网（示例数据）”，带明确数据标识。首次导入平移时间；重复导入保持已有数据和删除状态。正式网站按 [快速开始](getting-started.md) 接入真实输入。
+Docker 首次启动在迁移后自动导入“猎看官网（示例数据）”，上面的命令可用于手动开发和显式重试。源码与镜像包含完整脱敏数据包、目录和校验清单。首次导入平移时间；重复导入保持已有数据、自定义资源和清空、删除状态。正式网站按 [快速开始](getting-started.md) 接入真实输入。
 
 ## 域名、HTTPS 与可信入口
 

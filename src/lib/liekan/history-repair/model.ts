@@ -308,23 +308,56 @@ export function includedEvent(
     verdict.classification !== 'automated' &&
     !verdict.reasons.includes('bot_check_disabled') &&
     (policy.mode !== 'strict' || verdict.classification !== 'suspected') &&
-    (!policy.allowedHostnames.length || (policy.allowedHostnames.includes(hostname) &&
-      (!context.originHostname || policy.allowedHostnames.includes(context.originHostname))))
+    (!policy.allowedHostnames.length ||
+      (policy.allowedHostnames.includes(hostname) &&
+        (!context.originHostname || policy.allowedHostnames.includes(context.originHostname))))
+  );
+}
+
+/** Matches the v5 reporting cohort; the broader includedEvent predicate describes audit coverage. */
+export function includedBrowserMetricEvent(
+  verdict: EventVerdict,
+  eventType: number,
+  hostname: string | null,
+  policy: PreviewPolicy,
+  context: {
+    originHostname?: string | null;
+    excluded?: boolean;
+    identityScope: string | null;
+    identityAvailable: boolean;
+  },
+) {
+  return (
+    verdict.classification === 'browser' &&
+    context.identityScope === 'browser' &&
+    context.identityAvailable &&
+    includedEvent(verdict, eventType, hostname, policy, context)
   );
 }
 
 /** Missing historical identity evidence remains unknown in public previews and exports. */
-export function publicRepairCounts(counts: HistoryRepairCounts): HistoryRepairCounts {
+export function publicRepairCounts(
+  counts: HistoryRepairCounts,
+  metricScope?: 'qualified-browser',
+): HistoryRepairCounts {
   const result = { ...counts };
   for (const side of ['before', 'after'] as const) {
     const missing = counts[`${side}IdentityMissingPV`];
-    const qualified = counts[`${side}QualifiedUV`] ?? (missing != null ? counts[`${side}UV`] : null);
+    const qualified =
+      counts[`${side}QualifiedUV`] ?? (missing != null ? counts[`${side}UV`] : null);
     result[`${side}QualifiedUV`] = qualified;
     result[`${side}IdentityMissingPV`] = missing ?? null;
-    result[`${side}UV`] = missing === '0' ? qualified : null;
+    result[`${side}UV`] =
+      missing === '0' || (metricScope === 'qualified-browser' && BigInt(qualified ?? '0') > 0n)
+        ? qualified
+        : null;
   }
   return result;
 }
-export function publicRepairPreview<T extends { counts: HistoryRepairCounts }>(preview: T | null): T | null {
-  return preview ? { ...preview, counts: publicRepairCounts(preview.counts) } : null;
+export function publicRepairPreview<
+  T extends { counts: HistoryRepairCounts; metricScope?: 'qualified-browser' },
+>(preview: T | null): T | null {
+  return preview
+    ? { ...preview, counts: publicRepairCounts(preview.counts, preview.metricScope) }
+    : null;
 }

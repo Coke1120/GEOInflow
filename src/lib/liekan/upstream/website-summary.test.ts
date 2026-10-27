@@ -3,17 +3,7 @@ vi.mock('./browser-population', async importOriginal => {
   return {
     ...actual,
     readBrowserPopulation: async (_id: string, start: Date, end: Date, timezone: string) =>
-      actual.populationFromRow(
-        {
-          resourceKind: 'website',
-          eligibleEvents: 5,
-          qualifiedEvents: 5,
-          eligiblePV: 5,
-          qualifiedPV: 5,
-          qualifiedVisitors: 2,
-        },
-        { startAt: +start, endAt: +end, timezone },
-      ),
+      actual.populationFromRow(mocks.population(start), { startAt: +start, endAt: +end, timezone }),
   };
 });
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -25,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   filters: vi.fn(),
   stats: vi.fn(),
   dates: vi.fn(),
+  population: vi.fn(),
 }));
 vi.mock('@/lib/auth', () => ({ checkAuth: mocks.auth }));
 vi.mock('@/lib/prisma', () => ({
@@ -55,6 +46,15 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue({ user: { id: 'user' } });
   mocks.sites.mockResolvedValue([{ id, createdAt: new Date(0) }]);
   mocks.allowed.mockResolvedValue(true);
+  mocks.population.mockReturnValue({
+    resourceKind: 'website',
+    metricScope: 'qualified-browser',
+    eligibleEvents: 5,
+    qualifiedEvents: 5,
+    eligiblePV: 5,
+    qualifiedPV: 5,
+    qualifiedVisitors: 2,
+  });
   mocks.query.mockResolvedValue([
     {
       id,
@@ -66,6 +66,79 @@ beforeEach(() => {
   ]);
 });
 afterEach(() => vi.unstubAllEnvs());
+it('keeps received historical data unavailable instead of reporting zero qualified PV', async () => {
+  mocks.population.mockReturnValue({
+    resourceKind: 'website',
+    metricScope: 'qualified-browser',
+    eligibleEvents: 83,
+    eligiblePV: 83,
+    qualifiedEvents: 0,
+    qualifiedPV: 0,
+    qualifiedVisitors: 0,
+  });
+  mocks.query.mockResolvedValue([
+    { id, current: {}, previous: {}, received: true, last_at: new Date(1234) },
+  ]);
+  const [row] = await readWebsiteSummary(new Request('http://localhost'), p);
+  expect(row).toMatchObject({
+    pageviews: null,
+    views: null,
+    visitors: null,
+    aiVisits: null,
+    received: true,
+    lastAt: new Date(1234).toISOString(),
+    population: { identity: { status: 'unavailable', eligiblePV: 83 } },
+    comparison: { pageviews: null, visitors: null, aiVisits: null },
+  });
+});
+it('retains genuine zero for an empty collection window', async () => {
+  mocks.population.mockReturnValue({
+    resourceKind: 'website',
+    metricScope: 'qualified-browser',
+    eligibleEvents: 0,
+    eligiblePV: 0,
+    qualifiedEvents: 0,
+    qualifiedPV: 0,
+    qualifiedVisitors: 0,
+  });
+  mocks.query.mockResolvedValue([
+    { id, current: {}, previous: {}, received: false, last_at: null },
+  ]);
+  const [row] = await readWebsiteSummary(new Request('http://localhost'), p);
+  expect(row).toMatchObject({ ...zero, views: 0, received: false, comparison: zero });
+});
+it('keeps the qualified subset while treating an unavailable comparison independently', async () => {
+  mocks.population.mockImplementation((start: Date) => ({
+    resourceKind: 'website',
+    metricScope: 'qualified-browser',
+    eligibleEvents: 83,
+    eligiblePV: 83,
+    qualifiedEvents: +start === p.startAt ? 4 : 0,
+    qualifiedPV: +start === p.startAt ? 4 : 0,
+    qualifiedVisitors: +start === p.startAt ? 2 : 0,
+  }));
+  const [row] = await readWebsiteSummary(new Request('http://localhost'), p);
+  expect(row).toMatchObject({
+    pageviews: 4,
+    views: 4,
+    visitors: 2,
+    aiVisits: 1,
+    population: { identity: { status: 'partial' } },
+    comparison: { pageviews: null, visitors: null, aiVisits: null },
+  });
+});
+it('preserves countable PV for legacy populations without qualified browser scope', async () => {
+  mocks.population.mockReturnValue({
+    resourceKind: 'website',
+    eligibleEvents: 83,
+    eligiblePV: 83,
+    qualifiedEvents: 0,
+    qualifiedPV: 0,
+    qualifiedVisitors: 0,
+  });
+  const [row] = await readWebsiteSummary(new Request('http://localhost'), p);
+  expect(row).toMatchObject({ pageviews: 4, views: 4, visitors: null, aiVisits: null });
+});
 it('coalesces repeated summaries and rechecks revoked access before a warm read', async () => {
   const request = new Request('http://localhost');
   const [a, b] = await Promise.all([

@@ -1,5 +1,5 @@
 import { applyReportPopulation, identityUnavailableReason } from './contracts/population-results';
-import { identityUsable } from './contracts/browser-population';
+import { identityComplete, identityUsable } from './contracts/browser-population';
 import { dashboardClock } from './upstream/dashboard-clock';
 import { getPublishedCatalog } from './crawlers/published';
 import { crawlerAiRequests, isUnknownCrawler } from './rules/population';
@@ -139,7 +139,7 @@ export async function buildReport(
     todayConversions,
     impact,
     months,
-    plotHuman,
+    plotFacts,
     plotLogs,
   ] = await Promise.all([
     getHumanFacts(website.id, start, end, p.timezone, parts?.human as readonly HumanFact[]),
@@ -174,11 +174,15 @@ export async function buildReport(
     needed('ai/overview') ? getMonthlyAiShare(website.id, end, p.timezone, p) : Promise.resolve([]),
     needed('overview', 'human/overview')
       ? getHumanDays(website.id, plotStart, end, p.timezone, ['today', '24h'].includes(p.chartPeriod))
-      : Promise.resolve([]),
+      : Promise.resolve({ rows: [], population: undefined }),
     needed('overview', 'human/overview')
       ? getPlotLogs(website.id, plotStart, end, p.timezone, ['today', '24h'].includes(p.chartPeriod), p)
       : Promise.resolve([]),
   ]);
+  const plotHuman = plotFacts.rows;
+  const trendState: DataState = !identityUsable(plotFacts.population)
+    ? 'unavailable'
+    : plotHuman.length ? 'available' : 'empty';
   const h = stringifySafe(rawHuman),
     l = stringifySafe(rawLogs);
   const halfOpen = p.crawlerMetricsVersion === 1;
@@ -212,6 +216,7 @@ export async function buildReport(
     tables: {},
     insights: [],
     meta: {
+      ...(plotFacts.population ? { trendPopulation: plotFacts.population } : {}),
       catalogVersion: getPublishedCatalog()?.version,
       ...(p.resource === 'ai/pages'
         ? {
@@ -424,7 +429,7 @@ export async function buildReport(
     path: page.path,
     humanPv: page.pv,
     aiRequests: l.latest ? (humanAiPages.get(page.path)?.requests ?? 0) : null,
-    ratio: l.latest ? ratio(humanAiPages.get(page.path)?.requests ?? 0, page.pv) : null,
+    ratio: l.latest && identityComplete(t.population) ? ratio(humanAiPages.get(page.path)?.requests ?? 0, page.pv) : null,
     bot: humanAiPages.get(page.path)?.bot ?? null,
     ...(humanAiPages.get(page.path)?.botId !== undefined && {
       botId: humanAiPages.get(page.path).botId,
@@ -637,7 +642,7 @@ export async function buildReport(
         }),
       },
     ],
-    humanState,
+    trendState,
   );
   chart(
     'h2',
@@ -955,7 +960,7 @@ export async function buildReport(
   );
   card(
     '案例页 AI/浏览 比值',
-    l.latest && catalog.size ? ratio(cases.ai, cases.human) : null,
+    l.latest && catalog.size && identityComplete(t.population) ? ratio(cases.ai, cases.human) : null,
     catalogLogState,
   );
   card(

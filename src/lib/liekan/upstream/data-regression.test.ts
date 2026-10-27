@@ -30,7 +30,7 @@ describe('read-only data regression runner', () => {
       'Asia/Shanghai',
       true,
     );
-    expect(result).toEqual([{ day: '2026-10-02', pv: 1, uv: 1, sessions: 1, bounces: 1 }]);
+    expect(result.rows).toEqual([{ day: '2026-10-02', pv: 1, uv: 1, sessions: 1, bounces: 1 }]);
     const [sql, ...params] = execute.mock.calls[0] as unknown as [string, ...unknown[]];
     expect(params).toEqual(['11111111-1111-4111-8111-111111111111', start, end, 'Asia/Shanghai']);
     const replay = readonlyFixtureSQL(sql, params);

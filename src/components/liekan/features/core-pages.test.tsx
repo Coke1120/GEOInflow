@@ -14,6 +14,11 @@ import {
 import { CorePages, FeatureAuthPage } from './CorePages';
 import { LiekanLocaleContext } from '@/lib/liekan/i18n/client';
 import { remainingFreshness, hasClientFreshness } from '@/lib/liekan/upstream/client-freshness';
+import {
+  qualifiedBrowserReason,
+  qualifiedBrowserUnavailableReason,
+} from '@/lib/liekan/contracts/population-results';
+import { translateText } from '@/lib/liekan/i18n/text';
 
 const mocks = vi.hoisted(() => ({
   context: null as any,
@@ -625,6 +630,81 @@ describe('core form flows', () => {
     expect(within(visitorCard).queryByText('0')).not.toBeInTheDocument();
     expect(within(metricCard(3)).getByText('个人 / 团队')).toBeInTheDocument();
   });
+  it.each(['zh-CN', 'en-US'] as const)(
+    'explains unavailable browser identity and preserves genuine zero (%s)',
+    locale => {
+      mocks.context.sites = [{ id: 'history', name: 'Historical site' }];
+      const population = {
+        metricScope: 'qualified-browser',
+        identity: { status: 'unavailable', qualifiedPV: 0 },
+      };
+      const missing = {
+        id: 'history',
+        pageviews: null,
+        views: null,
+        visitors: null,
+        visits: null,
+        bounces: null,
+        aiVisits: null,
+        received: true,
+        population,
+      };
+      mocks.query['website-management-stats'] = [{ ...missing, comparison: missing }];
+      mocks.query['website-management-today'] = [{ ...missing, comparison: missing }];
+      const page = () => (
+        <LiekanLocaleContext.Provider value={locale}>
+          <CorePages page="websites" />
+        </LiekanLocaleContext.Provider>
+      );
+      const { rerender } = render(page());
+      expect(
+        screen.getByText(translateText(qualifiedBrowserUnavailableReason, locale)),
+      ).toBeVisible();
+      const pvCard = document.querySelectorAll('.metric')[1] as HTMLElement;
+      expect(pvCard).toHaveTextContent(translateText('未提供', locale));
+      expect(
+        within(screen.getByText('Historical site').closest('tr')).getAllByText('—').length,
+      ).toBeGreaterThanOrEqual(9);
+      expect(screen.getByText(translateText('已收到浏览数据', locale))).toBeVisible();
+      const partial = {
+        ...missing,
+        pageviews: 4,
+        views: 4,
+        visitors: 2,
+        population: { ...population, identity: { status: 'partial', qualifiedPV: 4 } },
+      };
+      mocks.query['website-management-stats'] = [{ ...partial, comparison: missing }];
+      mocks.query['website-management-today'] = [{ ...partial, comparison: missing }];
+      rerender(page());
+      expect(screen.getByText(translateText(qualifiedBrowserReason, locale))).toBeVisible();
+      expect(
+        within(document.querySelectorAll('.metric')[1] as HTMLElement).getByText('4'),
+      ).toBeVisible();
+      const zero = {
+        ...missing,
+        pageviews: 0,
+        views: 0,
+        visitors: 0,
+        visits: 0,
+        bounces: 0,
+        aiVisits: 0,
+        received: false,
+        population: { ...population, identity: { status: 'empty', qualifiedPV: 0 } },
+      };
+      mocks.query['website-management-stats'] = [{ ...zero, comparison: zero }];
+      mocks.query['website-management-today'] = [{ ...zero, comparison: zero }];
+      rerender(page());
+      expect(
+        within(document.querySelectorAll('.metric')[1] as HTMLElement).getByText('0'),
+      ).toBeVisible();
+      expect(
+        screen.queryByText(translateText(qualifiedBrowserUnavailableReason, locale)),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(translateText(qualifiedBrowserReason, locale)),
+      ).not.toBeInTheDocument();
+    },
+  );
   it('renders the dashboard-style summary cards with previous-period comparison', () => {
     mocks.context.sites = [
       { id: 'alpha', name: 'Alpha 站' },

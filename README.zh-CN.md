@@ -103,7 +103,7 @@ flowchart LR
 sh scripts/liekan-deploy.sh
 ```
 
-脚本会生成私有 `.env` 与随机密钥，构建应用镜像，执行迁移并启动应用、日志后台、统计后台、PostgreSQL 和 Redis。默认访问：
+脚本会生成私有 `.env` 与随机密钥，构建应用镜像，执行迁移，首次安装时自动导入完整官方示例，并启动应用、日志后台、统计后台、PostgreSQL 和 Redis。默认访问：
 
 ```text
 http://127.0.0.1:3002
@@ -111,15 +111,15 @@ http://127.0.0.1:3002
 
 首次安装的初始账号为 `admin`，初始密码为 `liekan`。登录后修改密码，再按接入指南创建网站。已有自定义密码和账号在升级时保留。
 
-如需体验内置示例，待应用启动后执行：
+Docker 首次启动在迁移后自动导入官方示例。手动开发时可执行：
 
 ```sh
 docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-demo.mjs
 ```
 
-示例名称为“猎看官网（示例数据）”。它从随源码提供的已处理数据包初始化，首次导入平移时间便于查看，重复运行保留已有数据和删除状态。详情见 [默认示例说明](docs/default-demo.md)。
+示例名称为“猎看官网（示例数据）”。源码与镜像携带完整脱敏数据包、目录和校验清单，覆盖浏览、性能、收益、热力图、回放、抓取证据、内容和目标；首次导入平移时间便于查看，重复运行保留已有数据与删除、清空状态。详情见 [默认示例说明](docs/default-demo.md)。
 
-生产访问需配置域名、HTTPS 与可信反向代理。浏览 PV 可以在缺少可信 IP 入口时继续采集，UV 等身份指标需要可靠的入口证据。自动日志接入和可选 AI 分析各有独立配置要求。
+生产访问需配置域名、HTTPS 与可信反向代理。原始浏览接收情况在缺少可信 IP 入口时仍可观察；正式合格浏览 PV、UV 等指标需要可用的身份证据。自动日志接入和可选 AI 分析各有独立配置要求。
 
 [部署指南](docs/deployment.md)包含服务结构、配置、代理、备份和升级步骤；[快速开始](docs/getting-started.md)说明如何完成第一个网站的数据接入。
 
@@ -143,7 +143,7 @@ docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-de
 
 ## 开发与维护
 
-开发环境使用 Node.js **22.23.3**、pnpm **12.3.4** 和 PostgreSQL。先按 [部署指南](docs/deployment.md)准备自己的数据库与私有配置，再运行（以下使用独立开发端口 `3302`）：
+开发环境使用 Node.js **22.23.4**、pnpm **12.3.4** 和 PostgreSQL。先按 [部署指南](docs/deployment.md)准备自己的数据库与私有配置，再运行（以下使用独立开发端口 `3302`）：
 
 ```sh
 pnpm install --frozen-lockfile

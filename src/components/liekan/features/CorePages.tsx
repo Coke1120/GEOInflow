@@ -23,6 +23,11 @@ import {
 } from '@/lib/liekan/contracts/core';
 import { countOf, type FeatureEntity, numberLabel, rowsOf } from '@/lib/liekan/contracts/features';
 import { nativeMetric } from '@/lib/liekan/contracts/workspace';
+import { identityUsable } from '@/lib/liekan/contracts/browser-population';
+import {
+  qualifiedBrowserReason,
+  qualifiedBrowserUnavailableReason,
+} from '@/lib/liekan/contracts/population-results';
 import { websiteHandle } from '@/lib/liekan/website-handle';
 import type { DataState, LiekanReport } from '@/lib/liekan/contracts/report';
 import {
@@ -368,6 +373,14 @@ function Websites() {
   const stats = query.data || [];
   const todayStats = todayQuery.data || [];
   const readable = stats.filter(row => !row.error);
+  const populations = [...readable, ...todayStats.filter(row => !row.error)]
+    .map(row => row.population)
+    .filter(population => population?.metricScope === 'qualified-browser');
+  const populationNotice = populations.some(population => !identityUsable(population))
+    ? qualifiedBrowserUnavailableReason
+    : populations.some(population => population.identity.status === 'partial')
+      ? qualifiedBrowserReason
+      : null;
   const ready = !query.isPending && !query.error && Array.isArray(query.data);
   const partial = ready && readable.length < c.sites.length;
   const scope = c.route.teamId
@@ -431,6 +444,7 @@ function Websites() {
           ],
         ]}
       />
+      {populationNotice && <Notice>{i18n.text(populationNotice)}</Notice>}
       <Panel
         title={i18n.text('网站列表')}
         subtitle={i18n.text('管理{v0}中有权访问的网站。', [scope])}

@@ -1,5 +1,5 @@
 {
-  "baseline": "ec0ff50388c264ed8ce46f00967e92f7e71476ae",
+  "baseline": "559e3c607c23d2c72d9bd4f6481bda428255323c",
   "files": [
     {
       "path": ".dockerignore",
@@ -66,6 +66,17 @@
       "owner": "Liekan release maintenance",
       "constraint": "Preserve upstream behavior and protocols outside this recorded purpose: Independent Liekan verification and disable inherited official publishing targets",
       "removalCondition": "Remove when an upstream extension point provides this behavior and the registered regression checks pass"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "purpose": "Retain Liekan repository CI routing while synchronizing upstream security dependencies",
+      "tests": [
+        "pnpm liekan:verify",
+        "Liekan dedicated CI workflow review"
+      ],
+      "owner": "Liekan release maintenance",
+      "constraint": "Keep upstream-only CI scoped to its repository and retain the dedicated Liekan verification gates",
+      "removalCondition": "Remove when upstream CI supports the derivative repository verification workflow"
     },
     {
       "path": ".github/workflows/gitleaks.yml",

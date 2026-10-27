@@ -777,35 +777,33 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
       )[0].n,
     ).toBe(1);
   });
-  it('keeps the published result readable while a late event is rebuilt and atomically replaces it', async () => {
+  it('invalidates an earlier publication when late qualified evidence changes the strong version', async () => {
     const first = await read();
     if (first.ready === true) throw new Error('fixture already published');
     await finish(first.analysisJob.id);
-    await event('2026-01-01T01:02Z', false);
-    await sql(
-      "UPDATE liekan_dashboard_snapshot SET job_id=NULL,next_refresh_at=clock_timestamp()-interval '1 second' WHERE website_id=$1::uuid",
-      site,
-    );
-    const old = await read();
-    expect(old).toMatchObject({ ready: true, value: { pageviews: 1, visitors: 1 } });
-    // A distinct five-second refresh round is allowed without waiting in real time.
-    await sql(
-      "UPDATE liekan_analysis_query SET queued_at=clock_timestamp()-interval '10 seconds' WHERE id=$1::uuid",
-      first.analysisJob.id,
-    );
-    await pumpDashboardSnapshots();
-    const [pending] = await q(
-      'SELECT job_id FROM liekan_dashboard_snapshot WHERE website_id=$1::uuid',
-      site,
-    );
-    expect(pending.job_id).toEqual(expect.any(String));
-    expect(await read()).toMatchObject({ ready: false, previousResult: { pageviews: 1 } });
-    await finish(pending.job_id);
-    expect(await read()).toMatchObject({
-      ready: true,
-      snapshotState: 'ready',
-      value: { pageviews: 2 },
-    });
+    expect(await read()).toMatchObject({ ready: true, value: { pageviews: 1, visitors: 1 } });
+    await event('2026-01-01T01:02Z', true);
+    const updated = await read();
+    expect(updated.ready).toBe(false);
+    expect(updated).not.toHaveProperty('previousResult');
+    if (updated.ready === true) throw new Error('expected revised publication');
+    expect(updated.analysisJob.id).not.toBe(first.analysisJob.id);
+    await finish(updated.analysisJob.id);
+    expect(await read()).toMatchObject({ ready: true, value: { pageviews: 2, visitors: 1 } });
+  });
+  it('retains qualified publication metrics while exposing missing identity observations', async () => {
+    const first = await read();
+    if (first.ready === true) throw new Error('expected cold fixture');
+    await finish(first.analysisJob.id);
+    await event('2026-01-01T01:04Z', false);
+    await sql("UPDATE liekan_analysis_query SET queued_at=clock_timestamp()-interval '10 seconds' WHERE id=$1::uuid", first.analysisJob.id);
+    const refreshed = await read({ refresh: '1' });
+    if (refreshed.ready === true) throw new Error('expected refreshed fixture');
+    await finish(refreshed.analysisJob.id);
+    const actual = await read();
+    expect(actual).toMatchObject({ ready: true, value: { pageviews: 1, visitors: 1 } });
+    if (actual.ready !== true) throw new Error('expected published fixture');
+    expect(actual.value.population.identity).toMatchObject({ status: 'partial', eligiblePV: 2, qualifiedPV: 1, qualifiedVisitors: 1 });
   });
   it('publishes newly collected current-day events on the next thirty-second window', async () => {
     const now = Date.now();
@@ -818,7 +816,7 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
     if (first.ready === true) throw new Error('expected cold fixture');
     await finish(first.analysisJob.id);
     expect(await current()).toMatchObject({ ready: true, value: { pageviews: 1 } });
-    await event(new Date(boundary).toISOString(), false);
+    await event(new Date(boundary).toISOString(), true);
     clock.mockReturnValue(now + 30000);
     const next = await current();
     expect(next).toMatchObject({ ready: true, snapshotState: 'updating', value: { pageviews: 1 } });
@@ -828,7 +826,7 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
     );
     expect(producer.job_id).toBeTruthy();
     await finish(producer.job_id);
-    expect(await current()).toMatchObject({ ready: true, value: { pageviews: 2, visitors: null } });
+    expect(await current()).toMatchObject({ ready: true, value: { pageviews: 2, visitors: 1 } });
   });
   it('reuses a captured retention window and corrects late facts before the next window gets a new key', async context => {
     const actualNow = Date.now(),
@@ -981,18 +979,18 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
       await q('SELECT query_key FROM liekan_dashboard_snapshot WHERE website_id=$1::uuid', site),
     ).toHaveLength(0);
   });
-  it('recomputes an explicitly refreshed historical publication with its previous result retained', async () => {
+  it('recomputes an explicitly refreshed historical publication after late evidence invalidates the prior revision', async () => {
     const first = await read();
     if (first.ready === true) throw new Error('expected cold fixture');
     await finish(first.analysisJob.id);
-    await event('2026-01-01T01:03Z', false);
+    await event('2026-01-01T01:03Z', true);
     await sql(
       "UPDATE liekan_analysis_query SET queued_at=clock_timestamp()-interval '10 seconds' WHERE id=$1::uuid",
       first.analysisJob.id,
     );
     const refreshed = await read({ refresh: '1' });
     if (refreshed.ready === true) throw new Error('expected explicit computation');
-    expect(refreshed.previousResult).toMatchObject({ pageviews: 1 });
+    expect(refreshed).not.toHaveProperty('previousResult');
     await finish(refreshed.analysisJob.id);
     expect(await read()).toMatchObject({ ready: true, value: { pageviews: 2 } });
   });
@@ -1264,19 +1262,16 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
       }
     },
   );
-  it('includes changes received while a candidate was waiting for execution', async () => {
+  it('rejects a stale candidate when qualified evidence changes before execution', async () => {
     const first = await read();
     if (first.ready === true) throw new Error('fixture already published');
-    await event('2026-01-01T01:03Z', false);
-    await finish(first.analysisJob.id);
-    const [row] = await q(
-      'SELECT result,job_id,error_code FROM liekan_dashboard_snapshot WHERE website_id=$1::uuid',
-      site,
-    );
-    expect(row.job_id).toBeNull();
-    expect(row.error_code).toBeNull();
-    expect(row.result).not.toBeNull();
-    expect(await read()).toMatchObject({ ready: true, value: { pageviews: 2 } });
+    await event('2026-01-01T01:03Z', true);
+    await expect(finish(first.analysisJob.id)).rejects.toMatchObject({ status: 410 });
+    const current = await read();
+    if (current.ready === true) throw new Error('expected current revision task');
+    expect(current.analysisJob.id).not.toBe(first.analysisJob.id);
+    await finish(current.analysisJob.id);
+    expect(await read()).toMatchObject({ ready: true, value: { pageviews: 2, visitors: 1 } });
   });
   it('checks current website authority before returning a durable result', async () => {
     const first = await read();
@@ -1437,7 +1432,7 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
         site,
         new Date(at(-10000)),
       );
-      await event(at(-10000), false);
+      await event(at(-10000), true);
       const pin = async () =>
         (
           await q(

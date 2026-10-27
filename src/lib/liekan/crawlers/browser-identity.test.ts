@@ -40,9 +40,10 @@ const input = {
     samples: 2,
   },
 } as any;
-function executor(reliable: number) {
+function executor(reliable: number, qualifiedScope = false) {
   const metadata = {
     resourceKind: 'website',
+    ...(qualifiedScope ? { metricScope: 'qualified-browser' } : {}),
     eligibleEvents: 2,
     qualifiedEvents: reliable,
     eligiblePV: 2,
@@ -178,6 +179,19 @@ describe('browser identity in crawler evidence', () => {
       expect(identitySql?.includes('EXISTS(SELECT 1 FROM website_event eligible')).toBe(usable);
     },
   );
+});
+
+it('keeps partial qualified referrals usable while withholding cross-source ratios', async () => {
+  const tx = executor(1, true);
+  const outcomes = await readOutcomes(tx as any, websiteId, params, input);
+  expect(outcomes.rows[0]).toMatchObject({ visits: 1, observedVisits: 1 });
+  expect(outcomes.rows[0].ratio).toMatchObject({
+    state: 'not_comparable',
+    value: null,
+    reasonCode: 'browser_identity_unavailable',
+  });
+  const reconciliation = await readReconciliation(tx as any, websiteId, params, input);
+  expect(reconciliation.rows[0].uv).toBeNull();
 });
 
 describe('observation raw session schema through the real policy executor', () => {

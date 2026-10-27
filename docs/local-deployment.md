@@ -26,19 +26,19 @@ Next.js 构建使用两个静态生成工作进程。Docker 构建同时限制 R
 
 ## 手动开发与本地验收
 
-手动开发与验收要求 Docker Desktop、Node.js 22.23.3、pnpm 12.3.4。应用 http://127.0.0.1:3002，专用 PostgreSQL 在本机 15435，新卷 liekan_liekan-data。原 Umami 的 3001 入口和 umami_umami-db-data 卷保持独立。
+手动开发与验收要求 Docker Desktop、Node.js 22.23.4、pnpm 12.3.4。应用 http://127.0.0.1:3002，专用 PostgreSQL 在本机 15435，新卷 liekan_liekan-data。原 Umami 的 3001 入口和 umami_umami-db-data 卷保持独立。
 
 手动安装时复制 env.example 到 .env，替换随机密码与密钥，文件权限设为 0600。迁移已有 Umami 数据时沿用原 APP_SECRET 与 TWO_FACTOR_ENCRYPTION_KEY，避免既有会话、身份标识和 2FA 加密数据失配。DATABASE_URL 指向新的副本，所有备份与配置都不纳入 Git。
 
 开发时安装冻结依赖、生成 Prisma 客户端、生成 OpenAPI/SDK 并构建工作区包。先执行上游 `pnpm db:migrate`，再运行 `pnpm liekan:migrate`。`pnpm liekan:seed-demo` 从仓库内的示例数据包创建“猎看官网（示例数据）”，保持已有管理员密码。数据包可离线导入，详情见 [默认示例说明](default-demo.md)。
 
-首次安装并完成容器启动后，可在应用容器内初始化默认示例：
+Docker 首次启动会在迁移后自动导入完整官方示例。手动开发或需要显式重试初始化时，可执行：
 
 ```sh
 docker compose -f docker-compose.liekan.yml exec app node scripts/liekan-seed-demo.mjs
 ```
 
-默认示例仅在显式运行初始化命令时创建。重启和升级保留现有网站与示例删除状态。
+默认示例随源码和镜像分发完整脱敏数据包、目录与 SHA-256 清单。重启和升级保留已有数据、自定义资源、清空与删除状态，重复初始化不会重建已删除的示例。
 
 构建自动准备地理库，也可优先使用已获授权的本地 City MMDB。首次安装先运行独立数据库并完成迁移和演示站接入，再将已审查代码提交。完整验收会生成带候选 SHA 的镜像。以下升级示例要求原数据库与缓存容器正在运行且健康，仅更新应用与后台处理服务，并直接使用已验收镜像。首次安装或依赖服务需要恢复时使用上述部署脚本。
 
@@ -47,11 +47,11 @@ pnpm liekan:verify
 liekan_version=$(node -p "require('./package.json').version")
 docker tag "liekan:candidate-$(git rev-parse --short=12 HEAD)" "liekan:${liekan_version}"
 docker compose -f docker-compose.liekan.yml stop log-worker analytics-worker
-docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 app
+docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 1800 app
 docker compose -f docker-compose.liekan.yml up -d --no-build --no-deps --wait --wait-timeout 300 log-worker analytics-worker
 ```
 
-启动依次检查并应用 Umami 迁移、应用 Liekan 校验和迁移、更新 tracker 文件、启动服务器。首次安装的默认用户名为 `admin`，密码为 `liekan`。Liekan 的第 5 项迁移仅更新身份、名称、角色及密码摘要仍与上游初始管理员完全一致的有效账号，保留自定义密码、改名账号和已删除账号。迁移账本保证后续重启保留用户修改后的密码。已有账号继续使用其设置的密码。
+启动依次检查并应用 Umami 迁移、应用 Liekan 校验和迁移、初始化官方示例、准备队列、更新 tracker 文件、启动服务器。首次安装的默认用户名为 `admin`，密码为 `liekan`。Liekan 的第 5 项迁移仅更新身份、名称、角色及密码摘要仍与上游初始管理员完全一致的有效账号，保留自定义密码、改名账号和已删除账号。迁移账本保证后续重启保留用户修改后的密码。已有账号继续使用其设置的密码。
 
 完整验收的镜像构建沿用环境中的 HTTP_PROXY、HTTPS_PROXY 和 NO_PROXY；macOS 的回环代理地址转换为 Docker Desktop 的 host.docker.internal。可用 LIEKAN_DOCKER_HTTP_PROXY / LIEKAN_DOCKER_HTTPS_PROXY 单独指定容器可达的构建代理。代理值通过构建进程环境传入，命令参数只带变量名，最终应用不配置这些构建代理；官方组件来源和 HTTPS 校验保持有效。Prisma 的代理支持见 [官方说明](https://www.prisma.io/docs/orm/v7/reference/environment-variables-reference#proxy-environment-variables)。
 
@@ -97,7 +97,7 @@ services:
 
 ## 浏览器身份的可信入口
 
-浏览 PV 可以在缺少可信 IP 入口时继续采集，UV、访问次数、跳出率和身份依赖分析需要可信输入。只填写 `CLIENT_IP_HEADER` 不能验证代理边界。部署者需要记录切换时间，先比较新旧身份覆盖；历史缺失输入保持未知。
+原始浏览事件可以在缺少可信 IP 入口时继续采集。正式浏览 PV、UV、访问次数、跳出率及身份依赖分析统一使用有可信输入的浏览子集；缺失部分保留在流量质量审计中。只填写 `CLIENT_IP_HEADER` 不能验证代理边界。部署者需要记录切换时间，先比较新旧身份覆盖；历史缺失输入保持未知。
 
 直接反向代理示例：应用仅绑定本机 `127.0.0.1:3002`，配置 `CLIENT_IP_HEADER=x-liekan-client-ip`，Nginx 从实际连接建立唯一地址，并覆盖或清空客户端转发字段。
 
@@ -125,7 +125,9 @@ real_ip_recursive on;
 # location / 使用上面的覆盖配置；$remote_addr 此时为经过可信 CDN 校验的地址。
 ```
 
-验收使用隔离站点：客户端连续轮换上述伪造转发头，可信身份与官方范围结果应保持相同；直连应用端口应从外部不可达；绕过 CDN 的源站请求应被入口策略拒绝。撤掉可信入口配置后，合格 PV 继续写入，身份能力显示不足。不得把测试流量发送到真实业务站点。
+验收使用隔离站点：客户端连续轮换上述伪造转发头，可信身份与官方范围结果应保持相同；直连应用端口应从外部不可达；绕过 CDN 的源站请求应被入口策略拒绝。撤掉可信入口配置后，原始事件继续写入审计，正式浏览统计显示身份不足。不得把测试流量发送到真实业务站点。
+
+升级包含增量迁移 `056_qualified_browser_metrics.sql`。部署不会自动信任任何客户端转发头。若访客卡片全部不可用，先验证本节的代理覆盖规则，再配置入口并观察新事件的身份覆盖。已有缺失 IP/UA 的历史记录保持未知，重新部署和刷新无法重建这些输入。
 
 应用服务器仍兼容旧 tracker。爬虫范围用途更新在后台爬虫管理的升级草稿中预览并发布；应用与 worker 使用同一候选版本。回退选择保留来源、类型和自动化硬边界的兼容候选，数据库只保留增量结构。
 

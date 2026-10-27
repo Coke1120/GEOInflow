@@ -2,7 +2,7 @@ import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
 import type { CacheResource } from '../contracts/cache-manifest';
 
 export const browserCacheLimits = Object.freeze({
-  format: 'liekan-browser-v1',
+  format: 'liekan-browser-v2',
   maxAge: 7 * 86400000,
   entries: 200,
   bytes: 10 * 1024 * 1024,

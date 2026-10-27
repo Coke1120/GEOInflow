@@ -52,6 +52,7 @@ export interface LiekanReport {
   meta: {
     snapshot?: { dataThrough: number; state: 'ready' | 'updating'; intervalMs: number };
     population?: BrowserPopulation;
+    trendPopulation?: BrowserPopulation;
     catalogVersion?: string;
     crawlerPageBots?: Array<{
       botId: string | null;
@@ -187,6 +188,7 @@ export const liekanReportSchema = z.object({
       })
       .optional(),
     population: browserPopulationSchema.optional(),
+    trendPopulation: browserPopulationSchema.optional(),
     catalogVersion: z.uuid().optional(),
     crawlerPageBots: z
       .array(

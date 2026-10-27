@@ -1,5 +1,6 @@
 import { readBrowserPopulation } from './browser-population';
 import {
+  type BrowserPopulation,
   identityUsable,
   totalIdentityFields,
   unavailableFields,
@@ -67,8 +68,18 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
     Object.fromEntries(
       Object.keys(zero).map(key => [key, row?.[key] === null ? null : Number(row?.[key] ?? 0)]),
     ) as typeof zero;
+  const populationTotals = (row: any, population: BrowserPopulation) => {
+    const totals = normalize(row);
+    return identityUsable(population)
+      ? totals
+      : unavailableFields(totals, [
+          ...totalIdentityFields,
+          'aiVisits',
+          ...(population.metricScope === 'qualified-browser' ? ['pageviews'] : []),
+        ]);
+  };
   const result = await analyticsCache.read(
-    analyticsCacheKey('website-summary-browser-population-v2', [
+    analyticsCacheKey('website-summary-browser-population-v3', [
       process.env.DATABASE_URL,
       process.env.CLICKHOUSE_URL,
       p,
@@ -85,7 +96,12 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
             { startAt: p.startAt, endAt: p.endAt, timezone: p.timezone },
             site.id,
           );
-          const comparisonFilters = getCompareDate('prev', filters.startDate, filters.endDate, p.timezone);
+          const comparisonFilters = getCompareDate(
+            'prev',
+            filters.startDate,
+            filters.endDate,
+            p.timezone,
+          );
           const lifetimeFilters = await getQueryFilters(
             { startAt: +site.createdAt, endAt: Date.now() },
             site.id,
@@ -129,22 +145,17 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
           COUNT(*) FILTER(WHERE e.event_type NOT IN (2,5)) AS c,
           MIN(e.created_at) FILTER(WHERE e.event_type NOT IN (2,5)) AS first_at,
           MAX(e.created_at) FILTER(WHERE e.event_type NOT IN (2,5)) AS last_at,
-          MAX(CASE WHEN e.event_type=2 THEN 1 ELSE 0 END) AS custom
+          MAX(CASE WHEN e.event_type=2 THEN 1 ELSE 0 END) AS custom,
+          MAX(CASE WHEN e.event_type NOT IN (2,5) AND ${channelFilterColumn('e.')}='AI 搜索引荐' THEN 1 ELSE 0 END) AS ai
         FROM website_event e JOIN windows w ON e.created_at BETWEEN w.start_at AND w.end_at
         WHERE e.website_id=ANY($1::uuid[]) AND e.event_type!=5
         GROUP BY 1,2,3,4 HAVING COUNT(*) FILTER(WHERE e.event_type NOT IN (2,5))>0
-      ), ai AS (
-        SELECT e.website_id,w.label,COUNT(DISTINCT e.visit_id) AS "aiVisits"
-        FROM website_event e JOIN windows w ON e.created_at BETWEEN w.start_at AND w.end_at
-        WHERE e.website_id=ANY($1::uuid[]) AND e.event_type NOT IN (2,5)
-          AND ${channelFilterColumn('e.')}='AI 搜索引荐'
-        GROUP BY 1,2
       ), totals AS (
         SELECT v.website_id,v.label,SUM(v.c) AS pageviews,COUNT(DISTINCT v.session_id) AS visitors,COUNT(DISTINCT v.visit_id) AS visits,
           SUM(CASE WHEN v.c=1 AND v.custom=0 THEN 1 ELSE 0 END) AS bounces,SUM(FLOOR(EXTRACT(epoch FROM v.last_at-v.first_at))) AS totaltime,
-          COALESCE(a."aiVisits",0) AS "aiVisits"
-        FROM visits v LEFT JOIN ai a ON a.website_id=v.website_id AND a.label=v.label
-        GROUP BY 1,2,a."aiVisits"
+          COUNT(DISTINCT v.visit_id) FILTER(WHERE v.ai=1) AS "aiVisits"
+        FROM visits v
+        GROUP BY 1,2
       ) SELECT w.website_id AS id,
         COALESCE((SELECT row_to_json(t) FROM totals t WHERE t.website_id=w.website_id AND label='current'),'{}') AS current,
         COALESCE((SELECT row_to_json(t) FROM totals t WHERE t.website_id=w.website_id AND label='previous'),'{}') AS previous,
@@ -174,21 +185,17 @@ export async function readWebsiteSummary(request: Request, input: unknown) {
               previous.endDate,
               p.timezone,
             );
-            const currentTotals = normalize(row.current),
-              previousTotals = normalize(row.previous);
+            const currentTotals = populationTotals(row.current, population),
+              previousTotals = populationTotals(row.previous, comparisonPopulation);
             return {
               id: row.id,
-              ...(identityUsable(population)
-                ? currentTotals
-                : unavailableFields(currentTotals, [...totalIdentityFields, 'aiVisits'])),
+              ...currentTotals,
               population,
               comparison: {
-                ...(identityUsable(comparisonPopulation)
-                  ? previousTotals
-                  : unavailableFields(previousTotals, [...totalIdentityFields, 'aiVisits'])),
+                ...previousTotals,
                 population: comparisonPopulation,
               },
-              views: normalize(row.current).pageviews,
+              views: currentTotals.pageviews,
               received: row.received,
               lastAt: row.last_at?.toISOString() ?? null,
             };

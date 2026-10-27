@@ -688,14 +688,17 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
       );
       await log('2026-01-01T00:00:30Z', { path: '/eligible-manual' });
       await log('2026-01-01T00:03Z', { path: '/excluded-manual' });
-      await execute(
+      // Match collector batch bounds while retaining the complete large query fixture.
+      for (let offset = 0; offset < 4500; offset += 500) await execute(
         `INSERT INTO liekan_crawler_evidence(website_id,log_id,crawler_id,catalog_version,classification_version)
        SELECT website_id,id,CASE path WHEN '/encoded%2F0' THEN 'gptbot' WHEN '/encoded%2F1' THEN 'alternate' WHEN '/encoded%2F2' THEN 'missing' ELSE NULL END,
        CASE WHEN path='/encoded%2F3' THEN NULL WHEN method='HEAD' THEN $2::uuid ELSE $3::uuid END,'archived-fixture'
-       FROM liekan_log WHERE website_id=$1::uuid AND created_at='2026-01-01T00:02Z'`,
+       FROM liekan_log WHERE website_id=$1::uuid AND created_at='2026-01-01T00:02Z' ORDER BY id LIMIT $4::int OFFSET $5::int`,
         site,
         version,
         secondVersion,
+        500,
+        offset,
       );
       const [repair] = await q<{ id: string }[]>(
         "SELECT min(id) AS id FROM liekan_log WHERE website_id=$1::uuid AND created_at='2026-01-01T00:02Z' AND path='/encoded%2F0'",
@@ -922,7 +925,8 @@ describe.skipIf(!enabled)('exact rollups in an owned isolated PostgreSQL schema'
         JSON.stringify(value, (_, v) => (typeof v === 'bigint' ? Number(v) : v)),
       );
       if (result?.population) {
-        expect(['complete', 'empty']).toContain(result.population.identity.status);
+        expect(['complete', 'empty', 'partial']).toContain(result.population.identity.status);
+        if (result.population.identity.status === 'partial') expect(result.population).toMatchObject({ metricScope: 'qualified-browser', identity: { eligiblePV: 2, qualifiedPV: 1, qualifiedVisitors: 1 } });
         const { population: _population, ...counts } = result;
         return counts;
       }

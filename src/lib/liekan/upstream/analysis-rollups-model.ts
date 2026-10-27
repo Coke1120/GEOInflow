@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-export const ANALYSIS_ROLLUP_VERSION = 'analysis-rollups-v2';
+export const ANALYSIS_ROLLUP_VERSION = 'analysis-rollups-v3';
 export const ANALYSIS_CHUNK_SIZE = 2000;
 export const ANALYSIS_SITE_LIMIT = 1024 ** 3;
 export const ANALYSIS_GLOBAL_LIMIT = 8 * 1024 ** 3;

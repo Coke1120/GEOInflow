@@ -4958,11 +4958,14 @@ export interface components {
           eligibleEvents: number | null;
           eligiblePV: number | null;
           qualifiedPV: number | null;
+          qualifiedVersions?: string[];
           qualifiedVisitors: number | null;
           /** @enum {string} */
           status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
           versions: string[];
         };
+        /** @constant */
+        metricScope?: 'qualified-browser';
         policyRevision: string | null;
         populationVersion: string;
         range: {
@@ -5011,11 +5014,14 @@ export interface components {
           eligibleEvents: number | null;
           eligiblePV: number | null;
           qualifiedPV: number | null;
+          qualifiedVersions?: string[];
           qualifiedVisitors: number | null;
           /** @enum {string} */
           status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
           versions: string[];
         };
+        /** @constant */
+        metricScope?: 'qualified-browser';
         policyRevision: string | null;
         populationVersion: string;
         range: {
@@ -5068,11 +5074,14 @@ export interface components {
           eligibleEvents: number | null;
           eligiblePV: number | null;
           qualifiedPV: number | null;
+          qualifiedVersions?: string[];
           qualifiedVisitors: number | null;
           /** @enum {string} */
           status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
           versions: string[];
         };
+        /** @constant */
+        metricScope?: 'qualified-browser';
         policyRevision: string | null;
         populationVersion: string;
         range: {
@@ -11907,11 +11916,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -11952,11 +11964,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -14557,6 +14572,8 @@ export interface operations {
                         | 'unknown';
                     }[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   partial: boolean;
                   policy: {
                     allowedHostnames: string[];
@@ -15890,11 +15907,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -15972,11 +15992,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16028,11 +16051,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16089,11 +16115,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16171,11 +16200,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16270,11 +16302,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16330,11 +16365,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16407,11 +16445,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16464,11 +16505,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16530,11 +16574,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16588,11 +16635,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -16646,11 +16696,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -18559,11 +18612,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -18638,11 +18694,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -19009,11 +19068,14 @@ export interface operations {
                       eligibleEvents: number | null;
                       eligiblePV: number | null;
                       qualifiedPV: number | null;
+                      qualifiedVersions?: string[];
                       qualifiedVisitors: number | null;
                       /** @enum {string} */
                       status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                       versions: string[];
                     };
+                    /** @constant */
+                    metricScope?: 'qualified-browser';
                     policyRevision: string | null;
                     populationVersion: string;
                     range: {
@@ -19173,11 +19235,14 @@ export interface operations {
                       eligibleEvents: number | null;
                       eligiblePV: number | null;
                       qualifiedPV: number | null;
+                      qualifiedVersions?: string[];
                       qualifiedVisitors: number | null;
                       /** @enum {string} */
                       status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                       versions: string[];
                     };
+                    /** @constant */
+                    metricScope?: 'qualified-browser';
                     policyRevision: string | null;
                     populationVersion: string;
                     range: {
@@ -19342,11 +19407,14 @@ export interface operations {
                       eligibleEvents: number | null;
                       eligiblePV: number | null;
                       qualifiedPV: number | null;
+                      qualifiedVersions?: string[];
                       qualifiedVisitors: number | null;
                       /** @enum {string} */
                       status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                       versions: string[];
                     };
+                    /** @constant */
+                    metricScope?: 'qualified-browser';
                     policyRevision: string | null;
                     populationVersion: string;
                     range: {
@@ -19502,11 +19570,14 @@ export interface operations {
                       eligibleEvents: number | null;
                       eligiblePV: number | null;
                       qualifiedPV: number | null;
+                      qualifiedVersions?: string[];
                       qualifiedVisitors: number | null;
                       /** @enum {string} */
                       status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                       versions: string[];
                     };
+                    /** @constant */
+                    metricScope?: 'qualified-browser';
                     policyRevision: string | null;
                     populationVersion: string;
                     range: {
@@ -19878,11 +19949,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -20239,11 +20313,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -26946,11 +27023,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -27215,6 +27295,8 @@ export interface operations {
                       | 'unknown';
                   }[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 partial: boolean;
                 policy: {
                   allowedHostnames: string[];
@@ -27326,6 +27408,8 @@ export interface operations {
                       | 'unknown';
                   }[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 partial: boolean;
                 policy: {
                   allowedHostnames: string[];
@@ -27584,6 +27668,8 @@ export interface operations {
                     | 'unknown';
                 }[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               partial: boolean;
               policy: {
                 allowedHostnames: string[];
@@ -27853,6 +27939,8 @@ export interface operations {
                     | 'unknown';
                 }[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               partial: boolean;
               policy: {
                 allowedHostnames: string[];
@@ -28424,6 +28512,8 @@ export interface operations {
                     | 'unknown';
                 }[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               partial: boolean;
               policy: {
                 allowedHostnames: string[];
@@ -28695,6 +28785,8 @@ export interface operations {
                     | 'unknown';
                 }[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               partial: boolean;
               policy: {
                 allowedHostnames: string[];
@@ -29143,11 +29235,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -29383,11 +29478,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -30711,11 +30809,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -30753,6 +30854,54 @@ export interface operations {
                 };
               };
               totalLogs?: number;
+              trendPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                /** @constant */
+                metricScope?: 'qualified-browser';
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
             };
             range: {
               /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -31609,11 +31758,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -31651,6 +31803,54 @@ export interface operations {
                 };
               };
               totalLogs?: number;
+              trendPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                /** @constant */
+                metricScope?: 'qualified-browser';
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
             };
             range: {
               /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -32325,11 +32525,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -32367,6 +32570,54 @@ export interface operations {
                 };
               };
               totalLogs?: number;
+              trendPopulation?: {
+                /** @enum {string} */
+                capability: 'supported' | 'unsupported';
+                catalogVersions: string[];
+                epoch: string | null;
+                governanceProcessing?: {
+                  computedAt: string | null;
+                  errorCode: string | null;
+                  nextWindow: string | null;
+                  /** @enum {string} */
+                  state: 'observed' | 'unknown';
+                };
+                governanceRevision: string | null;
+                governanceWatermark: string | null;
+                historyActiveGeneration: string | null;
+                historyRevision: string | null;
+                identity: {
+                  coverage: number | null;
+                  eligibleEvents: number | null;
+                  eligiblePV: number | null;
+                  qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
+                  qualifiedVisitors: number | null;
+                  /** @enum {string} */
+                  status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
+                  versions: string[];
+                };
+                /** @constant */
+                metricScope?: 'qualified-browser';
+                policyRevision: string | null;
+                populationVersion: string;
+                range: {
+                  /** @description End of the date range as a Unix timestamp in milliseconds. */
+                  endAt: number;
+                  endExclusive?: boolean;
+                  /** @description Start of the date range as a Unix timestamp in milliseconds. */
+                  startAt: number;
+                  /** @description IANA time zone used to interpret dates and group results, for example America/New_York. */
+                  timezone: string;
+                };
+                resourceId?: string;
+                /** @enum {string} */
+                resourceKind: 'website' | 'link' | 'pixel' | 'unknown';
+                ruleVersions: string[];
+                /** @constant */
+                scope: 'resource-window';
+                versionSetsTruncated: boolean;
+              };
             };
             range: {
               /** @description End of the date range as a Unix timestamp in milliseconds. */
@@ -33389,11 +33640,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -33880,11 +34134,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -34372,7 +34629,7 @@ export interface operations {
               /** @description Number of visits with only one pageview. */
               bounces: number | null;
               /** @description Pageview counts for the selected period. */
-              pageviews: number;
+              pageviews: number | null;
               population?: {
                 /** @enum {string} */
                 capability: 'supported' | 'unsupported';
@@ -34394,11 +34651,14 @@ export interface operations {
                   eligibleEvents: number | null;
                   eligiblePV: number | null;
                   qualifiedPV: number | null;
+                  qualifiedVersions?: string[];
                   qualifiedVisitors: number | null;
                   /** @enum {string} */
                   status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                   versions: string[];
                 };
+                /** @constant */
+                metricScope?: 'qualified-browser';
                 policyRevision: string | null;
                 populationVersion: string;
                 range: {
@@ -34433,7 +34693,7 @@ export interface operations {
             /** @description Date and time of the most recent recorded activity. */
             lastAt: string | null;
             /** @description Pageview counts for the selected period. */
-            pageviews: number;
+            pageviews: number | null;
             population?: {
               /** @enum {string} */
               capability: 'supported' | 'unsupported';
@@ -34455,11 +34715,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -34483,7 +34746,7 @@ export interface operations {
             /** @description Total visit duration in seconds. */
             totaltime: number | null;
             /** @description Pageview counts for the selected period. */
-            views: number;
+            views: number | null;
             /** @description Unique visitor counts for the selected period. */
             visitors: number | null;
             /** @description Visit counts for the selected period. */
@@ -35298,7 +35561,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -35328,11 +35591,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -36803,7 +37069,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -36833,11 +37099,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {
@@ -36972,7 +37241,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -37025,11 +37294,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -40838,7 +41110,7 @@ export interface operations {
       /** @description Active visitor count. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -40894,7 +41166,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -41090,7 +41362,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -41420,7 +41692,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -41452,11 +41724,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -41685,7 +41960,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -41812,7 +42087,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -41927,7 +42202,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -42086,7 +42361,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -42242,7 +42517,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -42368,7 +42643,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -42497,7 +42772,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -42620,7 +42895,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -42754,7 +43029,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -42821,7 +43096,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -42948,7 +43223,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -43076,7 +43351,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -43198,7 +43473,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -43322,7 +43597,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -43448,7 +43723,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -43586,7 +43861,7 @@ export interface operations {
       /** @description A page of events. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -43708,7 +43983,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -43838,7 +44113,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -43879,11 +44154,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -43980,7 +44258,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -44061,7 +44339,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -44315,7 +44593,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -44648,7 +44926,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -44804,7 +45082,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -44942,7 +45220,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -45185,7 +45463,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -45507,7 +45785,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -45657,7 +45935,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -45837,7 +46115,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -45890,11 +46168,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -46125,7 +46406,7 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -46317,7 +46598,7 @@ export interface operations {
       /** @description Ranked rows. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -46486,7 +46767,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -46626,7 +46907,7 @@ export interface operations {
       /** @description Time series. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -46784,7 +47065,7 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -46971,7 +47252,7 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -47153,7 +47434,7 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -47295,7 +47576,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -47414,7 +47695,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -47482,11 +47763,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -47568,7 +47852,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -47638,7 +47922,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -47737,7 +48021,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -47963,7 +48247,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -48151,7 +48435,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -48289,7 +48573,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -48437,7 +48721,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -48510,11 +48794,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -48661,7 +48948,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -48747,7 +49034,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -48988,7 +49275,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -49351,7 +49638,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -49401,11 +49688,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -49546,7 +49836,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -49670,7 +49960,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -49797,7 +50087,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -49920,7 +50210,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -50048,7 +50338,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -50176,7 +50466,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -50302,7 +50592,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -50431,7 +50721,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -50569,7 +50859,7 @@ export interface operations {
       /** @description A page of sessions. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -50632,7 +50922,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -50661,11 +50951,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -50840,7 +51133,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -50923,7 +51216,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -51008,7 +51301,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -51076,11 +51369,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -51215,7 +51511,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -51252,11 +51548,14 @@ export interface operations {
                 eligibleEvents: number | null;
                 eligiblePV: number | null;
                 qualifiedPV: number | null;
+                qualifiedVersions?: string[];
                 qualifiedVisitors: number | null;
                 /** @enum {string} */
                 status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                 versions: string[];
               };
+              /** @constant */
+              metricScope?: 'qualified-browser';
               policyRevision: string | null;
               populationVersion: string;
               range: {
@@ -51397,7 +51696,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -51515,7 +51814,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -51811,7 +52110,7 @@ export interface operations {
       /** @description Summary stats with comparison. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -52098,7 +52397,7 @@ export interface operations {
       /** @description Analytics results. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -52235,7 +52534,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -52302,7 +52601,7 @@ export interface operations {
       /** @description The operation completed successfully. */
       200: {
         headers: {
-          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata. */
+          /** @description Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata. */
           'X-Liekan-Population'?: string;
           [name: string]: unknown;
         };
@@ -52332,11 +52631,14 @@ export interface operations {
                     eligibleEvents: number | null;
                     eligiblePV: number | null;
                     qualifiedPV: number | null;
+                    qualifiedVersions?: string[];
                     qualifiedVisitors: number | null;
                     /** @enum {string} */
                     status: 'complete' | 'partial' | 'unavailable' | 'empty' | 'unsupported';
                     versions: string[];
                   };
+                  /** @constant */
+                  metricScope?: 'qualified-browser';
                   policyRevision: string | null;
                   populationVersion: string;
                   range: {

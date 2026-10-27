@@ -104,7 +104,7 @@ export function applyPopulationResponseContract(
     ...response.headers,
     'X-Liekan-Population': {
       description:
-        'Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status (complete, partial, unavailable, empty, unsupported), reliable subset coverage, reporting revisions and bounded actual version sets. Identity-dependent numeric fields are null when identity is partial or unavailable. Truncation is explicit; object responses may carry the full population metadata.',
+        'Optional JSON reporting-population metadata. Contains up to four resource-window snapshots, identity status, coverage, reporting revisions and bounded version sets. With metricScope=qualified-browser all metrics use only evidence-qualified browser events; partial coverage retains that subset and excludes missing-input events. Without this scope, partial identity-dependent metrics remain null. Unavailable identity-dependent metrics are null. Truncation is explicit; object responses may carry full metadata.',
       schema: { type: 'string' },
     },
   };

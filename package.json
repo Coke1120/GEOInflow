@@ -11,9 +11,9 @@
   },
   "scripts": {
     "dev": "dotenv next dev --turbo",
-    "build": "npm-run-all check:env build:db build:ai:maintenance check:db build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker build:app",
+    "build": "npm-run-all check:env build:db build:ai:maintenance check:db build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker liekan:check-demo build:app",
     "start": "next start",
-    "build:docker": "npm-run-all build:db build:ai:maintenance build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker build:app",
+    "build:docker": "npm-run-all build:db build:ai:maintenance build:tracker build:recorder build:geo build:openapi build:packages liekan:build-worker liekan:check-demo build:app",
     "start:docker": "npm-run-all check:db update:tracker start:server",
     "start:env": "node scripts/start-env.js",
     "start:server": "node server.js",
@@ -86,7 +86,10 @@
     "liekan:ai:maintenance": "node generated/ai-maintenance.mjs",
     "test:crawler-evidence": "node tests/liekan/crawler-evidence.integration.mjs",
     "test:history-repair": "node tests/liekan/history-repair.integration.mjs",
-    "test:analytics-rollups": "node tests/liekan/analysis-rollups.integration.mjs"
+    "test:analytics-rollups": "node tests/liekan/analysis-rollups.integration.mjs",
+    "liekan:check-demo": "node scripts/liekan-check-demo.mjs",
+    "liekan:export-demo": "node scripts/liekan-export-demo.mjs",
+    "test:default-demo": "node tests/liekan/default-demo.integration.mjs"
   },
   "cacheDirectories": [
     ".next/cache"
@@ -121,7 +124,7 @@
     "debug": "^4.4.3",
     "detect-browser": "^5.2.0",
     "dotenv": "^17.4.2",
-    "echarts": "5.5.0",
+    "echarts": "6.1.0",
     "esbuild": "^0.28.2",
     "immer": "^11.1.18",
     "ip2region.js": "3.1.8",
@@ -136,7 +139,7 @@
     "lucide-react": "^1.44.0",
     "maxmind": "^5.0.7",
     "motion": "^12.43.0",
-    "next": "16.3.4",
+    "next": "16.4.2",
     "next-intl": "4.13.4",
     "node-fetch": "^3.2.8",
     "npm-run-all": "^4.1.5",
@@ -148,8 +151,8 @@
     "prop-types": "^15.8.1",
     "punycode": "^2.3.1",
     "qrcode": "^1.5.4",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "react-error-boundary": "^6.1.5",
     "react-resizable-panels": "^4.12.4",
     "react-simple-maps": "^3.0.0",
@@ -160,9 +163,9 @@
     "semver": "^7.8.5",
     "serialize-error": "^13.0.1",
     "thenby": "^1.4.1",
-    "undici": "^7.30.0",
+    "undici": "^7.30.1",
     "uuid": "^14.0.2",
-    "zod": "^4.6.2",
+    "zod": "^4.6.6",
     "zustand": "^5.0.15"
   },
   "devDependencies": {

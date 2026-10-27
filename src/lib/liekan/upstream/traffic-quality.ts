@@ -175,7 +175,8 @@ export async function qualityTotals(
       LEFT JOIN jsonb_to_recordset($10::jsonb) AS h(reported text,hostname text) ON h.reported=e.hostname
       LEFT JOIN liekan_event_environment env ON env.event_id=e.event_id AND env.website_id=e.website_id`;
     included = `(candidate.source='browser' AND e.event_type IN(1,2,5)
-      AND candidate.classification<>'automated' AND NOT('bot_check_disabled'=ANY(candidate.reasons))
+      AND candidate.classification='browser' AND env.scope='browser' AND env.identity_available
+      AND NOT('bot_check_disabled'=ANY(candidate.reasons))
       AND ($8<>'strict' OR candidate.classification<>'suspected')
       AND (cardinality($9::text[])=0 OR (COALESCE(candidate.hostname,h.hostname)=ANY($9::text[])
         AND (env.origin_hostname IS NULL OR env.origin_hostname=ANY($9::text[]))))
@@ -314,6 +315,8 @@ export async function trafficQualityAudit(websiteId: string, parameters: URLSear
         WHEN EXISTS(SELECT 1 FROM liekan_traffic_exclusion_member m JOIN liekan_traffic_exclusion x
           ON x.id=m.collection_id AND x.website_id=m.website_id LEFT JOIN liekan_log_state ls ON ls.website_id=x.website_id
           WHERE m.website_id=e.website_id AND m.event_id=e.event_id AND x.state='active' AND x.epoch=coalesce(ls.epoch,1)) THEN 'confirmed_exclusion'
+        WHEN current.classification<>'browser' THEN 'unclassified_browser'
+        WHEN env.event_id IS NULL OR env.scope<>'browser' OR NOT env.identity_available THEN 'identity_unavailable'
         ELSE 'unknown_evidence' END AS bucket
       ${joins}
       LEFT JOIN liekan_reporting_event_quality current ON current.event_id=e.event_id AND current.website_id=e.website_id

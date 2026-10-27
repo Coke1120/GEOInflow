@@ -20,7 +20,7 @@ export const websiteSummaryQuery = z
   .refine(p => p.endAt >= p.startAt, '日期范围无效');
 const totals = z.object({
   population: browserPopulationSchema.optional(),
-  pageviews: z.number(),
+  pageviews: z.number().nullable(),
   visitors: z.number().nullable(),
   visits: z.number().nullable(),
   bounces: z.number().nullable(),
@@ -30,7 +30,7 @@ const totals = z.object({
 export const websiteSummarySchema = z.array(
   totals.extend({
     id: z.uuid(),
-    views: z.number(),
+    views: z.number().nullable(),
     received: z.boolean(),
     lastAt: z.string().nullable(),
     comparison: totals,

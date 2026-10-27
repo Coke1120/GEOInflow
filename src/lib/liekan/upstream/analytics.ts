@@ -381,10 +381,13 @@ export async function getHumanDays(
     const detail = await readBrowserDetailFacts(id, start, end, timezone, ['daily'], { hour });
     const rows = detail?.daily ?? (await query(cte + humanBinsSql(hour), id, start, end, timezone));
     const population = await readBrowserPopulation(id, start, end, timezone);
-    return identityUsable(population)
-      ? rows
-      : rows.map(row =>
-          unavailableFields(row, ['uv', 'sessions', 'duration', 'bounces', 'conversions']),
-        );
+    return {
+      population,
+      rows: identityUsable(population)
+        ? rows
+        : rows.map(row =>
+            unavailableFields(row, ['uv', 'sessions', 'duration', 'bounces', 'conversions']),
+          ),
+    };
   });
 }

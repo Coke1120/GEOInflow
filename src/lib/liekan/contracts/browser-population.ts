@@ -1,8 +1,11 @@
 import { z } from 'zod';
 
+export const CURRENT_BROWSER_IDENTITY_VERSION = 'cookieless-trusted-input-v4';
+
 export const browserPopulationSchema = z.object({
   resourceId: z.string().optional(),
   populationVersion: z.string(),
+  metricScope: z.literal('qualified-browser').optional(),
   resourceKind: z.enum(['website', 'link', 'pixel', 'unknown']),
   capability: z.enum(['supported', 'unsupported']),
   scope: z.literal('resource-window'),
@@ -28,6 +31,7 @@ export const browserPopulationSchema = z.object({
     qualifiedVisitors: z.number().int().nonnegative().nullable(),
     coverage: z.number().min(0).max(1).nullable(),
     versions: z.array(z.string()),
+    qualifiedVersions: z.array(z.string()).optional(),
   }),
   ruleVersions: z.array(z.string()),
   catalogVersions: z.array(z.string()),
@@ -41,8 +45,26 @@ export const browserPopulationSchema = z.object({
 });
 export type BrowserPopulation = z.infer<typeof browserPopulationSchema>;
 
-export function identityUsable(population?: BrowserPopulation | null): boolean {
+export function identityEncodingChanged(population?: BrowserPopulation | null): boolean {
+  const versions = population?.identity.qualifiedVersions || [];
+  return (
+    versions.includes(CURRENT_BROWSER_IDENTITY_VERSION) &&
+    versions.some(version => version !== CURRENT_BROWSER_IDENTITY_VERSION)
+  );
+}
+
+/** Cross-source comparisons require coverage of the complete browser population. */
+export function identityComplete(population?: BrowserPopulation | null): boolean {
   return !population || ['complete', 'empty', 'unsupported'].includes(population.identity.status);
+}
+
+export function identityUsable(population?: BrowserPopulation | null): boolean {
+  return (
+    identityComplete(population) ||
+    (population.metricScope === 'qualified-browser' &&
+      population.identity.status === 'partial' &&
+      (population.identity.qualifiedPV ?? 0) > 0)
+  );
 }
 
 /** Known visitor-derived fields. Callers select fields from their own metric contract. */
