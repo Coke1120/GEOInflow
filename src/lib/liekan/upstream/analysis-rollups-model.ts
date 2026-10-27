@@ -1,9 +1,24 @@
 import { createHash } from 'node:crypto';
 
-export const ANALYSIS_ROLLUP_VERSION = 'analysis-rollups-v3';
+export const ANALYSIS_ROLLUP_VERSION = 'analysis-rollups-v4';
 export const ANALYSIS_CHUNK_SIZE = 2000;
 export const ANALYSIS_SITE_LIMIT = 1024 ** 3;
 export const ANALYSIS_GLOBAL_LIMIT = 8 * 1024 ** 3;
+/** Keep today's short recovery units ahead of retained history within each site. */
+export const analysisBuildPrioritySql = `CASE
+ WHEN b.actor_id IS NULL AND NOT b.automatic_history
+  AND coalesce((b.checkpoint->>'hour')::timestamptz,b.range_start)>=clock_timestamp()-interval '26 hours' THEN 0
+ WHEN b.actor_id IS NOT NULL THEN 1
+ WHEN NOT b.automatic_history THEN 2 ELSE 3 END,
+ CASE WHEN b.actor_id IS NULL AND NOT b.automatic_history THEN b.range_end END DESC`;
+/** Recovery pumping and owned-unit release use the same runnable demand boundaries. */
+export const analysisBuildWaitingSql = {
+  incremental: `(SELECT min(b.updated_at) FROM liekan_analysis_build b JOIN liekan_analysis_site s ON s.website_id=b.website_id AND s.epoch=b.epoch
+    WHERE s.mode='live' AND (b.actor_id IS NULL AND NOT b.automatic_history) AND b.status IN('queued','running') AND b.next_attempt_at<=clock_timestamp() AND (b.lease_until IS NULL OR b.lease_until<=clock_timestamp()))`,
+  history: `(SELECT min(b.created_at) FROM liekan_analysis_build b JOIN liekan_analysis_site s ON s.website_id=b.website_id AND s.epoch=b.epoch
+    WHERE s.mode='live' AND (b.actor_id IS NOT NULL OR b.automatic_history) AND b.status IN('queued','running') AND b.next_attempt_at<=clock_timestamp() AND (b.lease_until IS NULL OR b.lease_until<=clock_timestamp())
+    AND NOT EXISTS(SELECT 1 FROM liekan_history_repair_run WHERE status IN('queued','scanning','preparing','running','validating')))`,
+};
 export type AnalysisFamily = 'log' | 'visit';
 export type AnalysisBuildStatus =
   | 'queued'

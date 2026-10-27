@@ -18,7 +18,12 @@ import {
 } from './cache-context';
 import { withAnalysisPermit } from './analysis-background';
 import { analysisPermitTable } from './analysis-permit-context';
-import { pauseIdleDashboardRetries } from './dashboard-demand';
+import {
+  analysisForegroundDemandSql,
+  dashboardAnalysisWorkSql,
+  dashboardRunnableHeadSql,
+  pauseIdleDashboardRetries,
+} from './dashboard-demand';
 import {
   analysisDigest,
   decodeAnalysisEnvelope,
@@ -29,10 +34,12 @@ import {
   ANALYSIS_QUERY_QUEUE,
   ANALYSIS_RESULT_FORMAT,
   liveAnalysisTargets,
+  analysisAttemptPolicy,
 } from './analysis-query-model';
 import { statisticsCacheTtl } from './cache-policy';
 import { pageReportParts } from '../contracts/page-report';
 import { LiekanError } from './errors';
+import { analysisAttemptDiagnostics, noteAnalysisDelivery } from './analysis-diagnostics';
 
 type Row = {
   id: string;
@@ -51,6 +58,7 @@ type Row = {
   result_bytes: number;
   queued_at: Date;
   started_at: Date | null;
+  next_attempt_at: Date;
   completed_at: Date | null;
   generated_at: Date | null;
   expires_at: Date | null;
@@ -381,9 +389,11 @@ export async function pumpAnalysisQueries(boss: Pick<PgBoss, 'send' | 'update'>)
       `DELETE FROM liekan_analysis_query WHERE id IN(SELECT id FROM(SELECT id,row_number() OVER(PARTITION BY website_id ORDER BY sequence DESC) AS rank FROM liekan_analysis_query WHERE status='ready') r WHERE rank>20)`,
     );
     return tx.$queryRawUnsafe<Row[]>(
-      `SELECT q.*,NOT EXISTS(SELECT 1 FROM liekan_dashboard_snapshot d WHERE d.job_id=q.id)
-        OR EXISTS(SELECT 1 FROM liekan_dashboard_snapshot d WHERE d.job_id=q.id AND d.last_read_at>clock_timestamp()-interval '2 minutes') AS foreground
-       FROM liekan_analysis_query q WHERE status='queued' AND next_attempt_at<=clock_timestamp() ORDER BY queued_at LIMIT 32`,
+      `SELECT q.*,${analysisForegroundDemandSql} AS foreground
+       FROM liekan_analysis_query q WHERE status='queued' AND next_attempt_at<=clock_timestamp()
+       AND q.retention_until>clock_timestamp()
+       AND (NOT ${dashboardAnalysisWorkSql} OR ${dashboardRunnableHeadSql})
+       ORDER BY foreground DESC,q.queued_at,q.sequence LIMIT 32`,
     );
   });
   for (const row of rows) await handoff(row, boss);
@@ -424,65 +434,86 @@ async function handoff(row: Row, boss: Pick<PgBoss, 'send' | 'update'>) {
 export async function dispatchAnalysisQuery(id: string, boss: Pick<PgBoss, 'send' | 'update'>) {
   const [row] = await analysisTransaction(tx =>
     tx.$queryRawUnsafe<Row[]>(
-      `SELECT q.*,NOT EXISTS(SELECT 1 FROM liekan_dashboard_snapshot d WHERE d.job_id=q.id)
-     OR EXISTS(SELECT 1 FROM liekan_dashboard_snapshot d WHERE d.job_id=q.id
-       AND d.last_read_at>clock_timestamp()-interval '2 minutes') AS foreground
-     FROM liekan_analysis_query q WHERE id=$1::uuid AND status='queued' AND next_attempt_at<=clock_timestamp()`,
+      `SELECT q.*,${analysisForegroundDemandSql} AS foreground
+     FROM liekan_analysis_query q WHERE id=$1::uuid AND status='queued' AND next_attempt_at<=clock_timestamp()
+     AND q.retention_until>clock_timestamp()`,
       id,
     ),
   );
   if (row) await handoff(row, boss);
 }
+async function foregroundDeliveryPending(id: string) {
+  const rows = await analysisTransaction(tx =>
+    tx.$queryRawUnsafe<any[]>(
+      `SELECT 1 FROM liekan_analysis_query q WHERE id=$1::uuid AND status='queued'
+       AND next_attempt_at<=clock_timestamp() AND q.retention_until>clock_timestamp()
+       AND ${analysisForegroundDemandSql}`,
+      id,
+    ),
+  );
+  return rows.length > 0;
+}
 export async function processAnalysisQuery(id: string) {
   const candidate = await analysisTransaction(async tx => {
     await pauseIdleDashboardRetries(tx);
     const [row] = await tx.$queryRawUnsafe<Row[]>(
-      `SELECT q.*,NOT EXISTS(SELECT 1 FROM liekan_dashboard_snapshot d WHERE d.job_id=q.id)
-       OR EXISTS(SELECT 1 FROM liekan_dashboard_snapshot d WHERE d.job_id=q.id
-         AND d.last_read_at>clock_timestamp()-interval '2 minutes') AS foreground
-       FROM liekan_analysis_query q WHERE id=$1::uuid AND status='queued' AND next_attempt_at<=clock_timestamp()`,
+      `SELECT q.*,${analysisForegroundDemandSql} AS foreground
+       FROM liekan_analysis_query q WHERE id=$1::uuid AND status='queued' AND next_attempt_at<=clock_timestamp()
+       AND q.retention_until>clock_timestamp()
+       AND (NOT ${dashboardAnalysisWorkSql} OR ${dashboardRunnableHeadSql})`,
       id,
     );
     return row;
   });
-  if (!candidate) return { acquired: false as const, value: undefined, retryDelivery: false };
-  const shortAttempt = candidate.attempts === 0 && liveAnalysisTargets.includes(candidate.target);
+  if (!candidate)
+    return {
+      acquired: false as const,
+      value: undefined,
+      retryDelivery: await foregroundDeliveryPending(id),
+    };
+  const policy = analysisAttemptPolicy(candidate);
   // Unviewed prewarming retains low queue priority and the shared heavy slot.
   const foregroundDemand = candidate.foreground !== false;
-  const dashboardLane = shortAttempt && foregroundDemand;
-  const result = await withAnalysisPermit(
-    dashboardLane ? 'dashboard' : 'interactive',
-    async (owned, lease) => {
-      const row = await analysisTransaction(async tx => {
-        const [row] = await tx.$queryRawUnsafe<Row[]>(
-          `UPDATE liekan_analysis_query SET status='running',started_at=clock_timestamp(),lease_token=$2::uuid,
+  let claimed = false;
+  const result = await withAnalysisPermit(policy.lane, async (owned, lease) => {
+    const row = await analysisTransaction(async tx => {
+      const [row] = await tx.$queryRawUnsafe<Row[]>(
+        `UPDATE liekan_analysis_query q SET status='running',started_at=clock_timestamp(),lease_token=$2::uuid,
        lease_until=clock_timestamp()+interval '90 seconds',attempts=attempts+1,updated_at=clock_timestamp()
        WHERE id=$1::uuid AND status='queued' AND next_attempt_at<=clock_timestamp()
-       AND (attempts=0 AND target=ANY($4::text[]))=$3::boolean RETURNING *`,
-          id,
-          randomUUID(),
-          shortAttempt,
-          liveAnalysisTargets,
+       AND q.retention_until>clock_timestamp()
+       AND attempts=$3::int AND ${analysisForegroundDemandSql}=$4::boolean
+       AND (NOT ${dashboardAnalysisWorkSql} OR ${dashboardRunnableHeadSql}) RETURNING q.*`,
+        id,
+        randomUUID(),
+        candidate.attempts,
+        foregroundDemand,
+      );
+      return row;
+    });
+    if (!row) return;
+    claimed = true;
+    // started_at belongs to this claim. Retry wait starts at eligibility, with backoff excluded.
+    const diagnostics = analysisAttemptDiagnostics(row, row.next_attempt_at);
+    let failure: unknown;
+    let recoveryFailed = false;
+    try {
+      return await withPublishedRegistry(async () => {
+        const actor = { id: row.actor_id, role: '' };
+        const allowed = () =>
+          analysisTransaction(async tx => {
+            const s = await state(tx, row.website_id, actor);
+            return s.strong === row.strong_version && String(s.epoch) === String(row.epoch);
+          });
+        if (!(await allowed())) throw new LiekanError('统计条件已变化', 410);
+        const { dashboardJobClock, publishDashboardSnapshot } = await import(
+          './dashboard-snapshots'
         );
-        return row;
-      });
-      if (!row) return;
-      try {
-        return await withPublishedRegistry(async () => {
-          const actor = { id: row.actor_id, role: '' };
-          const allowed = () =>
-            analysisTransaction(async tx => {
-              const s = await state(tx, row.website_id, actor);
-              return s.strong === row.strong_version && String(s.epoch) === String(row.epoch);
-            });
-          if (!(await allowed())) throw new LiekanError('统计条件已变化', 410);
-          const { dashboardJobClock, publishDashboardSnapshot } = await import(
-            './dashboard-snapshots'
-          );
-          const { withDashboardClock } = await import('./dashboard-clock');
-          const cutoff = await analysisTransaction(tx => dashboardJobClock(tx, row.id));
-          const started = Date.now();
-          const compute = (refresh: boolean) =>
+        const { withDashboardClock } = await import('./dashboard-clock');
+        const cutoff = await analysisTransaction(tx => dashboardJobClock(tx, row.id));
+        const started = Date.now();
+        const compute = (refresh: boolean) =>
+          diagnostics.compute(() =>
             analyticsWorkerContext(
               row.actor_id,
               { private: true },
@@ -492,29 +523,34 @@ export async function processAnalysisQuery(id: string) {
                   captureBrowserPopulations(() =>
                     executeAnalysisQuery(row.website_id, actor, row.target, row.parameters),
                   );
-                const result = await (cutoff === undefined
-                  ? execute()
-                  : withDashboardClock(cutoff, execute));
-                return { ...result, freshness: [...currentCacheContext().results] };
+                try {
+                  const result = await (cutoff === undefined
+                    ? execute()
+                    : withDashboardClock(cutoff, execute));
+                  return { ...result, freshness: [...currentCacheContext().results] };
+                } finally {
+                  diagnostics.sources(currentCacheContext().results);
+                }
               },
               {
                 kind: 'interactive',
                 refresh,
-                deadline:
-                  started + (shortAttempt || row.target === 'native:heatmaps' ? 10000 : 60000),
+                deadline: started + policy.budgetMs,
                 reauthorize: allowed,
               },
-            );
-          let result = await compute(row.forced);
-          // A short-lived input cache can expire while a later query finishes. Recompute once within the same deadline.
-          if (result.freshness.some(item => item.expiresAt <= Date.now() + 5000))
-            result = await compute(true);
-          if (result.freshness.some(item => item.expiresAt <= Date.now()))
-            throw new LiekanError('统计来源结果已过期，请重新计算', 503, 'analysis-source-expired');
-          // Native responses are projected through their existing JSON representation.
-          const encoded = encodeAnalysisEnvelope(result.value, result.populations, row.website_id);
-          if (!owned()) throw new LiekanError('后台计算租约失效', 410);
-          await analysisTransaction(async tx => {
+            ),
+          );
+        let result = await compute(row.forced);
+        // A short-lived input cache can expire while a later query finishes. Recompute once within the same deadline.
+        if (result.freshness.some(item => item.expiresAt <= Date.now() + 5000))
+          result = await compute(true);
+        if (result.freshness.some(item => item.expiresAt <= Date.now()))
+          throw new LiekanError('统计来源结果已过期，请重新计算', 503, 'analysis-source-expired');
+        // Native responses are projected through their existing JSON representation.
+        const encoded = encodeAnalysisEnvelope(result.value, result.populations, row.website_id);
+        if (!owned()) throw new LiekanError('后台计算租约失效', 410);
+        const publish = () =>
+          analysisTransaction(async tx => {
             const [permit] = await tx.$queryRawUnsafe(
               `SELECT id FROM ${analysisPermitTable(lease)} WHERE id AND token=$1::uuid AND epoch=$2::bigint AND lease_until>clock_timestamp() FOR SHARE`,
               lease.token,
@@ -590,10 +626,13 @@ export async function processAnalysisQuery(id: string) {
               row.website_id,
             );
           });
-        }, row.catalog_version || undefined);
-      } catch (error) {
-        const status = error instanceof LiekanError ? error.status : 500;
-        const code = error instanceof LiekanError ? error.code : 'analysis-compute-failed';
+        await diagnostics.publish(publish);
+      }, row.catalog_version || undefined);
+    } catch (error) {
+      failure = error || new Error('analysis-compute-failed');
+      const status = error instanceof LiekanError ? error.status : 500;
+      const code = error instanceof LiekanError ? error.code : 'analysis-compute-failed';
+      try {
         await analysisTransaction(async tx => {
           await tx.$executeRawUnsafe(
             `UPDATE liekan_analysis_query SET status=CASE WHEN $3=410 OR $3 IN(401,403,404) THEN 'invalidated'
@@ -607,22 +646,51 @@ export async function processAnalysisQuery(id: string) {
           );
           await pauseIdleDashboardRetries(tx);
         });
-        return error instanceof Error ? error : new Error('analysis-compute-failed');
+      } catch (recoveryError) {
+        recoveryFailed = true;
+        throw recoveryError;
       }
-    },
-  );
-  return { ...result, retryDelivery: foregroundDemand && !result.acquired };
+      return error instanceof Error ? error : new Error('analysis-compute-failed');
+    } finally {
+      diagnostics.finish(failure, recoveryFailed);
+    }
+  });
+  // Candidate/head and claim races leave eligible foreground demand on the same bounded delivery.
+  if (!result.acquired || !claimed)
+    return {
+      acquired: false as const,
+      value: undefined,
+      retryDelivery: await foregroundDeliveryPending(id),
+    };
+  return { ...result, retryDelivery: false, wakeDashboardHead: policy.lane === 'dashboard' };
 }
 
 /** A contended delivery yields its queue priority while durable computation retries keep their limits. */
 export async function processAnalysisQueryDelivery(
-  job: JobAttempt & { data: { id: string } },
-  boss: Pick<PgBoss, 'fail' | 'update'>,
+  job: JobAttempt & { data: { id: string }; retryLimit?: number },
+  boss: Pick<PgBoss, 'fail' | 'update' | 'send'>,
 ) {
   const result = await processAnalysisQuery(job.data.id);
+  noteAnalysisDelivery(job, result.acquired, result.retryDelivery);
   if ('retryDelivery' in result && result.retryDelivery) {
     const failed = await boss.fail(ANALYSIS_QUERY_QUEUE, job, new Error('analysis-permit-busy'));
     if ('affected' in failed && failed.affected === 1)
       await boss.update(ANALYSIS_QUERY_QUEUE, undefined, { id: job.id, priority: 0 });
+  }
+  if (result.acquired && result.wakeDashboardHead && result.value === undefined) {
+    try {
+      const [head] = await analysisTransaction(tx =>
+        tx.$queryRawUnsafe<Row[]>(
+          `SELECT q.*,true AS foreground FROM liekan_analysis_query q
+           WHERE q.status='queued' AND q.next_attempt_at<=clock_timestamp()
+           AND q.retention_until>clock_timestamp()
+           AND ${dashboardAnalysisWorkSql} AND ${dashboardRunnableHeadSql}
+           ORDER BY q.queued_at,q.sequence LIMIT 1`,
+        ),
+      );
+      if (head) await handoff(head, boss);
+    } catch {
+      // A completed computation stays published; the recovery pump retains the pending head.
+    }
   }
 }

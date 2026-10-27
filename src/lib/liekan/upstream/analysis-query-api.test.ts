@@ -9,6 +9,7 @@ const m = vi.hoisted(() => ({
   fast: vi.fn(),
   dispatch: vi.fn(),
   queue: vi.fn(),
+  refreshJob: vi.fn(),
 }));
 vi.mock('./crawler-maintenance', () => ({ authenticateCrawlerMaintenance: m.authenticate }));
 vi.mock('./server', () => ({ authorize: m.authorize }));
@@ -18,7 +19,10 @@ vi.mock('./analysis-queries', () => ({
   requestAnalysisQuery: m.request,
   readAnalysisQuery: m.read,
 }));
-vi.mock('./dashboard-snapshots', () => ({ requestDashboardSnapshot: m.request }));
+vi.mock('./dashboard-snapshots', () => ({
+  requestDashboardSnapshot: m.request,
+  dashboardRefreshJobId: m.refreshJob,
+}));
 vi.mock('./page-report', () => ({ peekPageReport: m.peek }));
 vi.mock('./analysis-fast-read', () => ({ tryFastAnalysis: m.fast }));
 import {
@@ -88,6 +92,48 @@ it('returns a published snapshot without running foreground aggregation', async 
   expect(response.headers.get('X-Liekan-Snapshot-State')).toBe('ready');
   expect(m.peek).not.toHaveBeenCalled();
   expect(m.fast).not.toHaveBeenCalled();
+  expect(m.dispatch).not.toHaveBeenCalled();
+});
+it('hands off a committed warm refresh while returning the published HTTP DTO', async () => {
+  const value = { meta: { canManage: false }, pageviews: 7 };
+  const published = {
+    ready: true,
+    value,
+    generatedAt: 1,
+    expiresAt: 2,
+    dataThrough: 1,
+    snapshotState: 'updating',
+  };
+  m.request.mockResolvedValue(published);
+  m.refreshJob.mockReturnValue(id);
+  const response = await asyncAnalysisResponse(request(), site, 'feature:page-report');
+  expect(response.status).toBe(200);
+  expect(m.refreshJob).toHaveBeenCalledWith(published);
+  expect(m.dispatch).toHaveBeenCalledWith(id, undefined);
+  expect(await response.json()).toEqual(value);
+  expect(JSON.stringify([...response.headers])).not.toContain(id);
+});
+it('keeps a warm published response available when early handoff fails', async () => {
+  m.request.mockResolvedValue({
+    ready: true,
+    value: { pageviews: 7 },
+    generatedAt: 1,
+    expiresAt: 2,
+  });
+  m.refreshJob.mockReturnValue(id);
+  m.queue.mockRejectedValue(new Error('synthetic warm queue unavailable'));
+  const response = await asyncAnalysisResponse(request(), site, 'feature:page-report');
+  expect(response.status).toBe(200);
+  expect(await response.json()).toEqual({ pageviews: 7 });
+  expect(m.queue).toHaveBeenCalledOnce();
+});
+it('rejects a warm read before requesting or handing off work when website authority fails', async () => {
+  m.authorize.mockRejectedValue(new Error('website access revoked'));
+  await expect(asyncAnalysisResponse(request(), site, 'feature:page-report')).rejects.toThrow(
+    'website access revoked',
+  );
+  expect(m.request).not.toHaveBeenCalled();
+  expect(m.dispatch).not.toHaveBeenCalled();
 });
 it('keeps a ready status separate from fetching the result and rejects malformed job IDs', async () => {
   m.read.mockResolvedValue({ ready: false, analysisJob: { id, status: 'ready' } });
@@ -147,26 +193,38 @@ it('retains the durable handle when immediate queue handoff is unavailable', asy
   expect((await response.json()).analysisJob.id).toBe(id);
 });
 
-it('returns a committed handle when queue setup is stalled and coalesces handoff retries', async () => {
-  vi.useFakeTimers();
-  let release: (value?: any) => void;
-  m.queue.mockImplementation(
-    () =>
-      new Promise(resolve => {
-        release = resolve;
-      }),
-  );
-  try {
-    const first = asyncAnalysisResponse(request(), site, 'feature:page-report');
-    await vi.advanceTimersByTimeAsync(151);
-    expect((await first).status).toBe(202);
-    const second = asyncAnalysisResponse(request(), site, 'feature:page-report');
-    await vi.advanceTimersByTimeAsync(151);
-    expect((await second).status).toBe(202);
-    expect(m.queue).toHaveBeenCalledTimes(1);
-  } finally {
-    release?.();
-    await vi.advanceTimersByTimeAsync(0);
-    vi.useRealTimers();
-  }
-});
+it.each([false, true])(
+  'returns committed data when queue setup stalls and coalesces warm=%s handoffs',
+  async warm => {
+    vi.useFakeTimers();
+    if (warm) {
+      m.request.mockResolvedValue({
+        ready: true,
+        value: { pageviews: 7 },
+        generatedAt: 1,
+        expiresAt: 2,
+      });
+      m.refreshJob.mockReturnValue(id);
+    }
+    let release: (value?: any) => void;
+    m.queue.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          release = resolve;
+        }),
+    );
+    try {
+      const first = asyncAnalysisResponse(request(), site, 'feature:page-report');
+      await vi.advanceTimersByTimeAsync(151);
+      expect((await first).status).toBe(warm ? 200 : 202);
+      const second = asyncAnalysisResponse(request(), site, 'feature:page-report');
+      await vi.advanceTimersByTimeAsync(151);
+      expect((await second).status).toBe(warm ? 200 : 202);
+      expect(m.queue).toHaveBeenCalledTimes(1);
+    } finally {
+      release?.();
+      await vi.advanceTimersByTimeAsync(0);
+      vi.useRealTimers();
+    }
+  },
+);

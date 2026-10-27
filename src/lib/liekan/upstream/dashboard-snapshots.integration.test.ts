@@ -21,6 +21,15 @@ import { analysisCapacity, analysisTransaction } from './analysis-rollups-db';
 import { withPublishedRegistry } from './crawler-registry-context';
 import { withAnalysisPermit } from './analysis-background';
 import { ANALYSIS_QUERY_QUEUE } from './analysis-query-model';
+import { pageReportParts } from '../contracts/page-report';
+
+const warmResources = [
+  'overview',
+  'human/overview',
+  ...Object.keys(pageReportParts).filter(
+    resource => !['overview', 'human/overview', 'logs', 'human/keywords'].includes(resource),
+  ),
+];
 
 const enabled = process.env.LIEKAN_ANALYSIS_ROLLUPS_TEST === '1';
 const actor = { id: randomUUID(), role: 'user' };
@@ -410,7 +419,11 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
       site,
     );
     const seeded: any[] = [];
-    for (let pass = 0; pass < 3; pass++) {
+    for (
+      let pass = 0;
+      pass < warmResources.length + warmResources.indexOf('ai/pages') + 1;
+      pass++
+    ) {
       await seedDashboardSnapshots();
       const [task] = await q(
         "SELECT id,parameters FROM liekan_analysis_query WHERE website_id=$1::uuid AND status='queued'",
@@ -422,14 +435,14 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
     }
     const ranges = dashboardWarmRanges('Asia/Shanghai', captured);
     for (let index = 0; index < 2; index++) {
-      expect(seeded[index]).toMatchObject({
+      expect(seeded.filter(parameters => parameters.resource === 'ai/pages')[index]).toMatchObject({
         resource: 'ai/pages',
         startAt: ranges[index].startAt,
         endAt: ranges[index].endAt + 1,
       });
     }
     const [before] = await q(
-      "SELECT query_key,generated_at FROM liekan_dashboard_snapshot WHERE website_id=$1::uuid AND parameters->>'startAt'=$2",
+      "SELECT query_key,generated_at FROM liekan_dashboard_snapshot WHERE website_id=$1::uuid AND parameters->>'startAt'=$2 AND parameters->>'resource'='ai/pages'",
       site,
       String(ranges[1].startAt),
     );
@@ -490,7 +503,7 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
         )
       )[0],
     ).toBeDefined();
-  });
+  }, 20000);
   it('parks unviewed old selections and resumes their correction fence on a reader return', async () => {
     await sql("UPDATE liekan_analysis_site SET mode='disabled' WHERE website_id<>$1::uuid", site);
     const first = await read();
@@ -520,7 +533,7 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
     await finish(resumed.analysisJob.id);
     expect(await read()).toMatchObject({ ready: true, value: { pageviews: 2 } });
   });
-  it('replaces unviewed prior-day seeds with midnight Today and seven-day selections', async () => {
+  it('replaces unviewed prior-day seeds with the new day overview selections', async () => {
     await sql("UPDATE liekan_analysis_site SET mode='disabled' WHERE website_id<>$1::uuid", site);
     const { dashboardWarmRanges } = await import('./dashboard-snapshot-model');
     const captured =
@@ -535,19 +548,19 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
       );
       await finish(task.id);
     }
-    clock.mockReturnValue(captured + 2 * 60000);
+    clock.mockReturnValue(captured + 7 * 60000);
     const after = dashboardWarmRanges('Asia/Shanghai');
     expect(after[1].startAt).toBe(before[1].startAt + 86400000);
-    for (const range of after.slice(0, 2)) {
+    for (const resource of ['overview', 'human/overview']) {
       await seedDashboardSnapshots();
       const [task] = await q(
         "SELECT id,parameters FROM liekan_analysis_query WHERE website_id=$1::uuid AND status='queued'",
         site,
       );
       expect(task?.parameters).toMatchObject({
-        resource: 'ai/pages',
-        startAt: range.startAt,
-        endAt: range.endAt + 1,
+        resource,
+        startAt: after[0].startAt,
+        endAt: after[0].endAt,
       });
       await finish(task.id);
     }
@@ -556,7 +569,7 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
         await q(
           "SELECT count(*)::int AS n FROM liekan_dashboard_snapshot WHERE website_id=$1::uuid AND parameters->>'startAt'=$2",
           site,
-          String(before[1].startAt),
+          String(before[0].startAt),
         )
       )[0].n,
     ).toBe(0);
@@ -645,7 +658,7 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
     ).toBe(200);
     await finish(foreground.analysisJob.id);
   });
-  it('alternates cold prewarming with correction of an existing idle common publication', async () => {
+  it('keeps cold prewarming and correction of an existing idle common publication independent', async () => {
     await sql("UPDATE liekan_analysis_site SET mode='disabled' WHERE website_id<>$1::uuid", site);
     const captured = Date.now();
     vi.spyOn(Date, 'now').mockReturnValue(captured);
@@ -655,7 +668,7 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
       site,
     );
     await finish(seed.id);
-    const delivered: number[] = [];
+    const delivered: string[] = [];
     for (let pass = 0; pass < 2; pass++) {
       // Model separate maintenance passes outside the existing five-second refresh cooldown.
       await sql(
@@ -672,12 +685,14 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
         "SELECT id,parameters FROM liekan_analysis_query WHERE website_id=$1::uuid AND status='queued'",
         site,
       );
-      expect(tasks).toHaveLength(1);
-      delivered.push(tasks[0].parameters.startAt);
-      await finish(tasks[0].id);
+      expect(tasks).toHaveLength(2);
+      for (const task of tasks) {
+        delivered.push(task.parameters.resource);
+        await finish(task.id);
+      }
     }
-    expect(delivered).toContain(seed.parameters.startAt);
-    expect(delivered.some(start => start !== seed.parameters.startAt)).toBe(true);
+    expect(delivered).toContain(seed.parameters.resource);
+    expect(delivered.some(resource => resource !== seed.parameters.resource)).toBe(true);
   });
   it('follows an updated heavy publication to completion on pages without live polling', async () => {
     const now = Date.now();
@@ -717,26 +732,30 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
     );
     const { dashboardWarmRanges } = await import('./dashboard-snapshot-model');
     const ranges = dashboardWarmRanges('Asia/Shanghai');
-    for (const range of ranges) {
-      await seedDashboardSnapshots();
-      const [cold] = await q(
-        "SELECT * FROM liekan_analysis_query WHERE website_id=$1::uuid AND status='queued'",
-        site,
-      );
-      expect(cold?.parameters).toMatchObject({
-        resource: 'ai/pages',
-        startAt: range.startAt,
-        endAt: range.endAt + 1,
-        crawlerIdentityScope: 'all',
-        crawlerMetricsVersion: 1,
-      });
-      await finish(cold.id);
+    for (const [index, range] of ranges.entries()) {
+      for (const resource of warmResources) {
+        await seedDashboardSnapshots();
+        const [cold] = await q(
+          "SELECT * FROM liekan_analysis_query WHERE website_id=$1::uuid AND status='queued'",
+          site,
+        );
+        expect(cold?.parameters).toMatchObject({
+          resource,
+          chartPeriod: ['today', '7d', '30d'][index],
+          startAt: range.startAt,
+          endAt: range.endAt + (resource.startsWith('ai/') ? 1 : 0),
+          ...(resource.startsWith('ai/')
+            ? { crawlerIdentityScope: 'all', crawlerMetricsVersion: 1 }
+            : {}),
+        });
+        await finish(cold.id);
+      }
     }
     const publications = await q(
       'SELECT parameters,last_read_at,result FROM liekan_dashboard_snapshot WHERE website_id=$1::uuid',
       site,
     );
-    expect(publications).toHaveLength(3);
+    expect(publications).toHaveLength(warmResources.length * 3);
     expect(publications.every(row => +new Date(row.last_read_at) === 0 && row.result != null)).toBe(
       true,
     );
@@ -754,7 +773,7 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
         }),
       ),
     ).toMatchObject({ ready: true });
-  });
+  }, 20000);
   it('reads a historical publication after transient task expiry without creating new computations', async () => {
     const first = await read();
     if (first.ready === true) throw new Error('fixture already published');
@@ -796,14 +815,22 @@ describe.skipIf(!enabled)('persistent dashboard publications in PostgreSQL', () 
     if (first.ready === true) throw new Error('expected cold fixture');
     await finish(first.analysisJob.id);
     await event('2026-01-01T01:04Z', false);
-    await sql("UPDATE liekan_analysis_query SET queued_at=clock_timestamp()-interval '10 seconds' WHERE id=$1::uuid", first.analysisJob.id);
+    await sql(
+      "UPDATE liekan_analysis_query SET queued_at=clock_timestamp()-interval '10 seconds' WHERE id=$1::uuid",
+      first.analysisJob.id,
+    );
     const refreshed = await read({ refresh: '1' });
     if (refreshed.ready === true) throw new Error('expected refreshed fixture');
     await finish(refreshed.analysisJob.id);
     const actual = await read();
     expect(actual).toMatchObject({ ready: true, value: { pageviews: 1, visitors: 1 } });
     if (actual.ready !== true) throw new Error('expected published fixture');
-    expect(actual.value.population.identity).toMatchObject({ status: 'partial', eligiblePV: 2, qualifiedPV: 1, qualifiedVisitors: 1 });
+    expect(actual.value.population.identity).toMatchObject({
+      status: 'partial',
+      eligiblePV: 2,
+      qualifiedPV: 1,
+      qualifiedVisitors: 1,
+    });
   });
   it('publishes newly collected current-day events on the next thirty-second window', async () => {
     const now = Date.now();

@@ -5258,7 +5258,7 @@
     },
     {
       "path": "src/queries/sql/getWebsiteStats.ts",
-      "purpose": "Exact PostgreSQL rollup reads and opt-in durable private analytics tasks; preserve browser population isolation and identity availability",
+      "purpose": "Exact PostgreSQL rollup and bounded raw visit totals with opt-in durable private analytics tasks; preserve browser population isolation and identity availability",
       "tests": [
         "pnpm liekan:verify",
         "pnpm test:analytics-rollups",

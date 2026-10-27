@@ -11,11 +11,29 @@ const args = process.argv.slice(2);
 if (args[0] === '--') args.shift();
 const benchmark = args.includes('--benchmark');
 const captureBenchmark = args.includes('--capture-benchmark');
-if (benchmark && captureBenchmark) throw new Error('Select one benchmark mode');
+const dashboardBenchmark = args.includes('--dashboard-benchmark');
+const scopeC = args.includes('--scope-c');
+if ([benchmark, captureBenchmark, dashboardBenchmark].filter(Boolean).length > 1)
+  throw new Error('Select one benchmark mode');
 let rows = 1000000,
-  candidateImage = process.env.LIEKAN_TRAFFIC_IMAGE;
+  candidateImage = process.env.LIEKAN_TRAFFIC_IMAGE,
+  baselineImage,
+  distribution;
 for (let index = 0; index < args.length; index++) {
-  if (args[index] === '--benchmark' || args[index] === '--capture-benchmark') continue;
+  if (
+    ['--benchmark', '--capture-benchmark', '--dashboard-benchmark', '--scope-c'].includes(
+      args[index],
+    )
+  )
+    continue;
+  if (args[index] === '--baseline-image' && args[index + 1]) {
+    baselineImage = args[++index];
+    continue;
+  }
+  if (args[index] === '--distribution' && args[index + 1]) {
+    distribution = args[++index];
+    continue;
+  }
   if (args[index] === '--candidate-image' && args[index + 1]) {
     candidateImage = args[++index];
     continue;
@@ -25,26 +43,36 @@ for (let index = 0; index < args.length; index++) {
     continue;
   }
   throw new Error(
-    'Usage: node tests/liekan/analysis-rollups.integration.mjs [--benchmark|--capture-benchmark --rows 10000|1000000|10000000] [--candidate-image image]',
+    'Usage: node tests/liekan/analysis-rollups.integration.mjs [--scope-c|--benchmark|--capture-benchmark|--dashboard-benchmark --rows 10000|1000000|10000000] [--candidate-image image] [--baseline-image image] [--distribution uniform|hotspot80]',
   );
 }
 if (
-  (!benchmark && !captureBenchmark && args.includes('--rows')) ||
+  (!benchmark && !captureBenchmark && !dashboardBenchmark && args.includes('--rows')) ||
   ![10000, 1000000, 10000000].includes(rows)
 )
   throw new Error('Benchmark rows must be 10000 (smoke), 1000000, or 10000000');
+if (scopeC && (benchmark || captureBenchmark || dashboardBenchmark || baselineImage))
+  throw new Error('--scope-c is a focused correctness run');
+if (baselineImage && !dashboardBenchmark)
+  throw new Error('--baseline-image requires --dashboard-benchmark');
+if (distribution && (!dashboardBenchmark || !['uniform', 'hotspot80'].includes(distribution)))
+  throw new Error('--distribution requires --dashboard-benchmark and uniform or hotspot80');
+if (dashboardBenchmark && rows !== 10000 && !distribution)
+  throw new Error(
+    'Scale dashboard benchmarks require --distribution so each 1M/10M distribution owns a fresh database',
+  );
 if (
-  captureBenchmark &&
+  (captureBenchmark || dashboardBenchmark) &&
   (!candidateImage || !/^[a-zA-Z0-9][a-zA-Z0-9_./:@-]+$/.test(candidateImage))
 )
-  throw new Error(
-    'Capture benchmark requires --candidate-image with the built production candidate',
-  );
+  throw new Error('Production benchmark requires --candidate-image with the built candidate');
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const runId = randomUUID();
 const name = `liekan-analysis-rollups-${runId}`;
 const label = 'io.liekan.analysis-rollups-test';
 const workerName = `${name}-worker`;
+const appName = `${name}-app`,
+  baselineName = `${name}-baseline`;
 const password = randomBytes(32).toString('hex');
 const image = process.env.LIEKAN_ANALYSIS_ROLLUPS_PG_IMAGE || 'postgres:15-alpine';
 if (!['postgres:15-alpine', 'postgres:16-alpine'].includes(image))
@@ -59,17 +87,23 @@ const env = {
   REDIS_URL: '',
   LIEKAN_ANALYTICS_REDIS_URL: '',
 };
+if (!benchmark && !captureBenchmark && !dashboardBenchmark)
+  env.LIEKAN_C2_DATABASE_URL = env.DATABASE_URL;
 const folder = `${root}/.local/analysis-rollups/${runId}`;
 env.LIEKAN_ANALYSIS_ROLLUPS_OUTPUT = folder;
-if (captureBenchmark) {
+if (captureBenchmark || dashboardBenchmark) {
   env.LIEKAN_ANALYSIS_ROLLUPS_CONTAINER = name;
   env.LIEKAN_ANALYSIS_ROLLUPS_OWNER = runId;
   env.LIEKAN_ANALYSIS_ROLLUPS_WORKER = workerName;
   env.LIEKAN_ANALYSIS_ROLLUPS_WORKER_ENV = `${folder}/worker.env`;
+  env.LIEKAN_ANALYSIS_DASHBOARD_APP = appName;
+  env.LIEKAN_ANALYSIS_DASHBOARD_BASELINE = baselineName;
 }
-if (benchmark || captureBenchmark) {
+if (benchmark || captureBenchmark || dashboardBenchmark) {
   if (benchmark) env.LIEKAN_ANALYSIS_ROLLUPS_BENCHMARK = '1';
   if (captureBenchmark) env.LIEKAN_ANALYSIS_CAPTURE_BENCHMARK = '1';
+  if (dashboardBenchmark) env.LIEKAN_ANALYSIS_DASHBOARD_BENCHMARK = '1';
+  if (distribution) env.LIEKAN_ANALYSIS_DASHBOARD_DISTRIBUTION = distribution;
   env.LIEKAN_ANALYSIS_ROLLUPS_BENCHMARK_ROWS = String(rows);
 }
 let created = false;
@@ -153,8 +187,9 @@ async function available() {
 try {
   await mkdir(folder, { recursive: true, mode: 0o700 });
   await available();
-  if (captureBenchmark) {
-    await run('node', ['--test', 'tests/liekan/analysis-capture-statistics.test.mjs']);
+  if (captureBenchmark || dashboardBenchmark) {
+    if (captureBenchmark)
+      await run('node', ['--test', 'tests/liekan/analysis-capture-statistics.test.mjs']);
     const inspected = await run('docker', [
       'image',
       'inspect',
@@ -166,6 +201,20 @@ try {
     if (!/^sha256:[a-f0-9]{64}$/.test(id) || !/^[a-f0-9]{40}$/.test(revision))
       throw new Error('Capture candidate requires pinned image ID and revision metadata');
     env.LIEKAN_ANALYSIS_ROLLUPS_CANDIDATE_ID = id;
+    if (dashboardBenchmark && baselineImage) {
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9_./:@-]+$/.test(baselineImage))
+        throw new Error('Invalid baseline image');
+      const baseline = await run('docker', [
+        'image',
+        'inspect',
+        '--format',
+        '{{.Id}}',
+        baselineImage,
+      ]);
+      env.LIEKAN_ANALYSIS_DASHBOARD_BASELINE_ID = baseline.output.trim();
+      if (!/^sha256:[a-f0-9]{64}$/.test(env.LIEKAN_ANALYSIS_DASHBOARD_BASELINE_ID))
+        throw new Error('Invalid immutable baseline image');
+    }
     await writeFile(
       `${folder}/candidate.json`,
       JSON.stringify(
@@ -184,7 +233,7 @@ try {
     internal.port = '5432';
     await writeFile(
       `${folder}/worker.env`,
-      `DATABASE_URL=${internal.toString()}\nAPP_SECRET=${env.APP_SECRET}\nDATABASE_REPLICA_URL=\nCLICKHOUSE_URL=\nREDIS_URL=\nLIEKAN_ANALYTICS_REDIS_URL=\n`,
+      `DATABASE_URL=${internal.toString()}\nAPP_SECRET=${env.APP_SECRET}\nDATABASE_REPLICA_URL=\nCLICKHOUSE_URL=\nREDIS_URL=\nLIEKAN_ANALYTICS_REDIS_URL=\nDISABLE_TELEMETRY=1\nNEXT_TELEMETRY_DISABLED=1\n`,
       { mode: 0o600 },
     );
   }
@@ -206,6 +255,9 @@ try {
     `${folder}/database.env`,
     '--publish',
     '127.0.0.1:15462:5432',
+    ...(dashboardBenchmark
+      ? ['--publish', '127.0.0.1::3000', '--publish', '127.0.0.1::3001', '--cpus=2', '--memory=2g']
+      : []),
     image,
   ]);
   created = true;
@@ -229,7 +281,7 @@ try {
   await run('pnpm', ['exec', 'prisma', 'migrate', 'deploy']);
   await run('node', ['scripts/liekan-migrate.mjs']);
   await run('node', ['scripts/liekan-migrate.mjs']);
-  if (!benchmark && !captureBenchmark) {
+  if (!benchmark && !captureBenchmark && !dashboardBenchmark && !scopeC) {
     await verifyAnalysisUpgradeHistories({ run, env, folder });
     const browser = await run(
       'pnpm',
@@ -319,19 +371,33 @@ try {
       throw new Error('Capture worker ownership changed before preflight cleanup');
     await run('docker', ['rm', '--volumes', workerName]);
   }
-  const files = captureBenchmark
-    ? ['src/lib/liekan/upstream/analysis-capture.benchmark.test.ts']
-    : benchmark
-      ? ['src/lib/liekan/upstream/analysis-rollups.benchmark.test.ts']
-      : [
-          'src/lib/liekan/upstream/analysis-ingestion.integration.test.ts',
-          'src/lib/liekan/upstream/analysis-revenue.integration.test.ts',
-          'src/lib/liekan/upstream/analysis-population.integration.test.ts',
-          'src/lib/liekan/upstream/analysis-rollups.integration.test.ts',
-          'src/lib/liekan/upstream/analysis-queries.integration.test.ts',
-          'src/lib/liekan/upstream/dashboard-snapshots.integration.test.ts',
-          'src/lib/liekan/upstream/browser-detail-facts.integration.test.ts',
-        ];
+  const files = dashboardBenchmark
+    ? ['src/lib/liekan/upstream/analysis-dashboard.benchmark.test.ts']
+    : captureBenchmark
+      ? ['src/lib/liekan/upstream/analysis-capture.benchmark.test.ts']
+      : benchmark
+        ? ['src/lib/liekan/upstream/analysis-rollups.benchmark.test.ts']
+        : scopeC
+          ? [
+              'src/lib/liekan/upstream/analysis-rollups.integration.test.ts',
+              'src/lib/liekan/upstream/analysis-queries.integration.test.ts',
+              'src/lib/liekan/upstream/dashboard-snapshots.integration.test.ts',
+              'src/lib/liekan/upstream/dashboard-scheduling.integration.test.ts',
+              'src/lib/liekan/upstream/bounded-browser-events.integration.test.ts',
+              'src/lib/liekan/upstream/visit-build-paging.integration.test.ts',
+            ]
+          : [
+              'src/lib/liekan/upstream/analysis-ingestion.integration.test.ts',
+              'src/lib/liekan/upstream/analysis-revenue.integration.test.ts',
+              'src/lib/liekan/upstream/analysis-population.integration.test.ts',
+              'src/lib/liekan/upstream/analysis-rollups.integration.test.ts',
+              'src/lib/liekan/upstream/analysis-queries.integration.test.ts',
+              'src/lib/liekan/upstream/dashboard-snapshots.integration.test.ts',
+              'src/lib/liekan/upstream/dashboard-scheduling.integration.test.ts',
+              'src/lib/liekan/upstream/bounded-browser-events.integration.test.ts',
+              'src/lib/liekan/upstream/browser-detail-facts.integration.test.ts',
+              'src/lib/liekan/upstream/visit-build-paging.integration.test.ts',
+            ];
   await run(
     'pnpm',
     [
@@ -343,7 +409,7 @@ try {
       '--reporter=json',
       `--outputFile=${folder}/vitest.json`,
     ],
-    { timeout: benchmark || captureBenchmark ? 7200000 : 1200000 },
+    { timeout: benchmark || captureBenchmark || dashboardBenchmark ? 7200000 : 1200000 },
   );
   const report = JSON.parse(await readFile(`${folder}/vitest.json`, 'utf8'));
   if (
@@ -359,6 +425,13 @@ try {
   );
   console.log(`Evidence: ${folder}/vitest.json`);
   if (captureBenchmark) console.log(`Capture evidence: ${folder}/capture-benchmark.json`);
+  if (dashboardBenchmark) {
+    const measurement = JSON.parse(await readFile(`${folder}/dashboard-benchmark.json`, 'utf8'));
+    console.log(
+      `Dashboard mechanical execution complete; candidate performance targets passed: ${measurement.candidateTargetsPassed === true}; overall evidence gate passed: ${measurement.passed === true}`,
+    );
+    console.log(`Dashboard evidence: ${folder}/dashboard-benchmark.json`);
+  }
   if (benchmark) {
     const measurements = JSON.parse(await readFile(`${folder}/benchmark.json`, 'utf8'));
     console.log(
@@ -371,18 +444,19 @@ try {
   }
 } finally {
   // Re-read ownership before removing a resource, including an interrupted creation.
-  if (captureBenchmark) {
-    const ownedWorker = await run(
-      'docker',
-      ['inspect', '--format', `{{ index .Config.Labels "${label}" }}`, workerName],
-      { optional: true, cleanup: true },
-    );
-    if (ownedWorker.code === 0) {
-      if (ownedWorker.output.trim() !== runId)
-        throw new Error('Capture worker ownership changed; cleanup stopped');
-      await run('docker', ['rm', '--force', '--volumes', workerName], { cleanup: true });
+  if (captureBenchmark || dashboardBenchmark)
+    for (const container of [workerName, appName, baselineName]) {
+      const ownedWorker = await run(
+        'docker',
+        ['inspect', '--format', `{{ index .Config.Labels "${label}" }}`, container],
+        { optional: true, cleanup: true },
+      );
+      if (ownedWorker.code === 0) {
+        if (ownedWorker.output.trim() !== runId)
+          throw new Error('Capture worker ownership changed; cleanup stopped');
+        await run('docker', ['rm', '--force', '--volumes', container], { cleanup: true });
+      }
     }
-  }
   const owned = await run(
     'docker',
     ['inspect', '--format', `{{ index .Config.Labels "${label}" }}`, name],

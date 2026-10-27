@@ -83,7 +83,7 @@ export function analysisResponse(value: Awaited<ReturnType<typeof requestAnalysi
 export async function asyncAnalysisResponse(request: Request, websiteId: string, target: string) {
   const { authenticateCrawlerMaintenance } = await import('./crawler-maintenance');
   const { authorize } = await import('./server');
-  const { requestDashboardSnapshot } = await import('./dashboard-snapshots');
+  const { requestDashboardSnapshot, dashboardRefreshJobId } = await import('./dashboard-snapshots');
   const actor = await authenticateCrawlerMaintenance(request);
   const access = await authorize(request, websiteId);
   const query = Object.fromEntries(new URL(request.url).searchParams);
@@ -92,9 +92,8 @@ export async function asyncAnalysisResponse(request: Request, websiteId: string,
     readLocaleCookie(request.headers.get('cookie') || '') ||
     (request.headers.get('accept-language')?.startsWith('en') ? 'en-US' : 'zh-CN');
   const value = await requestDashboardSnapshot(access.website.id, actor, target, query, locale);
-  if (value.ready === false) {
-    await earlyHandoff(value.analysisJob.id);
-  }
+  const dispatchId = value.ready === false ? value.analysisJob.id : dashboardRefreshJobId(value);
+  if (dispatchId) await earlyHandoff(dispatchId);
   const response = analysisResponse(value);
   if ('dataThrough' in value && 'snapshotState' in value) {
     response.headers.set('X-Liekan-Data-Through', String(value.dataThrough));

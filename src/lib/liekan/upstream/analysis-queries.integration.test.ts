@@ -116,7 +116,7 @@ describe.skipIf(!enabled)('durable private query lifecycle in PostgreSQL', () =>
         )
       )[0],
     ).toEqual({ status: 'queued', attempts: 1 });
-    const queue = { fail: vi.fn(), update: vi.fn() };
+    const queue = { fail: vi.fn(), update: vi.fn(), send: vi.fn() };
     await expect(
       processAnalysisQueryDelivery(
         { id: randomUUID(), retryCount: 0, data: { id: task.analysisJob.id } },

@@ -7,6 +7,7 @@ import {
   type AnalysisTx,
 } from './analysis-rollups-model';
 import { getQuerySnapshot } from './query-snapshot';
+import { boundedBrowserEventsSql } from './bounded-browser-events';
 
 export const BROWSER_DETAIL_FORMAT = 'browser-detail-v1';
 export const browserDetailFields = new Set([
@@ -39,7 +40,7 @@ function pieces(source: string) {
  detail_pairs AS (SELECT DISTINCT session_id,visit_id FROM detail_events),
  detail_entries AS MATERIALIZED (SELECT p.session_id,p.visit_id,anchor.entry FROM detail_pairs p
   LEFT JOIN LATERAL(SELECT jsonb_build_object('referrer',e.referrer_domain,'utmSource',e.utm_source,'utmMedium',e.utm_medium,'utmCampaign',e.utm_campaign) AS entry
-   FROM liekan_geographic_website_event e WHERE e.website_id=$1::uuid AND e.session_id=p.session_id AND e.visit_id=p.visit_id
+   FROM bounded_entry e WHERE e.website_id=$1::uuid AND e.session_id=p.session_id AND e.visit_id=p.visit_id
    AND e.event_type NOT IN(2,5) ORDER BY e.created_at,e.event_id LIMIT 1) anchor ON true),
  detail_visits AS MATERIALIZED (SELECT ${key},count(*) FILTER(WHERE ${pv}) AS pageviews,bool_or(event_type=2) AS has_custom,
   (array_agg(${point} ORDER BY created_at,event_id) FILTER(WHERE ${pv}))[1] AS first_pv,
@@ -63,14 +64,21 @@ export async function buildBrowserDetailChunk(
   tx: AnalysisTx,
   row: AnalysisBuildRow,
   state: AnalysisCheckpoint,
-  observed: { rows: string; after_time: string | null; after_id: string | null },
+  observed: {
+    rows: string;
+    input_rows?: string;
+    after_time: string | null;
+    after_id: string | null;
+  },
 ) {
   const [result] = await tx.$queryRawUnsafe<{ bytes: string }[]>(
-    `WITH chunk AS MATERIALIZED (SELECT ${eventColumns} FROM liekan_geographic_website_event e
-     LEFT JOIN liekan_effective_session s ON s.session_id=e.session_id AND s.website_id=e.website_id
-     WHERE e.website_id=$1::uuid AND e.created_at>=$3::timestamptz AND e.created_at<$4::timestamptz
-     AND ($5::timestamptz IS NULL OR (e.created_at,e.event_id)>($5::timestamptz,$6::uuid))
-     AND $9::timestamptz IS NOT NULL AND (e.created_at,e.event_id)<=($9::timestamptz,$10::uuid)
+    `WITH ${boundedBrowserEventsSql(
+      `e.website_id=$1::uuid AND e.created_at>=$3::timestamptz AND e.created_at<$4::timestamptz
+       AND ($5::timestamptz IS NULL OR (e.created_at,e.event_id)>($5::timestamptz,$6::uuid))
+       AND $9::timestamptz IS NOT NULL AND (e.created_at,e.event_id)<=($9::timestamptz,$10::uuid)`,
+      { geography: true, environment: true, entryBefore: "'infinity'::timestamptz" },
+    )}, chunk AS MATERIALIZED (SELECT ${eventColumns} FROM bounded_events e
+     LEFT JOIN (TABLE session) s ON s.session_id=e.session_id AND s.website_id=e.website_id
      ORDER BY e.created_at,e.event_id LIMIT $7), ${pieces('chunk')},
     previous AS MATERIALIZED (SELECT old.* FROM liekan_analysis_browser_visit old JOIN detail_visits n USING(bucket,session_id,visit_id)
      WHERE old.website_id=$1::uuid AND old.generation=$2::uuid),
@@ -108,7 +116,7 @@ export async function buildBrowserDetailChunk(
     BROWSER_DETAIL_FORMAT,
     observed.after_time,
     observed.after_id || '00000000-0000-0000-0000-000000000000',
-    Number(observed.rows) < (state.chunkSize || ANALYSIS_CHUNK_SIZE),
+    Number(observed.input_rows ?? observed.rows) < (state.chunkSize || ANALYSIS_CHUNK_SIZE),
   );
   return result;
 }
@@ -216,9 +224,17 @@ export async function readBrowserDetailFacts(
       covered AS MATERIALIZED(SELECT * FROM clipped WHERE starts<ends),
       raw_gaps AS MATERIALIZED(SELECT lower(gap) AS starts,upper(gap) AS ends FROM (SELECT unnest(tstzmultirange(tstzrange($2::timestamptz,${endSql},'[)'))-
        coalesce(range_agg(tstzrange(starts,ends,'[)')),'{}'::tstzmultirange)) AS gap FROM covered) gaps),
-      raw_chunk AS MATERIALIZED(SELECT r.* FROM raw_gaps g CROSS JOIN LATERAL(SELECT ${eventColumns} FROM liekan_geographic_website_event e
-       LEFT JOIN liekan_effective_session s ON s.website_id=e.website_id AND s.session_id=e.session_id
-       WHERE e.website_id=$1::uuid AND e.created_at>=g.starts AND e.created_at<g.ends OFFSET 0) r),${pieces('raw_chunk')},
+      ${boundedBrowserEventsSql(
+        `e.website_id=$1::uuid AND e.created_at>=$2::timestamptz AND e.created_at<${endSql} AND EXISTS(SELECT 1 FROM raw_gaps g WHERE e.created_at>=g.starts AND e.created_at<g.ends)`,
+        {
+          geography: true,
+          environment: true,
+          entryBefore: "'infinity'::timestamptz",
+          ranges: 'raw_gaps',
+        },
+      )},
+      raw_chunk AS MATERIALIZED(SELECT ${eventColumns} FROM bounded_events e
+       LEFT JOIN (TABLE session) s ON s.website_id=e.website_id AND s.session_id=e.session_id),${pieces('raw_chunk')},
       visit_pieces AS MATERIALIZED(SELECT f.bucket,f.session_id,f.visit_id,f.pageviews,f.has_custom,f.first_pv,f.last_pv,f.entry,f.browser,f.os,f.device,f.session_created_at
        FROM covered c JOIN liekan_analysis_browser_visit f ON f.website_id=c.website_id AND f.generation=c.generation AND f.bucket>=c.starts AND f.bucket<c.ends
        UNION ALL SELECT n.bucket,n.session_id,n.visit_id,n.pageviews,n.has_custom,n.first_pv,n.last_pv,e.entry,n.browser,n.os,n.device,n.session_created_at FROM detail_visits n LEFT JOIN detail_entries e USING(session_id,visit_id)),
