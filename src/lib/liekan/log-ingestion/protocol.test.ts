@@ -94,18 +94,21 @@ describe('automatic log wire protocol', () => {
     expect(a.errors).toHaveLength(3);
     expect(JSON.stringify(a.errors)).not.toContain('192.0.2');
   });
-  it('bounds gzip expansion and accepts only the exact provider test payload', async () => {
+  it('bounds gzip expansion and accepts both Logpush ownership payloads', async () => {
     const req = (data: Buffer) =>
       new Request('https://logs.example/upload', {
         method: 'POST',
         body: new Uint8Array(data),
         headers: { 'content-encoding': 'gzip' },
       });
-    expect((await decodeUpload(req(gzipSync('{"content":"tests"}')), 'cloudflare')).test).toBe(
-      true,
-    );
+    for (const body of ['{"content":"test"}', '{"content":"tests"}']) {
+      expect((await decodeUpload(req(gzipSync(body)), 'cloudflare')).test).toBe(true);
+    }
     await expect(
       decodeUpload(req(gzipSync('x'.repeat(11 * 1024 * 1024))), 'cloudflare'),
+    ).rejects.toThrow();
+    await expect(
+      decodeUpload(req(gzipSync('{"content":"test","ClientIP":"192.0.2.20"}')), 'cloudflare'),
     ).rejects.toThrow();
     await expect(
       decodeUpload(req(gzipSync('{"content":"tests","ClientIP":"192.0.2.20"}')), 'cloudflare'),
