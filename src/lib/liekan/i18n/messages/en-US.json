@@ -1120,7 +1120,7 @@
   "m_0ae72f0268b9": "For Docker, update the corresponding entries in the Liekan deployment directory's \".env\" file. For other deployments, update the hosting platform's environment variables. Entries on this page generate configuration instructions.",
   "m_32b89bf3bc83": "Current running address:",
   "m_dd48b79d7991": "2. Configure Cloudflare authorized application",
-  "m_4eff27af6d34": "Create a server-side application in Manage Account → OAuth clients of the Cloudflare account, use the Authorization Code process and client_secret_basic, and configure the permissions required to read Zone and manage Logpush.",
+  "m_fad30ffcee25": "Create a server-side application in Manage Account → OAuth clients of the Cloudflare account. Enable both the Authorization Code and Refresh Token grant types, use client_secret_basic, and configure the permissions required to read Zone and manage Logpush.",
   "m_d5ecf0f862eb": "View Cloudflare official configuration guide ↗",
   "m_1254881aa998": "Register the following URL as the application's callback URL:",
   "m_1d9d7da8233f": "Copy callback address",
@@ -4888,5 +4888,6 @@
   "m_24165ab98197": "Cloudflare authorization is missing log management permissions. Check Zone Logs permissions, then reconnect.",
   "m_d2a4d220dc46": "Invalid Cloudflare OAuth scope configuration",
   "m_d3da5e85ecaf": "The Cloudflare account has not enabled the required Logpush capability",
-  "m_c4627cf414b5": "Cloudflare authorization is missing required permissions"
+  "m_c4627cf414b5": "Cloudflare authorization is missing required permissions",
+  "m_a1a5fa33c3cf": "The Cloudflare OAuth client is missing the Refresh Token grant. The access token expires in about 1 hour and the connection will stop until you re-authorize, or until that grant is added and you connect again."
 }
