@@ -13,7 +13,7 @@
 
 Cloudflare 应用应按[官方 OAuth 指南](https://developers.cloudflare.com/fundamentals/oauth/create-an-oauth-client/)中的可选权限配置读取匹配 Zone 与管理 Logpush 所需的最小权限，并完成供应商的应用登记、域名验证及可见性要求。Zone 与 Logpush 的实际可用性在授权和任务创建时核对。账户套餐、日志字段和费用由 Cloudflare 决定，连接前需要用户确认。官方权限标识通过授权账户的 scopes API 获取，避免猜测权限 ID。
 
-授权请求默认显式携带 `zone.read logs.read logs.write`。在 OAuth 客户端中登记相应的 Zone 读取及 Zone Logs 读写权限；账户级 Logs 权限与 Zone Logs 权限的作用范围不同。以官方 scopes 目录和当前账户允许配置的权限为准。需要调整时，在私有 `.env` 设置 `CLOUDFLARE_OAUTH_SCOPES`，使用空格分隔；标准 Compose 会将它传入应用。修改后重建应用容器以加载配置，并重新发起授权。该变量不会为客户端或账户自动添加权限。
+授权请求默认显式携带 `zone.read logs.read logs.write`，并始终包含协议 scope `offline_access`。Cloudflare 在 OAuth 客户端启用 Refresh Token 授权类型时允许该 scope；授权请求包含 `offline_access` 后，令牌响应才会返回 refresh token。在 OAuth 客户端中登记相应的 Zone 读取及 Zone Logs 读写权限；账户级 Logs 权限与 Zone Logs 权限的作用范围不同。以官方 scopes 目录和当前账户允许配置的权限为准。需要调整 Zone 与 Logs 权限时，在私有 `.env` 设置 `CLOUDFLARE_OAUTH_SCOPES`，使用空格分隔。应用会在该列表缺少 `offline_access` 时追加，已包含时保持原顺序。标准 Compose 会将它传入应用。修改后重建应用容器以加载配置，并重新发起授权。该变量不会为客户端或账户自动添加权限。已有连接要拿到 refresh token，需要重新授权。
 
 Logpush 返回“当前账户未启用”时，连接显示独立的能力提示；缺少 Zone 日志权限时显示权限提示。两者暂停该来源并保留已有接收凭据，不再统一要求按“授权失效”重新连接。真实认证失败仍会撤销接收授权。Cloudflare 已提供[各套餐自助启用及按用量计费](https://developers.cloudflare.com/changelog/post/2026-09-30-logpush-usage-based-pricing/)，具体数据集、账户启用状态和费用需在供应商处确认，也可改用服务器采集。应用不会自动启用计费服务。
 

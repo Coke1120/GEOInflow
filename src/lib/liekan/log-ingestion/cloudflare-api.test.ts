@@ -67,19 +67,26 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it('requests explicit Zone and Logpush scopes while preserving PKCE and browser binding', async () => {
+it('requests Zone, Logpush, and offline_access scopes with PKCE and browser binding', async () => {
   const result = await beginCloudflare('site', { userId: 'owner' });
   const url = new URL(result.authorizationUrl);
-  expect(url.searchParams.get('scope')).toBe('zone.read logs.read logs.write');
+  expect(url.searchParams.get('scope')).toBe('zone.read logs.read logs.write offline_access');
   expect(url.searchParams.get('code_challenge_method')).toBe('S256');
   expect(url.searchParams.get('state')).toHaveLength(43);
   expect(result.cookie).toContain('HttpOnly; Secure; SameSite=Lax');
 });
-it('normalizes an explicit scope override', async () => {
+it('normalizes an explicit scope override and still requests offline_access', async () => {
   vi.stubEnv('CLOUDFLARE_OAUTH_SCOPES', ' zone.read  logs.read logs.read account-logs.read ');
   const result = await beginCloudflare('site', { userId: 'owner' });
   expect(new URL(result.authorizationUrl).searchParams.get('scope')).toBe(
-    'zone.read logs.read account-logs.read',
+    'zone.read logs.read account-logs.read offline_access',
+  );
+});
+it('keeps a configured offline_access scope in place without duplicating it', async () => {
+  vi.stubEnv('CLOUDFLARE_OAUTH_SCOPES', 'offline_access zone.read logs.read offline_access');
+  const result = await beginCloudflare('site', { userId: 'owner' });
+  expect(new URL(result.authorizationUrl).searchParams.get('scope')).toBe(
+    'offline_access zone.read logs.read',
   );
 });
 it('rejects invalid configured scopes before creating an authorization grant', async () => {
