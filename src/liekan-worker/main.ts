@@ -19,7 +19,7 @@ import { writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { PgBoss } from 'pg-boss';
 import prisma from '../lib/prisma';
-import { query, transaction, LiekanError } from '../lib/liekan/upstream/server';
+import { transaction, LiekanError } from '../lib/liekan/upstream/server';
 import {
   QUEUE_SCHEMA,
   LOG_QUEUE,
@@ -36,7 +36,7 @@ import { reconcilePermissions } from '../lib/liekan/log-ingestion/maintenance';
 import { recoverBatches } from '../lib/liekan/log-ingestion/recovery';
 import { processBatch } from '../lib/liekan/log-ingestion/service';
 import { cleanupExpiredAuthorizations } from '../lib/liekan/log-ingestion/cloudflare';
-import { maintainProvider } from '../lib/liekan/log-ingestion/provider';
+import { maintainDueCloudflareSources, maintainProvider } from '../lib/liekan/log-ingestion/provider';
 import { sealPlatformSecret, openPlatformSecret } from '../lib/liekan/log-ingestion/secrets';
 import { refreshRanges } from '../lib/liekan/log-ingestion/ranges';
 import { refreshDocumentSources } from '../lib/liekan/upstream/crawler-maintenance';
@@ -93,21 +93,7 @@ async function reconcile() {
         "DELETE FROM liekan_worker_state WHERE heartbeat_at<now()-interval '1 day'",
       );
     });
-    const sources = await query(
-      "SELECT id,state,credential_hash FROM liekan_log_source WHERE kind='cloudflare' AND provider_config IS NOT NULL ORDER BY last_maintenance_at NULLS FIRST LIMIT 100",
-    );
-    for (const source of sources) {
-      if (stopped) break;
-      await maintainProvider(
-        source.id,
-        source.state === 'disconnected' || !source.credential_hash
-          ? 'disconnect'
-          : source.state === 'configuring'
-            ? 'configure'
-            : 'health',
-        workerId,
-      ).catch(() => {});
-    }
+    await maintainDueCloudflareSources(workerId, () => stopped);
   } finally {
     maintaining = false;
   }

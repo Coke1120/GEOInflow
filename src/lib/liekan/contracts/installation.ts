@@ -129,6 +129,7 @@ export interface InstallationStatus {
     failed?: number;
     errorCode: string | null;
     cleanupPending?: boolean;
+    refreshTokenIssued?: boolean;
     health: Record<string, unknown>;
   }[];
 }

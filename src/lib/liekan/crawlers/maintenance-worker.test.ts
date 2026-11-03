@@ -33,7 +33,10 @@ vi.mock('../log-ingestion/maintenance', () => ({ reconcilePermissions: vi.fn() }
 vi.mock('../log-ingestion/recovery', () => ({ recoverBatches: vi.fn() }));
 vi.mock('../log-ingestion/service', () => ({ processBatch: vi.fn() }));
 vi.mock('../log-ingestion/cloudflare', () => ({ cleanupExpiredAuthorizations: vi.fn() }));
-vi.mock('../log-ingestion/provider', () => ({ maintainProvider: vi.fn() }));
+vi.mock('../log-ingestion/provider', () => ({
+  maintainProvider: vi.fn(),
+  maintainDueCloudflareSources: vi.fn(),
+}));
 vi.mock('../log-ingestion/secrets', () => ({
   sealPlatformSecret: vi.fn(),
   openPlatformSecret: vi.fn(),
