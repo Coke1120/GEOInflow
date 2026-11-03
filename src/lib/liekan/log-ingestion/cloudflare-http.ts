@@ -57,6 +57,10 @@ export function cloudflareScopes() {
     scopes.some(scope => !/^[a-z0-9][a-z0-9._:-]*$/i.test(scope))
   )
     throw new LiekanError('Cloudflare OAuth 权限配置无效', 503, 'cloudflare-scope-config-invalid');
+  // Cloudflare allows this protocol scope when the client grant types include
+  // refresh_token. The authorize request still has to name it before the token
+  // response includes a refresh_token.
+  if (!scopes.includes('offline_access')) scopes.push('offline_access');
   return scopes.join(' ');
 }
 
