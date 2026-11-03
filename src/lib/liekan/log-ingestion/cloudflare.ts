@@ -22,6 +22,11 @@ import { newToken, tokenHash, sealPlatformSecret, openPlatformSecret } from './s
 import { enqueue, PROVIDER_QUEUE } from './queue';
 import { getLogCapabilities } from './capabilities';
 import { cloudflareRequest, cloudflareResponseError, cloudflareScopes } from './cloudflare-http';
+import {
+  cloudflareAccessExpired,
+  cloudflareProviderCredentialUnusable,
+  cloudflareRefreshTokenIssued,
+} from './cloudflare-credential';
 
 const CF_API = 'https://api.cloudflare.com/client/v4';
 const CF_AUTH = 'https://dash.cloudflare.com/oauth2';
@@ -128,7 +133,9 @@ async function exchangeToken(parameters: Record<string, string>): Promise<Access
     throw new LiekanError('Cloudflare 授权响应无效', 502);
   return {
     accessToken: data.access_token,
-    ...(typeof data.refresh_token === 'string' ? { refreshToken: data.refresh_token } : {}),
+    ...(typeof data.refresh_token === 'string' && data.refresh_token.trim()
+      ? { refreshToken: data.refresh_token }
+      : {}),
     ...(Number.isFinite(data.expires_in)
       ? { expiresAt: Date.now() + Number(data.expires_in) * 1000 }
       : {}),
@@ -341,6 +348,18 @@ export async function cleanupExpiredAuthorizations(workerId: string) {
     }
   }
 }
+function refreshGrantFlag(sealed: string | null | undefined, sourceId: string) {
+  if (!sealed) return {};
+  try {
+    return {
+      refreshTokenIssued: cloudflareRefreshTokenIssued(
+        JSON.parse(openPlatformSecret(sealed, sourceId)),
+      ),
+    };
+  } catch {
+    return {};
+  }
+}
 export async function finalizeCloudflare(
   websiteId: string,
   input: unknown,
@@ -379,10 +398,27 @@ export async function finalizeCloudflare(
       tokenHash(cookieValue(request, flowId)) !== row.browser_hash
     )
       throw new LiekanError('授权身份或网站配置已变更，请重新授权', 403);
-    if (row.consumed_at && row.source_id) return { sourceId: row.source_id, state: 'configuring' };
+    if (row.consumed_at && row.source_id) {
+      const stored = (
+        await tx.$queryRawUnsafe(
+          'SELECT provider_config FROM liekan_log_source WHERE id=$1::uuid',
+          row.source_id,
+        )
+      )[0];
+      return {
+        sourceId: row.source_id,
+        state: 'configuring',
+        ...refreshGrantFlag(stored?.provider_config, row.source_id),
+      };
+    }
     const flow: Flow = JSON.parse(openPlatformSecret(row.payload, flowId));
     if (flow.phase !== 'authorized') throw new LiekanError('请先完成 Cloudflare 授权', 409);
-    if (!zoneId) return { domain: row.domain, zones: flow.zones };
+    if (!zoneId)
+      return {
+        domain: row.domain,
+        zones: flow.zones,
+        refreshTokenIssued: cloudflareRefreshTokenIssued(flow.access),
+      };
     if (!acceptCosts || !flow.zones.some(zone => zone.id === zoneId))
       throw new LiekanError('请确认匹配域名及供应商费用提示');
     const { source, token } = await createSource(tx, websiteId, 'cloudflare', identity);
@@ -412,7 +448,11 @@ export async function finalizeCloudflare(
       source.id,
     );
     await enqueue(tx, PROVIDER_QUEUE, { sourceId: source.id, action: 'configure' });
-    return { sourceId: source.id, state: 'configuring' };
+    return {
+      sourceId: source.id,
+      state: 'configuring',
+      refreshTokenIssued: cloudflareRefreshTokenIssued(flow.access),
+    };
   });
 }
 export function logpushConfiguration(source: LogSource, config: Provider, epoch: number) {
@@ -502,10 +542,14 @@ export async function maintainCloudflare(
   )[0];
   if (!row?.provider_config) return;
   let config: Provider = JSON.parse(openPlatformSecret(row.provider_config, row.id));
+  // A rejected credential, or an expired access token with no refresh token, is not sent again.
+  if (cloudflareProviderCredentialUnusable(row.health))
+    throw new LiekanError('授权已过期，请重新授权', 401, 'reauthorization-required');
   if (
     !config.remoteDisabled &&
     config.expiresAt &&
     config.expiresAt < Date.now() + 60000 &&
+    cloudflareRefreshTokenIssued(config) &&
     config.refreshToken
   ) {
     const refreshed = await exchangeToken({
@@ -521,6 +565,8 @@ export async function maintainCloudflare(
       ),
     );
   }
+  if (cloudflareAccessExpired(config))
+    throw new LiekanError('授权已过期，请重新授权', 401, 'reauthorization-required');
   if (action === 'disconnect' || row.state === 'disconnected') {
     if (!config.remoteDisabled && row.provider_job_id) {
       const jobs = await cloudflareApi<any[]>(
@@ -561,8 +607,6 @@ export async function maintainCloudflare(
     );
     return;
   }
-  if (config.expiresAt && config.expiresAt < Date.now() && !config.refreshToken)
-    throw new LiekanError('授权已过期，请重新授权', 401);
   const live = await transaction(tx => validateSource(tx, row.id, undefined, true));
   if (action === 'configure' && config.crawlerFields === undefined) {
     const fields = await cloudflareApi<Record<string, unknown>>(

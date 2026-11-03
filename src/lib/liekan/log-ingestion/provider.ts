@@ -1,5 +1,6 @@
-import { transaction, LiekanError } from '../upstream/server';
+import { query, transaction, LiekanError } from '../upstream/server';
 import { maintainCloudflare } from './cloudflare';
+import { cloudflareProviderCredentialUnusable } from './cloudflare-credential';
 
 export async function maintainProvider(
   sourceId: string,
@@ -38,6 +39,13 @@ export async function maintainProvider(
         sourceId,
         code,
       );
+      // A Cloudflare-rejected credential stays out of the periodic provider pass.
+      if (error instanceof LiekanError && error.code === 'reauthorization-required')
+        await tx.$executeRawUnsafe(
+          `UPDATE liekan_log_source SET health=COALESCE(health,'{}'::jsonb) || $2::jsonb WHERE id=$1::uuid`,
+          sourceId,
+          JSON.stringify({ providerCredentialUnusable: true }),
+        );
       if (
         [
           'reauthorization-required',
@@ -74,5 +82,29 @@ export async function maintainProvider(
         workerId,
       ),
     );
+  }
+}
+export function cloudflareMaintenanceAction(source: {
+  state: string;
+  credential_hash: string | null;
+}): 'configure' | 'disconnect' | 'health' {
+  return source.state === 'disconnected' || !source.credential_hash
+    ? 'disconnect'
+    : source.state === 'configuring'
+      ? 'configure'
+      : 'health';
+}
+export async function maintainDueCloudflareSources(
+  workerId: string,
+  shouldStop: () => boolean = () => false,
+) {
+  // Flagged credentials stay out of this limit so a dead token cannot crowd out live sources.
+  const sources = await query(
+    "SELECT id,state,credential_hash,error_code,health FROM liekan_log_source WHERE kind='cloudflare' AND provider_config IS NOT NULL AND COALESCE(health->>'providerCredentialUnusable','false')<>'true' ORDER BY last_maintenance_at NULLS FIRST LIMIT 100",
+  );
+  for (const source of sources) {
+    if (shouldStop()) break;
+    if (cloudflareProviderCredentialUnusable(source.health)) continue;
+    await maintainProvider(source.id, cloudflareMaintenanceAction(source), workerId).catch(() => {});
   }
 }

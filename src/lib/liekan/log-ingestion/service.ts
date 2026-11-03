@@ -7,7 +7,7 @@ import { samplingAtReceipt } from './measurement';
 import { normalizeAutomaticWithGeography, persistLogGeography } from '../upstream/log-geography';
 import { randomUUID, createHmac, createHash } from 'node:crypto';
 import { z } from 'zod';
-import { logPublicOrigin } from '../contracts/installation';
+import { logPublicOrigin, type InstallationStatus } from '../contracts/installation';
 import { getSettings } from '../store';
 import { invalidateWebsiteAnalytics } from '../upstream/query-cache';
 import {
@@ -26,7 +26,8 @@ import {
 } from './protocol';
 import { enqueue, LOG_QUEUE, PROVIDER_QUEUE } from './queue';
 import { verificationSnapshots } from './ranges';
-import { newToken, tokenHash } from './secrets';
+import { newToken, openPlatformSecret, tokenHash } from './secrets';
+import { publishLogSource } from './cloudflare-credential';
 import { healthSchema } from '../contracts/log-sources';
 import { recordCrawlerCoverage } from './crawler-quality';
 import { crawlerClassificationVersion, archiveCrawlerRules } from './crawler-evidence';
@@ -46,10 +47,12 @@ export interface LogSource {
   requested_policy_revision: bigint | number;
   provider_config: string | null;
   provider_job_id: string | null;
+  error_code?: string | null;
   health?: {
     fieldCapabilities?: Record<string, boolean>;
     measurement?: { version: string; observedAt: string; samplingRate: number };
-  };
+    providerCredentialUnusable?: boolean;
+  } | null;
 }
 export const uuid = (id: string) => {
   if (!z.uuid().safeParse(id).success) throw new LiekanError('接入标识无效');
@@ -171,16 +174,19 @@ export async function createSource(
   )[0];
   return { source, token };
 }
-export async function listSources(websiteId: string) {
-  return query(
+type ListedLogSource = NonNullable<InstallationStatus['sources']>[number];
+export async function listSources(websiteId: string): Promise<ListedLogSource[]> {
+  const rows = await query<ListedLogSource & { provider_config?: string | null }>(
     `SELECT id,kind,domain,state,credential_version AS "credentialVersion",last_heartbeat_at AS "lastHeartbeatAt",last_received_at AS "lastReceivedAt",last_processed_at AS "lastProcessedAt",last_test_at AS "lastTestAt",error_code AS "errorCode",health,
     (SELECT count(*)::int FROM liekan_ingest_batch b WHERE b.source_id=s.id AND b.state='pending') AS backlog,
     (SELECT count(*)::int FROM liekan_ingest_batch b WHERE b.source_id=s.id AND b.state='failed') AS failed,
     EXISTS(SELECT 1 FROM liekan_log_interval i WHERE i.source_id=s.id AND i.ends_at IS NULL) AS primary,
-    (s.provider_config IS NOT NULL AND (s.state='disconnected' OR s.credential_hash IS NULL)) AS \"cleanupPending\"
+    (s.provider_config IS NOT NULL AND (s.state='disconnected' OR s.credential_hash IS NULL)) AS \"cleanupPending\",
+    s.provider_config
     FROM liekan_log_source s WHERE website_id=$1::uuid AND (state!='disconnected' OR provider_config IS NOT NULL) ORDER BY created_at DESC`,
     websiteId,
   );
+  return rows.map(row => publishLogSource(row, openPlatformSecret));
 }
 export async function receiveBatch(request: Request, sourceId: string) {
   return withPublishedRegistry(() => receivePinnedBatch(request, sourceId));

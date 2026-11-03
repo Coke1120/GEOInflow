@@ -240,6 +240,68 @@ it('distinguishes collector connection, reception, processing and no AI matches'
   );
   expect(screen.getByText(/存在无法识别的日志行/)).toBeVisible();
 });
+it.each([
+  ['zh-CN', /缺少 Refresh Token 授权类型/],
+  ['en-US', /missing the Refresh Token grant/],
+] as const)('warns in %s when a Cloudflare connection cannot refresh', (locale, message) => {
+  render(
+    <LiekanLocaleContext.Provider value={locale}>
+      <AutomaticLogSetup
+        websiteId={site}
+        method="cloudflare"
+        manage
+        refresh={refresh}
+        status={{
+          ...status,
+          sources: [
+            {
+              id: 'source',
+              kind: 'cloudflare',
+              domain: 'example.com',
+              state: 'active',
+              primary: true,
+              refreshTokenIssued: false,
+              health: {},
+            },
+          ],
+        }}
+      />
+    </LiekanLocaleContext.Provider>,
+  );
+  expect(screen.getByRole('alert')).toHaveTextContent(message);
+  expect(screen.getByRole('alert')).toHaveTextContent(/1 hour|1 小时/);
+});
+
+it('hides the refresh-grant warning when Cloudflare issued a refresh token', () => {
+  mount('cloudflare', {
+    ...status,
+    sources: [
+      {
+        id: 'source',
+        kind: 'cloudflare',
+        domain: 'example.com',
+        state: 'active',
+        primary: true,
+        refreshTokenIssued: true,
+        health: {},
+      },
+    ],
+  });
+  expect(screen.queryByText(/Refresh Token/)).not.toBeInTheDocument();
+});
+
+it('warns before zone confirmation when finalize received no refresh token', async () => {
+  mocks.query = { flow: 'a-flow' };
+  mocks.api.post.mockResolvedValue({
+    domain: 'example.com',
+    zones: [{ id: 'a'.repeat(32), name: 'example.com' }],
+    refreshTokenIssued: false,
+  });
+  mount('cloudflare');
+  expect(await screen.findByRole('alert')).toHaveTextContent(/缺少 Refresh Token 授权类型/);
+  expect(screen.getByRole('alert')).toHaveTextContent(/重新授权/);
+});
+
 it('requires domain and fee confirmation before completing Cloudflare authorization', async () => {
   mocks.query = { flow: 'a-flow' };
   mocks.api.post.mockResolvedValue({

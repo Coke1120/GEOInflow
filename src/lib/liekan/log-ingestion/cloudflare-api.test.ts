@@ -4,13 +4,14 @@ import { LiekanError } from '../upstream/errors';
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   query: vi.fn(),
+  rows: vi.fn(),
   execute: vi.fn(),
   transaction: vi.fn(),
   open: vi.fn(),
 }));
 vi.mock('../upstream/server', async () => ({
   ...(await vi.importActual('../upstream/errors')),
-  query: vi.fn(),
+  query: mocks.rows,
   transaction: mocks.transaction,
   sourceWebsite: vi.fn().mockResolvedValue({ domain: 'example.com' }),
 }));
@@ -33,7 +34,14 @@ vi.mock('./capabilities', () => ({
 }));
 vi.mock('./queue', () => ({ enqueue: vi.fn(), PROVIDER_QUEUE: 'test-provider' }));
 
-import { acceptCloudflareCallback, beginCloudflare, cloudflareApi } from './cloudflare';
+import { createSource, validateSource } from './service';
+import {
+  acceptCloudflareCallback,
+  beginCloudflare,
+  cloudflareApi,
+  finalizeCloudflare,
+  maintainCloudflare,
+} from './cloudflare';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -42,6 +50,8 @@ beforeEach(() => {
   vi.stubEnv('CLOUDFLARE_OAUTH_CLIENT_SECRET', 'fixture-client-secret');
   vi.stubEnv('CLOUDFLARE_OAUTH_SCOPES', '');
   mocks.query.mockResolvedValue([{ n: 0 }]);
+  mocks.rows.mockReset();
+  mocks.rows.mockResolvedValue([]);
   mocks.execute.mockResolvedValue(1);
   mocks.transaction.mockImplementation(fn =>
     fn({
@@ -192,3 +202,167 @@ it.each([429, 500])(
     expect(logs).not.toMatch(/fixture-code|fixture-verifier|fixture-client-secret/);
   },
 );
+
+const sourceId = '11111111-1111-4111-8111-111111111111';
+const flowId = '33333333-3333-4333-8333-333333333333';
+const zoneId = 'a'.repeat(32);
+function stageProvider(config: Record<string, unknown>, row: Record<string, unknown> = {}) {
+  mocks.rows.mockResolvedValue([
+    {
+      id: sourceId,
+      state: 'active',
+      provider_config: 'sealed',
+      provider_job_id: '19',
+      error_code: null,
+      domain: 'example.com',
+      website_id: '22222222-2222-4222-8222-222222222222',
+      health: {},
+      ...row,
+    },
+  ]);
+  mocks.open.mockReturnValue(
+    JSON.stringify({
+      accessToken: 'fixture-access-token',
+      zoneId,
+      receiverToken: 'fixture-receiver-token',
+      receiverOrigin: 'https://stats.example.com',
+      ...config,
+    }),
+  );
+}
+function providerResponses() {
+  mocks.fetch.mockImplementation(async (url: string) => {
+    const target = String(url);
+    if (target.endsWith('/token'))
+      return Response.json({
+        access_token: 'fixture-access-token-2',
+        refresh_token: 'fixture-refresh-token-2',
+        token_type: 'Bearer',
+        expires_in: 3600,
+      });
+    if (target.endsWith('/revoke')) return new Response(null, { status: 200 });
+    return Response.json({ success: true, result: [] });
+  });
+}
+
+it('does not call Cloudflare when the access token expired without a refresh token', async () => {
+  stageProvider({ expiresAt: Date.now() - 1000 }, { state: 'disconnected' });
+  providerResponses();
+  await expect(maintainCloudflare(sourceId, 'disconnect')).rejects.toMatchObject({
+    status: 401,
+    code: 'reauthorization-required',
+  });
+  expect(mocks.fetch).not.toHaveBeenCalled();
+});
+
+it('does not call Cloudflare again after the credential was rejected', async () => {
+  stageProvider(
+    { expiresAt: Date.now() + 3600000, refreshToken: 'fixture-refresh-token' },
+    { health: { providerCredentialUnusable: true }, state: 'error', error_code: 'reauthorization-required' },
+  );
+  providerResponses();
+  await expect(maintainCloudflare(sourceId, 'health')).rejects.toMatchObject({
+    status: 401,
+    code: 'reauthorization-required',
+  });
+  expect(mocks.fetch).not.toHaveBeenCalled();
+  expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toMatch(
+    /fixture-access-token|fixture-refresh-token|fixture-receiver-token/,
+  );
+});
+
+it('still disables a provider job when reauthorization came from the website and the token is valid', async () => {
+  stageProvider(
+    { expiresAt: Date.now() + 3600000 },
+    { state: 'disconnected', error_code: 'reauthorization-required' },
+  );
+  providerResponses();
+  await maintainCloudflare(sourceId, 'disconnect');
+  const urls = mocks.fetch.mock.calls.map(call => String(call[0]));
+  expect(urls.some(url => url.includes('/logpush/jobs'))).toBe(true);
+  expect(urls.some(url => url.endsWith('/revoke'))).toBe(true);
+});
+
+it('refreshes a near-expiry token before reading provider jobs', async () => {
+  stageProvider({ expiresAt: Date.now() + 10000, refreshToken: 'fixture-refresh-token' });
+  providerResponses();
+  vi.mocked(validateSource).mockResolvedValue({ epoch: 1, source: { state: 'active' } } as never);
+  await expect(maintainCloudflare(sourceId, 'health')).rejects.toMatchObject({ status: 409 });
+  expect(String(mocks.fetch.mock.calls[0][0])).toMatch(/\/token$/);
+  expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toMatch(
+    /fixture-refresh-token|fixture-access-token/,
+  );
+});
+
+it('reports a missing refresh token from finalize without returning OAuth secrets', async () => {
+  const access = { accessToken: 'fixture-access-token', expiresAt: Date.now() + 3600000 };
+  mocks.query.mockImplementation(async (sql: string) => {
+    if (sql.includes('liekan_oauth_cleanup')) return [{ id: flowId }];
+    if (sql.includes('liekan_log_source')) return [{ provider_config: 'sealed-source' }];
+    return [
+      {
+        id: flowId,
+        created_by: 'owner',
+        expires_at: new Date(Date.now() + 60000),
+        epoch: 1,
+        domain: 'example.com',
+        browser_hash: 'browser-token',
+        consumed_at: null,
+        payload: 'sealed-flow',
+      },
+    ];
+  });
+  mocks.open.mockImplementation((sealed: string) =>
+    sealed === 'sealed-source'
+      ? JSON.stringify(access)
+      : JSON.stringify({
+          phase: 'authorized',
+          verifier: '',
+          access,
+          zones: [{ id: zoneId, name: 'example.com', status: 'active' }],
+        }),
+  );
+  vi.mocked(createSource).mockResolvedValue({
+    source: { id: sourceId },
+    token: 'fixture-receiver-token',
+  } as never);
+  const request = new Request('https://stats.example.com/finalize', {
+    headers: { cookie: `liekan_oauth_${flowId}=browser-token` },
+  });
+  const identity = { userId: 'owner' };
+  const zones = await finalizeCloudflare(
+    '44444444-4444-4444-8444-444444444444',
+    { flowId },
+    identity,
+    request,
+  );
+  expect(zones).toMatchObject({ domain: 'example.com', refreshTokenIssued: false });
+  expect(JSON.stringify(zones)).not.toMatch(/fixture-access-token|fixture-receiver-token/);
+  const saved = await finalizeCloudflare(
+    '44444444-4444-4444-8444-444444444444',
+    { flowId, zoneId, acceptCosts: true },
+    identity,
+    request,
+  );
+  expect(saved).toEqual({ sourceId, state: 'configuring', refreshTokenIssued: false });
+  expect(JSON.stringify(saved)).not.toMatch(/fixture-access-token|fixture-receiver-token/);
+  expect(JSON.stringify(mocks.execute.mock.calls)).not.toMatch(
+    /fixture-access-token|fixture-receiver-token/,
+  );
+  mocks.open.mockReturnValue(
+    JSON.stringify({
+      phase: 'authorized',
+      verifier: '',
+      access: { ...access, refreshToken: 'fixture-refresh-token' },
+      zones: [{ id: zoneId, name: 'example.com', status: 'active' }],
+    }),
+  );
+  const issued = await finalizeCloudflare(
+    '44444444-4444-4444-8444-444444444444',
+    { flowId },
+    identity,
+    request,
+  );
+  expect(issued).toMatchObject({ refreshTokenIssued: true });
+  expect(JSON.stringify(issued)).not.toContain('fixture-refresh-token');
+});

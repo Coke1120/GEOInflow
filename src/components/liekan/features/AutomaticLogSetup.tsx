@@ -13,6 +13,16 @@ import { useFeature } from './context';
 import { Badge, Button, Code, Field, Form, LiekanDialog, Notice } from './ui';
 import styles from '@/styles/liekan/Installation.module.css';
 
+function RefreshGrantWarning() {
+  const i18n = useLiekanI18n();
+  return (
+    <p role="alert">
+      {i18n.text(
+        'Cloudflare OAuth 客户端缺少 Refresh Token 授权类型。访问令牌大约 1 小时后失效，连接会中断，直到重新授权，或补上该授权类型后重新连接。',
+      )}
+    </p>
+  );
+}
 const setupLabels: Record<LogSetupCheckId, string> = {
   'public-url': '公网 HTTPS 地址',
   queue: '日志队列',
@@ -131,7 +141,7 @@ function ReceiverSetupGuide({
           <strong>{i18n.text('2. 配置 Cloudflare 授权应用')}</strong>
           <p>
             {i18n.text(
-              '在 Cloudflare 账户的 Manage Account → OAuth clients 创建服务器端应用，使用 Authorization Code 流程和 client_secret_basic，配置读取 Zone 与管理 Logpush 所需权限。',
+              '在 Cloudflare 账户的 Manage Account → OAuth clients 创建服务器端应用，同时启用 Authorization Code 与 Refresh Token 授权类型，使用 client_secret_basic，并配置读取 Zone 与管理 Logpush 所需权限。',
             )}
           </p>
           <a
@@ -314,7 +324,9 @@ export function AutomaticLogSetup({
   const [zones, setZones] = useState<{
     domain: string;
     zones: { id: string; name: string }[];
+    refreshTokenIssued?: boolean;
   } | null>(null);
+  const [pendingRefreshWarning, setPendingRefreshWarning] = useState(false);
   const [zone, setZone] = useState(''),
     [costs, setCosts] = useState(false);
   const alive = useRef(true);
@@ -356,6 +368,14 @@ export function AutomaticLogSetup({
     5000,
   );
   const flowId = c.query.flow;
+  const listedRefreshGrantMissing = sources.some(source => source.refreshTokenIssued === false);
+  const refreshGrantKey = sources
+    .map(source => `${source.id}:${String(source.refreshTokenIssued)}`)
+    .join();
+  useEffect(() => {
+    if (!sources.length) return;
+    setPendingRefreshWarning(listedRefreshGrantMissing);
+  }, [refreshGrantKey, listedRefreshGrantMissing, sources.length]);
   useEffect(() => {
     if (method !== 'cloudflare' || !flowId || !manage) return;
     let cancelled = false;
@@ -364,6 +384,7 @@ export function AutomaticLogSetup({
       .post(`/liekan/websites/${websiteId}/log-sources/cloudflare/finalize`, { flowId })
       .then((data: any) => {
         if (cancelled) return;
+        if (data.refreshTokenIssued === false) setPendingRefreshWarning(true);
         if (data.sourceId) {
           void refresh();
           return;
@@ -591,6 +612,9 @@ export function AutomaticLogSetup({
           </Button>
         </div>
       )}
+      {(zones?.refreshTokenIssued === false ||
+        pendingRefreshWarning ||
+        listedRefreshGrantMissing) && <RefreshGrantWarning />}
       {zones && (
         <div className="stack">
           <label>
@@ -625,12 +649,16 @@ export function AutomaticLogSetup({
             disabled={busy || !costs || !zone}
             onClick={() =>
               run(async () => {
-                await c.api.post(`/liekan/websites/${websiteId}/log-sources/cloudflare/finalize`, {
-                  flowId,
-                  zoneId: zone,
-                  acceptCosts: true,
-                });
+                const saved: { refreshTokenIssued?: boolean } = await c.api.post(
+                  `/liekan/websites/${websiteId}/log-sources/cloudflare/finalize`,
+                  {
+                    flowId,
+                    zoneId: zone,
+                    acceptCosts: true,
+                  },
+                );
                 if (!alive.current) return;
+                setPendingRefreshWarning(saved?.refreshTokenIssued === false);
                 setZones(null);
                 await refresh();
                 c.notify('连接已保存，正在配置日志推送');

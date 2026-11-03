@@ -67,7 +67,7 @@ Logpush 只接收当前网站域名的 `eyeball` 请求，采样率为 1，包�
 
 日志输出固定使用 `rfc3339ns`，保留纳秒时间供事件识别，遵循[官方输出选项](https://developers.cloudflare.com/logs/logpush/logpush-job/log-output-options/)。
 
-接入使用[Cloudflare 官方 OAuth 端点](https://developers.cloudflare.com/fundamentals/oauth/integrate-with-cloudflare/)，凭据撤销遵循 [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)。后台维护检查任务归属、启停状态和重置代次。只有供应商返回 refresh token 时才使用刷新流程；其他过期授权显示重新授权。断开连接、网站变更或权限撤销后，后台禁用属于该来源的远端任务并撤销该授权凭据，记录停用阶段以支持撤销请求重试。供应商授权已经失效时，清理会持续显示待处理，需要账户所有者在 Cloudflare 核对停用结果。
+接入使用[Cloudflare 官方 OAuth 端点](https://developers.cloudflare.com/fundamentals/oauth/integrate-with-cloudflare/)，凭据撤销遵循 [RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)。后台维护检查任务归属、启停状态和重置代次。只有供应商返回 refresh token 时才使用刷新流程；其他过期授权显示重新授权。授权结果没有 refresh token 时，网站设置提示 Cloudflare OAuth 客户端缺少 Refresh Token 授权类型，访问令牌大约 1 小时后失效。Cloudflare 拒绝该凭据，或访问令牌已过期且没有 refresh token 时，来源记为需要重新授权，周期维护不再把该凭据发给 Cloudflare，直到用户重新连接。断开连接、网站变更或权限撤销后，后台在凭据仍可用时禁用属于该来源的远端任务并撤销该授权凭据。供应商授权已经失效时，清理继续显示待处理，账户所有者在 Cloudflare 核对停用结果。网络超时等暂时失败保持重试。
 
 来源切换与重置导致的配置冲突保留授权，允许在网站设置重新确认。恢复暂停任务时先更新完整配置和当前采集代次，再启用任务。平台记录已配置的接收域名，迁移公网域名后仍可核对并停用原有任务；重复清理失败保留重试状态。
 
